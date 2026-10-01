@@ -24,6 +24,22 @@ const rows = computed(() =>
   }),
 )
 
+/**
+ * 本章实际覆盖了哪些语言。
+ *
+ * 迁移教程的 topic 只覆盖 from/to 两门（topic.languages），其余列是**本方向不涉及**，
+ * 而不是「尚未提供实现」—— 两种含义完全不同的空，用同一句文案会让读者以为内容缺失。
+ */
+const coveredLangs = computed(() => {
+  const ids = new Set<string>()
+  for (const f of props.chapter.features) {
+    for (const id of Object.keys(f.snippets)) ids.add(id)
+  }
+  return ids
+})
+const emptyText = (langId: string): string =>
+  coveredLangs.value.has(langId) ? t('emptyCell') : t('emptyCellOutOfScope')
+
 /** 基准列永远不画 diff（它是参照系本身）；diff 在运行时算，按 (feature,baseline,target) 缓存 */
 function diffFor(feature: RenderedFeature, langId: string): LineDiff | null {
   if (!props.diffMode || langId === languages.baseline) return null
@@ -89,7 +105,7 @@ function diffFor(feature: RenderedFeature, langId: string): LineDiff | null {
                 :diff="diffFor(feature, lang.id)"
               />
             </div>
-            <div v-else class="pc-cell-empty">{{ t('emptyCell') }}</div>
+            <div v-else class="pc-cell-empty">{{ emptyText(lang.id) }}</div>
           </td>
         </tr>
 

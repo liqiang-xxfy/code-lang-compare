@@ -22,6 +22,17 @@ const features = computed(() =>
     return Object.values(feature.snippets).some((s) => s.equivalence !== 'identical')
   }),
 )
+
+/** 同 MatrixLayout：区分「本方向不涉及」与「尚未提供实现」两种空 */
+const coveredLangs = computed(() => {
+  const ids = new Set<string>()
+  for (const f of props.chapter.features) {
+    for (const id of Object.keys(f.snippets)) ids.add(id)
+  }
+  return ids
+})
+const emptyText = (langId: string): string =>
+  coveredLangs.value.has(langId) ? t('emptyCell') : t('emptyCellOutOfScope')
 </script>
 
 <template>
@@ -56,7 +67,7 @@ const features = computed(() =>
               :snippet="feature.snippets[lang.id]!"
               :lang-meta="lang"
             />
-            <p v-else class="pc-hint">{{ t('emptyCell') }}</p>
+            <p v-else class="pc-hint">{{ emptyText(lang.id) }}</p>
           </div>
         </article>
       </div>
