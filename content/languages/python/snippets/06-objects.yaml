@@ -1,0 +1,210 @@
+# python —— basics/06-objects 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+
+- featureId: basics/object-create
+  equivalence: analogous
+  code: |
+    literal = {'name': 'Ada', 'age': 36}
+    computed = {f'k{n}': n for n in range(1, 3)}
+    dict(name='Ada', age=36)                 # @note 关键字构造，键必须是合法标识符
+
+    # @note 键可以是任意可哈希对象：数字、元组、frozenset 都行
+    d = {(1, 2): 'tuple key', 1: 'int key'}
+
+    # @note! 3.7+ 保证插入有序；JS 对象对「整数样式的键」会特殊排序，两者规则不同
+    list({'b': 1, 'a': 2})                   # ['b', 'a'] —— 保持插入顺序
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/object-access
+  equivalence: divergent
+  code: |
+    d = {'name': 'Ada'}
+
+    d['name']         # 'Ada'  —— @note 方括号访问的是「键」
+    # d['missing']    # @note! KeyError —— 缺失立即报错，不静默给 None
+    d.get('missing')  # None   —— @note 用 get 才是安全的
+    'name' in d       # True
+
+    # @note! d.name 访问的是「对象属性」，对字典基本会 AttributeError
+    # 这两个在 JS 里完全等价，在 Python 里是两件事
+
+    del d['name']     # 删除键
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/object-iterate
+  equivalence: analogous
+  code: |
+    d = {'a': 1, 'b': 2}
+
+    for k, v in d.items():       # @note 最常用：直接解包成键和值
+        print(k, v)
+
+    for k in d:                  # @note 直接遍历字典等于遍历键（不是 JS 的 for...in 那种坑）
+        print(k)
+
+    list(d.keys())               # ['a', 'b']
+    list(d.values())             # [1, 2]
+
+    {k: v * 2 for k, v in d.items()}   # @note 字典推导式，JS 要 fromEntries 两步
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/object-default
+  equivalence: divergent
+  code: |
+    conf = {'retries': 0}
+
+    conf.get('retries', 3)        # 0   —— @note get 只读不写，0 会保留
+    conf.get('timeout', 30)       # 30
+    'timeout' in conf             # False —— @note! 取值不会顺手写入
+
+    from collections import defaultdict
+    counts = defaultdict(int)
+    counts['new']                 # 0   —— @note! defaultdict 读取时「会写入」，字典被撑大
+    len(counts)                   # 1   —— 这就是副作用
+
+    # @note JS 的 || 会把 0 当空，Python 的 get 不会——所以从 JS 过来这里反而更安全
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/object-merge
+  equivalence: analogous
+  code: |
+    a = {'x': 1, 'y': 2}
+    b = {'y': 9, 'z': 3}
+
+    {**a, **b}          # {'x':1, 'y':9, 'z':3}  —— @note 后者覆盖前者，返回新字典
+    a | b               # @note 3.9+ 的管道运算符，写法更短
+
+    a.update(b)         # @note! 原地修改 a，返回 None —— 与 {**a, **b} 语义不同
+    a                   # {'x':1, 'y':9, 'z':3}
+
+    # @note 同样是浅合并，嵌套字典仍共享引用
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/object-nested
+  equivalence: analogous
+  code: |
+    import copy
+
+    original = {'user': {'name': 'Ada'}, 'tags': ['a']}
+
+    shallow = {**original}
+    shallow['user']['name'] = 'Grace'
+    original['user']['name']      # 'Grace'  —— @note! 浅拷贝：内层还是同一个对象
+
+    deep = copy.deepcopy(original)   # @note 真深拷贝，能处理循环引用
+    deep['user']['name'] = 'Hopper'
+    original['user']['name']         # 仍是 'Grace'
+
+    original.copy()                  # 等价于浅拷贝
+    list(original['tags'])           # 只复制一层时的手工写法
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/object-comprehension
+  equivalence: analogous
+  code: |
+    langs = ['js', 'py']
+
+    {l: len(l) for l in langs}                     # {'js': 2, 'py': 2}
+    {k: v for k, v in {'a': 1, 'b': 2}.items() if v > 1}   # {'b': 2}
+
+    {n: n * n for n in range(4)}                   # {0:0, 1:1, 2:4, 3:9}
+    {v: k for k, v in {'a': 1}.items()}            # 反转键值
+
+    # @note 推导式一步到位，且支持 if 过滤与嵌套；这是 Python 最值得专门练的语法之一
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/object-equality
+  equivalence: divergent
+  code: |
+    a = {'x': 1}
+    b = {'x': 1}
+
+    a == b            # True   —— @note! 按「内容」比较，嵌套结构会递归比较
+    a is b            # False  —— is 才是比引用
+
+    [1, [2, 3]] == [1, [2, 3]]    # True  —— 列表同样按内容
+
+    # @note 所以「两个字典是否相同」在 Python 里是免费的，JS 里要自己写
+    # @note 自定义类默认也是按身份比较，想按内容比必须实现 __eq__
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/object-json
+  equivalence: analogous
+  code: |
+    import json
+
+    obj = {'name': '阿达', 'age': 36}
+
+    json.dumps(obj)                          # @note! 默认 ensure_ascii=True —— 中文变成 \u963f\u8fbe
+    json.dumps(obj, ensure_ascii=False)      # '{"name": "阿达", "age": 36}'
+    json.dumps(obj, indent=2)                # 缩进
+    json.loads('{"a": 1}')                   # {'a': 1}
+
+    # @note 分隔符默认带空格（JS 是紧凑的），这是最直观的输出差异
+
+    # @note! 遇到非 JSON 类型直接抛 TypeError，不静默丢弃（与 JS 相反）
+    # json.dumps({'d': datetime.now()})      # TypeError: Object of type datetime is not JSON serializable
+    # @note 正解是给 default 传一个转换函数
+    json.dumps({'s': {1, 2}}, default=list)  # '{"s": [1, 2]}'
+
+    # @note loads 不执行代码，比 eval 安全
+    # @note 整数是任意精度，不会像 JS 的 JSON.parse 那样在 2^53 处被截断；小数仍是 double
+    json.loads('9007199254740993')           # 9007199254740993 —— 精确
+  review:
+    state: reviewed
+    provenance:
+      origin: llm
+      model: claude-sonnet-4.5
+      promptTemplateId: m1-snippet-v1
+      generatedAt: '2026-10-01'
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+    notes: 修正一处写反的断言（原称 loads"超大数字会丢精度"——实测 Python int 任意精度，丢精度的是 JS 的 JSON.parse）。另将"中文转义"注释移到真有中文的例子后

@@ -1,0 +1,181 @@
+# go —— basics/04-strings 的实现
+# 上下文：片段默认位于某个 func 内部；假定已 import 所需包。
+# ⚠️ 本机无 Go 工具链，未做执行验证，待补校对。
+
+- featureId: basics/string-literal
+  equivalence: divergent
+  code: |
+    s1 := "双引号：普通字符串，支持转义"
+    s2 := `反引号：原始字符串，不转义，可换行`
+    c := 'A'        // @note! 单引号是 rune（int32），不是长度为 1 的字符串
+
+    // @note Go 的字符串是**不可变的字节序列**（UTF-8 编码）
+    //        单引号与双引号是完全不同的两种东西，这点与 JS 差别明显
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/template-string
+  equivalence: divergent
+  code: |
+    name := "Ada"
+    s := "hi, " + name + "!"               // @note 简单拼接用 +
+    s2 := fmt.Sprintf("hi, %s!", name)     // @note 格式化走 fmt 包，不是语言语法
+
+    // @note! Go 没有任何形式的字符串插值
+    //        与 JS 的反引号模板、Python 的 f-string 都不同：模板必须显式调用 fmt
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-methods
+  equivalence: divergent
+  code: |
+    s := "Hello"
+
+    len(s)                        // @note! 字节数，不是字符数（中文一个字 3 字节）
+    utf8.RuneCountInString(s)     // 字符数
+    strings.ToUpper(s)
+    strings.TrimSpace(s)
+    strings.ReplaceAll(s, "a", "b")
+    strings.Contains(s, "ell")
+    strings.Split(s, ",")         // @note 返回 []string
+    strings.Join([]string{"a", "b"}, ",")
+
+    // @note! Go 的字符串方法都在 strings 包里（函数式），不是 s.xxx()
+    //        从 JS / Java 过来，「调用方向反了」这一点要适应一阵
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/multiline-string
+  equivalence: analogous
+  code: |
+    s := `第一行
+    第二行`      // @note 反引号原始字符串天然支持多行（换行符保留）
+
+    s2 := "line1" +
+        "line2"    // @note 想多行写又不想带换行，只能用 + 或 strings.Builder
+
+    // @note 反引号里完全不转义，所以写 JSON / 正则特别顺手
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/fstring-format
+  equivalence: analogous
+  code: |
+    fmt.Sprintf("%.2f", 3.14159)      // "3.14"
+    fmt.Sprintf("%8.2f", 3.14159)     // "    3.14"  —— @note 总宽度 8
+    fmt.Sprintf("%08.2f", 3.14159)    // "00003.14"
+    fmt.Sprintf("%.0f%%", 0.25*100)   // "25%"
+
+    // @note! Go 的格式说明符与 C / Python / Java 同源，都是 printf 那一套
+    //        对比 JS 的 Intl（只能控整数位 / 小数位），Go 这里更接近 Python
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-index-slice
+  equivalence: divergent
+  code: |
+    s := "hello"
+    s[0]                 // 104  —— @note! 是字节值（byte），不是字符
+    s[0:2]               // "he" —— @note 按字节切片
+
+    zh := "中文"
+    zh[0]                // 228  —— @note! UTF-8 首字节，不是「中」
+
+    r := []rune(zh)      // @note 要按字符操作，先转 []rune
+    r[0]                 // '中'
+
+    // @note! Go 的字符串索引是「字节」而不是「字符」，
+    //        与 JS 的 UTF-16 索引也不同 —— 中文处理最常见的 bug 来源
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-regex
+  equivalence: divergent
+  code: |
+    re := regexp.MustCompile(`(?P<num>\d+)`)
+    re.MatchString("abc123")            // true
+
+    m := re.FindStringSubmatch("abc123")
+    m[re.SubexpIndex("num")]            // "123" —— @note 命名分组
+
+    // @note Go 用反引号写正则，反斜杠不用双写（比 Java 舒服）
+    // @note! 标准库用的是 RE2 引擎：**不支持反向引用与环视**
+    //        （(?=...)、(?!...)、\1 这类统统没有）—— 从 JS / Python 过来必踩
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-concat
+  equivalence: analogous
+  code: |
+    a := "x" + "y"
+    a += "z"
+
+    var sb strings.Builder              // @note 循环里拼接必须用 Builder
+    for i := 0; i < 1000; i++ {
+        sb.WriteString("x")
+    }
+    sb.String()
+
+    strings.Join([]string{"a", "b"}, ",")   // @note 分隔符在**前面**
+
+    // @note 与 Python 的 join 同序，与 JS 的 array.join 主宾语相反
+    // @note! 字符串不可变，每次 + 都是新对象 —— 循环里用 + 会明显变慢
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-raw-escape
+  equivalence: analogous
+  code: |
+    path := "C:\\Users\\name"      // @note 双引号里反斜杠要双写
+    raw := `C:\Users\name`         // @note 反引号是原始字符串，不用转义
+    re := `\d+`                    // @note 正则首选反引号
+
+    // @note Go 的反引号在写路径 / 正则时最省心
+    // @note! 代价：反引号里不能出现反引号本身，也没有 \n 这类转义
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'

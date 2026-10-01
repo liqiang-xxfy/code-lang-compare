@@ -1,0 +1,219 @@
+# javascript —— basics/08-functions 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+
+- featureId: basics/function-declare
+  equivalence: divergent
+  code: |
+    function declared(a) { return a; }        // 函数声明：会被提升
+    const expressed = function (a) { return a; };   // 函数表达式：不会提升
+    const arrow = (a) => a;                   // 箭头函数：隐式返回
+
+    declared(1);        // 调用可以写在定义之前（提升）
+    // expressed(1);    // @note! ReferenceError：const 未初始化
+
+    // @note 类方法、对象方法都是第四种形式
+    // @note Python 只有 def 一种形式，想匿名只能用单表达式 lambda
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/default-params
+  equivalence: analogous
+  code: |
+    function f(x = [], y = {}) {       // @note! 每次调用重新求值，安全
+      x.push(1);
+      return x;
+    }
+
+    f();      // [1]
+    f();      // [1]  —— 不会被上一次污染
+
+    // @note 默认值可以是任意表达式，甚至引用前面的参数：function g(a, b = a * 2)
+    // @note! Python 的默认参数只在定义时求值一次，def f(x=[]) 会被所有调用共享——那边的坑在 Python 侧
+    // @note 显式传 undefined 会触发默认值，传 null 不会
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/kwargs
+  equivalence: divergent
+  code: |
+    // @note! JS 没有关键字参数。模拟方式是传一个对象再解构
+    function create({ name, age = 18, active = true } = {}) {
+      return { name, age, active };
+    }
+
+    create({ name: 'Ada' });                  // { name:'Ada', age:18, active:true }
+    create({ name: 'Ada', age: 36, active: false });
+
+    // @note 好处是「按名传参」的可读性；代价是：① 参数名拼错不会报错，只是拿到 undefined
+    //                                 ② 没有语言层面的「必须传」约束
+    // @note Python 原生支持关键字参数，还能用 * 强制某些参数必须具名
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/rest-params
+  equivalence: analogous
+  code: |
+    function sum(...nums) {              // @note 收集成真正的数组
+      return nums.reduce((a, b) => a + b, 0);
+    }
+
+    sum(1, 2, 3);                        // 6
+
+    function mixed(first, ...rest) {     // @note 只能放在最后一个参数
+      return [first, rest];
+    }
+
+    // @note 收集与展开是同一个符号的两种位置：定义处收集、调用处展开
+    const nums = [1, 2];
+    Math.max(...nums);                   // 调用处展开
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/return-multiple
+  equivalence: analogous
+  code: |
+    function divmod(a, b) {
+      return [Math.floor(a / b), a % b];   // @note 返回数组，靠解构取
+    }
+
+    const [q, r] = divmod(7, 2);           // q=3, r=1
+
+    // @note! 返回的是数组而不是「多个值」；少写一层解构就会拿到整个数组
+    const pair = divmod(7, 2);             // [3, 1]
+
+    // @note 返回对象更利于可读性（调用方不用记位置）
+    function stats(xs) {
+      return { min: Math.min(...xs), max: Math.max(...xs) };
+    }
+    const { min } = stats([1, 2]);
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/lambda-arrow
+  equivalence: divergent
+  code: |
+    const double = (n) => n * 2;
+    const noArgs = () => 1;
+    const body = (n) => { return n * 2; };   // 花括号时不会隐式返回
+    const obj = (n) => ({ value: n });       // @note! 返回对象字面量必须加括号
+
+    // @note 箭头函数没有自己的 this：继承外层作用域
+    const counter = {
+      value: 0,
+      start() {
+        setInterval(() => { this.value++; }, 1000);   // @note this 指向 counter（普通函数会指向定时器）
+      },
+    };
+
+    // @note! 也正因为没有 this，箭头函数不能用作构造函数（new 会抛错）
+    // @note Python 的 lambda 只能写一个表达式，能力比箭头函数窄得多
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/function-callback
+  equivalence: analogous
+  code: |
+    const apply = (fn, x) => fn(x);          // @note 函数可以当参数传
+    apply((n) => n + 1, 1);                  // 2
+
+    [1, 2].map((n) => n * 2);                // @note 数组在前、函数在后
+    [1, 2].filter((n) => n > 1);
+
+    // @note! Python 的 map/filter 是「函数在前、可迭代在后」，与 JS 相反；
+    //        而 Python 的 sorted(list, key=fn) 又是别的顺序——没有统一规律，逐个记
+    const handlers = { onOk: () => 'ok' };
+    handlers.onOk();                          // 函数也能存在对象里
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/function-docstring
+  equivalence: divergent
+  code: |
+    /**
+     * 计算两数之和。
+     * @param {number} a
+     * @param {number} b
+     * @returns {number}
+     */
+    function add(a, b) {
+      return a + b;
+    }
+
+    // @note! 这是「注释」，运行时拿不到；要靠 JSDoc 工具提取
+    add.toString();            // 拿得到源码文本，但不是结构化的文档
+    add.name;                  // 'add'
+
+    // @note Python 的 docstring 是「字符串字面量」，挂在 f.__doc__ 上，
+    //        help(f) 能直接打印，还能被 doctest 执行——文档在那边是数据，不是注释
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/arg-passing
+  equivalence: analogous
+  code: |
+    function mutate(arr, num, obj) {
+      arr.push(1);          // @note! 改内容会传染到外部
+      num = 999;            // @note 改绑定不会
+      obj = { replaced: true };  // @note 改绑定不会
+    }
+
+    const a = [];
+    const n = 1;
+    const o = { x: 1 };
+    mutate(a, n, o);
+    a;                      // [1]        —— 被改了
+    n;                      // 1          —— 没变
+    o;                      // { x: 1 }   —— 没变
+
+    // @note! 口诀：改内容会传染，改绑定不会。两门语言都是这个规则
+    // @note const 冻结的是「绑定」而不是内容：const o = { x: 1 }; o.y = 2 完全合法
+  review:
+    state: reviewed
+    provenance:
+      origin: llm
+      model: claude-sonnet-4.5
+      promptTemplateId: m1-snippet-v1
+      generatedAt: '2026-10-01'
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+    notes: 措辞修正（"const 参数"→ const 冻结的是绑定）。行为断言实跑验证通过

@@ -1,0 +1,180 @@
+# rust —— basics/01-variables 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+# 上下文：以下片段默认位于某个 fn 内部，除非注释另有说明。
+# ⚠️ 内容状态：本机无 Rust 工具链，未做执行验证。按 Rust 2021+ 语义书写，待补校对。
+
+- featureId: basics/var-declaration
+  equivalence: divergent
+  code: |
+    let count = 0;              // @note! 默认不可变 —— 它更像 JS 的 const，而不是 let
+    let mut name = "Ada";       // @note 要可变必须显式写 mut
+    const MAX_RETRY: u32 = 3;   // @note const 是编译期常量，必须标类型，与 let 不是一回事
+
+    // @note 与 JS 的根本差别：JS 的 let 默认可变、const 不可变；
+    //       Rust 的 let 默认不可变 —— 「可变」是需要主动争取的属性
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-scope
+  equivalence: analogous
+  code: |
+    {
+        let inside = 1;
+        println!("{inside}");
+    }
+    // inside -> 编译错误：cannot find value `inside` in this scope
+
+    // @note 遮蔽（shadowing）是允许且惯用的：同一个名字可以重新绑定，甚至换类型
+    let x = "12";
+    let x = x.len();     // 从 &str 变成 usize —— 这是新变量，旧的那个已经不可达
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/hoisting
+  equivalence: absent
+  body: |
+    Rust **没有变量提升**，而且一切都在编译期检查：名字在使用前必须已经绑定。
+
+    这比 JS 的「提升成 `undefined`」和 Python 的运行时 `NameError` 都更早暴露问题 ——
+    代码根本跑不起来，而不是等某个分支被执行到才炸。
+  code: |
+    // Rust 没有变量提升：名字在使用前必须已经绑定，且一切在编译期检查
+    println!("{v}");     // 编译错误：cannot find value `v` in this scope
+    let v = 1;
+
+    // @note 这比 JS 的「提升成 undefined」和 Python 的运行时 NameError 都更早暴露问题：
+    //       它是编译错误，代码根本跑不起来
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/const-immutability
+  equivalence: divergent
+  code: |
+    struct User { name: String }
+
+    let user = User { name: "Ada".into() };
+    // user.name = "Grace".into();   // 编译错误：cannot assign to `user.name`,
+                                     // as `user` is not declared as mutable
+
+    let mut user2 = User { name: "Ada".into() };
+    user2.name = "Grace".into();      // @note 要改内容，必须在声明时就写 mut
+
+    // @note! 与 JS 的 const 不是一回事：JS 的 const 允许改对象内容，
+    //        Rust 的 let 连内容都不许改 —— 可变性是「整个变量」的属性，不是绑定的
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/naming-convention
+  equivalence: divergent
+  code: |
+    let user_name = "Ada";       // @note 变量 / 函数：snake_case —— 与 JS 的 camelCase 相反
+    struct UserProfile {}        // 类型 / trait：PascalCase —— 与 JS 一致
+    const MAX_RETRY: u32 = 3;    // 常量：SCREAMING_SNAKE_CASE —— 一致
+
+    // @note! 这不只是风格：命名不合规编译器会 warning（变量写成 camelCase 会被提示）
+    // @note 从 JS 过来，所有变量名要整体从 camelCase 改成 snake_case
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-destructuring
+  equivalence: analogous
+  code: |
+    let (a, b) = (1, 2);                    // 元组解构：按位置
+    let [x, y] = [1, 2];                    // 数组解构：按位置
+
+    let point = Point { x: 1, y: 2 };
+    let Point { x, y } = point;             // @note 结构体解构：按字段名（对应 JS 的对象解构）
+    let Point { x: px, y: py } = point;     // @note 重命名（对应 JS 的 { x: px }）
+    let (first, .., last) = (1, 2, 3, 4);   // @note .. 跳过中间
+
+    // @note Rust 的解构比 JS 更彻底：函数参数、match 分支、if let 里都能直接解构
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-multiple-assign
+  equivalence: divergent
+  code: |
+    let (mut a, mut b) = (1, 2);
+
+    std::mem::swap(&mut a, &mut b);   // @note 交换用标准库的 swap，不需要临时变量
+
+    // @note! Rust 没有链式赋值：a = b = 0 不合法 —— 赋值是语句，不产生值
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-global-declaration
+  equivalence: divergent
+  code: |
+    use std::sync::atomic::{AtomicI32, Ordering};
+
+    static COUNTER: AtomicI32 = AtomicI32::new(0);   // @note 全局可变状态必须自带同步
+
+    fn bump() {
+        COUNTER.fetch_add(1, Ordering::SeqCst);
+    }
+
+    // @note! Rust 不让你「随手」写一个可变全局变量：static mut 需要 unsafe 且极易出错，
+    //        惯用做法是原子类型或 Mutex
+    // @note 这是与 JS / Python 最根本的差别 —— 那边全局可变状态零摩擦，这边强制你面对它
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-shadowing
+  equivalence: analogous
+  code: |
+    let value = 1;
+    {
+        let value = 2;              // @note 内层遮蔽外层
+        println!("{value}");        // 2
+    }
+    println!("{value}");            // 1
+
+    // @note Rust 的遮蔽不限于内层作用域：同一层也能重新 let
+    let value = value + 1;          // 3 —— 这是新变量，旧值被隐藏（不是修改）
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'

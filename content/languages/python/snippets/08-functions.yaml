@@ -1,0 +1,240 @@
+# python —— basics/08-functions 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+
+- featureId: basics/function-declare
+  equivalence: divergent
+  code: |
+    def declared(a):
+        return a
+
+    # @note 只有 def 一种形式。匿名函数用 lambda，但只能是单个表达式：
+    add = lambda a, b: a + b        # @note! 不能有语句、不能多行、不能写类型标注
+    # add2 = lambda a, b: if a: 1   # 语法错误
+
+    # @note! def 在执行到它时才创建函数对象；调用写在定义之前会 NameError
+    # declared(1)
+
+    def typed(a: int) -> int:        # @note 类型标注是给工具看的，运行时不做检查
+        return a
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/default-params
+  equivalence: divergent
+  code: |
+    def f(x=[]):          # @note! 默认值只在「函数定义时」求值一次
+        x.append(1)
+        return x
+
+    f()      # [1]
+    f()      # [1, 1]   ← @note! 被上一次调用污染了；这是 Python 最经典的坑之一
+    f()      # [1, 1, 1]
+
+    def safe(x=None):     # @note 正解：用不可变哨兵 + 函数体内新建
+        if x is None:
+            x = []
+        x.append(1)
+        return x
+
+    safe()   # [1]
+    safe()   # [1]  —— 干净
+
+    # @note 同理 {}/set() 作默认值也有问题；不可变类型（None/0/''/元组）当默认值是安全的
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/kwargs
+  equivalence: divergent
+  code: |
+    def create(name, age=18, *, active=True):   # @note! * 之后的参数只能按名传
+        return {'name': name, 'age': age, 'active': active}
+
+    create('Ada')                       # @note 位置传参
+    create('Ada', 36)                   # 位置
+    create('Ada', age=36, active=False) # @note 关键字传参：调用处意图一目了然
+    # create('Ada', 36, False)          # @note! TypeError：active 必须写名字
+
+    def allkw(**kw): ...                # @note ** 收集所有关键字参数
+    allkw(a=1, b=2)
+
+    # @note Python 原生支持关键字参数，不需要像 JS 那样靠对象解构模拟；
+    #       代价是 **kw 会把拼错的参数名静默吞掉
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/rest-params
+  equivalence: analogous
+  code: |
+    def total(*nums):                 # @note! 收集成「元组」，不是列表
+        return sum(nums)
+
+    total(1, 2, 3)                    # 6
+    type(nums) if False else None
+
+    def mixed(first, *rest):          # @note 位置参数在前，* 在后
+        return first, rest
+
+    mixed(1, 2, 3)                    # (1, (2, 3))
+
+    nums = [1, 2]
+    total(*nums)                      # @note 调用处用 * 展开
+
+    d = {'a': 1}
+    def g(a=None): ...
+    g(**d)                            # @note! 字典用 ** 展开成关键字参数
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/return-multiple
+  equivalence: analogous
+  code: |
+    def divmod_like(a, b):
+        return a // b, a % b          # @note 看起来返回两个值
+
+    q, r = divmod_like(7, 2)          # q=3, r=1  —— 解包接收
+    type(divmod_like(7, 2))           # <class 'tuple'>  —— @note! 其实是一个元组
+
+    pair = divmod_like(7, 2)          # (3, 1)  —— 不解包就拿整个元组
+
+    first, *rest = divmod_like(7, 2)  # @note 可以用 * 收集剩余
+    first                             # 3
+    rest                              # [1]
+
+    # @note 内置的 divmod() 也是这个语义；返回元组不可变，比 JS 的数组更安全
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/lambda-arrow
+  equivalence: divergent
+  code: |
+    double = lambda n: n * 2
+    double(2)                    # 4
+
+    # @note! 只能是一个表达式：不能有语句、不能赋值、不能多行、不能写标注
+    # @note 而且没有 return——表达式的结果就是返回值
+
+    # 主要用途是短回调：
+    sorted(['bb', 'a'], key=lambda s: len(s))     # ['a', 'bb']
+
+    # @note 闭包捕获的是变量不是值，循环里创建 lambda 会出现经典的延迟绑定：
+    fs = [lambda: i for i in range(3)]
+    [f() for f in fs]            # [2, 2, 2]  —— @note! 不是 [0, 1, 2]
+    fs2 = [lambda i=i: i for i in range(3)]       # 正解：用默认参数把值绑住
+    [f() for f in fs2]           # [0, 1, 2]
+
+    # @note JS 的箭头函数有独立的 this 语义，Python 的 lambda 没这个问题（没有 this）
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/function-callback
+  equivalence: analogous
+  code: |
+    def apply(fn, x):            # @note 函数可以当参数传
+        return fn(x)
+
+    apply(lambda n: n + 1, 1)    # 2
+
+    list(map(lambda n: n * 2, [1, 2]))    # @note! 函数在前、可迭代在后（JS 是数组在前）
+    list(filter(lambda n: n > 1, [1, 2]))
+
+    # @note filter 的第一个参数传 None 表示「按真值过滤」
+    list(filter(None, [0, 1, '', 'a']))   # [1, 'a']
+
+    handlers = {'on_ok': lambda: 'ok'}
+    handlers['on_ok']()                   # 'ok'  —— 函数也能存在字典里
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/function-docstring
+  equivalence: divergent
+  code: |
+    def add(a, b):
+        """计算两数之和。
+
+        Args:
+            a: 第一个加数
+            b: 第二个加数
+
+        Returns:
+            两数之和
+        """
+        return a + b
+
+    add.__doc__              # @note! 文档是「数据」，可以直接读出来
+    help(add)                # @note 直接打印格式化后的文档
+    add.__name__             # 'add'
+
+    # @note! docstring 必须是函数体的第一条语句，前面写别的就不算
+    def broken():
+        x = 1
+        """这不是 docstring，只是被丢弃的字符串表达式"""
+    broken.__doc__           # None
+
+    # @note 还能被 doctest 执行：>>> add(1, 2) 会真的跑一遍
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/arg-passing
+  equivalence: analogous
+  code: |
+    def mutate(lst, num, d):
+        lst.append(1)        # @note! 原地修改会传染到外部
+        num = 999            # @note 重新绑定不会
+        d = {'replaced': True}   # @note 重新绑定不会
+
+    a, n, o = [], 1, {'x': 1}
+    mutate(a, n, o)
+    a      # [1]        —— 被改了
+    n      # 1          —— 没变
+    o      # {'x': 1}   —— 没变
+
+    # @note! 口诀：改内容会传染，改绑定不会。两门语言都是这个规则
+    # @note 官方说法是 call by object reference / call by sharing，
+    #       既不是值传递也不是引用传递——说「引用传递」是不准确的
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'

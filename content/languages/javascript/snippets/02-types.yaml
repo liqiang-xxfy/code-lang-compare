@@ -1,0 +1,190 @@
+# javascript —— basics/02-types 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+
+- featureId: basics/primitive-types
+  equivalence: divergent
+  code: |
+    typeof 1;            // 'number'   —— 整数与浮点是同一个类型
+    typeof 1n;           // 'bigint'
+    typeof "a";          // 'string'
+    typeof true;         // 'boolean'
+    typeof undefined;    // 'undefined'
+    typeof null;         // 'object'   —— @note! 历史遗留，无法修正
+    typeof Symbol();     // 'symbol'
+
+    // 原始类型共 7 种，除此之外都是对象
+  output: |
+    'number' 'bigint' 'string' 'boolean' 'undefined' 'object' 'symbol'
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/type-inference
+  equivalence: identical
+  code: |
+    let n = 1;           // @note 变量本身没有类型，类型属于运行时的值
+    n = "text";          // 完全合法
+
+    // 想获得编译期约束要另用 TypeScript，JS 运行时不做任何检查
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/type-checking
+  equivalence: divergent
+  code: |
+    typeof 1 === "number";        // true
+    typeof null === "object";     // @note! typeof 对 null 不可靠
+
+    Array.isArray([]);            // true —— 判数组只能用它
+    [] instanceof Array;          // true，但跨 iframe 会失效
+
+    Number.isInteger(1);          // true
+    Number.isNaN(NaN);            // @note 判 NaN 必须用它，NaN === NaN 是 false
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/null-undefined
+  equivalence: divergent
+  code: |
+    let a;                        // undefined —— 「还没赋值」
+    const b = null;               // null      —— 「有意置空」
+
+    a === undefined;              // true
+    a == null;                    // true —— @note 唯一推荐用宽松 == 的场景，同时匹配 null 与 undefined
+    b === null;                   // true
+
+    Object.is(NaN, NaN);          // true —— 与 === 的唯一差别
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/number-precision
+  equivalence: divergent
+  code: |
+    1 / 2;                        // 0.5
+    0.1 + 0.2;                    // 0.30000000000000004 —— @note! 所有 number 都是 float64
+    1 / 0;                        // Infinity —— @note! 除以零不报错，会静默污染下游计算
+
+    Number.MAX_SAFE_INTEGER;      // 9007199254740991
+    9007199254740993;             // 9007199254740992 —— @note! 超出安全范围后静默丢精度
+    9007199254740993n;            // 9007199254740993n —— BigInt 才安全
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/type-casting
+  equivalence: divergent
+  code: |
+    Number('12');          // 12
+    Number('12px');        // NaN    —— @note! 解析失败给 NaN，不报错，错误会一路传下去
+    Number('');            // 0      —— @note! 空字符串变 0，很反直觉
+    parseInt('12px', 10);  // 12     —— @note 前缀解析；永远显式传进制，否则 0x 开头会被当 16 进制
+    parseFloat('3.7');     // 3.7
+
+    String(123);           // '123'
+    (123).toString(2);     // '1111011' —— @note 能带进制
+    Boolean(0);            // false
+
+    // @note! 隐式转换无处不在：'1' + 1 → '11'，但 '3' * 2 → 6（减乘除走数值）
+    // @note Python 的 int('12px') 直接抛 ValueError，int('3.7') 也抛——错误更早暴露
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/boolean-conversion
+  equivalence: divergent
+  code: |
+    Boolean([]);      // true   —— @note! 空数组是真值
+    Boolean({});      // true   // @note! 空对象也是真值
+    Boolean(new Map()); // true
+
+    Boolean('');      // false
+    Boolean('0');     // true   —— 非空字符串恒为真
+    Boolean(0);       // false
+    Boolean(NaN);     // false
+
+    !!value;          // 惯用写法：双否定转布尔
+
+    // @note! Python 的 bool([]) 与 bool({}) 都是 False —— 规则完全相反
+    //        所以在 JS 里判数组非空必须写 arr.length > 0
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/type-names
+  equivalence: divergent
+  code: |
+    typeof [];                    // 'object'  —— @note! 数组也是 object
+    typeof null;                  // 'object'  —— @note! 无法修正的历史遗留
+    typeof new Map();             // 'object'
+
+    [].constructor.name;          // 'Array'
+    class User {}
+    new User().constructor.name;  // 'User'
+    [] instanceof Array;          // true
+
+    // @note! typeof 对自定义类一律给 'object'，想拿名字只能 instanceof / constructor.name
+    // @note Python 的 type(x) 返回「类对象本身」，print 出来是 <class 'int'>，
+    //       type(x).__name__ 才是字符串名字
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/immutable-primitives
+  equivalence: analogous
+  code: |
+    const s = 'abc';
+    s.toUpperCase();     // 'ABC'
+    s;                   // 'abc'  —— @note 原值不变，所有字符串方法都返回新值
+
+    let n = 1;
+    n + 1;               // 2
+    n;                   // 1      —— @note 算术不改变原变量
+
+    // @note! 对比容器：数组方法是「原地改」
+    const arr = [3, 1];
+    arr.sort();          // 原地排序，返回同一个数组引用
+    arr;                 // [1, 3]
+
+    // @note 口诀：容器改内容会传染，字符串/数字只能换绑
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'

@@ -1,0 +1,123 @@
+# M4 迁移陷阱 —— 全站最高价值模块
+# 组织方式：按「症状」索引（症状 → 原因 → 解法），而不是按语法点
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩（对应界面上的 ⭐ 数量）
+
+- id: pitfall-truthiness-empty-container
+  title: 空数组/空字典的判断结果反了
+  symptom: 在 JS 里习惯写 `if (arr)` 判非空，迁移到 Python 后 `if arr:` 的行为看似一样，但语义完全相反——JS 里空数组是真值，Python 里空列表是假值。
+  cause: |
+    JS 的假值只有 8 个原始值（`false`/`0`/`-0`/`0n`/`""`/`null`/`undefined`/`NaN`），
+    对象与数组**永远是真值**；Python 的 `__bool__` 由容器长度决定，空容器为假。
+  fix: |
+    JS 里判数组非空必须写 `arr.length > 0`，`if (arr)` 是错的（但它一直"看起来能用"）。
+    迁移到 Python 后可以直接用 `if arr:`——**这不是"照搬出错"，而是"JS 的坏习惯在 Python 里恰好变对了"**，
+    反过来从 Python 回 JS 时才会踩坑。
+  severity: 3
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/truthiness
+  tags: [真值, 集合]
+
+- id: pitfall-equality-coercion
+  title: 相等比较的隐式转换导致判断失效
+  symptom: '`1 == "1"`、`"" == 0` 返回 true；字符串与数字比较时不报错但结果不符合预期。'
+  cause: JS 的 `==` 会按规范做类型转换；Python 的 `==` 只在数值类型之间兼容（`1 == 1.0` 为真），不做字符串到数字的转换。
+  fix: JS 一律用 `===`；Python 里反过来要小心误用 `is`——`is` 判对象身份，不判值。
+  severity: 3
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/equality
+  tags: [运算符, 类型]
+
+- id: pitfall-block-scope
+  title: 出了 if 块变量竟然还在
+  symptom: '在 Python 里写 `if cond: x = 1`，然后在块外直接用 `x`，居然能拿到值；反过来在 JS 里同样的写法会 ReferenceError。'
+  cause: JS 的 `let`/`const` 是块级作用域；Python 的块（`if`/`for`/`while`）**不产生新作用域**，只有函数、类、模块才产生。
+  fix: 不要把 JS 的块级直觉带进 Python。迁移时把「变量的有效范围」从「看花括号」改成「看最近的函数边界」。
+  severity: 3
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/var-scope
+  tags: [作用域]
+
+- id: pitfall-var-leak
+  title: var 在循环里泄漏成闭包共享变量
+  symptom: 循环里给多个回调绑定 `var i`，回调触发时全部拿到同一个最终值。
+  cause: '`var` 是函数级作用域且只有一份绑定，闭包捕获的是同一个变量；`let` 每次迭代创建新绑定。'
+  fix: 用 `let` 替代 `var`。这条是 JS 内部的历史问题，但迁移到 Python 时要意识到 Python 的 `for` 变量**同样是单个绑定**（在函数作用域里），所以闭包捕获也会共享——**坑是同一个坑，只是换了语言**。
+  severity: 2
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/var-scope
+  tags: [闭包, 作用域]
+
+- id: pitfall-division-by-zero
+  title: 除以零在 JS 里静默产生 Infinity，在 Python 里直接崩
+  symptom: 一段在 JS 里"跑得好好的"计算，移植到 Python 后抛 `ZeroDivisionError`，线上 500。
+  cause: JS 遵循 IEEE 754，`1/0` 为 `Infinity`、`0/0` 为 `NaN`；Python 对整数除以零抛异常。
+  fix: |
+    JS 侧要把 `Infinity` 当成错误显式处理（`Number.isFinite` 校验），不要放任它进入下游；
+    Python 侧要提前判零或用 try/except。两个方向都要改——**这是"看起来能跑"掩盖的定时炸弹**。
+  severity: 3
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/number-precision
+  tags: [数值, 异常]
+
+- id: pitfall-negative-modulo
+  title: 负数取模的符号方向相反
+  symptom: '`-7 % 2` 在 JS 是 `-1`，在 Python 是 `1`。分页、哈希、循环取余的逻辑会静默错位。'
+  cause: JS 的 `%` 是「截断取余」（符号跟被除数），Python 的 `%` 是「向下取整取余」（符号跟除数）。
+  fix: 不要依赖语言的默认行为来保证非负。需要非负余数时显式写 `((a % b) + b) % b`，或使用 Python 的 `divmod` 明确语义。
+  severity: 2
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/arithmetic
+  tags: [运算符, 数值]
+
+- id: pitfall-const-not-immutable
+  title: const 对象居然能被改
+  symptom: 用 `const` 声明了一个配置对象，某个模块把它改了，其他地方全部受影响，但没有任何报错。
+  cause: '`const` 冻结的是**绑定**（不能重新赋值），不是对象内容。Python 干脆没有常量语法。'
+  fix: JS 想真正不可变要 `Object.freeze()`（且只冻结第一层，深冻结要递归）；Python 侧不可变性来自**不可变类型**（tuple / frozenset / str）而不是语法。
+  severity: 2
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/const-immutability
+  tags: [不可变]
+
+- id: pitfall-string-join-order
+  title: 拼接列表时主宾写反了
+  symptom: 迁移后写 `["a","b"].join(",")`（JS 习惯），在 Python 里报 `AttributeError`；反过来写 `",".join(list)` 在 JS 里也不成立。
+  cause: JS 把 join 定义在数组上（数组是主语），Python 把 join 定义在分隔符字符串上（分隔符是主语）。
+  fix: 记一句口诀：**JS 是「数组用分隔符连起来」，Python 是「分隔符把列表连起来」**。
+  severity: 2
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/multiline-string
+  tags: [字符串]
+
+- id: pitfall-string-contains
+  title: 判断字符串包含拿到了 -1
+  symptom: 把 `"abc".includes("b")` 直译成 `"abc".find("b")`，然后用它当布尔值——`-1` 是真值，判断永远成立。
+  cause: JS 的 `includes` 返回布尔，Python 的 `find` 返回下标（找不到为 `-1`）。
+  fix: Python 里判断包含用 `"b" in "abc"`；只有真的需要下标时才用 `find`/`index`。
+  severity: 2
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/string-methods
+  tags: [字符串]
+
+- id: pitfall-optional-chaining-missing
+  title: obj?.key 在 Python 里是语法错误
+  symptom: 把带可选链的 JS 代码逐行翻译，Python 直接 SyntaxError；或者用 `obj and obj.key` 绕过后，遇到合法的假值（0、""）又出错。
+  cause: Python 没有安全导航语法；`and` 短路返回的是操作数本身，会把 `0`、`""` 这类合法值当成"没有"。
+  fix: |
+    用 `getattr(obj, "key", None)` 或 `(obj or {}).get("k")`；
+    更推荐**把「可能缺失」显式建模成 `None` 并早返回**，让控制流一眼可见。
+    注意用 `is None` 判断，不要用 `and` 的假值短路。
+  severity: 2
+  languages: [javascript, python]
+  fromBaseline: true
+  featureId: basics/optional-chaining
+  tags: [空值]

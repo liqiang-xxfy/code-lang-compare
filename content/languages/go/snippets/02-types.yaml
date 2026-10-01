@@ -1,0 +1,195 @@
+# go —— basics/02-types 的实现
+# 上下文：片段默认位于某个 func 内部；假定已 import 所需包。
+# ⚠️ 本机无 Go 工具链，未做执行验证，待补校对。
+
+- featureId: basics/primitive-types
+  equivalence: analogous
+  code: |
+    var i int = 1           // @note int 的位宽随平台（32 或 64 位）
+    var i64 int64 = 1       // @note 要固定宽度必须显式写 int64
+    var f float64 = 1.0
+    var b bool = true       // @note 只有 true / false
+    var r rune = 'A'        // @note rune 就是 int32，表示 Unicode 码点
+    var by byte = 0x41      // @note byte 就是 uint8
+
+    // @note! Go 没有隐式类型转换：int 与 int64 是两个类型，不能直接相加
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/type-inference
+  equivalence: divergent
+  code: |
+    count := 0              // 推断为 int，此后类型固定
+    // count = "text"       // 编译错误：cannot use "text" as int
+
+    var x float64 = 1
+    y := x                  // float64
+
+    // @note Go 推断出具体类型后就不再变化，且没有隐式转换 ——
+    //       int + int64 必须写成 int64(x) + y，比 JS 严格得多
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/type-checking
+  equivalence: analogous
+  code: |
+    var x any = "hello"
+
+    s, ok := x.(string)      // @note 类型断言：comma-ok 形式不会 panic
+    fmt.Printf("%T\n", x)    // "string" —— @note %T 打印类型
+
+    switch v := x.(type) {    // @note type switch：按类型分支
+    case string:
+        fmt.Println(v)
+    }
+
+    // @note Go 的接口是隐式实现，所以「这个值实现了哪些接口」要到运行时才确定
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/null-undefined
+  equivalence: divergent
+  code: |
+    var p *int              // @note nil：指针 / 切片 / map / channel / 接口 / 函数的零值
+    // var i int = nil      // 编译错误：int 不能为 nil（零值是 0）
+
+    var s []int
+    s == nil                // true
+    // @note! 但 len(s) == 0 也是 true，而这两件事并不等价：
+    //        一个 nil 切片可以直接 append，一个空切片也是
+
+    type User struct{ Name string }
+    var u *User
+    u.Name                  // @note! panic: nil pointer dereference（编译期拦不住）
+
+    // @note 与 Java 的 null 类似：只有一个空值，解引用会崩。
+    //       但 Go 的零值设计让「未初始化的 int」是 0 而不是 nil，这点比 Java 友好
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/number-precision
+  equivalence: divergent
+  code: |
+    var a int32 = 2147483647
+    a + 1                   // @note! Go 的整数溢出是**静默回绕**（不像 Rust 会 panic）
+
+    0.1 + 0.2               // 0.30000000000000004 —— 与 JS 同样
+
+    // @note 需要任意精度用标准库 math/big
+    big.NewInt(0).SetString("9007199254740993", 10)
+    big.NewFloat(0).Add(big.NewFloat(0.1), big.NewFloat(0.2))
+
+    // @note Go 默认没有高精度小数类型，日常只有 float64
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/type-casting
+  equivalence: divergent
+  code: |
+    var i int = 1
+    var f float64 = float64(i)     // @note 必须显式转换，Go 没有隐式数值转换
+
+    var d float64 = 3.99
+    var n int = int(d)             // 3 —— 直接截断
+
+    s := strconv.Itoa(42)             // 数字 -> 字符串
+    n2, err := strconv.Atoi("42")     // @note! 字符串 -> 数字：失败放在 error 里，不 panic
+
+    // @note! JS 的 Number("abc") 给 NaN，Go 要求你处理 err —— 迁移时控制流会变长
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/boolean-conversion
+  equivalence: divergent
+  code: |
+    // Go 没有真值 / 假值：条件必须是 bool
+    // if 1 {}       // 编译错误：non-boolean condition
+    // if "" {}      // 编译错误
+
+    // @note 字符串转布尔没有内建「宽松」版本，只有严格的解析
+    b, err := strconv.ParseBool("true")   // 只认 "1" / "t" / "true" 等有限形式
+
+    // @note! 与 JS 差别极大：Go 里 len(s) > 0 必须显式写，不存在「空字符串为假」
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/type-names
+  equivalence: divergent
+  code: |
+    var x any = "hello"
+
+    fmt.Sprintf("%T", x)          // "string" —— @note %T 是最常用的类型自省手段
+    reflect.TypeOf(x).Name()      // "string"
+
+    // @note 同包类型名很干净；跨包会带包名前缀（如 time.Time）
+    // @note! 与 JS 的 typeof 不同：Go 给出真实类型名，接口的底层类型也看得到
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/immutable-primitives
+  equivalence: divergent
+  code: |
+    a := 1
+    b := a
+    b = 2
+    // a 仍是 1 —— @note 基本类型按值复制
+
+    type Point struct{ X, Y int }
+    p1 := Point{1, 2}
+    p2 := p1
+    p2.X = 99
+    // p1.X 仍是 1 —— @note! 结构体也是值拷贝（Go 与 JS / Java 的显著差异）
+
+    s1 := []int{1, 2}
+    s2 := s1
+    s2[0] = 99
+    // s1[0] 也变成 99 —— @note! 切片是「描述符 + 底层数组」，赋值共享底层数据
+
+    // @note Go 的规则是「一切按值传递」，但 slice / map / channel 的「值」本身是引用语义的描述符
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'

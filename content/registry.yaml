@@ -1,0 +1,56 @@
+# 内容注册表 —— 全局唯一开关与站点配置
+# 语言「是否存在」由 content/languages/<id>/meta.yaml 的目录决定；
+# 语言「是否启用」只由本文件决定（单一开关，避免与 meta 里的状态字段冲突）。
+
+version: 1
+
+# 发布策略（D-A / ADR-07）：
+#   include-draft-with-badge —— draft 参与构建与搜索引擎索引，但页面必须显示「未经人工校对」
+#   reviewed-only            —— 严格模式：draft 不进生产构建（校对迭代完成后切回）
+#
+# 当前 = include-draft-with-badge：P5 新增的 Java / Rust / Go 共 216 条实现由 AI 生成，
+# 且**本机没有这三门语言的工具链**，无法像 JS / Python 那样逐条实跑验证 ——
+# 因此全部标为 draft，让页面上的「未经人工校对」标记如实承载这个事实。
+# 校对完成后（能实跑验证时）再切回 reviewed-only。
+publishPolicy: include-draft-with-badge
+
+# 默认基准语言
+baseline: javascript
+
+site:
+  name: 多语言并排对比
+  shortDescription: 以 JavaScript 为基准，把目标语言的同一概念并排放在一起，突出差异，让已有知识快速迁移。
+  lang: zh-CN
+
+# 首期只启用 JavaScript + Python（D-C）。
+# 其余 5 门语言保留完整 meta 与独立身份，enabled: false 时其内容仍可通过校验但不渲染。
+languages:
+  javascript:
+    enabled: true
+  python:
+    enabled: true
+  # P5 新增：Java / Rust / Go —— 8 章 72 条实现已全部写完（每门 72 条，共 216 条）。
+  # 过程印证了「先攒内容后启用」这条通路：写全之前一律 enabled: false，
+  # 因为 R2 覆盖率是 **error** 级（已启用语言必须 72/72），
+  # 而「未启用语言已写好内容」只给一条按语言汇总的 warning。
+  java:
+    enabled: true
+  rust:
+    enabled: true
+  go:
+    enabled: true
+  typescript:
+    enabled: false
+  arkts:
+    enabled: false
+  kotlin:
+    enabled: false
+  swift:
+    enabled: false
+  dart:
+    enabled: false
+
+topics:
+  basics:
+    enabled: true
+    title: 基础语法

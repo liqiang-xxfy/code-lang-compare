@@ -1,0 +1,100 @@
+id: basics/03-operators
+topicId: basics
+title: 运算符与真值判断
+order: 3
+summary: 相等比较、算术、短路求值、真值规则
+
+features:
+  - id: basics/equality
+    title: 相等比较
+    kind: behavior
+    summary: == 与 === 的真实语义
+    body: |
+      这是全站**最高频的迁移陷阱**。
+      JS 的 `==` 会做隐式类型转换（`1 == "1"` 为 `true`、`"" == 0` 为 `true`），所以工程规范一律要求用 `===`。
+      Python 的 `==` **不做**隐式转换，`1 == "1"` 直接是 `False`。
+      结论：把 JS 的 `==` 写成 Python 的 `==` 不会出错，但**把 JS 的 `===` 直译成 `is` 会出错**——`is` 判的是对象身份。
+
+  - id: basics/arithmetic
+    title: 算术运算
+    kind: syntax
+    summary: 整除与取模的符号规则
+    body: |
+      `/` 在两边都返回浮点，一致。差异在整除与取模：
+      Python 有专门的 `//`，而 JS 只能 `Math.trunc()`；
+      更隐蔽的是**负数取模**：`-7 % 2` 在 JS 是 `-1`（符号跟被除数），在 Python 是 `1`（符号跟除数）。
+      这个差异会静默产生错误结果，不会报错。
+
+  - id: basics/logical-short-circuit
+    title: 逻辑运算与短路求值
+    kind: behavior
+    summary: 返回操作数本身，而非布尔值
+    body: |
+      两边的 `&&` / `and`、`||` / `or` 都返回**操作数本身**，这一点一致，是很好迁移的部分。
+      差异在空值合并：JS 有 `??`（只对 `null` / `undefined` 兜底），Python 没有对应运算符，
+      必须显式写条件表达式或 `if x is None`。
+
+  - id: basics/truthiness
+    title: 真值判断
+    kind: behavior
+    summary: 什么算「假」
+    body: |
+      第二个高频陷阱，而且**方向与直觉相反**：
+      JS 的假值只有 8 个（`false`、`0`、`-0`、`0n`、`""`、`null`、`undefined`、`NaN`），
+      空数组 `[]`、空对象 `{}` 都是**真值**；
+      而 Python 的 `[]`、`{}`、`()`、`set()`、`""` 全是**假值**。
+      所以 JS 里可靠的 `if (arr)` 判「非空」，在 Python 里变成 `if arr` 判「非空」——看似一样，但 JS 的写法本身是错的。
+
+  - id: basics/optional-chaining
+    title: 可选链与空值兜底
+    kind: behavior
+    summary: ?. 与它的 Python 替代写法
+    body: |
+      JS 的 `?.` 是语言级安全导航；Python **没有这个语法**，惯用做法是 `getattr(..., None)` 逐层兜底，
+      字典链式取值更常用 `(obj or {}).get(k)`。
+      迁移到 Python 时最常见的错误是继续写 `obj?.key`——它在 Python 里不是「返回 None」，而是语法错误。
+
+  - id: basics/bitwise
+    title: 位运算
+    kind: behavior
+    summary: 位运算符一致，但不安全右移与负数表示不同
+    body: |
+      运算符本身完全一致：`&` `|` `^` `~` `<<` `>>`。
+      差异在数值语义：JS 的位运算会**先把操作数转成 32 位有符号整数**，超出范围会被截断
+      （所以 `2 ** 31 | 0` 会变成负数），而 Python 的整数是任意精度，`<<` 多少位都不会溢出。
+      另外 Python 没有 `>>>`（无符号右移），因为它的整数不是定长的——需要时得自己用掩码实现。
+
+  - id: basics/comparison-operators
+    title: 大小比较
+    kind: behavior
+    summary: 字符串比较与跨类型比较
+    body: |
+      数值比较两边一致。差异在另外两处：
+      ① **字符串比较**：JS 按 UTF-16 码元逐位比较（所以 `'a' < 'B'` 是 false），
+         Python 按 Unicode 码点比较（行为类似，但对非 ASCII 的处理更符合直觉）；
+      ② **跨类型比较**：JS 的 `<` 会做隐式转换（`'2' < 10` 为 true），
+         Python 3 直接抛 `TypeError: '<' not supported between instances of 'str' and 'int'`。
+      第二条是好事：迁移后这类隐蔽 bug 会立刻暴露。
+
+  - id: basics/increment-decrement
+    title: 自增与自减
+    kind: syntax
+    summary: Python 没有 ++ 和 --
+    body: |
+      JS 有 `i++` / `++i`（前缀后缀还影响表达式值），Python **完全没有**，
+      只能写 `i += 1`。
+      这不是小事：`for` 循环、`arr[i++]` 这类写法需要整体重写。
+      顺带一提，把 `i++` 直译成 `i += 1` 时要注意 Python 里没有表达式求值副作用，
+      所以 `arr[i++]` 这种「取值并前进」的写法在 Python 里必须拆成两行。
+
+  - id: basics/chained-comparison
+    title: 链式比较
+    kind: behavior
+    summary: Python 的 a < b < c 与数学写法一致
+    body: |
+      Python 支持 `0 < x < 10` 这种链式比较，且语义是**数学上的区间**（等价于 `0 < x and x < 10`，
+      中间的操作数只求值一次）。
+      JS 里写 `0 < x < 10` **不会报错**，但它是 `(0 < x) < 10`——
+      布尔值参与数值比较（`true < 10` 为 true），所以表达式恒为 true。
+      这是极少数「看起来一样、结果完全不同、且不报错」的组合，属于必踩清单。
+

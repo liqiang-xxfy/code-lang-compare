@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # 内容契约与质量闸门：有 error 级问题就阻断，避免不合格内容进主干
+      - run: npm run content:validate
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      # 「新增语言 = 只加数据目录」这句承诺的可执行断言
+      - run: npm run verify:ext
+
+      # 内容编译产物能否生成（顺带覆盖 schema 与 @note 抽取）
+      - run: npm run content:build

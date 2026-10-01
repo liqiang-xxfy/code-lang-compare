@@ -1,0 +1,95 @@
+id: basics/07-control-flow
+topicId: basics
+title: 控制流
+order: 7
+summary: 分支、三元、模式匹配、循环、循环控制、带索引遍历、区间与异常
+
+features:
+  - id: basics/if-else
+    title: 条件分支
+    kind: syntax
+    summary: 括号、elif 与缩进
+    body: |
+      结构完全对应，只有三处表面差异：不需要括号、`else if` 写成 `elif`、用缩进代替花括号。
+      真正的差异在「条件表达式本身」——JS 允许任何表达式当条件（配合真值转换），
+      Python 也允许，但两边的真值规则不同（见运算符章的「真值判断」）。
+
+  - id: basics/ternary
+    title: 三元与条件表达式
+    kind: syntax
+    summary: 语序相反的条件表达式
+    body: |
+      JS：`cond ? a : b`；Python：`a if cond else b`。
+      **注意语序是反的**——Python 把「结果」写在前面。这是逐行翻译时最容易写错的一格，
+      而且写错往往不会报错（只要 a 和 b 都是合法表达式），只是逻辑反了。
+      Python 还支持链式条件表达式，但可读性差，超过一层就该拆成 if。
+
+  - id: basics/switch-match
+    title: switch 与 match
+    kind: behavior
+    summary: switch 的穿透陷阱与结构化模式匹配
+    body: |
+      JS 的 `switch` 用 `===` 比较、**不写 `break` 会穿透**（这是经典 bug 源），
+      而且它比较的是值，不能做结构匹配。
+      Python 在 3.10 之前只能写 `if/elif` 链；3.10+ 引入了 `match`，但那是**结构化模式匹配**，
+      比 `switch` 强得多：能解构、能绑定变量、能加守卫条件。
+      迁移时不要把它当成 `switch` 用，否则会浪费这个特性。
+
+  - id: basics/for-loop
+    title: for 循环的语义
+    kind: behavior
+    summary: C 风格三段式 vs 遍历迭代器
+    body: |
+      JS 的 `for (let i = 0; i < n; i++)` 是**计数循环**，`for...of` 才是遍历。
+      Python 的 `for x in iterable` **只有遍历**，没有计数形式——想要下标就用 `range()` 或 `enumerate()`。
+      这不是缺点：Python 的取向是「遍历容器，而不是遍历下标」，这能消除大量 off-by-one 错误。
+
+  - id: basics/while-loop
+    title: while 与 do-while
+    kind: syntax
+    summary: Python 没有 do-while
+    body: |
+      `while` 两边一致。**JS 有 `do...while`（至少执行一次），Python 没有**，
+      惯用替代是 `while True:` + `break`，或把首次逻辑抽出来先执行一遍。
+      这类「少一个语法结构」的差异在迁移时会集中暴露，属于需要专门记一组的清单。
+
+  - id: basics/loop-control
+    title: 循环控制：break / continue
+    kind: behavior
+    summary: break、continue 与 Python 的 for-else
+    body: |
+      `break` / `continue` 两边一致。差异是 Python 独有的 **`for...else`**：
+      `else` 块在循环**没有被 break 打断**时执行——它表达的是「找过了，没找到」。
+      JS 里这个模式要额外维护一个标志位变量，是「用语法消除状态变量」的典型例子。
+
+  - id: basics/loop-index
+    title: 带索引遍历
+    kind: syntax
+    summary: entries 与 enumerate
+    body: |
+      JS 常用 `arr.forEach((v, i) => ...)` 或 `Object.entries(obj)`；
+      Python 用 `enumerate(seq, start)`——注意它有个 `start` 参数能指定起始下标，
+      JS 的 `forEach` 下标恒从 0 开始。
+      另外 Python 的 `enumerate` 返回的是惰性迭代器，不会先构造一个数组。
+
+  - id: basics/range-iteration
+    title: 区间与 range
+    kind: behavior
+    summary: 半开区间、惰性与 range 对象的语义
+    body: |
+      JS 没有内置 `range`（要自己写或用库），Python 的 `range()` 是内置的。
+      Python 的 `range` 是**左闭右开**的惰性序列，且 `range(3)` 与 `range(0, 3)` 等价。
+      **注意 Python 3 的 `range` 返回的是 range 对象而不是列表**——
+      想要列表必须 `list(range(3))`，这是从 Python 2 迁移过来的老代码常踩的坑，也是新手的常见疑问。
+
+  - id: basics/exception-flow
+    title: 异常处理
+    kind: behavior
+    summary: catch 一切 vs 精确捕获
+    body: |
+      结构对应：`try/catch/finally` ↔ `try/except/finally`。
+      三处实质差异：
+      ① Python 的 `except` 必须写异常类型才能精确捕获，写 `except:` 会连 `KeyboardInterrupt` 一起吞掉——永远不要这么写；
+      ② Python 有 `try/except/else`（没抛异常时执行），JS 没有；
+      ③ JS 可以 `throw` 任何值（字符串也行），Python 只能抛 `BaseException` 的子类。
+      最后一条导致：Python 里 `except Exception as e` 之后可以放心用 `e.args`，而 JS 的 `catch (e)` 里 `e` 可能是任何东西。

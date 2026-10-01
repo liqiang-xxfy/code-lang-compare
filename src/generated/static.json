@@ -1,0 +1,810 @@
+{
+  "pitfalls": [
+    {
+      "id": "pitfall-block-scope",
+      "title": "出了 if 块变量竟然还在",
+      "symptomHtml": "<p>在 Python 里写 <code>if cond: x = 1</code>，然后在块外直接用 <code>x</code>，居然能拿到值；反过来在 JS 里同样的写法会 ReferenceError。</p>\n",
+      "causeHtml": "<p>JS 的 <code>let</code>/<code>const</code> 是块级作用域；Python 的块（<code>if</code>/<code>for</code>/<code>while</code>）<strong>不产生新作用域</strong>，只有函数、类、模块才产生。</p>\n",
+      "fixHtml": "<p>不要把 JS 的块级直觉带进 Python。迁移时把「变量的有效范围」从「看花括号」改成「看最近的函数边界」。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/var-scope",
+      "tags": [
+        "作用域"
+      ]
+    },
+    {
+      "id": "pitfall-division-by-zero",
+      "title": "除以零在 JS 里静默产生 Infinity，在 Python 里直接崩",
+      "symptomHtml": "<p>一段在 JS 里&quot;跑得好好的&quot;计算，移植到 Python 后抛 <code>ZeroDivisionError</code>，线上 500。</p>\n",
+      "causeHtml": "<p>JS 遵循 IEEE 754，<code>1/0</code> 为 <code>Infinity</code>、<code>0/0</code> 为 <code>NaN</code>；Python 对整数除以零抛异常。</p>\n",
+      "fixHtml": "<p>JS 侧要把 <code>Infinity</code> 当成错误显式处理（<code>Number.isFinite</code> 校验），不要放任它进入下游；\nPython 侧要提前判零或用 try/except。两个方向都要改——<strong>这是&quot;看起来能跑&quot;掩盖的定时炸弹</strong>。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/number-precision",
+      "tags": [
+        "数值",
+        "异常"
+      ]
+    },
+    {
+      "id": "pitfall-equality-coercion",
+      "title": "相等比较的隐式转换导致判断失效",
+      "symptomHtml": "<p><code>1 == &quot;1&quot;</code>、<code>&quot;&quot; == 0</code> 返回 true；字符串与数字比较时不报错但结果不符合预期。</p>\n",
+      "causeHtml": "<p>JS 的 <code>==</code> 会按规范做类型转换；Python 的 <code>==</code> 只在数值类型之间兼容（<code>1 == 1.0</code> 为真），不做字符串到数字的转换。</p>\n",
+      "fixHtml": "<p>JS 一律用 <code>===</code>；Python 里反过来要小心误用 <code>is</code>——<code>is</code> 判对象身份，不判值。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/equality",
+      "tags": [
+        "运算符",
+        "类型"
+      ]
+    },
+    {
+      "id": "pitfall-truthiness-empty-container",
+      "title": "空数组/空字典的判断结果反了",
+      "symptomHtml": "<p>在 JS 里习惯写 <code>if (arr)</code> 判非空，迁移到 Python 后 <code>if arr:</code> 的行为看似一样，但语义完全相反——JS 里空数组是真值，Python 里空列表是假值。</p>\n",
+      "causeHtml": "<p>JS 的假值只有 8 个原始值（<code>false</code>/<code>0</code>/<code>-0</code>/<code>0n</code>/<code>&quot;&quot;</code>/<code>null</code>/<code>undefined</code>/<code>NaN</code>），\n对象与数组<strong>永远是真值</strong>；Python 的 <code>__bool__</code> 由容器长度决定，空容器为假。</p>\n",
+      "fixHtml": "<p>JS 里判数组非空必须写 <code>arr.length &gt; 0</code>，<code>if (arr)</code> 是错的（但它一直&quot;看起来能用&quot;）。\n迁移到 Python 后可以直接用 <code>if arr:</code>——<strong>这不是&quot;照搬出错&quot;，而是&quot;JS 的坏习惯在 Python 里恰好变对了&quot;</strong>，\n反过来从 Python 回 JS 时才会踩坑。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/truthiness",
+      "tags": [
+        "真值",
+        "集合"
+      ]
+    },
+    {
+      "id": "pitfall-const-not-immutable",
+      "title": "const 对象居然能被改",
+      "symptomHtml": "<p>用 <code>const</code> 声明了一个配置对象，某个模块把它改了，其他地方全部受影响，但没有任何报错。</p>\n",
+      "causeHtml": "<p><code>const</code> 冻结的是<strong>绑定</strong>（不能重新赋值），不是对象内容。Python 干脆没有常量语法。</p>\n",
+      "fixHtml": "<p>JS 想真正不可变要 <code>Object.freeze()</code>（且只冻结第一层，深冻结要递归）；Python 侧不可变性来自<strong>不可变类型</strong>（tuple / frozenset / str）而不是语法。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/const-immutability",
+      "tags": [
+        "不可变"
+      ]
+    },
+    {
+      "id": "pitfall-negative-modulo",
+      "title": "负数取模的符号方向相反",
+      "symptomHtml": "<p><code>-7 % 2</code> 在 JS 是 <code>-1</code>，在 Python 是 <code>1</code>。分页、哈希、循环取余的逻辑会静默错位。</p>\n",
+      "causeHtml": "<p>JS 的 <code>%</code> 是「截断取余」（符号跟被除数），Python 的 <code>%</code> 是「向下取整取余」（符号跟除数）。</p>\n",
+      "fixHtml": "<p>不要依赖语言的默认行为来保证非负。需要非负余数时显式写 <code>((a % b) + b) % b</code>，或使用 Python 的 <code>divmod</code> 明确语义。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/arithmetic",
+      "tags": [
+        "运算符",
+        "数值"
+      ]
+    },
+    {
+      "id": "pitfall-optional-chaining-missing",
+      "title": "obj?.key 在 Python 里是语法错误",
+      "symptomHtml": "<p>把带可选链的 JS 代码逐行翻译，Python 直接 SyntaxError；或者用 <code>obj and obj.key</code> 绕过后，遇到合法的假值（0、&quot;&quot;）又出错。</p>\n",
+      "causeHtml": "<p>Python 没有安全导航语法；<code>and</code> 短路返回的是操作数本身，会把 <code>0</code>、<code>&quot;&quot;</code> 这类合法值当成&quot;没有&quot;。</p>\n",
+      "fixHtml": "<p>用 <code>getattr(obj, &quot;key&quot;, None)</code> 或 <code>(obj or {}).get(&quot;k&quot;)</code>；\n更推荐<strong>把「可能缺失」显式建模成 <code>None</code> 并早返回</strong>，让控制流一眼可见。\n注意用 <code>is None</code> 判断，不要用 <code>and</code> 的假值短路。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/optional-chaining",
+      "tags": [
+        "空值"
+      ]
+    },
+    {
+      "id": "pitfall-string-contains",
+      "title": "判断字符串包含拿到了 -1",
+      "symptomHtml": "<p>把 <code>&quot;abc&quot;.includes(&quot;b&quot;)</code> 直译成 <code>&quot;abc&quot;.find(&quot;b&quot;)</code>，然后用它当布尔值——<code>-1</code> 是真值，判断永远成立。</p>\n",
+      "causeHtml": "<p>JS 的 <code>includes</code> 返回布尔，Python 的 <code>find</code> 返回下标（找不到为 <code>-1</code>）。</p>\n",
+      "fixHtml": "<p>Python 里判断包含用 <code>&quot;b&quot; in &quot;abc&quot;</code>；只有真的需要下标时才用 <code>find</code>/<code>index</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/string-methods",
+      "tags": [
+        "字符串"
+      ]
+    },
+    {
+      "id": "pitfall-string-join-order",
+      "title": "拼接列表时主宾写反了",
+      "symptomHtml": "<p>迁移后写 <code>[&quot;a&quot;,&quot;b&quot;].join(&quot;,&quot;)</code>（JS 习惯），在 Python 里报 <code>AttributeError</code>；反过来写 <code>&quot;,&quot;.join(list)</code> 在 JS 里也不成立。</p>\n",
+      "causeHtml": "<p>JS 把 join 定义在数组上（数组是主语），Python 把 join 定义在分隔符字符串上（分隔符是主语）。</p>\n",
+      "fixHtml": "<p>记一句口诀：<strong>JS 是「数组用分隔符连起来」，Python 是「分隔符把列表连起来」</strong>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/multiline-string",
+      "tags": [
+        "字符串"
+      ]
+    },
+    {
+      "id": "pitfall-var-leak",
+      "title": "var 在循环里泄漏成闭包共享变量",
+      "symptomHtml": "<p>循环里给多个回调绑定 <code>var i</code>，回调触发时全部拿到同一个最终值。</p>\n",
+      "causeHtml": "<p><code>var</code> 是函数级作用域且只有一份绑定，闭包捕获的是同一个变量；<code>let</code> 每次迭代创建新绑定。</p>\n",
+      "fixHtml": "<p>用 <code>let</code> 替代 <code>var</code>。这条是 JS 内部的历史问题，但迁移到 Python 时要意识到 Python 的 <code>for</code> 变量<strong>同样是单个绑定</strong>（在函数作用域里），所以闭包捕获也会共享——<strong>坑是同一个坑，只是换了语言</strong>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics/var-scope",
+      "tags": [
+        "闭包",
+        "作用域"
+      ]
+    }
+  ],
+  "concepts": [
+    {
+      "id": "concept-package-manager",
+      "concept": "包管理",
+      "entries": {
+        "javascript": {
+          "label": "npm / pnpm",
+          "detail": "package.json 声明 + node_modules 落地"
+        },
+        "python": {
+          "label": "pip / uv",
+          "detail": "pyproject.toml 或 requirements.txt + venv 隔离"
+        },
+        "arkts": {
+          "label": "ohpm",
+          "detail": "oh-package.json5，面向 HarmonyOS 生态"
+        }
+      }
+    },
+    {
+      "id": "concept-runner",
+      "concept": "运行时",
+      "entries": {
+        "javascript": {
+          "label": "Node.js / 浏览器引擎",
+          "detail": "事件循环驱动，单线程 + 异步 I/O"
+        },
+        "python": {
+          "label": "CPython 解释器",
+          "detail": "GIL 限制下多线程不能并行跑 CPU 密集任务"
+        },
+        "arkts": {
+          "label": "ArkUI 引擎",
+          "detail": "非浏览器非 Node，声明式 UI 运行时"
+        }
+      }
+    },
+    {
+      "id": "concept-async",
+      "concept": "异步模型",
+      "entries": {
+        "javascript": {
+          "label": "Promise / async-await",
+          "detail": "微任务队列，天然单线程并发"
+        },
+        "python": {
+          "label": "asyncio / 协程",
+          "detail": "需要显式进入事件循环，async def + await"
+        }
+      }
+    },
+    {
+      "id": "concept-build",
+      "concept": "构建工具",
+      "entries": {
+        "javascript": {
+          "label": "Vite / webpack",
+          "detail": "打包 + 转换，产物面向浏览器"
+        },
+        "python": {
+          "label": "通常不需要",
+          "detail": "解释执行；只有发布时才打包（build / wheel）"
+        }
+      }
+    },
+    {
+      "id": "concept-test",
+      "concept": "测试框架",
+      "entries": {
+        "javascript": {
+          "label": "Vitest / Jest",
+          "detail": "test('名', () => {}) 风格"
+        },
+        "python": {
+          "label": "pytest",
+          "detail": "def test_x(): assert ...，用 assert 而非 expect"
+        }
+      }
+    },
+    {
+      "id": "concept-lint",
+      "concept": "代码检查与格式化",
+      "entries": {
+        "javascript": {
+          "label": "ESLint + Prettier",
+          "detail": "规则可插拔，风格与检查分离"
+        },
+        "python": {
+          "label": "Ruff / Black",
+          "detail": "风格几乎不可配置，官方偏好唯一答案"
+        }
+      }
+    },
+    {
+      "id": "concept-repl",
+      "concept": "交互式环境",
+      "entries": {
+        "javascript": {
+          "label": "node / 浏览器控制台",
+          "detail": "node 直接进 REPL"
+        },
+        "python": {
+          "label": "python / ipython",
+          "detail": "python 直接进 REPL，无参数"
+        }
+      }
+    },
+    {
+      "id": "concept-null",
+      "concept": "空值",
+      "entries": {
+        "javascript": {
+          "label": "null + undefined",
+          "detail": "两种空值，判空噪音大"
+        },
+        "python": {
+          "label": "None",
+          "detail": "只有一种空值，用 is None 判断"
+        }
+      }
+    },
+    {
+      "id": "concept-collection",
+      "concept": "常用集合",
+      "entries": {
+        "javascript": {
+          "label": "Array / Object / Map / Set",
+          "detail": "对象字面量与 Map 语义不同"
+        },
+        "python": {
+          "label": "list / dict / set / tuple",
+          "detail": "tuple 不可变，dict 有序（3.7+）"
+        }
+      }
+    },
+    {
+      "id": "concept-type-system",
+      "concept": "类型系统",
+      "entries": {
+        "javascript": {
+          "label": "动态 + 弱类型",
+          "detail": "运行时类型，比较时隐式转换"
+        },
+        "python": {
+          "label": "动态 + 强类型",
+          "detail": "运行时类型，但基本不做隐式转换"
+        },
+        "arkts": {
+          "label": "静态 + 名义类型",
+          "detail": "禁用 any 与结构化类型，编译期强约束"
+        }
+      }
+    },
+    {
+      "id": "concept-memory",
+      "concept": "内存管理",
+      "entries": {
+        "javascript": {
+          "label": "垃圾回收",
+          "detail": "标记清除；闭包是主要泄漏源"
+        },
+        "python": {
+          "label": "引用计数 + 循环 GC",
+          "detail": "del 只是减引用，不一定立即释放"
+        }
+      }
+    },
+    {
+      "id": "concept-value-semantics",
+      "concept": "值语义与引用语义",
+      "entries": {
+        "javascript": {
+          "label": "原始值按值、对象按引用",
+          "detail": "对象赋值是共享同一份数据"
+        },
+        "python": {
+          "label": "一切都是引用",
+          "detail": "连整数都是对象引用；可变默认参数是最经典的坑"
+        }
+      }
+    },
+    {
+      "id": "concept-module-system",
+      "concept": "模块系统",
+      "entries": {
+        "javascript": {
+          "label": "ESM import/export",
+          "detail": "一个文件即模块；import 是静态提升的"
+        },
+        "python": {
+          "label": "import / from ... import",
+          "detail": "一个 .py 是 module，含 __init__.py 的目录是 package"
+        }
+      }
+    },
+    {
+      "id": "concept-error-handling",
+      "concept": "错误处理",
+      "entries": {
+        "javascript": {
+          "label": "try/catch + Error 子类",
+          "detail": "可以 throw 任意值，catch 到的不一定是 Error"
+        },
+        "python": {
+          "label": "try/except + 异常类",
+          "detail": "只能抛 BaseException 子类；except 必须写类型"
+        }
+      }
+    },
+    {
+      "id": "concept-generics",
+      "concept": "泛型",
+      "entries": {
+        "javascript": {
+          "label": "无（靠 TS）",
+          "detail": "运行时不保留类型参数，编译期擦除"
+        },
+        "python": {
+          "label": "typing.TypeVar",
+          "detail": "标注层面存在，运行时同样擦除"
+        }
+      }
+    },
+    {
+      "id": "concept-class",
+      "concept": "类与继承",
+      "entries": {
+        "javascript": {
+          "label": "class + 原型链",
+          "detail": "单继承，多态靠原型；私有字段用 #name"
+        },
+        "python": {
+          "label": "class + 多继承",
+          "detail": "支持多继承与 MRO；私有靠约定，没有真私有"
+        }
+      }
+    },
+    {
+      "id": "concept-interface",
+      "concept": "接口与协议",
+      "entries": {
+        "javascript": {
+          "label": "无语言级概念",
+          "detail": "靠结构化类型隐式满足（TS 才引入 interface）"
+        },
+        "python": {
+          "label": "Protocol / ABC",
+          "detail": "Protocol 是结构化，ABC 是名义式，两者都存在"
+        }
+      }
+    },
+    {
+      "id": "concept-immutability-data",
+      "concept": "不可变数据",
+      "entries": {
+        "javascript": {
+          "label": "Object.freeze（浅）",
+          "detail": "深冻结要递归；structuredClone 用于复制"
+        },
+        "python": {
+          "label": "tuple / frozenset",
+          "detail": "不可变是「类型属性」，可作为字典键"
+        }
+      }
+    },
+    {
+      "id": "concept-serialization",
+      "concept": "序列化",
+      "entries": {
+        "javascript": {
+          "label": "JSON.stringify / parse",
+          "detail": "静默丢弃函数与 undefined"
+        },
+        "python": {
+          "label": "json.dumps / loads",
+          "detail": "遇到非 JSON 类型抛 TypeError；中文默认被转义"
+        }
+      }
+    },
+    {
+      "id": "concept-date-time",
+      "concept": "日期时间",
+      "entries": {
+        "javascript": {
+          "label": "Date（可变、月从 0 起）",
+          "detail": "建议改用 Temporal 或 dayjs"
+        },
+        "python": {
+          "label": "datetime（不可变、月从 1 起）",
+          "detail": "带时区要显式 tzinfo，否则是 naive 时间"
+        }
+      }
+    },
+    {
+      "id": "concept-regex",
+      "concept": "正则表达式",
+      "entries": {
+        "javascript": {
+          "label": "/pattern/flags 字面量",
+          "detail": "match 任意位置；命名分组 (?<name>...)"
+        },
+        "python": {
+          "label": "re 模块 + r 字符串",
+          "detail": "match 只匹配开头；命名分组 (?P<name>...)"
+        }
+      }
+    },
+    {
+      "id": "concept-string-format",
+      "concept": "字符串格式化",
+      "entries": {
+        "javascript": {
+          "label": "模板字符串 + toFixed",
+          "detail": "没有 printf 风格的语言级格式化"
+        },
+        "python": {
+          "label": "f-string + 格式说明符",
+          "detail": "f\"{n:.2f}\" 表达力最强；另有 % 与 format"
+        }
+      }
+    },
+    {
+      "id": "concept-numeric-type",
+      "concept": "数值类型",
+      "entries": {
+        "javascript": {
+          "label": "number（统一 float64）+ BigInt",
+          "detail": "整数也是浮点，超出安全范围静默丢精度"
+        },
+        "python": {
+          "label": "int（任意精度）+ float + Decimal",
+          "detail": "整数不溢出；精确小数要 Decimal"
+        }
+      }
+    },
+    {
+      "id": "concept-testing-mock",
+      "concept": "测试替身",
+      "entries": {
+        "javascript": {
+          "label": "vi.fn / jest.mock",
+          "detail": "模块级 mock 需要提升，写法偏魔法"
+        },
+        "python": {
+          "label": "unittest.mock / monkeypatch",
+          "detail": "靠鸭子类型替换，通常更直白"
+        }
+      }
+    },
+    {
+      "id": "concept-concurrency-unit",
+      "concept": "并发单元",
+      "entries": {
+        "javascript": {
+          "label": "事件循环 + Worker",
+          "detail": "主线程单线程；CPU 密集要靠 Worker 隔离"
+        },
+        "python": {
+          "label": "线程 + 进程 + 协程",
+          "detail": "GIL 使线程不能并行跑 CPU 任务，要 multiprocessing"
+        }
+      }
+    },
+    {
+      "id": "concept-dependency-isolation",
+      "concept": "依赖隔离",
+      "entries": {
+        "javascript": {
+          "label": "node_modules（就近查找）",
+          "detail": "同一依赖可能有多个版本共存"
+        },
+        "python": {
+          "label": "venv（全局一套）",
+          "detail": "同一个环境里同名包只能有一个版本"
+        }
+      }
+    }
+  ],
+  "glossary": [
+    {
+      "term": "对象",
+      "aliases": [
+        "object"
+      ],
+      "perLanguage": {
+        "javascript": "\"对象\" 默认指 Object 字面量，也可以泛指一切非原始值",
+        "python": "\"对象\" 指一切值（连整数都是对象）；没有专门对应 JS Object 字面量的说法"
+      },
+      "note": "JS 的「对象」是同名异义最严重的一个词。"
+    },
+    {
+      "term": "列表 / 数组",
+      "aliases": [
+        "array",
+        "list"
+      ],
+      "perLanguage": {
+        "javascript": "Array（可变、长度可变、可混合类型）",
+        "python": "list（可变）；tuple（不可变，常被误当成 Array 用）"
+      },
+      "note": "Python 的 list 不是链表，是动态数组；性能特征与 JS 数组接近。"
+    },
+    {
+      "term": "字典 / 哈希表",
+      "aliases": [
+        "dict",
+        "map",
+        "hash"
+      ],
+      "perLanguage": {
+        "javascript": "Object 字面量（键只能是字符串/符号）或 Map（任意键）",
+        "python": "dict（任意可哈希键，3.7+ 保证插入有序）"
+      },
+      "note": "JS 的 Object 与 Map 语义不同（键类型、原型链、遍历顺序），Python 只有一个 dict。"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface",
+        "protocol",
+        "trait"
+      ],
+      "perLanguage": {
+        "javascript": "无语言级概念，靠结构化类型隐式满足（TS 才引入 interface）",
+        "python": "Protocol（typing，结构化，3.8+）或 ABC（抽象基类，名义式）"
+      },
+      "note": "这是「同名不同义」的典型：TS 的 interface 是结构化，Python 的 ABC 是名义式。"
+    },
+    {
+      "term": "模块",
+      "aliases": [
+        "module",
+        "package"
+      ],
+      "perLanguage": {
+        "javascript": "一个文件即一个模块（ESM）；package 指 npm 包",
+        "python": "一个 .py 文件是 module，含 __init__.py 的目录是 package"
+      },
+      "note": "「module → package」的层级关系在 Python 里有明确语法，JS 里没有。"
+    },
+    {
+      "term": "闭包",
+      "aliases": [
+        "closure"
+      ],
+      "perLanguage": {
+        "javascript": "函数捕获定义时所在的词法环境",
+        "python": "同机制，但循环变量是单个绑定（这点与 JS 的 var 一样是坑）"
+      },
+      "note": "机制一致，坑也一致——只是当年 JS 用 let 修掉了，Python 的 for 变量仍然共享。"
+    },
+    {
+      "term": "装饰器",
+      "aliases": [
+        "decorator",
+        "annotation"
+      ],
+      "perLanguage": {
+        "javascript": "提案阶段语法 @decorator（TS 里已可用），写法在类/方法上",
+        "python": "成熟的语法特性 @decorator，可作用于任意函数/类，本质是高阶函数",
+        "arkts": "@State / @Prop / @Link 等，用于声明式 UI 的状态绑定，语义与 Python 完全不同"
+      },
+      "note": "三个语言里 @xxx 长得一样，含义天差地别——同名不同义的高危词。"
+    },
+    {
+      "term": "迭代器 / 可迭代",
+      "aliases": [
+        "iterator",
+        "iterable",
+        "generator"
+      ],
+      "perLanguage": {
+        "javascript": "协议是 Symbol.iterator + next()；async 版本用 for await",
+        "python": "__iter__ / __next__；生成器函数用 yield，且是一次性消耗品"
+      },
+      "note": "两边的生成器都只能遍历一次，重复遍历要显式转成列表。"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "cast",
+        "coercion"
+      ],
+      "perLanguage": {
+        "javascript": "隐式转换大量存在（+、==、比较），显式用 Number()/String()",
+        "python": "几乎不隐式转换，一律显式 int()/str()/float()"
+      },
+      "note": "「弱类型 vs 强类型」的实际差别就在这里。"
+    },
+    {
+      "term": "可变默认参数",
+      "aliases": [],
+      "perLanguage": {
+        "javascript": "默认参数每次调用重新求值，不存在这个问题",
+        "python": "def f(x=[]) 的 [] 只求值一次，会被所有调用共享 —— 经典陷阱"
+      },
+      "note": "只有 Python 有这个问题，但它是 Python 面试题出现频率最高的坑之一。"
+    }
+  ],
+  "roadmaps": {
+    "python": [
+      {
+        "id": "py-1-anchor",
+        "lang": "python",
+        "order": 1,
+        "title": "先建立心智模型，不要背语法",
+        "durationHint": "2-3 小时",
+        "todo": [
+          "通读本工具 M4「心智模型对照表」，把 npm/pip、Promise/asyncio 这类映射建起来",
+          "只回答四个问题：类型系统、并发模型、错误处理、值语义 vs 引用语义",
+          "明确写下「哪些 JS 直觉必须丢掉」——块级作用域、隐式类型转换、对象字面量"
+        ],
+        "acceptance": [
+          "能说出 Python 与 JS 在「作用域」和「相等比较」上的两条根本差异",
+          "知道 Python 没有变量提升、没有可选链语法、没有常量语法"
+        ],
+        "resources": [
+          {
+            "label": "Python 官方教程（中文）",
+            "url": "https://docs.python.org/zh-cn/3/tutorial/"
+          },
+          {
+            "label": "Python for JS developers",
+            "url": "https://github.com/frankstepanski/python-for-js-developers"
+          }
+        ]
+      },
+      {
+        "id": "py-2-basics",
+        "lang": "python",
+        "order": 2,
+        "title": "基础语法逐条对照",
+        "durationHint": "1-2 天",
+        "todo": [
+          "按本工具 M1 的 8 个章节逐格对比，重点看标为「语义不同」的格子",
+          "每看一格，手写一遍两边的代码（不要复制）——建立肌肉记忆",
+          "把踩到的坑记进 M4 踩坑清单并打上自己的严重度"
+        ],
+        "acceptance": [
+          "能独立写出变量、集合、控制流、函数定义，无语法错误",
+          "能解释 `is` 与 `==` 的区别，并知道什么时候必须用 `is None`"
+        ],
+        "resources": [
+          {
+            "label": "PEP 8 风格指南",
+            "url": "https://peps.python.org/pep-0008/"
+          }
+        ]
+      },
+      {
+        "id": "py-3-practice",
+        "lang": "python",
+        "order": 3,
+        "title": "动手写（占全部时间的 70%）",
+        "durationHint": "1-2 周",
+        "todo": [
+          "做 Exercism 的 Python track，接受 mentor 评审",
+          "把写过的一个小 JS 脚本（100-300 行）用 Python 重写一遍",
+          "重写时不要查 JS 原文件——凭记忆写，写完再对照"
+        ],
+        "acceptance": [
+          "Exercism 完成 15 题以上",
+          "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法"
+        ],
+        "resources": [
+          {
+            "label": "Exercism Python Track",
+            "url": "https://exercism.org/tracks/python"
+          },
+          {
+            "label": "TheAlgorithms Python",
+            "url": "https://github.com/TheAlgorithms/Python"
+          }
+        ]
+      },
+      {
+        "id": "py-4-deep",
+        "lang": "python",
+        "order": 4,
+        "title": "补齐语义层（并发与内存）",
+        "durationHint": "3-5 天",
+        "todo": [
+          "真正理解 GIL：为什么多线程不能加速 CPU 密集任务",
+          "对比 JS 的事件循环与 asyncio 的事件循环（谁在驱动、怎么进入）",
+          "理解引用计数 + 循环 GC，以及 del 不等于释放",
+          "理解可变默认参数为什么是坑"
+        ],
+        "acceptance": [
+          "能解释为什么 Python 要用 multiprocessing 而不是 threading 做 CPU 密集任务",
+          "能写出正确的 asyncio 并发代码，并知道 asyncio.gather 与 Promise.all 的差别"
+        ],
+        "resources": [
+          {
+            "label": "asyncio 官方文档",
+            "url": "https://docs.python.org/3/library/asyncio.html"
+          },
+          {
+            "label": "Fluent Python（深入理解语言语义）",
+            "url": "https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/"
+          }
+        ]
+      },
+      {
+        "id": "py-5-ecosystem",
+        "lang": "python",
+        "order": 5,
+        "title": "工程化与生态收口",
+        "durationHint": "3-5 天",
+        "todo": [
+          "用 venv + pyproject.toml 管理一个真实项目，替代 node_modules 的直觉",
+          "配置 Ruff（= ESLint + Prettier 的合体），理解为什么 Python 工具链更\"独裁\"",
+          "用 pytest 写测试，注意 assert 与 expect 的区别",
+          "用 mypy 加类型标注，理解「gradual typing」的边界"
+        ],
+        "acceptance": [
+          "能独立搭起一个带依赖管理、lint、测试、类型检查的 Python 工程",
+          "能说清 pyproject.toml / venv / pip / uv 各自解决什么问题"
+        ],
+        "resources": [
+          {
+            "label": "pytest 官方文档",
+            "url": "https://docs.pytest.org/"
+          },
+          {
+            "label": "Ruff",
+            "url": "https://docs.astral.sh/ruff/"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,178 @@
+# rust —— basics/03-operators 的实现
+# 上下文：片段默认位于某个 fn 内部。⚠️ 本机无 Rust 工具链，未做执行验证，待补校对。
+
+- featureId: basics/equality
+  equivalence: divergent
+  code: |
+    let a = 1000;
+    let b = 1000;
+    a == b;              // true —— @note Rust 的 == 就是**值比较**
+
+    let s1 = String::from("hi");
+    let s2 = String::from("hi");
+    s1 == s2;            // true —— @note 值相等，不是「同一个对象」
+
+    // @note! 与 JS 的 == / === 二分完全不同：Rust 只有一种 ==，语义就是值比较。
+    //        真要判断是不是同一块内存，得用 std::ptr::eq(&s1, &s2)
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/arithmetic
+  equivalence: divergent
+  code: |
+    7 / 2;          // 3   —— @note! 整数相除截断（JS 给 3.5）
+    7 % 2;          // 1
+    -7 % 2;         // -1  —— @note 符号跟被除数走（与 JS 同，与 Python 反）
+    7.0 / 2.0;      // 3.5
+
+    // @note! 整数除法会截断，且**除零直接 panic**（JS 给 Infinity）
+    7 as f64 / 2.0; // 需要浮点结果必须显式转
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/logical-short-circuit
+  equivalence: divergent
+  code: |
+    // && / || 只返回 bool，不返回操作数
+    // let s = name && "default";     // 编译错误
+
+    let name: Option<&str> = None;
+    name.unwrap_or("default");        // @note 对应 JS 的 a || b 惯用法
+
+    // @note! Rust 里没有「短路返回操作数」这回事，
+    //        「取默认值」由 Option 的 or / unwrap_or 承担
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/truthiness
+  equivalence: divergent
+  code: |
+    let v: Vec<i32> = vec![];
+    v.is_empty();      // true  —— @note 必须显式调用
+    // if v {}         // 编译错误：expected `bool`, found `Vec<i32>`
+
+    // @note 与 JS 的 if (arr.length) 无缘，一切条件都必须是货真价实的 bool
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/optional-chaining
+  equivalence: divergent
+  code: |
+    struct Address { city: Option<String> }
+    struct User { address: Option<Address> }
+
+    // @note Rust 没有 ?. ，但有更常见的两件武器：and_then（链式）与 ?（提前返回）
+    let city = user
+        .and_then(|u| u.address)
+        .and_then(|a| a.city)
+        .unwrap_or_else(|| "未知".to_string());
+
+    fn find(u: Option<User>) -> Option<String> {
+        let city = u?.address?.city?;    // @note ? 在 None 时直接向上返回
+        Some(city)
+    }
+
+    // @note 形式上比 JS 啰嗦，但「在哪一层短路」是显式写出来的
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/bitwise
+  equivalence: divergent
+  code: |
+    5 & 3;      // 1
+    5 | 3;      // 7
+    5 ^ 3;      // 6
+    !5u32;      // 4294967290  —— @note! 按位取反是 !，不是 ~（~ 在 Rust 里不存在）
+
+    1u32 << 3;  // 8
+    -8i32 >> 1; // -4          —— @note 有符号右移是算术右移
+
+    // @note! Rust 没有 >>> ：整数类型本身区分有无符号，
+    //        无符号数的 >> 就是逻辑右移，不需要单独的运算符
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/comparison-operators
+  equivalence: divergent
+  code: |
+    1 < 2;          // true
+    "a" < "b";      // true  —— @note 字符串可直接比较（字典序）
+    // 1.0 < 2;     // 编译错误：类型不一致
+
+    #[derive(PartialEq, PartialOrd)]
+    struct Version(u32, u32);
+
+    // @note! Rust 不做隐式数值提升，跨类型比较必须显式转换；
+    //        自定义类型要能比较，得 derive PartialOrd（或手写实现）
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/increment-decrement
+  equivalence: divergent
+  code: |
+    let mut i = 0;
+    // i++;         // 编译错误：Rust 根本没有自增运算符
+    i += 1;         // @note 只能这样写
+
+    // @note! 这是 Rust 刻意去掉的：++ 把「副作用」和「返回值」揉在一起，
+    //        正是最容易写出 i = i++ 这类 bug 的地方
+    // @note 与 JS 对比时要强调：Rust 不分前置后置，因为压根不存在
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/chained-comparison
+  equivalence: divergent
+  code: |
+    let (a, b, c) = (1, 2, 3);
+    // if a < b < c {}     // @note! 编译错误：bool 不能和整数比较
+
+    if a < b && b < c {}    // 必须写 &&
+
+    // @note! 对比 JS：JS 的 1 < 2 < 3 会静默得出 true，Rust 直接编译错误
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'

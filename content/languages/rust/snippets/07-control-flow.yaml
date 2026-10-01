@@ -1,0 +1,190 @@
+# rust —— basics/07-control-flow 的实现
+# 上下文：片段默认位于某个 fn 内部。⚠️ 本机无 Rust 工具链，未做执行验证，待补校对。
+
+- featureId: basics/if-else
+  equivalence: divergent
+  code: |
+    let grade = if score >= 90 {
+        "A"
+    } else if score >= 60 {
+        "B"
+    } else {
+        "C"
+    };                     // @note! if 是**表达式**：能直接赋值，因此不需要三元运算符
+
+    // @note 条件不加括号，且必须是 bool
+    // @note 与 JS 最直观的差别：这里没有 ?:，一切分支都用 if 表达式
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/ternary
+  equivalence: divergent
+  code: |
+    // @note! Rust 没有三元运算符 —— if 本身就是表达式，不需要它
+    let label = if score >= 60 { "及格" } else { "不及格" };
+
+    // 两个分支的类型必须完全一致
+    // let x = if c { 1 } else { "a" };     // 编译错误
+
+    // @note 与 JS 的对照：JS 的 ?: 在这里一律写成 if...else，且花括号不能省
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/switch-match
+  equivalence: divergent
+  code: |
+    let name = match day {
+        Day::Mon | Day::Tue => "工作日",     // @note 用 | 合并分支
+        Day::Sat | Day::Sun => "周末",
+    };                                       // @note! 必须**穷尽**：漏了分支编译不过
+
+    // match 还能直接解构
+    match point {
+        Point { x: 0, y: 0 } => println!("原点"),
+        Point { x, y } => println!("{x},{y}"),
+    }
+
+    // @note! 与 JS 的 switch 差别极大：没有 break 与穿透，是表达式，能解构，且强制穷尽
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/for-loop
+  equivalence: divergent
+  code: |
+    for i in 0..10 { }                         // @note Rust 只有 for-in，没有 C 风格三段式
+    for (i, item) in items.iter().enumerate() { }
+
+    let mut i = 0;                             // 想要三段式那样的控制流就写 while
+    while i < 10 { i += 1; }
+
+    // @note! Rust 刻意去掉了 for(;;)：把「遍历」和「计数循环」拆成两件事，
+    //        前者用 for-in，后者用 while
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/while-loop
+  equivalence: divergent
+  code: |
+    while 条件 { }
+
+    loop {                     // @note! loop 是无限循环，只能用 break 退出
+        if done { break; }
+    }
+
+    // @note Rust 没有 do-while，惯用替代是 loop + 末尾判断
+    loop {
+        let x = next();
+        if x == 0 { break; }
+    }
+
+    // @note 还有 while let：条件式解构，写法很 Rust
+    while let Some(x) = stack.pop() { }
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/loop-control
+  equivalence: analogous
+  code: |
+    'outer: for i in 0..3 {          // @note 循环标签，以 ' 开头
+        for j in 0..3 {
+            if j == 1 { continue 'outer; }
+            if i == 2 { break 'outer; }
+        }
+    }
+
+    // @note! 与 JS 的标签语法类似，但要求 ' 前缀；
+    //        break 'label 还能带一个值，成为整个循环表达式的值：
+    let n = 'search: loop {
+        break 'search 42;
+    };
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/loop-index
+  equivalence: analogous
+  code: |
+    for (i, item) in items.iter().enumerate() { }    // @note 内建的带下标遍历
+    for i in 0..items.len() { }
+
+    // @note enumerate() 是标准库的 Iterator 适配器，与 Python 的 enumerate 同名同义
+    // @note 对比 JS：for-of 没有内建下标，得自己计数或用 entries()
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/range-iteration
+  equivalence: identical
+  code: |
+    0..5;          // 0,1,2,3,4     —— @note 半开区间
+    0..=5;         // 0,1,2,3,4,5   —— @note 含右端
+
+    for i in (0..10).rev() { }         // 倒序
+    for i in (0..10).step_by(2) { }     // 步长
+
+    // @note! Rust 的 .. / ..= 与 Python 的 range 几乎一一对应；
+    //        Range 是**迭代器**，惰性求值，不会先把整个区间展开成数组
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/exception-flow
+  equivalence: divergent
+  code: |
+    // @note! Rust 没有异常：可恢复错误用 Result，不可恢复用 panic!
+    fn read() -> Result<String, std::io::Error> {
+        let s = std::fs::read_to_string("f")?;    // @note ? 自动向上传播错误
+        Ok(s)
+    }
+
+    match read() {
+        Ok(s) => println!("{s}"),
+        Err(e) => eprintln!("出错：{e}"),
+    }
+
+    // @note 没有 finally：资源清理靠 RAII（Drop 在作用域结束时自动执行）
+    // @note! 错误是**返回值**而不是控制流跳转，所以「忘了处理」是编译错误（must_use）
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'

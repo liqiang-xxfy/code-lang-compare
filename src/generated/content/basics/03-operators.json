@@ -1,0 +1,1278 @@
+{
+  "id": "basics/03-operators",
+  "topicId": "basics",
+  "title": "运算符与真值判断",
+  "order": 3,
+  "features": [
+    {
+      "id": "basics/equality",
+      "chapterId": "basics/03-operators",
+      "title": "相等比较",
+      "kind": "behavior",
+      "summary": "== 与 === 的真实语义",
+      "bodyHtml": "<p>这是全站<strong>最高频的迁移陷阱</strong>。\nJS 的 <code>==</code> 会做隐式类型转换（<code>1 == &quot;1&quot;</code> 为 <code>true</code>、<code>&quot;&quot; == 0</code> 为 <code>true</code>），所以工程规范一律要求用 <code>===</code>。\nPython 的 <code>==</code> <strong>不做</strong>隐式转换，<code>1 == &quot;1&quot;</code> 直接是 <code>False</code>。\n结论：把 JS 的 <code>==</code> 写成 Python 的 <code>==</code> 不会出错，但<strong>把 JS 的 <code>===</code> 直译成 <code>is</code> 会出错</strong>——<code>is</code> 判的是对象身份。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "a, b := 1000, 1000\na == b                              // true\n\ntype Point struct{ X, Y int }\nPoint{1, 2} == Point{1, 2}          // true\n\n// 但不是所有类型都能比：slice / map / func 不可比较\n// s := []int{1}\n// s == s                           // 编译错误：slices can only be compared to nil\n\n// map / slice 想比内容要用 reflect.DeepEqual 或 slices.Equal",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a, b </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 1000</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">1000</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> b                              </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> Point</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\">{ X, Y </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">Point</span><span style=\"color:var(--shiki-foreground)\">{</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> Point{</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">}          </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 但不是所有类型都能比：slice / map / func 不可比较</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// s := []int{1}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// s == s                           // 编译错误：slices can only be compared to nil</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// map / slice 想比内容要用 reflect.DeepEqual 或 slices.Equal</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 2,
+              "text": "Go 的 == 是值比较",
+              "tone": "info"
+            },
+            {
+              "line": 5,
+              "text": "结构体可逐字段比较",
+              "tone": "info"
+            },
+            {
+              "line": 7,
+              "text": "但不是所有类型都能比：slice / map / func 不可比较",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "map / slice 想比内容要用 reflect.DeepEqual 或 slices.Equal",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "Integer a = 1000, b = 1000;\na == b;              // false —— == 比的是引用（对象身份）\na.equals(b);         // true  —— 比的是内容\n\nInteger c = 100, d = 100;\nc == d;              // true —— 小整数有缓存（-128..127），最容易骗到人的区域\n\nint x = 1, y = 1;\nx == y;              // true —— 基本类型的 == 就是比值\n\n// 记一条就够：引用类型比内容一律用 equals()，\n//        == 只用于基本类型、以及「判断是不是同一个对象」",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Integer</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1000</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1000</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> b;              </span><span style=\"color:var(--shiki-token-comment)\">// false —— == 比的是引用（对象身份）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">a</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">equals</span><span style=\"color:var(--shiki-foreground)\">(b);         </span><span style=\"color:var(--shiki-token-comment)\">// true  —— 比的是内容</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Integer</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 100</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> d </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 100</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">c </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> d;              </span><span style=\"color:var(--shiki-token-comment)\">// true —— 小整数有缓存（-128..127），最容易骗到人的区域</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> y </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> y;              </span><span style=\"color:var(--shiki-token-comment)\">// true —— 基本类型的 == 就是比值</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 记一条就够：引用类型比内容一律用 equals()，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        == 只用于基本类型、以及「判断是不是同一个对象」</span></span></code></pre>",
+          "lineCount": 12,
+          "notes": [
+            {
+              "line": 2,
+              "text": "false —— == 比的是引用（对象身份）",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "true —— 小整数有缓存（-128..127），最容易骗到人的区域",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "记一条就够：引用类型比内容一律用 equals()，",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "1 == \"1\";        // true\n1 === \"1\";       // false   —— 工程规范：一律用 ===\n\n\"\" == 0;         // true\nnull == undefined; // true\nNaN === NaN;     // false\n\nObject.is(NaN, NaN); // true",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> ==</span><span style=\"color:var(--shiki-token-string-expression)\"> \"1\"</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> ===</span><span style=\"color:var(--shiki-token-string-expression)\"> \"1\"</span><span style=\"color:var(--shiki-foreground)\">;       </span><span style=\"color:var(--shiki-token-comment)\">// false   —— 工程规范：一律用 ===</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"\"</span><span style=\"color:var(--shiki-token-keyword)\"> ==</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">null</span><span style=\"color:var(--shiki-token-keyword)\"> ==</span><span style=\"color:var(--shiki-token-constant)\"> undefined</span><span style=\"color:var(--shiki-foreground)\">; </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">NaN</span><span style=\"color:var(--shiki-token-keyword)\"> ===</span><span style=\"color:var(--shiki-token-constant)\"> NaN</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// false</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Object</span><span style=\"color:var(--shiki-token-function)\">.is</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">NaN</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> NaN</span><span style=\"color:var(--shiki-foreground)\">); </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 1,
+              "text": "会做隐式类型转换",
+              "tone": "warn"
+            },
+            {
+              "line": 4,
+              "text": "空字符串等于 0",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "唯一的自反不等，用 Number.isNaN()",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "1 == \"1\"         # False\n1 == 1.0         # True   —— 数值之间会跨类型比较\n\na is b           # is 判的是对象身份，不是值\n[] == []         # False  —— 两个不同的列表\n\n# 小整数有缓存，容易产生「is 好像能用」的错觉\nx = 256; y = 256\nx is y           # True",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> ==</span><span style=\"color:var(--shiki-token-string-expression)\"> \"1\"</span><span style=\"color:var(--shiki-token-comment)\">         # False</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> ==</span><span style=\"color:var(--shiki-token-constant)\"> 1.0</span><span style=\"color:var(--shiki-token-comment)\">         # True   —— 数值之间会跨类型比较</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-foreground)\"> b           </span><span style=\"color:var(--shiki-token-comment)\"># is 判的是对象身份，不是值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[] </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> []         </span><span style=\"color:var(--shiki-token-comment)\"># False  —— 两个不同的列表</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 小整数有缓存，容易产生「is 好像能用」的错觉</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 256</span><span style=\"color:var(--shiki-foreground)\">; y </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 256</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-foreground)\"> y           </span><span style=\"color:var(--shiki-token-comment)\"># True</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 1,
+              "text": "不做隐式类型转换，与 JS 的 == 完全不同",
+              "tone": "warn"
+            },
+            {
+              "line": 4,
+              "text": "is 判的是对象身份，不是值",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "实现细节，不要依赖",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "let a = 1000;\nlet b = 1000;\na == b;              // true\n\nlet s1 = String::from(\"hi\");\nlet s2 = String::from(\"hi\");\ns1 == s2;            // true\n\n// 与 JS 的 == / === 二分完全不同：Rust 只有一种 ==，语义就是值比较。\n//        真要判断是不是同一块内存，得用 std::ptr::eq(&s1, &s2)",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1000</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1000</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> b;              </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> s1 </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> String</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">from</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"hi\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> s2 </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> String</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">from</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"hi\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s1 </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> s2;            </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与 JS 的 == / === 二分完全不同：Rust 只有一种 ==，语义就是值比较。</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        真要判断是不是同一块内存，得用 std::ptr::eq(&#x26;s1, &#x26;s2)</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 3,
+              "text": "Rust 的 == 就是**值比较**",
+              "tone": "info"
+            },
+            {
+              "line": 7,
+              "text": "值相等，不是「同一个对象」",
+              "tone": "info"
+            },
+            {
+              "line": 9,
+              "text": "与 JS 的 == / === 二分完全不同：Rust 只有一种 ==，语义就是值比较。",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "basics/arithmetic",
+      "chapterId": "basics/03-operators",
+      "title": "算术运算",
+      "kind": "syntax",
+      "summary": "整除与取模的符号规则",
+      "bodyHtml": "<p><code>/</code> 在两边都返回浮点，一致。差异在整除与取模：\nPython 有专门的 <code>//</code>，而 JS 只能 <code>Math.trunc()</code>；\n更隐蔽的是<strong>负数取模</strong>：<code>-7 % 2</code> 在 JS 是 <code>-1</code>（符号跟被除数），在 Python 是 <code>1</code>（符号跟除数）。\n这个差异会静默产生错误结果，不会报错。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "7 / 2       // 3\n7 % 2       // 1\n-7 % 2      // -1   —— 符号跟被除数走\n\nvar zero = 0\n// 7 / zero         //\n// 7 / 0            // 常量除零则是**编译错误**\n\nfloat64(7) / 2      // 3.5 —— 需要浮点结果必须显式转",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">       // 3</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">       // 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">      // -1   —— 符号跟被除数走</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> zero </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 7 / zero         //</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 7 / 0            // 常量除零则是**编译错误**</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">      // 3.5 —— 需要浮点结果必须显式转</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 1,
+              "text": "整数相除截断（JS 给 3.5）",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "运行时 panic: integer divide by zero",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "7 / 2;      // 3\n7 % 2;      // 1\n-7 % 2;     // -1\n7.0 / 2;    // 3.5   —— 只要有一边是浮点就按浮点算\n\n// 从 JS 过来最容易忽略的一条：7/2 在这里是 3，不是 3.5",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 3</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// -1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7.0</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;    </span><span style=\"color:var(--shiki-token-comment)\">// 3.5   —— 只要有一边是浮点就按浮点算</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 从 JS 过来最容易忽略的一条：7/2 在这里是 3，不是 3.5</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 1,
+              "text": "整数相除直接截断（JS 给 3.5）",
+              "tone": "warn"
+            },
+            {
+              "line": 3,
+              "text": "符号跟被除数走（与 JS 同，与 Python 反）",
+              "tone": "info"
+            },
+            {
+              "line": 6,
+              "text": "从 JS 过来最容易忽略的一条：7/2 在这里是 3，不是 3.5",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "7 / 2;                // 3.5\n7 % 2;                // 1\n-7 % 2;               // -1\n\nMath.trunc(7 / 2);    // 3    —— 取整要显式调用\nMath.floor(-7 / 2);   // -4\n2 ** 10;              // 1024",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;                </span><span style=\"color:var(--shiki-token-comment)\">// 3.5</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;                </span><span style=\"color:var(--shiki-token-comment)\">// 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;               </span><span style=\"color:var(--shiki-token-comment)\">// -1</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Math</span><span style=\"color:var(--shiki-token-function)\">.trunc</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">);    </span><span style=\"color:var(--shiki-token-comment)\">// 3    —— 取整要显式调用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Math</span><span style=\"color:var(--shiki-token-function)\">.floor</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// -4</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-keyword)\"> **</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-foreground)\">;              </span><span style=\"color:var(--shiki-token-comment)\">// 1024</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 1,
+              "text": "整数相除也是浮点",
+              "tone": "info"
+            },
+            {
+              "line": 3,
+              "text": "结果符号跟被除数走",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "注意与截断的区别",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "7 / 2            # 3.5\n7 // 2           # 3\n-7 // 2          # -4\n\n-7 % 2           # 1\ndivmod(-7, 2)    # (-4, 1) —— 商和余数一起拿，且保证 a == b * q + r\n\n2 ** 10          # 1024",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">            # 3.5</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> //</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">           # 3</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> //</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">          # -4</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">           # 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">divmod</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">    # (-4, 1) —— 商和余数一起拿，且保证 a == b * q + r</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-keyword)\"> **</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-token-comment)\">          # 1024</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 1,
+              "text": "真除法，与 JS 一致",
+              "tone": "info"
+            },
+            {
+              "line": 2,
+              "text": "专门的整除运算符（向下取整）",
+              "tone": "info"
+            },
+            {
+              "line": 3,
+              "text": "是 floor 不是 trunc，与 JS 的 Math.trunc 不同",
+              "tone": "warn"
+            },
+            {
+              "line": 5,
+              "text": "结果符号跟除数走，JS 是 -1",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "7 / 2;          // 3\n7 % 2;          // 1\n-7 % 2;         // -1\n7.0 / 2.0;      // 3.5\n\n// 整数除法会截断，且**除零直接 panic**（JS 给 Infinity）\n7 as f64 / 2.0; // 需要浮点结果必须显式转",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// 3</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// -1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 3.5</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 整数除法会截断，且**除零直接 panic**（JS 给 Infinity）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-token-function)\"> f64</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">; </span><span style=\"color:var(--shiki-token-comment)\">// 需要浮点结果必须显式转</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 1,
+              "text": "整数相除截断（JS 给 3.5）",
+              "tone": "warn"
+            },
+            {
+              "line": 3,
+              "text": "符号跟被除数走（与 JS 同，与 Python 反）",
+              "tone": "info"
+            },
+            {
+              "line": 6,
+              "text": "整数除法会截断，且**除零直接 panic**（JS 给 Infinity）",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "basics/logical-short-circuit",
+      "chapterId": "basics/03-operators",
+      "title": "逻辑运算与短路求值",
+      "kind": "behavior",
+      "summary": "返回操作数本身，而非布尔值",
+      "bodyHtml": "<p>两边的 <code>&amp;&amp;</code> / <code>and</code>、<code>||</code> / <code>or</code> 都返回<strong>操作数本身</strong>，这一点一致，是很好迁移的部分。\n差异在空值合并：JS 有 <code>??</code>（只对 <code>null</code> / <code>undefined</code> 兜底），Python 没有对应运算符，\n必须显式写条件表达式或 <code>if x is None</code>。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// && / || 只返回 bool，不返回操作数\n// s := name && \"default\"     // 编译错误\n\n// Go 没有「短路返回操作数」的语义，\n//       对应 JS 的 a || b 惯用法要写成显式的 if / 默认值赋值",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// &#x26;&#x26; / || 只返回 bool，不返回操作数</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// s := name &#x26;&#x26; \"default\"     // 编译错误</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 没有「短路返回操作数」的语义，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//       对应 JS 的 a || b 惯用法要写成显式的 if / 默认值赋值</span></span></code></pre>",
+          "lineCount": 5,
+          "notes": [
+            {
+              "line": 4,
+              "text": "Go 没有「短路返回操作数」的语义，",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// Java 的 && / || 只返回 boolean，不返回操作数本身\n// true && \"text\";        // 编译错误\n\nString s = (name != null && name.length() > 0) ? name : \"default\";\n\n// 与 JS 的「a && b 得到 b」完全不同 —— Java 得到的是 boolean，\n//        想要「取默认值」必须写全三元表达式",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Java 的 &#x26;&#x26; / || 只返回 boolean，不返回操作数本身</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// true &#x26;&#x26; \"text\";        // 编译错误</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (name </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;&#x26;</span><span style=\"color:var(--shiki-token-constant)\"> name</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">length</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\"> name </span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"default\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与 JS 的「a &#x26;&#x26; b 得到 b」完全不同 —— Java 得到的是 boolean，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        想要「取默认值」必须写全三元表达式</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 6,
+              "text": "与 JS 的「a && b 得到 b」完全不同 —— Java 得到的是 boolean，",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "// && 与 || 返回的是操作数本身，不是布尔值\nconst a = \"\" || \"default\";     // \"default\"\nconst b = \"x\" && \"y\";          // \"y\"\n\n// ?? 只在左值为 null / undefined 时兜底（0 和 \"\" 会保留）\nconst c = null ?? \"fallback\";  // \"fallback\"\nconst d = 0 ?? \"fallback\";     // 0\n\nobj?.method?.()                 // 可选链可安全调用",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// &#x26;&#x26; 与 || 返回的是操作数本身，不是布尔值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> a</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"\"</span><span style=\"color:var(--shiki-token-keyword)\"> ||</span><span style=\"color:var(--shiki-token-string-expression)\"> \"default\"</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// \"default\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> b</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"x\"</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;&#x26;</span><span style=\"color:var(--shiki-token-string-expression)\"> \"y\"</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// \"y\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ?? 只在左值为 null / undefined 时兜底（0 和 \"\" 会保留）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> c</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-token-keyword)\"> ??</span><span style=\"color:var(--shiki-token-string-expression)\"> \"fallback\"</span><span style=\"color:var(--shiki-foreground)\">;  </span><span style=\"color:var(--shiki-token-comment)\">// \"fallback\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> d</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-keyword)\"> ??</span><span style=\"color:var(--shiki-token-string-expression)\"> \"fallback\"</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// 0</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">obj</span><span style=\"color:var(--shiki-token-function)\">?.method?.</span><span style=\"color:var(--shiki-foreground)\">()                 </span><span style=\"color:var(--shiki-token-comment)\">// 可选链可安全调用</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 7,
+              "text": "这正是 ?? 与 || 的关键差别",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "可选链可安全调用",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "# and / or 同样返回操作数本身\na = \"\" or \"default\"      # 'default'\nb = \"x\" and \"y\"          # 'y'\n\n# 没有 ?? 运算符，等价写法是显式判 None\nc = \"fallback\" if a is None else a\nc = a if a is not None else \"fallback\"\n\n# 字典取值有专门的默认值接口\nd = {}.get(\"k\", \"fallback\")   # 这才是 Python 里最常用的兜底写法",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># and / or 同样返回操作数本身</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"\"</span><span style=\"color:var(--shiki-token-keyword)\"> or</span><span style=\"color:var(--shiki-token-string-expression)\"> \"default\"</span><span style=\"color:var(--shiki-token-comment)\">      # 'default'</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"x\"</span><span style=\"color:var(--shiki-token-keyword)\"> and</span><span style=\"color:var(--shiki-token-string-expression)\"> \"y\"</span><span style=\"color:var(--shiki-token-comment)\">          # 'y'</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 没有 ?? 运算符，等价写法是显式判 None</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"fallback\"</span><span style=\"color:var(--shiki-token-keyword)\"> if</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-token-constant)\"> None</span><span style=\"color:var(--shiki-token-keyword)\"> else</span><span style=\"color:var(--shiki-foreground)\"> a</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-token-keyword)\"> not</span><span style=\"color:var(--shiki-token-constant)\"> None</span><span style=\"color:var(--shiki-token-keyword)\"> else</span><span style=\"color:var(--shiki-token-string-expression)\"> \"fallback\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 字典取值有专门的默认值接口</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">d </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-punctuation)\"> {}.</span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"k\"</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">\"fallback\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">   # 这才是 Python 里最常用的兜底写法</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 10,
+              "text": "这才是 Python 里最常用的兜底写法",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// && / || 只返回 bool，不返回操作数\n// let s = name && \"default\";     // 编译错误\n\nlet name: Option<&str> = None;\nname.unwrap_or(\"default\");        // 对应 JS 的 a || b 惯用法\n\n// Rust 里没有「短路返回操作数」这回事，\n//        「取默认值」由 Option 的 or / unwrap_or 承担",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// &#x26;&#x26; / || 只返回 bool，不返回操作数</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// let s = name &#x26;&#x26; \"default\";     // 编译错误</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> name</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Option</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-token-function)\">str</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> None</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">name</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">unwrap_or</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"default\"</span><span style=\"color:var(--shiki-foreground)\">);        </span><span style=\"color:var(--shiki-token-comment)\">// 对应 JS 的 a || b 惯用法</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 里没有「短路返回操作数」这回事，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        「取默认值」由 Option 的 or / unwrap_or 承担</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 5,
+              "text": "对应 JS 的 a || b 惯用法",
+              "tone": "info"
+            },
+            {
+              "line": 7,
+              "text": "Rust 里没有「短路返回操作数」这回事，",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "basics/truthiness",
+      "chapterId": "basics/03-operators",
+      "title": "真值判断",
+      "kind": "behavior",
+      "summary": "什么算「假」",
+      "bodyHtml": "<p>第二个高频陷阱，而且<strong>方向与直觉相反</strong>：\nJS 的假值只有 8 个（<code>false</code>、<code>0</code>、<code>-0</code>、<code>0n</code>、<code>&quot;&quot;</code>、<code>null</code>、<code>undefined</code>、<code>NaN</code>），\n空数组 <code>[]</code>、空对象 <code>{}</code> 都是<strong>真值</strong>；\n而 Python 的 <code>[]</code>、<code>{}</code>、<code>()</code>、<code>set()</code>、<code>&quot;&quot;</code> 全是<strong>假值</strong>。\n所以 JS 里可靠的 <code>if (arr)</code> 判「非空」，在 Python 里变成 <code>if arr</code> 判「非空」——看似一样，但 JS 的写法本身是错的。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "var arr []int\n// if arr {}       // 编译错误：non-boolean condition\nif len(arr) > 0 {}  // 必须显式比较\n\n// 与 JS 的 if (arr.length) 无缘 —— Go 里判空要写 len(arr) > 0 或 arr != nil",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> arr []</span><span style=\"color:var(--shiki-token-keyword)\">int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// if arr {}       // 编译错误：non-boolean condition</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-token-function)\"> len</span><span style=\"color:var(--shiki-foreground)\">(arr) </span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\"> {}  </span><span style=\"color:var(--shiki-token-comment)\">// 必须显式比较</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与 JS 的 if (arr.length) 无缘 —— Go 里判空要写 len(arr) > 0 或 arr != nil</span></span></code></pre>",
+          "lineCount": 5,
+          "notes": [
+            {
+              "line": 3,
+              "text": "必须显式比较",
+              "tone": "info"
+            },
+            {
+              "line": 5,
+              "text": "与 JS 的 if (arr.length) 无缘 —— Go 里判空要写 len(arr) > 0 或 arr != nil",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// 没有真值 / 假值，条件必须是 boolean\n// if (list) {}            // 编译错误\nif (!list.isEmpty()) {}    // 必须显式调用判断方法\n\n// 这一条会在迁移时反复出现：JS 里 if (arr.length) 这种写法在 Java 里写不出来",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有真值 / 假值，条件必须是 boolean</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// if (list) {}            // 编译错误</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">!</span><span style=\"color:var(--shiki-token-constant)\">list</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">isEmpty</span><span style=\"color:var(--shiki-foreground)\">()) {}    </span><span style=\"color:var(--shiki-token-comment)\">// 必须显式调用判断方法</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这一条会在迁移时反复出现：JS 里 if (arr.length) 这种写法在 Java 里写不出来</span></span></code></pre>",
+          "lineCount": 5,
+          "notes": [
+            {
+              "line": 3,
+              "text": "必须显式调用判断方法",
+              "tone": "info"
+            },
+            {
+              "line": 5,
+              "text": "这一条会在迁移时反复出现：JS 里 if (arr.length) 这种写法在 Java 里写不出来",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// 假值只有 8 个：false, 0, -0, 0n, \"\", null, undefined, NaN\nBoolean(\"\");     // false\nBoolean(\"0\");    // true\n\nBoolean([]);     // true\nBoolean({});     // true\nBoolean(new Map()); // true",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 假值只有 8 个：false, 0, -0, 0n, \"\", null, undefined, NaN</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">Boolean</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"\"</span><span style=\"color:var(--shiki-foreground)\">);     </span><span style=\"color:var(--shiki-token-comment)\">// false</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">Boolean</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"0\"</span><span style=\"color:var(--shiki-foreground)\">);    </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">Boolean</span><span style=\"color:var(--shiki-foreground)\">([]);     </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">Boolean</span><span style=\"color:var(--shiki-foreground)\">({});     </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">Boolean</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Map</span><span style=\"color:var(--shiki-foreground)\">()); </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 3,
+              "text": "非空字符串恒为真",
+              "tone": "info"
+            },
+            {
+              "line": 5,
+              "text": "空数组是真值",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "空对象也是真值",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "bool(\"\")         # False\nbool(\"0\")        # True\n\nbool([])         # False\nbool({})         # False\nbool(set())      # False\nbool(())         # False\nbool(0.0)        # False\n\n# 所以 Python 里 `if arr:` 真的表示「非空」，而 JS 里不是",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">bool</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">         # False</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">bool</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"0\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">        # True</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">bool</span><span style=\"color:var(--shiki-token-punctuation)\">([])</span><span style=\"color:var(--shiki-token-comment)\">         # False</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">bool</span><span style=\"color:var(--shiki-token-punctuation)\">({})</span><span style=\"color:var(--shiki-token-comment)\">         # False</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">bool</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">set</span><span style=\"color:var(--shiki-token-punctuation)\">())</span><span style=\"color:var(--shiki-token-comment)\">      # False</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">bool</span><span style=\"color:var(--shiki-token-punctuation)\">(())</span><span style=\"color:var(--shiki-token-comment)\">         # False</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">bool</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">0.0</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">        # False</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 所以 Python 里 `if arr:` 真的表示「非空」，而 JS 里不是</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 2,
+              "text": "非空字符串恒为真，与 JS 一致",
+              "tone": "info"
+            },
+            {
+              "line": 4,
+              "text": "空列表是假值，JS 是 true",
+              "tone": "warn"
+            },
+            {
+              "line": 5,
+              "text": "空字典也是假值",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "let v: Vec<i32> = vec![];\nv.is_empty();      // true\n// if v {}         // 编译错误：expected `bool`, found `Vec<i32>`\n\n// 与 JS 的 if (arr.length) 无缘，一切条件都必须是货真价实的 bool",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> v</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Vec</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> vec!</span><span style=\"color:var(--shiki-foreground)\">[];</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">v</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">is_empty</span><span style=\"color:var(--shiki-foreground)\">();      </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// if v {}         // 编译错误：expected `bool`, found `Vec&#x3C;i32>`</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与 JS 的 if (arr.length) 无缘，一切条件都必须是货真价实的 bool</span></span></code></pre>",
+          "lineCount": 5,
+          "notes": [
+            {
+              "line": 2,
+              "text": "必须显式调用",
+              "tone": "info"
+            },
+            {
+              "line": 5,
+              "text": "与 JS 的 if (arr.length) 无缘，一切条件都必须是货真价实的 bool",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "basics/optional-chaining",
+      "chapterId": "basics/03-operators",
+      "title": "可选链与空值兜底",
+      "kind": "behavior",
+      "summary": "?. 与它的 Python 替代写法",
+      "bodyHtml": "<p>JS 的 <code>?.</code> 是语言级安全导航；Python <strong>没有这个语法</strong>，惯用做法是 <code>getattr(..., None)</code> 逐层兜底，\n字典链式取值更常用 <code>(obj or {}).get(k)</code>。\n迁移到 Python 时最常见的错误是继续写 <code>obj?.key</code>——它在 Python 里不是「返回 None」，而是语法错误。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "type Address struct{ City string }\ntype User struct {\n    Address *Address      // 用指针表达「可能没有」\n}\n\nvar u *User\n// u.Address.City         //\n\n// Go 没有 ?. ，必须逐层判断\nvar city string\nif u != nil && u.Address != nil {\n    city = u.Address.City\n}\n\n// 「逐层判空」是 Go 代码里最常见的噪声来源之一",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> Address</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\">{ City </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    Address </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">Address</span><span style=\"color:var(--shiki-token-comment)\">      // 用指针表达「可能没有」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> u </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">User</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// u.Address.City         //</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 没有 ?. ，必须逐层判断</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> city </span><span style=\"color:var(--shiki-token-keyword)\">string</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> u </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> nil</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;&#x26;</span><span style=\"color:var(--shiki-foreground)\"> u.Address </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> nil</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    city </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> u.Address.City</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 「逐层判空」是 Go 代码里最常见的噪声来源之一</span></span></code></pre>",
+          "lineCount": 15,
+          "notes": [
+            {
+              "line": 3,
+              "text": "用指针表达「可能没有」",
+              "tone": "info"
+            },
+            {
+              "line": 7,
+              "text": "panic: nil pointer dereference",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "Go 没有 ?. ，必须逐层判断",
+              "tone": "info"
+            },
+            {
+              "line": 15,
+              "text": "「逐层判空」是 Go 代码里最常见的噪声来源之一",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "User user = maybeUser();\nString city = null;\nif (user != null && user.address != null) {\n    city = user.address.city;      // 必须逐层判空：没有 ?. 这种语法\n}\n\n// 现代写法：把判空链交给 Optional\nString city2 = Optional.ofNullable(user)\n    .map(u -> u.address)\n    .map(a -> a.city)\n    .orElse(\"未知\");\n\n// 比 JS 的 ?. 啰嗦，但「哪一步可能为空」被写进了类型里",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">User</span><span style=\"color:var(--shiki-foreground)\"> user </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> maybeUser()</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> city </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (user </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;&#x26;</span><span style=\"color:var(--shiki-token-constant)\"> user</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">address</span><span style=\"color:var(--shiki-token-keyword)\"> !=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    city </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> user</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">address</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">city</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 必须逐层判空：没有 ?. 这种语法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 现代写法：把判空链交给 Optional</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> city2 </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> Optional</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">ofNullable</span><span style=\"color:var(--shiki-foreground)\">(user)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">    .</span><span style=\"color:var(--shiki-token-function)\">map</span><span style=\"color:var(--shiki-foreground)\">(u </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-constant)\"> u</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">address</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">    .</span><span style=\"color:var(--shiki-token-function)\">map</span><span style=\"color:var(--shiki-foreground)\">(a </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-constant)\"> a</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">city</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">    .</span><span style=\"color:var(--shiki-token-function)\">orElse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"未知\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 比 JS 的 ?. 啰嗦，但「哪一步可能为空」被写进了类型里</span></span></code></pre>",
+          "lineCount": 13,
+          "notes": [
+            {
+              "line": 4,
+              "text": "必须逐层判空：没有 ?. 这种语法",
+              "tone": "warn"
+            },
+            {
+              "line": 13,
+              "text": "比 JS 的 ?. 啰嗦，但「哪一步可能为空」被写进了类型里",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "const city = user?.address?.city;    // 链路中任一环为 null / undefined → 整体 undefined\nconst n = obj?.method?.();           // 也可安全调用方法\nconst [first] = list ?? [];          // 解构时配合 ?? 兜底\n\n// 注意：?. 只短路「取值」，不吞掉异常。\n// 若 user.address 存在但 city 的 getter 抛错，仍然会抛。",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> city</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> user</span><span style=\"color:var(--shiki-foreground)\">?.</span><span style=\"color:var(--shiki-token-constant)\">address</span><span style=\"color:var(--shiki-foreground)\">?.city;    </span><span style=\"color:var(--shiki-token-comment)\">// 链路中任一环为 null / undefined → 整体 undefined</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> n</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> obj</span><span style=\"color:var(--shiki-token-function)\">?.method?.</span><span style=\"color:var(--shiki-foreground)\">();           </span><span style=\"color:var(--shiki-token-comment)\">// 也可安全调用方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">first</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> list </span><span style=\"color:var(--shiki-token-keyword)\">??</span><span style=\"color:var(--shiki-foreground)\"> [];          </span><span style=\"color:var(--shiki-token-comment)\">// 解构时配合 ?? 兜底</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 注意：?. 只短路「取值」，不吞掉异常。</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 若 user.address 存在但 city 的 getter 抛错，仍然会抛。</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 1,
+              "text": "链路中任一环为 null / undefined → 整体 undefined",
+              "tone": "info"
+            },
+            {
+              "line": 2,
+              "text": "也可安全调用方法",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "# Python 没有 ?. 语法，惯用做法是逐层兜底\ncity = getattr(getattr(user, \"address\", None), \"city\", None)\n\n# 字典链式取值更常见\nn = (obj or {}).get(\"method\")\n\n# 3.8+ 的海象运算符只能在赋值场景省一次重复求值，不能替代安全导航\nif (m := obj.get(\"method\")) is not None:\n    m()\n\n# 正解通常是：把「可能缺失」显式建模成 None 并提前返回（早返回）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># Python 没有 ?. 语法，惯用做法是逐层兜底</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">city </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> getattr</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">getattr</span><span style=\"color:var(--shiki-token-punctuation)\">(user, </span><span style=\"color:var(--shiki-token-string-expression)\">\"address\"</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-constant)\">None</span><span style=\"color:var(--shiki-token-punctuation)\">), </span><span style=\"color:var(--shiki-token-string-expression)\">\"city\"</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-constant)\">None</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 字典链式取值更常见</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (obj </span><span style=\"color:var(--shiki-token-keyword)\">or</span><span style=\"color:var(--shiki-token-punctuation)\"> {}</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"method\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 3.8+ 的海象运算符只能在赋值场景省一次重复求值，不能替代安全导航</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (m </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> obj</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"method\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-token-keyword)\"> not</span><span style=\"color:var(--shiki-token-constant)\"> None</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    m</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 正解通常是：把「可能缺失」显式建模成 None 并提前返回（早返回）</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "struct Address { city: Option<String> }\nstruct User { address: Option<Address> }\n\n// Rust 没有 ?. ，但有更常见的两件武器：and_then（链式）与 ?（提前返回）\nlet city = user\n    .and_then(|u| u.address)\n    .and_then(|a| a.city)\n    .unwrap_or_else(|| \"未知\".to_string());\n\nfn find(u: Option<User>) -> Option<String> {\n    let city = u?.address?.city?;    // ? 在 None 时直接向上返回\n    Some(city)\n}\n\n// 形式上比 JS 啰嗦，但「在哪一层短路」是显式写出来的",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> Address</span><span style=\"color:var(--shiki-foreground)\"> { city</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Option</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\"> { address</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Option</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">Address</span><span style=\"color:var(--shiki-foreground)\">> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 没有 ?. ，但有更常见的两件武器：and_then（链式）与 ?（提前返回）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> city </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> user</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    .</span><span style=\"color:var(--shiki-token-function)\">and_then</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-foreground)\">u</span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-foreground)\"> u</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-foreground)\">address)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    .</span><span style=\"color:var(--shiki-token-function)\">and_then</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-foreground)\">a</span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-foreground)\"> a</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-foreground)\">city)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    .</span><span style=\"color:var(--shiki-token-function)\">unwrap_or_else</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">||</span><span style=\"color:var(--shiki-token-string-expression)\"> \"未知\"</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">to_string</span><span style=\"color:var(--shiki-foreground)\">());</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> find</span><span style=\"color:var(--shiki-foreground)\">(u</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Option</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">User</span><span style=\"color:var(--shiki-foreground)\">>) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> Option</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    let</span><span style=\"color:var(--shiki-foreground)\"> city </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> u</span><span style=\"color:var(--shiki-token-keyword)\">?.</span><span style=\"color:var(--shiki-foreground)\">address</span><span style=\"color:var(--shiki-token-keyword)\">?.</span><span style=\"color:var(--shiki-foreground)\">city</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\">;    </span><span style=\"color:var(--shiki-token-comment)\">// ? 在 None 时直接向上返回</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    Some</span><span style=\"color:var(--shiki-foreground)\">(city)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 形式上比 JS 啰嗦，但「在哪一层短路」是显式写出来的</span></span></code></pre>",
+          "lineCount": 15,
+          "notes": [
+            {
+              "line": 4,
+              "text": "Rust 没有 ?. ，但有更常见的两件武器：and_then（链式）与 ?（提前返回）",
+              "tone": "info"
+            },
+            {
+              "line": 11,
+              "text": "? 在 None 时直接向上返回",
+              "tone": "info"
+            },
+            {
+              "line": 15,
+              "text": "形式上比 JS 啰嗦，但「在哪一层短路」是显式写出来的",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "basics/bitwise",
+      "chapterId": "basics/03-operators",
+      "title": "位运算",
+      "kind": "behavior",
+      "summary": "位运算符一致，但不安全右移与负数表示不同",
+      "bodyHtml": "<p>运算符本身完全一致：<code>&amp;</code> <code>|</code> <code>^</code> <code>~</code> <code>&lt;&lt;</code> <code>&gt;&gt;</code>。\n差异在数值语义：JS 的位运算会<strong>先把操作数转成 32 位有符号整数</strong>，超出范围会被截断\n（所以 <code>2 ** 31 | 0</code> 会变成负数），而 Python 的整数是任意精度，<code>&lt;&lt;</code> 多少位都不会溢出。\n另外 Python 没有 <code>&gt;&gt;&gt;</code>（无符号右移），因为它的整数不是定长的——需要时得自己用掩码实现。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "5 & 3       // 1\n5 | 3       // 7\n5 ^ 3       // 6\n^5          // -6\n\n1 << 3      // 8\n-8 >> 1     // -4\n\n5 &^ 3      // 4\n\n// 取反符号与 JS 不同，是这一节最容易写错的地方",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">       // 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> |</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">       // 7</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> ^</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">       // 6</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">^</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-comment)\">          // -6</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">      // 8</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">8</span><span style=\"color:var(--shiki-token-keyword)\"> >></span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">     // -4</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;^</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">      // 4</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 取反符号与 JS 不同，是这一节最容易写错的地方</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 4,
+              "text": "Go 用 ^ 表示按位取反（不是 JS 的 ~）",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "算术右移",
+              "tone": "info"
+            },
+            {
+              "line": 9,
+              "text": "Go 独有的「位清除」：a &^ b 等价于 a AND (NOT b)",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "取反符号与 JS 不同，是这一节最容易写错的地方",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "5 & 3;      // 1\n5 | 3;      // 7\n5 ^ 3;      // 6\n~5;         // -6\n1 << 3;     // 8\n-8 >> 1;    // -4\n-8 >>> 1;   // 2147483644\n\n// Java 的位运算与 JS 几乎一致（连 >>> 都有），\n//       差别主要在数值位宽：Java 是 32/64 位定点，JS 是 64 位浮点",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> |</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 7</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> ^</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 6</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">~</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// -6</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// 8</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">8</span><span style=\"color:var(--shiki-token-keyword)\"> >></span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;    </span><span style=\"color:var(--shiki-token-comment)\">// -4</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">8</span><span style=\"color:var(--shiki-token-keyword)\"> >>></span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// 2147483644</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Java 的位运算与 JS 几乎一致（连 >>> 都有），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//       差别主要在数值位宽：Java 是 32/64 位定点，JS 是 64 位浮点</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 4,
+              "text": "按位取反（负数按补码表示）",
+              "tone": "info"
+            },
+            {
+              "line": 6,
+              "text": "算术右移，保留符号位",
+              "tone": "info"
+            },
+            {
+              "line": 7,
+              "text": "无符号右移，高位补 0",
+              "tone": "info"
+            },
+            {
+              "line": 9,
+              "text": "Java 的位运算与 JS 几乎一致（连 >>> 都有），",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "5 & 3;           // 1\n5 | 3;           // 7\n5 ^ 3;           // 6\n~5;              // -6\n1 << 3;          // 8\n1 << 31;         // -2147483648\n-1 >>> 0;        // 4294967295\n\n// 所有位运算都先把操作数转成「32 位有符号整数」再算，\n//        位宽外的部分直接丢——所以大数做位运算会静默出错\n(2 ** 31) | 0;   // -2147483648\n\n// 常用技巧：`n | 0` 取整（有范围限制）、`n & 1` 判奇偶",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;           </span><span style=\"color:var(--shiki-token-comment)\">// 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> |</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;           </span><span style=\"color:var(--shiki-token-comment)\">// 7</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> ^</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;           </span><span style=\"color:var(--shiki-token-comment)\">// 6</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">~</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-foreground)\">;              </span><span style=\"color:var(--shiki-token-comment)\">// -6</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// 8</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 31</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// -2147483648</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> >>></span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// 4294967295</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所有位运算都先把操作数转成「32 位有符号整数」再算，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        位宽外的部分直接丢——所以大数做位运算会静默出错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-keyword)\"> **</span><span style=\"color:var(--shiki-token-constant)\"> 31</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// -2147483648</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 常用技巧：`n | 0` 取整（有范围限制）、`n &#x26; 1` 判奇偶</span></span></code></pre>",
+          "lineCount": 13,
+          "notes": [
+            {
+              "line": 4,
+              "text": "按位取反（补码），不是「逻辑非」",
+              "tone": "info"
+            },
+            {
+              "line": 6,
+              "text": "溢出到符号位",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "无符号右移，Python 没有这个运算符",
+              "tone": "info"
+            },
+            {
+              "line": 9,
+              "text": "所有位运算都先把操作数转成「32 位有符号整数」再算，",
+              "tone": "warn"
+            },
+            {
+              "line": 13,
+              "text": "常用技巧：`n | 0` 取整（有范围限制）、`n & 1` 判奇偶",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "5 & 3        # 1\n5 | 3        # 7\n5 ^ 3        # 6\n~5           # -6\n1 << 3       # 8\n1 << 31      # 2147483648\n1 << 200     # 任意精度，不丢位\n\n# Python 没有 >>>（无符号右移）——因为整数不是定长的，没有「无符号」概念\n#        需要时只能用掩码模拟：(n & 0xFFFFFFFF) >> 1\n\nbin(5)       # '0b101'\nhex(255)     # '0xff'",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">        # 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> |</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">        # 7</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> ^</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">        # 6</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">~</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-comment)\">           # -6</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">       # 8</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 31</span><span style=\"color:var(--shiki-token-comment)\">      # 2147483648</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 200</span><span style=\"color:var(--shiki-token-comment)\">     # 任意精度，不丢位</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># Python 没有 >>>（无符号右移）——因为整数不是定长的，没有「无符号」概念</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">#        需要时只能用掩码模拟：(n &#x26; 0xFFFFFFFF) >> 1</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">bin</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">       # '0b101'</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">hex</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">255</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">     # '0xff'</span></span></code></pre>",
+          "lineCount": 13,
+          "notes": [
+            {
+              "line": 4,
+              "text": "按位取反（结果是 -(n+1)，因为是任意精度补码语义）",
+              "tone": "info"
+            },
+            {
+              "line": 6,
+              "text": "不会溢出到负数，JS 会",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "Python 没有 >>>（无符号右移）——因为整数不是定长的，没有「无符号」概念",
+              "tone": "warn"
+            },
+            {
+              "line": 12,
+              "text": "有专门的进制转换内置函数",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "5 & 3;      // 1\n5 | 3;      // 7\n5 ^ 3;      // 6\n!5u32;      // 4294967290\n\n1u32 << 3;  // 8\n-8i32 >> 1; // -4\n\n// Rust 没有 >>> ：整数类型本身区分有无符号，\n//        无符号数的 >> 就是逻辑右移，不需要单独的运算符",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> |</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 7</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-keyword)\"> ^</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 6</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">!</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-function)\">u32</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 4294967290</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-function)\">u32</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;  </span><span style=\"color:var(--shiki-token-comment)\">// 8</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">8</span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-token-keyword)\"> >></span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; </span><span style=\"color:var(--shiki-token-comment)\">// -4</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 没有 >>> ：整数类型本身区分有无符号，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        无符号数的 >> 就是逻辑右移，不需要单独的运算符</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 4,
+              "text": "按位取反是 !，不是 ~（~ 在 Rust 里不存在）",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "有符号右移是算术右移",
+              "tone": "info"
+            },
+            {
+              "line": 9,
+              "text": "Rust 没有 >>> ：整数类型本身区分有无符号，",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "basics/comparison-operators",
+      "chapterId": "basics/03-operators",
+      "title": "大小比较",
+      "kind": "behavior",
+      "summary": "字符串比较与跨类型比较",
+      "bodyHtml": "<p>数值比较两边一致。差异在另外两处：\n① <strong>字符串比较</strong>：JS 按 UTF-16 码元逐位比较（所以 <code>'a' &lt; 'B'</code> 是 false），\nPython 按 Unicode 码点比较（行为类似，但对非 ASCII 的处理更符合直觉）；\n② <strong>跨类型比较</strong>：JS 的 <code>&lt;</code> 会做隐式转换（<code>'2' &lt; 10</code> 为 true），\nPython 3 直接抛 <code>TypeError: '&lt;' not supported between instances of 'str' and 'int'</code>。\n第二条是好事：迁移后这类隐蔽 bug 会立刻暴露。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "1 < 2                   // true\n\"a\" < \"b\"               // true\n\nvar i int = 1\nvar j int64 = 2\n// i < j                // 编译错误：类型不一致\nfloat64(i) < float64(j) // 必须显式转换\n\n// Go 要求两侧类型完全一致，没有隐式提升 —— 比 JS 严格得多",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">                   // true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-string-expression)\"> \"b\"</span><span style=\"color:var(--shiki-token-comment)\">               // true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> j </span><span style=\"color:var(--shiki-token-keyword)\">int64</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 2</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// i &#x3C; j                // 编译错误：类型不一致</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-foreground)\">(i) </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\"> float64</span><span style=\"color:var(--shiki-foreground)\">(j) </span><span style=\"color:var(--shiki-token-comment)\">// 必须显式转换</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 要求两侧类型完全一致，没有隐式提升 —— 比 JS 严格得多</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 2,
+              "text": "字符串可直接比较（字典序）",
+              "tone": "info"
+            },
+            {
+              "line": 7,
+              "text": "必须显式转换",
+              "tone": "info"
+            },
+            {
+              "line": 9,
+              "text": "Go 要求两侧类型完全一致，没有隐式提升 —— 比 JS 严格得多",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "1 < 2;                  // true\n// \"a\" < \"b\";           // 编译错误：字符串不能用 < 比较\n\"a\".compareTo(\"b\");     // -1\n\"a\".equals(\"a\");        // 内容相等用 equals\n\n// Java 没有跨类型隐式比较：数值与布尔不能比，引用类型不能与 < 比，\n//        一切类型不匹配都是编译错误",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;                  </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// \"a\" &#x3C; \"b\";           // 编译错误：字符串不能用 &#x3C; 比较</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">compareTo</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"b\"</span><span style=\"color:var(--shiki-foreground)\">);     </span><span style=\"color:var(--shiki-token-comment)\">// -1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">equals</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-foreground)\">);        </span><span style=\"color:var(--shiki-token-comment)\">// 内容相等用 equals</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Java 没有跨类型隐式比较：数值与布尔不能比，引用类型不能与 &#x3C; 比，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        一切类型不匹配都是编译错误</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 3,
+              "text": "字符串比较要用 compareTo",
+              "tone": "info"
+            },
+            {
+              "line": 6,
+              "text": "Java 没有跨类型隐式比较：数值与布尔不能比，引用类型不能与 < 比，",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "'2' < 10;        // true\n'2' < '10';      // false\n'a' < 'B';       // false\n[1] < [2];       // true\n\nnull < 1;        // false  —— null 转成 0？不，这里走的是另一套规则，结果反直觉\nundefined < 1;   // false\n\n// Python 3 里 '2' < 10 直接抛 TypeError，不允许跨类型比较大小\n// JS 里这类隐式转换不会报错，只会给出错误答案",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">'2'</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">'2'</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-string-expression)\"> '10'</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// false</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">'a'</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-string-expression)\"> 'B'</span><span style=\"color:var(--shiki-foreground)\">;       </span><span style=\"color:var(--shiki-token-comment)\">// false</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">];       </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">null</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// false  —— null 转成 0？不，这里走的是另一套规则，结果反直觉</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">undefined</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// false</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 3 里 '2' &#x3C; 10 直接抛 TypeError，不允许跨类型比较大小</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// JS 里这类隐式转换不会报错，只会给出错误答案</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 1,
+              "text": "字符串被隐式转成数字",
+              "tone": "warn"
+            },
+            {
+              "line": 2,
+              "text": "两边都是字符串时按 UTF-16 码元逐位比较，不是数值比较",
+              "tone": "warn"
+            },
+            {
+              "line": 3,
+              "text": "小写字母的码元大于大写",
+              "tone": "warn"
+            },
+            {
+              "line": 4,
+              "text": "数组先转成字符串再比，'1' < '2'",
+              "tone": "info"
+            },
+            {
+              "line": 9,
+              "text": "Python 3 里 '2' < 10 直接抛 TypeError，不允许跨类型比较大小",
+              "tone": "warn"
+            },
+            {
+              "line": 10,
+              "text": "JS 里这类隐式转换不会报错，只会给出错误答案",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "# '2' < 10          #\n\n2 < 10              # True   —— 同类型才能比\n'2' < '10'          # False  —— 字符串按 Unicode 码点逐位比较\n'a' < 'B'           # False  —— 小写字母码点大于大写\n[1] < [2]           # True\n\nsorted([3, '1'])    # TypeError：Python 3 拒绝混合类型排序\n\n# 不能比较大小但可以判不等：1 != '1' 是 True，不会报错\n# 想比较异构数据必须显式转换，语言不会替你猜",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># '2' &#x3C; 10          #</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-token-comment)\">              # True   —— 同类型才能比</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">'2'</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-string-expression)\"> '10'</span><span style=\"color:var(--shiki-token-comment)\">          # False  —— 字符串按 Unicode 码点逐位比较</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">'a'</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-string-expression)\"> 'B'</span><span style=\"color:var(--shiki-token-comment)\">           # False  —— 小写字母码点大于大写</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">]           </span><span style=\"color:var(--shiki-token-comment)\"># True</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">sorted</span><span style=\"color:var(--shiki-token-punctuation)\">([</span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">'1'</span><span style=\"color:var(--shiki-token-punctuation)\">])</span><span style=\"color:var(--shiki-token-comment)\">    # TypeError：Python 3 拒绝混合类型排序</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 不能比较大小但可以判不等：1 != '1' 是 True，不会报错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 想比较异构数据必须显式转换，语言不会替你猜</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 1,
+              "text": "TypeError: '<' not supported between instances of 'str' and 'int'",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "列表按元素逐个比较，不是转成字符串",
+              "tone": "info"
+            },
+            {
+              "line": 8,
+              "text": "TypeError：Python 3 拒绝混合类型排序",
+              "tone": "warn"
+            },
+            {
+              "line": 10,
+              "text": "不能比较大小但可以判不等：1 != '1' 是 True，不会报错",
+              "tone": "info"
+            },
+            {
+              "line": 11,
+              "text": "想比较异构数据必须显式转换，语言不会替你猜",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "1 < 2;          // true\n\"a\" < \"b\";      // true\n// 1.0 < 2;     // 编译错误：类型不一致\n\n#[derive(PartialEq, PartialOrd)]\nstruct Version(u32, u32);\n\n// Rust 不做隐式数值提升，跨类型比较必须显式转换；\n//        自定义类型要能比较，得 derive PartialOrd（或手写实现）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-foreground)\"> &#x3C; </span><span style=\"color:var(--shiki-token-string-expression)\">\"b\"</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 1.0 &#x3C; 2;     // 编译错误：类型不一致</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[derive(</span><span style=\"color:var(--shiki-token-function)\">PartialEq</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">PartialOrd</span><span style=\"color:var(--shiki-foreground)\">)]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> Version</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">u32</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">u32</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 不做隐式数值提升，跨类型比较必须显式转换；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        自定义类型要能比较，得 derive PartialOrd（或手写实现）</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 2,
+              "text": "字符串可直接比较（字典序）",
+              "tone": "info"
+            },
+            {
+              "line": 8,
+              "text": "Rust 不做隐式数值提升，跨类型比较必须显式转换；",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "basics/increment-decrement",
+      "chapterId": "basics/03-operators",
+      "title": "自增与自减",
+      "kind": "syntax",
+      "summary": "Python 没有 ++ 和 --",
+      "bodyHtml": "<p>JS 有 <code>i++</code> / <code>++i</code>（前缀后缀还影响表达式值），Python <strong>完全没有</strong>，\n只能写 <code>i += 1</code>。\n这不是小事：<code>for</code> 循环、<code>arr[i++]</code> 这类写法需要整体重写。\n顺带一提，把 <code>i++</code> 直译成 <code>i += 1</code> 时要注意 Python 里没有表达式求值副作用，\n所以 <code>arr[i++]</code> 这种「取值并前进」的写法在 Python 里必须拆成两行。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "i := 0\ni++         // Go 只有后置形式，而且它是**语句不是表达式**\n// j := i++       // 编译错误：i++ 没有返回值\n\n// 与 JS 的关键差异：Go 里 ++ 不产生值，\n//        所以写不出 a = i++，也就没有前置 / 后置的困惑",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-token-comment)\">         // Go 只有后置形式，而且它是**语句不是表达式**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// j := i++       // 编译错误：i++ 没有返回值</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与 JS 的关键差异：Go 里 ++ 不产生值，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        所以写不出 a = i++，也就没有前置 / 后置的困惑</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 2,
+              "text": "Go 只有后置形式，而且它是**语句不是表达式**",
+              "tone": "warn"
+            },
+            {
+              "line": 5,
+              "text": "与 JS 的关键差异：Go 里 ++ 不产生值，",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "int i = 0;\ni++;        // 后置：先用旧值，再自增\n++i;        // 前置：先自增，再给值\ni--; --i;\n\nint a = 1;\nint b = a++;   // b = 1，之后 a = 2\nint c = ++a;   // a 先变 3，c = 3\n\n// Java 完整保留了「副作用 + 返回值」的混合语义（与 JS 一致）\n// 可读性差，实践里建议单独占一行写 i++;",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// 后置：先用旧值，再自增</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">i;        </span><span style=\"color:var(--shiki-token-comment)\">// 前置：先自增，再给值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i</span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">; </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">i;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> a</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// b = 1，之后 a = 2</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> ++</span><span style=\"color:var(--shiki-foreground)\">a;   </span><span style=\"color:var(--shiki-token-comment)\">// a 先变 3，c = 3</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Java 完整保留了「副作用 + 返回值」的混合语义（与 JS 一致）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 可读性差，实践里建议单独占一行写 i++;</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 7,
+              "text": "b = 1，之后 a = 2",
+              "tone": "warn"
+            },
+            {
+              "line": 8,
+              "text": "a 先变 3，c = 3",
+              "tone": "warn"
+            },
+            {
+              "line": 10,
+              "text": "Java 完整保留了「副作用 + 返回值」的混合语义（与 JS 一致）",
+              "tone": "info"
+            },
+            {
+              "line": 11,
+              "text": "可读性差，实践里建议单独占一行写 i++;",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "let i = 0;\n\ni++;             // 返回旧值 0，然后 i 变成 1（后缀）\n++i;             // i 先变成 2，返回新值 2（前缀）\ni--;             // 后缀减\n--i;             // 前缀减\n\ni += 1;          // 与 ++i 效果相同，但返回的是新值（它是赋值表达式）\ni -= 1;\n\nconst arr = [1, 2];\nlet k = 0;\narr[k++];        // 1\n\n// Python 完全没有 ++ / --，i++ 在那里是语法错误；\n//        arr[k++] 必须拆成「先取值、再 k += 1」两行",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// 返回旧值 0，然后 i 变成 1（后缀）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">i;             </span><span style=\"color:var(--shiki-token-comment)\">// i 先变成 2，返回新值 2（前缀）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i</span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// 后缀减</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">i;             </span><span style=\"color:var(--shiki-token-comment)\">// 前缀减</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// 与 ++i 效果相同，但返回的是新值（它是赋值表达式）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">-=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> arr</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">];</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> k </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">arr[k</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">];        </span><span style=\"color:var(--shiki-token-comment)\">// 1</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 完全没有 ++ / --，i++ 在那里是语法错误；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        arr[k++] 必须拆成「先取值、再 k += 1」两行</span></span></code></pre>",
+          "lineCount": 16,
+          "notes": [
+            {
+              "line": 13,
+              "text": "「取值并前进」，一行做两件事",
+              "tone": "warn"
+            },
+            {
+              "line": 15,
+              "text": "Python 完全没有 ++ / --，i++ 在那里是语法错误；",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "# i++   #\ni = 0\ni += 1        # 唯一写法\ni -= 1\ni *= 2\ni //= 2       # 原地整除\ni **= 2\n\n# 没有「表达式带副作用」这回事：+= 是语句，不返回值\n# x = (i += 1)  # 语法错误\n\narr = [1, 2]\nk = 0\nv = arr[k]    # arr[k++] 必须拆成两行\nk += 1",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># i++   #</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">        # 唯一写法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">-=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">*=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">//=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">       # 原地整除</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">**=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 没有「表达式带副作用」这回事：+= 是语句，不返回值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># x = (i += 1)  # 语法错误</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">arr </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">k </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">v </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> arr</span><span style=\"color:var(--shiki-token-punctuation)\">[</span><span style=\"color:var(--shiki-foreground)\">k</span><span style=\"color:var(--shiki-token-punctuation)\">]</span><span style=\"color:var(--shiki-token-comment)\">    # arr[k++] 必须拆成两行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">k </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span></code></pre>",
+          "lineCount": 15,
+          "notes": [
+            {
+              "line": 1,
+              "text": "语法错误。Python 没有自增自减运算符",
+              "tone": "warn"
+            },
+            {
+              "line": 3,
+              "text": "唯一写法",
+              "tone": "info"
+            },
+            {
+              "line": 6,
+              "text": "原地整除",
+              "tone": "info"
+            },
+            {
+              "line": 9,
+              "text": "没有「表达式带副作用」这回事：+= 是语句，不返回值",
+              "tone": "info"
+            },
+            {
+              "line": 14,
+              "text": "arr[k++] 必须拆成两行",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "let mut i = 0;\n// i++;         // 编译错误：Rust 根本没有自增运算符\ni += 1;         // 只能这样写\n\n// 这是 Rust 刻意去掉的：++ 把「副作用」和「返回值」揉在一起，\n//        正是最容易写出 i = i++ 这类 bug 的地方\n// 与 JS 对比时要强调：Rust 不分前置后置，因为压根不存在",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-token-keyword)\"> mut</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// i++;         // 编译错误：Rust 根本没有自增运算符</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// 只能这样写</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这是 Rust 刻意去掉的：++ 把「副作用」和「返回值」揉在一起，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        正是最容易写出 i = i++ 这类 bug 的地方</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与 JS 对比时要强调：Rust 不分前置后置，因为压根不存在</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 3,
+              "text": "只能这样写",
+              "tone": "info"
+            },
+            {
+              "line": 5,
+              "text": "这是 Rust 刻意去掉的：++ 把「副作用」和「返回值」揉在一起，",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "与 JS 对比时要强调：Rust 不分前置后置，因为压根不存在",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "basics/chained-comparison",
+      "chapterId": "basics/03-operators",
+      "title": "链式比较",
+      "kind": "behavior",
+      "summary": "Python 的 a < b < c 与数学写法一致",
+      "bodyHtml": "<p>Python 支持 <code>0 &lt; x &lt; 10</code> 这种链式比较，且语义是<strong>数学上的区间</strong>（等价于 <code>0 &lt; x and x &lt; 10</code>，\n中间的操作数只求值一次）。\nJS 里写 <code>0 &lt; x &lt; 10</code> <strong>不会报错</strong>，但它是 <code>(0 &lt; x) &lt; 10</code>——\n布尔值参与数值比较（<code>true &lt; 10</code> 为 true），所以表达式恒为 true。\n这是极少数「看起来一样、结果完全不同、且不报错」的组合，属于必踩清单。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "a, b, c := 1, 2, 3\n// if a < b < c {}     //\n\nif a < b && b < c {}    // 必须拆开写\n\n// 对比 JS：JS 的 1 < 2 < 3 静默成立，Go 直接编译错误",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a, b, c </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">3</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// if a &#x3C; b &#x3C; c {}     //</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">&#x26;&#x26;</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> c {}    </span><span style=\"color:var(--shiki-token-comment)\">// 必须拆开写</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 对比 JS：JS 的 1 &#x3C; 2 &#x3C; 3 静默成立，Go 直接编译错误</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 2,
+              "text": "编译错误：bool 不能和 int 比较",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "对比 JS：JS 的 1 < 2 < 3 静默成立，Go 直接编译错误",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "int a = 1, b = 2, c = 3;\n// if (a < b < c) {}      //\n\nif (a < b && b < c) {}     // 必须拆成两个条件\n\n// 对比 JS：JS 里 1 < 2 < 3 会**静默成立**（先算 1<2 得 true，\n//        再 true<3 换算成 1<3 得 true），Java 则是直接编译错误 —— 更安全",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// if (a &#x3C; b &#x3C; c) {}      //</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (a </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">&#x26;&#x26;</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> c) {}     </span><span style=\"color:var(--shiki-token-comment)\">// 必须拆成两个条件</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 对比 JS：JS 里 1 &#x3C; 2 &#x3C; 3 会**静默成立**（先算 1&#x3C;2 得 true，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        再 true&#x3C;3 换算成 1&#x3C;3 得 true），Java 则是直接编译错误 —— 更安全</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 2,
+              "text": "编译错误：boolean 不能和 int 比较",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "对比 JS：JS 里 1 < 2 < 3 会**静默成立**（先算 1<2 得 true，",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "const x = 5;\n\n0 < x < 10;             // 结果是 true，但原因不是「x 在区间内」\n// 实际执行顺序：(0 < x) => true，然后 true < 10 => 1 < 10 => true\n// 换成 x = -5 再看看：\nconst y = -5;\n0 < y < 10;             // 仍然是 true ！因为 (0 < -5) => false => 0 < 10 => true\n\nx > 0 && x < 10;        // 正解：必须用逻辑与拆开\n\n// 这个表达式不报错、结果恒为 true，是「看起来对、实际全错」的典型\n// Python 的 0 < x < 10 是真正的链式比较，语义就是数学区间",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> x</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 5</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// 结果是 true，但原因不是「x 在区间内」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 实际执行顺序：(0 &#x3C; x) => true，然后 true &#x3C; 10 => 1 &#x3C; 10 => true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 换成 x = -5 再看看：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> y</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> -</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-foreground)\"> y </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// 仍然是 true ！因为 (0 &#x3C; -5) => false => 0 &#x3C; 10 => true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;&#x26;</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// 正解：必须用逻辑与拆开</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这个表达式不报错、结果恒为 true，是「看起来对、实际全错」的典型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 的 0 &#x3C; x &#x3C; 10 是真正的链式比较，语义就是数学区间</span></span></code></pre>",
+          "lineCount": 12,
+          "notes": [
+            {
+              "line": 3,
+              "text": "结果是 true，但原因不是「x 在区间内」",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "这个表达式不报错、结果恒为 true，是「看起来对、实际全错」的典型",
+              "tone": "warn"
+            },
+            {
+              "line": 12,
+              "text": "Python 的 0 < x < 10 是真正的链式比较，语义就是数学区间",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "x = 5\n\n0 < x < 10            # True\n0 < x < 3             # False\n\n# 等价于 0 < x and x < 10，但中间的 x 只求值一次\ndef get():\n    print('called')\n    return 5\n0 < get() < 10        # 只打印一次 'called'\n\nx == y == z           # 也支持相等链\na < b <= c            # 混合运算符同样可以\n\n# JS 里必须写 0 < x && x < 10，而且直译 0 < x < 10 会静默得到错误结果",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 5</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-token-comment)\">            # True</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">             # False</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 等价于 0 &#x3C; x and x &#x3C; 10，但中间的 x 只求值一次</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> get</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    print</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'called'</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-constant)\"> 5</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-function)\"> get</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-token-comment)\">        # 只打印一次 'called'</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> y </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> z           </span><span style=\"color:var(--shiki-token-comment)\"># 也支持相等链</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;=</span><span style=\"color:var(--shiki-foreground)\"> c            </span><span style=\"color:var(--shiki-token-comment)\"># 混合运算符同样可以</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># JS 里必须写 0 &#x3C; x &#x26;&#x26; x &#x3C; 10，而且直译 0 &#x3C; x &#x3C; 10 会静默得到错误结果</span></span></code></pre>",
+          "lineCount": 15,
+          "notes": [
+            {
+              "line": 3,
+              "text": "真正的链式比较，语义就是数学区间",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "等价于 0 < x and x < 10，但中间的 x 只求值一次",
+              "tone": "info"
+            },
+            {
+              "line": 10,
+              "text": "只打印一次 'called'",
+              "tone": "info"
+            },
+            {
+              "line": 15,
+              "text": "JS 里必须写 0 < x && x < 10，而且直译 0 < x < 10 会静默得到错误结果",
+              "tone": "info"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "let (a, b, c) = (1, 2, 3);\n// if a < b < c {}     //\n\nif a < b && b < c {}    // 必须写 &&\n\n// 对比 JS：JS 的 1 < 2 < 3 会静默得出 true，Rust 直接编译错误",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> (a, b, c) </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// if a &#x3C; b &#x3C; c {}     //</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">&#x26;&#x26;</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\"> c {}    </span><span style=\"color:var(--shiki-token-comment)\">// 必须写 &#x26;&#x26;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 对比 JS：JS 的 1 &#x3C; 2 &#x3C; 3 会静默得出 true，Rust 直接编译错误</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 2,
+              "text": "编译错误：bool 不能和整数比较",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "对比 JS：JS 的 1 < 2 < 3 会静默得出 true，Rust 直接编译错误",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    }
+  ],
+  "summary": "相等比较、算术、短路求值、真值规则"
+}

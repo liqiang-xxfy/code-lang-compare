@@ -1,0 +1,203 @@
+# python —— basics/03-operators 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+
+- featureId: basics/equality
+  equivalence: divergent
+  code: |
+    1 == "1"         # False  —— @note! 不做隐式类型转换，与 JS 的 == 完全不同
+    1 == 1.0         # True   —— 数值之间会跨类型比较
+
+    a is b           # @note! is 判的是对象身份，不是值
+    [] == []         # False  —— 两个不同的列表
+
+    # 小整数有缓存，容易产生「is 好像能用」的错觉
+    x = 256; y = 256
+    x is y           # True   —— @note! 实现细节，不要依赖
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/arithmetic
+  equivalence: divergent
+  code: |
+    7 / 2            # 3.5  —— @note 真除法，与 JS 一致
+    7 // 2           # 3    —— @note 专门的整除运算符（向下取整）
+    -7 // 2          # -4   —— @note! 是 floor 不是 trunc，与 JS 的 Math.trunc 不同
+
+    -7 % 2           # 1    —— @note! 结果符号跟除数走，JS 是 -1
+    divmod(-7, 2)    # (-4, 1) —— 商和余数一起拿，且保证 a == b * q + r
+
+    2 ** 10          # 1024
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/logical-short-circuit
+  equivalence: analogous
+  code: |
+    # and / or 同样返回操作数本身
+    a = "" or "default"      # 'default'
+    b = "x" and "y"          # 'y'
+
+    # 没有 ?? 运算符，等价写法是显式判 None
+    c = "fallback" if a is None else a
+    c = a if a is not None else "fallback"
+
+    # 字典取值有专门的默认值接口
+    d = {}.get("k", "fallback")   # @note 这才是 Python 里最常用的兜底写法
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/truthiness
+  equivalence: divergent
+  code: |
+    bool("")         # False
+    bool("0")        # True   —— @note 非空字符串恒为真，与 JS 一致
+
+    bool([])         # False  —— @note! 空列表是假值，JS 是 true
+    bool({})         # False  —— @note! 空字典也是假值
+    bool(set())      # False
+    bool(())         # False
+    bool(0.0)        # False
+
+    # 所以 Python 里 `if arr:` 真的表示「非空」，而 JS 里不是
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/optional-chaining
+  equivalence: divergent
+  code: |
+    # Python 没有 ?. 语法，惯用做法是逐层兜底
+    city = getattr(getattr(user, "address", None), "city", None)
+
+    # 字典链式取值更常见
+    n = (obj or {}).get("method")
+
+    # 3.8+ 的海象运算符只能在赋值场景省一次重复求值，不能替代安全导航
+    if (m := obj.get("method")) is not None:
+        m()
+
+    # 正解通常是：把「可能缺失」显式建模成 None 并提前返回（早返回）
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/bitwise
+  equivalence: divergent
+  code: |
+    5 & 3        # 1
+    5 | 3        # 7
+    5 ^ 3        # 6
+    ~5           # -6   —— @note 按位取反（结果是 -(n+1)，因为是任意精度补码语义）
+    1 << 3       # 8
+    1 << 31      # 2147483648  —— @note! 不会溢出到负数，JS 会
+    1 << 200     # 任意精度，不丢位
+
+    # @note! Python 没有 >>>（无符号右移）——因为整数不是定长的，没有「无符号」概念
+    #        需要时只能用掩码模拟：(n & 0xFFFFFFFF) >> 1
+
+    bin(5)       # '0b101' —— @note 有专门的进制转换内置函数
+    hex(255)     # '0xff'
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/comparison-operators
+  equivalence: divergent
+  code: |
+    # '2' < 10          # @note! TypeError: '<' not supported between instances of 'str' and 'int'
+
+    2 < 10              # True   —— 同类型才能比
+    '2' < '10'          # False  —— 字符串按 Unicode 码点逐位比较
+    'a' < 'B'           # False  —— 小写字母码点大于大写
+    [1] < [2]           # True   —— @note 列表按元素逐个比较，不是转成字符串
+
+    sorted([3, '1'])    # @note! TypeError：Python 3 拒绝混合类型排序
+
+    # @note 不能比较大小但可以判不等：1 != '1' 是 True，不会报错
+    # @note 想比较异构数据必须显式转换，语言不会替你猜
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/increment-decrement
+  equivalence: divergent
+  code: |
+    # i++   # @note! 语法错误。Python 没有自增自减运算符
+    i = 0
+    i += 1        # @note 唯一写法
+    i -= 1
+    i *= 2
+    i //= 2       # @note 原地整除
+    i **= 2
+
+    # @note 没有「表达式带副作用」这回事：+= 是语句，不返回值
+    # x = (i += 1)  # 语法错误
+
+    arr = [1, 2]
+    k = 0
+    v = arr[k]    # @note arr[k++] 必须拆成两行
+    k += 1
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'
+
+- featureId: basics/chained-comparison
+  equivalence: divergent
+  code: |
+    x = 5
+
+    0 < x < 10            # True —— @note! 真正的链式比较，语义就是数学区间
+    0 < x < 3             # False
+
+    # @note 等价于 0 < x and x < 10，但中间的 x 只求值一次
+    def get():
+        print('called')
+        return 5
+    0 < get() < 10        # @note 只打印一次 'called'
+
+    x == y == z           # 也支持相等链
+    a < b <= c            # 混合运算符同样可以
+
+    # @note JS 里必须写 0 < x && x < 10，而且直译 0 < x < 10 会静默得到错误结果
+  review:
+    state: reviewed
+    provenance:
+      origin: manual
+      license: CC-BY-4.0
+    reviewedBy: 阿岩
+    reviewedAt: '2026-10-01'

@@ -1,0 +1,183 @@
+# rust —— basics/04-strings 的实现
+# 上下文：片段默认位于某个 fn 内部。⚠️ 本机无 Rust 工具链，未做执行验证，待补校对。
+
+- featureId: basics/string-literal
+  equivalence: divergent
+  code: |
+    let s1: &str = "字符串字面量";        // @note &str：借用的 UTF-8 字符串切片
+    let s2: String = String::from("拥有所有权的字符串");   // @note String：可增长、可改
+    let c = 'A';                         // char，单引号
+
+    // @note! Rust 有两种字符串类型，这是入门最大的门槛：
+    //        &str 是「借来的视图」，String 是「自己拥有的数据」
+    // @note JS 只有一种字符串，不需要做这个区分
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/template-string
+  equivalence: analogous
+  code: |
+    let name = "Ada";
+    format!("hi, {name}!");          // @note format! 是宏，返回 String
+    println!("hi, {}!", name);       // 老写法
+
+    // @note Rust 没有「字符串插值」语法，一切靠 format! 宏
+    // @note 好处是「拼接」和「格式化」在语法上就分开了，
+    //       不会像 JS 那样把 + 和模板串混着用
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-methods
+  equivalence: divergent
+  code: |
+    let s = "Hello";
+
+    s.len();               // @note! 返回**字节数**，不是字符数（中文一个字符 3 字节）
+    s.chars().count();     // @note 要数「字符」得这样
+    s.to_uppercase();      // @note 是 to_uppercase，不是 toUpperCase
+    s.trim();
+    s.replace("a", "b");   // 换全部
+    s.contains("ell");
+    s.is_empty();
+    s.split(',');          // 返回迭代器，不是数组
+
+    // @note! len() 给的是字节数 —— 中文长度会「变长」，这是 Rust 最容易踩的坑之一
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/multiline-string
+  equivalence: divergent
+  code: |
+    let s = "line1
+    line2";              // @note 字面量里可以直接换行，换行符会保留
+
+    let t = "line1\
+        line2";      // @note 用 \ 续行：连换行带缩进一起吃掉 -> "line1line2"
+
+    // @note Rust 没有文本块语法，缩进要自己处理
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/fstring-format
+  equivalence: identical
+  code: |
+    format!("{:.2}", 3.14159);        // "3.14"
+    format!("{:8.2}", 3.14159);       // "    3.14"  —— @note 总宽度 8
+    format!("{:08.2}", 3.14159);      // "00003.14"
+    format!("{:.0}%", 0.25 * 100.0);  // "25%"
+    format!("{:>8}", "a");            // "       a"  —— 对齐用 >
+
+    // @note! Rust 的格式说明符与 Python 的 f-string 几乎同构（都是 {} 里写 :.2f 那一套）
+    //        从 Python 过来几乎零成本，从 JS 过来要重新学一遍
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-index-slice
+  equivalence: divergent
+  code: |
+    let s = "hello";
+    // s[0];                 // @note! 编译错误：Rust 不允许用整数索引字符串
+
+    &s[0..2];                // "he" —— @note 用**字节区间**切片（左闭右开）
+
+    let zh = "中文";
+    // &zh[0..1];            // @note! 运行时 panic：不在字符边界上
+    zh.get(0..1);            // None —— @note 安全版本返回 Option
+
+    // @note! 报错信息很直白：byte index 1 is not a char boundary
+    //        Rust 逼你正面处理「UTF-8 变长」，不像 JS 用 UTF-16 把它掩盖过去
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-regex
+  equivalence: divergent
+  code: |
+    use regex::Regex;        // @note 正则不在标准库里，要引入 regex crate
+
+    let re = Regex::new(r"\d+").unwrap();
+    re.is_match("abc123");   // true
+
+    let caps = Regex::new(r"(?<num>\d+)").unwrap();
+    caps.captures("abc123").unwrap().name("num").unwrap().as_str();   // "123"
+
+    // @note 用原始字符串 r"..." 写正则，反斜杠不用双写 —— 比 Java 舒服
+    // @note! 代价是引入外部依赖：Rust 标准库刻意不含正则
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-concat
+  equivalence: divergent
+  code: |
+    let a = String::from("x");
+    let b = "y";
+
+    a + b;                      // @note! + 会**移动** a（之后 a 不可再用）
+    format!("{a}{b}");          // @note 更常用，且不夺走所有权
+
+    let mut sb = String::new();
+    sb.push_str("x");
+    sb.push('y');
+
+    vec!["a", "b"].join(",");   // @note 分隔符在**前面**，与 JS 的 array.join 主宾语相反
+
+    // @note! 「拼接会移动左操作数」是与 JS 差别最大的一处：字符串拼接是有代价的
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/string-raw-escape
+  equivalence: analogous
+  code: |
+    let path = r"C:\Users\name";      // @note r"" 原始字符串：反斜杠不用双写
+    let re = r"\d+";
+
+    let s = r#"含 "引号" 的原始串"#;   // @note 内容含引号时用 r#""#
+
+    // @note! Rust 的 r"" 与 Python 的 r"" 语义一致（都禁转义），
+    //        而 JS 没有这个语法 —— 从 JS 过来算是福利
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'

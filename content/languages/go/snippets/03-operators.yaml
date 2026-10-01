@@ -1,0 +1,179 @@
+# go —— basics/03-operators 的实现
+# 上下文：片段默认位于某个 func 内部；假定已 import 所需包。
+# ⚠️ 本机无 Go 工具链，未做执行验证，待补校对。
+
+- featureId: basics/equality
+  equivalence: divergent
+  code: |
+    a, b := 1000, 1000
+    a == b                              // true —— @note Go 的 == 是值比较
+
+    type Point struct{ X, Y int }
+    Point{1, 2} == Point{1, 2}          // true —— @note 结构体可逐字段比较
+
+    // @note! 但不是所有类型都能比：slice / map / func 不可比较
+    // s := []int{1}
+    // s == s                           // 编译错误：slices can only be compared to nil
+
+    // @note! map / slice 想比内容要用 reflect.DeepEqual 或 slices.Equal
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/arithmetic
+  equivalence: divergent
+  code: |
+    7 / 2       // 3    —— @note! 整数相除截断（JS 给 3.5）
+    7 % 2       // 1
+    -7 % 2      // -1   —— 符号跟被除数走
+
+    var zero = 0
+    // 7 / zero         // @note! 运行时 panic: integer divide by zero
+    // 7 / 0            // 常量除零则是**编译错误**
+
+    float64(7) / 2      // 3.5 —— 需要浮点结果必须显式转
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/logical-short-circuit
+  equivalence: divergent
+  code: |
+    // && / || 只返回 bool，不返回操作数
+    // s := name && "default"     // 编译错误
+
+    // @note Go 没有「短路返回操作数」的语义，
+    //       对应 JS 的 a || b 惯用法要写成显式的 if / 默认值赋值
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/truthiness
+  equivalence: divergent
+  code: |
+    var arr []int
+    // if arr {}       // 编译错误：non-boolean condition
+    if len(arr) > 0 {}  // @note 必须显式比较
+
+    // @note 与 JS 的 if (arr.length) 无缘 —— Go 里判空要写 len(arr) > 0 或 arr != nil
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/optional-chaining
+  equivalence: divergent
+  code: |
+    type Address struct{ City string }
+    type User struct {
+        Address *Address      // @note 用指针表达「可能没有」
+    }
+
+    var u *User
+    // u.Address.City         // @note! panic: nil pointer dereference
+
+    // @note Go 没有 ?. ，必须逐层判断
+    var city string
+    if u != nil && u.Address != nil {
+        city = u.Address.City
+    }
+
+    // @note 「逐层判空」是 Go 代码里最常见的噪声来源之一
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/bitwise
+  equivalence: divergent
+  code: |
+    5 & 3       // 1
+    5 | 3       // 7
+    5 ^ 3       // 6
+    ^5          // -6   —— @note! Go 用 ^ 表示按位取反（不是 JS 的 ~）
+
+    1 << 3      // 8
+    -8 >> 1     // -4   —— @note 算术右移
+
+    5 &^ 3      // 4    —— @note! Go 独有的「位清除」：a &^ b 等价于 a AND (NOT b)
+
+    // @note 取反符号与 JS 不同，是这一节最容易写错的地方
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/comparison-operators
+  equivalence: divergent
+  code: |
+    1 < 2                   // true
+    "a" < "b"               // true —— @note 字符串可直接比较（字典序）
+
+    var i int = 1
+    var j int64 = 2
+    // i < j                // 编译错误：类型不一致
+    float64(i) < float64(j) // @note 必须显式转换
+
+    // @note! Go 要求两侧类型完全一致，没有隐式提升 —— 比 JS 严格得多
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/increment-decrement
+  equivalence: divergent
+  code: |
+    i := 0
+    i++         // @note! Go 只有后置形式，而且它是**语句不是表达式**
+    // j := i++       // 编译错误：i++ 没有返回值
+
+    // @note! 与 JS 的关键差异：Go 里 ++ 不产生值，
+    //        所以写不出 a = i++，也就没有前置 / 后置的困惑
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/chained-comparison
+  equivalence: divergent
+  code: |
+    a, b, c := 1, 2, 3
+    // if a < b < c {}     // @note! 编译错误：bool 不能和 int 比较
+
+    if a < b && b < c {}    // 必须拆开写
+
+    // @note! 对比 JS：JS 的 1 < 2 < 3 静默成立，Go 直接编译错误
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'

@@ -1,0 +1,198 @@
+# go —— basics/01-variables 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+# 上下文：片段默认位于某个 func 内部；顶层 func / type / var 为包级声明。假定已 import "fmt"。
+# ⚠️ 内容状态：本机无 Go 工具链，未做执行验证。按 Go 1.22+ 语义书写，待补校对。
+
+- featureId: basics/var-declaration
+  equivalence: divergent
+  code: |
+    var count int = 0
+    var name = "Ada"          // 类型可由右侧推断
+    count := 0                // @note := 是「短变量声明」：声明 + 赋值，只能在函数内用
+
+    const MaxRetry = 3        // @note const 是真正的编译期常量
+
+    // @note! Go 严格区分声明与赋值：:= 声明新变量，= 只赋值。
+    //        JS 的 let 把两件事合并了；Go 里混用会直接编译错误
+    //        （左侧若没有新变量，会报 "no new variables on left side of :="）
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-scope
+  equivalence: analogous
+  code: |
+    {
+        inside := 1
+        fmt.Println(inside)
+    }
+    // inside -> 编译错误：undefined: inside
+
+    // @note if / for 的初始化语句也自带作用域，变量只活在那个块里
+    if v := compute(); v > 0 {
+        fmt.Println(v)
+    }
+    // 这里已经看不到 v 了
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/hoisting
+  equivalence: absent
+  body: |
+    Go **没有变量提升**，而且比「无提升」更进一步：**声明了不用也是编译错误**。
+
+    「未使用变量即报错」是 Go 独有的约束（包级变量不受此限），
+    写迁移代码时最容易被它拦住 —— 在 JS / Python 里留一个没用到的中间变量完全合法，
+    在 Go 里必须删掉或显式写成 `_ = v`。
+  code: |
+    // Go 没有变量提升；而且比「无提升」更进一步 —— 声明了不用也会编译错误
+    v := 1
+    // 编译错误：v declared and not used
+
+    // @note! 「未使用变量即报错」是 Go 独有的约束（包级变量不受此限）。
+    //        写迁移代码时最容易被它拦住：JS / Python 里留个没用到的中间变量完全合法
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/const-immutability
+  equivalence: divergent
+  code: |
+    const MaxRetry = 3        // @note const 只能修饰编译期常量（数值 / 字符串 / 布尔）
+    const Greeting = "hi"
+
+    type User struct{ Name string }
+    user := User{Name: "Ada"}
+    user.Name = "Grace"       // @note! 完全合法：Go 没有「不可变变量」这个概念
+
+    // @note Go 里没有 final / readonly / 冻结对象这一套。
+    //        想让值不可变只能靠约定：字段不导出 + 只提供构造函数
+    type Account struct{ name string }
+    func NewAccount(n string) Account { return Account{name: n} }
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/naming-convention
+  equivalence: divergent
+  code: |
+    var userName string       // @note 变量 / 函数：camelCase —— 与 JS 一致
+    const MaxRetry = 3        // @note 常量：PascalCase（不是 JS 的 SCREAMING_SNAKE_CASE）
+
+    // @note! 首字母大小写不是风格，而是「导出性」—— 决定包外能否访问
+    type User struct {
+        Name string           // 导出：其他包可见
+        age  int              // 不导出：仅本包内可见
+    }
+
+    // @note 这条最容易在迁移时踩：改个大小写就从「公开 API」变成「私有字段」，
+    //       而且不会有任何报错，只是别处编译不过
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-destructuring
+  equivalence: divergent
+  code: |
+    a, b := 1, 2                        // @note 多重赋值（不是解构）
+
+    // @note Go 没有结构体 / 对象解构，只能逐字段取
+    u := User{Name: "Ada"}
+    name := u.Name
+
+    // @note 最接近解构的两个场景：range 与类型断言
+    for k, v := range map[string]int{"a": 1} { _, _ = k, v }
+    r, ok := any("x").(string)          // 类型断言也返回两个值
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-multiple-assign
+  equivalence: analogous
+  code: |
+    a, b := 1, 2
+    a, b = b, a        // @note 右侧先整体求值再赋值，所以能直接交换
+
+    // @note 这是 Go 比 JS 更简洁的地方：JS 要写成 [a, b] = [b, a]
+    // @note! 但注意 := 与 = 的区别：交换必须用 =，用 := 会变成声明两个新变量
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-global-declaration
+  equivalence: divergent
+  code: |
+    var counter = 0        // 包级变量
+
+    func bump() {
+        counter += 1       // @note 直接改包级变量，不需要任何声明
+    }
+
+    func shadow() {
+        counter := 99      // @note! := 创建了新的局部变量，包级那个没被改
+        fmt.Println(counter)
+    }
+
+    // @note Go 用「:= vs =」把「新建」和「赋值」在语法上分开了，
+    //       所以不会出现 Python 那种「以为在改外层、其实创建了局部」的静默错误
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
+
+- featureId: basics/var-shadowing
+  equivalence: analogous
+  code: |
+    var value = 1
+
+    func f() {
+        value := 2           // @note := 遮蔽包级变量
+        fmt.Println(value)   // 2
+    }
+    // 包级的 value 仍然是 1
+
+    // @note! 最容易无意遮蔽的地方是 if / for 的短声明
+    err := doA()
+    if err := doB(); err != nil {   // 这是新的 err，前面那个没被改
+        fmt.Println(err)
+    }
+    return err                      // 这里返回的还是 doA 的结果
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: workbuddy-agent
+      promptTemplateId: p5-add-languages-v1
+      generatedAt: '2026-10-01'
