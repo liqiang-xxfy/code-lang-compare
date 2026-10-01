@@ -1,0 +1,138 @@
+id: js2rust/01-functions
+topicId: js2rust
+title: 模块 1 · 函数与参数传递
+order: 1
+summary: 从 JavaScript 到 Rust：参数不只是「传什么」，还要回答「谁拥有它」
+
+features:
+  - id: js2rust/intro
+    title: 这个模块要解决什么
+    kind: concept
+    summary: 参数传递从「运行时才知道」变成「编译期必须说清楚」
+    body: |
+      JS → Rust 的函数迁移，语法层面的变化其实不大：`function f(a, b)` 对应
+      `fn f(a: i32, b: i32)`，主要多出的是类型标注。
+
+      真正的断层在**所有权**。JS 里传一个对象给函数，你不需要回答"传完之后原变量还能不能用"，
+      因为 GC 会兜底。Rust 里这个问题**必须由你在签名上回答**，而且答错了编译不过。
+
+      三种选择，对应三种签名：
+
+      | 你想做什么 | 签名 | 调用方之后还能用原值吗 |
+      | --- | --- | --- |
+      | 只读看一眼 | `fn f(v: &T)` | 能 |
+      | 要修改它 | `fn f(v: &mut T)` | 能（借用结束后） |
+      | 要拿走 / 存起来 / 返回 | `fn f(v: T)` | **不能** |
+
+      这个模块接下来就按这三条线展开，并说明 Rust 没有默认参数、没有变参时该怎么办。
+
+  - id: js2rust/param-passing
+    title: 参数传递：借用还是移动
+    kind: behavior
+    refFeatureId: basics/arg-passing
+    summary: 同一个 JS 函数，在 Rust 里要按用途拆成三种签名
+    body: |
+      JS 里这个函数只需要一个签名：
+
+      ```js
+      function label(user) { return user.name.toUpperCase() }
+      ```
+
+      Rust 里，它的签名取决于**你还想不想用 `user`**：
+
+      ```rust
+      fn label(user: &User) -> String { user.name.to_uppercase() }   // 借用：调用方仍拥有 user
+      ```
+
+      如果写成 `fn label(user: User) -> String`（按值），调用之后 `user` 就被**移动**走了，
+      再用它就是编译错误。这不是运行时检查，是编译期直接拒绝。
+
+      **迁移心智**：把 JS 里「函数的参数」理解成默认是**借用**（`&T`）——
+      这和 JS 的行为最接近（调用方保留自己的引用）。
+      只有当你确实要把所有权交出去（存进结构体、放进线程、返回出去）时才用按值。
+
+      **迁移要点**：`&mut T` 是 JS 里完全没有对应物的概念 ——
+      「可变借用期间不能同时存在其他借用」这条规则会让"先取两个引用再改其中一个"的写法编译失败，
+      需要改成先收集、再修改。
+
+  - id: js2rust/defaults
+    title: 默认参数：Rust 没有，用 Option 或 Builder
+    kind: behavior
+    refFeatureId: basics/default-params
+    summary: 可选性由类型系统表达，而不是默认值
+    body: |
+      Rust **没有默认参数**，也没有函数重载。可选性有两条正统路径。
+
+      **路径一：`Option<T>`**（可选参数少、逻辑简单时）
+
+      ```rust
+      fn connect(host: &str, port: Option<u16>) -> Connection {
+          let port = port.unwrap_or(8080);
+          // ...
+      }
+      ```
+
+      调用方必须显式写 `None` 或 `Some(8080)` —— 没有"省略"这回事。
+
+      **路径二：Builder**（可选参数多时，与 Java 那条路径同源）
+
+      ```rust
+      let c = Connection::builder().host("db").tls(true).build();
+      ```
+
+      **迁移要点**：Rust 的 `Option<T>` 与 JS 的 `undefined` 看起来像，但有一个根本差别 ——
+      `Option` 是**类型的一部分**，编译器强制你在使用前处理 `None` 分支。
+      JS 里 `x ?? 默认值` 是可选的心智负担，Rust 里它是强制的，
+      这正是「JS 迁移到 Rust 后 bug 变少但写起来更啰嗦」的主要来源。
+
+  - id: js2rust/variadic
+    title: 可变参数：没有变参函数，用切片或宏
+    kind: syntax
+    refFeatureId: basics/rest-params
+    summary: 定长参数 + 切片是正统写法
+    body: |
+      Rust **不支持可变参数函数**（`fn f(args: ...)` 这种写法不存在）。
+
+      标准替代是**接收一个切片**：
+
+      ```rust
+      fn sum(nums: &[i32]) -> i32 {
+          nums.iter().sum()
+      }
+      sum(&[1, 2, 3]);
+      ```
+
+      需要"任意个同类型参数"的调用体验时，用数组字面量或 `vec![]` 在调用处包一层。
+
+      只有宏（`println!` 那种）才真正支持变参，而宏是编译期展开的另一套机制，
+      不是普通函数能力。
+
+      **迁移要点**：JS 里 `f(...args)` 与 `f([1,2,3])` 是两种调用风格，
+      Rust 里只剩后者。所以从 JS 迁移时，「收任意个参数」的函数要重新设计成
+      「收一个集合」—— 这通常反而让签名更清晰，但调用方需要改写。
+      如果参数是**不同类型**（JS 里常见的 `console.log(a, b, c)` 模式），
+      Rust 里没有直接对应物，只能用枚举或宏。
+
+  - id: js2rust/exercise
+    title: 练习：为同一个函数选签名
+    kind: exercise
+    summary: 三个用途，三种签名，选错编译不过
+    body: |
+      下面这个 JS 函数被三处调用，用途各不相同：
+
+      ```js
+      function normalize(name) { return name.trim().toLowerCase() }
+      ```
+
+      1. 调用方 `a`：算完之后还要继续用原来的 `name`
+      2. 调用方 `b`：算完之后不再需要 `name`
+      3. 调用方 `c`：希望就地改掉 `name`（原地去空格、转小写）
+
+      请分别给出适合这三种用途的 Rust 签名，并说明为什么另外两种在对应的场景下
+      会更差（而不是"不对"）。
+
+      对照参考实现时请留意第 3 种：`&mut String` 的就地修改在 Rust 里可行，
+      但它会**独占**这个值，调用方在借用期间不能读它 —— 这条约束在 JS 里不存在，
+      是从 JS 迁移过来时最容易低估的一处。
+
+      （提示：`&str` 与 `&String` 的区别在本练习里会决定第 1 种签名的写法。）

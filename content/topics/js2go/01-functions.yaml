@@ -1,0 +1,149 @@
+id: js2go/01-functions
+topicId: js2go
+title: 模块 1 · 函数与参数传递
+order: 1
+summary: 从 JavaScript 到 Go：函数是第一等公民，但返回值、错误和可选参数都要重新学
+
+features:
+  - id: js2go/intro
+    title: 这个模块要解决什么
+    kind: concept
+    summary: Go 保留了「函数是值」，却在参数与返回值上全面改写了规则
+    body: |
+      在本次对比的几门语言里，**Go 与 JavaScript 的函数形态最接近**：
+      函数是一等值，可以赋值、传参、返回，也有闭包和匿名函数。
+      顶层函数无需挂在类上（对比 Java），参数传递也没有所有权问题（对比 Rust）。
+
+      但有三处规则被彻底改写了，而且都会影响代码组织方式：
+
+      - **多返回值是原生的**：`return a, b` 不是语法糖，就是返回两个值
+      - **错误是返回值，不是异常**：每个可能失败的调用都要显式处理
+      - **没有默认参数**：可选性靠「函数选项模式」（functional options）
+
+      这个模块按参数传递、默认参数、可变参数三条线展开，
+      并在练习里把「多返回值 + 错误处理」这组 Go 的核心习惯完整走一遍。
+
+  - id: js2go/param-passing
+    title: 参数传递：一切都是值，包括函数
+    kind: behavior
+    refFeatureId: basics/arg-passing
+    summary: 结论与 JS 一致，但 Go 没有引用类型这一层包装
+    body: |
+      Go 的规则和 Java 一样干净：**只有值传递**。
+
+      「传对象时看起来像传引用」同样来自"副本指向同一个底层数据"：
+      slice、map、channel 都是**包含指针的描述符**，传进函数的是描述符的副本。
+      所以「改元素」调用方看得见，「重新赋值参数」调用方看不见。
+
+      与 JS 的关键差异在 **slice 的扩容**：
+
+      ```go
+      func appendOne(s []int) {
+          s = append(s, 1)   // 若触发扩容，s 指向了新的底层数组
+      }
+      ```
+
+      调用方**看不到**这个新增的元素。JS 里数组 `push` 永远改的是同一个对象，
+      不存在这层"可能换了个底层数组"的语义。
+
+      **迁移陷阱**：从 JS 迁移时最容易写出「函数内 append 然后指望调用方拿到」的代码。
+      Go 的正统写法是让函数**返回新的 slice**，而不是偷偷改。
+
+  - id: js2go/defaults
+    title: 默认参数：Go 没有，用函数选项模式
+    kind: behavior
+    refFeatureId: basics/default-params
+    summary: 可变参数 + 函数类型，拼出 Go 惯用的可选配置
+    body: |
+      Go **没有默认参数**，也没有重载。可选配置的正统解法是
+      **函数选项模式（functional options）**——把「可变参数」和「函数是值」
+      两个特性拼起来：
+
+      ```go
+      type Option func(*Config)
+
+      func WithTimeout(d time.Duration) Option {
+          return func(c *Config) { c.timeout = d }
+      }
+
+      func NewServer(addr string, opts ...Option) *Server {
+          c := &Config{addr: addr, timeout: 30 * time.Second}   // 默认值在这里
+          for _, opt := range opts { opt(c) }
+          return &Server{cfg: c}
+      }
+
+      // 调用方
+      s := NewServer(":8080", WithTimeout(5*time.Second))
+      ```
+
+      几处值得注意的地方：
+
+      - 默认值集中在构造函数里写一次，而不是散在参数表上
+      - 调用方只写自己关心的选项，且**顺序无关**
+      - 加一个新选项不需要改任何已有签名 —— 这是它比重载链优越的根本原因
+
+      **迁移要点**：JS 里 `{ timeout = 3000 } = {}` 解构默认值很好用，
+      迁到 Go 时要整段改写。不要用「传零值表示不设置」凑合 ——
+      那会让「超时设为 0」和「没设置超时」无法区分。
+
+  - id: js2go/variadic
+    title: 可变参数：Go 有原生变参，但必须同类型
+    kind: syntax
+    refFeatureId: basics/rest-params
+    summary: '`...T` 收成切片，最后一个参数，且只有一条'
+    body: |
+      Go 原生支持变参，写法与 JS 的 `...args` 形似：
+
+      ```go
+      func sum(nums ...int) int {
+          total := 0
+          for _, n := range nums { total += n }
+          return total
+      }
+      sum(1, 2, 3)
+      sum(slice...)      // 展开一个已有切片
+      ```
+
+      与 JS 的差异：
+
+      | 维度 | JS `...args` | Go `...T` |
+      | --- | --- | --- |
+      | 收集成 | 数组 | **切片** |
+      | 位置 | 任意 | **必须是最后一个参数，且只能有一个** |
+      | 展开已有集合 | `f(...arr)` | `f(slice...)`（`...` 写在**调用方**，位置不同） |
+      | 类型 | 可混合 | **必须同一个类型** |
+
+      `f(slice...)` 这个写法本身就是 Go 的惯用法来源之一 ——
+      上面那条"让函数返回新 slice"的建议，配合调用方的 `...` 展开，
+      构成了 Go 里处理集合的常见形状。
+
+      **迁移陷阱**：`sum()` 不传任何参数是合法的，得到空切片；
+      但 `sum(nil...)` 与 `sum()` 在底层有细微差别（nil slice vs 空切片），
+      在需要区分「没有」和「空」的场合要显式处理。
+
+  - id: js2go/exercise
+    title: 练习：把 JS 的「抛异常 + 返回对象」改成 Go 的写法
+    kind: exercise
+    summary: 多返回值 + error，一次改掉两个习惯
+    body: |
+      下面这段 JS 依赖两个从 JS 带来的习惯：**失败时抛异常**、**成功时返回一个对象**。
+
+      ```js
+      function parsePort(s) {
+        const n = Number.parseInt(s, 10)
+        if (Number.isNaN(n)) throw new Error('不是合法端口')
+        if (n < 1 || n > 65535) throw new Error('端口超出范围')
+        return { port: n, isPrivileged: n < 1024 }
+      }
+      ```
+
+      请改写成 Go 的写法，要求：
+
+      1. 用**多返回值**同时给出结果与错误
+      2. 不抛异常 —— 调用方必须有机会处理
+      3. `isPrivileged` 作为第二个返回值的一部分，保持调用方可用
+
+      对照参考实现时请留意：Go 里 `(int, error)` 和 `(int, bool, error)` 是两种
+      不同的设计取舍，参考实现选的是哪一种、为什么。
+
+      （提示：Go 的惯例是 error 永远是最后一个返回值。）

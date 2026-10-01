@@ -1,0 +1,128 @@
+id: js2java/01-functions
+topicId: js2java
+title: 模块 1 · 方法与参数传递
+order: 1
+summary: 抱着 JavaScript 的函数直觉写 Java：类型、可见性、以及「函数不在类外存在」这件事
+
+features:
+  - id: js2java/intro
+    title: 这个模块要解决什么
+    kind: concept
+    summary: 从「函数是值」到「方法是类的成员」是这次迁移最大的心智切换
+    body: |
+      JS → Java 的函数迁移，难点不在于语法，而在于**函数在这门语言里的身份变了**。
+
+      在 JS 里，函数是一等值：可以赋值给变量、当参数传、当返回值返回、脱离任何对象存在。
+      在 Java 里，**不存在顶层函数** —— 一切都是类（或接口）的方法。
+      「把函数当值传」这件事要靠函数式接口（`Function` / `Supplier` / lambda）来模拟，
+      而且它有明确的类型。
+
+      这个模块按三个层次展开：
+
+      - **参数传递**：结论与 JS 一致，但理由是"Java 只有值传递"这个更硬的规则
+      - **默认参数**：Java **没有**，必须用重载或 Builder 表达可选性
+      - **可变参数**：Java 有 `...`，但它和 JS 的 `...` 不是同一个东西
+
+  - id: js2java/param-passing
+    title: 参数传递：Java 只有值传递
+    kind: behavior
+    refFeatureId: basics/arg-passing
+    summary: 对象引用也是按值传的，所以「函数内换掉参数」不影响调用方
+    body: |
+      Java 的规则比 JS 更简单、更硬：**只有值传递**，没有例外。
+
+      容易让人困惑的是「传对象时看起来像传引用」：函数内改对象的字段，调用方看得见。
+      但那是**引用的副本指向同一个对象**，不是引用本身被传进去了。
+      区分方法很简单 —— 在函数里给参数重新赋值：
+
+      ```java
+      static void reassign(StringBuilder sb) {
+          sb = new StringBuilder("新的");   // 只改了本地副本
+      }
+      ```
+
+      调用方的 `sb` 完全不受影响。JS 里同样的代码行为一致，所以这一层可以直接迁移。
+
+      **迁移要点**：与 JS 唯一需要注意的是 Java 的**基本类型**（`int` / `boolean` / `double`）
+      是真正的值，没有包装对象那一层。JS 里 `new Number(1) !== 1` 这类困惑在 Java 不存在。
+
+  - id: js2java/overloading-vs-defaults
+    title: 默认参数：Java 没有，用重载或 Builder 表达
+    kind: behavior
+    refFeatureId: basics/default-params
+    summary: 可选性要靠重载链或 Builder，而不是参数默认值
+    body: |
+      Java **没有默认参数**。这不只是语法缺失，而是会改变你组织代码的方式。
+
+      JS 里 `function connect(host, port = 8080, tls = false)` 一行解决的事，
+      在 Java 里要拆成两条正统路径：
+
+      **路径一：重载链**（参数少时用）
+
+      ```java
+      static Connection connect(String host) { return connect(host, 8080); }
+      static Connection connect(String host, int port) { return connect(host, port, false); }
+      static Connection connect(String host, int port, boolean tls) { /* 真正的实现 */ }
+      ```
+
+      短的转调长的，真正的逻辑只写一遍。参数组合一多，重载数量会爆炸。
+
+      **路径二：Builder / record + 静态工厂**（参数 ≥ 4 或大量可选时用）
+
+      ```java
+      Connection c = Connection.builder().host("db").tls(true).build();
+      ```
+
+      **迁移要点**：不要试图用「传 null 表示默认」来偷懒 —— 它把编译期能查出的错误
+      推迟到了运行时，正是 Java 类型系统本来要帮你避免的那类错误。
+
+  - id: js2java/variadic
+    title: 可变参数：`...` 长得一样，语义不同
+    kind: syntax
+    refFeatureId: basics/rest-params
+    summary: Java 的 varargs 是数组，且必须是最后一个参数
+    body: |
+      Java 有 `...`，但它是**数组**的语法糖，不是 JS 那种"剩余参数"。
+
+      ```java
+      static int sum(int... nums) {   // nums 的真实类型是 int[]
+          int total = 0;
+          for (int n : nums) total += n;
+          return total;
+      }
+      ```
+
+      与 JS 的三点差异：
+
+      | 维度 | JS `...args` | Java `T... args` |
+      | --- | --- | --- |
+      | 底层类型 | 数组 | 数组（`T[]`） |
+      | 位置限制 | 任意（对象解构里也可） | **必须是最后一个参数** |
+      | 无参调用 | 得到 `[]` | 得到长度为 0 的数组，同样安全 |
+      | 类型 | 任意混合 | **所有元素必须是同一个类型** |
+
+      **迁移陷阱**：Java 的泛型与可变参数组合会产生编译警告
+      （`@SafeVarargs` 的由来），而且 `List.of(1, 2)` 与 `List.of(new int[]{1, 2})`
+      在重载解析上结果不同 —— 这是 JS 里完全不存在的一类问题。
+
+  - id: js2java/exercise
+    title: 练习：把可选的配置参数改成 Java 的写法
+    kind: exercise
+    summary: 同一个需求，两条路径，各自什么时候用
+    body: |
+      下面这个 JS 函数的参数表里有两处可选：`timeout` 与 `retries`。
+
+      ```js
+      function fetchWithRetry(url, { timeout = 3000, retries = 2 } = {}) { /* ... */ }
+      ```
+
+      请给出 **Java 的两种实现**：
+
+      1. 用**重载链**表达（适合只有 1-2 个可选参数的场景）
+      2. 用 **Builder** 表达（适合可选参数多、且调用方通常只指定其中几个的场景）
+
+      对照下方参考实现时，请特别留意：重载链在参数继续增加时会发生什么 ——
+      这是判断"该不该换 Builder"的实际标准。
+
+      （提示：Java 没有「无参调用时解构出空对象」这种写法，所以第 1 种路径必须为
+      "全默认"单独提供一个重载。）

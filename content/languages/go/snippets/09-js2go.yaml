@@ -1,0 +1,211 @@
+# go —— js2go 迁移教程的实现
+# 上下文：片段默认位于包内（Go 有顶层函数）。⚠️ 本机无 Go 工具链，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+
+- featureId: js2go/intro
+  equivalence: analogous
+  code: |
+    // Go 的顶层函数：形状与 JS 最接近的一门，参数与返回值都带类型
+    func greet(name string, greeting string) string {
+        return greeting + "，" + name
+    }
+
+    // @note 同类型参数可以合并写法：func greet(name, greeting string) string
+
+    // @note 多返回值是**原生**的，不需要像 JS 那样包成对象或数组：
+    func divmod(a, b int) (int, int) {
+        return a / b, a % b
+    }
+
+    // q, r := divmod(7, 2)
+    //
+    // @note! 与 JS 的习惯差异最大的一处：Go 的错误是**返回值**，不是异常。
+    //       每个可能失败的调用都要显式处理，没有 try/catch 兜底。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2go/param-passing
+  equivalence: divergent
+  code: |
+    package main
+
+    // @note! 这个函数在 Go 里是**错的**（与 JS 的直觉相反）
+    func appendOneBad(s []int) {
+        s = append(s, 1)          // 若触发扩容，s 指向新的底层数组，调用方看不到
+    }
+
+    // 正道：让函数返回新的切片
+    func appendOne(s []int) []int {
+        return append(s, 1)
+    }
+
+    // 改元素则调用方一定看得见 —— 这一层与 JS 一致
+    func setFirst(s []int, v int) {
+        if len(s) > 0 {
+            s[0] = v              // @note 改的是底层数组，调用方可见
+        }
+    }
+
+    func main() {
+        data := []int{1, 2}
+        appendOneBad(data)        // @note data 可能仍是 [1 2]
+        data = appendOne(data)    // @note 必须接收返回值
+        setFirst(data, 9)         // data[0] 变成 9，调用方可见
+
+        // @note 根因：slice 是一个包含「指针 + 长度 + 容量」的**描述符**，
+        //       传进函数的是描述符的**副本**。扩容后副本指向了新数组，
+        //       但调用方手里那个描述符仍然指着旧的。
+        //       JS 的数组没有"容量"这一层，所以不存在这种语义。
+    }
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2go/defaults
+  equivalence: absent
+  body: |
+    Go **没有默认参数**，也没有重载。可选配置的正统解法是**函数选项模式**：
+    把「可变参数」与「函数是一等值」拼起来 —— 每个选项是一个修改配置的函数。
+
+    它比重载链优越的根本原因是：**加一个新选项不需要改任何已有签名**。
+
+    **不要用「传零值表示不设置」凑合** —— 那会让「超时设为 0」和「没设置超时」
+    无法区分。这正是 `Option` 类机制要解决的问题，Go 用 `*T` 或选项函数表达。
+  code: |
+    package main
+
+    import "time"
+
+    type Config struct {
+        addr    string
+        timeout time.Duration
+        tls     bool
+    }
+
+    // 选项就是一个「修改配置」的函数
+    type Option func(*Config)
+
+    func WithTimeout(d time.Duration) Option {
+        return func(c *Config) { c.timeout = d }
+    }
+
+    func WithTLS(on bool) Option {
+        return func(c *Config) { c.tls = on }
+    }
+
+    func NewServer(addr string, opts ...Option) *Config {
+        // @note 默认值集中在这里写一次，不散落在参数表上
+        c := &Config{addr: addr, timeout: 30 * time.Second, tls: false}
+        for _, opt := range opts {
+            opt(c)
+        }
+        return c
+    }
+
+    func main() {
+        NewServer(":8080")                                   // 全默认
+        NewServer(":8080", WithTLS(true))                    // 只覆盖一项
+        NewServer(":8080", WithTLS(true), WithTimeout(5*time.Second))  // @note 顺序无关
+    }
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2go/variadic
+  equivalence: analogous
+  code: |
+    package main
+
+    import "fmt"
+
+    // Go 原生支持变参：收成**切片**，必须是最后一个参数且只能有一个
+    func sum(nums ...int) int {
+        total := 0
+        for _, n := range nums {
+            total += n
+        }
+        return total
+    }
+
+    func main() {
+        sum(1, 2, 3)
+        sum()                        // @note 合法，得到空切片
+
+        picked := []int{1, 2, 3}
+        sum(picked...)               // @note! ... 写在**实参后面**，
+                                     //        与 JS 的 sum(...picked) 位置正好相反
+
+        // @note 类型必须一致：JS 里 sum(1, "a") 能跑，Go 里编译不过。
+        //       需要混合类型时用 ...any，但那会把类型检查推迟到运行时：
+        fmt.Println(1, "a", true)    // @note fmt.Println 就是这么做的
+    }
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2go/exercise
+  equivalence: divergent
+  code: |
+    package main
+
+    import (
+        "errors"
+        "strconv"
+    )
+
+    // 参考实现：多返回值 + error 放最后
+    // @note 返回的是 (port, isPrivileged, error) 而不是一个结构体 ——
+    //       因为 Go 的调用方习惯用 `if err != nil` 立刻分流，
+    //       结果值只在无错分支里才需要，包成对象反而多一层解构。
+    func parsePort(s string) (int, bool, error) {
+        n, err := strconv.Atoi(s)
+        if err != nil {
+            // @note 用 errors.New 造错误，而不是 panic
+            return 0, false, errors.New("不是合法端口")
+        }
+        if n < 1 || n > 65535 {
+            return 0, false, errors.New("端口超出范围")
+        }
+        return n, n < 1024, nil       // @note 成功时 error 必须是 nil
+    }
+
+    func main() {
+        port, privileged, err := parsePort("8080")
+        if err != nil {
+            // @note 调用方**必须**显式处理；没有 try/catch 可以推给别人
+            println(err.Error())
+            return
+        }
+        println(port, privileged)
+    }
+
+    // @note 与 JS 的对照：
+    //       · JS 的 try/catch 可以让调用方"什么都不写"，Go 里做不到 ——
+    //         这就是「Go 代码里满屏 if err != nil」的来源，也是它 bug 更少的原因
+    //       · JS 抛异常会跳过后续语句，Go 的 return 是普通控制流，行为完全可预测
+    //       · 另一处设计取舍：也可以返回 (int, error) 让调用方自己算 n < 1024，
+    //         这里选择把派生信息一起返回，省掉调用方重复判断
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'

@@ -1,0 +1,115 @@
+id: js2python/01-functions
+topicId: js2python
+title: 模块 1 · 函数与参数传递
+order: 1
+summary: 带着 JavaScript 的函数直觉写 Python：哪些能直接迁移、哪些会静默出错
+
+features:
+  - id: js2python/intro
+    title: 这个模块要解决什么
+    kind: concept
+    summary: 函数是两门语言差异最集中的地方——形式变少了，语义却更危险
+    body: |
+      从 JavaScript 迁移到 Python，函数这一层的**表面变化是「变简单了」**：
+      没有箭头函数、没有 `function` 关键字、没有函数提升，`def` 一种形式走天下。
+
+      真正的风险藏在语义里。Python 把 JS 里几个"看起来一样"的写法变成了
+      **行为不同**的写法，而且不会报错：
+
+      - 默认参数只在**定义时求值一次**，`def f(x=[])` 会被所有调用共享
+      - 参数是**位置或关键字**的二分，`/` 与 `*` 能在语言层面强制调用方写清楚
+      - `*args` 收成**元组**而不是数组，`**kwargs` 会把拼错的参数名静默吞掉
+
+      这个模块按「能直接迁移 → 形似但不同 → 语义不同」的顺序排，
+      每个小节都给出两边的对照代码与迁移要点。
+
+  - id: js2python/param-passing
+    title: 参数传递：值语义还是引用语义
+    kind: behavior
+    refFeatureId: basics/arg-passing
+    summary: 两边都是「传引用的值」，但 Python 没有原语包装这一层
+    body: |
+      JS 与 Python 在这一层**结论相同、理由不同**，所以迁移时不会踩坑，但理解要重写。
+
+      两边都是按值传递：传进去的是引用的副本。所以「函数内重新赋值参数」不会影响调用方，
+      而「函数内修改对象的内容」会影响调用方。
+
+      差别在于 JS 有原始类型（`number` / `string` / `boolean`）这一层，
+      传进去的是真的拷贝；Python 里**一切都是对象**，`int` 也是。
+      但 `int` 不可变，所以表现上仍然是"拷贝"。
+
+      **迁移要点**：JS 里「传对象就是共享状态」的直觉可以直接搬过来用；
+      但不要因为 Python 有不可变类型就以为赋值是拷贝 —— `a = b` 永远只是绑定了同一个对象。
+
+  - id: js2python/defaults
+    title: 默认参数：可变默认值是 Python 最经典的坑
+    kind: behavior
+    refFeatureId: basics/default-params
+    summary: JS 每次调用求值，Python 只在定义时求值一次
+    body: |
+      这是整个模块里**最危险的一条**，因为它不止行为不同，而且是静默的。
+
+      JS 的 `function f(x = [])` 在每次调用时重新求值，所以是安全的。
+      Python 的 `def f(x=[])` 在函数**定义时**求值一次，那个列表从此成为
+      函数对象的一部分 —— 所有调用共享它。
+
+      ```js
+      // JS：每次都拿到全新的空数组
+      function collect(x = []) { x.push(1); return x }
+      ```
+
+      ```python
+      # Python：第二次调用拿到的是上一次那个列表
+      def collect(x=[]):
+          x.append(1)
+          return x
+      ```
+
+      **迁移做法**：默认值一律用 `None` 作为哨兵，函数体内再创建可变对象：
+
+      ```python
+      def collect(x=None):
+          if x is None:
+              x = []
+          x.append(1)
+          return x
+      ```
+
+  - id: js2python/variadic
+    title: 可变参数：`...args` 与 `*args` / `**kwargs`
+    kind: syntax
+    refFeatureId: basics/rest-params
+    summary: Python 把「位置可变」和「关键字可变」拆成两个参数
+    body: |
+      JS 的 `...args` 收集成一个**数组**；Python 的 `*args` 收集成一个**元组**（不可变），
+      `**kwargs` 收集成一个**字典**。
+
+      这不是同一条语法换了个名字，而是 Python 把 JS 里靠对象解构模拟的两件事拆开了：
+
+      | 需求 | JS 写法 | Python 写法 |
+      | --- | --- | --- |
+      | 收任意个位置参数 | `...args` | `*args` |
+      | 收任意个具名参数 | `...rest` + 解构 | `**kwargs` |
+      | 转发给下游函数 | 手动展开 | `f(*args, **kwargs)` |
+
+      **迁移陷阱**：`**kwargs` 会把拼错的参数名**静默吞掉**。
+      在 JS 里多传一个属性通常无害，在 Python 里这意味着你打错的关键字参数
+      会进入 `kwargs` 而不是报 `TypeError`，直到运行时才以别的形式暴露。
+
+  - id: js2python/exercise
+    title: 练习：把这个 JS 工具函数迁到 Python
+    kind: exercise
+    summary: 三个改动点，其中一个是静默的
+    body: |
+      下面这段 JS 做的是「合并若干配置对象，后面的覆盖前面的，并给缺失项填默认值」。
+
+      请把它迁到 Python，要求保持**行为完全一致**，包括：
+
+      1. 不修改传入的任何对象（调用方可能还要用）
+      2. 支持任意个配置对象
+      3. 某次调用没传配置时也能正常工作
+
+      写完对照下方的参考实现 —— 如果你用了 `def merge(*configs, defaults={})` 这种写法，
+      就已经踩进了本模块最危险的那个坑。
+
+      （提示：本例同时涉及可变参数与可变默认值两个知识点。）

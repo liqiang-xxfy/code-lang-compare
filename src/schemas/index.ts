@@ -332,6 +332,8 @@ export interface RenderedFeature {
   kind: FeatureKind
   summary?: string
   bodyHtml?: string
+  /** 软引用：指向概念详解对应的 feature（迁移教程的小节用） */
+  refFeatureId?: string
   snippets: Record<string, RenderedSnippet>
 }
 
@@ -395,7 +397,8 @@ export interface Manifest {
    * 用的是同一份文案，不会出现「爬虫看到的标题和用户看到的不一样」。
    */
   seo: Record<string, { title: string; description: string }>
-  topics: Array<{ id: string; title: string; chapters: ManifestChapter[] }>
+  /** kind 供侧栏分组 —— 「概念对比」与「迁移教程」在导航上必须分得开 */
+  topics: Array<{ id: string; title: string; kind: TopicKind; chapters: ManifestChapter[] }>
   featureIndex: Record<string, { title: string; chapterId: string; topicId: string }>
   counts: {
     features: number

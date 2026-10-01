@@ -1,0 +1,124 @@
+# javascript —— js2python 迁移教程的「出发侧」实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+#
+# 注意：这里是 JavaScript 自己的写法，equivalence 恒为 identical ——
+# 本仓库把徽章定义为「相对 equivalenceReference（= javascript）」，参照系自身当然同构。
+
+- featureId: js2python/intro
+  equivalence: identical
+  code: |
+    // 从 JS 迁到 Python，函数这一层要重学的四件事：
+    //
+    //   1. 默认参数：JS 每次调用求值 vs Python 定义时求值一次
+    //   2. 参数传递：两边都是"传引用的值"，但 Python 没有原始类型这一层
+    //   3. 可变参数：...args（数组） vs *args（元组）+ **kwargs（字典）
+    //   4. 函数形式：JS 有四种，Python 只有 def（+ 单表达式 lambda）
+
+    function greet(name, greeting = '你好') {     // @note 默认值每次调用重新求值
+      return `${greeting}，${name}`;
+    }
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2python/param-passing
+  equivalence: identical
+  code: |
+    // JS 的参数是"引用的值"：改内容看得见，换引用看不见
+    function mutate(arr) {
+      arr.push(4);              // 调用方看得见
+    }
+
+    function reassign(arr) {
+      arr = [9, 9, 9];          // @note 只改了本地副本，调用方看不到
+    }
+
+    const data = [1, 2, 3];
+    mutate(data);               // data → [1, 2, 3, 4]
+    reassign(data);             // data 不变
+
+    // Python 的结论完全一样 —— 这一层可以直接迁移，不需要改心智模型。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2python/defaults
+  equivalence: identical
+  code: |
+    // @note! JS 的默认参数在**每次调用时**求值，所以这个函数是安全的
+    function collect(x = []) {
+      x.push(1);
+      return x;
+    }
+
+    collect();   // [1]
+    collect();   // [1] —— 每次都是全新的空数组
+
+    // 这正是迁到 Python 时最危险的一处：
+    // 同样形状的 def collect(x=[]): 会让两次调用共享同一个列表。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2python/variadic
+  equivalence: identical
+  code: |
+    // JS 的剩余参数：收集成一个**数组**，可以再展开回去
+    function tag(...names) {          // @note names 是数组
+      return names.map((n) => `#${n}`).join(' ');
+    }
+
+    const picked = ['js', 'ts'];
+    tag(...picked);                   // 展开已有数组
+
+    // 需要"收任意个具名参数"时，JS 只能靠传对象 + 解构模拟：
+    function config({ host, port = 80, ...rest } = {}) { /* ... */ }
+
+    // Python 把这两件事拆成了两个参数：*args 与 **kwargs。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2python/exercise
+  equivalence: identical
+  code: |
+    // 练习：把这个函数迁到 Python，保持行为完全一致
+    function merge(...configs) {
+      const out = {};
+      for (const c of configs) {
+        for (const [k, v] of Object.entries(c)) {
+          out[k] = v;
+        }
+      }
+      return out;
+    }
+
+    merge({ a: 1 }, { b: 2 });   // { a: 1, b: 2 }
+    merge();                     // {} —— 不传参数时也要能工作
+    merge({ a: 1 }, { a: 2 });   // { a: 2 } —— 后面的覆盖前面的
+
+    // @note! 迁到 Python 时若写成 def merge(*configs, defaults={})，
+    //        就同时踩中了可变默认参数这个坑。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'

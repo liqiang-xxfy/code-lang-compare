@@ -32,6 +32,18 @@ const relatedPitfalls = computed(() =>
   getPitfalls().filter((p) => p.featureId === featureId.value),
 )
 
+/**
+ * 迁移教程的小节 → 概念详解的软引用（refFeatureId）。
+ *
+ * 迁移模块写自己的 snippet（视角不同、代码更聚焦），不复用 basics 的 feature
+ * —— R8 强制 featureId 唯一且归属单一 chapter。这个链接让两边互相可达，
+ * 把「两份对照代码各说各话」变成可点达的关系。
+ */
+const refFeature = computed(() => {
+  const id = feature.value?.refFeatureId
+  return id ? manifest.featureIndex[id] : undefined
+})
+
 /** 基准差异模式下给非基准列计算行级 diff（运行时算 + 缓存） */
 function diffFor(langId: string) {
   if (ui.viewMode !== 'baseline-diff' || langId === languages.baseline) return null
@@ -69,6 +81,10 @@ usePageMeta(
         />
       </div>
       <p v-if="feature.summary">{{ feature.summary }}</p>
+      <p v-if="refFeature" class="pc-hint" style="margin-top: 6px">
+        概念详解：
+        <RouterLink :to="`/feature/${feature.refFeatureId}`">{{ refFeature.title }} →</RouterLink>
+      </p>
     </section>
 
     <MarkdownContent v-if="feature.bodyHtml" :html="feature.bodyHtml" class="pc-panel" style="margin-bottom: 18px" />

@@ -1,0 +1,171 @@
+# java —— js2java 迁移教程的实现
+# 上下文：片段默认位于类体内（Java 没有顶层函数）。⚠️ 本机无 JDK，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+
+- featureId: js2java/intro
+  equivalence: divergent
+  code: |
+    // @note! Java **不存在顶层函数**：一切都是类或接口的方法
+    public final class Greeter {
+        // @note 可见性、static、参数类型、返回类型都要写
+        public static String greet(String name, String greeting) {
+            return greeting + "，" + name;
+        }
+    }
+
+    // 调用处要带类名
+    // Greeter.greet("Ada", "你好");
+
+    // @note 「把函数当值传」在 Java 里靠**函数式接口**模拟，且类型是显式的：
+    //       Function<String, String> upper = String::toUpperCase;
+    //       JS 的 const upper = (s) => s.toUpperCase() 不需要声明类型。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2java/param-passing
+  equivalence: identical
+  code: |
+    // 与 JS 结论一致，而且 Java 的规则更硬：**只有值传递**，没有例外
+    static void mutate(List<Integer> list) {
+        list.add(4);                 // 调用方看得见
+    }
+
+    static void reassign(StringBuilder sb) {
+        sb = new StringBuilder("新的");   // @note 只改了本地副本，调用方看不到
+    }
+
+    // @note 「传对象看起来像传引用」是因为**引用的副本**指向同一个对象，
+    //       不是引用本身被传进去了。给参数重新赋值可以立刻验证这一点。
+    //
+    // @note 与 JS 唯一要重学的地方：Java 的基本类型（int/boolean/double）是真值，
+    //       没有 Number/String 包装对象那一层。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2java/overloading-vs-defaults
+  equivalence: absent
+  body: |
+    Java **没有默认参数**。可选性只能靠重载链或 Builder 表达，这两条路各有适用场景。
+
+    **重载链**（可选参数 1-2 个时）：短的转调长的，真正的逻辑只写一遍。
+    参数组合一多，重载数量会按可选参数个数指数增长 —— 这是换 Builder 的实际标准。
+
+    **Builder / record + 静态工厂**（可选参数 ≥ 4，或调用方通常只指定其中几项时）。
+
+    **不要用「传 null 表示默认」凑合**：那会把编译期能查出的错误推迟到运行时，
+    正是 Java 类型系统本来要帮你避免的那类错误。
+  code: |
+    public final class Connection {
+        private final String host;
+        private final int port;
+        private final boolean tls;
+
+        // 路径一：重载链。短的转调长的，逻辑只写一遍
+        public static Connection connect(String host) {
+            return connect(host, 8080);
+        }
+
+        public static Connection connect(String host, int port) {
+            return connect(host, port, false);
+        }
+
+        public static Connection connect(String host, int port, boolean tls) {
+            return new Connection(host, port, tls);   // 真正的实现
+        }
+
+        private Connection(String host, int port, boolean tls) {
+            this.host = host;
+            this.port = port;
+            this.tls = tls;
+        }
+
+        // @note 路径二（可选参数多时）：Builder 或 record + 静态工厂
+        //       Connection.builder().host("db").tls(true).build();
+        //
+        // @note 注意这里没有「无参调用」这一档：Java 没有
+        //       JS 里 { timeout = 3000 } = {} 那样「什么都不传也能工作」的写法，
+        //       所以必须为全默认场景显式提供一个重载或入口。
+    }
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2java/variadic
+  equivalence: analogous
+  code: |
+    // Java 的 T... 是**数组**的语法糖，不是 JS 那种"剩余参数"
+    static int sum(int... nums) {          // @note nums 的真实类型是 int[]
+        int total = 0;
+        for (int n : nums) total += n;      // @note 可以直接当数组用
+        return total;
+    }
+
+    // sum(1, 2, 3);
+    // sum();                 // 合法，得到长度为 0 的数组
+    // sum(new int[]{1, 2});  // 也可以直接传数组
+
+    // @note! 三处与 JS 不同：
+    //   1. 必须是**最后一个参数**，而且只能有一个
+    //   2. 所有元素必须**同一个类型**，不能像 JS 那样 1, 'a', true 混着传
+    //   3. 泛型 + 变参会产生编译警告，需要 @SafeVarargs 抑制
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2java/exercise
+  equivalence: divergent
+  code: |
+    // 参考实现：两条路径，各自适用场景不同
+
+    // ── 路径一：重载链（适合只有 1-2 个可选参数）──────────────
+    public final class Fetcher {
+        public static Response fetch(String url) {
+            return fetch(url, 3000, 2);            // 「全默认」必须单独提供这一档
+        }
+
+        public static Response fetch(String url, int retries) {
+            return fetch(url, 3000, retries);
+        }
+
+        public static Response fetch(String url, int timeout, int retries) {
+            return new Response(url, timeout, retries);
+        }
+    }
+
+    // ── 路径二：Builder（可选参数继续增加时）──────────────────
+    // Response r = Fetcher.builder("/api").retries(5).build();
+    //
+    // @note 判断标准：重载链在**再加一个可选参数**时会翻倍（2 个可选 → 4 个重载，
+    //       3 个可选 → 8 个）。一旦你开始为「组合」而不是为「用途」写重载，
+    //       就该换成 Builder 了。
+    //
+    // @note 两处与 JS 的取舍差异：
+    //       · JS 里 { retries: 5 } 只写关心的那项、顺序无关；重载链做不到，
+    //         所以路径一里「只覆盖 retries」要单列一个重载。
+    //       · JS 里 timeout 在前、retries 在后，跳过 timeout 只能写 undefined；
+    //         Java 的类型不同，参数顺序反而成了 API 设计的一部分。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'

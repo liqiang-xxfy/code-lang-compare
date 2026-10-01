@@ -88,6 +88,19 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
     ? `基准可选 ${candidateNames.join(' / ')}，默认 ${defaultBaselineName}`
     : `以 ${defaultBaselineName} 为基准`
 
+  /**
+   * 某个 topic 的适用语言范围 —— 必须与 analyze.ts 的 scopeOfTopic 保持同一判据。
+   *
+   * 迁移教程的 topic 只涉及 from/to 两门语言：若这里照搬「全部已启用语言」，
+   * 一个 js2python 页面的 SEO 描述会声称它在对照 Go / Rust —— 既误导搜索引擎，
+   * 也和页面上实际渲染的列对不上。
+   */
+  const scopeOfTopic = (topicId: string): string[] => {
+    const scope = a.registry.topics[topicId]?.languages
+    if (!scope?.length) return [...a.enabledLanguageIds]
+    return a.enabledLanguageIds.filter((id) => scope.includes(id))
+  }
+
   for (const route of routes) {
     if (route === '/') {
       out[route] = {
@@ -112,14 +125,18 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
     if (chapterMatch) {
       const chapterId = `${chapterMatch[1]}/${chapterMatch[2]}`
       const chapter = a.chapters.find((c) => c.id === chapterId)
-      const topicTitle = a.registry.topics[chapter?.topicId ?? '']?.title ?? ''
+      const topicId = chapterMatch[1]!
+      const topicTitle = a.registry.topics[topicId]?.title ?? ''
       const featureTitles = (chapter?.features ?? []).map((f) => f.title)
+      // 只列这个 topic 真正覆盖的语言，且排除参照系自身（它就是"与"的左边）
+      const compared = scopeOfTopic(topicId)
+        .filter((x) => x !== a.registry.equivalenceReference)
+        .map(nameOf)
       out[route] = {
         title: [topicTitle, chapter?.title].filter(Boolean).join(' · '),
-        description: `${chapter?.title ?? ''}：${featureTitles.slice(0, 8).join('、')} 在 ${refName} 与${a.enabledLanguageIds
-          .filter((x) => x !== a.registry.equivalenceReference)
-          .map(nameOf)
-          .join('、')}中的写法对照，含行为差异与迁移陷阱。${baselinePhrase}。`,
+        description: `${chapter?.title ?? ''}：${featureTitles.slice(0, 8).join('、')} 在 ${refName} 与 ${compared.join(
+          '、',
+        )} 中的写法对照，含行为差异与迁移陷阱。${baselinePhrase}。`,
       }
       continue
     }
@@ -130,8 +147,11 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
       const found = a.features.find((f) => f.feature.id === featureId)
       out[route] = {
         title: found ? `${found.feature.title} 的跨语言对照` : featureId,
+        // summary 是纯文本一句话（schema 保证），补个句号再拼基准说明，否则会连成一句
         description: `${
-          found?.feature.summary ?? `${featureId} 在 ${refName} 与其它语言中的写法、差异与注意事项。`
+          found?.feature.summary
+            ? `${found.feature.summary}。`
+            : `${featureId} 在 ${refName} 与其它语言中的写法、差异与注意事项。`
         }${baselinePhrase}。`,
       }
       continue
@@ -254,6 +274,8 @@ async function main(): Promise<void> {
           kind: feature.kind,
           summary: feature.summary,
           bodyHtml: renderMarkdown(md, feature.body, mode) || undefined,
+          // 已由 R5 校验存在性，这里直接透传
+          ...(feature.refFeatureId ? { refFeatureId: feature.refFeatureId } : {}),
           snippets: Object.fromEntries(snippets.map((s) => [s.lang, s])),
         }
       }),
@@ -305,6 +327,7 @@ async function main(): Promise<void> {
   const topicSummaries: Manifest['topics'] = topics.map(([topicId, topicConfig]) => ({
     id: topicId,
     title: topicConfig.title,
+    kind: topicConfig.kind,
     chapters: renderedChapters
       .filter((c) => c.topicId === topicId)
       .sort((x, y) => x.order - y.order)

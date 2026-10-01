@@ -1,0 +1,131 @@
+# javascript —— js2rust 迁移教程的「出发侧」实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+
+- featureId: js2rust/intro
+  equivalence: identical
+  code: |
+    // 从 JS 迁到 Rust，函数签名要多回答一个问题：**这个值谁拥有？**
+    //
+    //   JS：GC 兜底，调用方与被调方都能继续用，不需要你表态
+    //   Rust：签名上必须写清楚，写错了编译不过
+    //
+    //   只读  → fn f(v: &T)
+    //   修改  → fn f(v: &mut T)
+    //   拿走  → fn f(v: T)      （调用方之后不能再使用）
+
+    function label(user) { return user.name.toUpperCase(); }
+    const u = { name: 'ada' };
+    label(u);
+    console.log(u.name);        // @note JS 里这永远合法，Rust 里取决于签名
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2rust/param-passing
+  equivalence: identical
+  code: |
+    // JS 里传对象 = 共享同一份数据，改内容两边都看得见
+    function rename(user, name) {
+      user.name = name;      // 调用方可见
+      return user;
+    }
+
+    const u = { name: 'ada' };
+    rename(u, 'grace');
+    console.log(u.name);     // 'grace'
+
+    // 迁到 Rust 时，这一个函数要按用途拆成三种签名：
+    //   只读    fn rename(user: &User) -> String
+    //   就地改  fn rename(user: &mut User, name: &str)
+    //   拿所有权 fn rename(user: User, name: String) -> User
+    //
+    // @note! 选按值（拿走）之后，调用方再用 u 就是编译错误 ——
+    //        JS 里没有对应的心智模型，这是最容易低估的一处。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2rust/defaults
+  equivalence: identical
+  code: |
+    // JS 的默认参数可以直接省略不写
+    function connect(host, port = 8080, tls = false) {
+      return { host, port, tls };
+    }
+    connect('db');                     // 后两个自动取默认值
+
+    // 迁到 Rust 后没有「省略」这回事：
+    //   fn connect(host: &str, port: Option<u16>) -> Connection
+    // 调用方必须显式写 None 或 Some(8080)。
+
+    // @note Rust 的 Option<T> 与 JS 的 undefined 看着像，但有根本差别：
+    //       Option 是**类型的一部分**，编译器强制你在使用前处理 None。
+    //       这是「迁过去之后 bug 变少、但写起来更啰嗦」的主要来源。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2rust/variadic
+  equivalence: identical
+  code: |
+    // JS 的剩余参数：调用方可以平铺着写，也可以展开数组
+    function sum(...nums) {
+      return nums.reduce((a, b) => a + b, 0);
+    }
+    sum(1, 2, 3);
+    sum(...[1, 2, 3]);
+
+    // 参数还能混合类型（console.log 就是这个模式）
+    function logAll(...items) { console.log(...items); }
+    logAll(1, 'a', true);
+
+    // @note Rust 没有变参函数：只能收切片 fn sum(nums: &[i32])，
+    //       调用处必须写成 sum(&[1, 2, 3])。
+    //       类型混合的场景只能用枚举或宏，没有直接对应物。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
+
+- featureId: js2rust/exercise
+  equivalence: identical
+  code: |
+    // 练习：同一个函数被三处调用，用途各不相同
+    function normalize(name) {
+      return name.trim().toLowerCase();
+    }
+
+    // 调用方 a：算完之后还要用原来的 name
+    const a = '  Ada  ';
+    const a1 = normalize(a);
+    console.log(a, a1);
+
+    // 调用方 b：算完之后不再需要 name
+    // 调用方 c：希望就地改掉 name（原地 trim + 转小写）
+
+    // @note JS 里这三处可以共用同一个函数；Rust 里必须按用途给出不同签名，
+    //       否则要么编译不过，要么多一次不必要的拷贝。
+    //       特别留意用途 c：&mut String 会**独占**这个值，
+    //       借用期间调用方不能读它 —— 这条约束 JS 里不存在。
+  review:
+    state: draft
+    provenance:
+      origin: llm
+      model: claude-code-agent
+      promptTemplateId: migration-sample-v1
+      generatedAt: '2026-10-01'
