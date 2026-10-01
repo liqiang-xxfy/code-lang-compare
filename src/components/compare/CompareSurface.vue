@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import DiffFilterBar from '@/components/compare/DiffFilterBar.vue'
+import EquivalenceReferenceNote from '@/components/compare/EquivalenceReferenceNote.vue'
 import LanguagePicker from '@/components/compare/LanguagePicker.vue'
 import MatrixLayout from '@/components/compare/MatrixLayout.vue'
 import SideBySideLayout from '@/components/compare/SideBySideLayout.vue'
@@ -26,9 +27,10 @@ const degraded = computed(() => isNarrow.value && ui.viewMode !== 'side-by-side'
 <template>
   <div>
     <DiffFilterBar />
-    <div style="margin-bottom: 14px">
+    <div style="margin-bottom: 10px">
       <LanguagePicker />
     </div>
+    <EquivalenceReferenceNote />
 
     <p v-if="degraded" class="pc-note-box" style="margin: 0 0 12px">
       窄屏下已自动切换为「{{ t('viewMode.sideBySide') }}」：矩阵的横向滚动在手机上不便阅读。

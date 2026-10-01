@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import CodeBlock from '@/components/code/CodeBlock.vue'
 import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
+import EquivalenceReferenceNote from '@/components/compare/EquivalenceReferenceNote.vue'
 import LanguagePicker from '@/components/compare/LanguagePicker.vue'
 import MarkdownContent from '@/components/content/MarkdownContent.vue'
 import PitfallCard from '@/components/content/PitfallCard.vue'
@@ -24,6 +25,8 @@ const featureId = computed(() => `${String(route.params.topicId ?? '')}/${String
 const feature = computed(() => content.getFeatureRaw(featureId.value))
 const columns = computed(() => languages.orderedMeta)
 const info = computed(() => manifest.featureIndex[featureId.value])
+/** 对比类页面用**运行时基准**做文案 —— 页面上的列与 diff 本来就是相对它渲染的 */
+const baselineName = computed(() => languages.metaOf(languages.baseline)?.name ?? languages.baseline)
 
 const relatedPitfalls = computed(() =>
   getPitfalls().filter((p) => p.featureId === featureId.value),
@@ -42,7 +45,7 @@ usePageMeta(
   () => (feature.value ? `${feature.value.title} 的跨语言对照` : undefined),
   () =>
     feature.value
-      ? `${feature.value.title}：在 JavaScript 与其它语言中的写法、差异与迁移陷阱。${feature.value.summary ?? ''}`
+      ? `${feature.value.title}：在 ${baselineName.value} 与其它语言中的写法、差异与迁移陷阱。${feature.value.summary ?? ''}`
       : undefined,
 )
 </script>
@@ -70,9 +73,10 @@ usePageMeta(
 
     <MarkdownContent v-if="feature.bodyHtml" :html="feature.bodyHtml" class="pc-panel" style="margin-bottom: 18px" />
 
-    <div class="pc-toolbar">
+    <div class="pc-toolbar" style="margin-bottom: 10px">
       <LanguagePicker />
     </div>
+    <EquivalenceReferenceNote />
 
     <div class="pc-cards">
       <article

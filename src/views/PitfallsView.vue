@@ -4,19 +4,37 @@ import PitfallCard from '@/components/content/PitfallCard.vue'
 import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
 import { getPitfalls, manifest } from '@/content/repository'
+import { equivalenceReferenceName, getLanguageMeta } from '@/generated/registry.gen'
 
 const { t } = useI18n()
 const query = ref('')
 const onlyBaseline = ref(false)
 const minSeverity = ref(1)
+/**
+ * 按目标语言筛选。
+ *
+ * 复用 Pitfall.languages —— 这个字段一直存在于 schema 里，但此前全站没有任何逻辑
+ * 读过它，等于装饰性元数据。基准泛化之后，用户带着不同语言的背景进来，
+ * 「我要去 Go，有哪些坑」才成为真实诉求。
+ */
+const targetLang = ref('')
 
 const all = getPitfalls()
+
+const targetLangs = computed(() => {
+  const ids = new Set<string>()
+  for (const p of all) for (const id of p.languages) ids.add(id)
+  return [...ids]
+    .map((id) => ({ id, name: getLanguageMeta(id)?.shortName ?? id }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+})
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
   return all.filter((p) => {
     if (onlyBaseline.value && !p.fromBaseline) return false
     if (p.severity < minSeverity.value) return false
+    if (targetLang.value && !p.languages.includes(targetLang.value)) return false
     if (!q) return true
     const haystack = [p.title, p.symptomHtml, p.causeHtml, p.fixHtml, p.tags.join(' ')]
       .join(' ')
@@ -42,6 +60,9 @@ usePageMeta(
       <p>
         按<strong>症状</strong>索引，而不是按语法点 —— 迁移时你先感受到的是「结果不对」，而不是「我用错了哪个语法」。
       </p>
+      <p class="pc-hint" style="margin-top: 8px">
+        {{ t('pitfalls.referenceNote', { ref: equivalenceReferenceName }) }}
+      </p>
     </section>
 
     <div class="pc-toolbar">
@@ -61,7 +82,14 @@ usePageMeta(
       />
       <label class="pc-hint" style="display: inline-flex; gap: 5px; align-items: center">
         <input v-model="onlyBaseline" type="checkbox" />
-        只看「JS 开发者必踩」
+        {{ t('pitfalls.fromReference', { ref: equivalenceReferenceName }) }}
+      </label>
+      <label class="pc-hint" style="display: inline-flex; gap: 5px; align-items: center">
+        {{ t('pitfalls.targetLang') }}
+        <select v-model="targetLang">
+          <option value="">{{ t('pitfalls.allTargets') }}</option>
+          <option v-for="l in targetLangs" :key="l.id" :value="l.id">{{ l.name }}</option>
+        </select>
       </label>
       <label class="pc-hint" style="display: inline-flex; gap: 5px; align-items: center">
         最低严重度

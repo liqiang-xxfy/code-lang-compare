@@ -45,7 +45,12 @@ export const languageMetaSchema = z.object({
   typeSystem: z.enum(['structural', 'nominal']).optional(),
   memoryModel: z.enum(['gc', 'arc', 'manual']),
   concurrency: z.array(z.string()).default([]),
-  /** 默认基准语言（只有一门应为 true） */
+  /**
+   * 基准候选资格 —— 标 true 表示这门语言可以充当参照系。
+   *
+   * 刻意允许多门：默认基准只有一门（见 registry 的 defaultBaseline），
+   * 但"谁能被选为基准"是站点级策展决策，与"默认选谁"是两件事。
+   */
   baseline: z.boolean().default(false),
   links: z.array(resourceLinkSchema).default([]),
   /**
@@ -57,7 +62,11 @@ export const languageMetaSchema = z.object({
 
 /* ────────────────────────── 内容骨架 ────────────────────────── */
 
-export const featureKindSchema = z.enum(['syntax', 'concept', 'behavior', 'mapping'])
+/**
+ * 'exercise' 是迁移教程的练习小节：题面写在 feature.body，
+ * 「参考答案」走 snippet 的 code（from/to 两条正好被现有并排渲染当对照解法）。
+ */
+export const featureKindSchema = z.enum(['syntax', 'concept', 'behavior', 'mapping', 'exercise'])
 
 export const featureSchema = z.object({
   /** 全局唯一，约定 '<topic 前缀>/<slug>'，如 'basics/var-declaration' */
@@ -68,6 +77,14 @@ export const featureSchema = z.object({
   summary: z.string().optional(),
   /** 权威说明，受限 Markdown（禁裸 HTML，见 ADR-09） */
   body: z.string().optional(),
+  /**
+   * 软引用：指向另一个 feature。
+   *
+   * 迁移教程的小节与 basics 的概念详解讲的是同一个语言特性，但 R8 强制
+   * featureId 唯一且归属单一 chapter，无法复用同一条 feature。这个字段让两边
+   * 互相可点达，同时把「两份对照代码静默漂移」变成构建期可校验的关系（R5）。
+   */
+  refFeatureId: z.string().optional(),
   tags: z.array(z.string()).default([]),
 })
 
@@ -81,11 +98,20 @@ export const chapterSchema = z.object({
   features: z.array(featureSchema).min(1),
 })
 
+/**
+ * topic 类别 —— 驱动侧栏分组与 R2 的覆盖率语言范围。
+ * 'concept' 是语言无关的概念对比（basics 那种）；'migration' 是 A→B 迁移教程。
+ */
+export const topicKindSchema = z.enum(['concept', 'migration'])
+
 export const topicSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   order: z.number().int().nonnegative(),
   summary: z.string().optional(),
+  kind: topicKindSchema.default('concept'),
+  /** 适用语言范围。缺省 = 全部已启用语言 */
+  languages: z.array(z.string()).optional(),
 })
 
 /* ────────────────────────── 一格内容 ────────────────────────── */
@@ -219,7 +245,17 @@ export const registrySchema = z.object({
    *  - 'reviewed-only'：draft 不进生产构建（校对迭代完成后切回）
    */
   publishPolicy: z.enum(['include-draft-with-badge', 'reviewed-only']),
-  baseline: z.string().min(1),
+  /** 默认基准语言（首访默认值与 SSG 静态文案使用）。必须是已启用语言 */
+  defaultBaseline: z.string().min(1),
+  /**
+   * equivalence 徽章的参照系 —— 全局声明一次。
+   *
+   * 徽章是人手写的**绝对值**（"Python 没有 var 提升"这类事实机器判不了），
+   * 无法随基准切换重算。因此参照系是内容级常量而非运行时变量：
+   * 切基准只影响行级 diff，不影响徽章。UI 必须如实说明这一点，
+   * 否则用户会以为徽章是"相对当前基准"的。
+   */
+  equivalenceReference: z.string().min(1),
   site: z.object({
     name: z.string().min(1),
     shortDescription: z.string().min(1),
@@ -228,7 +264,18 @@ export const registrySchema = z.object({
   languages: z.record(z.string(), languageToggleSchema),
   topics: z.record(
     z.string(),
-    z.object({ enabled: z.boolean().default(true), title: z.string().min(1) }),
+    z.object({
+      enabled: z.boolean().default(true),
+      title: z.string().min(1),
+      kind: topicKindSchema.default('concept'),
+      /**
+       * 该 topic 适用的语言范围。缺省 = 全部已启用语言。
+       *
+       * 迁移教程是第一个使用者：一个方向只涉及 from/to 两门语言，
+       * R2 覆盖率据此计算 —— 否则会按 5 门已启用语言报"缺 3 格"并阻断构建。
+       */
+      languages: z.array(z.string()).optional(),
+    }),
   ),
 })
 
@@ -240,6 +287,7 @@ export type FeatureKind = z.infer<typeof featureKindSchema>
 export type Feature = z.infer<typeof featureSchema>
 export type Chapter = z.infer<typeof chapterSchema>
 export type Topic = z.infer<typeof topicSchema>
+export type TopicKind = z.infer<typeof topicKindSchema>
 export type Equivalence = z.infer<typeof equivalenceSchema>
 export type SnippetFlag = z.infer<typeof snippetFlagSchema>
 export type Provenance = z.infer<typeof provenanceSchema>

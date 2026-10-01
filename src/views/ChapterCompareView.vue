@@ -5,10 +5,14 @@ import CompareSurface from '@/components/compare/CompareSurface.vue'
 import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
 import { useContentStore } from '@/stores/content'
+import { useLanguageStore } from '@/stores/language'
 
 const route = useRoute()
 const content = useContentStore()
+const languages = useLanguageStore()
 const { t } = useI18n()
+/** 同 FeatureView：对比页文案跟随运行时基准 */
+const baselineName = computed(() => languages.metaOf(languages.baseline)?.name ?? languages.baseline)
 
 const topicId = computed(() => String(route.params.topicId ?? ''))
 const chapterSlug = computed(() => String(route.params.chapterSlug ?? ''))
@@ -33,7 +37,7 @@ usePageMeta(
       ? `${chapter.value.title}：${chapter.value.features
           .slice(0, 6)
           .map((f) => f.title)
-          .join('、')} 在 JavaScript 与其他语言中的写法对照。`
+          .join('、')} 在 ${baselineName.value} 与其他语言中的写法对照。`
       : undefined,
 )
 </script>

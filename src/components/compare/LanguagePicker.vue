@@ -18,7 +18,7 @@ const planned = computed(() => languageMeta.filter((m) => !enabledLanguageMeta.i
 <template>
   <div class="pc-picker">
     <span class="pc-hint">{{ t('baseline.label') }}：</span>
-    <label v-for="lang in languages.activeMeta" :key="`b-${lang.id}`" class="pc-picker-item">
+    <label v-for="lang in languages.baselineCandidates" :key="`b-${lang.id}`" class="pc-picker-item">
       <input
         type="radio"
         name="pc-baseline"

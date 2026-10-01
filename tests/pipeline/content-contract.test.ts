@@ -86,11 +86,14 @@ describe('架构决策的可执行断言', () => {
     expect(arkts.id).not.toBe('typescript')
   })
 
-  it('D-C：基准语言始终是 JavaScript；已启用集合与接入进度一致', () => {
-    // D-C 的核心不是「只启用两门」，而是「以 JS 为锚点、分段交付」。
+  it('D-C：默认基准始终是 JavaScript；已启用集合与接入进度一致', () => {
+    // D-C 的核心不是「只启用两门」，而是「以 JS 为默认锚点、分段交付」。
     // 这个断言刻意写成**精确集合**：任何语言的启用/停用都必须在这里显式体现，
     // 形成一次有意的摩擦 —— 而不是让架构决策悄悄漂移。
-    expect(a.registry.baseline).toBe('javascript')
+    //
+    // 注意 defaultBaseline（唯一默认值）与 baseline 候选（可多门的参照系集合）
+    // 是两件事，后者在下一个用例里断言。
+    expect(a.registry.defaultBaseline).toBe('javascript')
     expect([...a.enabledLanguageIds].sort()).toEqual([
       'go',
       'java',
@@ -113,9 +116,35 @@ describe('架构决策的可执行断言', () => {
     }
   })
 
-  it('基准语言恰好一门，且是已启用的语言', () => {
-    expect(a.metas.filter((m) => m.baseline)).toHaveLength(1)
-    expect(a.enabledLanguageIds).toContain(a.registry.baseline)
+  it('基准候选 = JS / Python / Java，全部已启用，且默认基准在候选之中', () => {
+    // 「谁能当基准」与「默认选谁」是两个独立概念，必须分开钉住：
+    // 前者是可多门的参考系集合（meta.baseline: true），后者是唯一的 defaultBaseline。
+    const candidates = a.metas
+      .filter((m) => m.baseline)
+      .map((m) => m.id)
+      .sort()
+    expect(candidates).toEqual(['java', 'javascript', 'python'])
+    for (const id of candidates) {
+      expect(a.enabledLanguageIds).toContain(id)
+    }
+    expect(candidates).toContain(a.registry.defaultBaseline)
+  })
+
+  it('equivalence 参照系已声明且是已启用语言', () => {
+    // 徽章是人手写的绝对值，无法随基准切换重算 —— 参照系必须是内容级常量，
+    // 而且必须指向一门真实启用的语言，否则页面上的说明文案会指向空气。
+    expect(a.registry.equivalenceReference).toBeTruthy()
+    expect(a.enabledLanguageIds).toContain(a.registry.equivalenceReference)
+  })
+
+  it('topic 声明的适用语言都是已知语言', () => {
+    // 迁移教程只覆盖 from/to 两门语言，靠 topic.languages 表达。
+    // 写错的 id 不会报错、只会让 R2 静默漏算，所以在这里钉住。
+    for (const [topicId, cfg] of Object.entries(a.registry.topics)) {
+      for (const id of cfg.languages ?? []) {
+        expect(a.metaById[id], `topic '${topicId}' 引用了未知语言 '${id}'`).toBeTruthy()
+      }
+    }
   })
 
   it('ADR-08：llm 来源的 schema 里根本没有 license 字段', () => {

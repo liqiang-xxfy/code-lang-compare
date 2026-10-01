@@ -61,12 +61,36 @@ export function generateRegistry(options: RegistryGenOptions = {}): RegistryGenR
   const allLanguageIds = metas.map((m) => m.id)
   const enabledLanguageIds = allLanguageIds.filter((id) => registry.languages[id]?.enabled)
 
-  if (!enabledLanguageIds.includes(registry.baseline)) {
-    throw new Error(`registry.baseline = '${registry.baseline}' 未启用，基准语言必须是已启用的语言`)
+  /**
+   * 基准候选集合 —— 从各语言 meta 派生。
+   *
+   * 注意与 analyze.ts 的 R8 保持同一判据：那边是校验闸门（产出 error 列表），
+   * 这边是代码生成（必须抛错终止）。两处判据不一致时会出现
+   * 「校验放行但注册表 throw」这种最难查的组合，改动务必同步。
+   */
+  const baselineCandidateIds = metas.filter((m) => m.baseline).map((m) => m.id)
+
+  if (!baselineCandidateIds.length) {
+    throw new Error(
+      '没有任何语言在 meta.yaml 里标了 baseline: true —— 至少要有一门基准候选，否则无从选择参照系',
+    )
   }
-  const baselineCount = metas.filter((m) => m.baseline).length
-  if (baselineCount > 1) {
-    throw new Error(`有 ${baselineCount} 门语言在 meta 里标了 baseline: true，只能有一门`)
+  const disabledCandidates = baselineCandidateIds.filter((id) => !enabledLanguageIds.includes(id))
+  if (disabledCandidates.length) {
+    throw new Error(
+      `以下语言标了 baseline: true 但未启用：${disabledCandidates.join(', ')}。基准候选必须是已启用语言`,
+    )
+  }
+  if (!baselineCandidateIds.includes(registry.defaultBaseline)) {
+    throw new Error(
+      `registry.defaultBaseline = '${registry.defaultBaseline}' 不在基准候选里` +
+        `（候选：${baselineCandidateIds.join(', ')}）—— 请在它的 meta.yaml 里标 baseline: true`,
+    )
+  }
+  if (!enabledLanguageIds.includes(registry.equivalenceReference)) {
+    throw new Error(
+      `registry.equivalenceReference = '${registry.equivalenceReference}' 未启用，参照系必须是已启用的语言`,
+    )
   }
 
   const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
@@ -95,7 +119,16 @@ export function generateRegistry(options: RegistryGenOptions = {}): RegistryGenR
     'export type EnabledLanguageId = (typeof enabledLanguageIds)[number]',
     '',
     `export const publishPolicy = ${q(registry.publishPolicy)} as const`,
-    `export const baselineLanguageId = ${q(registry.baseline)} as const`,
+    '/** 首访默认值与 SSG 静态文案使用的基准 */',
+    `export const defaultBaselineLanguageId = ${q(registry.defaultBaseline)} as const`,
+    '/** 可作基准的语言（由各语言 meta.yaml 的 baseline: true 派生）。基准选择器只列这些 */',
+    `export const baselineLanguageIds = [${arr(baselineCandidateIds)}] as const`,
+    '/** equivalence 徽章的参照系。内容级常量，**不随运行时基准切换** */',
+    `export const equivalenceReferenceId = ${q(registry.equivalenceReference)} as const`,
+    '/** 参照系的语言显示名 —— 供页面文案使用，免去每处再查一次 meta */',
+    `export const equivalenceReferenceName = ${q(
+      metas.find((m) => m.id === registry.equivalenceReference)?.name ?? registry.equivalenceReference,
+    )} as const`,
     '',
     'export const siteInfo = {',
     `  name: ${q(registry.site.name)},`,

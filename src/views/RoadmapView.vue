@@ -5,7 +5,7 @@ import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
 import { usePersistedState } from '@/composables/usePersistedState'
 import { getRoadmap } from '@/content/repository'
-import { getLanguageMeta } from '@/generated/registry.gen'
+import { equivalenceReferenceName, getLanguageMeta } from '@/generated/registry.gen'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -29,11 +29,13 @@ function toggle(key: string): void {
   progress.value = { ...progress.value, [key]: !progress.value[key] }
 }
 
+// 路线图天然是「从参照系语言出发学目标语言」，所以出发端用 equivalenceReference 而非运行时基准
+// —— 否则在 Python 基准下打开 Python 路线图会变成「从 Python 迁移到 Python」。
 usePageMeta(
-  () => (lang.value ? `JS → ${lang.value.name} 学习路线` : undefined),
+  () => (lang.value ? `${equivalenceReferenceName} → ${lang.value.name} 学习路线` : undefined),
   () =>
     lang.value
-      ? `从 JavaScript 迁移到 ${lang.value.name} 的分阶段路线：每阶段的目标、时长与验收标准。`
+      ? `从 ${equivalenceReferenceName} 迁移到 ${lang.value.name} 的分阶段路线：每阶段的目标、时长与验收标准。`
       : undefined,
 )
 </script>

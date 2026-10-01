@@ -95,8 +95,9 @@ export function buildSearchDocs(a: Analysis): SearchDoc[] {
       text: entries
         .flatMap(([lang, e]) => [e.label, plain(e.detail), a.metaById[lang]?.name ?? lang])
         .join(' '),
-      // 概念对照表渲染在语言入口页；指向基准语言最稳（不依赖某门语言是否已写内容）
-      url: `/lang/${a.registry.baseline}`,
+      // 概念对照表渲染在语言入口页；指向**默认基准**最稳（不依赖某门语言是否已写内容）。
+      // 用 defaultBaseline 而非运行时基准：索引是构建期产物，没有"当前用户"这回事。
+      url: `/lang/${a.registry.defaultBaseline}`,
       meta: '心智模型对照',
     })
   }

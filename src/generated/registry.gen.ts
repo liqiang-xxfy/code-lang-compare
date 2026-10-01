@@ -3,7 +3,7 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml + content/languages/<id>/meta.yaml
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-01T09:44:28.040Z
+ * 生成时间：2026-10-01T10:27:32.035Z
  */
 import type { LanguageMeta } from '../schemas'
 export const allLanguageIds = ['arkts', 'dart', 'go', 'java', 'javascript', 'kotlin', 'python', 'rust', 'swift', 'typescript'] as const
@@ -16,11 +16,18 @@ export type LanguageId = AllLanguageId
 export type EnabledLanguageId = (typeof enabledLanguageIds)[number]
 
 export const publishPolicy = 'include-draft-with-badge' as const
-export const baselineLanguageId = 'javascript' as const
+/** 首访默认值与 SSG 静态文案使用的基准 */
+export const defaultBaselineLanguageId = 'javascript' as const
+/** 可作基准的语言（由各语言 meta.yaml 的 baseline: true 派生）。基准选择器只列这些 */
+export const baselineLanguageIds = ['java', 'javascript', 'python'] as const
+/** equivalence 徽章的参照系。内容级常量，**不随运行时基准切换** */
+export const equivalenceReferenceId = 'javascript' as const
+/** 参照系的语言显示名 —— 供页面文案使用，免去每处再查一次 meta */
+export const equivalenceReferenceName = 'JavaScript' as const
 
 export const siteInfo = {
   name: '多语言并排对比',
-  shortDescription: '以 JavaScript 为基准，把目标语言的同一概念并排放在一起，突出差异，让已有知识快速迁移。',
+  shortDescription: '并排对比多门语言的同一概念。默认以 JavaScript 为基准，也可选 Python / Java，突出差异，让已有知识快速迁移。',
   lang: 'zh-CN',
 } as const
 
@@ -176,7 +183,7 @@ export const languageMeta: LanguageMeta[] = [
       "virtual-threads",
       "executors"
     ],
-    "baseline": false,
+    "baseline": true,
     "links": [
       {
         "label": "dev.java 官方学习站",
@@ -300,7 +307,7 @@ export const languageMeta: LanguageMeta[] = [
       "asyncio",
       "gil"
     ],
-    "baseline": false,
+    "baseline": true,
     "links": [
       {
         "label": "Python 官方教程",

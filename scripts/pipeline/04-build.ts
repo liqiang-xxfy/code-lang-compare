@@ -69,6 +69,25 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
   const nameOf = (id: string) => a.metaById[id]?.name ?? id
   const metaOf = (id: string) => a.metaById[id]
 
+  /**
+   * 基准相关的静态文案片段。
+   *
+   * 预渲染 HTML 是 SEO 的**唯一**有效载体（爬虫首轮不执行 JS），所以基准这件事
+   * 必须写死在静态文案里；客户端随后会用 localStorage 里的偏好改写可见文案
+   * （见各 view 的 usePageMeta / HomeView），两者分工不同，不是重复。
+   *
+   * 文案同时给出「默认是谁」与「还能选谁」—— 基准不进 URL，没有专属落地页，
+   * 这是候选基准能被搜索引擎看见的唯一位置。
+   */
+  const refName = nameOf(a.registry.equivalenceReference)
+  const defaultBaselineName = nameOf(a.registry.defaultBaseline)
+  const candidateNames = Object.values(a.metaById)
+    .filter((m) => m.baseline)
+    .map((m) => m.name)
+  const baselinePhrase = candidateNames.length
+    ? `基准可选 ${candidateNames.join(' / ')}，默认 ${defaultBaselineName}`
+    : `以 ${defaultBaselineName} 为基准`
+
   for (const route of routes) {
     if (route === '/') {
       out[route] = {
@@ -84,7 +103,7 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
       const meta = metaOf(id)
       out[route] = {
         title: `${nameOf(id)} 对照入口`,
-        description: `${nameOf(id)} 与 JavaScript 的心智模型对照、语言设计维度与生态差异。${meta?.paradigm.join('、') ?? ''}`,
+        description: `${nameOf(id)} 与 ${refName} 的心智模型对照、语言设计维度与生态差异。${meta?.paradigm.join('、') ?? ''}`,
       }
       continue
     }
@@ -97,10 +116,10 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
       const featureTitles = (chapter?.features ?? []).map((f) => f.title)
       out[route] = {
         title: [topicTitle, chapter?.title].filter(Boolean).join(' · '),
-        description: `${chapter?.title ?? ''}：${featureTitles.slice(0, 8).join('、')} 在 JavaScript 与${a.enabledLanguageIds
-          .filter((x) => x !== a.registry.baseline)
+        description: `${chapter?.title ?? ''}：${featureTitles.slice(0, 8).join('、')} 在 ${refName} 与${a.enabledLanguageIds
+          .filter((x) => x !== a.registry.equivalenceReference)
           .map(nameOf)
-          .join('、')}中的写法对照，含行为差异与迁移陷阱。`,
+          .join('、')}中的写法对照，含行为差异与迁移陷阱。${baselinePhrase}。`,
       }
       continue
     }
@@ -111,9 +130,9 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
       const found = a.features.find((f) => f.feature.id === featureId)
       out[route] = {
         title: found ? `${found.feature.title} 的跨语言对照` : featureId,
-        description:
-          found?.feature.summary ??
-          `${featureId} 在 JavaScript 与其它语言中的写法、差异与注意事项。`,
+        description: `${
+          found?.feature.summary ?? `${featureId} 在 ${refName} 与其它语言中的写法、差异与注意事项。`
+        }${baselinePhrase}。`,
       }
       continue
     }
@@ -121,7 +140,7 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
     if (route === '/pitfalls') {
       out[route] = {
         title: '迁移陷阱清单',
-        description: `按症状检索的跨语言迁移陷阱：${a.pitfalls
+        description: `以 ${refName} 为出发语言、按症状检索的跨语言迁移陷阱：${a.pitfalls
           .slice(0, 5)
           .map((p) => p.title)
           .join('、')} 等 ${a.pitfalls.length} 条。`,
@@ -153,8 +172,8 @@ function buildSeo(a: ReturnType<typeof analyzeContent>, routes: string[]): Manif
       const id = roadmapMatch[1]!
       const stages = a.roadmaps[id] ?? []
       out[route] = {
-        title: `JS → ${nameOf(id)} 学习路线`,
-        description: `从 JavaScript 迁移到 ${nameOf(id)} 的 ${stages.length} 个阶段：目标、时长与验收标准。`,
+        title: `${refName} → ${nameOf(id)} 学习路线`,
+        description: `从 ${refName} 迁移到 ${nameOf(id)} 的 ${stages.length} 个阶段：目标、时长与验收标准。`,
       }
       continue
     }

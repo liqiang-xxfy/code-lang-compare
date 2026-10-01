@@ -105,6 +105,45 @@ try {
   } else {
     console.log('[verify:ext] ✓ src/ 下（不含 generated）没有任何代码引用具体语言 id')
   }
+
+  /*
+   * 第二道断言：src（排除 generated）不得出现**真实启用语言**的 id 字面量。
+   *
+   * 为什么需要它：上面那条只认 _fixturelang，因此
+   *     if (baseline === 'javascript') { ... }
+   * 这种「把基准写死」的分支它**完全看不见** —— 而基准可配之后，这正是最容易犯的错：
+   * 页面在 JS 基准下一切正常，切到 Python 就静默走错分支。
+   *
+   * 匹配**必须带引号**（'go' / "go" / `go`）。两个字母的 id（go）不加引号会在
+   * logged、category 之类的普通词里疯狂误报，那样的断言只会被加白名单绕过、失去价值。
+   * 与语言强相关的字面量（shikiLang 等）都住在 src/generated，本扫描已排除它。
+   */
+  const idOffenders: Array<{ file: string; hits: string[] }> = []
+  for (const file of walk(path.join(ROOT, 'src'))) {
+    if (file.includes(`${path.sep}generated${path.sep}`)) continue
+    const text = fs.readFileSync(file, 'utf8')
+    const hits = publicOnly.enabledLanguageIds.filter((id) =>
+      [`'${id}'`, `"${id}"`, `\`${id}\``].some((quoted) => text.includes(quoted)),
+    )
+    if (hits.length) idOffenders.push({ file: path.relative(ROOT, file), hits })
+  }
+
+  if (idOffenders.length) {
+    console.error(
+      '[verify:ext] ✗ 以下源码硬编码了真实语言 id —— 基准与语言列都必须来自 registry，' +
+        '否则「基准可配置」只是口头承诺：',
+    )
+    for (const { file, hits } of idOffenders) {
+      console.error(`           - ${file}  →  ${hits.join(', ')}`)
+    }
+    console.error('           （如需按语言分支，请改用 registry.gen 导出的常量或 meta 字段）')
+    exitCode = 1
+  } else {
+    console.log(
+      `[verify:ext] ✓ src/ 下（不含 generated）没有硬编码任何启用语言 id` +
+        `（已检查 ${publicOnly.enabledLanguageIds.join(', ')}）`,
+    )
+  }
 } finally {
   cleanup()
   // 恢复注册表（本次流程其实不需要改它，但保留这层保护以防将来加回注册步骤）

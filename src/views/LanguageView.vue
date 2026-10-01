@@ -4,7 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
 import { getConcepts, manifest } from '@/content/repository'
-import { enabledLanguageIds, getLanguageMeta } from '@/generated/registry.gen'
+import { enabledLanguageIds, equivalenceReferenceName, getLanguageMeta } from '@/generated/registry.gen'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -16,7 +16,7 @@ usePageMeta(
   () => (lang.value ? `${lang.value.name} 对照入口` : undefined),
   () =>
     lang.value
-      ? `${lang.value.name} 与 JavaScript 的心智模型对照、设计维度与生态差异。`
+      ? `${lang.value.name} 与 ${equivalenceReferenceName} 的心智模型对照、设计维度与生态差异。`
       : undefined,
 )
 

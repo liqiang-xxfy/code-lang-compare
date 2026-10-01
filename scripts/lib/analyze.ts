@@ -133,12 +133,55 @@ export function analyzeContent(): Analysis {
   }
 
   const enabledLanguageIds = allLanguageIds.filter((id) => registry.languages[id]?.enabled)
-  if (!enabledLanguageIds.includes(registry.baseline)) {
-    err('R8', 'content/registry.yaml', `baseline = '${registry.baseline}' 必须是已启用的语言`)
+
+  /**
+   * 基准相关约束 —— 与 scripts/build/generate-registry.ts 是**同一套判据**。
+   *
+   * 那边抛错终止、这边累积 error，两处必须同步改：判据不一致会产出
+   * 「校验放行但构建 throw」这种最难定位的组合。
+   *
+   * 语义：默认基准唯一（defaultBaseline），但**基准候选可以多门**
+   * （各语言 meta 的 baseline: true）—— 候选是可选的参照系集合，
+   * 默认值是首访与 SSG 静态文案用的那一个。
+   */
+  const baselineCandidateIds = metas.filter((m) => m.baseline).map((m) => m.id)
+  if (!baselineCandidateIds.length) {
+    err('R8', 'content/languages/*/meta.yaml', '没有任何语言标了 baseline: true —— 至少要有一门基准候选')
   }
-  const baselineCount = metas.filter((m) => m.baseline).length
-  if (baselineCount !== 1) {
-    err('R8', 'content/languages/*/meta.yaml', `标了 baseline: true 的语言有 ${baselineCount} 门，必须恰好 1 门`)
+  for (const id of baselineCandidateIds) {
+    if (!enabledLanguageIds.includes(id)) {
+      err(
+        'R8',
+        `content/languages/${id}/meta.yaml`,
+        '标了 baseline: true 但未启用 —— 基准候选必须是已启用语言',
+      )
+    }
+  }
+  if (!enabledLanguageIds.includes(registry.defaultBaseline)) {
+    err('R8', 'content/registry.yaml', `defaultBaseline = '${registry.defaultBaseline}' 必须是已启用的语言`)
+  } else if (!baselineCandidateIds.includes(registry.defaultBaseline)) {
+    err(
+      'R8',
+      'content/registry.yaml',
+      `defaultBaseline = '${registry.defaultBaseline}' 不在基准候选里` +
+        `（候选：${baselineCandidateIds.join(', ') || '空'}）—— 请在该语言的 meta.yaml 里标 baseline: true`,
+    )
+  }
+  if (!enabledLanguageIds.includes(registry.equivalenceReference)) {
+    err(
+      'R8',
+      'content/registry.yaml',
+      `equivalenceReference = '${registry.equivalenceReference}' 必须是已启用的语言`,
+    )
+  }
+
+  /* topic 的语言范围：必须是已知语言，否则 R2 会静默漏算 */
+  for (const [topicId, cfg] of Object.entries(registry.topics)) {
+    for (const id of cfg.languages ?? []) {
+      if (!allLanguageIds.includes(id)) {
+        err('R8', 'content/registry.yaml', `topic '${topicId}' 的 languages 含未知语言 '${id}'`)
+      }
+    }
   }
 
   /* 章节与 Feature */
@@ -155,6 +198,21 @@ export function analyzeContent(): Analysis {
       }
       featureIds.add(feature.id)
       features.push({ feature, chapter })
+    }
+  }
+
+  /* R5 软引用完整性 —— 迁移教程的小节指向概念详解（refFeatureId） */
+  for (const { feature, chapter } of features) {
+    const ref = feature.refFeatureId
+    if (!ref) continue
+    if (ref === feature.id) {
+      err('R5', `content/topics/${chapter.topicId}`, `feature '${feature.id}' 的 refFeatureId 指向自己`)
+    } else if (!featureIds.has(ref)) {
+      err(
+        'R5',
+        `content/topics/${chapter.topicId}`,
+        `feature '${feature.id}' 的 refFeatureId '${ref}' 不存在`,
+      )
     }
   }
 
@@ -186,9 +244,21 @@ export function analyzeContent(): Analysis {
     }
   }
 
-  /* R2 覆盖率：已启用语言不能有空洞 */
+  /**
+   * 某个 topic 的**适用语言范围** —— 缺省 = 全部已启用语言。
+   *
+   * 迁移教程是这个机制的第一个使用者：一个 js→python 方向只涉及两门语言，
+   * 若仍按「已启用语言 × feature」计算，每格都会报「缺少 rust 的实现」。
+   */
+  const scopeOfTopic = (topicId: string): string[] => {
+    const scope = registry.topics[topicId]?.languages
+    if (!scope?.length) return enabledLanguageIds
+    return enabledLanguageIds.filter((id) => scope.includes(id))
+  }
+
+  /* R2 覆盖率：适用范围内的语言不能有空洞 */
   const coverage: Record<string, { have: number; total: number }> = {}
-  for (const lang of enabledLanguageIds) coverage[lang] = { have: 0, total: features.length }
+  for (const lang of enabledLanguageIds) coverage[lang] = { have: 0, total: 0 }
   /**
    * 未启用语言已写好的实现数，按语言累计。
    *
@@ -197,9 +267,11 @@ export function analyzeContent(): Analysis {
    */
   const pendingByLang = new Map<string, number>()
 
-  for (const { feature } of features) {
+  for (const { feature, chapter } of features) {
     const bucket = snippets.get(feature.id)
-    for (const lang of enabledLanguageIds) {
+    const scope = scopeOfTopic(chapter.topicId)
+    for (const lang of scope) {
+      coverage[lang]!.total += 1
       const s = bucket?.get(lang)
       if (!s) {
         err(
