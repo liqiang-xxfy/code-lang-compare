@@ -1,0 +1,152 @@
+# java —— basics-java/07-control-flow 的实现
+#
+# 本 topic 以 **Java 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/if-else
+    equivalence: identical
+    code: |
+      if (score >= 90) {              // @note 括号必需
+          grade = "A";
+      } else if (score >= 60) {       // @note 写两个词
+          grade = "B";
+      } else {
+          grade = "C";
+      }
+
+      // if (1) { }                   // @note! 编译错误：条件必须是 boolean
+      // if (items) { }               // @note! 同样编译不过
+      if (items != null && !items.isEmpty()) { }
+  - featureId: basics-java/ternary
+    equivalence: identical
+    code: |
+      String label = age >= 18 ? "成年" : "未成年";   // @note 条件写在最前面
+      int level = n > 100 ? 3 : n > 10 ? 2 : 1;      // @note 能嵌套，超过一层就该拆
+
+      // String bad = n ? "有" : "无";                // @note! 编译错误：条件必须是 boolean
+
+      String s = switch (n) {                        // @note Java 14+ 的多分支写法
+          case 1 -> "一";
+          default -> "其他";
+      };
+  - featureId: basics-java/switch-match
+    equivalence: identical
+    code: |
+      switch (command) {
+          case "go":
+              move();
+              break;                  // @note! 不写 break 会穿透到下一个 case
+          case "look":
+          case "peek":                // @note 故意的穿透：多个 case 共用一段逻辑
+              look();
+              break;
+          default:
+              unknown();
+      }
+
+      String s = switch (command) {   // @note Java 14+ 箭头形式：没有穿透，且必须穷尽
+          case "go" -> "移动";
+          case "look", "peek" -> "观察";
+          default -> "未知";
+      };
+
+      String d = switch (obj) {       // @note Java 21 模式匹配 + 守卫条件
+          case Integer i when i > 0 -> "正整数";
+          case String str -> str;
+          default -> "其他";
+      };
+  - featureId: basics-java/for-loop
+    equivalence: identical
+    code: |
+      for (int i = 0; i < 10; i++) { }   // @note 三段式，计数循环
+      for (String x : xs) { }            // @note 增强 for，遍历
+
+      for (int i = 0; i < 3; i++) { }
+      // System.out.println(i);          // @note! 编译错误：循环变量出块即失效
+
+      for (String x : xs) {
+          xs.remove(x);                  // @note! ConcurrentModificationException，当场就报
+      }
+      xs.removeIf(x -> x.isEmpty());     // @note 要删走这条
+  - featureId: basics-java/while-loop
+    equivalence: identical
+    code: |
+      while (running) { tick(); }
+
+      do {                               // @note! 至少执行一次，条件在末尾判定
+          line = read();
+          handle(line);
+      } while (line != null);
+
+      // while (1) { }                   // @note! 编译错误：条件必须是 boolean
+
+      // @note 没有 for...else 那种"循环正常结束才执行"的子句
+  - featureId: basics-java/loop-control
+    equivalence: identical
+    code: |
+      for (String x : xs) {
+          if (skip(x)) continue;
+          if (done(x)) break;
+      }
+
+      outer:                             // @note! 标签：一次跳出多层
+      for (var row : rows) {
+          for (var c : row) {
+              if (bad(c)) break outer;
+              if (skip(c)) continue outer;
+          }
+      }
+
+      // @note! 没有 for...else：想表达"没找到"要额外维护标志位，或写成流
+      var found = xs.stream().filter(this::matches).findFirst();
+  - featureId: basics-java/loop-index
+    equivalence: identical
+    code: |
+      for (int i = 0; i < xs.size(); i++) {   // @note! 没有 enumerate，下标要自己维护
+          String x = xs.get(i);
+      }
+
+      java.util.stream.IntStream.range(0, xs.size()).forEach(i -> { });
+      map.forEach((k, v) -> { });             // @note Map 是例外，一次给键值
+
+      // @note! 也没有 zip：并行遍历要自己按下标取，长度不一致也要自己处理
+  - featureId: basics-java/range-iteration
+    equivalence: identical
+    code: |
+      java.util.stream.IntStream.range(0, 5);        // @note 0..4，左闭右开
+      java.util.stream.IntStream.rangeClosed(0, 5);  // @note! 0..5，闭区间要显式选
+
+      java.util.stream.IntStream.range(0, 5).boxed().toList();   // @note 要当对象用必须装箱
+      for (int i = 0; i < 5; i++) { }                // @note 多数场合直接写计数循环更清楚
+
+      // @note! 流是一次性的，同一个 range 结果不能遍历两次；
+      // 也没有 range 类型：不能先存下来再决定怎么用
+  - featureId: basics-java/exception-flow
+    equivalence: identical
+    code: |
+      void load() throws java.io.IOException {        // @note! 受检异常必须声明或当场捕获
+          java.nio.file.Files.readString(java.nio.file.Path.of("a.txt"));
+      }
+
+      try {
+          load();
+      } catch (java.io.IOException | java.nio.file.NoSuchFileException e) {   // @note 多重捕获
+          log(e);
+      } finally {
+          cleanup();                                  // @note 一定会执行
+      }
+
+      // @note! 没有 else 子句：要"只捕获可能抛的那一句"，只能缩小 try 块的范围
+
+      try (var in = java.nio.file.Files.newInputStream(p)) {   // @note try-with-resources
+          in.read();
+      }   // 自动关闭，比 finally 里手写 close 安全
+      // @note! 只对实现了 AutoCloseable 的类型有效

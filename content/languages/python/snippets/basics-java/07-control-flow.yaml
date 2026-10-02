@@ -1,0 +1,143 @@
+# python —— basics-java/07-control-flow 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/if-else
+    equivalence: analogous
+    code: |
+      if score >= 90:              # @note! 不需要括号，缩进就是块边界
+          grade = "A"
+      elif score >= 60:            # @note! else if 缩成一个词
+          grade = "B"
+      else:
+          grade = "C"
+
+      if items:                    # @note! 合法 —— 条件位置接受任意对象，按真值判定
+          pass
+      # @note 于是"if (items) 编译不过"这条 Java 的保护在这里没有了；
+      # 读代码的人要先知道 items 的类型，才能确定这行在问什么
+  - featureId: basics-java/ternary
+    equivalence: divergent
+    code: |
+      label = "成年" if age >= 18 else "未成年"
+      # @note! 语序是"结果在前、条件在中"，与 Java 的"条件 ? 值 : 值"正好相反
+      # 两边都是合法表达式时写反了不会报错，只是逻辑反了
+
+      level = "高" if n > 100 else "中" if n > 10 else "低"   # @note 同样能嵌套
+
+      # @note 条件不必是 boolean；但必须有 else 分支，没有"省略 else"的写法
+  - featureId: basics-java/switch-match
+    equivalence: divergent
+    code: |
+      match command.split():
+          case ["go", direction]:      # @note! 结构化匹配：解构 + 绑定变量，不是值比较
+              move(direction)
+          case ["go", *rest]:          # 星号收集剩余项
+              go_many(rest)
+          case {"type": "quit"}:       # 映射模式
+              quit_game()
+          case [x] if x > 0:           # @note 守卫条件
+              positive(x)
+          case _:                      # @note! 兜底：没有它就可能一个分支都不匹配
+              unknown()
+
+      # @note! 分支之间没有穿透这回事，不存在"忘记写 break"
+      # @note! case 里的名字是**捕获**不是比较：写 case x: 会匹配任何东西
+  - featureId: basics-java/for-loop
+    equivalence: divergent
+    code: |
+      for x in xs:                 # @note! 只有遍历形式，没有三段式
+          pass
+      for i in range(10):          # 要计数就先用 range 造序列
+          pass
+
+      for i in range(3):
+          pass
+      print(i)                     # @note! 2 —— 块不产生作用域，循环变量出了循环还在
+
+      for x in xs:
+          xs.remove(x)             # @note! 边遍历边删会跳元素 ——
+                                   # 比 Java 的 ConcurrentModificationException 更隐蔽
+      xs = [x for x in xs if ok(x)]   # 正确写法：重建
+  - featureId: basics-java/while-loop
+    equivalence: divergent
+    code: |
+      while running:
+          tick()
+
+      # @note! 没有"至少执行一次"的循环结构，惯用替代是 while True + break：
+      while True:
+          line = read()
+          if not line:
+              break                # @note! 出口必须自己保证，漏一个 break 就是死循环
+          handle(line)
+
+      # @note 条件不必是 boolean；while 也有 else 子句（没被 break 打断时执行）
+  - featureId: basics-java/loop-control
+    equivalence: divergent
+    code: |
+      for x in xs:
+          if skip(x): continue
+          if done(x): break
+
+      for item in items:
+          if matches(item):
+              found = item
+              break
+      else:
+          found = None             # @note! for-else：没被 break 打断才执行，表达"没找到"
+
+      # @note! 没有标签 —— 要跳出两层只能靠标志位，或者把内层抽成函数用 return
+      # @note! 但多了 for...else，正好补上 Java 缺的那个"没找到"分支
+  - featureId: basics-java/loop-index
+    equivalence: divergent
+    code: |
+      for i, x in enumerate(xs):        # @note! 值 + 下标有现成写法，一行
+          pass
+      for i, x in enumerate(xs, start=1):   # @note 还能指定起始编号
+          pass
+      for a, b in zip(xs, ys):          # @note! zip 也是内置的，Java 完全没有
+          pass
+
+      zip(xs, ys, strict=True)          # 3.10+：长度不一致直接抛错
+      # @note Java 要手写 for (int i = 0; ...) 并自己处理长度不一致
+  - featureId: basics-java/range-iteration
+    equivalence: divergent
+    code: |
+      range(5)             # @note 0..4，左闭右开
+      range(5, 0, -1)      # 5,4,3,2,1 —— 还能带步长
+
+      range(10 ** 9)       # @note! 惰性序列：瞬间构造、不占内存，而且**可以反复遍历**
+      len(range(10))       # 10 —— 有长度
+      3 in range(10)       # True，且是 O(1) 判断
+
+      print(range(3))      # @note! 输出 range(0, 3)，不是列表 —— 它不是容器
+      # @note 与 IntStream.range 相比：不必装箱、不是一次性、有长度
+  - featureId: basics-java/exception-flow
+    equivalence: divergent
+    code: |
+      try:
+          risky()
+      except (KeyError, IndexError):   # @note 一个分支接多种类型，比多重捕获更灵活
+          fallback()
+      except Exception as e:           # @note! 兜底写 Exception，不要写空的 except:
+          log(e)
+          raise                        # 重新抛出，保留原始栈
+      else:
+          succeeded()                  # @note! 多了 else：没抛异常时执行
+      finally:
+          cleanup()
+
+      # @note! 没有受检异常：谁可能抛什么，签名上看不出来
+      # @note 但多了 else 子句 —— Java 那边只能靠缩小 try 块范围来近似
+
+      with open(path) as f:            # @note 资源释放：只要实现 __enter__ / __exit__ 即可
+          data = f.read()              # 不像 try-with-resources 那样要求特定接口
