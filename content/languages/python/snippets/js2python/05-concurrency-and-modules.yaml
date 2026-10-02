@@ -1,0 +1,106 @@
+# python —— js2python/05-concurrency-and-modules 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），Python 是被对照的那一门。
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2python/concurrency-intro
+    equivalence: divergent
+    code: |
+      counter = 0
+      def bump():
+          global counter
+          counter += 1        # @note! 有线程时这是"读-改-写"三步，会丢更新
+
+      threading.Thread(target=work).start()      # @note! 有真线程 —— JS 里没有这个选项
+      # @note 但受 GIL 限制：同一时刻只有一个线程执行字节码，CPU 密集不会变快
+
+      multiprocessing.Pool(4)                    # @note 要真并行只能多进程，代价是通信要序列化
+
+      # @note! JS 里"没有 await 就不会被打断"的直觉在这里对线程不成立 ——
+      # 判断安不安全要看"有没有共享可变状态"
+  - featureId: js2python/async-model
+    equivalence: analogous
+    code: |
+      import asyncio
+
+      async def main():
+          rs = await asyncio.gather(*[fetch(u) for u in urls])            # @note 对应 Promise.all
+          settled = await asyncio.gather(*tasks, return_exceptions=True)  # 对应 allSettled
+          first = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+      asyncio.run(main())          # @note! 事件循环要自己驱动，不像 JS 由运行时托管
+
+      # @note! 循环里不能跑同步阻塞代码：一个 time.sleep(1) 会卡住所有协程
+      await asyncio.to_thread(blocking_fn)      # 要跑阻塞代码得显式丢到线程里
+
+      # @note gather 同样是"快速失败但不取消"：其余协程会继续跑完
+      # @note Python 里没被接住的协程异常会在循环关闭时打印警告，容易误以为出了问题
+  - featureId: js2python/module-system
+    equivalence: divergent
+    code: |
+      from utils import helper        # @note! 没有 export：模块里所有名字默认可导入
+      import utils
+
+      def helper():
+          ...
+
+      _internal = 1                   # @note 前导下划线是"私有"约定，只是约定
+
+      # @note! import 会执行整个模块的顶层语句
+      if __name__ == "__main__":      # @note 守卫：既能当模块导入，又能当脚本跑
+          main()
+
+      # @note 包就是含 __init__.py 的目录，该文件在导入包时执行一次
+      # @note 好处：没有 ESM / CJS 之分，不必配 "type": "module"
+  - featureId: js2python/package-manager
+    equivalence: divergent
+    code: |
+      # pyproject.toml
+      # [project]
+      # dependencies = ["requests>=2.31"]
+
+      python -m venv .venv && source .venv/bin/activate   # @note! 虚拟环境要**手动建**
+      pip install -r requirements.txt
+      pytest
+
+      # @note! 不像 node_modules 那样自动隔离：不激活 venv 就会装到全局，
+      # 之后项目之间版本互相打架
+
+      # @note 声明、锁定、环境、跑脚本、发布是**几件事各管一段**；
+      # uv / poetry / pdm 这类工具正在把它们收拢成一条命令，方向朝 npm 靠
+  - featureId: js2python/concurrency-exercise
+    equivalence: analogous
+    code: |
+      import asyncio
+
+      cache = {}
+
+      async def compute(k):
+          return k * 2
+
+      async def get(k):
+          if k not in cache:                 # @note 检查后写入
+              cache[k] = await compute(k)    # @note! 这里有 await —— 会被切走，复合动作不原子
+          return cache[k]
+
+      async def main():
+          await asyncio.gather(get(1), get(1))    # @note compute(1) 可能被算两次
+
+      asyncio.run(main())
+
+      # @note! 三个问题的答案：
+      # 1. JS 里不需要加锁（单线程，最坏是白算一遍）；
+      #    asyncio 里同样不需要"锁"，但复合动作依然不原子 —— 要防重复计算得用
+      #    asyncio.Lock，或者把结果缓存改成"先建占位"
+      # 2. compute 是同步 CPU 密集时，它会**卡住整个事件循环** ——
+      #    所有协程都停住，而 JS 里至少不会这样（那边没有共享的循环可卡）
+      #    解法是 await asyncio.to_thread(compute, k) 或换 multiprocessing
+      # 3. 只有真的用了 threading（多线程共享内存）才需要 threading.Lock；
+      #    纯 asyncio 里需要的是 asyncio.Lock，两者不能混用

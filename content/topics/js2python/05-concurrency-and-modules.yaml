@@ -1,0 +1,153 @@
+id: js2python/05-concurrency-and-modules
+topicId: js2python
+title: 5. 并发与模块化
+order: 5
+summary: 从 JavaScript 到 Python：事件循环变成了库、共享内存回来了、包管理换了一套
+
+features:
+  - id: js2python/concurrency-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: JS 的单线程模型保护了你，Python 里这层保护没有了
+    body: |
+      JS 的并发模型有一个很强的前提：**主线程只有一个，而且不共享内存**。
+      于是整类问题在 JS 里根本不会出现 —— 你不必考虑两个任务同时改一个变量。
+
+      Python 不是这样。它有真线程、真共享内存，只是同一时刻只有一个线程
+      执行字节码（GIL）。这带来两个后果：
+
+      - **坏消息**：`counter += 1` 这类"看起来原子"的操作，在没有 GIL 保障的
+        实现上就会丢更新；即使有 GIL，`if k not in d: d[k] = ...` 这种复合逻辑
+        照样可能被切走。所以**"在 JS 里不用想"这件事，在这里要想**。
+      - **好消息**：CPU 密集型任务可以用 `multiprocessing` 真并行 ——
+        JS 里只能靠 Worker，而且通信要序列化。
+
+      本章按「并发模型 → 异步 → 模块 → 包管理」排。
+
+      **最该带走的一句**：JS 里"这段代码没有 await，所以不会被打断"的直觉，
+      在 Python 里对线程不成立。判断一段代码安不安全，要看的是
+      "有没有共享可变状态"，而不是"有没有 await"。
+
+  - id: js2python/async-model
+    title: 异步：Promise 变成 asyncio
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: await 一样，但事件循环要自己驱动，而且 async 有传染性
+    body: |
+      概念上高度对应：
+
+      ```js
+      const rs = await Promise.all(urls.map(u => fetch(u)));
+      ```
+
+      ```python
+      rs = await asyncio.gather(*[fetch(u) for u in urls])
+      ```
+
+      `Promise.all` ↔ `gather`，`Promise.allSettled` ↔ `gather(return_exceptions=True)`，
+      `Promise.race` ↔ `asyncio.wait(..., return_when=FIRST_COMPLETED)`。
+      语义基本能一一对上，这是迁移时最省力的一块。
+
+      **三处实质差别**：
+
+      1. **`async` 有传染性**。调用链上一路都要 `async`，同步上下文里想调用
+         只能用 `asyncio.run(...)` 或 `run_in_executor`。JS 里同样有传染性，
+         但那边顶层 await 已经普及，Python 里要显式起一个事件循环。
+      2. **事件循环要自己驱动**。JS 的循环由运行时托管，你从不写"启动循环"；
+         Python 里 `asyncio.run(main())` 是你写的，而且**循环里不能跑同步阻塞代码** ——
+         一个 `time.sleep(1)` 会卡住所有协程。
+      3. **`gather` 的异常语义**：默认情况下任一协程抛异常，`gather` 会把异常
+         抛给调用方，但**其余协程不会被取消**，会继续跑到结束。JS 的 `Promise.all`
+         同样是"快速失败但不取消"，这一条两边一致 —— 但 Python 里没被接住的
+         协程异常会在事件循环关闭时打印警告，容易让人以为出了问题。
+
+      线程与异步的关系也与 JS 不同：Python 里 `asyncio` 是单线程的，
+      而 `threading` 是真线程 —— 两者可以混用（`run_in_executor`），
+      这也是 JS 里没有的选项。
+
+  - id: js2python/module-system
+    title: 模块系统：import 会执行代码
+    kind: behavior
+    refFeatureId: basics-javascript/object-json
+    summary: 没有 ESM/CJS 之分，但 import 有副作用
+    body: |
+      对应关系很直接：
+
+      ```js
+      import { helper } from "./utils.js";
+      export function helper() { }
+      ```
+
+      ```python
+      from utils import helper        # 不需要 export，模块里所有名字默认可导入
+      def helper(): ...
+      ```
+
+      三处需要重建的直觉：
+
+      1. **没有"导出"这个概念**。模块里定义的名字默认都能被导入，
+         想标记"私有"只能靠前导下划线（而且只是约定）。
+         也没有 `default export`。
+      2. **`import` 会执行整个模块**。JS 的 ESM 也是这个语义，但那边
+         模块级代码通常很少；Python 里模块级代码很常见，
+         所以"导入一个模块会跑一遍它的顶层语句"这件事要时刻记着。
+         守卫写法是 `if __name__ == "__main__":` ——
+         它让同一文件既能当模块导入、又能当脚本运行，对应 JS 里
+         "ESM 没有等价物，CJS 用 `require.main === module`"。
+      3. **没有 ESM / CJS 的割裂**。不必纠结 `import` 与 `require`、
+         也不必配 `"type": "module"` —— 这是净简化。
+
+      包（多个模块的集合）在 Python 里就是"含 `__init__.py` 的目录"，
+      这个文件在导入包时执行一次，常用来做包级导出。
+
+  - id: js2python/package-manager
+    title: 包管理与环境
+    kind: behavior
+    refFeatureId: basics-javascript/object-json
+    summary: npm 一个工具管到底，Python 这边是几件事各管一段
+    body: |
+      npm 的强大在于**一件事全包**：装依赖、锁版本、跑脚本、发布、隔离环境
+      （`node_modules` 就在项目里）。
+
+      Python 这边拆成了好几件：
+
+      | 事情 | JS | Python |
+      | --- | --- | --- |
+      | 声明依赖 | `package.json` | `pyproject.toml` |
+      | 锁定版本 | `package-lock.json` | 锁文件由所选工具决定 |
+      | 隔离环境 | `node_modules`（自动） | `venv`（**要手动建**） |
+      | 跑脚本 | `npm run x` | 没有标准；Makefile / taskipy / 直接调 |
+      | 发布 | `npm publish` | `twine` / `uv publish` |
+
+      **最需要改的习惯是"手动建虚拟环境"**：`node_modules` 是自动的，
+      而 Python 里不激活 venv 就会装到全局，之后项目之间版本互相打架。
+
+      ```bash
+      python -m venv .venv && source .venv/bin/activate
+      pip install -r requirements.txt      # 或 uv sync / poetry install
+      ```
+
+      近几年的工具（uv / poetry / pdm）把"声明、锁定、环境"重新收拢成了一条命令，
+      方向正是朝 npm 那种"一件事全包"靠 —— 从 JS 迁过来的人用这类工具会顺手得多。
+
+  - id: js2python/concurrency-exercise
+    title: 练习：判断哪些代码需要加锁
+    kind: exercise
+    summary: 重点是分辨"在 JS 里不用想"的那些点
+    body: |
+      下面这段 JS 用一个模块级 Map 做缓存，两个异步任务并发读写它。
+
+      请把它迁到 Python 的 `asyncio` 版本，要求**行为完全一致**，
+      然后回答三个问题：
+
+      1. 原版里 `if (!cache.has(k)) cache.set(k, compute(k))` 这一段，
+         在 JS 里需要加锁吗？在 Python 的 asyncio 里呢？
+      2. 如果 `compute` 是个同步函数（CPU 密集），迁过来的版本会有什么问题？
+      3. 什么情况下才真的需要 `threading.Lock`？
+
+      对照参考实现时，重点看**哪里加了保护、哪里没加** ——
+      这道题的立意是：JS 里"没有 await 就不会被打断"这条直觉，
+      在这里要换成"asyncio 里没有 await 就不会被打断（但同步阻塞会卡住所有人）"。
+
+      （提示：第 2 问的答案与"事件循环是单线程的"有关；
+      第 3 问的答案与"你到底用了线程还是协程"有关。）

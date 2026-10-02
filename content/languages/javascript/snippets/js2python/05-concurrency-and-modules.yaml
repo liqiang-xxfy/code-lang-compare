@@ -1,0 +1,78 @@
+# javascript —— js2python/05-concurrency-and-modules 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2python/concurrency-intro
+    equivalence: identical
+    code: |
+      let counter = 0;
+      async function bump() { counter += 1; }    // @note! 主线程只有一个，不会真的并发写
+      // @note "没有 await 就不会被打断"在这里成立 —— 单线程模型给的保证
+
+      new Worker("worker.js");                   // @note 真并行只能靠 Worker，且不共享内存
+      // @note 于是"两个任务同时改一个变量"这类问题在 JS 里根本不会出现
+  - featureId: js2python/async-model
+    equivalence: identical
+    code: |
+      const rs = await Promise.all(urls.map((u) => fetch(u)));
+      const settled = await Promise.allSettled(tasks);
+      const first = await Promise.race(tasks);
+
+      async function main() { }
+      main();                                      // @note! 循环由运行时托管，从不自己启动
+
+      // @note await 让出执行权这一点两边一致；
+      // @note 但这边没有"同步阻塞会卡住所有人"的问题 —— 主线程本来就只有一条，
+      // 阻塞它就是阻塞全部，这与 Python 里"阻塞会卡住整个事件循环"表现相同、原因不同
+  - featureId: js2python/module-system
+    equivalence: identical
+    code: |
+      import { helper } from "./utils.js";
+      import def from "./utils.js";                // default export
+
+      export function helper() { }
+      export default function def() { }
+
+      // @note! 有 ESM 与 CJS 两套，要配 "type": "module"；
+      // 两者的 import / require 不能随意混用
+      // @note 顶层 await 已经可用，不必显式启动
+      // @note 这边没有 __init__.py 那种"包级执行一次"的对应物
+  - featureId: js2python/package-manager
+    equivalence: identical
+    code: |
+      // package.json
+      // {
+      //   "dependencies": { "express": "^4.18.0" },
+      //   "scripts": { "test": "vitest" }
+      // }
+
+      npm install;                                 // @note 依赖装进项目里的 node_modules，自动隔离
+      npm run test;
+      npm publish;
+
+      // @note! 一件事全包：声明、锁版本、隔离环境、跑脚本、发布都是 npm 一家
+  - featureId: js2python/concurrency-exercise
+    equivalence: identical
+    code: |
+      const cache = new Map();
+
+      async function compute(k) { return k * 2; }
+
+      async function get(k) {
+        if (!cache.has(k)) {                       // @note "检查后写入"这个复合动作
+          cache.set(k, await compute(k));          // @note 有 await，这里真的会被切走
+        }
+        return cache.get(k);
+      }
+
+      await Promise.all([get(1), get(1)]);
+      // @note! 单线程模型下两个 get 会交替执行，compute(1) 可能被算两次 ——
+      // 这在 JS 里同样是个真实问题，只是不会导致数据损坏，只是白算一遍
