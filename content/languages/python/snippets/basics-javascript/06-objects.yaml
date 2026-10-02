@@ -14,6 +14,12 @@ snippets:
 
       # @note! 3.7+ 保证插入有序；JS 对象对「整数样式的键」会特殊排序，两者规则不同
       list({'b': 1, 'a': 2})                   # ['b', 'a'] —— 保持插入顺序
+    body: |
+      形状与 JS 的对象字面量相似，但约束更宽：**键可以是任意可哈希对象** ——
+      数字、元组、`frozenset` 都能当键，不会被转成字符串，也不会撞在一起。
+
+      `dict` 保证**插入有序**（3.7+），而 JS 对象对「整数样式的键」有提前排序的特殊规则，
+      两边规则不同。批量构造还能直接用字典推导式。
     review:
       state: reviewed
       provenance:
@@ -35,6 +41,12 @@ snippets:
       # 这两个在 JS 里完全等价，在 Python 里是两件事
 
       del d['name']     # 删除键
+    body: |
+      访问不存在的键抛 `KeyError`，不是静默给 `None`；要安全取值用 `d.get('missing')`。
+
+      **`d.name` 与 `d['name']` 在这里不是一回事**：方括号访问的是「键」，
+      点号访问的是「对象的属性」—— 对字典用点号基本会 `AttributeError`。
+      这两者在 JS 里完全等价，是从那边过来最容易犯的错。
     review:
       state: reviewed
       provenance:
@@ -57,6 +69,12 @@ snippets:
       list(d.values())             # [1, 2]
 
       {k: v * 2 for k, v in d.items()}   # @note 字典推导式，JS 要 fromEntries 两步
+    body: |
+      `d.items()` 直接给 `(key, value)` 元组，是最常用的写法；`d.keys()` / `d.values()`
+      分别拿键与值的视图，需要列表时再套一层 `list()`。
+
+      直接遍历字典等于**遍历键**（`for k in d`）——这里没有 JS 的 `for...in` 那种
+      「爬到原型链上」的坑。批量转换用字典推导式一步到位。
     review:
       state: reviewed
       provenance:
@@ -79,6 +97,12 @@ snippets:
       len(counts)                   # 1   —— 这就是副作用
 
       # @note JS 的 || 会把 0 当空，Python 的 get 不会——所以从 JS 过来这里反而更安全
+    body: |
+      `d.get(key, default)` 取默认值，而且**只读不写**：取值不会顺手把键写进字典。
+
+      要当心 `defaultdict` —— 它在读取时**会写入**默认值，顺带把字典撑大
+      （读一次 `counts['new']`，`len(counts)` 就从 0 变成 1）。
+      JS 那边 `||` 把 `0` 当成空的坑在这里不存在，`get` 不会误判。
     review:
       state: reviewed
       provenance:
@@ -99,6 +123,13 @@ snippets:
       a                   # {'x':1, 'y':9, 'z':3}
 
       # @note 同样是浅合并，嵌套字典仍共享引用
+    body: |
+      `{**a, **b}` 或 3.9+ 的 `a | b` 返回**新字典**，后者的键覆盖前者，
+      与 JS 的展开写法一一对应。
+
+      要当心 `a.update(b)` 是**原地修改** `a` 并返回 `None`，语义与 `{**a, **b}` 不同 ——
+      这和 JS 里 `Object.assign(a, b)` 漏掉第一个 `{}` 是同一个陷阱。
+      合并同样是浅的，嵌套字典仍共享引用。
     review:
       state: reviewed
       provenance:
@@ -123,6 +154,12 @@ snippets:
 
       original.copy()                  # 等价于浅拷贝
       list(original['tags'])           # 只复制一层时的手工写法
+    body: |
+      浅拷贝是默认行为：`{**original}` 与 `original.copy()` 都只复制第一层，
+      嵌套对象仍是共享引用 —— 与 JS 的 `{...obj}` 是同一个坑。
+
+      深拷贝用 `copy.deepcopy()`，能处理循环引用。
+      这一格的 bug 形态两边一样：**看起来复制了，改新对象却动了旧对象**。
     review:
       state: reviewed
       provenance:
@@ -142,6 +179,12 @@ snippets:
       {v: k for k, v in {'a': 1}.items()}            # 反转键值
 
       # @note 推导式一步到位，且支持 if 过滤与嵌套；这是 Python 最值得专门练的语法之一
+    body: |
+      字典推导式 `{k: v for ...}` **一步到位**，还支持 `if` 过滤与嵌套 ——
+      JS 那边同样的意图要走 `map` + `Object.fromEntries` 两步。
+
+      推导式是最具辨识度的语法之一，值得练到「不假思索就能写」：
+      从 JS 过来时，手写 for 循环攒字典的地方基本都该换成它。
     review:
       state: reviewed
       provenance:
@@ -162,6 +205,13 @@ snippets:
 
       # @note 所以「两个字典是否相同」在 Python 里是免费的，JS 里要自己写
       # @note 自定义类默认也是按身份比较，想按内容比必须实现 __eq__
+    body: |
+      `==` 对 dict / list 比的是**内容**，嵌套结构会递归比较
+      （`[1, [2, 3]] == [1, [2, 3]]` 是 `True`）；要比引用才用 `is`。
+
+      所以「两个字典内容是否相同」在这里是免费的，JS 那边得自己写 ——
+      这也意味着 `in`、去重、断言相等这些日常操作都直接可用。
+      自定义类默认仍按身份比较，想按内容比必须实现 `__eq__`。
     review:
       state: reviewed
       provenance:
@@ -191,6 +241,14 @@ snippets:
       # @note loads 不执行代码，比 eval 安全
       # @note 整数是任意精度，不会像 JS 的 JSON.parse 那样在 2^53 处被截断；小数仍是 double
       json.loads('9007199254740993')           # 9007199254740993 —— 精确
+    body: |
+      `json.dumps` / `json.loads`，有两处默认值会让人意外：`ensure_ascii` 默认为真，
+      中文被转义成 `\uXXXX`（要可读得显式关掉）；分隔符默认带空格（`{"a": 1}`，
+      JS 那边是紧凑的）。
+
+      对非 JSON 类型**直接抛 `TypeError`**，不静默丢弃 —— 与 JS 相反。
+      正解是给 `default` 传一个转换函数。整数是任意精度，不会像 JS 的 `JSON.parse`
+      那样在 2^53 处被静默改值。
     review:
       state: reviewed
       provenance:

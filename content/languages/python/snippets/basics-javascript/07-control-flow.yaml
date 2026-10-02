@@ -21,6 +21,13 @@ snippets:
 
       # @note 用缩进代替花括号：同一个块必须缩进一致，混用 Tab 与空格会直接报错
       # @note 条件后面必须写冒号，这是最容易漏的一处语法
+    body: |
+      结构完全对应，只有三处表面差异：条件**不需要括号**、`else if` 写成 `elif`、
+      用缩进代替花括号（同一块缩进必须一致，混用 Tab 与空格直接报错）。
+      条件后面的**冒号**是最容易漏的一处语法。
+
+      真正的差异在条件表达式本身：两边都允许任意表达式当条件，但真值规则不同
+      （见《运算符》一章的「真值判断」）。
   - featureId: basics-javascript/ternary
     equivalence: divergent
     code: |
@@ -33,6 +40,13 @@ snippets:
 
       # @note 常见错误是把 JS 的 cond ? a : b 直译成 cond ? a : b —— Python 里会语法错误
       # @note 复杂逻辑超过一层就应该拆成 if 语句，别硬写三元
+    body: |
+      **语序是反的**：`a if cond else b`，结果写在前面、条件在后面。
+      这是逐行翻译时最容易写错的一格，而且写错往往**不会报错**
+      （只要两边都是合法表达式），只是逻辑反了。
+
+      只想要其中一个分支时写 `maybe = do_something() if cond else None`。
+      链式条件表达式也支持，但可读性差，超过一层就该拆回 `if` 语句。
   - featureId: basics-javascript/switch-match
     equivalence: divergent
     code: |
@@ -60,6 +74,13 @@ snippets:
               unknown()
 
       # @note! 没有穿透这回事，也永远不需要 break；忘记这一点反而会多写 break 导致语法错误
+    body: |
+      3.10 之前只能写 `if/elif` 链。3.10+ 有了 `match`，但它是**结构化模式匹配**，
+      不是 `switch` 的替代品 —— 能解构字典与序列、能绑定变量、能用 `|` 合并多个模式、
+      还能加守卫条件（`case _ if cond`）。
+
+      这里**没有穿透这回事，也永远不需要 `break`** —— 从 JS 带过来的 `break`
+      反而会变成语法错误。别把它当 `switch` 用，否则会浪费掉这个特性。
   - featureId: basics-javascript/for-loop
     equivalence: divergent
     code: |
@@ -77,6 +98,12 @@ snippets:
 
       # @note! 循环变量在循环结束后仍然存在（Python 的 for 不产生新作用域）
       print(x)                         # 3 —— JS 里 var 是这个行为，let 不是
+    body: |
+      **只有遍历，没有计数三段式**：`for x in iterable`。需要下标就用 `range()` 或
+      `enumerate()`，遍历字典用 `.items()`。
+
+      这不是缺点：取向是「遍历容器，而不是遍历下标」，能消除大量 off-by-one 错误。
+      另外有一处作用域差别 —— **循环变量在循环结束后仍然存在**，`for` 不产生新作用域。
   - featureId: basics-javascript/while-loop
     equivalence: analogous
     code: |
@@ -92,6 +119,12 @@ snippets:
               break
 
       # @note 写死循环用 while True:（大写 True），JS 是 while (true)
+    body: |
+      `while` 两边一致。**没有 `do...while`**（至少执行一次的循环），
+      惯用替代是 `while True:` + `break`，或者把首次逻辑抽出来先执行一遍。
+
+      这类「少一个语法结构」的差异在迁移时会集中暴露，属于需要专门记一组的清单。
+      注意死循环写 `while True:` —— `True` 在这里是大写的关键字。
   - featureId: basics-javascript/loop-control
     equivalence: divergent
     code: |
@@ -110,6 +143,13 @@ snippets:
               break
       else:
           print('not found')    # 会执行 —— 表达「找过了，没找到」，省掉一个标志位变量
+    body: |
+      `break` / `continue` 与 JS 一致。**没有循环标签** —— 嵌套循环要一次跳多层，
+      只能靠标志位变量或把内层抽成函数 `return`。
+
+      多出来的是 **`for...else`**：`else` 块在循环**没有被 break 打断**时执行，
+      表达的正是「找过了，没找到」。JS 里这个模式要额外维护一个标志位变量，
+      这是「用语法消除状态变量」的典型例子。
   - featureId: basics-javascript/loop-index
     equivalence: analogous
     code: |
@@ -125,6 +165,13 @@ snippets:
           print(k, v)
 
       # @note enumerate 返回惰性迭代器，不会先物化一个列表
+    body: |
+      用 `enumerate(seq)` 直接拿 `(i, v)`，比 `range(len(seq))` 更地道；字典用 `.items()`。
+      它还有 `start=` 参数能指定起始下标（`enumerate(arr, start=1)`）—— JS 的 `forEach`
+      下标恒从 0 开始，做不到这一点。
+
+      `enumerate` 返回的是**惰性迭代器**，不会先物化一个列表；这里用的是普通循环，
+      所以「中途 `break`」和「逐步 `await`」这两件 `forEach` 做不到的事，天然都成立。
   - featureId: basics-javascript/range-iteration
     equivalence: divergent
     code: |
@@ -139,6 +186,12 @@ snippets:
       # @note range 是惰性的：range(10**9) 只占常数内存
       for i in range(3):
           ...
+    body: |
+      `range()` 是内置的**左闭右开**惰性序列：`range(3)` 与 `range(0, 3)` 等价，
+      支持步长与负步长（`range(5, 0, -1)` 倒序很方便），`range(10**9)` 只占常数内存。
+
+      要注意 `range(3)` 返回的是 **range 对象而不是列表**，想要列表必须 `list(range(3))`
+      —— 打印出来是 `range(0, 3)`，这是新手最常见的疑问之一。
   - featureId: basics-javascript/exception-flow
     equivalence: divergent
     code: |
@@ -157,3 +210,11 @@ snippets:
       # @note 只能抛 BaseException 的子类：raise ValueError('msg')，不能 raise 'msg'
       # @note 所以 except X as e 之后 e 一定是个异常对象，可以放心用 e.args
       # @note 自定义异常：class MyError(Exception): pass
+    body: |
+      结构对应 `try/except/finally`，但有三处实质差异：
+
+      ① `except` **必须写异常类型**才能精确捕获；裸 `except:` 会连 `KeyboardInterrupt`、
+      `SystemExit` 一起吞掉，永远不要这么写（多个类型用元组合并）；
+      ② 多一个 **`else`** 分支，没抛异常时执行；
+      ③ 只能抛 `BaseException` 的子类，`raise 'msg'` 直接报错 —— 所以 `except X as e`
+      之后 `e` 一定是个异常对象，可以放心用 `e.args`。

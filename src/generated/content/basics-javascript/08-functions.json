@@ -62,7 +62,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 有函数声明、函数表达式、箭头函数、类方法等多种形式，且<strong>声明会被提升</strong>。\nPython 只有一种：<code>def</code>。想「匿名」用 <code>lambda</code>，但它只能是<strong>单个表达式</strong>，\n不能有语句、不能有类型标注、不能多行。\n「一种形式」让 Python 的代码更容易预测，代价是失去了 JS 里「函数即值」的便利写法。</p>\n"
+          "bodyHtml": "<p>JS 有多种函数形式：函数声明、函数表达式、箭头函数、类方法。\n其中<strong>函数声明会被整体提升</strong>（可以在定义之前调用），函数表达式不会 ——\n<code>const expressed = function () {}</code> 提前调用直接 <code>ReferenceError</code>。\n箭头函数有隐式返回，是回调里最常用的形态。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -84,7 +84,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><strong>只有 <code>def</code> 一种形式</strong>。想「匿名」用 <code>lambda</code>，但它只能是<strong>单个表达式</strong> ——\n不能有语句、不能多行、不能写类型标注。</p>\n<p><code>def</code> 在执行到它时才创建函数对象，所以<strong>调用写在定义之前会 <code>NameError</code></strong>，\n没有 JS 那种声明提升。类型标注可以写，但那是给工具看的，运行时不做检查。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -167,7 +168,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的默认参数在<strong>每次调用时求值</strong>，所以 <code>function f(x = [])</code> 是安全的。\nPython 的默认参数在<strong>函数定义时求值一次</strong>，所以 <code>def f(x=[])</code> 里的那个列表\n<strong>会被所有调用共享</strong>——第一次调用往里面塞了东西，第二次调用还能看见。\n这是 Python 面试题出现频率最高的坑之一，也是「看起来完全一样的两行代码行为不同」的最好例子。</p>\n"
+          "bodyHtml": "<p>默认值在<strong>每次调用时求值</strong>，所以 <code>function f(x = [])</code> 是安全的 ——\n每次调用都拿到一个新数组，不会被上一次污染。\n默认值可以是任意表达式，甚至可以引用前面的参数（<code>function g(a, b = a * 2)</code>）。\n传 <code>undefined</code> 会触发默认值，传 <code>null</code> 不会。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -189,7 +190,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>默认参数在<strong>函数定义时求值一次</strong>，所以 <code>def f(x=[])</code> 里的那个列表\n<strong>会被所有调用共享</strong> —— 第一次调用塞进去的东西，第二次还看得见。</p>\n<p>这是这套内容里「看起来完全一样的两行代码行为不同」最好的例子，也是最高频的坑之一。\n正解是用不可变哨兵：<code>def safe(x=None)</code>，再在函数体内新建。\n同理 <code>{}</code>、<code>set()</code> 作默认值也有问题；<code>None</code> / <code>0</code> / <code>''</code> / 元组这类不可变值是安全的。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -252,7 +254,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 没有关键字参数（只能靠传对象解构模拟）；Python 原生支持，且调用处必须写 <code>name=value</code>。\n更关键的是 <code>/</code> 与 <code>*</code> 这两个分隔符：<code>def f(a, /, b, *, c)</code> 表示\n<code>a</code> 只能位置传、<code>b</code> 都能、<code>c</code> 只能关键字传——<strong>语言层面强制调用方写清楚意图</strong>。\nJS 里想达到同样效果只能靠约定或 TypeScript 类型。</p>\n"
+          "bodyHtml": "<p>JS <strong>没有关键字参数</strong>：惯用做法是传一个选项对象、再在函数签名里解构\n（<code>function create({ name, age = 18 } = {})</code>）。\n好处是「按名传参」的可读性；代价是参数名拼错<strong>不会报错</strong>，只是拿到 <code>undefined</code>，\n也没有语言层面的「必须传」约束。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -274,7 +276,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><strong>原生支持关键字参数</strong>，调用处写 <code>name=value</code> 即可，意图一目了然 ——\n不需要像 JS 那样靠对象解构模拟，也就没有「参数名拼错只拿到 <code>undefined</code>」那种静默失败。</p>\n<p>真正的能力在 <code>/</code> 与 <code>*</code> 两个分隔符：<code>def f(a, /, b, *, c)</code> 表示 <code>a</code> 只能位置传、\n<code>b</code> 两种都行、<code>c</code> 只能关键字传 —— <strong>语言层面强制调用方写清楚意图</strong>。\n<code>**kw</code> 收集所有关键字参数，代价是会把拼错的参数名一起吞掉。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -341,7 +344,7 @@
           "notes": [],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 的 <code>...args</code> 收集成<strong>数组</strong>；Python 的 <code>*args</code> 收集成<strong>元组</strong>（不可变），\n<code>**kwargs</code> 收集成<strong>字典</strong>。两边都是「先收集再使用」。\n差异在于 Python 把「位置可变」和「关键字可变」分成两个参数：\n这既是能力（能同时接住两类），也是陷阱（<code>**kwargs</code> 会把拼错的参数名静默吞掉）。</p>\n"
+          "bodyHtml": "<p><code>...nums</code> 收集成<strong>真正的数组</strong>，且只能放在最后一个参数。\n收集与展开是同一个符号的两种位置：定义处收集、调用处展开（<code>Math.max(...nums)</code>）。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -363,7 +366,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>*nums</code> 收集成<strong>元组</strong>（不可变），不是列表；同样只能放在最后一个参数。</p>\n<p>调用处的展开也用 <code>*</code>（<code>total(*nums)</code>），而且多一种：<strong>字典用 <code>**</code> 展开成关键字参数</strong>。\n与 JS 相比多出来的能力是把「位置可变」与「关键字可变」分成两个参数 ——\n这既是能力（能同时接住两类），也是陷阱（<code>**kwargs</code> 会把拼错的参数名静默吞掉）。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -435,7 +439,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 用 <code>return [a, b]</code> + 解构；Python 用 <code>return a, b</code>——<strong>返回的其实是元组</strong>，\n不是「真的返回两个值」。这个事实在需要单独传递时会暴露：<code>x = f()</code> 拿到的是元组。\n两边都能解构接收，但 Python 还支持用 <code>*</code> 收集剩余项：<code>first, *rest = f()</code>。</p>\n"
+          "bodyHtml": "<p><code>return [a, b]</code> 返回的是<strong>数组</strong>，靠解构取 —— 少写一层解构就会拿到整个数组。\n返回对象更利于可读性（调用方不用记位置）：<code>return { min, max }</code> 之后按名取。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -452,7 +456,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>return a, b</code> 返回的其实是<strong>元组</strong>，不是「真的返回两个值」—— 这点在 <code>x = f()</code> 时\n会暴露：拿到的是整个元组。元组不可变，比 JS 的数组更安全。</p>\n<p>解包接收也支持用 <code>*</code> 收集剩余：<code>first, *rest = f()</code>。\n内置的 <code>divmod()</code> 就是这套语义的标准例子。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -535,7 +540,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>看起来都是「短函数」，但两件事完全不同：\n① JS 箭头函数最大的特点是<strong>没有自己的 <code>this</code></strong>（继承外层），这解决了回调里 <code>this</code> 丢失的经典问题；\n② Python 的 <code>lambda</code> 只有<strong>一个表达式</strong>，连 <code>if</code> 都得写成条件表达式，实际使用范围比箭头函数窄得多。\nPython 的取向是「有名字的函数更可读」，<code>lambda</code> 主要用在 <code>key=</code>、<code>sorted</code> 这类短回调上。</p>\n"
+          "bodyHtml": "<p>箭头函数最大的特点是<strong>没有自己的 <code>this</code></strong>（继承外层作用域），\n这解决了回调里 <code>this</code> 丢失的经典问题；也正因为没有 <code>this</code>，它<strong>不能用作构造函数</strong>。\n体要返回对象字面量时必须加圆括号：<code>() =&gt; ({ a: 1 })</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -557,7 +562,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>lambda</code> 只有<strong>一个表达式</strong>：不能有语句、不能赋值、不能多行、不能写标注，\n也没有 <code>return</code> —— 表达式的结果就是返回值。使用范围比箭头函数窄得多，\n主要用在 <code>key=</code> 这类短回调上。</p>\n<p>要当心闭包<strong>捕获的是变量而不是值</strong>：循环里创建 <code>lambda</code> 会出现经典的延迟绑定\n（三个都返回 <code>2</code>），正解是用默认参数把值绑住。JS 那边有 <code>this</code> 的坑，这边没有 <code>this</code>，\n但换来了这个。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -640,7 +646,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>两边函数都是一等值，都能传递、返回、存进容器。差异在<strong>调用方式</strong>：\nJS 传的是函数本身（<code>arr.map(fn)</code>），Python 也是（<code>map(fn, arr)</code>）——\n但注意参数顺序：JS 是「数组在前、函数在后」，Python 的 <code>map</code>/<code>filter</code> 是「函数在前、可迭代在后」，\n与 <code>sorted(arr, key=fn)</code> 的顺序又不同，没有统一规律，只能逐个记。</p>\n"
+          "bodyHtml": "<p>函数是一等值：可以当参数传、可以返回、也能存进对象（<code>handlers.onOk()</code>）。\n<code>arr.map((n) =&gt; ...)</code> 这类写法里是<strong>数组在前、函数在后</strong>。\n要当心 <code>this</code>：回调里的 <code>this</code> 取决于调用方式，把方法直接当回调传会丢，\n用箭头函数包一层（<code>() =&gt; obj.method()</code>）最稳妥。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -657,7 +663,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>函数同样是一等值：<code>def</code> 出来的和 <code>lambda</code> 出来的都能传递、返回、存进字典。</p>\n<p>差别在<strong>参数顺序</strong>：JS 是「数组在前、函数在后」（<code>arr.map(fn)</code>），\n这里的 <code>map</code> / <code>filter</code> 是「函数在前、可迭代在后」，而 <code>sorted(arr, key=fn)</code>\n又是另一种排法 —— 没有统一规律，只能逐个记。\n另外 <code>filter</code> 的第一个参数传 <code>None</code> 表示「按真值过滤」。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -735,7 +742,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的文档是<strong>注释</strong>（<code>/** ... */</code>），运行时可访问但需要工具提取；\nPython 的文档是<strong>字符串字面量</strong>，直接挂在对象的 <code>__doc__</code> 上——\n<code>help(f)</code>、<code>print(f.__doc__)</code> 都能直接拿到。\n这意味着 Python 的文档是「数据」，可以被反射、被测试（<code>doctest</code> 能执行文档里的示例）。\n注意 docstring 必须是函数体的<strong>第一条语句</strong>，否则不会被识别。</p>\n"
+          "bodyHtml": "<p>JS 的文档是<strong>注释</strong>（<code>/** ... */</code>），运行时拿不到结构化文档：\n<code>add.toString()</code> 只有源码文本。要靠 JSDoc 工具在编译期提取，\n或者另建一份文档数据。运行时能拿到的只有 <code>add.name</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -757,7 +764,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>文档是<strong>字符串字面量</strong>，直接挂在对象的 <code>__doc__</code> 上 —— <code>help(f)</code>、\n<code>print(f.__doc__)</code> 都能直接拿到。</p>\n<p>这意味着文档在这里是「<strong>数据</strong>」：可以被反射、被 <code>help()</code> 排版，\n甚至被 <code>doctest</code> 执行。要注意 docstring 必须是函数体的<strong>第一条语句</strong>，\n前面写了别的就不算（<code>__doc__</code> 会是 <code>None</code>）。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -865,7 +873,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>这是被误传最多的一格。两门语言<strong>都不是</strong>「值传递」也不是「引用传递」，\n而是「传递对象引用的副本」（Python 官方说法是 call by object reference / call by sharing）。\n实际表现：传入不可变对象（数字、字符串、元组），函数内重新赋值<strong>不影响外部</strong>；\n传入可变对象（列表、字典、对象），函数内<strong>原地修改会影响外部</strong>，但重新赋值不影响。\nJS 里 <code>const</code> 参数可以被改内容（同样因为绑定与对象分离，见变量声明章）。\n记住一句话：<strong>改内容会传染，改绑定不会。</strong></p>\n"
+          "bodyHtml": "<p>这是被误传最多的一格。JS <strong>既不是「值传递」也不是「引用传递」</strong>，\n而是「传递对象引用的副本」（官方说法是 call by object reference / call by sharing）。\n实际表现：传入原始值（数字、字符串），函数内重新赋值<strong>不影响外部</strong>；\n传入对象，函数内<strong>原地修改会影响外部</strong>，但重新赋值不影响。</p>\n<p><code>const</code> 冻结的是「绑定」而不是内容：<code>const o = { x: 1 }; o.y = 2</code> 完全合法。\n记住一句话：<strong>改内容会传染，改绑定不会。</strong></p>\n"
         },
         "python": {
           "lang": "python",
@@ -887,7 +895,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>和 JS 是<strong>同一个规则</strong>，所以这一格不用重新学：既不是值传递也不是引用传递，\n而是「传递对象引用的副本」（官方说法是 call by object reference / call by sharing）。</p>\n<p>传入不可变对象（数字、字符串、元组），函数内重新赋值不影响外部；\n传入可变对象（列表、字典），函数内<strong>原地修改会影响外部</strong>，但重新赋值不影响。\n记住一句话：<strong>改内容会传染，改绑定不会。</strong></p>\n"
         },
         "rust": {
           "lang": "rust",

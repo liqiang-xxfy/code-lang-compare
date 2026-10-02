@@ -24,6 +24,12 @@ snippets:
 
       def typed(a: int) -> int:        # @note 类型标注是给工具看的，运行时不做检查
           return a
+    body: |
+      **只有 `def` 一种形式**。想「匿名」用 `lambda`，但它只能是**单个表达式** ——
+      不能有语句、不能多行、不能写类型标注。
+
+      `def` 在执行到它时才创建函数对象，所以**调用写在定义之前会 `NameError`**，
+      没有 JS 那种声明提升。类型标注可以写，但那是给工具看的，运行时不做检查。
   - featureId: basics-javascript/default-params
     equivalence: divergent
     code: |
@@ -45,6 +51,13 @@ snippets:
       safe()   # [1]  —— 干净
 
       # @note 同理 {}/set() 作默认值也有问题；不可变类型（None/0/''/元组）当默认值是安全的
+    body: |
+      默认参数在**函数定义时求值一次**，所以 `def f(x=[])` 里的那个列表
+      **会被所有调用共享** —— 第一次调用塞进去的东西，第二次还看得见。
+
+      这是这套内容里「看起来完全一样的两行代码行为不同」最好的例子，也是最高频的坑之一。
+      正解是用不可变哨兵：`def safe(x=None)`，再在函数体内新建。
+      同理 `{}`、`set()` 作默认值也有问题；`None` / `0` / `''` / 元组这类不可变值是安全的。
   - featureId: basics-javascript/kwargs
     equivalence: divergent
     code: |
@@ -61,6 +74,13 @@ snippets:
 
       # @note Python 原生支持关键字参数，不需要像 JS 那样靠对象解构模拟；
       #       代价是 **kw 会把拼错的参数名静默吞掉
+    body: |
+      **原生支持关键字参数**，调用处写 `name=value` 即可，意图一目了然 ——
+      不需要像 JS 那样靠对象解构模拟，也就没有「参数名拼错只拿到 `undefined`」那种静默失败。
+
+      真正的能力在 `/` 与 `*` 两个分隔符：`def f(a, /, b, *, c)` 表示 `a` 只能位置传、
+      `b` 两种都行、`c` 只能关键字传 —— **语言层面强制调用方写清楚意图**。
+      `**kw` 收集所有关键字参数，代价是会把拼错的参数名一起吞掉。
   - featureId: basics-javascript/rest-params
     equivalence: analogous
     code: |
@@ -81,6 +101,12 @@ snippets:
       d = {'a': 1}
       def g(a=None): ...
       g(**d)                            # @note! 字典用 ** 展开成关键字参数
+    body: |
+      `*nums` 收集成**元组**（不可变），不是列表；同样只能放在最后一个参数。
+
+      调用处的展开也用 `*`（`total(*nums)`），而且多一种：**字典用 `**` 展开成关键字参数**。
+      与 JS 相比多出来的能力是把「位置可变」与「关键字可变」分成两个参数 ——
+      这既是能力（能同时接住两类），也是陷阱（`**kwargs` 会把拼错的参数名静默吞掉）。
   - featureId: basics-javascript/return-multiple
     equivalence: analogous
     code: |
@@ -97,6 +123,12 @@ snippets:
       rest                              # [1]
 
       # @note 内置的 divmod() 也是这个语义；返回元组不可变，比 JS 的数组更安全
+    body: |
+      `return a, b` 返回的其实是**元组**，不是「真的返回两个值」—— 这点在 `x = f()` 时
+      会暴露：拿到的是整个元组。元组不可变，比 JS 的数组更安全。
+
+      解包接收也支持用 `*` 收集剩余：`first, *rest = f()`。
+      内置的 `divmod()` 就是这套语义的标准例子。
   - featureId: basics-javascript/lambda-arrow
     equivalence: divergent
     code: |
@@ -116,6 +148,14 @@ snippets:
       [f() for f in fs2]           # [0, 1, 2]
 
       # @note JS 的箭头函数有独立的 this 语义，Python 的 lambda 没这个问题（没有 this）
+    body: |
+      `lambda` 只有**一个表达式**：不能有语句、不能赋值、不能多行、不能写标注，
+      也没有 `return` —— 表达式的结果就是返回值。使用范围比箭头函数窄得多，
+      主要用在 `key=` 这类短回调上。
+
+      要当心闭包**捕获的是变量而不是值**：循环里创建 `lambda` 会出现经典的延迟绑定
+      （三个都返回 `2`），正解是用默认参数把值绑住。JS 那边有 `this` 的坑，这边没有 `this`，
+      但换来了这个。
   - featureId: basics-javascript/function-callback
     equivalence: analogous
     code: |
@@ -132,6 +172,13 @@ snippets:
 
       handlers = {'on_ok': lambda: 'ok'}
       handlers['on_ok']()                   # 'ok'  —— 函数也能存在字典里
+    body: |
+      函数同样是一等值：`def` 出来的和 `lambda` 出来的都能传递、返回、存进字典。
+
+      差别在**参数顺序**：JS 是「数组在前、函数在后」（`arr.map(fn)`），
+      这里的 `map` / `filter` 是「函数在前、可迭代在后」，而 `sorted(arr, key=fn)`
+      又是另一种排法 —— 没有统一规律，只能逐个记。
+      另外 `filter` 的第一个参数传 `None` 表示「按真值过滤」。
   - featureId: basics-javascript/function-docstring
     equivalence: divergent
     code: |
@@ -158,6 +205,13 @@ snippets:
       broken.__doc__           # None
 
       # @note 还能被 doctest 执行：>>> add(1, 2) 会真的跑一遍
+    body: |
+      文档是**字符串字面量**，直接挂在对象的 `__doc__` 上 —— `help(f)`、
+      `print(f.__doc__)` 都能直接拿到。
+
+      这意味着文档在这里是「**数据**」：可以被反射、被 `help()` 排版，
+      甚至被 `doctest` 执行。要注意 docstring 必须是函数体的**第一条语句**，
+      前面写了别的就不算（`__doc__` 会是 `None`）。
   - featureId: basics-javascript/arg-passing
     equivalence: analogous
     code: |
@@ -175,3 +229,10 @@ snippets:
       # @note! 口诀：改内容会传染，改绑定不会。两门语言都是这个规则
       # @note 官方说法是 call by object reference / call by sharing，
       #       既不是值传递也不是引用传递——说「引用传递」是不准确的
+    body: |
+      和 JS 是**同一个规则**，所以这一格不用重新学：既不是值传递也不是引用传递，
+      而是「传递对象引用的副本」（官方说法是 call by object reference / call by sharing）。
+
+      传入不可变对象（数字、字符串、元组），函数内重新赋值不影响外部；
+      传入可变对象（列表、字典），函数内**原地修改会影响外部**，但重新赋值不影响。
+      记住一句话：**改内容会传染，改绑定不会。**

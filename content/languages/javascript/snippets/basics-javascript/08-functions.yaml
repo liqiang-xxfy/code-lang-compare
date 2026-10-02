@@ -22,10 +22,10 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      JS 有函数声明、函数表达式、箭头函数、类方法等多种形式，且**声明会被提升**。
-      Python 只有一种：`def`。想「匿名」用 `lambda`，但它只能是**单个表达式**，
-      不能有语句、不能有类型标注、不能多行。
-      「一种形式」让 Python 的代码更容易预测，代价是失去了 JS 里「函数即值」的便利写法。
+      JS 有多种函数形式：函数声明、函数表达式、箭头函数、类方法。
+      其中**函数声明会被整体提升**（可以在定义之前调用），函数表达式不会 ——
+      `const expressed = function () {}` 提前调用直接 `ReferenceError`。
+      箭头函数有隐式返回，是回调里最常用的形态。
   - featureId: basics-javascript/default-params
     equivalence: identical
     code: |
@@ -48,10 +48,10 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      JS 的默认参数在**每次调用时求值**，所以 `function f(x = [])` 是安全的。
-      Python 的默认参数在**函数定义时求值一次**，所以 `def f(x=[])` 里的那个列表
-      **会被所有调用共享**——第一次调用往里面塞了东西，第二次调用还能看见。
-      这是 Python 面试题出现频率最高的坑之一，也是「看起来完全一样的两行代码行为不同」的最好例子。
+      默认值在**每次调用时求值**，所以 `function f(x = [])` 是安全的 ——
+      每次调用都拿到一个新数组，不会被上一次污染。
+      默认值可以是任意表达式，甚至可以引用前面的参数（`function g(a, b = a * 2)`）。
+      传 `undefined` 会触发默认值，传 `null` 不会。
   - featureId: basics-javascript/kwargs
     equivalence: identical
     code: |
@@ -74,10 +74,10 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      JS 没有关键字参数（只能靠传对象解构模拟）；Python 原生支持，且调用处必须写 `name=value`。
-      更关键的是 `/` 与 `*` 这两个分隔符：`def f(a, /, b, *, c)` 表示
-      `a` 只能位置传、`b` 都能、`c` 只能关键字传——**语言层面强制调用方写清楚意图**。
-      JS 里想达到同样效果只能靠约定或 TypeScript 类型。
+      JS **没有关键字参数**：惯用做法是传一个选项对象、再在函数签名里解构
+      （`function create({ name, age = 18 } = {})`）。
+      好处是「按名传参」的可读性；代价是参数名拼错**不会报错**，只是拿到 `undefined`，
+      也没有语言层面的「必须传」约束。
   - featureId: basics-javascript/rest-params
     equivalence: identical
     code: |
@@ -102,10 +102,8 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 的 `...args` 收集成**数组**；Python 的 `*args` 收集成**元组**（不可变），
-      `**kwargs` 收集成**字典**。两边都是「先收集再使用」。
-      差异在于 Python 把「位置可变」和「关键字可变」分成两个参数：
-      这既是能力（能同时接住两类），也是陷阱（`**kwargs` 会把拼错的参数名静默吞掉）。
+      `...nums` 收集成**真正的数组**，且只能放在最后一个参数。
+      收集与展开是同一个符号的两种位置：定义处收集、调用处展开（`Math.max(...nums)`）。
   - featureId: basics-javascript/return-multiple
     equivalence: identical
     code: |
@@ -131,9 +129,8 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 用 `return [a, b]` + 解构；Python 用 `return a, b`——**返回的其实是元组**，
-      不是「真的返回两个值」。这个事实在需要单独传递时会暴露：`x = f()` 拿到的是元组。
-      两边都能解构接收，但 Python 还支持用 `*` 收集剩余项：`first, *rest = f()`。
+      `return [a, b]` 返回的是**数组**，靠解构取 —— 少写一层解构就会拿到整个数组。
+      返回对象更利于可读性（调用方不用记位置）：`return { min, max }` 之后按名取。
   - featureId: basics-javascript/lambda-arrow
     equivalence: identical
     code: |
@@ -160,10 +157,9 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      看起来都是「短函数」，但两件事完全不同：
-      ① JS 箭头函数最大的特点是**没有自己的 `this`**（继承外层），这解决了回调里 `this` 丢失的经典问题；
-      ② Python 的 `lambda` 只有**一个表达式**，连 `if` 都得写成条件表达式，实际使用范围比箭头函数窄得多。
-      Python 的取向是「有名字的函数更可读」，`lambda` 主要用在 `key=`、`sorted` 这类短回调上。
+      箭头函数最大的特点是**没有自己的 `this`**（继承外层作用域），
+      这解决了回调里 `this` 丢失的经典问题；也正因为没有 `this`，它**不能用作构造函数**。
+      体要返回对象字面量时必须加圆括号：`() => ({ a: 1 })`。
   - featureId: basics-javascript/function-callback
     equivalence: identical
     code: |
@@ -185,10 +181,10 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      两边函数都是一等值，都能传递、返回、存进容器。差异在**调用方式**：
-      JS 传的是函数本身（`arr.map(fn)`），Python 也是（`map(fn, arr)`）——
-      但注意参数顺序：JS 是「数组在前、函数在后」，Python 的 `map`/`filter` 是「函数在前、可迭代在后」，
-      与 `sorted(arr, key=fn)` 的顺序又不同，没有统一规律，只能逐个记。
+      函数是一等值：可以当参数传、可以返回、也能存进对象（`handlers.onOk()`）。
+      `arr.map((n) => ...)` 这类写法里是**数组在前、函数在后**。
+      要当心 `this`：回调里的 `this` 取决于调用方式，把方法直接当回调传会丢，
+      用箭头函数包一层（`() => obj.method()`）最稳妥。
   - featureId: basics-javascript/function-docstring
     equivalence: identical
     code: |
@@ -216,11 +212,9 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      JS 的文档是**注释**（`/** ... */`），运行时可访问但需要工具提取；
-      Python 的文档是**字符串字面量**，直接挂在对象的 `__doc__` 上——
-      `help(f)`、`print(f.__doc__)` 都能直接拿到。
-      这意味着 Python 的文档是「数据」，可以被反射、被测试（`doctest` 能执行文档里的示例）。
-      注意 docstring 必须是函数体的**第一条语句**，否则不会被识别。
+      JS 的文档是**注释**（`/** ... */`），运行时拿不到结构化文档：
+      `add.toString()` 只有源码文本。要靠 JSDoc 工具在编译期提取，
+      或者另建一份文档数据。运行时能拿到的只有 `add.name`。
   - featureId: basics-javascript/arg-passing
     equivalence: identical
     code: |
@@ -251,9 +245,10 @@ snippets:
       reviewedAt: '2026-10-01'
       notes: 措辞修正（"const 参数"→ const 冻结的是绑定）。行为断言实跑验证通过
     body: |
-      这是被误传最多的一格。两门语言**都不是**「值传递」也不是「引用传递」，
-      而是「传递对象引用的副本」（Python 官方说法是 call by object reference / call by sharing）。
-      实际表现：传入不可变对象（数字、字符串、元组），函数内重新赋值**不影响外部**；
-      传入可变对象（列表、字典、对象），函数内**原地修改会影响外部**，但重新赋值不影响。
-      JS 里 `const` 参数可以被改内容（同样因为绑定与对象分离，见变量声明章）。
+      这是被误传最多的一格。JS **既不是「值传递」也不是「引用传递」**，
+      而是「传递对象引用的副本」（官方说法是 call by object reference / call by sharing）。
+      实际表现：传入原始值（数字、字符串），函数内重新赋值**不影响外部**；
+      传入对象，函数内**原地修改会影响外部**，但重新赋值不影响。
+
+      `const` 冻结的是「绑定」而不是内容：`const o = { x: 1 }; o.y = 2` 完全合法。
       记住一句话：**改内容会传染，改绑定不会。**

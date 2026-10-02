@@ -23,9 +23,9 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      两者形状相似但约束不同：JS 的对象字面量**键只能是字符串或 Symbol**，
-      想用对象做键必须上 `Map`；Python 的 `dict` 键可以是任意可哈希对象，数字、元组都能当键。
-      另外 Python 的 `dict` 保证插入有序（3.7+），JS 对象也有序但存在「整数键被提前」的特殊规则。
+      对象字面量的**键只能是字符串或 Symbol**，想用对象 / 数字当键必须上 `Map`
+      （引用当键，取的时候必须是同一个对象）。
+      还有一条特殊规则：整数样式的键会被**提前排序** —— `{ 2: 'a', 1: 'b' }` 的遍历顺序是 1、2。
   - featureId: basics-javascript/object-access
     equivalence: identical
     code: |
@@ -48,10 +48,10 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 访问不存在的属性返回 `undefined`（静默），Python 抛 `KeyError`。
-      JS 用点号 `obj.key` / 方括号 `obj['key']` 都能访问，且两者等价；
-      Python 的点号访问的是**对象的属性**（方法、字段），方括号访问的才是**字典的键**——
-      `d.key` 和 `d['key']` 在 Python 里不是一回事，这是从 JS 过来最容易犯的错。
+      点号 `obj.key` 与方括号 `obj['key']` **完全等价**，可以混用。
+      访问不存在的属性返回 `undefined`（静默），所以判「键在不在」要用 `'name' in obj`
+      或 `Object.hasOwn(obj, 'name')`（只查自身、不含原型链），
+      不能拿 `obj.name !== undefined` 当判据。删除属性用 `delete obj.name`。
   - featureId: basics-javascript/object-iterate
     equivalence: identical
     code: |
@@ -73,9 +73,10 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 的 `Object.entries(obj)` 拿到 `[key, value]` 数组再解构；
-      Python 的 `d.items()` 直接给 `(key, value)` 元组，且是最常用的写法。
-      注意 JS 的 `for...in` 会遍历到原型链上的可枚举属性——这是它不如 `Object.entries` 可靠的原因。
+      遍历最可靠的是 `Object.entries(obj)`：拿到 `[key, value]` 数组再解构，
+      另有 `Object.keys` / `Object.values`。对象**没有内置的 `.map` / `.filter`**，
+      要转成数组处理完再用 `Object.fromEntries` 转回来。
+      `for...in` 会遍历到原型链上的可枚举属性 —— 这就是它不如 `Object.entries` 可靠的原因。
   - featureId: basics-javascript/object-default
     equivalence: identical
     code: |
@@ -97,10 +98,10 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 用 `??` 或逻辑或；Python 用 `dict.get(key, default)`。
-      **但两者有个关键区别**：Python 的 `d.get(k, default)` 只读不写；
-      而 `defaultdict` 会在读取时**写入**默认值（顺带把字典撑大）。
-      另外 JS 的 `||` 会把 `0`、`""` 这类合法值当成「空」，必须用 `??`——这一条在《运算符与真值判断》一章已验证过。
+      取默认值要用 `??`：它只对 `null` / `undefined` 兜底，`0` 会保留；
+      用 `||` 会把 `0` 当成空，这是最常见的配置项 bug。
+      解构默认值 `const { retries = 5 } = conf` 只在值为 `undefined` 时生效，`null` 不生效。
+      读取**不会写入**：取完之后 `conf` 里仍然没有 `timeout` 这个键。
   - featureId: basics-javascript/object-merge
     equivalence: identical
     code: |
@@ -123,10 +124,10 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 的 `{...a, ...b}` 返回新对象（后者的键覆盖前者）；Python 在 3.9+ 用 `a | b`，
-      或 `{**a, **b}`。**注意 JS 的 `Object.assign(a, b)` 是原地修改 `a` 并返回它**，
-      与展开写法语义不同，这个区别经常被忽略。
-      Python 的 `a.update(b)` 同样是原地修改。
+      `{ ...a, ...b }` 返回**新对象**，后者的键覆盖前者。
+      `Object.assign({}, a, b)` 是等价写法，但要当心 `Object.assign(a, b)` 是
+      「**原地改 `a` 并返回它**」—— 漏掉第一个 `{}` 就会污染原对象，这个区别经常被忽略。
+      合并是浅的：嵌套对象仍是共享引用。
   - featureId: basics-javascript/object-nested
     equivalence: identical
     code: |
@@ -149,11 +150,12 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      两门语言的「拷贝」默认都是**浅拷贝**：`{...obj}`、`Object.assign`、
-      `dict(a)`、`a.copy()` 都只复制第一层，嵌套对象仍是共享引用。
-      JS 要深拷贝用 `structuredClone()`（浏览器/Node 内置，比 `JSON.parse(JSON.stringify())` 正确，
-      因为它能处理 `Date`、`Map`、循环引用）；Python 用 `copy.deepcopy()`。
-      这一格是「看起来复制了，改新对象却动了旧对象」这类 bug 的根源。
+      拷贝默认是**浅拷贝**：`{...obj}`、`Object.assign` 都只复制第一层，
+      嵌套对象仍是共享引用 —— 「看起来复制了，改新对象却动了旧对象」的 bug 就出在这里。
+      深拷贝用 `structuredClone()`（内置，能处理 `Date`、`Map`、循环引用）。
+
+      要当心 `JSON.parse(JSON.stringify(x))` 这个流传很广的深拷贝写法是**错的**：
+      会丢 `Date`、`undefined`、函数，遇循环引用直接抛错。
   - featureId: basics-javascript/object-comprehension
     equivalence: identical
     code: |
@@ -175,9 +177,9 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 要「数组 → 对象」得走 `Object.fromEntries(arr.map(...))` 两步；
-      Python 的字典推导式 `{k: v for ...}` 一步到位，并支持带条件的过滤。
-      推导式是 Python 最具辨识度的语法之一，值得专门练到「不假思索就能写」。
+      JS **没有「对象推导式」这种语法**：数组转对象要两步 —— 先把元素 `map` 成 `[k, v]` 对，
+      再 `Object.fromEntries`；带条件就先 `Object.entries` 再 `filter`。
+      批量构造对象基本都靠这套组合。
   - featureId: basics-javascript/object-equality
     equivalence: identical
     code: |
@@ -201,10 +203,9 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 的 `===` 对对象比的是**引用**，所以 `{} === {}` 是 `false`，
-      要按内容比较得自己写或上 `JSON.stringify`（不可靠）。
-      Python 的 `==` 对 dict/list 比的是**内容**，嵌套结构会递归比较。
-      所以 Python 里「两个字典内容相同」这一判断是免费的，JS 里不是。
+      `===` 对对象比的是**引用**，所以 `{} === {}` 是 `false`、`a === a` 才是 `true`。
+      要按内容比较只能自己写（或上库）：`JSON.stringify(a) === JSON.stringify(b)` 能用但不可靠，
+      键顺序不同就会误判。`Map` / `Set` 同理，都是引用比较。
   - featureId: basics-javascript/object-json
     equivalence: identical
     code: |
@@ -236,9 +237,10 @@ snippets:
         generatedAt: '2026-10-02'
       notes: 修正两处：① "中文不转义"的注释挂在没有中文的例子后面（已加中文）；② 原写"用 structuredClone 保真 Date"不成立——它不产出 JSON 文本。另补 2^53 整数丢精度陷阱
     body: |
-      同名不同写：JS 叫 `JSON.stringify` / `JSON.parse`，Python 叫 `json.dumps` / `json.loads`。
-      差异在于对非 JSON 类型的处理：JS 会把函数、`undefined`、`Symbol` **静默丢掉**；
-      Python 遇到 `datetime`、`set`、自定义对象会**直接抛 TypeError**（不静默）。
-      另外 Python 的 `ensure_ascii` 默认为真，中文会被转义成 `\uXXXX`，想保留中文要显式关掉；
-      Python 默认输出的分隔符还带空格（`{"a": 1}`，JS 是紧凑的 `{"a":1}`）。
-      整数精度这两门语言恰好相反：JS 的 `JSON.parse` 超过 2^53 会静默改值，Python 的 int 是任意精度。
+      `JSON.stringify` / `JSON.parse`：中文不转义，分隔符也是紧凑的（`{"name":"阿达"}`）。
+      对非 JSON 类型是**静默丢弃**：函数、`undefined`、`Symbol` 直接消失；
+      `Date` 变成字符串、解析回来不再是 `Date`；循环引用才抛 `TypeError`。
+      还有一处静默改值：`JSON.parse('9007199254740993')` 得 `...992`，不报错。
+
+      `Date` 没有保真捷径 —— JSON 本身不带类型信息。正解是 replacer 里转 ISO 字符串、
+      解析后显式 `new Date(s)`；`structuredClone` 只在内存内深拷贝、不产出 JSON 文本，替代不了它。

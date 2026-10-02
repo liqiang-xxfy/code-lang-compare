@@ -57,7 +57,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>两者形状相似但约束不同：JS 的对象字面量<strong>键只能是字符串或 Symbol</strong>，\n想用对象做键必须上 <code>Map</code>；Python 的 <code>dict</code> 键可以是任意可哈希对象，数字、元组都能当键。\n另外 Python 的 <code>dict</code> 保证插入有序（3.7+），JS 对象也有序但存在「整数键被提前」的特殊规则。</p>\n"
+          "bodyHtml": "<p>对象字面量的<strong>键只能是字符串或 Symbol</strong>，想用对象 / 数字当键必须上 <code>Map</code>\n（引用当键，取的时候必须是同一个对象）。\n还有一条特殊规则：整数样式的键会被<strong>提前排序</strong> —— <code>{ 2: 'a', 1: 'b' }</code> 的遍历顺序是 1、2。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -74,7 +74,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>形状与 JS 的对象字面量相似，但约束更宽：<strong>键可以是任意可哈希对象</strong> ——\n数字、元组、<code>frozenset</code> 都能当键，不会被转成字符串，也不会撞在一起。</p>\n<p><code>dict</code> 保证<strong>插入有序</strong>（3.7+），而 JS 对象对「整数样式的键」有提前排序的特殊规则，\n两边规则不同。批量构造还能直接用字典推导式。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -162,7 +163,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 访问不存在的属性返回 <code>undefined</code>（静默），Python 抛 <code>KeyError</code>。\nJS 用点号 <code>obj.key</code> / 方括号 <code>obj['key']</code> 都能访问，且两者等价；\nPython 的点号访问的是<strong>对象的属性</strong>（方法、字段），方括号访问的才是<strong>字典的键</strong>——\n<code>d.key</code> 和 <code>d['key']</code> 在 Python 里不是一回事，这是从 JS 过来最容易犯的错。</p>\n"
+          "bodyHtml": "<p>点号 <code>obj.key</code> 与方括号 <code>obj['key']</code> <strong>完全等价</strong>，可以混用。\n访问不存在的属性返回 <code>undefined</code>（静默），所以判「键在不在」要用 <code>'name' in obj</code>\n或 <code>Object.hasOwn(obj, 'name')</code>（只查自身、不含原型链），\n不能拿 <code>obj.name !== undefined</code> 当判据。删除属性用 <code>delete obj.name</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -184,7 +185,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>访问不存在的键抛 <code>KeyError</code>，不是静默给 <code>None</code>；要安全取值用 <code>d.get('missing')</code>。</p>\n<p><strong><code>d.name</code> 与 <code>d['name']</code> 在这里不是一回事</strong>：方括号访问的是「键」，\n点号访问的是「对象的属性」—— 对字典用点号基本会 <code>AttributeError</code>。\n这两者在 JS 里完全等价，是从那边过来最容易犯的错。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -261,7 +263,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 的 <code>Object.entries(obj)</code> 拿到 <code>[key, value]</code> 数组再解构；\nPython 的 <code>d.items()</code> 直接给 <code>(key, value)</code> 元组，且是最常用的写法。\n注意 JS 的 <code>for...in</code> 会遍历到原型链上的可枚举属性——这是它不如 <code>Object.entries</code> 可靠的原因。</p>\n"
+          "bodyHtml": "<p>遍历最可靠的是 <code>Object.entries(obj)</code>：拿到 <code>[key, value]</code> 数组再解构，\n另有 <code>Object.keys</code> / <code>Object.values</code>。对象<strong>没有内置的 <code>.map</code> / <code>.filter</code></strong>，\n要转成数组处理完再用 <code>Object.fromEntries</code> 转回来。\n<code>for...in</code> 会遍历到原型链上的可枚举属性 —— 这就是它不如 <code>Object.entries</code> 可靠的原因。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -272,7 +274,8 @@
           "lineCount": 12,
           "notes": [],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>d.items()</code> 直接给 <code>(key, value)</code> 元组，是最常用的写法；<code>d.keys()</code> / <code>d.values()</code>\n分别拿键与值的视图，需要列表时再套一层 <code>list()</code>。</p>\n<p>直接遍历字典等于<strong>遍历键</strong>（<code>for k in d</code>）——这里没有 JS 的 <code>for...in</code> 那种\n「爬到原型链上」的坑。批量转换用字典推导式一步到位。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -355,7 +358,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 用 <code>??</code> 或逻辑或；Python 用 <code>dict.get(key, default)</code>。\n<strong>但两者有个关键区别</strong>：Python 的 <code>d.get(k, default)</code> 只读不写；\n而 <code>defaultdict</code> 会在读取时<strong>写入</strong>默认值（顺带把字典撑大）。\n另外 JS 的 <code>||</code> 会把 <code>0</code>、<code>&quot;&quot;</code> 这类合法值当成「空」，必须用 <code>??</code>——这一条在《运算符与真值判断》一章已验证过。</p>\n"
+          "bodyHtml": "<p>取默认值要用 <code>??</code>：它只对 <code>null</code> / <code>undefined</code> 兜底，<code>0</code> 会保留；\n用 <code>||</code> 会把 <code>0</code> 当成空，这是最常见的配置项 bug。\n解构默认值 <code>const { retries = 5 } = conf</code> 只在值为 <code>undefined</code> 时生效，<code>null</code> 不生效。\n读取<strong>不会写入</strong>：取完之后 <code>conf</code> 里仍然没有 <code>timeout</code> 这个键。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -377,7 +380,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>d.get(key, default)</code> 取默认值，而且<strong>只读不写</strong>：取值不会顺手把键写进字典。</p>\n<p>要当心 <code>defaultdict</code> —— 它在读取时<strong>会写入</strong>默认值，顺带把字典撑大\n（读一次 <code>counts['new']</code>，<code>len(counts)</code> 就从 0 变成 1）。\nJS 那边 <code>||</code> 把 <code>0</code> 当成空的坑在这里不存在，<code>get</code> 不会误判。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -454,7 +458,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 的 <code>{...a, ...b}</code> 返回新对象（后者的键覆盖前者）；Python 在 3.9+ 用 <code>a | b</code>，\n或 <code>{**a, **b}</code>。<strong>注意 JS 的 <code>Object.assign(a, b)</code> 是原地修改 <code>a</code> 并返回它</strong>，\n与展开写法语义不同，这个区别经常被忽略。\nPython 的 <code>a.update(b)</code> 同样是原地修改。</p>\n"
+          "bodyHtml": "<p><code>{ ...a, ...b }</code> 返回<strong>新对象</strong>，后者的键覆盖前者。\n<code>Object.assign({}, a, b)</code> 是等价写法，但要当心 <code>Object.assign(a, b)</code> 是\n「<strong>原地改 <code>a</code> 并返回它</strong>」—— 漏掉第一个 <code>{}</code> 就会污染原对象，这个区别经常被忽略。\n合并是浅的：嵌套对象仍是共享引用。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -471,7 +475,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>{**a, **b}</code> 或 3.9+ 的 <code>a | b</code> 返回<strong>新字典</strong>，后者的键覆盖前者，\n与 JS 的展开写法一一对应。</p>\n<p>要当心 <code>a.update(b)</code> 是<strong>原地修改</strong> <code>a</code> 并返回 <code>None</code>，语义与 <code>{**a, **b}</code> 不同 ——\n这和 JS 里 <code>Object.assign(a, b)</code> 漏掉第一个 <code>{}</code> 是同一个陷阱。\n合并同样是浅的，嵌套字典仍共享引用。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -548,7 +553,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>两门语言的「拷贝」默认都是<strong>浅拷贝</strong>：<code>{...obj}</code>、<code>Object.assign</code>、\n<code>dict(a)</code>、<code>a.copy()</code> 都只复制第一层，嵌套对象仍是共享引用。\nJS 要深拷贝用 <code>structuredClone()</code>（浏览器/Node 内置，比 <code>JSON.parse(JSON.stringify())</code> 正确，\n因为它能处理 <code>Date</code>、<code>Map</code>、循环引用）；Python 用 <code>copy.deepcopy()</code>。\n这一格是「看起来复制了，改新对象却动了旧对象」这类 bug 的根源。</p>\n"
+          "bodyHtml": "<p>拷贝默认是<strong>浅拷贝</strong>：<code>{...obj}</code>、<code>Object.assign</code> 都只复制第一层，\n嵌套对象仍是共享引用 —— 「看起来复制了，改新对象却动了旧对象」的 bug 就出在这里。\n深拷贝用 <code>structuredClone()</code>（内置，能处理 <code>Date</code>、<code>Map</code>、循环引用）。</p>\n<p>要当心 <code>JSON.parse(JSON.stringify(x))</code> 这个流传很广的深拷贝写法是<strong>错的</strong>：\n会丢 <code>Date</code>、<code>undefined</code>、函数，遇循环引用直接抛错。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -565,7 +570,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>浅拷贝是默认行为：<code>{**original}</code> 与 <code>original.copy()</code> 都只复制第一层，\n嵌套对象仍是共享引用 —— 与 JS 的 <code>{...obj}</code> 是同一个坑。</p>\n<p>深拷贝用 <code>copy.deepcopy()</code>，能处理循环引用。\n这一格的 bug 形态两边一样：<strong>看起来复制了，改新对象却动了旧对象</strong>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -636,7 +642,7 @@
           "notes": [],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 要「数组 → 对象」得走 <code>Object.fromEntries(arr.map(...))</code> 两步；\nPython 的字典推导式 <code>{k: v for ...}</code> 一步到位，并支持带条件的过滤。\n推导式是 Python 最具辨识度的语法之一，值得专门练到「不假思索就能写」。</p>\n"
+          "bodyHtml": "<p>JS <strong>没有「对象推导式」这种语法</strong>：数组转对象要两步 —— 先把元素 <code>map</code> 成 <code>[k, v]</code> 对，\n再 <code>Object.fromEntries</code>；带条件就先 <code>Object.entries</code> 再 <code>filter</code>。\n批量构造对象基本都靠这套组合。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -647,7 +653,8 @@
           "lineCount": 9,
           "notes": [],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>字典推导式 <code>{k: v for ...}</code> <strong>一步到位</strong>，还支持 <code>if</code> 过滤与嵌套 ——\nJS 那边同样的意图要走 <code>map</code> + <code>Object.fromEntries</code> 两步。</p>\n<p>推导式是最具辨识度的语法之一，值得练到「不假思索就能写」：\n从 JS 过来时，手写 for 循环攒字典的地方基本都该换成它。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -734,7 +741,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 的 <code>===</code> 对对象比的是<strong>引用</strong>，所以 <code>{} === {}</code> 是 <code>false</code>，\n要按内容比较得自己写或上 <code>JSON.stringify</code>（不可靠）。\nPython 的 <code>==</code> 对 dict/list 比的是<strong>内容</strong>，嵌套结构会递归比较。\n所以 Python 里「两个字典内容相同」这一判断是免费的，JS 里不是。</p>\n"
+          "bodyHtml": "<p><code>===</code> 对对象比的是<strong>引用</strong>，所以 <code>{} === {}</code> 是 <code>false</code>、<code>a === a</code> 才是 <code>true</code>。\n要按内容比较只能自己写（或上库）：<code>JSON.stringify(a) === JSON.stringify(b)</code> 能用但不可靠，\n键顺序不同就会误判。<code>Map</code> / <code>Set</code> 同理，都是引用比较。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -751,7 +758,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>==</code> 对 dict / list 比的是<strong>内容</strong>，嵌套结构会递归比较\n（<code>[1, [2, 3]] == [1, [2, 3]]</code> 是 <code>True</code>）；要比引用才用 <code>is</code>。</p>\n<p>所以「两个字典内容是否相同」在这里是免费的，JS 那边得自己写 ——\n这也意味着 <code>in</code>、去重、断言相等这些日常操作都直接可用。\n自定义类默认仍按身份比较，想按内容比必须实现 <code>__eq__</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -854,7 +862,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>同名不同写：JS 叫 <code>JSON.stringify</code> / <code>JSON.parse</code>，Python 叫 <code>json.dumps</code> / <code>json.loads</code>。\n差异在于对非 JSON 类型的处理：JS 会把函数、<code>undefined</code>、<code>Symbol</code> <strong>静默丢掉</strong>；\nPython 遇到 <code>datetime</code>、<code>set</code>、自定义对象会<strong>直接抛 TypeError</strong>（不静默）。\n另外 Python 的 <code>ensure_ascii</code> 默认为真，中文会被转义成 <code>\\uXXXX</code>，想保留中文要显式关掉；\nPython 默认输出的分隔符还带空格（<code>{&quot;a&quot;: 1}</code>，JS 是紧凑的 <code>{&quot;a&quot;:1}</code>）。\n整数精度这两门语言恰好相反：JS 的 <code>JSON.parse</code> 超过 2^53 会静默改值，Python 的 int 是任意精度。</p>\n"
+          "bodyHtml": "<p><code>JSON.stringify</code> / <code>JSON.parse</code>：中文不转义，分隔符也是紧凑的（<code>{&quot;name&quot;:&quot;阿达&quot;}</code>）。\n对非 JSON 类型是<strong>静默丢弃</strong>：函数、<code>undefined</code>、<code>Symbol</code> 直接消失；\n<code>Date</code> 变成字符串、解析回来不再是 <code>Date</code>；循环引用才抛 <code>TypeError</code>。\n还有一处静默改值：<code>JSON.parse('9007199254740993')</code> 得 <code>...992</code>，不报错。</p>\n<p><code>Date</code> 没有保真捷径 —— JSON 本身不带类型信息。正解是 replacer 里转 ISO 字符串、\n解析后显式 <code>new Date(s)</code>；<code>structuredClone</code> 只在内存内深拷贝、不产出 JSON 文本，替代不了它。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -876,7 +884,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><code>json.dumps</code> / <code>json.loads</code>，有两处默认值会让人意外：<code>ensure_ascii</code> 默认为真，\n中文被转义成 <code>\\uXXXX</code>（要可读得显式关掉）；分隔符默认带空格（<code>{&quot;a&quot;: 1}</code>，\nJS 那边是紧凑的）。</p>\n<p>对非 JSON 类型<strong>直接抛 <code>TypeError</code></strong>，不静默丢弃 —— 与 JS 相反。\n正解是给 <code>default</code> 传一个转换函数。整数是任意精度，不会像 JS 的 <code>JSON.parse</code>\n那样在 2^53 处被静默改值。</p>\n"
         },
         "rust": {
           "lang": "rust",

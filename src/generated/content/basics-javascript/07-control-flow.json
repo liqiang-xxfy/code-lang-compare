@@ -51,7 +51,7 @@
           "notes": [],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>结构完全对应，只有三处表面差异：不需要括号、<code>else if</code> 写成 <code>elif</code>、用缩进代替花括号。\n真正的差异在「条件表达式本身」——JS 允许任何表达式当条件（配合真值转换），\nPython 也允许，但两边的真值规则不同（见运算符章的「真值判断」）。</p>\n"
+          "bodyHtml": "<p>条件必须<strong>显式括在圆括号里</strong>；花括号可以省，但极易埋雷（加一行就改变语义），永远写上。\n条件是任意表达式，会走真值转换 —— 所以 <code>if ([])</code> 也成立，空数组是真值。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -62,7 +62,8 @@
           "lineCount": 9,
           "notes": [],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>结构完全对应，只有三处表面差异：条件<strong>不需要括号</strong>、<code>else if</code> 写成 <code>elif</code>、\n用缩进代替花括号（同一块缩进必须一致，混用 Tab 与空格直接报错）。\n条件后面的<strong>冒号</strong>是最容易漏的一处语法。</p>\n<p>真正的差异在条件表达式本身：两边都允许任意表达式当条件，但真值规则不同\n（见《运算符》一章的「真值判断」）。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -135,7 +136,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS：<code>cond ? a : b</code>；Python：<code>a if cond else b</code>。\n<strong>注意语序是反的</strong>——Python 把「结果」写在前面。这是逐行翻译时最容易写错的一格，\n而且写错往往不会报错（只要 a 和 b 都是合法表达式），只是逻辑反了。\nPython 还支持链式条件表达式，但可读性差，超过一层就该拆成 if。</p>\n"
+          "bodyHtml": "<p><code>cond ? a : b</code> —— <strong>条件在前、结果在后</strong>。可以嵌套，但会迅速不可读。\n三元是右结合的，嵌套时 <code>a ? b : c ? d : e</code> 等价于 <code>a ? b : (c ? d : e)</code>。\n只想要其中一个分支时可以短路：<code>cond &amp;&amp; doSomething()</code>（条件不成立时拿到 <code>false</code>，\n而不是 <code>undefined</code>）。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -152,7 +153,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><strong>语序是反的</strong>：<code>a if cond else b</code>，结果写在前面、条件在后面。\n这是逐行翻译时最容易写错的一格，而且写错往往<strong>不会报错</strong>\n（只要两边都是合法表达式），只是逻辑反了。</p>\n<p>只想要其中一个分支时写 <code>maybe = do_something() if cond else None</code>。\n链式条件表达式也支持，但可读性差，超过一层就该拆回 <code>if</code> 语句。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -235,7 +237,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的 <code>switch</code> 用 <code>===</code> 比较、<strong>不写 <code>break</code> 会穿透</strong>（这是经典 bug 源），\n而且它比较的是值，不能做结构匹配。\nPython 在 3.10 之前只能写 <code>if/elif</code> 链；3.10+ 引入了 <code>match</code>，但那是<strong>结构化模式匹配</strong>，\n比 <code>switch</code> 强得多：能解构、能绑定变量、能加守卫条件。\n迁移时不要把它当成 <code>switch</code> 用，否则会浪费这个特性。</p>\n"
+          "bodyHtml": "<p><code>switch</code> 用 <code>===</code> 严格比较、比较的是<strong>值</strong>而不是条件，而且<strong>不写 <code>break</code> 会穿透</strong>\n到下一个 <code>case</code> —— 经典 bug 源（「多个值走同一分支」时故意省略 <code>break</code>，\n是唯一合理的穿透用法）。\n它不能解构、不能绑定变量，复杂分支只能退回 <code>if/else</code> 链。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -257,7 +259,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>3.10 之前只能写 <code>if/elif</code> 链。3.10+ 有了 <code>match</code>，但它是<strong>结构化模式匹配</strong>，\n不是 <code>switch</code> 的替代品 —— 能解构字典与序列、能绑定变量、能用 <code>|</code> 合并多个模式、\n还能加守卫条件（<code>case _ if cond</code>）。</p>\n<p>这里<strong>没有穿透这回事，也永远不需要 <code>break</code></strong> —— 从 JS 带过来的 <code>break</code>\n反而会变成语法错误。别把它当 <code>switch</code> 用，否则会浪费掉这个特性。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -334,7 +337,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的 <code>for (let i = 0; i &lt; n; i++)</code> 是<strong>计数循环</strong>，<code>for...of</code> 才是遍历。\nPython 的 <code>for x in iterable</code> <strong>只有遍历</strong>，没有计数形式——想要下标就用 <code>range()</code> 或 <code>enumerate()</code>。\n这不是缺点：Python 的取向是「遍历容器，而不是遍历下标」，这能消除大量 off-by-one 错误。</p>\n"
+          "bodyHtml": "<p>JS 两种都有：<code>for (let i = 0; i &lt; n; i++)</code> 是<strong>计数循环</strong>，<code>for...of</code> 才是遍历。\n三段式的三个部分都可省略（<code>for (;;)</code> 就是死循环），也能用逗号并列多个表达式。\n遍历时同时拿下标，用 <code>.entries()</code> 解构 <code>[i, x]</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -351,7 +354,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><strong>只有遍历，没有计数三段式</strong>：<code>for x in iterable</code>。需要下标就用 <code>range()</code> 或\n<code>enumerate()</code>，遍历字典用 <code>.items()</code>。</p>\n<p>这不是缺点：取向是「遍历容器，而不是遍历下标」，能消除大量 off-by-one 错误。\n另外有一处作用域差别 —— <strong>循环变量在循环结束后仍然存在</strong>，<code>for</code> 不产生新作用域。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -428,7 +432,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><code>while</code> 两边一致。<strong>JS 有 <code>do...while</code>（至少执行一次），Python 没有</strong>，\n惯用替代是 <code>while True:</code> + <code>break</code>，或把首次逻辑抽出来先执行一遍。\n这类「少一个语法结构」的差异在迁移时会集中暴露，属于需要专门记一组的清单。</p>\n"
+          "bodyHtml": "<p><code>while</code> 与 <code>do...while</code> 都有：后者<strong>至少执行一次</strong>，条件在循环体之后判断，\n与 <code>while</code> 正好相反 —— 条件一开始就不成立时，它仍会执行一遍。\n写死循环用 <code>while (true)</code>，靠 <code>break</code> 退出。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -445,7 +449,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>while</code> 两边一致。<strong>没有 <code>do...while</code></strong>（至少执行一次的循环），\n惯用替代是 <code>while True:</code> + <code>break</code>，或者把首次逻辑抽出来先执行一遍。</p>\n<p>这类「少一个语法结构」的差异在迁移时会集中暴露，属于需要专门记一组的清单。\n注意死循环写 <code>while True:</code> —— <code>True</code> 在这里是大写的关键字。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -517,7 +522,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><code>break</code> / <code>continue</code> 两边一致。差异是 Python 独有的 <strong><code>for...else</code></strong>：\n<code>else</code> 块在循环<strong>没有被 break 打断</strong>时执行——它表达的是「找过了，没找到」。\nJS 里这个模式要额外维护一个标志位变量，是「用语法消除状态变量」的典型例子。</p>\n"
+          "bodyHtml": "<p><code>break</code> 跳过整个循环、<code>continue</code> 跳过本次。要当心<strong>嵌套循环里 <code>break</code> 只跳出最内层</strong> ——\n想一次跳多层得给循环贴标签（<code>outer:</code>），再用 <code>break outer</code> / <code>continue outer</code>；\n标签只能贴在循环或块前面。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -534,7 +539,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>break</code> / <code>continue</code> 与 JS 一致。<strong>没有循环标签</strong> —— 嵌套循环要一次跳多层，\n只能靠标志位变量或把内层抽成函数 <code>return</code>。</p>\n<p>多出来的是 <strong><code>for...else</code></strong>：<code>else</code> 块在循环<strong>没有被 break 打断</strong>时执行，\n表达的正是「找过了，没找到」。JS 里这个模式要额外维护一个标志位变量，\n这是「用语法消除状态变量」的典型例子。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -611,7 +617,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 常用 <code>arr.forEach((v, i) =&gt; ...)</code> 或 <code>Object.entries(obj)</code>；\nPython 用 <code>enumerate(seq, start)</code>——注意它有个 <code>start</code> 参数能指定起始下标，\nJS 的 <code>forEach</code> 下标恒从 0 开始。\n另外 Python 的 <code>enumerate</code> 返回的是惰性迭代器，不会先构造一个数组。</p>\n"
+          "bodyHtml": "<p>常用 <code>arr.forEach((v, i) =&gt; ...)</code>（<strong>下标恒从 0 开始</strong>）或 <code>arr.entries()</code> 解构，\n对象则先 <code>Object.entries</code>。\n要当心 <code>forEach</code>：<strong>不能用 <code>break</code> / <code>continue</code></strong>，也<strong>不会等 <code>await</code></strong>\n（回调里的异步不会被串起来，<code>forEach</code> 会立刻返回）—— 需要提前退出或串行等待，\n就得改写成 <code>for...of</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -628,7 +634,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>用 <code>enumerate(seq)</code> 直接拿 <code>(i, v)</code>，比 <code>range(len(seq))</code> 更地道；字典用 <code>.items()</code>。\n它还有 <code>start=</code> 参数能指定起始下标（<code>enumerate(arr, start=1)</code>）—— JS 的 <code>forEach</code>\n下标恒从 0 开始，做不到这一点。</p>\n<p><code>enumerate</code> 返回的是<strong>惰性迭代器</strong>，不会先物化一个列表；这里用的是普通循环，\n所以「中途 <code>break</code>」和「逐步 <code>await</code>」这两件 <code>forEach</code> 做不到的事，天然都成立。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -700,7 +707,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 没有内置 <code>range</code>（要自己写或用库），Python 的 <code>range()</code> 是内置的。\nPython 的 <code>range</code> 是<strong>左闭右开</strong>的惰性序列，且 <code>range(3)</code> 与 <code>range(0, 3)</code> 等价。\n<strong>注意 Python 3 的 <code>range</code> 返回的是 range 对象而不是列表</strong>——\n想要列表必须 <code>list(range(3))</code>，这是从 Python 2 迁移过来的老代码常踩的坑，也是新手的常见疑问。</p>\n"
+          "bodyHtml": "<p>JS <strong>没有内置 <code>range</code></strong>，得自己写或用库：惯用代替是 <code>[...Array(n).keys()]</code>\n（不直观，但很常见），带步长则要自己映射。\n这也正是 JS 的循环更依赖计数三段式的原因 —— 想按序号走一遍，先得有序列。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -717,7 +724,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>range()</code> 是内置的<strong>左闭右开</strong>惰性序列：<code>range(3)</code> 与 <code>range(0, 3)</code> 等价，\n支持步长与负步长（<code>range(5, 0, -1)</code> 倒序很方便），<code>range(10**9)</code> 只占常数内存。</p>\n<p>要注意 <code>range(3)</code> 返回的是 <strong>range 对象而不是列表</strong>，想要列表必须 <code>list(range(3))</code>\n—— 打印出来是 <code>range(0, 3)</code>，这是新手最常见的疑问之一。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -795,7 +803,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>结构对应：<code>try/catch/finally</code> ↔ <code>try/except/finally</code>。\n三处实质差异：\n① Python 的 <code>except</code> 必须写异常类型才能精确捕获，写 <code>except:</code> 会连 <code>KeyboardInterrupt</code> 一起吞掉——永远不要这么写；\n② Python 有 <code>try/except/else</code>（没抛异常时执行），JS 没有；\n③ JS 可以 <code>throw</code> 任何值（字符串也行），Python 只能抛 <code>BaseException</code> 的子类。\n最后一条导致：Python 里 <code>except Exception as e</code> 之后可以放心用 <code>e.args</code>，而 JS 的 <code>catch (e)</code> 里 <code>e</code> 可能是任何东西。</p>\n"
+          "bodyHtml": "<p>结构是 <code>try/catch/finally</code>，<code>finally</code> 无论成功失败都执行。\n<code>catch</code> 只接一个绑定参数，<strong>没有按异常类型分发的语法</strong>，只能自己 <code>instanceof</code>\n判断（或看 <code>e.name</code>）；ES2019 起绑定可以省略：<code>catch { }</code>。</p>\n<p>要当心 <code>throw</code> 可以扔<strong>任何值</strong>：<code>throw 'oops'</code>、<code>throw { code: 1 }</code> 都合法，\n所以 <code>catch</code> 里的 <code>e</code> <strong>不一定是 <code>Error</code></strong>，写 <code>e.message</code> 可能拿到 <code>undefined</code>。\n自定义错误要 <code>extends Error</code>，否则丢失栈信息。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -822,7 +830,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>结构对应 <code>try/except/finally</code>，但有三处实质差异：</p>\n<p>① <code>except</code> <strong>必须写异常类型</strong>才能精确捕获；裸 <code>except:</code> 会连 <code>KeyboardInterrupt</code>、\n<code>SystemExit</code> 一起吞掉，永远不要这么写（多个类型用元组合并）；\n② 多一个 <strong><code>else</code></strong> 分支，没抛异常时执行；\n③ 只能抛 <code>BaseException</code> 的子类，<code>raise 'msg'</code> 直接报错 —— 所以 <code>except X as e</code>\n之后 <code>e</code> 一定是个异常对象，可以放心用 <code>e.args</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
