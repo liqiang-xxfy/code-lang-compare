@@ -1,0 +1,115 @@
+# javascript —— basics-java/04-strings 的实现
+#
+# 本 topic 以 **Java 为基准**，JavaScript 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/string-literal
+    equivalence: divergent
+    code: |
+      const s = 'he said "hi"';    // @note! 单双引号完全等价，只影响要转义哪一边
+      const c = 'a';               // @note 这就是长度为 1 的字符串，没有 char 类型
+      // @note 于是 'a' + 1 得 'a1'，而不是 Java 的 98
+
+      const multi = `多行
+      字符串`;                       // @note 反引号天然支持换行，不需要文本块
+  - featureId: basics-java/template-string
+    equivalence: divergent
+    code: |
+      const name = "Ada";
+      `你好，${name}！`;             // @note! 有插值：表达式直接写在串里
+      `${price * 1.1}`;
+      `${items.length} 项`;
+
+      // @note 占位符同时承担"这是表达式"和"边界在哪"两个作用，
+      // 不必像 Java 那样在脑内给长拼接串标边界
+      `换行符：\n`;                  // 转义照常生效
+  - featureId: basics-java/string-methods
+    equivalence: analogous
+    code: |
+      "  x  ".trim();              // @note 只有 trim，没有 strip 那个区分
+      "abc".toUpperCase();         // @note 驼峰命名，与 Java 一致
+      "abc".includes("b");         // @note! 名字不同：Java 叫 contains
+      "abc".indexOf("z");          // -1 —— 同样返回 -1
+      "a,b".split(",");            // ['a', 'b']
+      "abc".replace("a", "x");     // @note 只替换第一个匹配，不是全部
+
+      ["a", "b"].join("\n");       // @note! 主语是数组，Java 是分隔符当主语
+  - featureId: basics-java/multiline-string
+    equivalence: analogous
+    code: |
+      const text = `第一行
+      第二行`;                       // @note 反引号直接换行，但缩进**原样保留**
+
+      ["a", "b"].join("\n");       // @note! 数组当主语调用 join，
+                                   // Java 那边是 String.join(分隔符, 列表)，主宾语相反
+      [1, 2].join(",");            // '1,2' —— 会自动转字符串，不必先 map
+
+      // @note 缩进原样保留这一点与文本块相反：Java 的文本块剥公共缩进
+  - featureId: basics-java/fstring-format
+    equivalence: divergent
+    code: |
+      const n = 3.14159;
+      n.toFixed(2);                // @note '3.14' —— 只有小数位，没有总宽度
+      n.toFixed(2).padStart(8, "0");        // @note 想要 %08.2f 得手动补两段
+      (1234567).toLocaleString("en-US");    // '1,234,567'
+      (255).toString(16);          // 'ff'
+
+      // @note! 没有把"宽度 / 精度 / 对齐 / 进制"统一在一处的格式说明符，
+      // 要拼出 Java 的 %08.2f 得组合两三个方法
+      // @note 也不会出现"参数顺序写反了还不报错"：值就写在模板里
+  - featureId: basics-java/string-index-slice
+    equivalence: divergent
+    code: |
+      const s = "abcdef";
+      s.charAt(0);                 // 'a' —— 与 Java 一致
+      s[0];                        // @note 更常见的写法，两者等价
+      s.slice(1, 4);               // @note "bcd" —— 左闭右开
+      s.substring(1, 4);           // "bcd"
+
+      s.at(-1);                    // @note 'f' —— 支持负索引（charAt 不支持）
+      s.slice(2, 999);             // @note "cdef" —— 越界静默截断
+      // @note! 但 charAt(999) 返回空字符串而不是抛异常 —— 与 Java 的抛相反
+      [...s].reverse().join("");   // @note 反转同样要绕一道（没有步长）
+  - featureId: basics-java/string-regex
+    equivalence: analogous
+    code: |
+      const re = /\d+/;            // @note 有正则字面量，反斜杠只写一遍
+      re.test("a1");               // true
+      "a1".match(/\d+/);           // @note! 返回数组或 null，不是 Matcher 对象
+      "2026".match(/(?<y>\d{4})/).groups.y;
+
+      "a@b".replace(/(\w+)@(\w+)/, "$2$1");   // @note 替换引用也是 $1，与 Java 一致
+
+      // @note! 没有 matches / find / lookingAt 三个方法的分工：
+      // 想只在开头匹配就写 /^.../，想整串匹配就加 $ —— 靠模式本身表达
+  - featureId: basics-java/string-concat
+    equivalence: analogous
+    code: |
+      "a" + 1;                     // @note! 'a1' —— 同样静默转换
+      "a" + null;                  // @note! 'anull'
+      "a" + { };                   // @note! 'a[object Object]'
+
+      ["a", "b"].join("");         // @note 数组 join 是常规写法
+
+      let s = "";
+      for (const p of parts) s += p;
+      // @note! 引擎普遍做了 rope 优化，循环里 += 不像 Java 那样必然 O(n²)，
+      // 但片段极多时仍然推荐先收集再 join
+  - featureId: basics-java/string-raw-escape
+    equivalence: divergent
+    code: |
+      "C:\\new\\test";             // @note! 反斜杠必须双写，与 Java 一致
+      String.raw`C:\new\test`;     // @note 标签模板是这边最接近原始字符串的写法
+
+      /\d+\.\d+/;                  // @note 正则字面量形式只写一遍反斜杠
+      new RegExp("\\d+");          // 用字符串构造时仍要双写
+
+      "\u{1F600}";                 // @note Unicode 转义位数可变，不用写代理对
+      // @note 与 Java 的 \uXXXX 不同：那边固定 4 位且是编译期处理

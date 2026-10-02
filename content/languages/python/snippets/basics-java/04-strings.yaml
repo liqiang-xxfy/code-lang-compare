@@ -1,0 +1,117 @@
+# python —— basics-java/04-strings 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/string-literal
+    equivalence: divergent
+    code: |
+      s1 = 'he said "hi"'          # @note! 单双引号完全等价，只影响要转义哪一边
+      c = 'a'                      # @note 这就是长度为 1 的字符串，没有 char 类型
+      # @note 于是 'a' + 1 会抛 TypeError，而不是 Java 的 98
+
+      multi = """多行
+      字符串"""                     # @note 三引号，但缩进会被原样带进去
+  - featureId: basics-java/template-string
+    equivalence: divergent
+    code: |
+      name = "Ada"
+      f"你好，{name}！"              # @note! 有插值：表达式直接写在串里
+      f"{price * 1.1:.2f}"
+      f"{len(items)} 项"
+
+      # @note! 花括号里不能有反斜杠：f"{'\n'.join(xs)}" 是语法错误
+      joined = "\n".join(xs)
+      f"{joined}"                  # 先接住再插值
+      f"{value=}"                  # 调试简写，输出 value=42
+  - featureId: basics-java/string-methods
+    equivalence: analogous
+    code: |
+      "  x  ".strip()              # @note 名字不同：Java 叫 strip（这边没有 trim）
+      "abc".upper()                # @note! 方法名全小写，Java 是驼峰
+      "b" in "abc"                 # @note! 判断包含用 in 运算符，不是方法调用
+      "abc".find("z")              # -1 —— 同样返回 -1
+      "a,b".split(",")             # ['a', 'b']
+      "abc".replace("a", "x")      # @note 替换**全部**匹配，Java 的 replace 也是全部
+
+      "\n".join(["a", "b"])        # @note 主语是分隔符，与 String.join 同序
+  - featureId: basics-java/multiline-string
+    equivalence: analogous
+    code: |
+      text = """第一行
+      第二行"""                     # @note! 缩进会被原样带进去，不像文本块会剥公共缩进
+
+      "\n".join(["a", "b"])        # @note 主语是分隔符，与 String.join 同序 —— 这点一致
+      ", ".join(map(str, nums))    # @note join 只收字符串，数字要先转
+
+      # @note 函数里的三引号字符串会跟着函数缩进走，这是最常见的意外
+  - featureId: basics-java/fstring-format
+    equivalence: analogous
+    code: |
+      f"{3.14159:.2f}"             # @note '3.14'
+      f"{3.14159:08.2f}"           # @note '00003.14' —— 同样有总宽度概念
+      f"{1234567:,}"               # '1,234,567'
+      f"{255:x}"                   # 'ff'
+      f"{0.123:.1%}"               # '12.3%' —— 百分号不用手写
+
+      format(255, "x")             # @note 同一套规格串，用于动态拼格式时
+
+      # @note 规格串内联在字符串里，不存在"参数顺序写反了还不报错"
+      # @note 但正因为内联，规格串不能像 Java 那样动态拼出来
+  - featureId: basics-java/string-index-slice
+    equivalence: divergent
+    code: |
+      s = "abcdef"
+      s[0]                         # @note 'a'
+      s[-1]                        # @note! 'f' —— 负索引原生支持，Java 没有
+      s[1:4]                       # @note 'bcd' —— 左闭右开
+      s[2:]                        # 'cdef'
+      s[::2]                       # @note 'ace' —— 步长，Java 完全没有
+      s[::-1]                      # @note 'fedcba' —— 一行反转
+
+      s[2:999]                     # @note 'cdef' —— 切片越界静默截断
+      s[999]                       # @note! IndexError —— 索引越界才抛，与 Java 一致
+  - featureId: basics-java/string-regex
+    equivalence: analogous
+    code: |
+      import re
+      re.match(r"\d+", "a1")       # @note! None —— match 只从开头匹配，对应 lookingAt
+      re.search(r"\d+", "a1")      # @note 匹配到 1 —— 任意位置，对应 find
+      re.fullmatch(r"\d+", "a1")   # @note None —— 整串匹配，对应 matches
+
+      m = re.search(r"(?P<y>\d{4})", "2026")
+      m.group("y")                 # '2026'
+
+      re.sub(r"(\w+)@(\w+)", r"\2@\1", "a@b")   # @note! 替换引用用 \1，Java 是 $1
+      # @note 正则串一律加 r 前缀：不加的话 "\b" 会变成退格字符
+  - featureId: basics-java/string-concat
+    equivalence: analogous
+    code: |
+      "a" + 1                      # @note! TypeError —— 不做隐式转换，与 Java 相反
+      f"a{1}"                      # 'a1' —— 要混类型就上 f-string
+      "a" + str(1)                 # 'a1'
+
+      ",".join(map(str, [1, 2]))   # '1,2'
+
+      s = ""
+      for p in parts:
+          s += p                   # @note! 字符串不可变，循环里 += 会退化成 O(n²)
+      # 片段多时先收集到列表，最后一次性 join —— 与 Java 的 StringBuilder 是同一个道理
+  - featureId: basics-java/string-raw-escape
+    equivalence: divergent
+    code: |
+      path = r"C:\new\test"        # @note! 有原始字符串，反斜杠只写一遍
+      pattern = r"\d+\.\d+"
+
+      len(r"\n")                   # @note! 2 —— r 只影响字面量解析，值就是反斜杠 + n
+      # r"\"                       # @note! 语法错误：不能以奇数个反斜杠结尾
+
+      "\U0001F600"                 # @note 8 位 Unicode 转义要补足前导零
+      # @note Java 那边 \uXXXX 固定 4 位、超 BMP 要写代理对；这边位数可变
