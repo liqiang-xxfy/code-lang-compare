@@ -1,0 +1,117 @@
+# python —— basics-python/06-objects 的实现
+#
+# 本 topic 以 **Python 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/object-create
+    equivalence: identical
+    code: |
+      d = {"a": 1, "b": 2}
+      d = dict(zip(keys, values))
+      d = dict([("a", 1), ("b", 2)])
+
+      grid = {(0, 0): "起点"}     # @note 键可以是任意可哈希对象，元组当键很常用
+      {True: 1, 1: 2}             # @note! {True: 2} —— True == 1，两个写法是同一个键
+      {[1]: 2}                    # @note! TypeError: unhashable type: 'list'
+
+      # @note 3.7 起保证插入顺序，按写入顺序遍历不需要额外的类型
+  - featureId: basics-python/object-access
+    equivalence: identical
+    code: |
+      d = {"a": 1}
+      d["a"]                      # 1
+      d["z"]                      # @note! KeyError —— 缺失一律抛，绝不返回空值
+      d.get("z")                  # @note None —— 想容忍缺失就用 get
+      d.get("z", 0)               # 0
+
+      d.a                         # @note! AttributeError ——
+                                  # 点号找的是对象属性，不是字典的键，取键只有方括号与 get
+  - featureId: basics-python/object-iterate
+    equivalence: identical
+    code: |
+      for k, v in d.items():      # @note 直接给 (key, value) 元组，最常用
+          pass
+      for k in d:                 # 默认遍历键
+          pass
+      for v in d.values():        # 遍历值
+          pass
+
+      sorted(d.items(), key=lambda kv: kv[1])   # @note 遍历顺序是插入顺序，要排序得自己来
+
+      for k in d:
+          del d[k]                # @note! RuntimeError: dictionary changed size during iteration
+      for k in list(d):           # 要改就遍历副本
+          del d[k]
+  - featureId: basics-python/object-default
+    equivalence: identical
+    code: |
+      d.get(k, 0)                 # @note 只读：缺失也不写入
+      d.setdefault(k, [])         # @note! 读取的同时会写入默认值
+
+      groups = collections.defaultdict(list)
+      groups[k].append(v)         # @note 不用先判存在，分组累加的惯用法
+      len(groups)                 # @note! 一次读取就把字典撑大了 —— 遍历 keys() 会看到空组
+  - featureId: basics-python/object-merge
+    equivalence: identical
+    code: |
+      merged = {**a, **b}         # @note 新字典，b 覆盖 a
+      merged = a | b              # 3.9+，同样的语义，更短
+
+      a.update(b)                 # @note 原地改 a，返回 None
+      a = a.update(b)             # @note! 经典错误：a 现在成了 None
+      a |= b                      # 3.9+ 原地合并
+
+      # @note | 对嵌套字典是浅合并：同名的键整体替换，不会递归合并
+  - featureId: basics-python/object-nested
+    equivalence: identical
+    code: |
+      b = dict(a)                 # @note 浅拷贝
+      b = a.copy()                # 同上
+      b = {**a}                   # 同上 —— 三者等价，都只复制第一层
+
+      a = {"cfg": {"retry": 3}}
+      b = dict(a)
+      b["cfg"]["retry"] = 5       # @note! a 也变了：内层还是同一个对象
+
+      import copy
+      c = copy.deepcopy(a)        # @note 递归复制且能处理循环引用，代价是慢
+  - featureId: basics-python/object-comprehension
+    equivalence: identical
+    code: |
+      {k: v for k, v in pairs}
+      {u.id: u for u in users}                       # @note 一步建索引
+      {u.id: u for u in users if u.active}           # 带过滤
+      {k: v for k, v in d.items() if v is not None}  # 过滤字典
+
+      {v: k for k, v in d.items()}                   # @note! 反转键值：值必须可哈希，
+                                                     # 原值重复时后者覆盖前者，静默丢数据
+  - featureId: basics-python/object-equality
+    equivalence: identical
+    code: |
+      {"a": 1} == {"a": 1}                    # @note True —— 比的是内容
+      {"a": 1, "b": 2} == {"b": 2, "a": 1}    # @note True —— 与插入顺序无关
+      {"a": [1, 2]} == {"a": [1, 2]}          # @note True —— 嵌套也会递归比较
+      {"a": 1} == {"a": 1.0}                  # True —— 1 == 1.0
+
+      # @note 自定义类要参与 == 得实现 __eq__；实现了就应同时实现 __hash__，
+      # 否则对象变得不可哈希，不能再放进 set 或当字典键
+  - featureId: basics-python/object-json
+    equivalence: identical
+    code: |
+      json.dumps({"a": 1})                    # @note '{"a": 1}' —— 默认分隔符带空格
+      json.dumps(obj, ensure_ascii=False)     # @note! 默认是 True，中文会变成 \uXXXX
+      json.dumps(obj, indent=2, sort_keys=True)
+      json.dumps(obj, separators=(",", ":"))  # @note 紧凑输出，做签名/比对时必须传
+      json.loads('{"a": 1}')
+
+      json.dumps({"t": datetime.now()})       # @note! TypeError ——
+                                              # 非 JSON 类型直接抛，不静默丢字段
+      json.dumps({"t": dt}, default=str)      # 惯用替代写法

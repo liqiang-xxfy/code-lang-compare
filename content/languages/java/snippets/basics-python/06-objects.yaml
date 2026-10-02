@@ -1,0 +1,193 @@
+# java —— basics-python/06-objects 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/object-create
+    equivalence: divergent
+    code: |
+      // @note! 没有字典字面量，只能调工厂或构造器
+      java.util.Map<String, Integer> d = java.util.Map.of("a", 1, "b", 2);   // 不可变，最多 10 对
+      java.util.Map<String, Integer> big = java.util.Map.ofEntries(
+              java.util.Map.entry("a", 1),
+              java.util.Map.entry("b", 2));
+
+      var m = new java.util.HashMap<String, Integer>();
+      m.put("a", 1);
+
+      // @note! 键必须是对象，且靠 equals/hashCode 判定相等：
+      // 元组当键只能自己定义 record（record 会自动生成这两个方法）
+      record Point(int x, int y) { }
+      java.util.Map<Point, String> grid = new java.util.HashMap<>();
+      grid.put(new Point(0, 0), "起点");
+
+      // @note 注意 new Point(0,0) 与另一个同值实例是同一个键（record 按值比），
+      // 而普通 class 不重写 equals 时就是两个键
+  - featureId: basics-python/object-access
+    equivalence: divergent
+    code: |
+      java.util.Map<String, Integer> d = new java.util.HashMap<>();
+      d.put("a", 1);
+
+      d.get("a");                  // 1
+      d.get("z");                  // @note! null —— 缺失返回空值，不抛异常
+
+      d.getOrDefault("z", 0);      // 0 —— 想给默认值用这个
+
+      // @note 危险之处：值本身可以为 null 时，"键不存在"与"键存在但值是 null"
+      // 用 get 分不出来，必须配合 containsKey
+      d.containsKey("z");          // false
+
+      // @note 没有点号/方括号的访问语法，一律是方法调用
+  - featureId: basics-python/object-iterate
+    equivalence: analogous
+    code: |
+      for (var e : d.entrySet()) {
+          e.getKey();
+          e.getValue();
+      }
+
+      d.forEach((k, v) -> { });              // @note 最简洁的形式：一次拿到键和值
+
+      d.keySet();                            // 只要键
+      d.values();                            // 只要值
+
+      // @note! 遍历时不能直接改结构，会抛 ConcurrentModificationException；
+      // 要删得走 iterator.remove() 或 removeIf
+      d.entrySet().removeIf(e -> e.getValue() == null);
+  - featureId: basics-python/object-default
+    equivalence: analogous
+    code: |
+      d.getOrDefault(k, 0);                  // @note 只读：缺失也不写入
+
+      d.computeIfAbsent(k, x -> new java.util.ArrayList<>());   // @note! 会写入
+      d.putIfAbsent(k, 0);                                      // 同样会写入
+
+      d.merge(k, 1, Integer::sum);           // @note 计数惯用法，等于 Python 的 Counter 累加
+      d.compute(k, (key, v) -> v == null ? 1 : v + 1);
+
+      // @note computeIfAbsent 是分组累加的常用写法，但和 defaultdict 一样有"读一次就多一个键"的副作用
+  - featureId: basics-python/object-merge
+    equivalence: divergent
+    code: |
+      java.util.Map<String, Integer> a = new java.util.HashMap<>(java.util.Map.of("x", 1));
+      java.util.Map<String, Integer> b = java.util.Map.of("x", 9, "y", 2);
+
+      a.putAll(b);                           // @note! 只有原地合并，a 被改，返回 void
+
+      var merged = new java.util.HashMap<String, Integer>(a);   // @note "要新对象"得自己先拷一份
+      merged.putAll(b);
+
+      java.util.stream.Stream.concat(a.entrySet().stream(), b.entrySet().stream())
+              .collect(java.util.stream.Collectors.toMap(
+                      java.util.Map.Entry::getKey,
+                      java.util.Map.Entry::getValue,
+                      (left, right) -> right));     // @note 冲突时的取舍要显式给，否则抛异常
+
+      // @note 后者的键覆盖前者不是默认行为 —— 必须传那个合并函数
+  - featureId: basics-python/object-nested
+    equivalence: divergent
+    code: |
+      // @note! 完全没有内置深拷贝，浅拷贝还得自己写
+      var a = new java.util.HashMap<String, Object>();
+      a.put("cfg", new java.util.HashMap<>(java.util.Map.of("retry", 3)));
+
+      var b = new java.util.HashMap<>(a);        // @note 浅拷贝：外层是新的
+      ((java.util.Map<String, Object>) b.get("cfg")).put("retry", 5);
+      // @note! a 里的 cfg 也变了
+
+      // @note 要深拷贝只有三条路：手写复制构造、序列化往返、
+      // 或者干脆把嵌套结构定义成不可变的 record（推荐，从根上避免共享可变状态）
+      record Cfg(int retry) { }
+      record Holder(Cfg cfg) { }
+    body: |
+      Java 没有 `copy.deepcopy` 这样的内置深拷贝，也没有 `Cloneable` 的可靠实现
+      —— `Object.clone()` 是浅的，`Cloneable` 被广泛认为是一个设计失误
+      （它不包含 `clone` 方法，还得靠反射）。
+
+      实践中的三条出路：
+
+      1. **手写复制构造**（`new HashMap<>(other)` 只解决第一层，嵌套要逐层写）；
+      2. **序列化往返**（JSON 或 Java 序列化，慢且要求类型可序列化）；
+      3. **把嵌套结构设计成不可变的**（`record` + 不可变集合），从根上消灭
+         共享可变状态 —— 这也是这门语言当前的推荐方向。
+
+      从"拷贝默认是浅的但至少有一行 deepcopy"的环境迁过来时，
+      最大的风险是**以为某处拷过了**。这里的默认答案应该是"没有拷"。
+  - featureId: basics-python/object-comprehension
+    equivalence: absent
+    code: |
+      // @note! 没有"字典推导式"，构造映射要走流收集器
+      record User(int id, String name, boolean active) { }
+      java.util.List<User> users = java.util.List.of();
+
+      java.util.Map<Integer, User> byId = users.stream()
+              .collect(java.util.stream.Collectors.toMap(User::id, u -> u));
+
+      java.util.Map<Integer, User> activeById = users.stream()
+              .filter(User::active)
+              .collect(java.util.stream.Collectors.toMap(User::id, u -> u));
+
+      java.util.Map<Integer, java.util.List<User>> grouped = users.stream()
+              .collect(java.util.stream.Collectors.groupingBy(User::id));
+
+      // @note! 重复键默认抛 IllegalStateException，必须传合并函数；
+      // Python 那边后者静默覆盖前者
+    body: |
+      Java 没有推导式，构造映射要靠 `Collectors.toMap` / `groupingBy`。
+
+      与推导式最重要的差别是**重复键的处理**：`toMap` 遇到两条记录映射到同一个键时
+      **抛 `IllegalStateException`**，必须显式传第三个参数决定取舍
+      （`(left, right) -> right` 才是"后者覆盖前者"）。
+      默认报错其实更安全 —— 静默丢数据是更难查的一类 bug。
+
+      另外流是**一次性**的，同一个 `stream()` 不能复用；而推导式每次求值都重新构造。
+  - featureId: basics-python/object-equality
+    equivalence: divergent
+    code: |
+      var m1 = java.util.Map.of("a", 1);
+      var m2 = java.util.Map.of("a", 1);
+      m1.equals(m2);                     // @note true —— 映射按内容比较（与顺序无关）
+      m1 == m2;                          // @note! false —— == 比引用
+
+      int[] a1 = {1, 2};
+      int[] a2 = {1, 2};
+      a1.equals(a2);                     // @note! false —— 数组没有重写 equals，比的是身份
+      java.util.Arrays.equals(a1, a2);   // true —— 数组比较必须用静态方法
+
+      // @note 自定义类不重写 equals/hashCode 时，默认就是引用比较
+      // （而且两个都重写才行：只重写 equals 会让 HashMap 行为错乱）
+  - featureId: basics-python/object-json
+    equivalence: absent
+    code: |
+      // @note! JDK 里完全没有 JSON 支持，必须引入第三方库
+      // 常见选择：Jackson、Gson、或 JSON-P（jakarta.json，需要额外依赖）
+
+      // Jackson 的典型形态：
+      // ObjectMapper om = new ObjectMapper();
+      // String s = om.writeValueAsString(obj);
+      // Obj o = om.readValue(s, Obj.class);
+
+      // @note 连"哪些字段参与序列化"这类规则也要靠注解声明（@JsonProperty / @JsonIgnore），
+      // 而不是像 json.dumps 那样在调用处传参数
+    body: |
+      Java 标准库**没有任何 JSON API** —— 这不是"藏在某个包里"，是真的没有。
+      序列化一律依赖第三方（Jackson / Gson / JSON-P），在 `pom.xml` /
+      `build.gradle` 里显式声明坐标。
+
+      由此带来两个连锁差异：
+
+      1. **映射关系要显式声明**。字段名、忽略规则、日期格式都靠注解写在类上，
+         而不是像 `json.dumps(obj, ensure_ascii=False, default=str)` 那样在调用处决定。
+      2. **类型必须能构造**。`readValue` 需要目标类有无参构造器，
+         或者用 record / `@JsonCreator` 标注构造方式；没有"直接还原成 dict"这条路。
+
+      从"标准库自带 JSON"的环境迁过来时，这一步往往是最先卡住的
+      —— 不是在写序列化代码，而是在配依赖和补注解。

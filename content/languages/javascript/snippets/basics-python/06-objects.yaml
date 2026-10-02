@@ -1,0 +1,115 @@
+# javascript —— basics-python/06-objects 的实现
+#
+# 本 topic 以 **Python 为基准**，JavaScript 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/object-create
+    equivalence: divergent
+    code: |
+      const d = { a: 1, b: 2 };
+      const e = { "带空格的键": 1 };        // @note 键只能是字符串或 Symbol
+      const m = new Map();                  // @note! 要用对象/数字当键必须换 Map
+      m.set({ id: 1 }, "值");
+
+      const odd = { 2: "b", 1: "a", x: "c" };
+      Object.keys(odd);                     // @note! ['1', '2', 'x'] —— 整数键被提到前面
+
+      // Python 那边元组、数字都能直接当键，且顺序严格按插入
+  - featureId: basics-python/object-access
+    equivalence: divergent
+    code: |
+      const d = { a: 1 };
+      d.a;                  // 1
+      d["a"];               // @note 1 —— 点号与方括号在这里完全等价
+      d.z;                  // @note! undefined —— 缺失静默返回空值，不抛
+      d.z.deep;             // @note! 于是这里才崩，报错位置离原因很远
+
+      "a" in d;             // true —— 判存在要用 in 或 hasOwnProperty
+      // @note Python 那边 d.a 是 AttributeError（点号不取键），d["z"] 是 KeyError
+  - featureId: basics-python/object-iterate
+    equivalence: analogous
+    code: |
+      Object.entries(d);              // @note [['a', 1], ['b', 2]] —— 要自己解构
+      for (const [k, v] of Object.entries(d)) { }
+
+      Object.keys(d);                 // 只要键
+      Object.values(d);               // 只要值
+
+      for (const k in d) { }          // @note! for...in 会连原型链上的可枚举属性一起遍历，
+                                      // 所以不如 Object.entries 可靠
+      // @note 遍历时增删同样有未定义行为，但不会像 Python 那样抛 RuntimeError
+  - featureId: basics-python/object-default
+    equivalence: analogous
+    code: |
+      d.k ?? 0;                       // @note! 只对 null / undefined 兜底
+      d.k || 0;                       // @note! 0 和 "" 也会被当成"空"，多数时候是错的
+
+      // @note 没有"读取时写入默认值"的对应物：
+      // Python 的 defaultdict 与 setdefault 都会改字典，这边的 ?? 完全只读
+      if (!(k in d)) d[k] = [];
+      d[k] ??= [];                    // @note 这个才是"不存在就写入"的写法
+  - featureId: basics-python/object-merge
+    equivalence: analogous
+    code: |
+      const merged = { ...a, ...b };  // @note 新对象，b 覆盖 a
+      const merged2 = Object.assign({}, a, b);
+
+      Object.assign(a, b);            // @note! 原地改 a 并返回它 —— 与展开写法语义不同
+      a = Object.assign(a, b);        // 这种写法看着像"取合并结果"，其实改的就是 a
+
+      // @note 同样是浅合并：同名的键整个替换，不递归
+  - featureId: basics-python/object-nested
+    equivalence: identical
+    code: |
+      const b = { ...a };             // @note 浅拷贝，与 dict(a) 一样只复制第一层
+
+      const a2 = { cfg: { retry: 3 } };
+      const b2 = { ...a2 };
+      b2.cfg.retry = 5;               // @note! a2 也变了
+
+      structuredClone(a2);            // @note 深拷贝的内置入口，能处理 Date / Map / 循环引用
+      JSON.parse(JSON.stringify(a2)); // @note! 老偏方：丢函数、丢 undefined、Date 变字符串
+  - featureId: basics-python/object-comprehension
+    equivalence: divergent
+    code: |
+      Object.fromEntries(users.map((u) => [u.id, u]));      // @note 两步：先 map 再 fromEntries
+
+      Object.fromEntries(users.filter((u) => u.active).map((u) => [u.id, u]));
+
+      Object.fromEntries(Object.entries(d).filter(([, v]) => v != null));
+
+      // @note 没有推导式语法，一切都要"先转成数组再转回来"，
+      // 而且中间那次 map 会建一个完整的中间数组
+  - featureId: basics-python/object-equality
+    equivalence: divergent
+    code: |
+      ({ a: 1 }) === ({ a: 1 });      // @note! false —— 比的是引用身份
+
+      const x = { a: 1 };
+      x === x;                        // true
+
+      JSON.stringify({ a: 1 }) === JSON.stringify({ a: 2 - 1 });
+      // @note! 能跑通，但依赖键的顺序，换个顺序就 false —— 不可靠
+
+      // @note 要按内容比较得自己写递归比较，或引入库
+  - featureId: basics-python/object-json
+    equivalence: divergent
+    code: |
+      JSON.stringify({ a: 1 });              // '{"a":1}' —— 紧凑，没有多余空格
+      JSON.stringify({ a: 1 }, null, 2);     // 美化
+      JSON.parse('{"a":1}');
+
+      JSON.stringify({ f: () => {}, u: undefined, s: Symbol() });
+      // @note! '{}' —— 函数、undefined、Symbol 被**静默丢掉**，不报错
+
+      JSON.parse('{"n": 9007199254740993}').n;
+      // @note! 9007199254740992 —— 超过安全整数范围静默改值
+
+      // @note Python 那边遇到非 JSON 类型直接抛 TypeError，中文默认被转义
