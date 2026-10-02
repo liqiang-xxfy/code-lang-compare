@@ -1,0 +1,129 @@
+# javascript —— basics-python/07-control-flow 的实现
+#
+# 本 topic 以 **Python 为基准**，JavaScript 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/if-else
+    equivalence: analogous
+    code: |
+      if (score >= 90) {          // @note 括号是必需的，花括号划块
+        grade = "A";
+      } else if (score >= 60) {   // @note 写成两个词
+        grade = "B";
+      } else {
+        grade = "C";
+      }
+
+      if (items) { }              // @note! 条件里空数组是**真值**，这个判断永远成立
+      if (items.length) { }       // 判"非空"要写长度
+  - featureId: basics-python/ternary
+    equivalence: divergent
+    code: |
+      const label = age >= 18 ? "成年" : "未成年";
+      // @note! 语序是"条件 ? 值 : 值"，与 Python 的"值 if 条件 else 值"正好相反
+
+      const level = n > 100 ? "高" : n > 10 ? "中" : "低";   // 同样能嵌，同样不好读
+
+      const x = cond ? 1 : 2;    // @note else 分支在这里也是必需的
+  - featureId: basics-python/switch-match
+    equivalence: divergent
+    code: |
+      switch (command) {
+        case "go":
+          move();
+          break;                    // @note! 不写 break 会穿透到下一个 case
+        case "look":
+        case "peek":                // @note 故意的穿透：多个 case 共用一段逻辑
+          look();
+          break;
+        default:
+          unknown();
+      }
+
+      // @note! 只能比较值（严格相等），不能解构、不能绑定变量、不能加守卫条件
+      // Python 的 match 是结构化模式匹配，直译过来会丢掉全部表达力
+  - featureId: basics-python/for-loop
+    equivalence: divergent
+    code: |
+      for (let i = 0; i < 10; i++) { }     // @note C 风格三段式，是计数循环
+      for (const x of xs) { }              // @note for...of 才是遍历
+      for (const k in obj) { }             // @note! for...in 给的是键（数组则是下标字符串）
+
+      let i = 0;
+      for (; i < 3; i++) { }
+      console.log(i);                      // 3 —— 声明在括号外时循环后仍可见
+      // @note 用 let 声明在括号里的话，出了循环就不可见
+  - featureId: basics-python/while-loop
+    equivalence: divergent
+    code: |
+      while (running) { tick(); }
+
+      do {                     // @note! 有"至少执行一次"的循环，Python 没有
+        line = read();
+        handle(line);
+      } while (line);
+
+      // @note 对应 Python 的 while True + break 写法，这边可以用 do...while 表达
+  - featureId: basics-python/loop-control
+    equivalence: analogous
+    code: |
+      for (const x of xs) {
+        if (skip(x)) continue;
+        if (done(x)) break;
+        handle(x);
+      }
+
+      outer: for (const row of rows) {        // @note! 有标签，可以一次跳出多层
+        for (const c of row) {
+          if (bad(c)) break outer;
+        }
+      }
+
+      // @note! 没有 for...else：想表达"没找到"必须额外维护一个标志位变量
+  - featureId: basics-python/loop-index
+    equivalence: analogous
+    code: |
+      xs.forEach((x, i) => { });               // @note 回调形式，下标是第二个参数
+
+      for (const [i, x] of xs.entries()) { }   // @note entries() 给出 [下标, 值]
+
+      for (const [k, v] of Object.entries(obj)) { }
+
+      // @note! 没有起始下标参数，编号从 1 开始要自己 i + 1；
+      // 而且 forEach 与 entries 都会把序列物化，不像 enumerate 是惰性的
+      // @note forEach 里 return 只跳出本次回调，跳不出整个循环
+  - featureId: basics-python/range-iteration
+    equivalence: absent
+    code: |
+      // @note! 没有内置 range，要自己造一个下标数组
+      [...Array(5).keys()];                    // [0, 1, 2, 3, 4]
+      Array.from({ length: 5 }, (_, i) => i);
+
+      for (let i = 0; i < 5; i++) { }          // 更常见的做法：直接用计数循环
+
+      // @note 这几个替代方案都会**先把数组建出来**，
+      // 不像 Python 的 range 那样是惰性序列，大区间会实打实占内存
+  - featureId: basics-python/exception-flow
+    equivalence: divergent
+    code: |
+      try {
+        risky();
+      } catch (e) {                  // @note! catch 不能指定类型：所有异常都进这一个分支
+        if (e instanceof RangeError) {
+          // 想分类只能自己在里面判
+        } else {
+          throw e;                   // 不认识的重新抛出
+        }
+      } finally {
+        cleanup();
+      }
+
+      throw new Error("出错了");      // @note! 但可以 throw 任何值，字符串、数字都行
+      // @note 没有 else 子句；异常对象上取消息是 e.message，不是 e.args

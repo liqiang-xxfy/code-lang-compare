@@ -1,0 +1,151 @@
+# python —— basics-python/07-control-flow 的实现
+#
+# 本 topic 以 **Python 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/if-else
+    equivalence: identical
+    code: |
+      if score >= 90:            # @note 不需要括号，缩进就是块边界
+          grade = "A"
+      elif score >= 60:          # @note else if 缩成一个词
+          grade = "B"
+      else:
+          grade = "C"
+
+      if items:                  # @note 条件位置接受任意对象，按真值规则判定
+          pass
+      # @note 混用 Tab 与空格会直接 TabError —— 解析期就暴露
+  - featureId: basics-python/ternary
+    equivalence: identical
+    code: |
+      label = "成年" if age >= 18 else "未成年"
+      # @note! 语序是"结果在前、条件在中"，与"条件 ? 值 : 值"正好相反
+      # 两边都是合法表达式时写反了不会报错，只是逻辑反了
+
+      level = "高" if n > 100 else "中" if n > 10 else "低"
+      # @note 能嵌套，但超过一层就该拆成 if
+
+      # @note 必须有 else 分支，没有"省略 else 得到 None"的写法
+  - featureId: basics-python/switch-match
+    equivalence: identical
+    code: |
+      match command.split():
+          case ["go", direction]:      # @note 解构 + 绑定变量，不是值比较
+              move(direction)
+          case ["look"]:
+              look()
+          case ["go", *rest]:          # 星号收集剩余项
+              go_many(rest)
+          case {"type": "quit"}:       # 映射模式
+              quit_game()
+          case Point(x=0, y=0):        # 类模式，按属性匹配
+              at_origin()
+          case [x] if x > 0:           # 守卫条件
+              positive(x)
+          case _:                      # @note! 兜底：没有它就可能一个分支都不匹配，
+              unknown()                # 然后静默什么都不做
+
+      # @note! case 里的名字是**捕获**不是比较：写 case x: 会匹配任何东西
+      # 想比较常量要用点号形式（Color.RED）或字面量
+  - featureId: basics-python/for-loop
+    equivalence: identical
+    code: |
+      for x in xs:                 # @note 只有遍历形式，没有"初始化—条件—步进"三段式
+          pass
+      for i in range(10):          # 要计数就先用 range 造序列
+          pass
+      for k, v in items_map.items():   # 键值
+          pass
+
+      for i in range(3):
+          pass
+      print(i)                     # @note! 2 —— 块不产生作用域，循环变量出了循环还在
+
+      for x in xs:
+          xs.remove(x)             # @note! 边遍历边改会跳元素
+  - featureId: basics-python/while-loop
+    equivalence: identical
+    code: |
+      while running:
+          tick()
+
+      # @note 没有"至少执行一次"的循环结构，惯用替代是 while True + break：
+      while True:
+          line = read()
+          if not line:
+              break                # @note! 出口必须自己保证，漏一个 break 就是死循环
+          handle(line)
+
+      # @note while 也有 else 子句，语义与 for-else 相同：没被 break 打断时执行
+  - featureId: basics-python/loop-control
+    equivalence: identical
+    code: |
+      for item in items:
+          if matches(item):
+              found = item
+              break
+      else:
+          found = None             # @note for-else：没被 break 打断才执行，表达"找过了没找到"
+      # 它替代的是"额外维护一个标志位变量"的写法
+
+      for x in xs:
+          if skip(x):
+              continue             # @note continue 不影响 else，只有 break 会跳过它
+          handle(x)
+  - featureId: basics-python/loop-index
+    equivalence: identical
+    code: |
+      for i, x in enumerate(xs):        # @note 返回惰性迭代器，不会先建一个数组
+          pass
+
+      for i, x in enumerate(xs, start=1):   # @note 可以指定起始编号
+          print(f"第 {i} 项：{x}")
+
+      for x, y in zip(xs, ys):          # @note 并行遍历，在最短的序列处停
+          pass
+      for i, (x, y) in enumerate(zip(xs, ys)):
+          pass
+
+      zip(xs, ys, strict=True)          # 3.10+：长度不一致直接抛错，比静默截断安全
+  - featureId: basics-python/range-iteration
+    equivalence: identical
+    code: |
+      range(5)             # @note 0,1,2,3,4 —— 左闭右开
+      range(2, 5)          # 2,3,4
+      range(0, 10, 2)      # 0,2,4,6,8
+      range(5, 0, -1)      # 5,4,3,2,1
+
+      range(10 ** 9)       # @note 瞬间构造：惰性序列，不占内存
+      list(range(10 ** 9)) # 这个才真的去建十亿个元素
+
+      print(range(3))      # @note! 输出 range(0, 3)，不是 [0, 1, 2] —— 它不是列表
+      3 in range(10)       # @note True，且是 O(1) 判断
+  - featureId: basics-python/exception-flow
+    equivalence: identical
+    code: |
+      try:
+          risky()
+      except ValueError as e:        # @note 必须点名类型才能精确捕获
+          handle(e)
+      except (KeyError, IndexError): # 多个类型可以合并成一个分支
+          fallback()
+      except Exception as e:         # @note! 兜底写 Exception，
+          log(e)                     # 不要写空的 except: —— 那会连 Ctrl-C 一起吞掉
+          raise                      # 重新抛出，保留原始栈
+
+      else:
+          succeeded()                # @note 没抛异常时执行：try 块里只放可能抛的那一句
+      finally:
+          cleanup()                  # 无论如何都执行
+
+      raise NewError() from e        # @note 显式关联因果链；不想显示原文用 from None
+      # @note! 只能抛异常对象：raise "出错了" 是 TypeError，自定义异常要继承 Exception

@@ -1,0 +1,169 @@
+# java —— basics-python/07-control-flow 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/if-else
+    equivalence: analogous
+    code: |
+      if (score >= 90) {          // @note 括号必需，花括号划块
+          grade = "A";
+      } else if (score >= 60) {
+          grade = "B";
+      } else {
+          grade = "C";
+      }
+
+      // if (items) { }           // @note! 编译错误：条件位置只接受 boolean
+      if (!items.isEmpty()) { }
+  - featureId: basics-python/ternary
+    equivalence: analogous
+    code: |
+      String label = age >= 18 ? "成年" : "未成年";
+      // @note 与"条件 ? 值 : 值"同序 —— 和 Python 的"值 if 条件 else 值"相反
+
+      int level = n > 100 ? 3 : n > 10 ? 2 : 1;
+      // @note! 条件必须是 boolean：不能写 n ? "有" : "无"
+
+      // @note 三元的两条分支类型要能统一，否则会走装箱或编译不过
+  - featureId: basics-python/switch-match
+    equivalence: divergent
+    code: |
+      switch (command) {
+          case "go":
+              move();
+              break;                  // @note! 不写 break 同样会穿透
+          case "look":
+          case "peek":
+              look();
+              break;
+          default:
+              unknown();
+      }
+
+      // Java 14+ 的 switch 表达式：没有穿透，且必须穷尽
+      String s = switch (command) {
+          case "go" -> "移动";
+          case "look", "peek" -> "观察";
+          default -> "未知";
+      };
+
+      // Java 21 支持模式匹配 + 守卫，这时它才真的接近 Python 的 match
+      String d = switch (obj) {
+          case Integer i when i > 0 -> "正整数";
+          case String str -> str;
+          default -> "其他";
+      };
+  - featureId: basics-python/for-loop
+    equivalence: divergent
+    code: |
+      for (int i = 0; i < 10; i++) { }      // @note C 风格三段式
+
+      for (String x : xs) { }               // @note 增强 for，对应"只有遍历"的那种写法
+
+      // @note! 循环变量 i 声明在括号里，出了循环就不可见
+      // （Python 那边循环变量出了循环还在，这是从 Python 过来最容易忽略的一处）
+
+      for (String x : xs) {
+          xs.remove(x);                     // @note! 抛 ConcurrentModificationException
+      }                                     // 比"静默跳元素"更早暴露，但仍要用迭代器删
+  - featureId: basics-python/while-loop
+    equivalence: analogous
+    code: |
+      while (running) { tick(); }
+
+      do {                                  // @note 同样有"至少执行一次"的形式
+          line = read();
+          handle(line);
+      } while (line != null);               // @note 条件必须是 boolean
+
+      // @note 与 Python 的 while True + break 相比，这里少一个"忘记写出口"的风险
+  - featureId: basics-python/loop-control
+    equivalence: divergent
+    code: |
+      for (String x : xs) {
+          if (skip(x)) continue;
+          if (done(x)) break;
+          handle(x);
+      }
+
+      outer:                                    // @note! 有标签，一次跳出多层
+      for (var row : rows) {
+          for (var c : row) {
+              if (bad(c)) break outer;
+              if (skip(c)) continue outer;      // continue 也能带标签
+          }
+      }
+
+      // @note! 没有 for...else，"没找到"要额外维护标志位（或用流 + findFirst）
+  - featureId: basics-python/loop-index
+    equivalence: divergent
+    code: |
+      // @note! 没有 enumerate，下标一律自己维护
+      for (int i = 0; i < xs.size(); i++) {
+          String x = xs.get(i);
+      }
+
+      java.util.stream.IntStream.range(0, xs.size())
+              .forEach(i -> { });               // 流形式，但拿不到"元素与下标"的天然配对
+
+      // @note 想要"下标从 1 开始"就写 i + 1，没有起始参数这回事
+      // @note 也没有 zip：并行遍历要自己按下标取，或构造记录再流式处理
+  - featureId: basics-python/range-iteration
+    equivalence: absent
+    code: |
+      // @note! 没有 range 类型，只有流上的两个静态方法
+      java.util.stream.IntStream.range(0, 5);        // 0,1,2,3,4 —— 同样左闭右开
+      java.util.stream.IntStream.rangeClosed(0, 5);  // 0,1,2,3,4,5 —— 闭区间要显式选
+
+      java.util.stream.IntStream.range(0, 5).toArray();      // 要数组才能复用
+      java.util.stream.IntStream.range(0, 5).boxed().toList();   // 要 List 得先装箱
+
+      for (int i = 0; i < 5; i++) { }                // 多数场合直接写计数循环更省事
+
+      // @note! 流是一次性的：同一个 range 结果不能遍历两次；
+      // Python 的 range 对象则可以反复遍历，且支持 len() 与 in
+    body: |
+      Java 没有 `range` 类型，只有 `IntStream.range` / `rangeClosed` 这两个流工厂
+      方法 —— 区间本身和"遍历"是绑定的，不能像 `range(5)` 那样先存下来再决定怎么用。
+
+      三个连锁差异：
+
+      1. **左闭右开要显式选**。`range` 是 `[start, end)`，`rangeClosed` 是 `[start, end]`
+         —— 两个名字相近，写错了就是经典的 off-by-one。
+      2. **流是一次性的**。`IntStream.range(0, 5)` 产出的流遍历一次就耗尽，
+         要复用必须先 `toArray()` 或 `toList()` 物化。
+      3. **元素类型**。`IntStream` 只处理原始 `int`，要当对象用（放进 `List`、
+         参与泛型）必须 `boxed()`。
+
+      实践里绝大多数计数场景直接写 `for (int i = 0; i < n; i++)` 更清楚，
+      流只在需要接 `map` / `filter` 链时才划算。
+  - featureId: basics-python/exception-flow
+    equivalence: divergent
+    code: |
+      // @note! 受检异常：可能抛出的异常必须在方法签名里声明，或当场捕获
+      void load() throws java.io.IOException {
+          java.nio.file.Files.readString(java.nio.file.Path.of("a.txt"));
+      }
+
+      try {
+          load();
+      } catch (java.io.IOException | java.nio.file.NoSuchFileException e) {   // @note 多重捕获
+          log(e);
+      } finally {
+          cleanup();                     // @note 一定会执行，与 Python 一致
+      }
+
+      // @note! 没有 else 子句：想区分"没抛异常的路径"只能靠 try 块的边界
+      // @note! 只能抛 Throwable 的子类，这点与 Python 一致
+
+      try (var in = java.nio.file.Files.newInputStream(p)) {   // @note try-with-resources
+          in.read();
+      }                              // 自动关闭，比 finally 里手写 close 安全
