@@ -1,44 +1,93 @@
 # 迁移学习路线 —— JavaScript → Java
-# 骨架期样板：先列三个阶段，后续按同形态细化
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
 
-- id: js2java-1-mental-model
+- id: js2java-1-anchor
   order: 1
   title: 先建立心智模型，不要背语法
   durationHint: 2-3 小时
   todo:
-    - 通读「心智模型」板块，把两边在这些根本差异上的映射建起来
+    - 通读本工具「心智模型」板块的 JavaScript 视角，把 npm/Maven、事件循环/真并行这类映射建起来
     - 只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义
-    - 明确写下「哪些 JS 直觉必须丢掉」——隐式类型转换、`==` 的宽松语义、对象即字典
+    - 明确写下「哪些 JS 直觉必须丢掉」——隐式类型转换、`==` 的宽松语义、对象即字典、单线程所以不用锁
   acceptance:
     - 能说出 Java 的 `==` 与 `equals` 的分工，并知道字符串该用哪个
     - 知道 Java 是编译型语言，很多错误在编辑器里就会亮红
   resources:
     - label: Java 官方教程（Oracle）
       url: https://dev.java/learn/
+    - label: Java 语言规范
+      url: https://docs.oracle.com/javase/specs/
 
 - id: js2java-2-basics
   order: 2
   title: 基础语法逐条对照
   durationHint: 3-5 天
   todo:
-    - 按基础语法板块的章节逐格对比，每看一格手写一遍两边的代码（不要复制）
-    - 把踩到的坑记进本方向的迁移陷阱清单并打上自己的严重度
+    - 按本工具「基础语法」板块的 8 个章节逐格对比，每看一格手写一遍两边的代码（不要复制）
+    - 特别留意三处会静默算错的：整数除法、整数溢出、`subList` 的视图语义
     - 练习把一段 JS 的 `Array.map/filter/reduce` 链改写成 Java 的 Stream
+    - 把踩到的坑记进「迁移陷阱」板块并打上自己的严重度
   acceptance:
     - 能独立写出变量、集合、控制流、方法定义，无编译错误
     - 能解释 `int` 与 `Integer` 的区别，以及自动装箱在什么时候会咬人
+    - 迁移一段含除法的代码时，能逐处确认该不该加 `(double)`
+  resources:
+    - label: Java 语言规范 · 类型与值
+      url: https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html
 
-- id: js2java-3-tooling
+- id: js2java-3-practice
   order: 3
-  title: 接上工具链与工程习惯
+  title: 动手写（占全部时间的 70%）
+  durationHint: 1-2 周
+  todo:
+    - 做 Exercism 的 Java track，接受 mentor 评审
+    - 把一个写过的小 JS 工具（100-300 行）用 Java 重写一遍
+    - 重写时不要查 JS 原文件——凭记忆写，写完再对照
+    - 刻意让 IDE 参与：靠编译错误而不是运行结果来发现问题
+  acceptance:
+    - Exercism 完成 15 题以上
+    - 能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法
+    - 遇到编译错误时能读懂 javac 的报错并定位到具体类型不匹配
+  resources:
+    - label: Exercism Java Track
+      url: https://exercism.org/tracks/java
+    - label: TheAlgorithms Java
+      url: https://github.com/TheAlgorithms/Java
+
+- id: js2java-4-deep
+  order: 4
+  title: 补齐语义层（并发与内存）
+  durationHint: 3-5 天
+  todo:
+    - 真正理解「真并行」：把一段 JS 里靠单线程侥幸正确的共享状态改到 Java，看它开始出错
+    - 分清 synchronized 保护的两种用途：防丢更新 vs 防"检查后写入"被插队
+    - 理解分代 GC：为什么不能依赖析构做资源清理，为什么要用 try-with-resources
+    - 把 Promise.all 的写法逐条对照成 CompletableFuture，重点是**异常在哪一步浮出来**
+  acceptance:
+    - 能解释为什么 JS 里「跑得好好的」不能作为 Java 里不需要同步的证据
+    - 能用 ConcurrentHashMap 正确地写一个缓存，并说清它解决的是哪一部分问题
+    - 能说清 CompletableFuture 与 Promise 在错误处理上的位置差异
+  resources:
+    - label: java.util.concurrent 官方文档
+      url: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/package-summary.html
+    - label: CompletableFuture 官方指南
+      url: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html
+
+- id: js2java-5-ecosystem
+  order: 5
+  title: 工程化与生态收口
   durationHint: 1 周
   todo:
     - 用 Maven 或 Gradle 建一个空项目，跑通「写代码 → 编译 → 测试 → 打包」
-    - 把 npm 的心智映射到 Maven Central 与依赖声明
+    - 把 npm 的心智映射到 Maven Central 与三段坐标，跑一次 dependency:tree 看版本是怎么被裁决的
+    - 用 JUnit 5 写测试，配好一个静态分析工具（Checkstyle 或 SpotBugs）
     - 配好 IDE 的跳转与重构，体会编译期检查带来的反馈速度
   acceptance:
     - 能独立新建一个项目并让它产出可执行 jar
-    - 能读懂 javac 的类型不匹配报错并定位到具体位置
+    - 能说清 package 名、构建坐标、classpath 各自解决什么问题
+    - 遇到 NoSuchMethodError 时知道去查依赖版本冲突
   resources:
     - label: Maven 官方入门
       url: https://maven.apache.org/guides/getting-started/
+    - label: JUnit 5 用户指南
+      url: https://junit.org/junit5/docs/current/user-guide/

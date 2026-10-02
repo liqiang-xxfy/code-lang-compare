@@ -1,5 +1,5 @@
 # 速语词典 —— 从 JavaScript 出发最容易误解的术语
-# 骨架期样板：先列两条，后续按同形态补全
+# 只讲这一个方向的两门语言（R5 会拦第三门）
 
 - term: 类
   aliases: [class, prototype]
@@ -28,3 +28,45 @@
     javascript: Array 长度可变、元素类型可混合，`length` 可写
     java: 数组长度固定且类型固定；要可变长度用 List，`ArrayList` 是常用实现
   note: JS 的 Array 更像 Java 的 List，而不是 Java 的数组 —— 三方对照时最容易错位的一处。
+
+- term: 类型系统
+  aliases: [type, static, dynamic, primitive, wrapper]
+  perLanguage:
+    javascript: 动态 + 弱类型；只有一种数字类型，整数也是浮点，没有"原始类型与包装类型"之分
+    java: 静态 + 强类型；八个原始类型各有位宽、会溢出，且与包装类型是两层（只有包装类型能为 null）
+  note: JS 里"值就是值"，Java 里"值"与"包着值的对象"是两回事 —— 拆箱 NPE 就是从这条缝里钻出来的。
+
+- term: 泛型
+  aliases: [generic, type parameter]
+  perLanguage:
+    javascript: 没有 —— 数组与 Map 装什么都可以，类型约束只能靠 TypeScript 在编译期给
+    java: 编译期检查、运行期擦除；`List<String>` 与 `List<Integer>` 在运行时是同一个类，且不能装基本类型
+  note: JS 的"什么都能装"到了 Java 变成"必须写明装什么"，代价是多一层装箱。
+
+- term: 相等
+  aliases: [equality, '==', equals, identity]
+  perLanguage:
+    javascript: '`==` 会隐式转换、`===` 比严格相等；对象都是引用比较'
+    java: '`==` 对原始类型比值、对对象比引用；对象按内容比较要用 `equals`'
+  note: 两边的 `==` 都不是"比内容" —— 但 JS 那边靠 `===` 就够了，Java 这边必须记得换 `equals`。
+
+- term: 包 / 模块
+  aliases: [package, module, import, classpath]
+  perLanguage:
+    javascript: 模块即文件，支持相对路径；`node_modules` 允许同名包多版本共存
+    java: 包名必须与目录结构一致，全限定导入；classpath 是平铺的一条链，同名类只能有一个版本
+  note: JS 那边几乎遇不到"版本冲突到运行时才炸"，Java 的 NoSuchMethodError 就是这个问题。
+
+- term: 函数
+  aliases: [function, method, lambda, 'this']
+  perLanguage:
+    javascript: 一等值，可以独立存在；箭头函数没有自己的 this，继承外层
+    java: 方法必须挂在类上；lambda 只能是某个函数式接口的实例，且捕获的局部变量必须事实不变
+  note: JS 里"函数到处传"很自然，Java 里要先有一个接口类型来接住它。
+
+- term: 异步
+  aliases: [async, promise, await, future]
+  perLanguage:
+    javascript: 单线程事件循环，Promise 由运行时托管；await 把 rejection 抛在那一行
+    java: CompletableFuture 跑在真实线程池上，没有 await 语法糖；链里的异常变成"完成异常"，join 时才浮出来
+  note: 语义能一一对上，但错误发生的位置感完全不同 —— 这是迁移时最容易误判的一处。
