@@ -22,6 +22,12 @@ snippets:
       # @note! 嵌套结构不能靠 * 复制：[[]] * 3 里的三个内层列表是同一个对象
       bad = [[]] * 3
       good = [[] for _ in range(3)]              # 正解：推导式每次新建
+    body: |
+      字面量同样是方括号，批量生成用**列表推导式**：`[i * i for i in range(5)]`，
+      多数场景一行就能表达，带条件过滤也只多一个 `if`。简单填充用 `[0] * 3`。
+
+      有一条经典坑要当心：`[[]] * 3` 里的三个内层列表是**同一个对象**，改一个全变，
+      要独立副本得写 `[[] for _ in range(3)]`。
   - featureId: basics-javascript/array-index
     equivalence: divergent
     code: |
@@ -34,6 +40,13 @@ snippets:
       # arr[99]   # @note! IndexError: list index out of range —— 越界立即报错，不静默
 
       len(arr)    # 3    —— @note 长度是内置函数不是方法，与 JS 的 arr.length 相反
+    body: |
+      **原生支持负索引**：`arr[-1]` 就是最后一个，不用像 JS 那样绕 `at()`。
+      越界**立即抛 `IndexError`**，而不是静默给 `undefined` ——
+      JS 里那些「下标错了却一路跑到很远才显形」的 bug，到这里会当场停住。
+
+      另一个词形差别：长度是内置函数 `len(arr)`，不是属性。
+
   - featureId: basics-javascript/array-mutate
     equivalence: analogous
     code: |
@@ -46,6 +59,14 @@ snippets:
 
       del arr[1]         # @note 按「位置」删 —— JS 的 splice 在这里被拆成两个概念
       arr[1:2] = [99]    # 切片赋值：替换第 1 个元素
+    body: |
+      尾部操作可以一一对应（`push` ↔ `append`、`pop` ↔ `pop`），但 `append` 返回 `None`
+      而不是新长度 —— 写 `n = arr.append(x)` 会拿到 `None`。
+
+      差别最大的是 `splice`：这里没有等价物，它被拆成了两个概念 —— 按**位置**删用
+      `del arr[1]` 或切片赋值 `arr[1:2] = [99]`，按**值**删用 `arr.remove(2)`
+      （找不到会抛 `ValueError`）。头部插入是 `insert(0, x)`，同样是 O(n)。
+
   - featureId: basics-javascript/array-slice
     equivalence: analogous
     code: |
@@ -60,6 +81,13 @@ snippets:
 
       # @note 切片越界不报错，会截断到合法范围（与索引越界的行为不同）
       arr[2:99]     # [2, 3, 4]
+    body: |
+      切片语法与 JS 的 `slice()` 语义接近：左闭右开、浅拷贝、支持负索引。
+      关键差异有两个：切片支持**步长**（`arr[::2]` 隔一个取一个、`arr[::-1]` 一行反转，
+      JS 得写 `[...arr].reverse()`）；切片是**语法**不是方法，写起来更短。
+
+      还有一处行为相反的地方：切片**越界不报错**，会截断到合法范围（`arr[2:99]` 得
+      `[2, 3, 4]`），而索引越界是抛 `IndexError`。
   - featureId: basics-javascript/array-iterate
     equivalence: divergent
     code: |
@@ -75,6 +103,13 @@ snippets:
           print(arr[i])
 
       # @note 遍历时不要改列表长度（增删元素），会跳过元素；要改就先复制一份
+    body: |
+      `for x in arr` 直接给**值**，对应 JS 的 `for...of`。要下标就用 `enumerate(arr)`
+      一次拿 `i, v`，比 `range(len(arr))` 更地道。
+
+      最容易踩的是词形陷阱：把 JS 的 `for...in` 直译成 `for...in` 会得到完全错误的结果 ——
+      两边写法看起来一模一样，含义正好相反（那边给键，这边给值）。
+      另外遍历时不要增删元素，会跳过元素；要改就先复制一份。
   - featureId: basics-javascript/array-map-filter
     equivalence: analogous
     code: |
@@ -90,6 +125,14 @@ snippets:
       gen = (n * n for n in nums)            # @note 生成器表达式：惰性，不占内存
       any(n > 3 for n in nums)               # True —— 类比 JS 的 some
       all(n > 0 for n in nums)               # True —— 类比 JS 的 every
+    body: |
+      更常用**推导式**（`[n * 2 for n in nums]`、`[n for n in nums if n % 2 == 0]`），
+      `map` / `filter` 能用但不地道 —— 注意它们的参数顺序是「函数在前、可迭代在后」，
+      与 JS 的链式方法刚好反过来。
+
+      聚合也不必用 `reduce`：`sum` / `min` / `max` / `any` / `all` 都是内置的
+      （`any` 对应 `some`、`all` 对应 `every`），`functools.reduce` 甚至不在内置命名空间里，
+      这是语言取向而不是疏忽。需要惰性求值时用生成器表达式。
   - featureId: basics-javascript/array-sort
     equivalence: divergent
     code: |
@@ -106,6 +149,13 @@ snippets:
       sorted(nums, key=lambda n: -n)  # 降序的另一种写法
 
       # @note 稳定排序：相等元素保持原相对顺序（JS 的 sort 在 ES2019 后也是稳定的）
+    body: |
+      `sorted()` 返回新列表、`list.sort()` 原地修改（返回 `None`），
+      而且**比较的是元素本身** —— 数字排序不需要比较函数，JS 那一格「默认按字符串比」的坑
+      在这里根本不存在。
+
+      排序是稳定的，另有专门的 `key=` 参数只提取排序依据，比 JS 传整个比较函数更好读，
+      也不容易把 `a - b` 写反。
   - featureId: basics-javascript/array-search
     equivalence: divergent
     code: |
@@ -118,6 +168,14 @@ snippets:
       next((n for n in arr if n > 2), None)   # 3 —— @note 「找第一个满足条件的元素」的惯用写法
 
       # @note 需要频繁查找时用 set / dict：`in` 对列表是 O(n)，对 set 是 O(1)
+    body: |
+      返回值语义同样分几种，但「找不到」的处理不同：`in` 给布尔、`index` 给下标
+      （**找不到直接抛 `ValueError`**，不是返回 `-1`）、`count` 给出现次数。
+
+      「找不到时返回特殊值还是抛异常」是两门语言最重要的风格差异之一，会直接影响错误处理
+      的写法。JS 那边 `indexOf` 返回的 `-1` 是个真值，直接当布尔用会永远成立 ——
+      这个陷阱在这里从根上就不存在。
+      「找第一个满足条件的元素」的惯用写法是 `next((n for n in arr if n > 2), None)`。
   - featureId: basics-javascript/array-unpack
     equivalence: analogous
     code: |
@@ -133,3 +191,10 @@ snippets:
 
       d = {'x': 1, 'y': 2}
       {**d, 'z': 3}                # @note! 字典解包是 **，不是 *；JS 里这两种情况都是 ...
+    body: |
+      用 `*` 做解包，同样「构造新容器」与「函数调用传参」两处都能用（`[*a, *b]`、`f(*merged)`），
+      心智与 JS 的 `...` 完全一致：**把容器摊平成一串元素**。
+      `first, *rest = merged` 是 rest 解构。
+
+      区别只在符号：**字典解包是 `**`**，而 JS 里数组展开与对象展开共用 `...` 一个符号。
+

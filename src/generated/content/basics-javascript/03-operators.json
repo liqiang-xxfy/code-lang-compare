@@ -88,7 +88,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>这是全站<strong>最高频的迁移陷阱</strong>。\nJS 的 <code>==</code> 会做隐式类型转换（<code>1 == &quot;1&quot;</code> 为 <code>true</code>、<code>&quot;&quot; == 0</code> 为 <code>true</code>），所以工程规范一律要求用 <code>===</code>。\nPython 的 <code>==</code> <strong>不做</strong>隐式转换，<code>1 == &quot;1&quot;</code> 直接是 <code>False</code>。\n结论：把 JS 的 <code>==</code> 写成 Python 的 <code>==</code> 不会出错，但<strong>把 JS 的 <code>===</code> 直译成 <code>is</code> 会出错</strong>——<code>is</code> 判的是对象身份。</p>\n"
+          "bodyHtml": "<p>这是全站<strong>最高频的迁移陷阱</strong>。\nJS 的 <code>==</code> 会做隐式类型转换（<code>1 == &quot;1&quot;</code> 为 <code>true</code>、<code>&quot;&quot; == 0</code> 为 <code>true</code>），\n所以工程规范一律要求用 <code>===</code>（严格相等，不做任何转换）。\n另外 <code>NaN === NaN</code> 是 <code>false</code> —— 唯一的自反不等，判 NaN 要用 <code>Number.isNaN()</code>；\n<code>Object.is</code> 与 <code>===</code> 只差在 <code>NaN</code> 与 <code>-0</code> 这两处。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -115,7 +115,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>这里只有一种相等运算符 <code>==</code>，而且<strong>不做隐式类型转换</strong>：<code>1 == &quot;1&quot;</code> 直接是 <code>False</code>。\n所以把 JS 的 <code>==</code> 直译过来不会出错，但<strong>把 JS 的 <code>===</code> 直译成 <code>is</code> 会出错</strong> ——\n<code>is</code> 判的是对象身份而不是值，<code>[] == []</code> 是 <code>False</code>，<code>x is y</code> 回答的是另一个问题。</p>\n<p>小整数有缓存，<code>x = 256; y = 256</code> 时 <code>x is y</code> 会给出 <code>True</code> —— 那是实现细节，不要依赖。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -203,7 +204,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p><code>/</code> 在两边都返回浮点，一致。差异在整除与取模：\nPython 有专门的 <code>//</code>，而 JS 只能 <code>Math.trunc()</code>；\n更隐蔽的是<strong>负数取模</strong>：<code>-7 % 2</code> 在 JS 是 <code>-1</code>（符号跟被除数），在 Python 是 <code>1</code>（符号跟除数）。\n这个差异会静默产生错误结果，不会报错。</p>\n"
+          "bodyHtml": "<p><code>/</code> 永远返回浮点（<code>7 / 2</code> 得 3.5），想取整必须显式调 <code>Math.trunc</code> / <code>Math.floor</code>，\n没有整除运算符。要当心<strong>负数取模</strong>：<code>-7 % 2</code> 得 <code>-1</code>，<strong>结果符号跟被除数走</strong> ——\n这个差异会静默产生错误结果，不会报错。<code>**</code> 是幂运算。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -225,7 +226,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>真除法与 JS 一致（<code>7 / 2</code> 得 3.5），多出来的是 <code>//</code>：<strong>专门的整除运算符</strong>，\n而且语义是 floor 而不是 trunc —— <code>-7 // 2</code> 得 <code>-4</code>，JS 的 <code>Math.trunc</code> 给的是 -3。</p>\n<p>取模同样要注意符号：<code>-7 % 2</code> 在这里得 <code>1</code>（符号跟除数走），JS 是 <code>-1</code>。\n需要商和余数一起拿时用 <code>divmod()</code>，它保证 <code>a == b * q + r</code> 恒成立。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -302,7 +304,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>两边的 <code>&amp;&amp;</code> / <code>and</code>、<code>||</code> / <code>or</code> 都返回<strong>操作数本身</strong>，这一点一致，是很好迁移的部分。\n差异在空值合并：JS 有 <code>??</code>（只对 <code>null</code> / <code>undefined</code> 兜底），Python 没有对应运算符，\n必须显式写条件表达式或 <code>if x is None</code>。</p>\n"
+          "bodyHtml": "<p><code>&amp;&amp;</code> / <code>||</code> 返回的是<strong>操作数本身</strong>，不是布尔值 —— 所以 <code>&quot;&quot; || &quot;default&quot;</code> 得 <code>&quot;default&quot;</code>、\n<code>&quot;x&quot; &amp;&amp; &quot;y&quot;</code> 得 <code>&quot;y&quot;</code>，短路求值靠的就是这个性质。\n<code>??</code> 是空值合并：只在左值为 <code>null</code> / <code>undefined</code> 时兜底，<code>0</code> 与 <code>&quot;&quot;</code> 会保留下来，\n这正是它与 <code>||</code> 的关键差别。<code>?.</code> 还能安全调用方法：<code>obj?.method?.()</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -313,7 +315,8 @@
           "lineCount": 10,
           "notes": [],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>and</code> / <code>or</code> 与 JS 一样返回<strong>操作数本身</strong>（<code>&quot;&quot; or &quot;default&quot;</code> 得 <code>&quot;default&quot;</code>、\n<code>&quot;x&quot; and &quot;y&quot;</code> 得 <code>&quot;y&quot;</code>），这一部分是平滑的，短路求值的性质也照搬。</p>\n<p>没有与 <code>??</code> 对应的运算符，得显式判 <code>None</code>：<code>&quot;fallback&quot; if a is None else a</code>。\n字典取值另有更常用的兜底写法 <code>d.get(&quot;k&quot;, &quot;fallback&quot;)</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -384,7 +387,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>第二个高频陷阱，而且<strong>方向与直觉相反</strong>：\nJS 的假值只有 8 个（<code>false</code>、<code>0</code>、<code>-0</code>、<code>0n</code>、<code>&quot;&quot;</code>、<code>null</code>、<code>undefined</code>、<code>NaN</code>），\n空数组 <code>[]</code>、空对象 <code>{}</code> 都是<strong>真值</strong>；\n而 Python 的 <code>[]</code>、<code>{}</code>、<code>()</code>、<code>set()</code>、<code>&quot;&quot;</code> 全是<strong>假值</strong>。\n所以 JS 里可靠的 <code>if (arr)</code> 判「非空」，在 Python 里变成 <code>if arr</code> 判「非空」——看似一样，但 JS 的写法本身是错的。</p>\n"
+          "bodyHtml": "<p>假值只有 8 个：<code>false</code>、<code>0</code>、<code>-0</code>、<code>0n</code>、<code>&quot;&quot;</code>、<code>null</code>、<code>undefined</code>、<code>NaN</code>，\n其余全是真 —— <strong>空数组 <code>[]</code>、空对象 <code>{}</code> 都是真值</strong>。\n所以 <code>if (arr)</code> 判「非空」是错的，必须写 <code>arr.length &gt; 0</code>。\n注意非空字符串恒为真：<code>Boolean(&quot;0&quot;)</code> 是 <code>true</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -406,7 +409,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>假值比 JS 多得多：空的 <code>list</code>、<code>dict</code>、<code>set</code>、<code>tuple</code>、<code>str</code> <strong>全是假值</strong>，\n而 JS 那边空数组、空对象都是真值。非空字符串恒为真这一点两边一致。</p>\n<p>于是 <code>if arr:</code> 在这里真的表示「非空」—— 但从 JS 带来的 <code>if (!arr)</code> 直译过去，\n会写出一个永远为真的判断。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -472,7 +476,7 @@
           "notes": [],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 的 <code>?.</code> 是语言级安全导航；Python <strong>没有这个语法</strong>，惯用做法是 <code>getattr(..., None)</code> 逐层兜底，\n字典链式取值更常用 <code>(obj or {}).get(k)</code>。\n迁移到 Python 时最常见的错误是继续写 <code>obj?.key</code>——它在 Python 里不是「返回 None」，而是语法错误。</p>\n"
+          "bodyHtml": "<p>JS 的 <code>?.</code> 是语言级安全导航：链路中任一环为 <code>null</code> / <code>undefined</code> 就整体短路成 <code>undefined</code>，\n也可以安全调用方法。配合 <code>??</code> 还能给解构兜底：<code>const [first] = list ?? []</code>。\n注意它只短路「取值」，不吞异常 —— 若 <code>user.address</code> 存在但 <code>city</code> 的 getter 抛错，照样抛。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -483,7 +487,8 @@
           "lineCount": 11,
           "notes": [],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><strong>没有 <code>?.</code> 这个语法</strong>，安全导航要逐层兜底：\n<code>getattr(getattr(user, &quot;address&quot;, None), &quot;city&quot;, None)</code>，字典链式取值则常用\n<code>(obj or {}).get(&quot;method&quot;)</code>。</p>\n<p>海象运算符 <code>:=</code> 只能在赋值场景省一次重复求值，替代不了安全导航。\n最常见的错误是继续写 <code>obj?.key</code> —— 那不是「返回 None」，而是<strong>语法错误</strong>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -559,7 +564,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>运算符本身完全一致：<code>&amp;</code> <code>|</code> <code>^</code> <code>~</code> <code>&lt;&lt;</code> <code>&gt;&gt;</code>。\n差异在数值语义：JS 的位运算会<strong>先把操作数转成 32 位有符号整数</strong>，超出范围会被截断\n（所以 <code>2 ** 31 | 0</code> 会变成负数），而 Python 的整数是任意精度，<code>&lt;&lt;</code> 多少位都不会溢出。\n另外 Python 没有 <code>&gt;&gt;&gt;</code>（无符号右移），因为它的整数不是定长的——需要时得自己用掩码实现。</p>\n"
+          "bodyHtml": "<p>运算符是标准的一套：<code>&amp;</code> <code>|</code> <code>^</code> <code>~</code> <code>&lt;&lt;</code> <code>&gt;&gt;</code>，另有 <code>&gt;&gt;&gt;</code>（无符号右移，\n把结果当无符号 32 位整数看，<code>-1 &gt;&gt;&gt; 0</code> 得 <code>4294967295</code>）。\n要当心数值语义：所有位运算都<strong>先把操作数转成 32 位有符号整数</strong>再算，位宽外直接丢 ——\n<code>1 &lt;&lt; 31</code> 溢出到符号位得 <code>-2147483648</code>、<code>(2 ** 31) | 0</code> 也是负数，\n大数做位运算会静默出错。常用技巧：<code>n | 0</code> 取整（有范围限制）、<code>n &amp; 1</code> 判奇偶。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -581,7 +586,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>运算符与 JS 一致（<code>&amp;</code> <code>|</code> <code>^</code> <code>~</code> <code>&lt;&lt;</code> <code>&gt;&gt;</code>），差别全在数值语义上：\n整数是任意精度，<code>1 &lt;&lt; 31</code> 得 <code>2147483648</code> 而不是负数、<code>1 &lt;&lt; 200</code> 也不丢位 ——\n没有「先转成 32 位有符号整数」这一步，所以大数做位运算是安全的。</p>\n<p>也没有 <code>&gt;&gt;&gt;</code>（无符号右移）：整数不是定长的，没有「无符号」这个概念，\n需要时只能用掩码模拟。进制转换有内置函数 <code>bin()</code> / <code>hex()</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -679,7 +685,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>数值比较两边一致。差异在另外两处：\n① <strong>字符串比较</strong>：JS 按 UTF-16 码元逐位比较（所以 <code>'a' &lt; 'B'</code> 是 false），\nPython 按 Unicode 码点比较（行为类似，但对非 ASCII 的处理更符合直觉）；\n② <strong>跨类型比较</strong>：JS 的 <code>&lt;</code> 会做隐式转换（<code>'2' &lt; 10</code> 为 true），\nPython 3 直接抛 <code>TypeError: '&lt;' not supported between instances of 'str' and 'int'</code>。\n第二条是好事：迁移后这类隐蔽 bug 会立刻暴露。</p>\n"
+          "bodyHtml": "<p>JS 的 <code>&lt;</code> / <code>&gt;</code> 会做隐式转换，规则还分两层：<strong>跨类型时先转数字</strong>（<code>'2' &lt; 10</code> 为 true），\n而<strong>两边都是字符串时按 UTF-16 码元逐位比较</strong>（<code>'2' &lt; '10'</code> 为 false、<code>'a' &lt; 'B'</code> 为 false）。\n数组会先转成字符串再比（<code>[1] &lt; [2]</code> 走 <code>'1' &lt; '2'</code>）。\n<code>null &lt; 1</code>、<code>undefined &lt; 1</code> 又走另一套规则，结果同样反直觉。\n这类隐式转换不会报错，只会给出错误答案。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -701,7 +707,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>同类型之间的比较行为与 JS 接近（字符串同样按码点逐位比较，<code>'a' &lt; 'B'</code> 也是 <code>False</code>），\n真正的差别在<strong>跨类型比较直接抛 <code>TypeError</code></strong>：<code>'2' &lt; 10</code> 在这里不是 true，而是一行报错；\n混合类型的 <code>sorted()</code> 同样被拒。</p>\n<p>这是好事 —— JS 里那类隐式转换带来的隐蔽 bug，迁移后会立刻暴露出来。\n判不等不受影响（<code>1 != '1'</code> 是 <code>True</code>），想比较异构数据必须显式转换。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -794,7 +801,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 有 <code>i++</code> / <code>++i</code>（前缀后缀还影响表达式值），Python <strong>完全没有</strong>，\n只能写 <code>i += 1</code>。\n这不是小事：<code>for</code> 循环、<code>arr[i++]</code> 这类写法需要整体重写。\n顺带一提，把 <code>i++</code> 直译成 <code>i += 1</code> 时要注意 Python 里没有表达式求值副作用，\n所以 <code>arr[i++]</code> 这种「取值并前进」的写法在 Python 里必须拆成两行。</p>\n"
+          "bodyHtml": "<p>JS 有 <code>i++</code> / <code>++i</code>，而且<strong>前缀后缀影响表达式的值</strong>：后缀返回旧值、前缀返回新值。\n写在一行里混用极易出差一错误，风格指南通常直接建议只用 <code>+= 1</code>。\n它还能当表达式用：<code>arr[k++]</code> 一行完成「取值并前进」。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -811,7 +818,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><strong>没有自增自减运算符</strong>，<code>i++</code> 是语法错误，唯一写法是 <code>i += 1</code>（另有 <code>//=</code>、<code>**=</code>）。\n这不是小事：<code>for</code> 循环、<code>arr[i++]</code> 这类写法需要整体重写。</p>\n<p>更根本的一点是<strong>没有「表达式带副作用」这回事</strong>：<code>+=</code> 是语句、不返回值，\n所以 <code>x = (i += 1)</code> 是语法错误，<code>arr[k++]</code> 必须拆成取值与前进两行。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -909,7 +917,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Python 支持 <code>0 &lt; x &lt; 10</code> 这种链式比较，且语义是<strong>数学上的区间</strong>（等价于 <code>0 &lt; x and x &lt; 10</code>，\n中间的操作数只求值一次）。\nJS 里写 <code>0 &lt; x &lt; 10</code> <strong>不会报错</strong>，但它是 <code>(0 &lt; x) &lt; 10</code>——\n布尔值参与数值比较（<code>true &lt; 10</code> 为 true），所以表达式恒为 true。\n这是极少数「看起来一样、结果完全不同、且不报错」的组合，属于必踩清单。</p>\n"
+          "bodyHtml": "<p>JS <strong>没有链式比较</strong>：<code>0 &lt; x &lt; 10</code> 实际是 <code>(0 &lt; x) &lt; 10</code>——\n先算出布尔值，再让它参与数值比较（<code>true &lt; 10</code> 为 true），\n于是<strong>表达式恒为 true</strong>，连 <code>x = -5</code> 的时候也一样。\n正解是 <code>x &gt; 0 &amp;&amp; x &lt; 10</code>。它不报错、看起来也像那么回事，\n属于「看起来对、实际全错」的典型。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -926,7 +934,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>这里<strong>支持链式比较</strong>，而且语义就是<strong>数学上的区间</strong>：<code>0 &lt; x &lt; 10</code> 等价于\n<code>0 &lt; x and x &lt; 10</code>，但中间的操作数只求值一次（<code>0 &lt; get() &lt; 10</code> 只打印一次）。\n<code>x == y == z</code>、<code>a &lt; b &lt;= c</code> 这些写法同样成立。</p>\n<p>从 JS 过来要改的正是这一格：那边 <code>0 &lt; x &lt; 10</code> 静默恒为 true，这里才是你本来想要的意思。</p>\n"
         },
         "rust": {
           "lang": "rust",

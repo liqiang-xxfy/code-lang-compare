@@ -63,7 +63,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>字面量都是方括号，看起来一样。差异在「批量生成」：JS 靠 <code>Array.from</code> / <code>fill</code> / <code>Array(n)</code>，\nPython 有<strong>列表推导式</strong>，多数场景一行就能表达，且通常比等价的手写循环更快。</p>\n"
+          "bodyHtml": "<p>字面量都是方括号。批量生成靠 <code>Array.from</code> / <code>fill</code> / <code>new Array(n)</code> ——\n要当心 <code>new Array(3)</code> 的单个数字参数是<strong>长度</strong>不是元素（得到 <code>[empty × 3]</code>），\n而 <code>new Array(3).fill([])</code> 会让三个位置填进同一个引用。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -80,7 +80,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>字面量同样是方括号，批量生成用<strong>列表推导式</strong>：<code>[i * i for i in range(5)]</code>，\n多数场景一行就能表达，带条件过滤也只多一个 <code>if</code>。简单填充用 <code>[0] * 3</code>。</p>\n<p>有一条经典坑要当心：<code>[[]] * 3</code> 里的三个内层列表是<strong>同一个对象</strong>，改一个全变，\n要独立副本得写 <code>[[] for _ in range(3)]</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -178,7 +179,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>两边都支持负索引（Python 是原生，JS 要用 <code>at()</code>）。\n最大差异在<strong>越界</strong>：JS 读取越界返回 <code>undefined</code>（静默），Python 抛 <code>IndexError</code>。\nJS 的静默行为是很多线上 bug 的来源——迁移到 Python 后同样的代码会立刻崩，这是好事。</p>\n"
+          "bodyHtml": "<p>下标用 <code>arr[i]</code>，但<strong>不支持负索引</strong>：<code>arr[-1]</code> 静默给 <code>undefined</code>，\n想从末尾数要用 <code>arr.at(-1)</code>。越界读取同样是静默的 <code>undefined</code> ——\n这是很多线上 bug 的来源，错在下标上却一路跑到很远的地方才显形。\n长度是属性 <code>arr.length</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -195,7 +196,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><strong>原生支持负索引</strong>：<code>arr[-1]</code> 就是最后一个，不用像 JS 那样绕 <code>at()</code>。\n越界<strong>立即抛 <code>IndexError</code></strong>，而不是静默给 <code>undefined</code> ——\nJS 里那些「下标错了却一路跑到很远才显形」的 bug，到这里会当场停住。</p>\n<p>另一个词形差别：长度是内置函数 <code>len(arr)</code>，不是属性。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -283,7 +285,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>尾部操作可以一一对应（<code>push</code>↔<code>append</code>、<code>pop</code>↔<code>pop</code>）。\n但 <code>splice</code> 在 Python 里没有等价物，要拆成「<code>del</code> 切片」或「<code>insert</code> + <code>pop</code>」两步。\nPython 的 <code>insert(0, x)</code> 是 O(n)，和 JS 的 <code>unshift</code> 一样，不要放在循环里。</p>\n"
+          "bodyHtml": "<p>尾部操作最常用：<code>push</code> 返回新长度、<code>pop</code> 返回被弹出的元素。\n头部操作 <code>unshift</code> / <code>shift</code> 是 <strong>O(n)</strong>（整表搬移），别放在循环里。\n<code>splice(起点, 删除个数, ...插入项)</code> 一个方法同时管删和插，原地修改并返回被删元素 ——\n它把「按位置删」和「按值删」两种意图压成了同一个 API。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -300,7 +302,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>尾部操作可以一一对应（<code>push</code> ↔ <code>append</code>、<code>pop</code> ↔ <code>pop</code>），但 <code>append</code> 返回 <code>None</code>\n而不是新长度 —— 写 <code>n = arr.append(x)</code> 会拿到 <code>None</code>。</p>\n<p>差别最大的是 <code>splice</code>：这里没有等价物，它被拆成了两个概念 —— 按<strong>位置</strong>删用\n<code>del arr[1]</code> 或切片赋值 <code>arr[1:2] = [99]</code>，按<strong>值</strong>删用 <code>arr.remove(2)</code>\n（找不到会抛 <code>ValueError</code>）。头部插入是 <code>insert(0, x)</code>，同样是 O(n)。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -383,7 +386,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 的 <code>slice()</code> 与 Python 的 <code>[a:b]</code> 语义接近，都是<strong>浅拷贝</strong>、都支持负索引。\n关键差异有两个：Python 切片支持<strong>步长</strong>（<code>[::2]</code>、<code>[::-1]</code> 直接反转），JS 没有；\nJS 的 <code>slice</code> 是方法调用，Python 是语法，写起来更短但也更容易看漏。</p>\n"
+          "bodyHtml": "<p><code>slice(a, b)</code> 是<strong>左闭右开</strong>的浅拷贝（原数组不变），支持负索引，\n不带参数时常用作复制：<code>arr.slice()</code>。\n没有步长语法 —— 想隔一个取一个只能自己写循环或 <code>filter</code>；\n反转也没有现成的，得先复制再 <code>reverse</code>（<code>reverse</code> 是原地操作，直接调会改掉原数组）。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -405,7 +408,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>切片语法与 JS 的 <code>slice()</code> 语义接近：左闭右开、浅拷贝、支持负索引。\n关键差异有两个：切片支持<strong>步长</strong>（<code>arr[::2]</code> 隔一个取一个、<code>arr[::-1]</code> 一行反转，\nJS 得写 <code>[...arr].reverse()</code>）；切片是<strong>语法</strong>不是方法，写起来更短。</p>\n<p>还有一处行为相反的地方：切片<strong>越界不报错</strong>，会截断到合法范围（<code>arr[2:99]</code> 得\n<code>[2, 3, 4]</code>），而索引越界是抛 <code>IndexError</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -488,7 +492,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>这是 JS 自己就有的坑：<code>for...in</code> 遍历的是<strong>键</strong>（对数组是字符串下标），<code>for...of</code> 才是值。\nPython 的 <code>for x in list</code> 直接给值，与 <code>for...of</code> 对应。\n迁移时把 <code>for...in</code> 直译成 Python 的 <code>for...in</code> 会得到完全错误的结果——而两边的写法看起来一模一样。</p>\n"
+          "bodyHtml": "<p>这是 JS 自己就有的坑：<code>for...in</code> 遍历的是<strong>键</strong>（对数组是字符串下标 <code>'0'</code>、<code>'1'</code>），\n<code>for...of</code> 才是值；而且 <code>for...in</code> 还会爬到原型链上的可枚举属性 ——\n遍历数组永远不要用它。要同时拿下标与值，用 <code>forEach((v, i) =&gt; ...)</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -499,7 +503,8 @@
           "lineCount": 12,
           "notes": [],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>for x in arr</code> 直接给<strong>值</strong>，对应 JS 的 <code>for...of</code>。要下标就用 <code>enumerate(arr)</code>\n一次拿 <code>i, v</code>，比 <code>range(len(arr))</code> 更地道。</p>\n<p>最容易踩的是词形陷阱：把 JS 的 <code>for...in</code> 直译成 <code>for...in</code> 会得到完全错误的结果 ——\n两边写法看起来一模一样，含义正好相反（那边给键，这边给值）。\n另外遍历时不要增删元素，会跳过元素；要改就先复制一份。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -581,7 +586,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 靠链式方法；Python 更常用<strong>推导式</strong>，<code>map</code>/<code>filter</code> 属于「能用但不地道」的写法。\n<code>reduce</code> 在 Python 是 <code>functools.reduce</code>，而且不在内置命名空间里——这不是疏忽，是语言取向：\nPython 更希望你写显式循环或用 <code>sum</code>/<code>min</code>/<code>max</code> 这类聚合函数。</p>\n"
+          "bodyHtml": "<p>JS 靠链式方法，而且<strong>每一步都立即求值</strong>：<code>map</code> / <code>filter</code> / <code>reduce</code> / <code>find</code> /\n<code>some</code> / <code>every</code> 都产出新数组，长链会创建多个中间数组。\n<code>reduce</code> 的初值要显式给，否则空数组会抛错。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -592,7 +597,8 @@
           "lineCount": 12,
           "notes": [],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>更常用<strong>推导式</strong>（<code>[n * 2 for n in nums]</code>、<code>[n for n in nums if n % 2 == 0]</code>），\n<code>map</code> / <code>filter</code> 能用但不地道 —— 注意它们的参数顺序是「函数在前、可迭代在后」，\n与 JS 的链式方法刚好反过来。</p>\n<p>聚合也不必用 <code>reduce</code>：<code>sum</code> / <code>min</code> / <code>max</code> / <code>any</code> / <code>all</code> 都是内置的\n（<code>any</code> 对应 <code>some</code>、<code>all</code> 对应 <code>every</code>），<code>functools.reduce</code> 甚至不在内置命名空间里，\n这是语言取向而不是疏忽。需要惰性求值时用生成器表达式。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -680,7 +686,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p><strong>这是迁移时最容易静默出错的一格。</strong> JS 的 <code>sort()</code> 默认把元素转成字符串比较——\n所以 <code>[10, 9, 1].sort()</code> 得到 <code>[1, 10, 9]</code>，必须传比较函数；而且 <code>sort()</code> <strong>原地修改</strong>。\nPython 的 <code>sorted()</code> 返回新列表、<code>list.sort()</code> 原地修改，而且<strong>比较的是元素本身</strong>，不需要比较函数。\n另外 Python 的排序是稳定排序且有专门的 <code>key=</code> 参数，比 JS 的比较函数更好读。</p>\n"
+          "bodyHtml": "<p><strong>这是 JS 自己最容易静默出错的一格。</strong> <code>sort()</code> 默认把元素转成字符串比较 ——\n<code>[10, 9, 1].sort()</code> 得到 <code>[1, 10, 9]</code>，数字排序必须传比较函数 <code>(a, b) =&gt; a - b</code>。\n而且 <code>sort()</code> <strong>原地修改并返回同一个数组引用</strong>（误以为它返回新数组，就会引入\n共享 bug），想不改原数组必须先复制；ES2023 的 <code>toSorted</code> 才返回新数组。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -697,7 +703,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>sorted()</code> 返回新列表、<code>list.sort()</code> 原地修改（返回 <code>None</code>），\n而且<strong>比较的是元素本身</strong> —— 数字排序不需要比较函数，JS 那一格「默认按字符串比」的坑\n在这里根本不存在。</p>\n<p>排序是稳定的，另有专门的 <code>key=</code> 参数只提取排序依据，比 JS 传整个比较函数更好读，\n也不容易把 <code>a - b</code> 写反。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -780,7 +787,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>四个不同的返回值语义混在一起：JS <code>includes</code> 给布尔、<code>indexOf</code> 给下标（找不到 -1）、\n<code>find</code> 给元素（找不到 <code>undefined</code>）；Python <code>in</code> 给布尔、<code>index</code> 给下标（找不到<strong>抛异常</strong>）、\n<code>next(...)</code> 给元素。\n「找不到时返回特殊值还是抛异常」是两门语言最重要的风格差异之一，会直接影响你的错误处理写法。</p>\n"
+          "bodyHtml": "<p>四个方法的返回值语义各不相同，混在一起容易记错：<code>includes</code> 给布尔、\n<code>indexOf</code> 给下标（<strong>找不到返回 <code>-1</code></strong>，而 <code>-1</code> 是个真值，直接当布尔用会永远成立）、\n<code>find</code> 给元素（找不到给 <code>undefined</code>）、<code>findIndex</code> 给下标。\n都是 O(n) 线性扫描；要频繁查找得换成 <code>Set</code> / <code>Map</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -797,7 +804,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>返回值语义同样分几种，但「找不到」的处理不同：<code>in</code> 给布尔、<code>index</code> 给下标\n（<strong>找不到直接抛 <code>ValueError</code></strong>，不是返回 <code>-1</code>）、<code>count</code> 给出现次数。</p>\n<p>「找不到时返回特殊值还是抛异常」是两门语言最重要的风格差异之一，会直接影响错误处理\n的写法。JS 那边 <code>indexOf</code> 返回的 <code>-1</code> 是个真值，直接当布尔用会永远成立 ——\n这个陷阱在这里从根上就不存在。\n「找第一个满足条件的元素」的惯用写法是 <code>next((n for n in arr if n &gt; 2), None)</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -874,7 +882,7 @@
           "notes": [],
           "reviewState": "reviewed",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的 <code>...</code> 在「构造新数组」和「函数调用传参」两个位置含义不同但写法相同；\nPython 用 <code>*</code> 做解包，且同样两处都能用。两边的符号不同但心智一致：\n<strong>把容器摊平成一串元素</strong>。\n注意 Python 的 <code>*</code> 在解包字典时是 <code>**</code>，和 JS 的 <code>...</code> 统一符号不同。</p>\n"
+          "bodyHtml": "<p>JS 的 <code>...</code> 在「构造新数组」与「函数调用传参」两个位置含义不同，但写法相同；\n对象解构与对象展开也用同一个符号：<code>const { x, ...others } = obj</code>。\n<code>[first, ...rest]</code> 是 rest 解构，把剩余元素收成一个新数组。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -891,7 +899,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>用 <code>*</code> 做解包，同样「构造新容器」与「函数调用传参」两处都能用（<code>[*a, *b]</code>、<code>f(*merged)</code>），\n心智与 JS 的 <code>...</code> 完全一致：<strong>把容器摊平成一串元素</strong>。\n<code>first, *rest = merged</code> 是 rest 解构。</p>\n<p>区别只在符号：<strong>字典解包是 <code>**</code></strong>，而 JS 里数组展开与对象展开共用 <code>...</code> 一个符号。</p>\n"
         },
         "rust": {
           "lang": "rust",

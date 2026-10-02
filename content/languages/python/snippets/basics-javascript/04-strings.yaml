@@ -14,6 +14,12 @@ snippets:
 
       f"{a}-{b}"       # @note 前缀 f 的字符串是格式化字符串
       r"\d+"           # @note 前缀 r 表示原始字符串，正则里几乎总要加
+    body: |
+      单引号与双引号完全等价，团队风格统一即可；三引号 `"""` 是它独有的记号 ——
+      可跨行，也常被用作文档字符串。
+
+      两处与 JS 的实质差别：`"a" + 1` 会抛 `TypeError`，不做隐式转换；
+      字符串字面量另有 `f` / `r` 前缀，把「模板」与「免转义」两件事都做进了字面量语法。
     review:
       state: reviewed
       provenance:
@@ -35,6 +41,12 @@ snippets:
       # f-string 里不能含反斜杠转义，复杂表达式建议先算好
       width = 10
       pad = f"{name:>{width}}"       # 支持格式说明符，比 JS 强很多
+    body: |
+      f-string 写法比模板字符串更简洁（`f"Hello, {name}!"`），任意表达式同样可以插值。
+
+      两处不同：**多行要靠三引号**，f-string 本身不提供多行能力；`{}` 里不能写反斜杠转义，
+      复杂表达式建议先算好再插值。多出来的是**格式说明符** ——
+      `f"{name:>{width}}"` 这种用变量控制对齐宽度的写法，JS 那边没有对应物。
     review:
       state: reviewed
       provenance:
@@ -54,6 +66,13 @@ snippets:
 
       "abc".startswith("a")     # @note 没有 startsWith
       ",".join(["a", "b"])      # 'a,b'  —— @note! 分隔符在前，与 JS 相反
+    body: |
+      方法名**全部小写**、没有 camelCase：`trim` → `strip`、`toUpperCase` → `upper`、
+      `padStart` → `zfill`。
+
+      两处词形变化要留意：判断包含用 `in`（`"b" in "abc"`）而不是 `includes`；
+      `find` 返回下标、找不到给 `-1`，与 `indexOf` 语义一致但名字不同。
+      `join` 的主宾也相反：分隔符在前。
     review:
       state: reviewed
       provenance:
@@ -72,6 +91,12 @@ snippets:
       # 三引号也被用作函数的文档字符串（docstring）
       def f():
           """这是 docstring，不是普通字符串"""
+    body: |
+      多行字符串靠**三引号**，它与 f-string / 原始字符串是各自独立的记号（可以叠加使用）。
+      三引号还兼作函数文档字符串（docstring）的写法。
+
+      拼接列表时**主宾语顺序与 JS 相反**：分隔符在前、被拼的序列在后 ——
+      `"\n".join(["a", "b"])`，而 JS 是 `["a", "b"].join("\n")`。这是最容易写错的一处。
     review:
       state: reviewed
       provenance:
@@ -93,6 +118,12 @@ snippets:
 
       "%s = %d" % ("x", 1)        # @note 老式 % 格式化，仍广泛存在于旧代码
       "{} = {}".format("x", 1)    # @note str.format 是第三套写法
+    body: |
+      格式说明符**直接写在占位符里**（`f"{n:.2f}"`），表达力比 JS 那几个格式化方法强得多，
+      而且带「总宽度」概念：`f"{n:08.2f}"` 表示宽 8、补零 ——
+      JS 的 `Intl` 只能控制整数位 / 小数位，拿不到总宽度。
+
+      旧代码里还会遇到另外两套写法（`%` 与 `str.format`），新代码一律用 f-string。
     review:
       state: reviewed
       provenance:
@@ -120,6 +151,15 @@ snippets:
       s[::2]       # 'ac'
 
       'a' 'b'      # 'ab'  —— @note 相邻字面量自动拼接，JS 没有这个
+    body: |
+      没有字符类型，`s[pos]` 取出来仍是长度 1 的字符串 —— 这一点与 JS 一致。
+
+      差异集中在越界与切片：**负索引原生支持**（`s[-1]` 就是最后一个字符，不用 `at()`），
+      越界立即抛 `IndexError` 而不是静默给空值；`len()` 按**码点**计（`len('a😀')` 是 2，
+      JS 是 3）。
+
+      切片是**语法**不是方法：`s[1:]`、`s[::-1]`（一行反转，JS 要 split / reverse / join 三步）、
+      `s[::2]` 都成立，还能带步长。另外相邻字面量会自动拼接。
     review:
       state: reviewed
       provenance:
@@ -148,6 +188,14 @@ snippets:
 
       # @note! 正则字符串几乎总要加 r 前缀，否则 \d 会被当成转义序列
       # @note match 只匹配开头这一条，是从 JS 过来最容易搞错的
+    body: |
+      **没有正则字面量**，用字符串加 `re` 模块的函数（复用正则应当预编译）。
+      字符串因此几乎总要加 `r` 前缀，否则 `\d` 会被当成转义序列 —— 这一步在 JS 里由字面量
+      语法替你省掉了。
+
+      两处易错差异：`re.match` **只从开头匹配**（想任意位置用 `re.search`，要整串用
+      `re.fullmatch`）；取值方式不同 —— JS 返回带 `index` / `input` 的数组或 `null`，
+      这里返回 `Match` 对象或 `None`，取值用 `.group()`。命名分组写成 `(?P<name>...)`。
     review:
       state: reviewed
       provenance:
@@ -173,6 +221,13 @@ snippets:
 
       # @note! 循环里用 += 反复拼字符串会退化成 O(n²)，是常见的性能问题
       # @note f-string 也能拼接：f'{a}{b}'
+    body: |
+      `+` 两边都支持，但**不做隐式类型转换**：`'a' + 1` 直接抛 `TypeError`，
+      必须显式写 `'a' + str(1)`。
+
+      多出来的是乘法重复：`'a' * 3` 得 `'aaa'`（JS 没有这个）。
+      批量拼接的标准写法是 `''.join(list)`，循环里用 `+=` 反复拼会退化成 O(n²)，
+      是常见的性能问题。
     review:
       state: reviewed
       provenance:
@@ -196,6 +251,13 @@ snippets:
       '\N{SNOWMAN}'           # '☃' —— @note 按 Unicode 名字转义，JS 没有
 
       # @note Python 没有大括号形式的 \u{...}；JS 那边正好相反
+    body: |
+      转义序列本身一致（`\n`、`\t`、`\\`），差别在「反斜杠字面量」的处理：
+      `r'...'` **原始字符串**让 Windows 路径与正则都免于双写，可读性明显更好
+      （小限制：原始字符串不能以奇数个反斜杠结尾）。
+
+      Unicode 转义的写法不同：这里是 `\uXXXX`（4 位）与 `\UXXXXXXXX`（8 位、大写 U），
+      没有 JS 的 `\u{...}` 大括号形式；另有按 Unicode 名字转义的 `\N{SNOWMAN}`。
     review:
       state: reviewed
       provenance:

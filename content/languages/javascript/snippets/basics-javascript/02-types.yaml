@@ -24,9 +24,8 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 有 7 种原始类型（string / number / bigint / boolean / undefined / symbol / null）；
-      Python 把整数与浮点分成两个类型，且**整数是任意精度**。
-      最大的一处反直觉：Python 里 `bool` 是 `int` 的子类，所以 `True == 1` 成立。
+      JS 有 7 种原始类型（string / number / bigint / boolean / undefined / symbol / null）。
+      整数与浮点是**同一个类型** `number`，`bigint` 是另加的；除此之外的一切都是对象。
   - featureId: basics-javascript/type-inference
     equivalence: identical
     code: |
@@ -42,8 +41,9 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      两边都是**动态类型**：变量（名字）本身没有类型，类型属于运行时对象。
-      所以「赋了整数就不能改赋字符串」这种约束在两边都不存在。
+      JS 是**动态类型**：变量（名字）本身没有类型，类型属于运行时的值 ——
+      「赋了整数就不能改赋字符串」这种约束不存在。
+      想要编译期约束得另用 TypeScript，JS 运行时不做任何检查。
       （编译期类型标注语言里的类型推断是另一回事，不属于本工具的对照范围。）
   - featureId: basics-javascript/type-checking
     equivalence: identical
@@ -64,8 +64,9 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 的 `typeof` 有两个著名缺陷：对 `null` 返回 `'object'`，对数组只返回 `'object'`。
-      Python 推荐 `isinstance()`，因为它能正确处理继承关系；`type(x) is T` 在子类场景下会误判。
+      JS 的 `typeof` 有两个著名缺陷：对 `null` 返回 `'object'`，对数组也只返回 `'object'`。
+      所以判数组只能用 `Array.isArray`（`instanceof` 跨 iframe 会失效），
+      判 NaN 必须用 `Number.isNaN`（`NaN === NaN` 是 false）。
   - featureId: basics-javascript/null-undefined
     equivalence: identical
     code: |
@@ -85,8 +86,9 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 有两个空值：`undefined`（未赋值 / 缺省）和 `null`（有意的空），这带来大量判空噪音。
-      Python 只有 `None`。判等时注意：Python 用 `is None`，JS 只在这一处推荐用宽松的 `== null`（同时匹配 null 和 undefined）。
+      JS 有两个空值：`undefined`（未赋值 / 缺省）与 `null`（有意的空），
+      这带来大量判空噪音。判等时注意：`== null` 是**唯一推荐用宽松相等**的场景，
+      它同时匹配 `null` 与 `undefined`；其余场合一律用 `===`。
   - featureId: basics-javascript/number-precision
     equivalence: identical
     code: |
@@ -105,10 +107,9 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      两边都遵循 IEEE 754 双精度浮点，所以 `0.1 + 0.2 !== 0.3` 在两边**都成立**。
-      真正的差异有两个：① JS 的整数也是浮点，超过安全整数范围后静默丢精度（要用 `BigInt`）；
-      ② Python 整数是任意精度，且**除以零会抛异常而不是返回 `Infinity`**。
-      第二条是线上事故级别的差异：JS 里 `1/0` 不报错，Python 里直接崩。
+      JS 的所有 `number` 都是 IEEE 754 双精度浮点，**整数也是浮点** ——
+      超过安全整数范围后静默丢精度，要精确的大整数得用 `BigInt`。
+      除法只有一种，`1 / 2` 得 0.5；除以零**不报错**，返回 `Infinity`，会静默污染下游计算。
   - featureId: basics-javascript/type-casting
     equivalence: identical
     code: |
@@ -133,10 +134,9 @@ snippets:
         generatedAt: '2026-10-02'
     body: |
       JS 靠几个**全局函数**做转换（`Number()`、`String()`、`Boolean()`），
-      Python 靠**类型构造函数**（`int()`、`str()`、`float()`、`list()`）。
-      形态相似，但不一致的地方很多：
-      `Number('12px')` 给 `NaN`，而 `int('12px')` 直接抛 `ValueError`；
-      Python 的 `int('3.7')` 会抛错（要先 `float` 再 `int`），JS 的 `parseInt('3.7')` 给 3。
+      失败不抛错，而是给出哨兵值：`Number('12px')` 是 `NaN`、`Number('')` 是 `0` ——
+      错误会一路传下去，等到很远的地方才以「结果不对」的形式出现。
+      `parseInt` 是**前缀解析**，永远显式传进制，否则 `0x` 开头会被当成十六进制。
   - featureId: basics-javascript/boolean-conversion
     equivalence: identical
     code: |
@@ -161,10 +161,9 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      两者都做「真值转换」，但**规则不同**，这是全套内容里最高频的陷阱之一：
-      JS 的空数组 `[]`、空对象 `{}` 都是真值；Python 的空 `list`、空 `dict`、空 `set`、空 `str`
-      全是假值。所以 Python 里 `if not items:` 是「列表为空」，
-      而 JS 里同样意图必须写 `if (items.length === 0)`——`if (!items)` 在 JS 里永远不成立。
+      JS 的假值只有 8 个：`false` / `0` / `-0` / `0n` / `''` / `null` / `undefined` / `NaN`，
+      其余全是真 —— 包括**空数组与空对象**。所以判数组非空必须写 `arr.length > 0`，
+      `if (!arr)` 永远不成立。`!!value` 是转布尔的惯用写法。
   - featureId: basics-javascript/type-names
     equivalence: identical
     code: |
@@ -188,12 +187,9 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      JS 的 `typeof` 返回一个小写字符串（`'number'`、`'object'`），
-      Python 的 `type(x)` 返回**类对象本身**（打印出来是 `<class 'int'>`）。
-      Python 的 `type(x).__name__` 才能拿到字符串名字。
-      更重要的差别：Python 的类名是开放式的（自定义类会给出自己的名字），
-      JS 的 `typeof` 对自定义类一律给 `'object'`，只能靠 `instanceof` 或 `constructor.name`。
-      另外 JS 的 `typeof null === 'object'` 是个无法修正的历史遗留。
+      JS 的 `typeof` 返回一个小写的**类型标签**字符串（`'number'`、`'object'`），
+      它不是类名：对数组与自定义类一律给 `'object'`，`null` 也给 `'object'`（无法修正的历史遗留）。
+      想拿构造器名字得用 `x.constructor.name`，想判断「是不是某个类」得用 `instanceof`。
   - featureId: basics-javascript/immutable-primitives
     equivalence: identical
     code: |
@@ -219,8 +215,7 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      两边的字符串、数字都是**不可变**的：所有「修改」方法其实返回新值，原值不动。
-      这条一致，但因为 JS 有大量原地修改的**数组**方法（`push`、`sort`、`reverse`），
-      而 Python 的**列表**同样原地修改——所以在容器上会养成「改内容」的习惯，
-      一旦迁移到 `.toUpperCase()` 这类字符串操作时，很容易忘记要接住返回值。
-      口诀仍然适用：**改内容会传染（容器），改绑定不会（字符串/数字）。**
+      JS 的字符串、数字都是**不可变**的：所有「修改」方法其实返回新值，原值不动。
+      但数组方法大量是**原地改**的（`push`、`sort`、`reverse`）——
+      所以容器上养成的「改内容」习惯，一到 `.toUpperCase()` 这类字符串操作就容易
+      忘记接住返回值。口诀：**改内容会传染（容器），改绑定不会（字符串/数字）。**

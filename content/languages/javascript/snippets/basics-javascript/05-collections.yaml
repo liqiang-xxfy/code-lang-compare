@@ -19,8 +19,9 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      字面量都是方括号，看起来一样。差异在「批量生成」：JS 靠 `Array.from` / `fill` / `Array(n)`，
-      Python 有**列表推导式**，多数场景一行就能表达，且通常比等价的手写循环更快。
+      字面量都是方括号。批量生成靠 `Array.from` / `fill` / `new Array(n)` ——
+      要当心 `new Array(3)` 的单个数字参数是**长度**不是元素（得到 `[empty × 3]`），
+      而 `new Array(3).fill([])` 会让三个位置填进同一个引用。
   - featureId: basics-javascript/array-index
     equivalence: identical
     code: |
@@ -39,9 +40,10 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      两边都支持负索引（Python 是原生，JS 要用 `at()`）。
-      最大差异在**越界**：JS 读取越界返回 `undefined`（静默），Python 抛 `IndexError`。
-      JS 的静默行为是很多线上 bug 的来源——迁移到 Python 后同样的代码会立刻崩，这是好事。
+      下标用 `arr[i]`，但**不支持负索引**：`arr[-1]` 静默给 `undefined`，
+      想从末尾数要用 `arr.at(-1)`。越界读取同样是静默的 `undefined` ——
+      这是很多线上 bug 的来源，错在下标上却一路跑到很远的地方才显形。
+      长度是属性 `arr.length`。
   - featureId: basics-javascript/array-mutate
     equivalence: identical
     code: |
@@ -62,9 +64,10 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      尾部操作可以一一对应（`push`↔`append`、`pop`↔`pop`）。
-      但 `splice` 在 Python 里没有等价物，要拆成「`del` 切片」或「`insert` + `pop`」两步。
-      Python 的 `insert(0, x)` 是 O(n)，和 JS 的 `unshift` 一样，不要放在循环里。
+      尾部操作最常用：`push` 返回新长度、`pop` 返回被弹出的元素。
+      头部操作 `unshift` / `shift` 是 **O(n)**（整表搬移），别放在循环里。
+      `splice(起点, 删除个数, ...插入项)` 一个方法同时管删和插，原地修改并返回被删元素 ——
+      它把「按位置删」和「按值删」两种意图压成了同一个 API。
   - featureId: basics-javascript/array-slice
     equivalence: identical
     code: |
@@ -85,9 +88,10 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      JS 的 `slice()` 与 Python 的 `[a:b]` 语义接近，都是**浅拷贝**、都支持负索引。
-      关键差异有两个：Python 切片支持**步长**（`[::2]`、`[::-1]` 直接反转），JS 没有；
-      JS 的 `slice` 是方法调用，Python 是语法，写起来更短但也更容易看漏。
+      `slice(a, b)` 是**左闭右开**的浅拷贝（原数组不变），支持负索引，
+      不带参数时常用作复制：`arr.slice()`。
+      没有步长语法 —— 想隔一个取一个只能自己写循环或 `filter`；
+      反转也没有现成的，得先复制再 `reverse`（`reverse` 是原地操作，直接调会改掉原数组）。
   - featureId: basics-javascript/array-iterate
     equivalence: identical
     code: |
@@ -106,9 +110,9 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      这是 JS 自己就有的坑：`for...in` 遍历的是**键**（对数组是字符串下标），`for...of` 才是值。
-      Python 的 `for x in list` 直接给值，与 `for...of` 对应。
-      迁移时把 `for...in` 直译成 Python 的 `for...in` 会得到完全错误的结果——而两边的写法看起来一模一样。
+      这是 JS 自己就有的坑：`for...in` 遍历的是**键**（对数组是字符串下标 `'0'`、`'1'`），
+      `for...of` 才是值；而且 `for...in` 还会爬到原型链上的可枚举属性 ——
+      遍历数组永远不要用它。要同时拿下标与值，用 `forEach((v, i) => ...)`。
   - featureId: basics-javascript/array-map-filter
     equivalence: identical
     code: |
@@ -130,9 +134,9 @@ snippets:
         promptTemplateId: p8-note-rewrite-v1
         generatedAt: '2026-10-02'
     body: |
-      JS 靠链式方法；Python 更常用**推导式**，`map`/`filter` 属于「能用但不地道」的写法。
-      `reduce` 在 Python 是 `functools.reduce`，而且不在内置命名空间里——这不是疏忽，是语言取向：
-      Python 更希望你写显式循环或用 `sum`/`min`/`max` 这类聚合函数。
+      JS 靠链式方法，而且**每一步都立即求值**：`map` / `filter` / `reduce` / `find` /
+      `some` / `every` 都产出新数组，长链会创建多个中间数组。
+      `reduce` 的初值要显式给，否则空数组会抛错。
   - featureId: basics-javascript/array-sort
     equivalence: identical
     code: |
@@ -155,10 +159,10 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      **这是迁移时最容易静默出错的一格。** JS 的 `sort()` 默认把元素转成字符串比较——
-      所以 `[10, 9, 1].sort()` 得到 `[1, 10, 9]`，必须传比较函数；而且 `sort()` **原地修改**。
-      Python 的 `sorted()` 返回新列表、`list.sort()` 原地修改，而且**比较的是元素本身**，不需要比较函数。
-      另外 Python 的排序是稳定排序且有专门的 `key=` 参数，比 JS 的比较函数更好读。
+      **这是 JS 自己最容易静默出错的一格。** `sort()` 默认把元素转成字符串比较 ——
+      `[10, 9, 1].sort()` 得到 `[1, 10, 9]`，数字排序必须传比较函数 `(a, b) => a - b`。
+      而且 `sort()` **原地修改并返回同一个数组引用**（误以为它返回新数组，就会引入
+      共享 bug），想不改原数组必须先复制；ES2023 的 `toSorted` 才返回新数组。
   - featureId: basics-javascript/array-search
     equivalence: identical
     code: |
@@ -179,10 +183,10 @@ snippets:
       reviewedBy: 阿岩
       reviewedAt: '2026-10-01'
     body: |
-      四个不同的返回值语义混在一起：JS `includes` 给布尔、`indexOf` 给下标（找不到 -1）、
-      `find` 给元素（找不到 `undefined`）；Python `in` 给布尔、`index` 给下标（找不到**抛异常**）、
-      `next(...)` 给元素。
-      「找不到时返回特殊值还是抛异常」是两门语言最重要的风格差异之一，会直接影响你的错误处理写法。
+      四个方法的返回值语义各不相同，混在一起容易记错：`includes` 给布尔、
+      `indexOf` 给下标（**找不到返回 `-1`**，而 `-1` 是个真值，直接当布尔用会永远成立）、
+      `find` 给元素（找不到给 `undefined`）、`findIndex` 给下标。
+      都是 O(n) 线性扫描；要频繁查找得换成 `Set` / `Map`。
   - featureId: basics-javascript/array-unpack
     equivalence: identical
     code: |
@@ -208,7 +212,6 @@ snippets:
       reviewedAt: '2026-10-01'
       notes: 校对逐条实跑验证：解构、展开、rest 行为与注释一致
     body: |
-      JS 的 `...` 在「构造新数组」和「函数调用传参」两个位置含义不同但写法相同；
-      Python 用 `*` 做解包，且同样两处都能用。两边的符号不同但心智一致：
-      **把容器摊平成一串元素**。
-      注意 Python 的 `*` 在解包字典时是 `**`，和 JS 的 `...` 统一符号不同。
+      JS 的 `...` 在「构造新数组」与「函数调用传参」两个位置含义不同，但写法相同；
+      对象解构与对象展开也用同一个符号：`const { x, ...others } = obj`。
+      `[first, ...rest]` 是 rest 解构，把剩余元素收成一个新数组。

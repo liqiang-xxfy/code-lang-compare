@@ -21,6 +21,12 @@ snippets:
       # 小整数有缓存，容易产生「is 好像能用」的错觉
       x = 256; y = 256
       x is y           # True   —— @note! 实现细节，不要依赖
+    body: |
+      这里只有一种相等运算符 `==`，而且**不做隐式类型转换**：`1 == "1"` 直接是 `False`。
+      所以把 JS 的 `==` 直译过来不会出错，但**把 JS 的 `===` 直译成 `is` 会出错** ——
+      `is` 判的是对象身份而不是值，`[] == []` 是 `False`，`x is y` 回答的是另一个问题。
+
+      小整数有缓存，`x = 256; y = 256` 时 `x is y` 会给出 `True` —— 那是实现细节，不要依赖。
   - featureId: basics-javascript/arithmetic
     equivalence: divergent
     code: |
@@ -32,6 +38,12 @@ snippets:
       divmod(-7, 2)    # (-4, 1) —— 商和余数一起拿，且保证 a == b * q + r
 
       2 ** 10          # 1024
+    body: |
+      真除法与 JS 一致（`7 / 2` 得 3.5），多出来的是 `//`：**专门的整除运算符**，
+      而且语义是 floor 而不是 trunc —— `-7 // 2` 得 `-4`，JS 的 `Math.trunc` 给的是 -3。
+
+      取模同样要注意符号：`-7 % 2` 在这里得 `1`（符号跟除数走），JS 是 `-1`。
+      需要商和余数一起拿时用 `divmod()`，它保证 `a == b * q + r` 恒成立。
   - featureId: basics-javascript/logical-short-circuit
     equivalence: analogous
     code: |
@@ -45,6 +57,12 @@ snippets:
 
       # 字典取值有专门的默认值接口
       d = {}.get("k", "fallback")   # @note 这才是 Python 里最常用的兜底写法
+    body: |
+      `and` / `or` 与 JS 一样返回**操作数本身**（`"" or "default"` 得 `"default"`、
+      `"x" and "y"` 得 `"y"`），这一部分是平滑的，短路求值的性质也照搬。
+
+      没有与 `??` 对应的运算符，得显式判 `None`：`"fallback" if a is None else a`。
+      字典取值另有更常用的兜底写法 `d.get("k", "fallback")`。
   - featureId: basics-javascript/truthiness
     equivalence: divergent
     code: |
@@ -58,6 +76,12 @@ snippets:
       bool(0.0)        # False
 
       # 所以 Python 里 `if arr:` 真的表示「非空」，而 JS 里不是
+    body: |
+      假值比 JS 多得多：空的 `list`、`dict`、`set`、`tuple`、`str` **全是假值**，
+      而 JS 那边空数组、空对象都是真值。非空字符串恒为真这一点两边一致。
+
+      于是 `if arr:` 在这里真的表示「非空」—— 但从 JS 带来的 `if (!arr)` 直译过去，
+      会写出一个永远为真的判断。
   - featureId: basics-javascript/optional-chaining
     equivalence: divergent
     code: |
@@ -72,6 +96,13 @@ snippets:
           m()
 
       # 正解通常是：把「可能缺失」显式建模成 None 并提前返回（早返回）
+    body: |
+      **没有 `?.` 这个语法**，安全导航要逐层兜底：
+      `getattr(getattr(user, "address", None), "city", None)`，字典链式取值则常用
+      `(obj or {}).get("method")`。
+
+      海象运算符 `:=` 只能在赋值场景省一次重复求值，替代不了安全导航。
+      最常见的错误是继续写 `obj?.key` —— 那不是「返回 None」，而是**语法错误**。
   - featureId: basics-javascript/bitwise
     equivalence: divergent
     code: |
@@ -88,6 +119,13 @@ snippets:
 
       bin(5)       # '0b101' —— @note 有专门的进制转换内置函数
       hex(255)     # '0xff'
+    body: |
+      运算符与 JS 一致（`&` `|` `^` `~` `<<` `>>`），差别全在数值语义上：
+      整数是任意精度，`1 << 31` 得 `2147483648` 而不是负数、`1 << 200` 也不丢位 ——
+      没有「先转成 32 位有符号整数」这一步，所以大数做位运算是安全的。
+
+      也没有 `>>>`（无符号右移）：整数不是定长的，没有「无符号」这个概念，
+      需要时只能用掩码模拟。进制转换有内置函数 `bin()` / `hex()`。
   - featureId: basics-javascript/comparison-operators
     equivalence: divergent
     code: |
@@ -102,6 +140,13 @@ snippets:
 
       # @note 不能比较大小但可以判不等：1 != '1' 是 True，不会报错
       # @note 想比较异构数据必须显式转换，语言不会替你猜
+    body: |
+      同类型之间的比较行为与 JS 接近（字符串同样按码点逐位比较，`'a' < 'B'` 也是 `False`），
+      真正的差别在**跨类型比较直接抛 `TypeError`**：`'2' < 10` 在这里不是 true，而是一行报错；
+      混合类型的 `sorted()` 同样被拒。
+
+      这是好事 —— JS 里那类隐式转换带来的隐蔽 bug，迁移后会立刻暴露出来。
+      判不等不受影响（`1 != '1'` 是 `True`），想比较异构数据必须显式转换。
   - featureId: basics-javascript/increment-decrement
     equivalence: divergent
     code: |
@@ -120,6 +165,12 @@ snippets:
       k = 0
       v = arr[k]    # @note arr[k++] 必须拆成两行
       k += 1
+    body: |
+      **没有自增自减运算符**，`i++` 是语法错误，唯一写法是 `i += 1`（另有 `//=`、`**=`）。
+      这不是小事：`for` 循环、`arr[i++]` 这类写法需要整体重写。
+
+      更根本的一点是**没有「表达式带副作用」这回事**：`+=` 是语句、不返回值，
+      所以 `x = (i += 1)` 是语法错误，`arr[k++]` 必须拆成取值与前进两行。
   - featureId: basics-javascript/chained-comparison
     equivalence: divergent
     code: |
@@ -138,3 +189,9 @@ snippets:
       a < b <= c            # 混合运算符同样可以
 
       # @note JS 里必须写 0 < x && x < 10，而且直译 0 < x < 10 会静默得到错误结果
+    body: |
+      这里**支持链式比较**，而且语义就是**数学上的区间**：`0 < x < 10` 等价于
+      `0 < x and x < 10`，但中间的操作数只求值一次（`0 < get() < 10` 只打印一次）。
+      `x == y == z`、`a < b <= c` 这些写法同样成立。
+
+      从 JS 过来要改的正是这一格：那边 `0 < x < 10` 静默恒为 true，这里才是你本来想要的意思。

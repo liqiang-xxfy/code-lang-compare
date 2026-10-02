@@ -24,6 +24,10 @@ snippets:
     output: |
       True
       True
+    body: |
+      Python 把整数与浮点分成两个类型（`int` / `float`），而且**整数是任意精度**，
+      不会溢出。最大的一处反直觉：`bool` 是 `int` 的子类，所以 `True == 1` 成立、
+      `True + True` 得 2 —— 判类型时 `isinstance(True, int)` 会命中。
   - featureId: basics-javascript/type-inference
     equivalence: identical
     code: |
@@ -35,6 +39,10 @@ snippets:
 
       from typing import get_type_hints
       get_type_hints(lambda: None)  # 标注只有被显式读取时才有意义
+    body: |
+      与 JS 一样是动态类型：名字本身没有类型，类型属于运行时的对象。
+      多出来的是**类型标注** —— `x: int = 1` 只是给工具看的，解释器不强制，
+      标了照样能赋字符串，也不会因此报错。
   - featureId: basics-javascript/type-checking
     equivalence: divergent
     code: |
@@ -46,6 +54,12 @@ snippets:
 
       callable(f)              # @note 判断可否调用（不只看类型）
       hasattr(obj, "name")     # @note 鸭子类型：问「有没有」而不是「是什么」
+    body: |
+      类型判断推荐 `isinstance()`，因为它能正确处理继承关系；`type(x) is T` 是严格相等，
+      子类场景下会误判 —— `type(True) is int` 就是 `False`。
+
+      另外两个 JS 里要绕道才能问的问题，这里有直接的入口：`callable(f)` 问「能不能调用」、
+      `hasattr(obj, "name")` 问「有没有这个属性」，都是鸭子类型式的提问。
   - featureId: basics-javascript/null-undefined
     equivalence: divergent
     code: |
@@ -60,6 +74,12 @@ snippets:
       # 函数默认参数用 None 做哨兵时，要显式区分「没传」和「传了 None」
       def f(x=None):
           return [] if x is None else x
+    body: |
+      这里只有一种空值 `None`，没有 `undefined`。判空必须用 `is None` 而不是 `== None`：
+      `==` 会调用 `__eq__`，可能被重载出奇怪行为。
+
+      形状上还有一处差别：**未赋值的名字不是 `None`，而是直接 `NameError`** ——
+      「变量还没赋值」在这里是一个错误，不是一种可以静默传递的值。
   - featureId: basics-javascript/number-precision
     equivalence: divergent
     code: |
@@ -73,6 +93,15 @@ snippets:
 
       from decimal import Decimal
       Decimal("0.1") + Decimal("0.2")   # @note 需要精确小数时改用 Decimal
+    body: |
+      浮点行为与 JS 完全一致（`0.1 + 0.2` 同样是 `0.30000000000000004`），
+      差别在另外两条，而且都不小：
+
+      ① 整数是任意精度，`10 ** 100` 照样精确，「溢出」这个概念在这里不存在；
+      ② **除以零抛 `ZeroDivisionError`，而不是返回 `Infinity`** —— 这是线上事故级别的差异：
+      同一个表达式在 JS 里不报错、一路算下去，在这里直接崩。
+
+      需要精确小数时改用 `Decimal`，不必换语言或引第三方库。
   - featureId: basics-javascript/type-casting
     equivalence: divergent
     code: |
@@ -90,6 +119,13 @@ snippets:
       # @note 转换靠类型构造函数，不用 Number()/String() 这类全局函数
       # @note 转换失败一律抛异常（ValueError / TypeError），不产生 NaN 之类的哨兵值
       # @note int('0x1f', 16) 可以显式指定进制
+    body: |
+      转换靠**类型构造函数**（`int()` / `str()` / `float()` / `list()`），形态与 JS 相似，
+      但不一致的地方很多，而且方向是「更严格」：
+
+      `int('12px')` 直接抛 `ValueError`、`int('3.7')` 也抛错（想取整要先 `float` 再 `int`），
+      而 JS 那边 `Number('12px')` 给 `NaN`、`parseInt('3.7')` 给 3。
+      失败一律抛异常，没有哨兵值可以往下传 —— 错误会停在出事的那一行。
   - featureId: basics-javascript/boolean-conversion
     equivalence: divergent
     code: |
@@ -104,6 +140,13 @@ snippets:
       # @note! 所以 Python 里 `if items:` 真的表示「列表非空」；
       #        而 JS 里同样的意图必须写 items.length > 0
       # @note 自定义类可以实现 __bool__ 或 __len__ 来定义真值
+    body: |
+      真值规则与 JS 不同，这是全套内容里**最高频的陷阱之一**：空的 `list`、`dict`、
+      `set`、`tuple`、`str` **全是假值**，而在 JS 里空数组、空对象都是真值。
+
+      所以 `if not items:` 在这里真的表示「列表为空」；反过来，从 JS 带来的
+      `if (!items)` 直译过去会写出永远为真的判断。真值也可以自己定义：
+      实现 `__bool__` 或 `__len__`。
   - featureId: basics-javascript/type-names
     equivalence: divergent
     code: |
@@ -119,6 +162,13 @@ snippets:
       issubclass(bool, int)  # True  —— @note! bool 是 int 的子类
 
       # @note Python 没有与 typeof 对应的「只给个粗分类」的内置操作
+    body: |
+      `type(x)` 返回的是**类对象本身**（打印出来是 `<class 'int'>`），
+      想要字符串名字得再取 `__name__`。
+
+      更重要的差别在自定义类：Python 的类天然有名字（`type(User()).__name__` 就是 `'User'`），
+      JS 的 `typeof` 一律给 `'object'`，只能绕道 `constructor.name`。
+      这里也没有与 `typeof` 对应的「只给个粗分类」的内置操作 —— 类型信息从一开始就是完整的。
   - featureId: basics-javascript/immutable-primitives
     equivalence: analogous
     code: |
@@ -140,3 +190,11 @@ snippets:
 
       # @note 元组 / 字符串 / 数字 / frozenset 是不可变类型，可作为字典键；
       #       列表 / 字典 / set 可变，不可哈希，不能当键
+    body: |
+      字符串、数字、元组同样不可变，这一点两边一致。但**列表是原地改的**：
+      `arr.sort()` 就地排序并返回 `None`，与字符串方法「返回新值」的形态完全不同，
+      很容易顺手写出 `arr = arr.sort()`，把列表换成 `None`。
+
+      更关键的是可变性还决定**能不能当字典键**：元组 / 字符串 / 数字 / `frozenset`
+      不可变、可哈希；列表 / 字典 / `set` 可变、不可哈希，用它们当键会直接抛
+      `TypeError: unhashable type`。

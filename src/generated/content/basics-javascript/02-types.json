@@ -64,7 +64,7 @@
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
           "output": "'number' 'bigint' 'string' 'boolean' 'undefined' 'object' 'symbol'",
-          "bodyHtml": "<p>JS 有 7 种原始类型（string / number / bigint / boolean / undefined / symbol / null）；\nPython 把整数与浮点分成两个类型，且<strong>整数是任意精度</strong>。\n最大的一处反直觉：Python 里 <code>bool</code> 是 <code>int</code> 的子类，所以 <code>True == 1</code> 成立。</p>\n"
+          "bodyHtml": "<p>JS 有 7 种原始类型（string / number / bigint / boolean / undefined / symbol / null）。\n整数与浮点是<strong>同一个类型</strong> <code>number</code>，<code>bigint</code> 是另加的；除此之外的一切都是对象。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -87,7 +87,8 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "output": "True\nTrue"
+          "output": "True\nTrue",
+          "bodyHtml": "<p>Python 把整数与浮点分成两个类型（<code>int</code> / <code>float</code>），而且<strong>整数是任意精度</strong>，\n不会溢出。最大的一处反直觉：<code>bool</code> 是 <code>int</code> 的子类，所以 <code>True == 1</code> 成立、\n<code>True + True</code> 得 2 —— 判类型时 <code>isinstance(True, int)</code> 会命中。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -153,7 +154,7 @@
           "notes": [],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>两边都是<strong>动态类型</strong>：变量（名字）本身没有类型，类型属于运行时对象。\n所以「赋了整数就不能改赋字符串」这种约束在两边都不存在。\n（编译期类型标注语言里的类型推断是另一回事，不属于本工具的对照范围。）</p>\n"
+          "bodyHtml": "<p>JS 是<strong>动态类型</strong>：变量（名字）本身没有类型，类型属于运行时的值 ——\n「赋了整数就不能改赋字符串」这种约束不存在。\n想要编译期约束得另用 TypeScript，JS 运行时不做任何检查。\n（编译期类型标注语言里的类型推断是另一回事，不属于本工具的对照范围。）</p>\n"
         },
         "python": {
           "lang": "python",
@@ -170,7 +171,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>与 JS 一样是动态类型：名字本身没有类型，类型属于运行时的对象。\n多出来的是<strong>类型标注</strong> —— <code>x: int = 1</code> 只是给工具看的，解释器不强制，\n标了照样能赋字符串，也不会因此报错。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -236,7 +238,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 的 <code>typeof</code> 有两个著名缺陷：对 <code>null</code> 返回 <code>'object'</code>，对数组只返回 <code>'object'</code>。\nPython 推荐 <code>isinstance()</code>，因为它能正确处理继承关系；<code>type(x) is T</code> 在子类场景下会误判。</p>\n"
+          "bodyHtml": "<p>JS 的 <code>typeof</code> 有两个著名缺陷：对 <code>null</code> 返回 <code>'object'</code>，对数组也只返回 <code>'object'</code>。\n所以判数组只能用 <code>Array.isArray</code>（<code>instanceof</code> 跨 iframe 会失效），\n判 NaN 必须用 <code>Number.isNaN</code>（<code>NaN === NaN</code> 是 false）。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -258,7 +260,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>类型判断推荐 <code>isinstance()</code>，因为它能正确处理继承关系；<code>type(x) is T</code> 是严格相等，\n子类场景下会误判 —— <code>type(True) is int</code> 就是 <code>False</code>。</p>\n<p>另外两个 JS 里要绕道才能问的问题，这里有直接的入口：<code>callable(f)</code> 问「能不能调用」、\n<code>hasattr(obj, &quot;name&quot;)</code> 问「有没有这个属性」，都是鸭子类型式的提问。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -335,7 +338,7 @@
           "notes": [],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>JS 有两个空值：<code>undefined</code>（未赋值 / 缺省）和 <code>null</code>（有意的空），这带来大量判空噪音。\nPython 只有 <code>None</code>。判等时注意：Python 用 <code>is None</code>，JS 只在这一处推荐用宽松的 <code>== null</code>（同时匹配 null 和 undefined）。</p>\n"
+          "bodyHtml": "<p>JS 有两个空值：<code>undefined</code>（未赋值 / 缺省）与 <code>null</code>（有意的空），\n这带来大量判空噪音。判等时注意：<code>== null</code> 是<strong>唯一推荐用宽松相等</strong>的场景，\n它同时匹配 <code>null</code> 与 <code>undefined</code>；其余场合一律用 <code>===</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -352,7 +355,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>这里只有一种空值 <code>None</code>，没有 <code>undefined</code>。判空必须用 <code>is None</code> 而不是 <code>== None</code>：\n<code>==</code> 会调用 <code>__eq__</code>，可能被重载出奇怪行为。</p>\n<p>形状上还有一处差别：<strong>未赋值的名字不是 <code>None</code>，而是直接 <code>NameError</code></strong> ——\n「变量还没赋值」在这里是一个错误，不是一种可以静默传递的值。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -445,7 +449,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>两边都遵循 IEEE 754 双精度浮点，所以 <code>0.1 + 0.2 !== 0.3</code> 在两边<strong>都成立</strong>。\n真正的差异有两个：① JS 的整数也是浮点，超过安全整数范围后静默丢精度（要用 <code>BigInt</code>）；\n② Python 整数是任意精度，且<strong>除以零会抛异常而不是返回 <code>Infinity</code></strong>。\n第二条是线上事故级别的差异：JS 里 <code>1/0</code> 不报错，Python 里直接崩。</p>\n"
+          "bodyHtml": "<p>JS 的所有 <code>number</code> 都是 IEEE 754 双精度浮点，<strong>整数也是浮点</strong> ——\n超过安全整数范围后静默丢精度，要精确的大整数得用 <code>BigInt</code>。\n除法只有一种，<code>1 / 2</code> 得 0.5；除以零<strong>不报错</strong>，返回 <code>Infinity</code>，会静默污染下游计算。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -462,7 +466,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>浮点行为与 JS 完全一致（<code>0.1 + 0.2</code> 同样是 <code>0.30000000000000004</code>），\n差别在另外两条，而且都不小：</p>\n<p>① 整数是任意精度，<code>10 ** 100</code> 照样精确，「溢出」这个概念在这里不存在；\n② <strong>除以零抛 <code>ZeroDivisionError</code>，而不是返回 <code>Infinity</code></strong> —— 这是线上事故级别的差异：\n同一个表达式在 JS 里不报错、一路算下去，在这里直接崩。</p>\n<p>需要精确小数时改用 <code>Decimal</code>，不必换语言或引第三方库。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -570,7 +575,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 靠几个<strong>全局函数</strong>做转换（<code>Number()</code>、<code>String()</code>、<code>Boolean()</code>），\nPython 靠<strong>类型构造函数</strong>（<code>int()</code>、<code>str()</code>、<code>float()</code>、<code>list()</code>）。\n形态相似，但不一致的地方很多：\n<code>Number('12px')</code> 给 <code>NaN</code>，而 <code>int('12px')</code> 直接抛 <code>ValueError</code>；\nPython 的 <code>int('3.7')</code> 会抛错（要先 <code>float</code> 再 <code>int</code>），JS 的 <code>parseInt('3.7')</code> 给 3。</p>\n"
+          "bodyHtml": "<p>JS 靠几个<strong>全局函数</strong>做转换（<code>Number()</code>、<code>String()</code>、<code>Boolean()</code>），\n失败不抛错，而是给出哨兵值：<code>Number('12px')</code> 是 <code>NaN</code>、<code>Number('')</code> 是 <code>0</code> ——\n错误会一路传下去，等到很远的地方才以「结果不对」的形式出现。\n<code>parseInt</code> 是<strong>前缀解析</strong>，永远显式传进制，否则 <code>0x</code> 开头会被当成十六进制。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -592,7 +597,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>转换靠<strong>类型构造函数</strong>（<code>int()</code> / <code>str()</code> / <code>float()</code> / <code>list()</code>），形态与 JS 相似，\n但不一致的地方很多，而且方向是「更严格」：</p>\n<p><code>int('12px')</code> 直接抛 <code>ValueError</code>、<code>int('3.7')</code> 也抛错（想取整要先 <code>float</code> 再 <code>int</code>），\n而 JS 那边 <code>Number('12px')</code> 给 <code>NaN</code>、<code>parseInt('3.7')</code> 给 3。\n失败一律抛异常，没有哨兵值可以往下传 —— 错误会停在出事的那一行。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -674,7 +680,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>两者都做「真值转换」，但<strong>规则不同</strong>，这是全套内容里最高频的陷阱之一：\nJS 的空数组 <code>[]</code>、空对象 <code>{}</code> 都是真值；Python 的空 <code>list</code>、空 <code>dict</code>、空 <code>set</code>、空 <code>str</code>\n全是假值。所以 Python 里 <code>if not items:</code> 是「列表为空」，\n而 JS 里同样意图必须写 <code>if (items.length === 0)</code>——<code>if (!items)</code> 在 JS 里永远不成立。</p>\n"
+          "bodyHtml": "<p>JS 的假值只有 8 个：<code>false</code> / <code>0</code> / <code>-0</code> / <code>0n</code> / <code>''</code> / <code>null</code> / <code>undefined</code> / <code>NaN</code>，\n其余全是真 —— 包括<strong>空数组与空对象</strong>。所以判数组非空必须写 <code>arr.length &gt; 0</code>，\n<code>if (!arr)</code> 永远不成立。<code>!!value</code> 是转布尔的惯用写法。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -701,7 +707,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>真值规则与 JS 不同，这是全套内容里<strong>最高频的陷阱之一</strong>：空的 <code>list</code>、<code>dict</code>、\n<code>set</code>、<code>tuple</code>、<code>str</code> <strong>全是假值</strong>，而在 JS 里空数组、空对象都是真值。</p>\n<p>所以 <code>if not items:</code> 在这里真的表示「列表为空」；反过来，从 JS 带来的\n<code>if (!items)</code> 直译过去会写出永远为真的判断。真值也可以自己定义：\n实现 <code>__bool__</code> 或 <code>__len__</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -789,7 +796,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的 <code>typeof</code> 返回一个小写字符串（<code>'number'</code>、<code>'object'</code>），\nPython 的 <code>type(x)</code> 返回<strong>类对象本身</strong>（打印出来是 <code>&lt;class 'int'&gt;</code>）。\nPython 的 <code>type(x).__name__</code> 才能拿到字符串名字。\n更重要的差别：Python 的类名是开放式的（自定义类会给出自己的名字），\nJS 的 <code>typeof</code> 对自定义类一律给 <code>'object'</code>，只能靠 <code>instanceof</code> 或 <code>constructor.name</code>。\n另外 JS 的 <code>typeof null === 'object'</code> 是个无法修正的历史遗留。</p>\n"
+          "bodyHtml": "<p>JS 的 <code>typeof</code> 返回一个小写的<strong>类型标签</strong>字符串（<code>'number'</code>、<code>'object'</code>），\n它不是类名：对数组与自定义类一律给 <code>'object'</code>，<code>null</code> 也给 <code>'object'</code>（无法修正的历史遗留）。\n想拿构造器名字得用 <code>x.constructor.name</code>，想判断「是不是某个类」得用 <code>instanceof</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -806,7 +813,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p><code>type(x)</code> 返回的是<strong>类对象本身</strong>（打印出来是 <code>&lt;class 'int'&gt;</code>），\n想要字符串名字得再取 <code>__name__</code>。</p>\n<p>更重要的差别在自定义类：Python 的类天然有名字（<code>type(User()).__name__</code> 就是 <code>'User'</code>），\nJS 的 <code>typeof</code> 一律给 <code>'object'</code>，只能绕道 <code>constructor.name</code>。\n这里也没有与 <code>typeof</code> 对应的「只给个粗分类」的内置操作 —— 类型信息从一开始就是完整的。</p>\n"
         },
         "rust": {
           "lang": "rust",
@@ -889,7 +897,7 @@
           ],
           "reviewState": "reviewed",
           "provenanceOrigin": "manual",
-          "bodyHtml": "<p>两边的字符串、数字都是<strong>不可变</strong>的：所有「修改」方法其实返回新值，原值不动。\n这条一致，但因为 JS 有大量原地修改的<strong>数组</strong>方法（<code>push</code>、<code>sort</code>、<code>reverse</code>），\n而 Python 的<strong>列表</strong>同样原地修改——所以在容器上会养成「改内容」的习惯，\n一旦迁移到 <code>.toUpperCase()</code> 这类字符串操作时，很容易忘记要接住返回值。\n口诀仍然适用：<strong>改内容会传染（容器），改绑定不会（字符串/数字）。</strong></p>\n"
+          "bodyHtml": "<p>JS 的字符串、数字都是<strong>不可变</strong>的：所有「修改」方法其实返回新值，原值不动。\n但数组方法大量是<strong>原地改</strong>的（<code>push</code>、<code>sort</code>、<code>reverse</code>）——\n所以容器上养成的「改内容」习惯，一到 <code>.toUpperCase()</code> 这类字符串操作就容易\n忘记接住返回值。口诀：<strong>改内容会传染（容器），改绑定不会（字符串/数字）。</strong></p>\n"
         },
         "python": {
           "lang": "python",
@@ -911,7 +919,8 @@
             }
           ],
           "reviewState": "reviewed",
-          "provenanceOrigin": "manual"
+          "provenanceOrigin": "manual",
+          "bodyHtml": "<p>字符串、数字、元组同样不可变，这一点两边一致。但<strong>列表是原地改的</strong>：\n<code>arr.sort()</code> 就地排序并返回 <code>None</code>，与字符串方法「返回新值」的形态完全不同，\n很容易顺手写出 <code>arr = arr.sort()</code>，把列表换成 <code>None</code>。</p>\n<p>更关键的是可变性还决定<strong>能不能当字典键</strong>：元组 / 字符串 / 数字 / <code>frozenset</code>\n不可变、可哈希；列表 / 字典 / <code>set</code> 可变、不可哈希，用它们当键会直接抛\n<code>TypeError: unhashable type</code>。</p>\n"
         },
         "rust": {
           "lang": "rust",
