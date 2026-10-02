@@ -1,46 +1,92 @@
 # 迁移学习路线 —— Java → Python
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
 
-- id: java2py-1-mental-model
+- id: java2py-1-anchor
   order: 1
   title: 先接受「编译器不再兜底」
   durationHint: 2-3 小时
   todo:
     - 列出 Java 编译期能拦住、Python 只能在运行时发现的四类错误：类型不匹配、拼错参数名、返回类型不符、未初始化
-    - 通读基础语法板块里变量那一章，把「块级作用域」这条直觉标记为必须丢掉
-    - 明确写下哪些 Java 直觉要重写：== 与 equals、块作用域、final 的含义
+    - 通读本工具「心智模型」板块的 Java 视角，把 Maven/pip、真并行/GIL、受检异常/无这四组映射建起来
+    - 明确写下哪些 Java 直觉要重写：== 与 equals、块作用域、final 的含义、真值转换
   acceptance:
     - 能说出 Python 里 `is` 与 `==` 的分工，以及为什么不能拿 `is` 比值
     - 知道 Python 没有编译期检查，因此测试与类型标注的地位更高
   resources:
     - label: Python 官方教程（中文）
       url: https://docs.python.org/zh-cn/3/tutorial/
+    - label: Python for Java developers
+      url: https://docs.python.org/3/howto/
 
-- id: java2py-2-functions
+- id: java2py-2-basics
   order: 2
-  title: 重写函数与参数这一层
-  durationHint: 1-2 天
+  title: 基础语法逐条对照
+  durationHint: 3-5 天
   todo:
-    - 读《函数与参数传递》一章，把重载改写成默认参数、把具名构造改写成关键字参数
+    - 按本工具「基础语法」板块的 8 个章节逐格对比，重点看标为「语义不同」的格子
+    - 每看一格，手写一遍两边的代码（不要复制）——特别注意 `/`、`%`、`==` 这三处的语义差异
+    - 读《函数与参数》一章，把重载改写成默认参数、把具名构造改写成关键字参数
     - 亲手写一次可变默认参数的坑，确认自己记住了要拿 None 当哨兵
-    - 练习用 `*args` / `**kwargs` 写一个转发函数
   acceptance:
     - 能一眼看出签名里 `def f(x=[])` 的问题
     - 能解释为什么拼错的关键字参数在 Python 里不报错
+    - 能说清切片是拷贝而 subList 是视图
   resources:
     - label: PEP 8 风格指南
       url: https://peps.python.org/pep-0008/
 
-- id: java2py-3-tooling
+- id: java2py-3-practice
   order: 3
-  title: 换一套工具链
-  durationHint: 1 周
+  title: 动手写（占全部时间的 70%）
+  durationHint: 1-2 周
   todo:
-    - 用 venv + pip 建好隔离环境，把 Maven 的依赖声明映射到 requirements 或 pyproject
-    - 挑一个 Maven 项目改写成 Python，体会「没有编译步骤」带来的反馈速度变化
-    - 把常用的静态检查（ruff / mypy）接进编辑器，用工具补回一部分编译期检查
+    - 做 Exercism 的 Python track，接受 mentor 评审
+    - 挑一个自己写过的 Maven 项目（或其中 100-300 行的部分）用 Python 重写一遍
+    - 重写时不要查 Java 原文件——凭记忆写，写完再对照
+    - 刻意不用 IDE 的编译错误当拐杖：靠测试而不是编译来发现问题
   acceptance:
-    - 能独立创建虚拟环境并锁定依赖版本
-    - 能配置 mypy 并让它拦住一处类型错误
+    - Exercism 完成 15 题以上
+    - 能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法
+    - 写完之后能指出哪几处是"翻译腔"（把 Java 写法直译过来的）
   resources:
-    - label: Python 打包用户指南
-      url: https://packaging.python.org/
+    - label: Exercism Python Track
+      url: https://exercism.org/tracks/python
+    - label: TheAlgorithms Python
+      url: https://github.com/TheAlgorithms/Python
+
+- id: java2py-4-deep
+  order: 4
+  title: 补齐语义层（并发与内存）
+  durationHint: 3-5 天
+  todo:
+    - 真正理解 GIL：把一段依赖多线程加速的 CPU 密集任务迁过来，测量它为什么没有变快
+    - 分辨哪些 synchronized 可以删（防丢更新）、哪些必须换成 Lock（防"检查后写入"被插队）
+    - 理解引用计数 + 循环 GC：为什么 del 不等于立刻释放，with 为什么仍然是必需的
+    - 对比 CompletableFuture 链与 asyncio 的错误语义差别
+  acceptance:
+    - 能解释为什么 Python 要用 multiprocessing 而不是 threading 做 CPU 密集任务
+    - 能写出正确的 asyncio 并发代码，并知道 asyncio.gather 与 CompletableFuture.allOf 的差别
+  resources:
+    - label: asyncio 官方文档
+      url: https://docs.python.org/3/library/asyncio.html
+    - label: Fluent Python（深入理解语言语义）
+      url: https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/
+
+- id: java2py-5-ecosystem
+  order: 5
+  title: 工程化与生态收口
+  durationHint: 3-5 天
+  todo:
+    - 用 venv + pyproject.toml（或 uv）管理一个真实项目，把 Maven 的依赖声明映射过去
+    - 配置 Ruff（= Checkstyle + SpotBugs + 格式化 的合体），体会工具链"独裁"带来的省心
+    - 用 pytest 写测试，注意 fixture 的隐式注入与 JUnit 的显式注解差别
+    - 用 mypy 加类型标注，理解「gradual typing」的边界：哪些地方它能替你找回编译期检查
+  acceptance:
+    - 能独立搭起一个带依赖管理、lint、测试、类型检查的 Python 工程
+    - 能说清 pyproject.toml / venv / pip / uv 各自解决什么问题
+    - 能说清 mypy 能补回多少原本由 javac 承担的检查，哪些补不回来
+  resources:
+    - label: pytest 官方文档
+      url: https://docs.pytest.org/
+    - label: Ruff
+      url: https://docs.astral.sh/ruff/

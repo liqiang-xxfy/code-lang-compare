@@ -1,46 +1,91 @@
 # 迁移学习路线 —— Python → Java
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
 
-- id: py2java-1-types
+- id: py2java-1-anchor
   order: 1
-  title: 先把类型系统补上
-  durationHint: 2-3 天
+  title: 先建立心智模型，不要背语法
+  durationHint: 2-3 小时
   todo:
-    - 通读「心智模型」板块的「类型与值」一章，先建立「类型先行」的直觉
-    - 手写一遍原始类型与包装类的对应关系，注意 int/Integer 的装箱与 null
-    - 记住 Java 的编译期检查能拦住哪些 Python 只能在运行时发现的错
+    - 通读本工具「心智模型」板块的 Python 视角，把 pip/Maven、GIL/真并行这类映射建起来
+    - 只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义
+    - 明确写下「哪些 Python 直觉必须丢掉」——块即作用域、空容器是假值、缺失键抛异常
   acceptance:
-    - 能徒手写出带泛型的集合声明，不再靠 var 猜
-    - 能说清 final 冻结的是绑定而不是内容
+    - 能说出 Python 与 Java 在「作用域」和「真值判断」上的两条根本差异
+    - 知道 Java 没有默认参数、没有关键字参数、没有真值转换
   resources:
     - label: Java 官方教程（Oracle）
       url: https://dev.java/learn/
+    - label: Java 语言规范
+      url: https://docs.oracle.com/javase/specs/
 
-- id: py2java-2-functions
+- id: py2java-2-basics
   order: 2
-  title: 重写函数这一层的直觉
-  durationHint: 3-4 天
+  title: 基础语法逐条对照
+  durationHint: 3-5 天
   todo:
-    - 读《函数与参数传递》一章，把默认参数改写成重载、把 kwargs 改写成 Builder
-    - 练习把一段工具函数搬进类里，并决定它是 static 还是实例方法
-    - 观察 lambda 只能捕获事实不变变量这条规则，理解它为什么能避免闭包共享的坑
+    - 按本工具「基础语法」板块的 8 个章节逐格对比，重点看标为「语义不同」的格子
+    - 每看一格，手写一遍两边的代码（不要复制）——特别注意 `/`、`%`、`==` 这三处的语义差异
+    - 把踩到的坑记进「迁移陷阱」板块的清单，并打上自己的严重度
   acceptance:
     - 能不用默认参数语法、只靠重载写出等价签名的 API
-    - 能解释为什么 Java 里没有「拼错参数名却被静默吞掉」这种问题
+    - 能徒手写出带泛型的集合声明，不再靠 var 猜
+    - 能说清 final 冻结的是绑定而不是内容
   resources:
     - label: Java 语言规范 · 方法重载
       url: https://docs.oracle.com/javase/specs/jls/se21/html/jls-8.html
 
-- id: py2java-3-tooling
+- id: py2java-3-practice
   order: 3
-  title: 接上工具链与工程习惯
+  title: 动手写（占全部时间的 70%）
+  durationHint: 1-2 周
+  todo:
+    - 做 Exercism 的 Java track，接受 mentor 评审
+    - 把写过的一个小 Python 脚本（100-300 行）用 Java 重写一遍
+    - 重写时不要查 Python 原文件——凭记忆写，写完再对照
+    - 刻意让 IDE 参与：靠编译错误而不是运行结果来发现问题
+  acceptance:
+    - Exercism 完成 15 题以上
+    - 能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法
+    - 遇到编译错误时能读懂 javac 的报错并定位到具体类型不匹配
+  resources:
+    - label: Exercism Java Track
+      url: https://exercism.org/tracks/java
+    - label: TheAlgorithms Java
+      url: https://github.com/TheAlgorithms/Java
+
+- id: py2java-4-deep
+  order: 4
+  title: 补齐语义层（并发与内存）
+  durationHint: 3-5 天
+  todo:
+    - 真正理解「真并行」：把一段 Python 里靠 GIL 侥幸正确的共享计数器改到 Java，看它开始出错
+    - 分清 synchronized 保护的两种用途：防丢更新 vs 防"检查后写入"被插队
+    - 理解分代 GC：为什么不能依赖析构做资源清理，为什么要用 try-with-resources
+    - 观察 JIT：同一段代码在预热前后的性能差异
+  acceptance:
+    - 能解释为什么 Java 里"这段代码在 Python 里跑得好好的"不能作为不需要同步的证据
+    - 能写出正确的 CompletableFuture 组合，并知道它与 asyncio.gather 的错误语义差别
+  resources:
+    - label: java.util.concurrent 官方文档
+      url: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/package-summary.html
+    - label: Java 并发编程实战（译）
+      url: https://book.douban.com/subject/10484692/
+
+- id: py2java-5-ecosystem
+  order: 5
+  title: 工程化与生态收口
   durationHint: 1 周
   todo:
     - 用 Maven 或 Gradle 建一个空项目，跑通「写代码 → 编译 → 测试 → 打包」
-    - 把 pip/venv 的心智映射到 Maven Central 与依赖声明
-    - 配好 IDE 的重构与跳转，体会编译期检查带来的反馈速度
+    - 把 pip/venv 的心智映射到 Maven Central 与依赖坐标，跑一次 dependency:tree 看版本是怎么被裁决的
+    - 用 JUnit 5 写测试，配好一个静态分析工具（Checkstyle 或 SpotBugs）
+    - 体会编译期检查带来的反馈速度：把 IDE 的重构与跳转用熟
   acceptance:
     - 能独立新建一个项目并让它产出可执行 jar
-    - 遇到编译错误时能读懂 javac 的报错并定位到具体类型不匹配
+    - 能说清 package 名、构建坐标、classpath 各自解决什么问题
+    - 遇到 NoSuchMethodError 时知道去查依赖版本冲突
   resources:
     - label: Maven 官方入门
       url: https://maven.apache.org/guides/getting-started/
+    - label: JUnit 5 用户指南
+      url: https://junit.org/junit5/docs/current/user-guide/

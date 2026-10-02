@@ -28,3 +28,45 @@
     python: 注解只是给工具看的，运行时完全不强制；写错了不会报错
     java: 泛型在编译期擦除，但类型检查是真的会拦你；`List<String>` 与 `List<Integer>` 在运行期是同一个类
   note: 两边都有「类型信息在运行时消失」这件事，但原因和时间点完全不同。
+
+- term: 字典
+  aliases: [dict, map, hashmap, hashtable]
+  perLanguage:
+    python: 内置类型，`d["k"]` 缺失时抛 KeyError；键可以是任何可哈希对象
+    java: 接口 `Map` 加上若干实现，`get` 缺失返回 null；键必须是重写了 equals/hashCode 的对象
+  note: 缺失键的行为刚好相反 —— 一个抛异常，一个给空值。从 Python 到 Java 时，「缺失即抛」那层保护是丢掉的。
+
+- term: 闭包
+  aliases: [closure, capture, free variable]
+  perLanguage:
+    python: 闭包变量是共享的引用，所有闭包看到的是**最终值**；循环里建闭包要绑默认参数
+    java: 捕获的局部变量必须 effectively final —— 编译器直接禁止"看到最终值"这类意外
+  note: Java 把 Python 里最难查的那类闭包 bug 变成了编译错误，代价是不能在闭包里改外部变量。
+
+- term: 装饰器
+  aliases: [decorator, annotation, aspect]
+  perLanguage:
+    python: 可执行代码 —— `@dec` 就是 `f = dec(f)`，运行时真的包了一层
+    java: 注解只是元数据，自己不做事；要有注解处理器或 AOP 框架读到它才会产生行为
+  note: 名字像，机制完全不同。迁过来时最危险的是"写了注解以为生效了"。
+
+- term: 迭代器
+  aliases: [iterator, iterable, stream]
+  perLanguage:
+    python: 迭代器是惰性的、只能遍历一次；生成器函数是最常用的写法
+    java: '`Iterable` 可反复遍历，`Stream` 才是惰性且一次性的；两者是不同的类型'
+  note: Java 把"可重复遍历"与"一次性流"分成了两种类型，Python 里两者都叫迭代器，靠约定区分。
+
+- term: 类型转换
+  aliases: [cast, casting, unboxing]
+  perLanguage:
+    python: 转换就是调用类型本身（`int(x)`），失败抛异常；没有"隐式窄化"这回事
+    java: 基本类型之间有自动提升与显式窄化转换；对象之间靠强转，转错运行时抛 ClassCastException
+  note: Java 的数值转换有一套自动规则，其中最需要警惕的是"宽化静默发生、窄化才要写括号"。
+
+- term: 资源管理
+  aliases: [context manager, with, try-with-resources, AutoCloseable]
+  perLanguage:
+    python: '`with` 只要求对象有 `__enter__` / `__exit__`；`contextlib` 能把任意"进入-退出"逻辑包成上下文管理器'
+    java: '`try-with-resources` 只对实现了 `AutoCloseable` 的类型有效；没实现就只能手写 finally'
+  note: 目的相同（保证释放、且不吞掉原始异常），但 Python 的自定义门槛低得多，几乎所有"成对操作"都能包成 with。

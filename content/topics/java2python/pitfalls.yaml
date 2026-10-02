@@ -98,3 +98,120 @@
   languages: [java, python]
   fromBaseline: true
   tags: [相等, 集合]
+
+- id: pitfall-java2py-division-semantics
+  featureId: java2python/numeric-types
+  title: "'/' 不再截断，算整数的地方悄悄变成了小数"
+  symptom: |
+    Java 里 `7 / 2` 得 3，搬到 Python 得 3.5。
+    算分页偏移、数组下标、整数比例时会得到浮点数，然后在下标位置上抛
+    `TypeError: list indices must be integers`，或者更糟 —— 一路算出一个错误的小数结果。
+  cause: |
+    Java 的 `/` 在两边都是整数时做整数除法，要浮点得显式转 `double`；
+    Python 的 `/` **永远**返回浮点，要整除必须写 `//`。
+    两边的默认行为正好相反，而两边都不会对结果类型提出异议。
+  fix: |
+    迁移算下标、算分页、算余数的代码时逐处确认：要整除就写 `//`。
+    注意 `//` 是**向下取整**，与 Java 的**向零截断**在负数上仍然不同 ——
+    要完全对齐 Java 用 `int(a / b)`。
+  severity: 3
+  languages: [java, python]
+  fromBaseline: true
+  tags: [数值, 运算]
+
+- id: pitfall-java2py-truthiness-empty-container
+  featureId: concepts-python/null-value
+  title: '`if not x` 把 0 和空字符串也当成了"没有"'
+  symptom: |
+    从 `if (x == null)` 直译成 `if not x`，于是 `x = 0`、`x = ""`、`x = []`
+    都走进了"没有值"的分支 —— 而这三种在 Java 里都是**合法的有值**。
+  cause: |
+    Java 的判空只有一个含义（是不是 null）；
+    Python 的 `if not x` 走的是真值规则，把 `None`、`0`、`""`、`[]`、`{}` 全部归为假。
+    一个是"空不空"，一个是"真不真"，含义不同却长得几乎一样。
+  fix: |
+    要判"是不是空值"就写 `x is None`，别用 `not x`。
+    确实想用真值语义时，在注释里写明"这里 0 和空串也算没有"，让后来的人知道是故意的。
+  severity: 2
+  languages: [java, python]
+  fromBaseline: true
+  tags: [真值, 空值]
+
+- id: pitfall-java2py-slice-is-copy
+  featureId: java2python/list-model
+  title: 改了切片却指望原列表跟着变
+  symptom: |
+    Java 里 `xs.subList(1, 3).set(0, 9)` 会写回原列表，于是迁到 Python 后
+    写 `xs[1:3][0] = 9`，原列表纹丝不动，而错误要很久之后才被发现。
+  cause: |
+    Java 的 `subList` 返回的是**视图**，改它等于改原列表；
+    Python 的切片返回的是**新列表**（浅拷贝），改它对原列表毫无影响。
+    两边语法都像是"取一段"，行为却相反。
+  fix: |
+    把 Python 的切片理解成"复制一份"，要改原列表就直接改原列表的下标。
+    反向迁移（Python → Java）时则要小心 `subList` 的写回 ——
+    想只要一份拷贝必须 `new ArrayList<>(xs.subList(a, b))`。
+  severity: 2
+  languages: [java, python]
+  fromBaseline: true
+  tags: [容器, 切片]
+
+- id: pitfall-java2py-lazy-iterator-once
+  featureId: java2python/collections-intro
+  title: 迭代器/生成器只能遍历一次，第二次拿到空
+  symptom: |
+    把一个 `map(...)` 的结果存进变量，第一次 `list(...)` 拿到数据，
+    第二次遍历得到空列表；或者 `for` 循环跑了两遍，第二遍什么都没做。
+  cause: |
+    Java 的 `List` 可以反复遍历，`Stream` 是一次性的 —— 而这两者在类型上就分开了。
+    Python 里 `map` / `filter` / 生成器表达式返回的都是**迭代器**，
+    但它们的类型看起来跟列表没什么区别，用起来要自己记着"这个已经耗尽了"。
+  fix: |
+    需要反复遍历时先固化：`xs = list(map(str, raw))`。
+    或者干脆用列表推导式替代 `map` / `filter` —— 它直接产出列表，
+    没有"一次性"这个属性。
+  severity: 2
+  languages: [java, python]
+  fromBaseline: true
+  tags: [容器, 迭代]
+
+- id: pitfall-java2py-no-compile-check
+  featureId: java2python/intro
+  title: 拼错的名字不会在编译期被拦住
+  symptom: |
+    `user.nmae`、`obj.lenght()`、`configure(rettry=5)` 这些在 Java 里
+    都是编译错误，迁到 Python 后要么在运行时抛 AttributeError，
+    要么**根本不报错**（拼错的键进了 `**kwargs`），直到线上才暴露。
+  cause: |
+    Java 有编译器替你把名字解析、类型匹配、参数个数全部查一遍；
+    Python 把这些检查全部推到了运行时，而且有一部分**根本没有检查** ——
+    动态属性、可变的 `__dict__`、`**kwargs` 都会让拼写错误合法化。
+  fix: |
+    这层保障得自己补回来，三条按性价比排：
+    ① 开类型检查工具（mypy / pyright）并让它在 CI 里跑；
+    ② 写测试覆盖主要路径 —— 这是最可靠的一条；
+    ③ 少用裸 `**kwargs`，对外 API 显式写出参数名。
+  severity: 3
+  languages: [java, python]
+  fromBaseline: true
+  tags: [类型, 工具链]
+
+- id: pitfall-java2py-string-format-spec
+  featureId: java2python/strings
+  title: '`%08.2f` 迁成 `:08.2f` 时宽度含义理解错'
+  symptom: |
+    Java 的 `String.format("%08.2f", n)` 与 Python 的 `f"{n:08.2f}"` 结果虽然一样，
+    但迁移时容易漏掉前导的 `0`（那是填充字符），写成 `f"{n:8.2f}"` 得到空格填充，
+    在需要定宽对齐（生成表格、拼报文）时会静默错位。
+  cause: |
+    两边的格式规格语法相似但**不是逐字对应**：Java 是 `%[flags][width][.precision]converter`，
+    Python 是 `[[fill]align][sign][#][0][width][,][.precision][type]`，
+    `%s` 在 Python 里没有直接对应物（直接插值即可），
+    而 Python 多出来的对齐符（`>10`、`^10`）在 Java 里要另想办法。
+  fix: |
+    迁移时不要逐字替换，而是**重新表达意图**：是要"定宽补零"还是"保留两位小数"。
+    宽度相关的格式化，迁完拿几组边界值（0、负数、超宽的数）对一遍输出。
+  severity: 1
+  languages: [java, python]
+  fromBaseline: true
+  tags: [字符串, 格式]
