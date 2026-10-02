@@ -1,0 +1,204 @@
+# java —— basics-python/08-functions 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/function-declare
+    equivalence: divergent
+    code: |
+      // @note! 没有"自由函数"：一切方法都必须挂在类（或接口）上
+      class Greeter {
+          static String greet(String name, String greeting) {
+              return greeting + "，" + name;
+          }
+      }
+      Greeter.greet("Ada", "你好");
+
+      record Point(int x, int y) {
+          int manhattan() { return Math.abs(x) + Math.abs(y); }   // @note 实例方法
+      }
+
+      // @note 返回类型写在签名里且必须写全（void 也要写），没有省略的余地
+      // @note 方法可以有多个重载版本，靠参数类型区分
+  - featureId: basics-python/default-params
+    equivalence: absent
+    code: |
+      // @note! 没有默认参数，只能靠重载或可选类型
+      static String greet(String name) { return greet(name, "你好"); }
+      static String greet(String name, String greeting) { return greeting + "，" + name; }
+
+      greet("Ada");
+      greet("Ada", "Hi");
+
+      // 参数一多，重载会组合爆炸。惯用替代是 Builder 或 record + 可选字段：
+      record Options(boolean pretty, boolean strict) {
+          static Options defaults() { return new Options(false, false); }
+          Options withPretty() { return new Options(true, strict); }
+      }
+
+      // @note 与"默认值定义时求值一次"那类坑无缘 —— 因为这个特性根本不存在
+    body: |
+      Java 没有默认参数，两种替代各有代价：
+
+      - **重载**：`greet(name)` 与 `greet(name, greeting)` 两个方法。
+        参数少时够用，参数到四五个就会组合出十几个重载。
+      - **Builder / record + wither 方法**：可读性好，但要多写一个类型，
+        而且对象构造多了一层间接。
+
+      与 Python 的默认参数相比，最大的差别是**默认值落在哪里**：
+      这边没有"默认值"这个运行时概念，因此也不存在"默认值在定义时求值一次"
+      那类共享可变对象的坑 —— 代价是每次要显式写出来。
+  - featureId: basics-python/kwargs
+    equivalence: absent
+    code: |
+      // @note! 完全没有关键字参数：调用处只有位置，名字完全不参与匹配
+      render(text, true, false);      // 这两个布尔各是什么意思，必须翻签名
+
+      // 唯一的缓解手段是传一个配置对象：
+      render(text, new RenderOptions(true, false));
+      // 或者用 Builder，让每个参数在调用处带上名字：
+      RenderOptions.builder().pretty(true).build();
+
+      // @note 没有 / 与 * 那样的强制具名机制，也没法"新增参数不破坏既有调用"
+    body: |
+      Java 没有关键字参数。调用处只按位置匹配，参数名在调用点完全不出现 ——
+      所以 `f(a, b, true, false)` 这种调用必须翻签名才能读懂。
+
+      惯用的缓解是**配置对象 + Builder**：把参数变成具名方法调用，
+      读起来确实清楚了，但要多写一个类型，而且运行时不会校验"有没有漏设"。
+
+      与 Python 相比还有一个连锁差异：Python 的 `*` 分隔符能让
+      "新增一个关键字参数"成为向后兼容的改动；在这里要新增参数，
+      要么加重载，要么改所有调用点。
+  - featureId: basics-python/rest-params
+    equivalence: analogous
+    code: |
+      static int sum(int... nums) {                     // @note 可变参数，收集成**数组**
+          return java.util.Arrays.stream(nums).sum();
+      }
+
+      sum(1, 2, 3);
+      sum(new int[]{1, 2, 3});                          // @note 数组可以直接传
+      sum();                                            // 空数组
+
+      // @note! 只能有一个可变参数，且必须在参数列表最后
+      // @note! 也**没有**"关键字可变参数"：没有 **kwargs 的对应物
+
+      static void f(String first, Object... rest) { }
+      // @note! 陷阱：f(null) 会让 rest 变成 null 而不是空数组
+  - featureId: basics-python/return-multiple
+    equivalence: absent
+    code: |
+      // @note! 一个方法只能返回一个值，没有元组
+      static int[] minMax(int[] xs) {                   // 要么塞进数组
+          return new int[]{java.util.Arrays.stream(xs).min().orElseThrow(),
+                           java.util.Arrays.stream(xs).max().orElseThrow()};
+      }
+
+      record MinMax(int lo, int hi) { }                 // 要么自定义一个类型（推荐）
+      static MinMax minMax2(java.util.List<Integer> xs) {
+          return new MinMax(java.util.Collections.min(xs), java.util.Collections.max(xs));
+      }
+
+      var r = minMax2(xs);
+      r.lo();                                           // @note 访问器是方法调用
+      // @note 也可以借用 Map.Entry / AbstractMap.SimpleEntry 当临时二元组，
+      // 但那是权宜之计，语义上不表达"这两个值是一对"
+    body: |
+      Java 的方法只能返回一个值，也没有元组类型。要返回多个值只有两条路：
+
+      1. **塞进数组或容器** —— `int[]` / `List<Object>`。
+         代价是丢类型信息，访问靠下标，读的人不知道第 1 个是什么。
+      2. **定义一个类型** —— `record MinMax(int lo, int hi)`。
+         多写几行，但返回值和调用处都自解释。
+
+      实践中第 2 条是主流，也是这门语言近年的方向：
+      `record` 让"为一对值起个名字"的成本降到一行。
+
+      与 Python 的 `return a, b` 相比，差的不只是写法 ——
+      Python 那边**"多个返回值"其实是元组**这个事实，让它可以被整体传递、
+      解包、用星号收集；这边一旦选定容器就固定了，后面再改要动所有调用点。
+  - featureId: basics-python/lambda-arrow
+    equivalence: divergent
+    code: |
+      // @note! lambda 必须是某个"函数式接口"的实例 —— 不能独立存在
+      java.util.function.Function<Integer, Integer> square = x -> x * x;
+      java.util.function.BiFunction<Integer, Integer, Integer> add = (a, b) -> a + b;
+
+      java.util.function.Supplier<String> s = () -> "值";
+      java.util.function.Consumer<String> c = x -> System.out.println(x);
+      java.util.function.Predicate<String> p = x -> !x.isEmpty();
+
+      square.apply(5);                  // @note! 调用要经过接口方法名，不能直接 square(5)
+
+      // @note 可以有语句块：x -> { int y = x * 2; return y; }
+      // @note! 捕获的外部局部变量必须是 effectively final（不能是可变容器里的可变量）
+      int n = 1;
+      java.util.function.IntUnaryOperator plus = x -> x + n;
+      // n = 2;                         // 编译错误
+  - featureId: basics-python/function-callback
+    equivalence: analogous
+    code: |
+      xs.stream().map(fn).toList();               // @note 方法是主语，函数是参数
+      xs.stream().filter(pred).toList();
+      xs.stream().reduce(0, Integer::sum);
+
+      xs.sort(java.util.Comparator.comparing(User::age));   // @note 方法引用 :: 是常见写法
+      xs.removeIf(pred);
+
+      // @note 与 Python 的 map(fn, xs) 相比，主语与参数的位置正好相反；
+      // 但都要求函数先存在，且都能用"方法引用/有名字的函数"代替匿名写法
+      // @note 方法引用比 lambda 更短也更可读，能用就用它
+  - featureId: basics-python/function-docstring
+    equivalence: absent
+    code: |
+      /**
+       * 打个招呼。
+       *
+       * @param name 名字
+       * @return 问候语
+       */
+      static String greet(String name) { return "你好，" + name; }
+
+      // @note! Javadoc 是**注释**，运行时拿不到：没有 __doc__ 这样的属性
+      // greet.getClass().getMethod("greet", String.class).getDocComment();   // 不存在
+
+      // @note 反射能拿到方法名、参数类型、注解，但拿不到文档文本
+      // @note 想从代码里提取文档只能解析源码（Javadoc 工具就是这样做的）
+    body: |
+      Java 的文档是**注释**（Javadoc），不是数据。运行时通过反射能拿到
+      方法名、参数类型、注解，但**拿不到文档文本** —— 它根本不进字节码
+      （除非特意开启参数名保留等编译选项，而那也只是一部分信息）。
+
+      由此带来两个连锁差异：
+
+      1. **文档无法被程序消费**。没有 `help(obj)` 这种运行时读文档的能力；
+         想生成文档站在构建期解析源码（`javadoc` 工具做的正是这件事）。
+      2. **没有"必须写在最前面"的约束**。注释放哪里都行，
+         所以也少了"位置不对就不是 docstring"这类静默失效 ——
+         代价是位置错了也没人提醒。
+
+      反过来，注解（`@Override`、`@Deprecated`）是**真的数据**，
+      能被反射读到并影响行为 —— 那是与注释完全不同的另一套机制。
+  - featureId: basics-python/arg-passing
+    equivalence: analogous
+    code: |
+      static void mutate(java.util.List<Integer> items) { items.add(4); }   // @note 看得见
+      static void rebind(java.util.List<Integer> items) { items = java.util.List.of(9); }  // 看不见
+
+      var xs = new java.util.ArrayList<>(java.util.List.of(1, 2, 3));
+      mutate(xs);                    // xs 变成 [1, 2, 3, 4]
+      rebind(xs);                    // xs 不变
+
+      // @note! 但基本类型是真的复制：int 传进去怎么改都不影响外面
+      static void bump(int n) { n += 1; }
+      int k = 1;
+      bump(k);                       // @note! k 还是 1 —— 这里与 Python 的"不可变"表现一致，
+                                     // 但原因不同：那边是 int 不可变，这边是值复制

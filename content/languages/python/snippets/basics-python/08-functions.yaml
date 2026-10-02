@@ -1,0 +1,141 @@
+# python —— basics-python/08-functions 的实现
+#
+# 本 topic 以 **Python 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/function-declare
+    equivalence: identical
+    code: |
+      def greet(name, greeting="你好"):
+          """打个招呼。"""
+          return f"{greeting}，{name}"
+
+      square = lambda x: x * x
+      # @note 匿名形式只能是一个表达式：不能有语句、不能多行、
+      # 不能写类型标注、不能有 docstring
+
+      # @note 只有 def 一种形式，没有"声明与表达式"之分
+  - featureId: basics-python/default-params
+    equivalence: identical
+    code: |
+      def add(item, bucket=[]):        # @note! 默认值在**定义时**求值一次
+          bucket.append(item)
+          return bucket
+
+      add(1)                           # [1]
+      add(2)                           # @note! [1, 2] —— 不是 [2]，所有调用共用同一个列表
+
+      def add_ok(item, bucket=None):   # 正解：None 做哨兵
+          if bucket is None:
+              bucket = []
+          bucket.append(item)
+          return bucket
+
+      add.__defaults__                 # @note 默认值就存在函数对象上，当然会被共享
+  - featureId: basics-python/kwargs
+    equivalence: identical
+    code: |
+      greet(name="Ada", greeting="Hi")      # @note 可以按名字传
+
+      def render(text, *, pretty=False, strict=False):
+          ...
+      # @note! * 之后的参数只能关键字传，语言层面强制调用方写清意图
+      render(text, pretty=True)             # 一眼看出这个 True 是什么
+      render(text, True)                    # @note! TypeError
+
+      def f(a, /, b, *, c):
+          ...
+      # @note / 之前的参数只能位置传，中间的两者都行
+      f(1, 2, c=3)
+  - featureId: basics-python/rest-params
+    equivalence: identical
+    code: |
+      def f(*args, **kwargs):
+          args        # @note 元组，不是列表
+          kwargs      # 字典
+
+      f(1, 2, x=3)    # (1, 2) 与 {'x': 3}
+
+      f(*xs)          # @note 调用侧摊开列表
+      f(**d)          # 摊开字典
+
+      def connect(**kwargs):
+          ...
+      connect(timout=30)   # @note! 不报错 —— 拼错的参数名被静默吞进 kwargs
+      # @note 对外 API 应该显式写参数名，只在真正需要透传时才用 **kwargs
+  - featureId: basics-python/return-multiple
+    equivalence: identical
+    code: |
+      def min_max(xs):
+          return min(xs), max(xs)     # @note 返回的是一个元组，不是"两个值"
+
+      lo, hi = min_max(xs)            # 解包
+      pair = min_max(xs)              # @note (1, 9) —— 整体就是一个元组
+      lo, *rest = min_max(xs)         # 星号收集剩余项
+
+      a, b, c = min_max(xs)           # @note! ValueError —— 数量不匹配会抛，不静默给 None
+      f(min_max(xs))                  # @note 这里传的是**一个**参数
+  - featureId: basics-python/lambda-arrow
+    equivalence: identical
+    code: |
+      square = lambda x: x * x
+      sorted(users, key=lambda u: u.age)     # @note 主要就用在这种短回调上
+      max(xs, key=lambda x: abs(x))
+
+      key = lambda x: x if x > 0 else 0      # 要条件就写条件表达式
+
+      # @note! 只能是一个表达式：不能有语句、不能多行、不能有标注与 docstring
+      # 超过一行的逻辑就该 def 出来 —— 硬塞进来只会让读者逐字符解析
+  - featureId: basics-python/function-callback
+    equivalence: identical
+    code: |
+      handlers = {"create": handle_create, "delete": handle_delete}
+      handlers[action](payload)              # @note 字典分派
+
+      def make_adder(n):
+          return lambda x: x + n             # 返回函数
+
+      map(fn, xs)                            # @note 函数在前
+      filter(fn, xs)
+      sorted(xs, key=fn)                     # @note 序列在前、函数作为关键字
+      functools.reduce(fn, xs, init)
+      # @note 内置高阶函数的参数顺序**不统一**，按签名查一次比记规律可靠
+  - featureId: basics-python/function-docstring
+    equivalence: identical
+    code: |
+      def greet(name):
+          """打个招呼。"""
+          return f"你好，{name}"
+
+      greet.__doc__      # @note '打个招呼。' —— 是字符串对象，不是注释
+      help(greet)        # 交互式帮助能直接读到
+
+      def bad():
+          x = 1
+          """这不再是 docstring"""
+      # @note! 必须是函数体的第一条语句，否则只是被丢掉的字符串字面量
+
+      # @note 因为它是"数据"，doctest 能直接执行文档里的示例并比对输出
+  - featureId: basics-python/arg-passing
+    equivalence: identical
+    code: |
+      def mutate(items):
+          items.append(4)        # @note 原地改内容：调用方看得见
+
+      def rebind(items):
+          items = [9]            # @note 重新绑定：调用方看不见
+
+      xs = [1, 2, 3]
+      mutate(xs)                 # xs 变成 [1, 2, 3, 4]
+      rebind(xs)                 # xs 不变
+
+      # @note 传的是**对象引用的副本**：既不是值传递也不是引用传递。
+      # 一句话记忆：改内容会传染，改绑定不会。

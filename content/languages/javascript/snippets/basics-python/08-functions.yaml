@@ -1,0 +1,140 @@
+# javascript —— basics-python/08-functions 的实现
+#
+# 本 topic 以 **Python 为基准**，JavaScript 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/function-declare
+    equivalence: divergent
+    code: |
+      function greet(name, greeting = "你好") { return `${greeting}，${name}`; }   // 声明
+
+      const greet2 = function (name) { };      // 函数表达式
+      const greet3 = (name) => `你好，${name}`; // 箭头函数
+      class C { greet() { } }                  // 类方法
+
+      hi();                                     // @note! 能跑：函数声明会被提升
+      function hi() { }
+
+      // Python 只有 def 一种形式，但箭头函数能承载多行逻辑，lambda 不能
+  - featureId: basics-python/default-params
+    equivalence: divergent
+    code: |
+      function add(item, bucket = []) {
+        bucket.push(item);
+        return bucket;
+      }
+
+      add(1);      // [1]
+      add(2);      // @note [2] —— 默认表达式每次调用都重新求值，这是安全的
+
+      // @note! 对照 Python 的 def add(item, bucket=[])：那边默认值只在定义时求值一次，
+      // 第二次调用会看到第一次塞进去的东西。同一行代码，两种结果
+  - featureId: basics-python/kwargs
+    equivalence: absent
+    code: |
+      // @note! 没有关键字参数：位置就是位置，名字不影响调用
+      function render(text, pretty, strict) { }
+      render(text, true, false);          // 这两个布尔是什么意思，读不出来
+
+      // 惯用替代是"传一个选项对象"：
+      function render2(text, { pretty = false, strict = false } = {}) { }
+      render2(text, { pretty: true });    // 调用处自带名字，但仍然不是语言强制的
+
+      // @note 拼错的键会被解构默认值静默兜住，不会报错
+    body: |
+      JavaScript 没有关键字参数。最接近的惯用法是"传一个选项对象并在参数位置解构"，
+      调用处写成 `render(text, { pretty: true })` —— 读起来确实清楚了，
+      但那是**约定**，不是语言约束：引擎不会检查键名，拼错一个字母就静默走默认值。
+
+      由此带来两个连锁差异：
+
+      1. **无法强制具名**。没有 `/` 与 `*` 那样的分隔符，只能在文档或类型里声明意图。
+      2. **位置参数一多就难读**。`f(a, b, true, false)` 这种调用必须翻签名才知道含义。
+
+      实践上通常靠 TypeScript 的类型检查把这条补回来 —— 但那是工具层，不是运行时。
+  - featureId: basics-python/rest-params
+    equivalence: analogous
+    code: |
+      function f(...args) { return args; }     // @note 收集成**数组**（Python 是元组）
+      f(1, 2, 3);                              // [1, 2, 3]
+
+      f(...xs);                                // @note 调用侧摊开，与 Python 的 *xs 对应
+
+      // @note! 没有"关键字可变参数"：没有 **kwargs 的对应物
+      // 想接住任意具名参数只能写成 f(opts)，自己在函数体里检查键
+
+      function g(a, ...rest) { }               // rest 必须在最后
+  - featureId: basics-python/return-multiple
+    equivalence: analogous
+    code: |
+      function minMax(xs) {
+        return [Math.min(...xs), Math.max(...xs)];   // @note 显式建数组
+      }
+
+      const [lo, hi] = minMax(xs);            // @note 解构接收
+      const pair = minMax(xs);                // [1, 9]
+      const [first, ...rest] = minMax(xs);
+
+      // @note! 必须先构造一个容器再返回，不像 Python 的 return a, b 那样由逗号直接成元组
+      // @note 数量不匹配时不会报错：多出来的解构变量是 undefined
+  - featureId: basics-python/lambda-arrow
+    equivalence: divergent
+    code: |
+      const square = (x) => x * x;
+      users.sort((a, b) => a.age - b.age);
+      xs.map((x) => x * 2);
+
+      const f = (x) => { const y = x * 2; return y; };   // @note! 箭头函数可以有语句块
+
+      // @note! 箭头函数没有自己的 this，继承外层 —— 这正是它被发明出来的原因
+      const obj = { name: "a", run() { return [1].map(() => this.name); } };
+
+      // Python 的 lambda 只允许一个表达式，连赋值都写不了；这边的限制宽得多
+  - featureId: basics-python/function-callback
+    equivalence: analogous
+    code: |
+      xs.map(fn);                     // @note 序列在前、函数在后
+      xs.filter(fn);
+      xs.reduce(fn, init);
+
+      sortBy(xs, fn);                 // 没有内置的 sorted(xs, key=fn)
+
+      const handlers = { create: handleCreate, delete: handleDelete };
+      handlers[action](payload);      // @note 字典分派两边一致
+
+      // @note 参数顺序恰好与 Python 的 map(fn, xs) 相反，
+      // 而 Python 的 sorted(xs, key=fn) 又是"序列在前" —— 两边都不统一，别找规律
+  - featureId: basics-python/function-docstring
+    equivalence: divergent
+    code: |
+      /**
+       * 打个招呼。
+       * @param {string} name 名字
+       * @returns {string} 问候语
+       */
+      function greet(name) { return `你好，${name}`; }
+
+      greet.toString();               // @note! 能拿到源码文本，但没有结构化的文档字段
+
+      // @note 注释在运行时**不是数据**：没有 __doc__ 那样的属性，
+      // help() 也无从读起 —— 要提取只能靠额外工具解析源码
+      // @note 注释写在哪里都行，不存在"必须是第一条语句"的约束
+  - featureId: basics-python/arg-passing
+    equivalence: identical
+    code: |
+      function mutate(items) { items.push(4); }     // @note 原地改：调用方看得见
+      function rebind(items) { items = [9]; }       // @note 重新绑定：调用方看不见
+
+      const xs = [1, 2, 3];
+      mutate(xs);                     // xs 变成 [1, 2, 3, 4]
+      rebind(xs);                     // xs 不变
+
+      // @note 完全一致：传的是对象引用的副本。改内容会传染，改绑定不会
+      // @note const 参数也拦不住 mutate：const 冻结的是绑定，不是内容
