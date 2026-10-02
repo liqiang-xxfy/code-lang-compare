@@ -9,241 +9,43 @@ features:
     title: 创建数组与列表
     kind: syntax
     summary: 数组定长、集合可变长，接口与实现要选两次
-    body: |
-      Java 有**两套**序列容器，先要选对：
-
-      ```java
-      int[] a = {1, 2, 3};                              // 数组：定长
-      List<Integer> xs = new ArrayList<>();             // 集合：可变长
-      List<Integer> fixed = List.of(1, 2, 3);           // 不可变字面量
-      ```
-
-      数组的长度在创建时定死，不能增删；集合可以增删，但只能装对象
-      （`List<int>` 非法，只能 `List<Integer>`），于是多了一层装箱。
-
-      集合还要**选两次**：声明用接口（`List` / `Set` / `Map`），构造选实现
-      （`ArrayList` / `LinkedList` / `LinkedHashMap`…）。实现不同，
-      性能与顺序保证就不同：
-
-      | 想要 | 选型 |
-      | --- | --- |
-      | 随机访问快 | `ArrayList` |
-      | 头部插入删除多 | `LinkedList`（但随机访问慢） |
-      | 按插入顺序 | `LinkedHashMap` |
-      | 按键排序 | `TreeMap` |
-
-      从 Java 出发看另两门语言，最该注意的反而是**这边多出来的这一层决定**：
-      那边通常只有一种序列类型、一种映射类型，不存在"选实现"这一步。
 
   - id: basics-java/array-index
     title: 索引与越界
     kind: behavior
     summary: 越界一律抛，而且没有负索引
-    body: |
-      数组用 `a[i]`，集合用 `xs.get(i)`，两者都**越界即抛**
-      （`ArrayIndexOutOfBoundsException` / `IndexOutOfBoundsException`）。
-
-      这条比"静默返回空值"安全得多：错误在访问点就暴露，
-      而不是把空值带到下游几百行之后才发作。
-
-      缺的是两类便利写法：
-
-      ```java
-      a[a.length - 1];       // 取末尾要自己算
-      // a[-1];              // 负索引不成立，会抛（不是"从末尾数"）
-      ```
-
-      另有一处容易忘的：`List.of(...)` 返回的是**不可变列表**，
-      但它的 `get` 行为与 `ArrayList` 一致 —— 区别只在增删会抛
-      `UnsupportedOperationException`。
-
-      集合的 `get` 只对 `List` 有；`Set` 无序不能按下标取，
-      `Map` 用 `get(key)`。所以"按下标访问"这件事不是所有集合都支持。
 
   - id: basics-java/array-mutate
     title: 增删元素
     kind: syntax
     summary: 数组改不了长度，集合的 remove 有下标与值之分
-    body: |
-      数组**长度固定**，只能改元素不能增删：
-
-      ```java
-      a[0] = 9;              // 能改
-      // 增删只能换集合
-      ```
-
-      集合的增删里有一处**必须记住的歧义** —— `remove` 有两个重载：
-
-      ```java
-      List<Integer> xs = new ArrayList<>(List.of(1, 2, 3));
-      xs.remove(1);                        // 按下标删 —— 删掉下标 1
-      xs.remove(Integer.valueOf(1));       // 按值删 —— 删掉值为 1 的那个
-      ```
-
-      参数是 `int` 就走下标，是对象就走值比较。这一条在没有装箱概念的
-      语言里根本不存在，但在这里是一个静默选错就删错东西的地方。
-
-      其余常用操作：`add(e)` 尾部追加、`add(0, e)` 头部插入（O(n)）、
-      `set(i, e)` 按下标改、`removeAll(collection)` 按值批量删。
 
   - id: basics-java/array-slice
     title: 切片与拷贝
     kind: behavior
     summary: subList 是视图不是拷贝，这一点最容易踩
-    body: |
-      取一段有三个入口，**语义各不相同**：
-
-      ```java
-      xs.subList(1, 3);                              // 视图：改它会写回原列表
-      new ArrayList<>(xs.subList(1, 3));             // 拷贝：独立的新列表
-      Arrays.copyOfRange(arr, 1, 3);                 // 数组的拷贝
-      ```
-
-      **`subList` 返回视图**是最需要记住的一条。带着"取一段就是复制一份"的
-      直觉去用它，会在"我改的是副本"的假设下改到原列表 ——
-      而且不会有任何报错。
-
-      反过来也有它的用处：想"用另一段替换这一段"时，视图可以直接配合
-      `clear()` + `addAll()` 原地改。
-
-      缺的同样是语法层的便利：没有步长（隔项取只能自己循环），
-      没有负索引，数组与集合的 API 还不一样（`copyOfRange` vs `subList`）。
 
   - id: basics-java/array-iterate
     title: 遍历
     kind: syntax
     summary: 增强 for 给值，但拿下标要手写循环
-    body: |
-      ```java
-      for (String x : xs) { }                 // 增强 for，直接给值
-      for (int i = 0; i < xs.size(); i++) { }  // 需要下标只能显式写循环
-      xs.forEach(x -> { });                    // 函数式写法
-      xs.forEach((k, v) -> { });               // Map 的 forEach 一次给键值
-      ```
-
-      **没有"值 + 下标"的现成组合**：另两门语言里都有 `enumerate` 那一类
-      内置写法，这里要自己维护下标变量，或者绕道 `IntStream.range`。
-
-      同样没有 `zip`：并行遍历两条序列要自己按下标取，或先构造出配对再流式处理。
-
-      **遍历时改集合会抛 `ConcurrentModificationException`** ——
-      这一点比"静默跳过元素"好，因为它当场告诉你出错了。
-      要删得走 `iterator.remove()` 或 `removeIf`：
-
-      ```java
-      xs.removeIf(x -> x.isEmpty());
-      ```
 
   - id: basics-java/array-map-filter
     title: 映射与过滤
     kind: behavior
     summary: Stream 是惰性的，而且只能消费一次
-    body: |
-      映射与过滤走 `Stream`：
-
-      ```java
-      xs.stream().map(x -> x * 2).filter(x -> x > 0).toList();
-      xs.stream().anyMatch(x -> x > 0);
-      xs.stream().mapToInt(Integer::intValue).sum();
-      ```
-
-      三处需要注意：
-
-      1. **流只能消费一次**。同一个 `stream()` 结果再次遍历会抛
-         `IllegalStateException: stream has already been operated upon or closed`。
-         要复用必须先 `toList()` 固化成集合。
-      2. **流是惰性的**，中间操作不会立刻执行 —— 直到遇到终结操作
-         （`toList` / `sum` / `forEach`）才真正跑一遍。
-      3. **求和要转原始类型流**。`Stream<Integer>` 没有 `sum()`，
-         得先 `mapToInt` —— 这一层也是"集合只能装对象"的连锁后果。
-
-      流还有 `reduce`、`collect`、`groupingBy` 这些聚合，表达能力比
-      另两门语言的内置函数强，代价是每个操作都要显式声明类型转换。
 
   - id: basics-java/array-sort
     title: 排序
     kind: behavior
     summary: 原地排序，比较规则靠 Comparator 显式给出
-    body: |
-      排序是**原地**的，而且返回 `void`：
-
-      ```java
-      Arrays.sort(arr);                       // 数组
-      Collections.sort(xs);                   // 集合
-      xs.sort(Comparator.comparingInt(User::age).thenComparing(User::name));
-      ```
-
-      要副本就得先复制：`xs.stream().sorted().toList()`。
-
-      **与另两门语言相比，这里多了一层"比较规则要显式给"**：
-
-      - 数值与字符串默认就有自然顺序（`Comparable`）
-      - 自定义类想排序，要么实现 `Comparable`，要么传 `Comparator`
-      - **多字段要显式串比较器**（`thenComparing`），没有"元组 key"那种写法
-
-      好消息是"元素不可比较"这类问题在**编译期**就过不去 ——
-      不会像"默认按字符串排序"那样静默排出错误的顺序。
-
-      稳定性：`Collections.sort` / `Arrays.sort`（对象数组）是**稳定**的；
-      但 `Arrays.sort` 作用在**原始类型数组**上时用的是双轴快排，不稳定 ——
-      原始类型本来就无法区分"相等"，所以实际没有影响。
 
   - id: basics-java/array-search
     title: 查找与包含
     kind: behavior
     summary: 三种意图三个方法，找不到的返回值各不相同
-    body: |
-      ```java
-      xs.contains(20);                      // boolean
-      xs.indexOf(20);                       // 下标；找不到返回 -1
-      xs.stream().filter(x -> x > 15).findFirst();          // Optional
-      xs.stream().filter(x -> x > 15).findFirst().orElse(null);   // 带默认值
-      ```
-
-      **三处的"找不到"各不相同**：`false` / `-1` / 空 `Optional`。
-      这本身不算问题，但迁移时容易把某一处的约定套到另一处上。
-
-      性能上要记住：`contains` 与 `indexOf` 都是 **O(n) 线性扫描**。
-      循环里反复判包含时应该先转成 `Set` 或 `Map`：
-
-      ```java
-      Set<String> allowed = Set.copyOf(bigList);
-      allowed.contains(x);                  // O(1)
-      ```
-
-      按条件找元素用流加 `findFirst`，这一行同时表达了"找什么"和
-      "没找到怎么办"（`orElse` / `orElseThrow`），比先过滤再判空清楚。
 
   - id: basics-java/array-unpack
     title: 展开与解包
     kind: behavior
     summary: 没有展开运算符，可变参数只在方法签名里
-    body: |
-      Java **没有展开运算符**，构造新列表只能复制加追加：
-
-      ```java
-      List<Integer> merged = new ArrayList<>(a);
-      merged.addAll(b);
-      ```
-
-      唯一沾边的是**可变参数**（`T...`），但它只作用于方法签名：
-
-      ```java
-      static int sum(int... nums) { }
-      sum(1, 2, 3);
-      sum(new int[]{1, 2, 3});     // 数组可以直接传
-      // sum(list);                // List 不行，得先 toArray
-      ```
-
-      可变参数有个绕不开的坑：它编译成数组，所以 `f((int[]) null)`
-      与 `f()` 是两回事 —— 前者在方法体里拿到的是 `null` 而不是空数组。
-
-      解包成多个变量同样不存在，只能逐项取值：
-
-      ```java
-      int x = p.x();
-      int y = p.y();
-      ```
-
-      另两门语言里 `[*a, *b]` 与 `a, b = pair` 都是一行的事，
-      这一层是它们明显更顺手的地方。

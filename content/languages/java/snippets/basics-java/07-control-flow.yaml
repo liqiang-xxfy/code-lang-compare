@@ -25,6 +25,34 @@ snippets:
       // if (1) { }                   // @note! 编译错误：条件必须是 boolean
       // if (items) { }               // @note! 同样编译不过
       if (items != null && !items.isEmpty()) { }
+    body: |
+      ```java
+      if (score >= 90) {
+          grade = "A";
+      } else if (score >= 60) {
+          grade = "B";
+      } else {
+          grade = "C";
+      }
+      ```
+
+      两处与另两门语言不同：
+
+      1. **括号必需**，单条语句的花括号也建议不省（省掉之后加一行就容易出错）。
+      2. **条件必须是 `boolean`**：`if (1)` 与 `if (items)` 都是编译错误。
+
+      第二条看起来只是啰嗦，但它消掉了一整类歧义：读代码的人不必先知道
+      变量类型，就能确定 `if (x)` 在问什么。另两门语言里
+      `if (x)` 可能是判空、判零、判空集合中的任意一种。
+
+      代价是判空写法更长：
+
+      ```java
+      if (items != null && !items.isEmpty()) { }
+      ```
+
+      这段代码在另两门语言里往往是 `if items:` 一行 ——
+      短是短，但读者得自己确认 `items` 是什么类型才知道它问的是什么。
   - featureId: basics-java/ternary
     equivalence: identical
     code: |
@@ -37,6 +65,32 @@ snippets:
           case 1 -> "一";
           default -> "其他";
       };
+    body: |
+      ```java
+      String label = age >= 18 ? "成年" : "未成年";
+      ```
+
+      结构是 `条件 ? 值 : 值` —— 条件写在最前面。
+
+      两处需要注意：
+
+      1. **条件必须是 `boolean`**：`n ? "有" : "无"` 编译不过，
+         必须写成 `n > 0 ? "有" : "无"`（而另两门语言里前者是合法的）。
+      2. **两条分支的类型要能统一**。一边 `int` 一边 `Integer` 会触发装箱，
+         一边 `String` 一边 `null` 则会把结果推成 `String` ——
+         多数时候没问题，但嵌套三元里容易出现意外的类型提升。
+
+      三元可以嵌套，但超过一层可读性掉得很快 ——
+      这一点三门语言一致，都建议拆成 `if`。
+
+      Java 14 起还有 `switch` 表达式可以替代多分支：
+
+      ```java
+      String s = switch (n) {
+          case 1 -> "一";
+          default -> "其他";
+      };
+      ```
   - featureId: basics-java/switch-match
     equivalence: identical
     code: |
@@ -63,6 +117,48 @@ snippets:
           case String str -> str;
           default -> "其他";
       };
+    body: |
+      传统 `switch` 有**穿透**：不写 `break` 就会继续执行下一个分支。
+
+      ```java
+      switch (command) {
+          case "go":
+              move();
+              break;              // 忘了这行就会继续执行 look()
+          case "look":
+          case "peek":            // 故意穿透：多个 case 共用一段逻辑
+              look();
+              break;
+          default:
+              unknown();
+      }
+      ```
+
+      Java 14 起的 **switch 表达式**换掉了这套规则：
+
+      ```java
+      String s = switch (command) {
+          case "go" -> "移动";              // 箭头形式，没有穿透
+          case "look", "peek" -> "观察";    // 多个值写在一起
+          default -> "未知";
+      };
+      ```
+
+      它必须穷尽（要么列全，要么有 `default`），而且结果是表达式可以直接赋值。
+      写 `case` 块时用 `yield` 返回值。
+
+      Java 21 的**模式匹配**才让 `switch` 具备结构化匹配能力：
+
+      ```java
+      String d = switch (obj) {
+          case Integer i when i > 0 -> "正整数";    // 类型模式 + 守卫条件
+          case String str -> str;                   // 绑定变量
+          default -> "其他";
+      };
+      ```
+
+      这时它才接近另两门语言里的结构化匹配。**新代码一律用箭头形式**，
+      老式 `switch` 只在维护既有代码时才会遇到。
   - featureId: basics-java/for-loop
     equivalence: identical
     code: |
@@ -76,6 +172,29 @@ snippets:
           xs.remove(x);                  // @note! ConcurrentModificationException，当场就报
       }
       xs.removeIf(x -> x.isEmpty());     // @note 要删走这条
+    body: |
+      两种形式：
+
+      ```java
+      for (int i = 0; i < 10; i++) { }     // C 风格三段式，是计数循环
+      for (String x : xs) { }              // 增强 for，是遍历
+      ```
+
+      增强 for 对应另两门语言里的"只有遍历"那种形式；三段式在这里是常客，
+      因为**没有 `enumerate` / `range` / `zip`**，需要下标时往往直接写三段式。
+
+      一条与另两门语言相反的规则：**循环变量声明在括号里，出了循环就不可见**。
+
+      ```java
+      for (int i = 0; i < 3; i++) { }
+      // System.out.println(i);      // 编译错误
+      ```
+
+      另两门语言里，一门是同样块级（一致），另一门循环变量出了循环还在。
+      从后者迁过来时，把"读循环结束后的 i"当成顺理成章，会直接编译不过。
+
+      遍历时改集合会抛 `ConcurrentModificationException` ——
+      比"静默跳过元素"更早暴露问题。
   - featureId: basics-java/while-loop
     equivalence: identical
     code: |
@@ -89,6 +208,28 @@ snippets:
       // while (1) { }                   // @note! 编译错误：条件必须是 boolean
 
       // @note 没有 for...else 那种"循环正常结束才执行"的子句
+    body: |
+      ```java
+      while (running) { tick(); }
+
+      do {
+          line = read();
+          handle(line);
+      } while (line != null);
+      ```
+
+      **`do...while` 是这里独有的一种循环**：它至少执行一次，
+      条件在末尾判定。另两门语言里都没有对应语法，其中一门惯用
+      `while True:` + `break` 代替 —— 那条路的问题是要自己保证有出口，
+      漏一个 `break` 就是死循环。
+
+      `do...while` 把"至少执行一次"写进了语法，所以不必手工维护出口条件。
+
+      两者与 `if` 一样，条件只能是 `boolean`：`while (1)` 编译不过。
+
+      `while` 也可以配合 `break` / `continue` 与标签使用（见「循环控制」）。
+      没有 `for...else` 那种"循环正常结束才执行"的子句 ——
+      要表达"没找到"必须额外维护标志位。
   - featureId: basics-java/loop-control
     equivalence: identical
     code: |
@@ -107,6 +248,32 @@ snippets:
 
       // @note! 没有 for...else：想表达"没找到"要额外维护标志位，或写成流
       var found = xs.stream().filter(this::matches).findFirst();
+    body: |
+      `break` 与 `continue` 一致，另外有**带标签**的形式：
+
+      ```java
+      outer:
+      for (var row : rows) {
+          for (var c : row) {
+              if (bad(c)) break outer;        // 一次跳出两层
+              if (skip(c)) continue outer;    // 跳到外层循环的下一次
+          }
+      }
+      ```
+
+      标签在一次要跳出多层嵌套时必须用 —— 否则只能靠标志位变量，
+      然后在每一层都检查一遍。另两门语言里都没有这个语法。
+
+      代价是**标签容易被滥用**：它让控制流不再局限于它所在的那一层，
+      读代码时必须在脑内维护一个"现在跳到哪儿了"的栈。
+      两层以内还算清楚，三层以上建议把内层抽成方法用 `return` 表达。
+
+      没有 `for...else`：想表达"找过了，没找到"，要么用标志位，
+      要么用流把它写成一个表达式：
+
+      ```java
+      var found = xs.stream().filter(this::matches).findFirst();
+      ```
   - featureId: basics-java/loop-index
     equivalence: identical
     code: |
@@ -118,6 +285,32 @@ snippets:
       map.forEach((k, v) -> { });             // @note Map 是例外，一次给键值
 
       // @note! 也没有 zip：并行遍历要自己按下标取，长度不一致也要自己处理
+    body: |
+      Java **没有"值 + 下标"的现成写法**：
+
+      ```java
+      for (int i = 0; i < xs.size(); i++) {
+          String x = xs.get(i);
+      }
+
+      IntStream.range(0, xs.size()).forEach(i -> { });   // 流形式
+      ```
+
+      对比另两门语言：一门有 `enumerate`，另一门有 `forEach((x, i) => …)` ——
+      都是一行的事，而这里要自己维护下标变量。
+
+      并行遍历两条序列同样没有 `zip`：
+
+      ```java
+      for (int i = 0; i < Math.min(a.size(), b.size()); i++) {
+          // 用 a.get(i) 与 b.get(i)
+      }
+      ```
+
+      长度不一致时，`zip` 的语义（截断到最短）也要自己显式写出来 ——
+      好处是"长度不同怎么办"这件事不会被隐藏起来。
+
+      `Map` 的 `forEach` 是个例外，它一次给键和值；`entrySet()` 同理。
   - featureId: basics-java/range-iteration
     equivalence: identical
     code: |
@@ -129,6 +322,25 @@ snippets:
 
       // @note! 流是一次性的，同一个 range 结果不能遍历两次；
       // 也没有 range 类型：不能先存下来再决定怎么用
+    body: |
+      Java **没有 `range` 类型**，只有流上的两个静态方法：
+
+      ```java
+      IntStream.range(0, 5);          // 0,1,2,3,4 —— 左闭右开
+      IntStream.rangeClosed(0, 5);    // 0,1,2,3,4,5 —— 闭区间要显式选
+      ```
+
+      三个连锁差异：
+
+      1. **左闭右开要显式选**。两个名字相近，写错了就是经典的 off-by-one。
+      2. **流是一次性的**。`IntStream.range(0, 5)` 产出的流遍历一次就耗尽，
+         要复用必须先 `toArray()` 或 `toList()` 物化。
+      3. **元素类型**。`IntStream` 只处理原始 `int`，要当对象用
+         （放进 `List`、参与泛型）必须 `boxed()`。
+
+      另两门语言里都有一个惰性、可反复遍历、能 `len()` 的区间对象；
+      这里没有对应物。所以实践里绝大多数计数场景直接写
+      `for (int i = 0; i < n; i++)` 更清楚，流只在需要接 `map` / `filter` 链时才划算。
   - featureId: basics-java/exception-flow
     equivalence: identical
     code: |
@@ -150,3 +362,39 @@ snippets:
           in.read();
       }   // 自动关闭，比 finally 里手写 close 安全
       // @note! 只对实现了 AutoCloseable 的类型有效
+    body: |
+      ```java
+      try {
+          risky();
+      } catch (IOException | ParseException e) {   // 多重捕获，同一个变量
+          fallback();
+      } finally {
+          cleanup();
+      }
+      ```
+
+      三处与另两门语言不同：
+
+      1. **受检异常**：可能抛出的异常必须在方法签名里 `throws` 声明，
+         或者当场捕获。这是这里独有的一层负担 —— 它把"我知道这里会失败"
+         变成类型信息，代价是一次小改动会沿着调用链污染签名。
+         常见处置是在边界处转成非受检异常。
+      2. **没有 `else` 子句**。"只捕获可能抛的那一句、其余逻辑放外面"
+         只能靠**缩小 try 块的范围**来近似。
+      3. **`catch` 不能省略类型**：每种要处理的异常都得写出来，
+         `catch (Exception e)` 是最后的兜底（它会同时接住受检与非受检）。
+
+      资源释放用 `try-with-resources`：
+
+      ```java
+      try (var in = Files.newInputStream(path)) {
+          in.readAllBytes();
+      }
+      ```
+
+      它保证无论是否抛异常都会关闭，而且能正确处理"关闭本身抛异常"的情况 ——
+      手写 `finally` 里 close 则会把原始异常吞掉。但它**只对实现了
+      `AutoCloseable` 的类型有效**，第三方类没实现就只能退回手写。
+
+      顶层还有一个不该捕获的类别：`Error`（`OutOfMemoryError` 等）是
+      JVM 层面的，捕获它通常意味着程序已经处在不可恢复的状态。

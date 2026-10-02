@@ -11,7 +11,7 @@ import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
 import { pickColumns } from '@/composables/useVisibleColumns'
 import { getCachedBlockDiffs, getCachedDiff } from '@/content/diff'
-import { chapterPathOf, manifest, sectionDefOf } from '@/content/repository'
+import { chapterPathOf, manifest, sectionDefOf, sectionIsMulti } from '@/content/repository'
 import { useContentStore } from '@/stores/content'
 import { useLanguageStore } from '@/stores/language'
 import { useUiStore } from '@/stores/ui'
@@ -40,6 +40,17 @@ const topicCfg = computed(() => {
   return id ? (manifest.topics.find((t) => t.id === id) ?? null) : null
 })
 const featureBaseline = computed(() => topicCfg.value?.baseline ?? languages.effectiveBaseline)
+
+/**
+ * 本页所属板块是不是多列并排（基础语法 / 心智模型）。
+ *
+ * 多列板块不渲染共享说明 `feature.bodyHtml` —— 说明已下沉到每列代码下方，
+ * 与章节页保持同一种呈现。判据与章节页同源（板块注册表的 `columns`）。
+ */
+const isMultiSection = computed(() => {
+  const s = topicCfg.value?.section
+  return s ? sectionIsMulti(s) : false
+})
 
 /**
  * 列顺序：基准恒在最左；对级 topic 锁 `[基准, 目标]`，基准级 topic 跟随运行时勾选。
@@ -201,7 +212,13 @@ usePageMeta(
       </p>
     </section>
 
-    <MarkdownContent v-if="feature.bodyHtml" :html="feature.bodyHtml" class="pc-panel" style="margin-bottom: 18px" />
+    <!-- 同章节页：多列板块的说明在每列代码下方，本页不再有共享说明 -->
+    <MarkdownContent
+      v-if="feature.bodyHtml && !isMultiSection"
+      :html="feature.bodyHtml"
+      class="pc-panel"
+      style="margin-bottom: 18px"
+    />
 
     <EquivalenceBaselineNote />
 

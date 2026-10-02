@@ -20,6 +20,20 @@ snippets:
       字符串"""
 
       s1[0]                    # @note 'h' —— 长度为 1 的字符串，没有独立的字符类型
+    body: |
+      单引号与双引号**完全等价**，没有性能或语义差别，只是省转义的风格选择：
+
+      ```python
+      'he said "hi"'      # 用单引号省一个转义
+      "it's fine"
+      ```
+
+      三引号（`"""..."""` 或 `'''...'''`）是 Python 独有的记号，用来写多行字符串，
+      也惯例用作 docstring。
+
+      一个容易忽略的前提：**Python 没有字符类型**。`s[0]` 得到的是长度为 1 的字符串，
+      不是某个"字符"对象。所以 `'a'` 与 `"a"` 是同一个东西，不存在"单引号=字符、
+      双引号=字符串"这种区分。这条在需要与"真的有 char 类型"的语言对照时才会显出来。
   - featureId: basics-python/template-string
     equivalence: identical
     code: |
@@ -33,6 +47,23 @@ snippets:
       f"{joined}"               # 先接住再插值
 
       f"{value=}"               # @note 调试简写，输出 value=42
+    body: |
+      f-string 是在字符串前加 `f`，花括号里直接放表达式：
+
+      ```python
+      f"你好，{name}！"
+      f"{price * 1.1:.2f}"
+      f"{user.name} 有 {len(items)} 项"
+      ```
+
+      两条限制要记住：
+
+      1. **`{}` 里不能写反斜杠**。`f"{'\n'.join(xs)}"` 是语法错误 ——
+         要么先用变量接住（`joined = "\n".join(xs)`），要么用三引号包外层。
+      2. 花括号本身要双写：`f"{{literal}}"` 得到 `{literal}`。
+
+      另外有个调试用的简写（3.8+）：`f"{value=}"` 会同时输出变量名和值，
+      得到 `value=42`，排查时比手写 `f"value={value}"` 省事。
   - featureId: basics-python/string-methods
     equivalence: identical
     code: |
@@ -43,6 +74,25 @@ snippets:
       "abc".find("z")            # -1 —— 找下标才用 find，找不到给 -1
       "7".zfill(3)               # '007'
       "a,b".split(",")           # ['a', 'b']
+    body: |
+      Python 的方法名**全部小写、下划线分隔**，不存在驼峰：
+
+      | 意图 | Python |
+      | --- | --- |
+      | 去首尾空白 | `strip()` / `lstrip()` / `rstrip()` |
+      | 大小写 | `upper()` / `lower()` |
+      | 判断包含 | `"a" in s`（返回布尔） |
+      | 找下标 | `s.find(x)`（找不到返回 `-1`） |
+      | 左补零 | `s.zfill(8)` |
+      | 替换 | `s.replace(a, b)` |
+      | 切分 | `s.split(sep)` / `s.splitlines()` |
+
+      最常用的判断包含是 **`in` 运算符**，不是方法调用：`if "err" in line:`。
+      这与"调用一个返回布尔的 includes/contains 方法"是两种写法，
+      迁移时最容易写成 `s.contains(...)` —— 那个方法不存在。
+
+      `strip()` 不带参数会去掉**所有**空白（含 `\n`、`\t`），
+      这是读文件时最常用的去换行写法：`line.strip()`。
   - featureId: basics-python/multiline-string
     equivalence: identical
     code: |
@@ -53,6 +103,28 @@ snippets:
       "\n".join(lines)           # @note! 分隔符是主语 —— 与"数组调用 join"正好相反
       ", ".join(map(str, nums))  # @note join 只收字符串，数字要先转
       "".join(chunks)            # 不带分隔符
+    body: |
+      多行用三引号，换行原样保留：
+
+      ```python
+      text = """第一行
+      第二行
+      第三行"""
+      ```
+
+      注意首行紧跟 `"""` 时不会多出空行，但**缩进会被原样带进去** ——
+      在函数里写三引号字符串，内容会跟着缩进，这是常见的意外。
+
+      拼接列表时，**分隔符是主语**：
+
+      ```python
+      "\n".join(lines)     # 用换行连接
+      ", ".join(names)     # 用逗号空格连接
+      "".join(chunks)      # 不带分隔符（注意是空串调用）
+      ```
+
+      这个"谁调用谁"与"数组调用 join"的写法正好相反，是最高频的写错点之一。
+      `join` 只接受字符串序列 —— 有数字要先 `map(str, xs)` 或列表推导转换。
   - featureId: basics-python/fstring-format
     equivalence: identical
     code: |
@@ -64,6 +136,25 @@ snippets:
       f"{255:x}"                 # 'ff'
 
       format(255, "x")           # @note 同一套规格串，用于动态拼格式时
+    body: |
+      Python 的格式规格直接写在 f-string 的冒号后面，一个迷你语言：
+
+      ```python
+      f"{n:.2f}"        # 3.14        两位小数
+      f"{n:08.2f}"      # 00003.14    总宽 8，不足补零
+      f"{n:>10}"        # 右对齐宽度 10
+      f"{n:,}"          # 1,234,567   千分位
+      f"{p:.1%}"        # 12.3%       百分比
+      f"{n:+.1f}"       # +3.1        强制带符号
+      ```
+
+      "总宽度"这一点是别处少见的：`08.2f` 表达的是"整串占 8 个字符、其中小数 2 位"，
+      而不是"整数部分 8 位"。对齐、填充字符、进制也都在同一个语法里
+      （`{n:x}` 十六进制、`{n:b}` 二进制、`{n:o}` 八进制）。
+
+      底层其实是 `format(value, spec)`，f-string 只是把它内联了。
+      所以同样的规格字符串也能用在 `str.format()` 和 `format()` 上，
+      三处语法完全一致 —— 想动态拼格式串时用 `format(n, spec)` 即可。
   - featureId: basics-python/string-index-slice
     equivalence: identical
     code: |
@@ -75,6 +166,27 @@ snippets:
 
       s[2:999]                   # @note 'cdef' —— 切片越界不报错，有多少给多少
       s[999]                     # @note! IndexError —— 索引越界是会抛的
+    body: |
+      Python 的索引与切片是一套统一的语法，表达力比多数语言强：
+
+      ```python
+      s = "abcdef"
+      s[0]        # 'a'
+      s[-1]       # 'f' —— 负索引从末尾数
+      s[1:4]      # 'bcd' —— 左闭右开
+      s[:3]       # 'abc'
+      s[3:]       # 'def'
+      s[::2]      # 'ace' —— 步长
+      s[::-1]     # 'fedcba' —— 一行反转
+      ```
+
+      两条与别处不同、需要专门记的：
+
+      1. **切片越界不报错**，会尽量返回能取到的部分：`s[2:999]` 得 `'cdef'`。
+         但**索引越界报 `IndexError`**：`s[999]` 直接抛。
+      2. 切片总是**返回新字符串** —— 字符串不可变，任何"修改"都是新对象。
+
+      切片对 `list` / `tuple` 同样适用，语义完全一致，所以这套语法学一次到处能用。
   - featureId: basics-python/string-regex
     equivalence: identical
     code: |
@@ -87,6 +199,26 @@ snippets:
 
       re.sub(r"(\w+)@(\w+)", r"\2@\1", "a@b")   # @note 'b@a' —— 替换串也用原始字符串
       # @note 正则串一律加 r 前缀：不加的话 "\b" 会变成退格字符
+    body: |
+      三件必须记住的事：
+
+      1. **正则串一律加 `r` 前缀**。`re.compile(r"\d+")`。
+         不加的话 `"\d"` 会被当成无效转义（3.12 起还会报警告），
+         而 `"\b"` 会直接变成退格字符 —— 这类 bug 极难发现。
+      2. **`re.match` 只从开头匹配**，`re.search` 才是任意位置：
+
+         ```python
+         re.match(r"\d+", "a1")    # None
+         re.search(r"\d+", "a1")   # 匹配到 1
+         ```
+
+         这条是最高频的误用：想要"包含"却写了 `match`，得到一片 `None`。
+      3. **命名分组是 `(?P<name>...)`**，取值用 `m.group("name")`，
+         不是数字下标（虽然也可以用 `m.group(1)`）。
+
+      `re.findall` 直接返回字符串列表（有分组时返回元组列表），
+      比 `finditer` + `.group()` 更适合简单场景。要替换且引用分组，
+      用 `re.sub(r"(\w+)@(\w+)", r"\2@\1", s)` —— 注意替换串也建议用原始字符串。
   - featureId: basics-python/string-concat
     equivalence: identical
     code: |
@@ -100,6 +232,27 @@ snippets:
       for p in parts:
           s += p                 # @note! 循环里 += 会退化成 O(n²)：每次都要新建并复制
       # 片段多时先收集到列表，最后一次性 join
+    body: |
+      `+` 只接受**两边都是字符串**：
+
+      ```python
+      "a" + 1        # TypeError —— 不做隐式转换
+      "a" + str(1)   # 'a1'
+      ```
+
+      要混类型就上 f-string：`f"a{n}"`。这是最省事的写法，
+      但注意 f-string 也在每次执行时做一次格式化，超高频循环里不一定最快。
+
+      拼接大量片段用 `join`：
+
+      ```python
+      "".join(parts)
+      ",".join(map(str, nums))
+      ```
+
+      **在循环里反复 `s += piece` 是常见的性能陷阱**：字符串不可变，
+      每次 `+=` 都要分配一个新串并复制，整体退化成 O(n²)。
+      片段数量多时先收集到列表、最后一次性 join。
   - featureId: basics-python/string-raw-escape
     equivalence: identical
     code: |
@@ -111,3 +264,23 @@ snippets:
 
       "\U0001F600"               # @note 8 位 Unicode 转义要补足前导零
       "\N{GREEK SMALL LETTER ALPHA}"
+    body: |
+      转义序列本身是通用的：`\n`、`\t`、`\\`、`\'`。
+
+      需要字面反斜杠的场景（正则、Windows 路径）用 `r` 前缀，可读性差别很大：
+
+      ```python
+      path = r"C:\new\test"        # 没有 r 的话 \n 和 \t 会被转义
+      pattern = r"\d+\.\d+"
+      ```
+
+      两条限制：
+
+      1. **`r` 串不能以奇数个反斜杠结尾** —— `r"\"` 是语法错误（`r"\\"` 可以）。
+         写正则拼路径时偶尔会撞上。
+      2. `r` 只影响**字面量解析**，不改变字符串本身的值 ——
+         `r"\n"` 是长度为 2 的字符串（反斜杠 + n），不是换行。
+
+      Unicode 转义用 `\uXXXX`（4 位）或 `\UXXXXXXXX`（8 位），
+      后者需要补足前导零：`\U0001F600` 而不是 `\U1F600`。
+      按名字写用 `\N{GREEK SMALL LETTER ALPHA}`，可读性好但少有人用。

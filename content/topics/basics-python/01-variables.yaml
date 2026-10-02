@@ -9,134 +9,43 @@ features:
     title: 变量声明
     kind: syntax
     summary: Python 没有声明语句，赋值本身就是声明
-    body: |
-      Python 里**不存在"声明"这个动作**：`count = 0` 既是把名字 `count` 绑定到一个新对象上，
-      也是这个词法的全部形式。没有类型标注语句（`x: int = 0` 是注解，解释器不强制），
-      没有 `let` / `const` / `var`，也没有 Java 那种「先声明后赋值」的两步。
-
-      从 Python 出发看别的语言，最容易低估的就是这一点：JS 与 Java 的
-      「声明」同时在做两件事 —— 引入名字、并限制这个名字能不能被重新赋值和在哪里可见。
-      Python 只有前者。
 
   - id: basics-python/var-scope
     title: 作用域
     kind: behavior
     summary: 块不产生作用域，函数才是边界
-    body: |
-      Python 的作用域单元只有**模块、函数、类**三种，`if` / `for` / `while` / `with`
-      的缩进块**不构成作用域**。所以：
-
-      ```python
-      for i in range(3):
-          pass
-      print(i)   # 2 —— 循环变量在循环结束后依然存在
-      ```
-
-      这是从 Python 出发最容易「反向踩坑」的地方：JS 的 `let` 是块级的，
-      Java 的局部变量也是块级的。同一段缩进结构在三门语言里的可见范围完全不同。
 
   - id: basics-python/hoisting
     title: 变量提升
     kind: behavior
     summary: Python 没有编译期提升，只有运行时名字查找
-    body: |
-      Python 在执行函数体之前会先扫一遍**局部名字**（这让 `global` / `nonlocal` 有确定语义），
-      但不会像 JS 的 `var` 那样把名字提前初始化为 `undefined`，
-      也不会像 Java 那样给字段填默认值。访问一个还没绑定的名字一律是 `NameError`。
-
-      值得记住的副作用：因为名字在**整个函数体内**都算局部，
-      在函数末尾才赋值的名字，在函数开头读它是 `UnboundLocalError` 而不是读到外层的同名变量。
-      这条规则是 Python 独有的，迁移时最容易被误诊成"作用域没生效"。
 
   - id: basics-python/const-immutability
     title: 常量与不可变性
     kind: behavior
     summary: 没有常量语法，不可变靠类型而不是靠声明
-    body: |
-      Python **没有 `const`**。全大写命名（`MAX_RETRY`）只是社区约定，解释器不会阻止重新赋值。
-
-      真正不可变的是**对象本身**：`int` / `str` / `tuple` / `frozenset` 不可变，
-      `list` / `dict` / `set` 可变。所以 Python 的"常量"策略是：
-      选一个不可变类型放进去（比如用 `tuple` 而不是 `list`），而不是给名字加一个修饰符。
-
-      对照来看，JS 的 `const` 冻结的是**绑定**而不是对象（想冻结对象要 `Object.freeze`），
-      Java 的 `final` 冻结绑定、字段内容仍可变 —— 三者都容易被误读成"内容不可变"。
 
   - id: basics-python/naming-convention
     title: 命名与大小写惯例
     kind: syntax
     summary: snake_case vs camelCase
-    body: |
-      唯一一处「纯风格、无语义」的差异，但迁移时满屏的命名不一致会显著增加阅读阻力。
-      Python 用 `snake_case`（PEP 8），JS / Java 用 `camelCase`；
-      类名三者都是 `PascalCase`，常量三者都习惯 `SCREAMING_SNAKE_CASE`。
-
-      唯一带语义的一条：Python 用前导下划线表示「非公开」（`_internal`），
-      而 JS / Java 没有对应的语言级约定，只能靠文档。
 
   - id: basics-python/var-destructuring
     title: 解包赋值
     kind: syntax
     summary: Python 的可迭代解包比 JS 的数组解构更强，但没有按键解构
-    body: |
-      Python 的 `a, b = pair` 是对**任意可迭代对象**解包，并且支持星号收集剩余项：
-
-      ```python
-      first, *rest = [1, 2, 3]      # first=1, rest=[2, 3]
-      ```
-
-      这一层 Python 比 JS 强 —— JS 的数组解构必须显式标注剩余项 `[first, ...rest]`，
-      而且只能作用在可迭代对象上（不能作用于普通对象）。
-
-      反过来，Python **没有按键解构**：JS 的 `const { name } = user` 在 Python 里
-      只能写 `user["name"]` 或 `user.get("name")`。想按名字取值就得显式查字典。
 
   - id: basics-python/var-multiple-assign
     title: 多重赋值与交换
     kind: syntax
     summary: a, b = b, a 靠「先构造元组再解包」
-    body: |
-      Python 的 `a, b = b, a` 一行交换，语义是**先构造右侧元组、再逐项绑定**，
-      因此不会出现中间态。JS 要用数组解构 `[a, b] = [b, a]` 才能达到同样效果，
-      Java 则必须借助临时变量。
-
-      另一个容易混淆的点是链式赋值：`a = b = 0` 在 Python 与 JS 里都合法，
-      但都是「先把 0 绑定给 b，再把 b 的值绑定给 a」——
-      当右侧是**可变对象**时（`a = b = []`），两个名字指向同一个对象，
-      改其中一个另一个也会变。
 
   - id: basics-python/var-global-declaration
     title: 全局变量与 global
     kind: behavior
     summary: 函数内赋值默认创建局部名字，要改外层必须显式声明
-    body: |
-      Python 的规则是：**函数体内只要有对某个名字的赋值，这个名字就整个函数内都是局部的**。
-      所以「读取模块级变量」不需要任何声明，而「修改它」必须写 `global`；
-      修改外层函数的变量要写 `nonlocal`。
-
-      ```python
-      counter = 0
-
-      def bump():
-          global counter
-          counter += 1
-      ```
-
-      这条「必须声明意图」的设计能挡掉大量意外覆盖，但也意味着逐行翻译 JS 代码时，
-      原本能跑的代码在 Python 里会静默变成「改了个局部变量，外面没变」——
-      不报错，只是没生效。
 
   - id: basics-python/var-shadowing
     title: 变量遮蔽
     kind: behavior
     summary: 遮蔽内置名是 Python 特有的高危操作
-    body: |
-      Python 允许遮蔽任何外层名字，但因为**块不产生作用域**，在 `if` 里重复赋值
-      并不是遮蔽 —— 它就是改同一个名字。
-
-      真正的坑是**遮蔽内置名**：`list = [1, 2]`、`id = 1`、`str = "x"`
-      会把内置函数盖掉，之后同一模块里所有 `list(...)` 都会报
-      `TypeError: 'list' object is not callable`，而且报错位置和出错原因隔得很远。
-
-      JS / Java 里同样能遮蔽，但影响范围通常限于当前块，
-      不会像 Python 这样污染整个模块。

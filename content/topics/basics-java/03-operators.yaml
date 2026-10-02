@@ -9,226 +9,43 @@ features:
     title: 相等比较
     kind: behavior
     summary: == 在原始类型与对象上是两回事
-    body: |
-      这是从 Java 出发看别的语言时，**最需要先放下的一条直觉**：
-      在这边 `==` 的含义取决于操作数的类型。
-
-      ```java
-      int a = 1, b = 1;
-      a == b;                        // true —— 原始类型比的是值
-
-      String s1 = new String("x"), s2 = new String("x");
-      s1 == s2;                      // false —— 对象比的是引用身份
-      s1.equals(s2);                 // true —— 值比较必须显式调 equals
-      ```
-
-      更隐蔽的是**装箱缓存**：`Integer` 在 `-128..127` 之间会复用同一个对象，
-      于是 `Integer a = 127, b = 127; a == b` 是 `true`，换成 `128` 就变成 `false`。
-      同一行代码，只因为数值大小不同而行为不同。
-
-      要建立的反射是：**看到 `==` 先问两边的类型**。
-      原始类型随便比；对象一律 `equals`；可能为 null 时用 `Objects.equals`。
-      而另两门语言里 `==` 只有一种含义（比内容），不需要先做这个判断。
 
   - id: basics-java/arithmetic
     title: 算术运算
     kind: syntax
     summary: 整数除法向零截断，取余符号跟着被除数
-    body: |
-      整数与浮点是**两套运算规则**：
-
-      ```java
-      7 / 2       // 3      —— 整数除法，向零截断
-      -7 / 2      // -3
-      7 % 3       // 1
-      -7 % 3      // -1     —— 符号跟着被除数走
-      ```
-
-      想要"向下取整"的语义（负数时结果与向零不同），用 `Math.floorDiv` 与
-      `Math.floorMod` —— 它们必须**成对使用**，只换一个会让商和余数对不上。
-
-      两处容易忽略的溢出：
-
-      ```java
-      Math.abs(Integer.MIN_VALUE);   // 还是负数 —— 取绝对值自己就溢出了
-      Integer.MAX_VALUE + 1;         // 回绕成最小值
-      ```
-
-      `Math.abs` 那条尤其阴：它返回的是"绝对值"却带着负号，
-      后续比较大小会得到完全错误的结论。
-
-      复合赋值有隐式窄化：`byte b = 1; b += 1;` 合法，而 `b = b + 1` 编译错误 ——
-      `+=` 等价于带强转的加法。这条在别的语言里通常没有对应物。
 
   - id: basics-java/logical-short-circuit
     title: 逻辑运算与短路
     kind: behavior
     summary: 短路有效，但结果只能是 boolean
-    body: |
-      `&&` 与 `||` **短路求值**，这一点与另两门语言一致：
-
-      ```java
-      boolean ok = flag && check();    // flag 为 false 时 check() 不执行
-      ```
-
-      差别在返回什么：这里的逻辑运算**结果只能是 `boolean`**，
-      不存在"返回操作数本身"的写法。
-
-      于是"有值就取、没有就兜底"只能写成三元或 `Optional`：
-
-      ```java
-      String r = (s != null) ? s : "默认";
-      ```
-
-      另有一个必踩的坑：`&` 与 `|` 对 `boolean` 也合法，但它们**不短路**，
-      两边都会求值。写成 `if (x != null & x.isEmpty())` 看着像判空，
-      实际上一旦 `x` 是 null 就抛 NPE —— 少写一个 `&` 是最难看出来的一类笔误。
 
   - id: basics-java/truthiness
     title: 真值判断
     kind: behavior
     summary: 不存在真值转换，条件位置只接受 boolean
-    body: |
-      Java **没有真值转换**：`if` / `while` / `&&` 的条件位置只接受 `boolean`。
-
-      ```java
-      if (1) { }                    // 编译错误
-      if (items) { }                // 编译错误
-      if (items.isEmpty()) { }      // 必须显式写出意图
-      ```
-
-      看起来只是啰嗦，但它消掉了一整类问题：**读代码的人不需要先知道变量类型**，
-      就能确定 `if (x)` 在问什么。另两门语言里 `if (x)` 可能是判空、判零、
-      判空集合中的任意一种，必须回看定义才知道。
-
-      代价是没有简写。想表达"可能没有就用默认值"，`Optional` 只能覆盖
-      "值是 null"这一种情况；"值是 0 或空串"这类需要另想办法。
 
   - id: basics-java/optional-chaining
     title: 空值安全取值
     kind: behavior
     summary: 没有安全导航运算符，只能逐层判空或用 Optional 链
-    body: |
-      Java **没有** `?.` 这种安全导航语法，链式取值必须自己写：
-
-      ```java
-      String host = null;
-      if (cfg != null && cfg.db != null) {
-          host = cfg.db.host;
-      }
-      ```
-
-      官方推荐的替代是把"可能没有"编码进类型：
-
-      ```java
-      String h = Optional.ofNullable(cfg).map(Cfg::db).map(Db::host).orElse("localhost");
-      ```
-
-      但要注意两条实践约束：`Optional` 只装引用类型，而且用在**字段**上
-      通常被认为是不良实践 —— 它主要服务于返回值边界。
-      内部的嵌套字段判空，仍以 `!= null` 为主。
-
-      另需记住 `Optional.get()` 在为空时抛 `NoSuchElementException`，
-      所以"拿不到就崩"和"拿不到给默认值"要选清楚（`orElse` / `orElseThrow`）。
 
   - id: basics-java/bitwise
     title: 位运算
     kind: behavior
     summary: 定长整数，有无符号右移，移位量会取模
-    body: |
-      运算符齐全，语义由**定长**这个前提决定：
-
-      ```java
-      ~5;         // -6      —— 按公式 ~x == -x-1，不是"取反成一个正数"
-      -8 >> 1;    // -4      —— 算术右移，符号位跟着走
-      -8 >>> 1;   // 2147483644  —— 无符号右移，高位补 0
-      ```
-
-      `>>>` 是定长整数特有的东西 —— 另两门语言里，一门没有它，
-      另一门因为整数不定长而根本没有这个概念。
-
-      **最容易踩的一处是移位量取模**：
-
-      ```java
-      1 << 32;    // 1    —— 对 int 是 32 取模，等价于 1 << 0
-      1L << 64;   // 1L   —— 对 long 是 64 取模
-      ```
-
-      它不报错、不警告，只是把移位量悄悄折回了一圈。写"位移 32 位看看"这种
-      调试代码时，会得到与预期完全相反的结果。
-
-      另外位运算的优先级低于比较运算，`a & b == 0` 实际是 `a & (b == 0)` ——
-      括号不是风格问题，是必需。
 
   - id: basics-java/comparison-operators
     title: 大小比较
     kind: behavior
     summary: 对象不能用运算符，跨类型比较是编译错误
-    body: |
-      数值比较一致，另外三处需要记住：
-
-      1. **对象不能用 `<` / `>`**。字符串、日期、自定义类都要靠
-         `Comparable.compareTo` 或 `Comparator`：
-
-         ```java
-         "2".compareTo("10") < 0;     // true —— 按字典序，不是数值
-         users.sort(Comparator.comparingInt(User::age).thenComparing(User::name));
-         ```
-
-         多字段排序要显式串比较器；元组 key 那种写法在这里没有对应物。
-
-      2. **跨类型比较是编译错误**。`"2" < 10` 编译不过（连 `==` 也不行），
-         这比"运行时抛异常"更早拦住 —— 错误的比较根本写不出来。
-
-      3. **字符串按 UTF-16 码元比较**，不是按本地语言顺序。
-         要按人读的顺序排序得用 `Collator`。
-
-      包装类型的比较还有一层：`Integer` 的 `<` 会自动拆箱，所以能写，
-      但两边都是 `null` 时抛 NPE —— 又是那个"拆箱才炸"的时机。
 
   - id: basics-java/increment-decrement
     title: 自增与自减
     kind: syntax
     summary: 前缀后缀只在表达式里有区别
-    body: |
-      `++` / `--` 都有前缀与后缀两种形式，区别只在**作为表达式时的值**：
-
-      ```java
-      int i = 0;
-      i++;        // 表达式的值是 0（加之前）
-      ++i;        // 表达式的值是 1（加之后）
-      ```
-
-      单独成句时两者完全相同，所以真正需要区分的是嵌在表达式里的写法：
-
-      ```java
-      arr[idx++];     // 取值并前进
-      arr[++idx];     // 先前进再取值
-      ```
-
-      这两种写法读起来差别很小但结果差一位，是经典的 off-by-one 来源。
-      可读性优先的话，拆成两行比省一行更划算。
-
-      复合赋值同样有隐式窄化（`b += 1` 对 `byte` 合法，`b = b + 1` 不合法），
-      以及同样的溢出行为：`int` 加到上限就回绕。
 
   - id: basics-java/chained-comparison
     title: 链式比较
     kind: behavior
     summary: 写不出来 —— 这是编译错误，不是静默错误
-    body: |
-      Java **不支持链式比较**，`0 < x < 10` 直接是编译错误：
-
-      ```java
-      0 < x && x < 10;      // 必须这样拆开写
-      ```
-
-      原因是 `0 < x` 得到 `boolean`，而 `boolean` 不能参与 `<` 运算。
-
-      这一条在迁移时**反而省心**：另两门语言里，一门把 `0 < x < 10`
-      静默解释成 `(0 < x) < 10`（恒为真且不报错），
-      另一门把它当成数学区间。同一行代码三种含义，而只有这里会在写的时候就拒绝。
-
-      代价是没有区间语法糖。要表达 `10 <= x <= 20`，
-      就得把 `x` 写两遍 —— 如果 `x` 是个有副作用的表达式，
-      还得先接住再比，否则会被求值两次。

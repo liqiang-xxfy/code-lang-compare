@@ -13,8 +13,19 @@ snippets:
       int n = 1;                  // 类型属于变量，编译期检查
       String s = 1;               // 编译错误 —— 编译器直接拦住
     body: |
-      **静态 + 名义类型** —— 类型属于变量与表达式，编译期就检查；
-      类型对不上就是编译错误，不靠运行时发现。
+      Java 是**静态类型**：类型属于变量与表达式，编译期就检查，运行之前 `javac`
+      已经拦掉一大类错误。
+
+      JS 是**动态 + 弱类型**：类型属于运行时的值，`==`、`+`、`if` 都会隐式转换，
+      于是 `1 == "1"` 为真、`1 + "1"` 得 `"11"`、`"3" * "2"` 得 6。
+
+      从 Java 过去，最需要重建的直觉是「编译器站在你这边」这件事消失了：在 Java 里
+      改错类型立刻红，在 JS 里改错类型多数时候不报错，只在运行到某条路径时给出一个
+      「结果不对」。你会短暂地依赖测试与运行时断言来补回这层保障。
+
+      想找回编译期检查，JS 生态的答案是 TypeScript —— 但那是额外加的一层，不是语言默认。
+      另外 JS 是**结构化**的：一个对象能不能当某物用只看形状；Java 是**名义式**的，
+      类型对不上就是编译错误。
 
   - featureId: concepts-java/numeric-type
     equivalence: identical
@@ -23,8 +34,19 @@ snippets:
       max + 1                     // -2147483648 —— 整数溢出静默回绕
       BigDecimal exact = new BigDecimal("0.1");
     body: |
-      **int / long / double 等原始类型** —— 各有固定宽度，溢出回绕；
-      精确十进制用 `BigDecimal`，大整数用 `BigInteger`。
+      Java 的数值是一组**原始类型**：`int`、`long`、`double` 等，各有固定宽度的二进制
+      表示，整数溢出会**静默回绕**（`Integer.MAX_VALUE + 1` 是负数），
+      精确十进制用 `BigDecimal`、大整数用 `BigInteger`。
+
+      JS 只有一种数字：IEEE 754 双精度浮点，外加 `BigInt` 用于大整数。**整数也是浮点** ——
+      `0.1 + 0.2 !== 0.3`，超过 2^53 的整数静默丢精度，没有 int / long 的宽度概念。
+
+      从 Java 过去的两处警觉：① 你以为「整数运算就是整数运算」，JS 里它可能变成浮点误差；
+      ② JS 的按位运算符是 **32 位**的（先把操作数转成 int32），而 Java 的按位运算对
+      `long` 也成立 —— 位运算的宽度不一样。
+
+      反过来，Java 里你会为「用 int 还是 long」纠结，JS 里这个问题被「一切都是 number」
+      掩盖，直到你遇到 2^53 那条线。
 
   - featureId: concepts-java/null-value
     equivalence: identical
@@ -33,8 +55,18 @@ snippets:
       s.length()                  // 抛 NullPointerException
       Optional.ofNullable(s);     // 把「可能没有」编码进类型
     body: |
-      **null（一种）** —— 只能赋给引用类型，访问它抛 NPE；
-      近年用 `Optional` 表达「可能没有」。
+      Java 里 `null` 只有一种，但它只能赋给**引用类型**（`int` 这类原始类型不能为 null），
+      访问 null 引用会抛 `NullPointerException` —— 那个著名的「十亿美元错误」。
+      近年用 `Optional` 把「可能没有」编码进类型。
+
+      JS 有两种「没有」：`null`（人为置空）与 `undefined`（未赋值 / 属性不存在 /
+      函数无返回），而且**任何变量都可能是这两种**，没有「原始类型不参与」这层保护。
+
+      从 Java 过去，判空从「一次 null 检查」变成「两种空值 + 随时可能缺失的属性」：
+      `x === null` 只挡住 `null`，会漏掉大量 `undefined`。惯用写法是 `x == null`
+      （宽松相等同时匹配两者）与可选链 `?.`。
+
+      另一处：Java 的 `Optional` 在 JS 里没有对应物，没有类型层面的「可能没有」表达。
 
   - featureId: concepts-java/value-semantics
     equivalence: identical
@@ -43,5 +75,13 @@ snippets:
       Object o = new Object();    // 对象按引用，赋的是引用
       final int F = 1;            // final 只约束不能重新绑定
     body: |
-      **原始类型按值、对象按引用** —— `final` 约束的是绑定，
-      不约束对象的内部内容。
+      Java 区分得很清楚：**原始类型按值**（`int a = b` 复制），**对象按引用**
+      （赋的是引用，两个名字指向同一个对象），`final` 只约束「不能重新绑定」。
+
+      JS 的说法是「原始值按值、对象按引用」—— 表面上对应 Java 的原始类型 / 对象，
+      但有几处对不上：① JS 的 string 是**原始值**（不可变、按值），虽然它有方法，
+      不是对象；② JS 没有 `int` 与 `Integer` 之分，也没有装箱；③ JS 的 `const`
+      类似 `final`，同样只约束绑定、不约束内容。
+
+      从 Java 过去要注意的一处惯性：你可能习惯用 `==` 比较对象（在 Java 里那比的是引用），
+      到 JS 里 `==` / `===` 对**基本类型的比较是值比较**，对对象才比引用 —— 语义边界挪了位置。

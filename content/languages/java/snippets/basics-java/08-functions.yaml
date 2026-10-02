@@ -27,6 +27,29 @@ snippets:
 
       // @note 返回类型必须写全，连 void 也要写
       // @note 重载是常态：同名方法按参数列表区分，这也是"没有默认参数"的补偿
+    body: |
+      Java **没有"自由函数"**：每个方法都必须属于一个类或接口。
+
+      ```java
+      class Greeter {
+          static String greet(String name) { return "你好，" + name; }
+      }
+      Greeter.greet("Ada");
+      ```
+
+      由此派生出一串连锁差异：
+
+      1. **"这个函数该放哪个类"是一个必须回答的问题**。工具函数往往堆进
+         某个 `Utils` 类，或者定义成接口的静态方法。
+      2. **返回类型必须写全**，连 `void` 也要写。没有"省略返回类型"这种写法。
+      3. **重载是常态**：同一个名字可以有多个参数列表不同的版本，
+         编译期按实参类型选。这也是"没有默认参数"的补偿手段。
+
+      **`static` 与实例方法的区分**要一开始就想清楚：不依赖实例状态就用
+      `static`（但那样也没法参与多态），需要多态或访问字段就用实例方法。
+
+      另两门语言里函数可以独立存在，导入即可用 —— 迁过来时的第一件事
+      就是给每个函数找一个类。
   - featureId: basics-java/default-params
     equivalence: identical
     code: |
@@ -40,6 +63,29 @@ snippets:
       }
 
       // @note 重载的默认值落在每个调用点上，不存在"默认值只在定义时求值一次"的共享问题
+    body: |
+      Java **没有默认参数**。两种替代，按参数规模选：
+
+      ```java
+      // 参数少：写重载，短的转调长的，默认值只写一处
+      static String greet(String name) { return greet(name, "你好"); }
+      static String greet(String name, String greeting) { return greeting + "，" + name; }
+      ```
+
+      ```java
+      // 参数多：Builder 或带 wither 方法的 record
+      record Options(boolean pretty, boolean strict) {
+          static Options defaults() { return new Options(false, false); }
+          Options withPretty() { return new Options(true, strict); }
+      }
+      ```
+
+      前者的问题是一旦可选参数到四五个，重载会**组合爆炸**；
+      后者的代价是多写一个类型，而且运行时不会校验"有没有漏设"。
+
+      有一条副作用值得注意：**重载的默认值落在每个调用点上**，
+      所以不存在"默认值只在定义时求值一次"那类共享可变对象的坑。
+      代价是每个重载都要自己写一遍默认值 —— 除非按上面那样只在一处写。
   - featureId: basics-java/kwargs
     equivalence: identical
     code: |
@@ -50,6 +96,28 @@ snippets:
 
       // @note! 没有"新增一个参数不破坏既有调用"这回事 —— 只能加重载或改所有调用点
       // @note 重载解析本身还有歧义：f(int) 与 f(Integer) 并存时，传字面量可能选到意外的那个
+    body: |
+      Java **没有关键字参数**：调用处按位置匹配，参数名完全不出现。
+
+      ```java
+      render(text, true, false);     // 这两个布尔各是什么意思，必须翻签名
+      ```
+
+      惯用的缓解是**配置对象 + Builder**：
+
+      ```java
+      RenderOptions.builder().pretty(true).build();
+      ```
+
+      读起来确实清楚了，但那是约定而不是语言约束：运行时不会检查
+      有没有漏设某个字段，拼错的 setter 名则是编译错误（这一点比字符串键强）。
+
+      与另两门语言相比，这里缺的是**"新增一个参数不破坏既有调用"**的能力。
+      在这边要新增参数只有两条路：加重载，或者改所有调用点。
+
+      另一个连锁后果：**重载解析的歧义**。参数类型相近时
+      （比如 `f(int)` 与 `f(Integer)`），编译器选哪个有一整套规则，
+      传 `null` 或字面量时容易选到意外的那个 —— 这是"按位置传参"放大出来的问题。
   - featureId: basics-java/rest-params
     equivalence: identical
     code: |
@@ -63,6 +131,30 @@ snippets:
       // @note! 它编译成数组：f((int[]) null) 与 f() 是两回事，
       // 前者在方法体里拿到的是 null 而不是空数组
       // @note! 也没有"关键字可变参数"：要接住任意具名参数只能传 Map，类型安全就丢了
+    body: |
+      ```java
+      static String joinAll(String sep, String... parts) {
+          return String.join(sep, parts);
+      }
+
+      joinAll("-", "a", "b");
+      joinAll("-", new String[]{"a", "b"});     // 数组可以直接传
+      ```
+
+      三条限制：
+
+      1. **只能有一个可变参数**，而且必须在参数列表最后。
+      2. **没有"关键字可变参数"** —— 想接住任意具名参数只能传一个 `Map`，
+         而那会把类型安全丢掉。
+      3. **它编译成数组**，所以 `f((int[]) null)` 与 `f()` 是两回事：
+         前者在方法体里拿到的是 `null` 而不是空数组。这条是真实的 NPE 来源。
+
+      另两门语言里，一门把"位置可变"与"关键字可变"分成两个机制
+      （`*args` / `**kwargs`），另一门只有 `...args` 一种 ——
+      这里与后者接近，但多了"数组可以直接传"这一层。
+
+      与重载配合时还有一处要注意：`f(Object...)` 与 `f(String, Object...)`
+      并存时，某些调用会选到意外的那个版本。
   - featureId: basics-java/return-multiple
     equivalence: identical
     code: |
@@ -78,6 +170,30 @@ snippets:
 
       // @note! 一个方法只能返回一个值，没有元组 —— 选定容器后就固定了，后面再改要动所有调用点
       // @note 用 Optional<T> 可以把"可能没有"写进返回类型
+    body: |
+      Java **一个方法只能返回一个值**，也没有元组类型。两条路：
+
+      ```java
+      // 塞进数组或容器 —— 丢类型信息，访问靠下标
+      static int[] minMax(int[] xs) { ... }
+
+      // 定义一个类型 —— 推荐
+      record MinMax(int lo, int hi) { }
+      static MinMax minMax(List<Integer> xs) { ... }
+      ```
+
+      实践里第二条是主流，也是这门语言近年的方向：`record` 让
+      "为一对值起个名字"的成本降到一行。
+
+      临时凑合时也有人用 `Map.Entry` 当二元组，但那是权宜之计 ——
+      语义上它不表达"这两个值是一对"，读的人得自己猜哪个是 key。
+
+      **与另两门语言最本质的差别**：那边的"多个返回值"其实是**元组**，
+      一个对象，可以被整体传递、解包、用星号收集。
+      这里一旦选定容器就固定了，后面再改要动所有调用点。
+
+      另一处细节：返回 `null` 表示"没有结果"是常见做法，但调用方很容易忘。
+      涉及"可能没有"时可以考虑 `Optional<T>` —— 它把这件事写进了返回类型。
   - featureId: basics-java/lambda-arrow
     equivalence: identical
     code: |
@@ -95,6 +211,33 @@ snippets:
       java.util.function.IntUnaryOperator plus = x -> x + n;
       // n = 2;                 // @note! 编译错误：捕获的局部变量必须事实不变
       // @note 捕获的是**值**，所以"闭包共享同一个变量"那类坑在这里不存在
+    body: |
+      Java 的 lambda **不能独立存在**，它必须是某个**函数式接口**
+      （只有一个抽象方法的接口）的实例：
+
+      ```java
+      Function<Integer, Integer> square = x -> x * x;
+      Supplier<String> s = () -> "值";
+      Consumer<String> c = x -> System.out.println(x);
+      Predicate<String> p = x -> !x.isEmpty();
+
+      square.apply(5);          // 调用要经过接口方法名，不能直接 square(5)
+      ```
+
+      标准库里已经有一整套现成的接口（`Function` / `Supplier` /
+      `Consumer` / `Predicate` / `BiFunction`…），自定义接口只在语义需要时才有必要。
+
+      两条与另两门语言不同的规则：
+
+      1. **调用要经过接口方法名**（`apply` / `get` / `accept` / `test`），
+         因为 lambda 本身不是值，它只是一个接口实现的简写。
+      2. **捕获的外部局部变量必须是 final 或事实不变**（赋值后从未再改）。
+         这不是限制而是设计：捕获的是**值**，不是变量本身。
+         所以"闭包共享同一个变量"那类坑在这里不存在；
+         代价是循环里想捕获变化的量必须自己造一个 final 副本。
+
+      方法体可以有多行（`x -> { int y = x * 2; return y; }`），
+      这一点比只有单个表达式的 lambda 宽松。
   - featureId: basics-java/function-callback
     equivalence: identical
     code: |
@@ -105,6 +248,30 @@ snippets:
 
       // @note! 参数顺序是"集合在前、函数在后"，而排序那边是"序列在前、规则作关键字" —— 没有统一规律
       // @note 没有内置的排序 key= ，要比什么就写进 Comparator
+    body: |
+      函数在这里是一等值，但形态是"函数式接口的实例"。传递回调有三种写法：
+
+      ```java
+      xs.stream().map(x -> x * 2).toList();        // lambda
+      xs.stream().map(String::trim).toList();      // 方法引用，更短
+      xs.sort(Comparator.comparingInt(User::age)); // 比较器
+      xs.removeIf(String::isEmpty);
+      ```
+
+      **能用方法引用就用它**：`String::trim` 比 `x -> x.trim()` 更短，
+      而且明确表达了"这里只是转发，没有额外逻辑"。
+
+      参数顺序与另两门语言**不一致**，这一点没有规律可循：
+
+      ```java
+      xs.stream().map(fn)              // 主语是集合，函数当参数
+      xs.sort(Comparator.comparing(...))
+      Collections.sort(xs, comparator)
+      ```
+
+      对比来看，某门语言的高阶函数把函数放前面（`map(fn, xs)`），
+      另一门与这里一样是"集合在前、函数在后"，
+      但排序那边又都变成"序列在前、规则作关键字" —— 只能逐个记。
   - featureId: basics-java/function-docstring
     equivalence: identical
     code: |
@@ -121,6 +288,31 @@ snippets:
 
       // @note 注释放哪里都行，没有"必须是第一条语句"的约束
       // @note 注解（@Override / @Deprecated）是另一套东西：真的数据，能被反射读到
+    body: |
+      ```java
+      /**
+       * 打个招呼。
+       *
+       * @param name 名字
+       * @return 问候语
+       */
+      static String greet(String name) { return "你好，" + name; }
+      ```
+
+      **Javadoc 是注释，不是数据**。运行时通过反射能拿到方法名、参数类型、
+      注解，但**拿不到文档文本** —— 它根本不进字节码。
+
+      三条连锁差异：
+
+      1. **没有运行时读文档的能力**。某门语言里 `help(obj)` 能直接打印文档；
+         这里没有对应物，想生成文档站只能在构建期解析源码
+         （`javadoc` 工具做的就是这件事）。
+      2. **没有"必须写在最前面"的约束**。注释放哪里都行，
+         所以少了"位置不对就静默失效"这类问题 —— 代价是位置错了也没人提醒。
+      3. **注解是另一套东西**。`@Override` / `@Deprecated` 是**真的数据**，
+         能被反射读到并影响行为 —— 与注释完全不同的机制。
+
+      IDE 会把 Javadoc 显示在补全提示里，所以它的主要消费者其实是编辑器。
   - featureId: basics-java/arg-passing
     equivalence: identical
     code: |
@@ -138,3 +330,31 @@ snippets:
       // @note 口诀一致：改内容会传染，改绑定不会。
       // @note! 但基本类型的"改不动"来自**值复制**，不是来自"不可变" —— 原因不同，结论相同
       // @note 数组是可变的：mutate(int[]) 能改到调用方
+    body: |
+      Java **只有值传递**，没有例外。但"传的是什么值"取决于类型：
+
+      ```java
+      static void mutate(List<Integer> xs) { xs.add(4); }        // 调用方看得见
+      static void rebind(List<Integer> xs) { xs = List.of(9); }  // 调用方看不见
+      static void bump(int n) { n += 1; }                        // 调用方永远看不见
+      ```
+
+      对象传的是**引用的副本**，所以"改内容会传染，改绑定不会"——
+      这条与另两门语言的结论一致。
+
+      真正不同的是**基本类型**：
+
+      ```java
+      int k = 1;
+      bump(k);        // k 还是 1
+      ```
+
+      这个"改不动"的效果，在另两门语言里也有，但**原因完全不同**：
+      那边是因为整数不可变（想改只能重新绑定，而重新绑定不影响调用方），
+      这里是因为**值被真真切切复制了一份**。
+
+      区分这一点有实际意义：`int[]` 是可变的，所以 `mutate(int[])`
+      能改到调用方；而 `int` 不能。同一个"值语义"的词，在两处指的不是一回事。
+
+      实践上的建议与另两门语言相同：函数要么返回新对象（纯函数），
+      要么在**名字和文档里明说它会改参数**（`sort` 这类动词已经暗示了原地改）。

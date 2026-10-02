@@ -14,8 +14,19 @@ snippets:
       t = (1, 2)            # 不可变有序容器
       [[0] * 3] * 3         # 三行是同一个内层列表
     body: |
-      **list / dict / set / tuple** —— `dict` 任意可哈希键且有插入顺序；
-      `tuple` 不可变，可作为字典键。
+      Python 的容器分工清晰：`list` 有序可重复、`dict` 任意可哈希键、`set` 去重、
+      `tuple` 不可变。
+
+      JS 里最像 `dict` 的是对象字面量，但**它的键只能是字符串或 Symbol**，数字键会被
+      转成字符串（`{1: "a"}[1]` 与 `{1: "a"}["1"]` 是同一格）。真正的任意键映射要显式用 `Map`。
+
+      从 Python 出发要改的习惯是「用字典表达映射」：在 JS 里得先判断键的类型 ——
+      键都是字符串就用对象字面量，键可能是数字 / 对象 / 任何值就必须用 `Map`，
+      否则会静默串键（`1` 与 `"1"` 撞在一起）。
+
+      另一处：`dict` 在 3.7+ 有插入顺序保证，对象字面量的字符串键也有；至于 `tuple`，
+      JS 里没有对应物，「这个序列不该被改」只能靠约定。列表复制那条经典坑同理还在
+      （`[[0] * 3] * 3` 共享内层，到 JS 里是 `Array(3).fill([0, 0, 0])`）。
 
   - featureId: concepts-python/immutable-data
     equivalence: identical
@@ -24,8 +35,16 @@ snippets:
       t[0] = 9              # 抛 TypeError —— 不可变是类型属性
       {(1, 2): "值"}         # 正因为不可变，元组可以当字典键
     body: |
-      **tuple / frozenset** —— 不可变是「类型属性」，因此能被类型系统利用
-      （当键、当集合元素）。
+      Python 的不可变是**类型属性**：`tuple`、`frozenset`、`str` 天生不可变，
+      改不了就是改不了，而且正因为不可变，它们**可以作为字典的键**（`{(1, 2): "值"}`）。
+
+      JS 里没有「不可变类型」这个概念。想让一个对象不可变要用 `Object.freeze`，
+      而它是**浅的**（嵌套对象照样能改）、是运行时行为，且不影响任何类型签名。
+      复制用 `structuredClone`（深）或展开运算符（浅）。
+
+      从 Python 迁移的实质损失：你会失去「用类型表达不可变」的能力 ——
+      没有 tuple 那种「改不了、还能当键」的类型。要用元组当键得自己序列化成字符串，
+      想共享一份配置得靠 `freeze` 加纪律，没有任何机制在你犯规时提醒。
 
   - featureId: concepts-python/string-format
     equivalence: identical
@@ -34,8 +53,16 @@ snippets:
       f"{n:.2f}"            # "3.14" —— 内嵌一整套格式说明符
       f"{1234567:,}"        # "1,234,567"
     body: |
-      **f-string + 格式说明符** —— 对齐写 `f"{n:>10}"`；它是门小语言，
-      知道存在能省掉大量手工拼接。
+      Python 的 f-string 不只是拼接：`f"{n:.2f}"`（两位小数）、`f"{n:>10}"`（右对齐）、
+      `f"{n:,}"`（千分位）、`f"{d:%Y-%m-%d}"`（日期格式化）—— 内嵌了一整套格式说明符语言。
+
+      JS 的主力是模板字符串 `` `${x}` ``，它只负责求值插入，**格式化全靠方法**：
+      小数用 `toFixed`、千分位用 `toLocaleString`、对齐用 `padStart`、日期用
+      `Intl.DateTimeFormat`。没有语言级的 printf 风格格式串（`console.log` 里的 `%s`
+      只作用于日志，不是字符串 API）。
+
+      迁移时容易低估：Python 里一行 `f"{...}"` 能表达的，到 JS 里要串几个方法调用。
+      知道每个格式化需求对应哪个方法，能省掉大量手写补零与对齐的代码。
 
   - featureId: concepts-python/regex
     equivalence: identical
@@ -45,7 +72,18 @@ snippets:
       re.search(r"\d", "a1")            # 找任意位置要用 search
       re.match(r"(?P<num>\d+)", "12")   # 命名分组是 (?P<name>...)
     body: |
-      **re 模块 + r 字符串** —— `match` 只匹配开头；`\d` 这类转义必须用原始字符串。
+      Python 的 `re.match()` **只从开头匹配**，要找任意位置必须用 `re.search()` ——
+      这是最容易记反的一对。
+
+      到 JS 里，`str.match(re)` 与 `re.test(str)` 都是**任意位置**匹配，没有「只匹配开头」
+      的同名函数（要自己加 `^` 锚点）。所以你的 `re.match` 直觉会反向失效：
+      你以为在找开头，其实在找任意位置。
+
+      命名分组写法不同：Python 是 `(?P<name>...)`，JS 是 `(?<name>...)`。
+
+      还有一条 Python 特有的坑在 JS 里不存在：Python 里 `"\d"` 会被解释器先转义一次，
+      所以一律写原始字符串 `r"\d+"`；JS 的正则字面量 `/\d+/` 本来就不经过字符串转义，
+      不需要 `r` 前缀。
 
   - featureId: concepts-python/serialization
     equivalence: identical
@@ -54,8 +92,16 @@ snippets:
       json.dumps({"n": 1}, ensure_ascii=False)   # 中文不转义
       json.dumps({"d": datetime.date.today()})   # 抛 TypeError，不静默丢弃
     body: |
-      **json.dumps / loads** —— 遇到非 JSON 类型抛 `TypeError`；中文默认转义成
-      `\uXXXX`。
+      Python 的 `json.dumps` 遇到 `datetime`、`set` 这类非 JSON 类型会**直接抛
+      `TypeError`**，逼你显式处理；另外中文默认转义成 `\uXXXX`，要可读得写
+      `ensure_ascii=False`。
+
+      JS 的 `JSON.stringify` 相反：函数、`undefined`、Symbol 会被**静默丢弃**，
+      只有循环引用才抛错；`JSON.parse` 拿到什么是什么，也不验证形状。
+
+      从 Python 过来会先觉得 JS「宽松真好」，然后在某个「字段莫名消失」的 bug 上
+      花掉半天 —— 那种「丢了一点也不告诉你」的行为，正是 Python 的吵闹替你挡住的那一类问题。
+      另外 JS 没有 Python 的 `default=` 钩子那种等价物，自定义类型要自己先转成普通对象。
 
   - featureId: concepts-python/date-time
     equivalence: identical
@@ -64,5 +110,12 @@ snippets:
       d = datetime(2026, 1, 5)     # 月份从 1 起
       d.replace(month=2)           # 不可变：返回新对象，d 本身没变
     body: |
-      **datetime（不可变、月从 1 起）** —— 带时区要显式 `tzinfo`，
-      否则是 naive 时间，与 aware 时间相减会抛 `TypeError`。
+      Python 的 `datetime` 是**不可变的**（运算返回新对象），月份从 1 开始；时区要显式带
+      `tzinfo`，不带就是 naive 时间，naive 与 aware 不能直接相减（抛 `TypeError`）。
+
+      JS 的 `Date` 是**可变的**（`setMonth` 改自己），月份从 0 开始。两个差异叠在一起，
+      典型错误是：按 Python 直觉写 `new Date(2026, 1, 5)`，以为是一月五号，
+      实际得到的是二月五号 —— 月份基准差 1，每次传月份都要重新确认。
+
+      第二处：Python 里 `d = d.replace(month=2)` 必须接返回值，习惯之后到 JS 写
+      `d.setMonth(1)` 会**就地改了 d**；若别处还引用着同一个 `Date`，就会看到意外的变化。

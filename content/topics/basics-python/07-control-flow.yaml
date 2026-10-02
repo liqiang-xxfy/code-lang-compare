@@ -9,249 +9,43 @@ features:
     title: 条件分支
     kind: syntax
     summary: 缩进定块，elif 一个词，条件位置接受任意对象
-    body: |
-      ```python
-      if score >= 90:
-          grade = "A"
-      elif score >= 60:
-          grade = "B"
-      else:
-          grade = "C"
-      ```
-
-      三处表面差异：**不需要括号**、`else if` 缩成一个词 `elif`、
-      用**缩进**而不是花括号划分块。
-
-      缩进是语法的一部分，所以混用 Tab 与空格会直接报 `TabError` ——
-      这是好事（错误在解析期就暴露），但也意味着从别处粘代码时要先统一缩进。
-
-      条件位置接受**任何对象**，按真值规则判定，不是只接受布尔值。
-      所以 `if items:` 合法，含义是"非空"（见《运算符与真值判断》一章）。
-      没有"条件必须是布尔表达式"这条编译期约束。
 
   - id: basics-python/ternary
     title: 条件表达式
     kind: syntax
     summary: 结果写在前面，语序与多数语言相反
-    body: |
-      ```python
-      label = "成年" if age >= 18 else "未成年"
-      ```
-
-      语序是 `值 if 条件 else 值` —— **结果在前，条件在中**。
-      这与"条件 ? 值 : 值"的顺序相反，是逐行翻译时最容易写错的一格：
-      两边只要都是合法表达式就不会报错，只是逻辑反了。
-
-      可以嵌套，但可读性掉得很快：
-
-      ```python
-      # 能读，但已经要看两遍
-      level = "高" if n > 100 else "中" if n > 10 else "低"
-      ```
-
-      超过一层就该拆成 `if`。另外这个表达式**必须有 `else` 分支** ——
-      没有"省略 else 得到 None"的写法。
 
   - id: basics-python/switch-match
     title: 模式匹配
     kind: behavior
     summary: match 是结构化模式匹配，不是 switch 的替代品
-    body: |
-      3.10+ 有 `match`，但它和"值相等的分支"是两回事：
-
-      ```python
-      match command.split():
-          case ["go", direction]:            # 解构 + 绑定变量
-              move(direction)
-          case ["look"]:
-              look()
-          case ["go", *rest]:                # 星号收集
-              go_many(rest)
-          case {"type": "quit"}:             # 映射模式
-              quit_game()
-          case Point(x=0, y=0):              # 类模式，按属性匹配
-              at_origin()
-          case [x] if x > 0:                 # 守卫条件
-              positive(x)
-          case _:                            # 兜底
-              unknown()
-      ```
-
-      几个关键性质：
-
-      - `case _:` 是兜底，**没有它就可能一个分支都不匹配**（然后静默什么都不做）。
-      - `case` 里的名字是**捕获**，不是比较 —— `case x:` 会匹配任何东西并把值绑给 `x`。
-        想比较常量要用点号形式（`case Color.RED:`）或字面量。
-      - 分支之间没有穿透这回事，所以不存在"忘记写 break"的问题。
-
-      所以从"值相等的 switch"迁过来时，正确的对应物其实是 `if/elif` 链；
-      用 `match` 反而会写出难以理解的代码。
 
   - id: basics-python/for-loop
     title: for 循环
     kind: behavior
     summary: 只有遍历形式，没有计数三段式
-    body: |
-      ```python
-      for x in xs:                 # 遍历元素
-      for i in range(10):          # 计数（用 range 造序列）
-      for i, x in enumerate(xs):   # 下标 + 元素
-      for k, v in d.items():       # 键值
-      ```
-
-      **没有"初始化—条件—步进"那种三段式**。需要计数就先用 `range` 造出序列，
-      再遍历它。
-
-      这不是缺功能，而是取向：遍历容器而不是遍历下标，能消掉大量
-      off-by-one 错误。与之配套的是，**循环变量在循环结束后依然存在**
-      （块不产生作用域），所以 `for i in range(3)` 之后 `i` 等于 2。
-
-      遍历时改容器是禁止的：往列表里增删会跳元素，往字典里增删会抛
-      `RuntimeError`。要改就遍历副本（`for x in xs[:]`）或重建
-      （`xs = [x for x in xs if ...]`）。
 
   - id: basics-python/while-loop
     title: while 循环
     kind: syntax
     summary: 没有 do-while，用 while True 加 break 代替
-    body: |
-      `while` 一致。**没有"至少执行一次"的循环结构**，惯用替代有两种：
-
-      ```python
-      while True:
-          line = read()
-          if not line:
-              break
-          handle(line)
-      ```
-
-      或者把首次逻辑抽出来先执行一遍。前者的代价是**必须自己保证有出口** ——
-      编译器不会帮你检查，一个漏掉的 `break` 就是死循环。
-
-      有个常被忽略的配套：`while ... else` 与 `for ... else` 是同一套语义
-      （没被 `break` 打断时执行 `else`），在"轮询直到成功"这类场景里
-      正好用来写"超时了怎么办"的分支。
 
   - id: basics-python/loop-control
     title: 循环控制
     kind: behavior
     summary: break / continue 之外还有 for-else
-    body: |
-      `break` / `continue` 一致。独有的一个是 **`for ... else`**：
-
-      ```python
-      for item in items:
-          if matches(item):
-              found = item
-              break
-      else:
-          found = None      # 循环跑完都没 break
-      ```
-
-      `else` 块在**循环正常结束（没有被 `break` 打断）**时执行，
-      表达的语义是"找过了，没找到"。它替代的是那个额外的标志位变量：
-
-      ```python
-      # 别的写法：要多维护一个变量，而且容易忘记在某条路径上重置
-      found = None
-      for item in items:
-          if matches(item):
-              found = item
-              break
-      ```
-
-      注意 `continue` **不影响** `else` —— 只有 `break` 会跳过它。
-      这个特性容易读错，团队里如果没人熟悉，宁可写显式的标志位。
 
   - id: basics-python/loop-index
     title: 带索引遍历
     kind: syntax
     summary: enumerate 是惰性的，还能指定起始下标
-    body: |
-      ```python
-      for i, x in enumerate(xs):
-          print(i, x)
-
-      for i, x in enumerate(xs, start=1):    # @从 1 开始编号
-          print(f"第 {i} 项：{x}")
-      ```
-
-      `enumerate` 返回的是**惰性迭代器**，不会先构造一个 `(下标, 值)` 的数组 ——
-      处理大序列时这点很重要。
-
-      并列遍历用 `zip`：
-
-      ```python
-      for x, y in zip(xs, ys):
-          pass
-      for i, (x, y) in enumerate(zip(xs, ys)):
-          pass
-      ```
-
-      `zip` 在**最短的序列处停止**，长度不一致时不会报错，会静默截断 ——
-      不确定长度时用 `itertools.zip_longest` 或先断言
-      （3.10+ 的 `zip(..., strict=True)` 会直接抛错，这是更安全的选择）。
 
   - id: basics-python/range-iteration
     title: 区间与 range
     kind: behavior
     summary: 左闭右开、惰性，而且它不是列表
-    body: |
-      ```python
-      range(5)          # 0,1,2,3,4
-      range(2, 5)       # 2,3,4
-      range(0, 10, 2)   # 0,2,4,6,8
-      range(5, 0, -1)   # 5,4,3,2,1
-      ```
-
-      **左闭右开**是核心约定：`range(n)` 给出 n 个元素，`range(len(xs))` 正好覆盖全部下标。
-
-      它是**惰性序列**，不是列表：
-
-      ```python
-      range(10**9)          # 瞬间构造，不占内存
-      list(range(10**9))    # 这个才真的去建十亿个元素
-      ```
-
-      所以"range 对象不是列表"要记住两点：`print(range(3))` 输出的是
-      `range(0, 3)` 而不是 `[0, 1, 2]`；需要列表时显式 `list(...)`。
-
-      另外 `range` 支持 `in`（O(1) 的判断）、`len()`、索引与切片，
-      所以它用起来像一个序列，只是不占内存。
 
   - id: basics-python/exception-flow
     title: 异常处理
     kind: behavior
     summary: except 必须点名类型，还能写 else，只能抛异常对象
-    body: |
-      ```python
-      try:
-          risky()
-      except ValueError as e:        # 必须点名类型
-          handle(e)
-      except (KeyError, IndexError):  # 多个类型可以合并
-          fallback()
-      except Exception as e:          # 兜底：捕获绝大多数异常
-          log(e)
-          raise                         # 重新抛出，保留原始栈
-      else:
-          succeeded()                   # 没抛异常时执行
-      finally:
-          cleanup()                     # 无论如何都执行
-      ```
-
-      四条与别处不同的规则：
-
-      1. **`except:` 不要写**（空类型）。它会连 `KeyboardInterrupt`、
-         `SystemExit` 一起吞掉 —— 按 Ctrl-C 都停不下来。要兜底写
-         `except Exception:`。
-      2. **有 `else` 子句**：`try` 块里只放"可能抛的那一句"，其余逻辑放 `else`。
-         这样能避免误捕自己后续代码抛出的异常。
-      3. **只能抛 `BaseException` 的子类**：`raise "出错了"` 是 `TypeError`。
-         自定义异常要继承 `Exception`。
-      4. `raise ... from ...` 能显式关联因果链（`raise NewError() from e`），
-         不想显示原始异常用 `raise NewError() from None`。
-
-      风格上这门语言偏好 **EAFP**（先做，出错再处理）而不是先检查再操作：
-      `try: d[k] except KeyError:` 比 `if k in d:` 更地道，
-      而且在并发或状态可能变化的场景下没有竞态。

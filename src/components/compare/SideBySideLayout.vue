@@ -5,7 +5,7 @@ import CodeBlock from '@/components/code/CodeBlock.vue'
 import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
 import { useI18n } from '@/composables/useI18n'
 import { pickColumns } from '@/composables/useVisibleColumns'
-import { featureAnchor } from '@/content/repository'
+import { featureAnchor, sectionIsMulti } from '@/content/repository'
 import type { RenderedChapter } from '@/schemas'
 import { useLanguageStore } from '@/stores/language'
 import { useUiStore } from '@/stores/ui'
@@ -80,7 +80,21 @@ const comparedColumns = computed(() =>
         <p v-if="feature.summary">{{ feature.summary }}</p>
       </header>
 
-      <div v-if="feature.bodyHtml" class="pc-md" style="margin-bottom: 12px" v-html="feature.bodyHtml" />
+      <!--
+        共享说明只在**单列**板块（迁移教程）渲染：那里的列恒为 [基准, 目标]，
+        一份写在本 topic 基准视角下的说明正好。
+
+        多列板块（基础语法 / 心智模型）不渲染它 —— 列是用户勾选的 1~5 门语言，
+        共享说明盖不住各语言自己的事实、也放不下各自的差异，正文已下沉到每列
+        代码下方（`CodeBlock` 的 `pc-code-extra`）。判据读板块注册表的 `columns`，
+        不写死板块名（ADR-28）。模板守卫留着当回归保险，源头由 R19 清掉。
+      -->
+      <div
+        v-if="feature.bodyHtml && !sectionIsMulti(chapter.section)"
+        class="pc-md"
+        style="margin-bottom: 12px"
+        v-html="feature.bodyHtml"
+      />
 
       <div class="pc-cards">
         <article v-for="lang in columns" :key="`${feature.id}-${lang.id}`" class="pc-card">

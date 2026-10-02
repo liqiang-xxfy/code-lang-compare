@@ -12,7 +12,6 @@
       "title": "类型系统",
       "kind": "concept",
       "summary": "两边都是动态类型，但一边比较时会偷偷转换，另一边不会",
-      "bodyHtml": "<p>两边都是<strong>动态类型</strong>：类型属于运行时的值，不属于变量名。</p>\n<p>差别在<strong>强弱</strong>。JS 是弱类型 —— <code>==</code>、<code>+</code>、<code>if</code> 都会隐式转换，于是\n<code>1 == &quot;1&quot;</code> 为真、<code>[] + {}</code> 有结果、<code>&quot;3&quot; * &quot;2&quot;</code> 得 6。Python 是强类型：\n类型不对就抛异常，不做任何猜测。</p>\n<p>这条差异的后果不是「哪个更好」，而是<strong>迁移时你的调试直觉会失效</strong>：\n在 JS 里靠 <code>console.log</code> 看值猜类型很管用，因为错误往往表现为「结果不对」；\n到 Python 里同样是「结果不对」，但原因通常是<strong>某处静默变成了另一种类型</strong>\n（比如整数除法），而异常反而不常出现。</p>\n",
       "snippets": {
         "javascript": {
           "lang": "javascript",
@@ -24,7 +23,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>动态 + 弱类型</strong> —— 运行时类型，比较与算术都会隐式转换。\n错误通常表现为「结果不对」而不是抛异常。</p>\n"
+          "bodyHtml": "<p>两边都是<strong>动态类型</strong>：类型属于运行时的值，不属于变量名。</p>\n<p>差别在<strong>强弱</strong>。JS 是弱类型 —— <code>==</code>、<code>+</code>、<code>if</code> 都会隐式转换，于是\n<code>1 == &quot;1&quot;</code> 为真、<code>[] + {}</code> 有结果、<code>&quot;3&quot; * &quot;2&quot;</code> 得 6。Python 是强类型：\n类型不对就抛异常，不做任何猜测。</p>\n<p>这条差异的后果不是「哪个更好」，而是<strong>迁移时你的调试直觉会失效</strong>：\n在 JS 里靠 <code>console.log</code> 看值猜类型很管用，因为错误往往表现为「结果不对」；\n到 Python 里同样是「结果不对」，但原因通常是<strong>某处静默变成了另一种类型</strong>\n（比如整数除法），而异常反而不常出现。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -57,7 +56,6 @@
       "title": "数值类型",
       "kind": "concept",
       "summary": "一个 number 打天下 vs int / float / Decimal 三分，精度行为完全不同",
-      "bodyHtml": "<p>JS 只有一种数字：IEEE 754 双精度浮点（外加 BigInt 用于大整数）。\n<strong>整数也是浮点</strong>，所以 <code>0.1 + 0.2 !== 0.3</code>、超过 2^53 的整数静默丢精度。</p>\n<p>Python 把整数与浮点分开：<code>int</code> 是<strong>任意精度</strong>（不会溢出、不会丢精度），\n<code>float</code> 是双精度，需要精确小数时另有 <code>Decimal</code>。</p>\n<p>迁移时最先绊住的两处：① JS 里 <code>9007199254740993</code> 会变成\n<code>9007199254740992</code>，Python 里原样保留；② 除法。JS 的 <code>/</code> 永远得浮点，\nPython 的 <code>/</code> 也是，但 Python <strong>多了</strong> <code>//</code>（向下取整）——\n从 Python 迁回 JS 时 <code>//</code> 没有对应写法，是最容易写错的一格。</p>\n",
       "snippets": {
         "javascript": {
           "lang": "javascript",
@@ -69,7 +67,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>number（统一 float64）+ BigInt</strong> —— 整数也是浮点，超范围静默丢精度。</p>\n"
+          "bodyHtml": "<p>JS 只有一种数字：IEEE 754 双精度浮点（外加 BigInt 用于大整数）。\n<strong>整数也是浮点</strong>，所以 <code>0.1 + 0.2 !== 0.3</code>、超过 2^53 的整数静默丢精度。</p>\n<p>Python 把整数与浮点分开：<code>int</code> 是<strong>任意精度</strong>（不会溢出、不会丢精度），\n<code>float</code> 是双精度，需要精确小数时另有 <code>Decimal</code>。</p>\n<p>迁移时最先绊住的两处：① JS 里 <code>9007199254740993</code> 会变成\n<code>9007199254740992</code>，Python 里原样保留；② 除法。JS 的 <code>/</code> 永远得浮点，\nPython 的 <code>/</code> 也是，但 Python <strong>多了</strong> <code>//</code>（向下取整）——\n从 Python 迁回 JS 时 <code>//</code> 没有对应写法，是最容易写错的一格。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -97,7 +95,6 @@
       "title": "空值",
       "kind": "concept",
       "summary": "两个空值 vs 一个空值，判空写法的噪音量差一倍",
-      "bodyHtml": "<p>JS 有两个表示「没有」的值：<code>null</code>（人为赋值）与 <code>undefined</code>（未赋值 /\n属性不存在 / 函数无返回）。绝大多数判空代码其实两者都要挡，于是有了\n<code>== null</code> 这个「同时匹配两者」的惯用写法，以及 <code>?.</code> / <code>??</code> 这套语法。</p>\n<p>Python 只有一个：<code>None</code>。判断用 <code>is None</code>（<code>is</code> 比对象身份，\n<code>==</code> 可以被重载，所以惯例是 <code>is</code>）。</p>\n<p>迁移时的实质变化：JS 那套「<code>||</code> 兜底」在 Python 里不能用 ——\n<code>0</code>、<code>&quot;&quot;</code>、<code>[]</code> 都是假值，<code>value or default</code> 会把合法的 0 当成缺失。\n必须显式写 <code>if value is None</code>。</p>\n",
       "snippets": {
         "javascript": {
           "lang": "javascript",
@@ -109,7 +106,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>null + undefined</strong> —— 两种空值，判空噪音大，所以才有 <code>?.</code> 与 <code>??</code>。</p>\n"
+          "bodyHtml": "<p>JS 有两个表示「没有」的值：<code>null</code>（人为赋值）与 <code>undefined</code>（未赋值 /\n属性不存在 / 函数无返回）。绝大多数判空代码其实两者都要挡，于是有了\n<code>== null</code> 这个「同时匹配两者」的惯用写法，以及 <code>?.</code> / <code>??</code> 这套语法。</p>\n<p>Python 只有一个：<code>None</code>。判断用 <code>is None</code>（<code>is</code> 比对象身份，\n<code>==</code> 可以被重载，所以惯例是 <code>is</code>）。</p>\n<p>迁移时的实质变化：JS 那套「<code>||</code> 兜底」在 Python 里不能用 ——\n<code>0</code>、<code>&quot;&quot;</code>、<code>[]</code> 都是假值，<code>value or default</code> 会把合法的 0 当成缺失。\n必须显式写 <code>if value is None</code>。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -137,7 +134,6 @@
       "title": "值语义与引用语义",
       "kind": "concept",
       "summary": "「传引用还是传值」这个问题两边都问错了，真正要问的是「什么可变」",
-      "bodyHtml": "<p>JS 的说法是「原始值按值、对象按引用」：给变量赋一个对象，两个名字指向\n同一份数据；赋一个数字，各自独立。</p>\n<p>Python 的说法是「一切都是引用」，但结论出人意料地接近 ——\n差别在于 <strong>JS 的对象对应 Python 的可变对象（list/dict/set），\nJS 的原始值对应 Python 的不可变对象（int/str/tuple）</strong>。\n也就是说：<strong>变的不是「传值还是传引用」，而是这个类型的可变性</strong>。</p>\n<p>于是有一条跨两边的统一判断法：拿到一个值，先问「它可变吗」。\n可变 → 赋值、传参、放进容器都是共享；不可变 → 怎么传都安全。\nPython 的 <code>tuple</code> 与 <code>frozenset</code> 存在的意义正是「我需要一个能安全共享的集合」，\n而 JS 里<strong>没有对应物</strong>（<code>Object.freeze</code> 只是浅冻结，且不是类型属性）。</p>\n",
       "snippets": {
         "javascript": {
           "lang": "javascript",
@@ -149,7 +145,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>原始值按值、对象按引用</strong> —— 对象赋值与传参都是共享，\n所以「改了别处」是最常见的一类意外。</p>\n"
+          "bodyHtml": "<p>JS 的说法是「原始值按值、对象按引用」：给变量赋一个对象，两个名字指向\n同一份数据；赋一个数字，各自独立。</p>\n<p>Python 的说法是「一切都是引用」，但结论出人意料地接近 ——\n差别在于 <strong>JS 的对象对应 Python 的可变对象（list/dict/set），\nJS 的原始值对应 Python 的不可变对象（int/str/tuple）</strong>。\n也就是说：<strong>变的不是「传值还是传引用」，而是这个类型的可变性</strong>。</p>\n<p>于是有一条跨两边的统一判断法：拿到一个值，先问「它可变吗」。\n可变 → 赋值、传参、放进容器都是共享；不可变 → 怎么传都安全。\nPython 的 <code>tuple</code> 与 <code>frozenset</code> 存在的意义正是「我需要一个能安全共享的集合」，\n而 JS 里<strong>没有对应物</strong>（<code>Object.freeze</code> 只是浅冻结，且不是类型属性）。</p>\n"
         },
         "python": {
           "lang": "python",

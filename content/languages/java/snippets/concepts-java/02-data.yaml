@@ -14,8 +14,16 @@ snippets:
       Map<String, Integer> counts = new HashMap<>(); // 键要实现 equals / hashCode
       list.add("a");
     body: |
-      **ArrayList / HashMap / HashSet** —— 都是类且带泛型参数，没有字面量语法；
-      `HashMap` 的键要正确实现 `equals` / `hashCode`。
+      Java 的容器是**类**：`ArrayList`、`HashMap`、`HashSet`，都必须带泛型参数，
+      没有字面量语法（`List.of(1, 2)` 是工厂方法）；`HashMap` 的键要正确实现
+      `equals` / `hashCode`。
+
+      JS 的主力容器是 `Array` 与**对象字面量**，另有 `Map` / `Set`。对象字面量看起来像
+      `Map`，但键只能是字符串或 Symbol（数字键被转字符串），真正的任意键映射要显式用 `Map`。
+
+      从 Java 过去的两个变化：① 变量不再写明类型，`ArrayList<String>` 变成 `[]`，
+      你得靠命名和惯例记住里面装什么；② `Map` 与对象字面量的选择成了一个判断 ——
+      键是字符串还是任意值。至于 `List.of` 那种**不可变集合**，JS 里没有直接对应。
 
   - featureId: concepts-java/immutable-data
     equivalence: identical
@@ -24,8 +32,16 @@ snippets:
       List.of(1, 2);                  // 不可变集合，修改抛异常
       record Point(int x, int y) {}   // 不可变浅值对象
     body: |
-      **String / List.of / record / final** —— 不变性有多种载体，
-      `List.of` 在运行时拒绝修改，`record` 提供不可变浅值对象。
+      Java 的不变性有几种载体：`String` 天生不可变；`List.of` / `Map.of` 产出不可变集合；
+      `record` 提供不可变的浅值对象；`final` 约束字段不能重新赋值。
+
+      JS 里**没有「不可变类型」这个概念**。想让一个对象不可变要用 `Object.freeze`，
+      而它是**浅的**（嵌套照样能改）、是运行时行为，不影响类型签名；复制用
+      `structuredClone`（深）或展开运算符（浅）。
+
+      从 Java 过去会失去「用类型表达不可变」的能力 —— 没有 `final` 字段那种编译期保证，
+      也没有 `List.of` 那种运行时拒绝修改的集合。共享常量对象只能靠 `freeze` 加约定，
+      且没有任何机制在你犯规时提醒你。
 
   - featureId: concepts-java/string-format
     equivalence: identical
@@ -33,8 +49,15 @@ snippets:
       String.format("%.2f", 3.14159)   // "3.14" —— printf 风格格式串
       String.format("%,d", 1234567)    // "1,234,567"
     body: |
-      **String.format + 文本块** —— 库级 printf 风格格式化；
-      循环拼接用 `StringBuilder`，多行文本用 `"""`。
+      Java 有库级的 printf 风格格式化：`String.format("%.2f", n)`、`%d`、
+      `%,d`（千分位）、`%10s`（对齐）；循环拼接用 `StringBuilder`；多行文本用文本块 `"""`。
+
+      JS 的主力是模板字符串 `` `${x}` ``，它只负责求值插入，**格式化全靠方法**：
+      小数用 `toFixed`、千分位用 `toLocaleString`、对齐用 `padStart`；没有语言级的格式串，
+      也没有 `StringBuilder`（字符串拼接由引擎优化）。
+
+      从 Java 过去最想找的就是 `String.format` 的对应物 —— JS 里没有（`console.log` 的
+      `%s` 只作用于日志）。把每个格式化需求映射到一个方法，是这段迁移里很快能建立的手感。
 
   - featureId: concepts-java/regex
     equivalence: identical
@@ -43,8 +66,17 @@ snippets:
       p.matcher("a12").matches()   // false —— matches 要求整串匹配
       p.matcher("a12").find()      // true —— find 才找任意位置
     body: |
-      **Pattern / Matcher** —— `matches()` 要求整串匹配，`find()` 才找任意位置；
-      命名分组是 `(?<name>...)`。
+      Java 的正则要经过 `Pattern.compile` 再 `matcher(...)`：`matches()` 要求**整串匹配**，
+      `find()` 才找任意位置的子串；命名分组是 `(?<name>...)`；`Pattern` 编译有开销，
+      循环里要预编译。
+
+      JS 有正则字面量 `/\d+/`，`str.match(re)` 与 `re.test(str)` 都是**任意位置**匹配，
+      没有「整串匹配」的同名方法（要自己加 `^...$`）。
+
+      从 Java 过去要改的直觉正是「matches 是整串」：在 Java 里
+      `Pattern.matches("\\d+", "a12")` 是 false，到 JS 里 `/\d+/.test("a12")` 是 true。
+      命名分组语法这次两边碰巧一致（都是 `(?<name>...)`）。另外 Java 代码里 `"\\d"` 要双反斜杠，
+      JS 字面量里写 `/\d/` 即可。
 
   - featureId: concepts-java/serialization
     equivalence: identical
@@ -52,8 +84,16 @@ snippets:
       // 标准库没有 JSON，要引 Jackson / Gson
       new ObjectMapper().writeValueAsString(obj);   // Jackson
     body: |
-      **序列化靠库** —— 标准库没有 JSON；`Serializable` 是另一套二进制机制，
-      长期被视为安全隐患，新代码不建议用。
+      Java **标准库没有 JSON** —— 要序列化对象得引 Jackson / Gson 这类库，靠反射或注解
+      把对象映射成 JSON；JDK 自带的 `Serializable` 是另一套二进制机制，且长期被视为
+      安全隐患，新代码不建议用。
+
+      JS 的 `JSON.stringify` / `JSON.parse` 是**语言内置**的，对应关系直接：对象 ↔ JSON 文本。
+      但它是宽松的 —— 函数、`undefined`、Symbol 会被**静默丢弃**，只有循环引用才抛错。
+
+      从 Java 过去的两点落差：① 不用再为「选哪个 JSON 库」纠结，语言自带；
+      ② 也失去了 Java 那种「显式映射、类型清楚」的过程 —— JS 的序列化不看类型，
+      丢字段不告诉你，`JSON.parse` 回来的是普通对象，没有任何形状校验。
 
   - featureId: concepts-java/date-time
     equivalence: identical
@@ -62,5 +102,14 @@ snippets:
       d.plusMonths(1);                          // 不可变：返回新对象
       ZonedDateTime.now(ZoneId.of("UTC"));      // 时区是一等概念
     body: |
-      **java.time（不可变、月从 1 起）** —— 时区是一等概念；
-      旧的 `Date` / `Calendar` 可变且月份从 0 起，已弃用。
+      Java 的 `java.time`（`LocalDate`、`Instant`、`ZonedDateTime`）是**不可变的**，
+      月份从 1 开始，时区是一等概念；旧的 `java.util.Date` / `Calendar` 可变且月份从 0 起，
+      已被弃用。
+
+      JS 的 `Date` 更像已经被淘汰的那套 Java API：**可变**（`setMonth` 改自己）、
+      月份从 0 开始、时区处理长期靠 `Intl` 与第三方库补足，没有 `LocalDate` 那种
+      「不含时间也不含时区」的类型。
+
+      从 Java 过去会觉得「倒退了一步」：`java.time` 的不可变与时区模型在 JS 里没有对等物。
+      踩坑点集中在月份基准差 1，以及 `setXxx` 会就地修改（若别处还引用同一个 Date，
+      会看到意外变化）。

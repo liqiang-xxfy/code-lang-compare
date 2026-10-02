@@ -99,4 +99,56 @@ describe('三轴内容模型', () => {
       }
     }
   })
+
+  /**
+   * 说明的落点，在**构建产物**上再钉一次。
+   *
+   * 内容侧的归属由 content-contract 断言，这里管的是另一半：分片里到底有没有
+   * 把说明渲染出来。多列板块的 feature 一旦带上 `bodyHtml`，视图就会在整块
+   * 上方渲染一份横跨所有列的共享说明（矩阵模式下更是完全看不到它）。
+   */
+  it('说明的落点：多列板块在每列 snippet 上，feature 上没有', () => {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(ROOT, 'src/generated/manifest.json'), 'utf8'),
+    ) as { sections: Array<{ id: string; columns: string }> }
+    const multi = new Set(
+      manifest.sections.filter((s) => s.columns === 'multi').map((s) => s.id),
+    )
+    expect(multi.size).toBeGreaterThan(0)
+
+    interface Shard {
+      section: string
+      baseline: string
+      features: Array<{
+        id: string
+        bodyHtml?: string
+        snippets: Record<string, { bodyHtml?: string }>
+      }>
+    }
+    const dir = path.join(ROOT, 'src/generated/content')
+    let checked = 0
+    for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!d.isDirectory()) continue
+      for (const f of fs.readdirSync(path.join(dir, d.name))) {
+        if (!f.endsWith('.json')) continue
+        const shard = JSON.parse(
+          fs.readFileSync(path.join(dir, d.name, f), 'utf8'),
+        ) as Shard
+        if (!multi.has(shard.section)) continue
+        for (const feature of shard.features) {
+          checked += 1
+          expect(feature.bodyHtml, `${feature.id} 不该有共享说明`).toBeUndefined()
+          /*
+           * 只断言**基准列**有说明。对比列的 543 格仍在分批补（R18 是过渡期
+           * warn），把「每列都有」写进测试会让内容补齐之前测试一直红。
+           */
+          expect(
+            feature.snippets[shard.baseline]?.bodyHtml,
+            `${feature.id} · ${shard.baseline}（基准列）缺少列内说明`,
+          ).toBeTruthy()
+        }
+      }
+    }
+    expect(checked, '没有扫到任何多列板块的 feature').toBeGreaterThan(0)
+  })
 })

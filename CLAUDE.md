@@ -96,6 +96,8 @@ content/concepts/concepts.yaml                              # 心智模型对照
 
 **加一个 feature**：在 topic 的章里加一条 → 该 topic 的 `languages` 范围内每门语言各加一条同 `featureId` 的实现（R2 的覆盖率缺口是 error 级，缺一格就阻断；同一条规则另有 warn 分支，例如 `equivalence: absent` 却给了代码 —— 提示确认那是惯用替代写法）。
 
+**说明写在哪一层，取决于板块的 `columns`**（ADR-35）：`columns: multi`（基础语法 / 心智模型）**每门语言各写各的**，写在覆盖层的 `snippet.body`，渲染在本列代码下方；`columns: single`（迁移教程）才有一份共享说明写在 `feature.body`，渲染在所有列上方。多列板块的 `body` 是**一个字段两种角色**：基准列写本语言的客观事实，对比列写与基准的差别；贴着某一行的注意事项走代码里的 `@note`，不重复成段。
+
 **加一个 (基准, 目标) 方向**：建 `content/topics/<baseline>2<target>/`，在 registry 登记 `section: migration` + `baseline` + `target` + `languages: [baseline, target]`，再写章节与三份列表。左栏、路由、sitemap 全部自动跟上。
 
 **加一门语言**（不需要改任何组件/类型/路由）：
@@ -109,13 +111,16 @@ content/concepts/concepts.yaml                              # 心智模型对照
 ### 3. 契约与校验
 
 - **类型唯一真源**：[src/schemas/index.ts](src/schemas/index.ts)（Zod）。`src/types/index.ts` 只做 `z.infer` 再导出，禁止手写 interface。`src/` 侧只 `import type`，校验代码不进客户端包。
-- **校验规则 R1–R17** 全部在 [scripts/lib/analyze.ts](scripts/lib/analyze.ts)（R1 结构 / R2 覆盖率 / R3 provenance / R4·R9 @note / R5 引用完整性 / R6 发布门槛 / R7 URL 白名单 / R8 命名 / R10 许可台账 / R11 差异有说明 / R12 基准列不点名他语言 / R13 featureId 前缀 / R14 板块成员资格 / R15 覆盖层 topic 声明 / R16 code 与 blocks 二选一 / R17 校对记录）。R9 从不单独出现，只以组合 id `R4/R9` 出现；R1 的结构判定主要由 loader（`core.ts` 的 Zod 解析）执行，analyze 侧只补 `concept.entries` 非空这类语义检查。R11 / R12 / R17 是 warn 级（不阻断构建）。R14 与 R16 落在 schema 层（`registrySchema.superRefine` 与 `refineSnippet`），因为它们是**单条数据自身的自洽性**，不需要跨文件视野。
+- **校验规则 R1–R19** 全部在 [scripts/lib/analyze.ts](scripts/lib/analyze.ts)（R1 结构 / R2 覆盖率 / R3 provenance / R4·R9 @note / R5 引用完整性 / R6 发布门槛 / R7 URL 白名单 / R8 命名 / R10 许可台账 / R11 差异有说明 / R12 基准列不点名他语言 / R13 featureId 前缀 / R14 板块成员资格 / R15 覆盖层 topic 声明 / R16 code 与 blocks 二选一 / R17 校对记录 / R18 多列板块每格应有 body / R19 多列板块不得有 feature.body）。R9 从不单独出现，只以组合 id `R4/R9` 出现；R1 的结构判定主要由 loader（`core.ts` 的 Zod 解析）执行，analyze 侧只补 `concept.entries` 非空这类语义检查。R11 / R12 / R17 / **R18 / R19** 是 warn 级（不阻断构建）。R14 与 R16 落在 schema 层（`registrySchema.superRefine` 与 `refineSnippet`），因为它们是**单条数据自身的自洽性**，不需要跨文件视野。
+  - **R18 / R19 是过渡期规则**：正文按 topic 分批补，补完前把构建变红毫无意义（会把「还没写完」和「写错了」混成一个信号）。两条都**按 `(topic, 列)` 汇总成一条**输出，逐条待办在 `npm run content:report`；账目归零后把 `warn(` 改 `err(` 即翻级。判据读板块注册表的 `columns` —— R12 早先写的是 `section === 'basics'`，concepts 只因「恰好没有 target」才走对分支。
   - 三轴相关的判据集中在两处：R5 管「topic 引用未知语言 / 对目录反查 / 对级词典只讲本方向两门语言」，R8 管「topic 目录与 registry 一一对应 / `defaultCompareLanguage` 已启用且 ≠ 基准 / basics 的 baseline 必须是基准候选」。
   - **R11 与 R12 是 warn 级（不阻断构建）**：R11 管「`equivalence` 非 `identical` 却一条注记都没配」，R12 管「基准列的注记点名了屏幕外的语言」——basics 是多选列，基准列讲第三方语言就是幽灵语言；对级板块只有两门语言，那里只禁「第三门」。匹配器在 [scripts/lib/lang-mention.ts](scripts/lib/lang-mention.ts)，注意 `JavaScript` 含 `Java`、`Go` 会撞英文动词这两个坑。
 - **validate 与 build 共用同一份 `analyzeContent()`**。改校验逻辑只需改这一处，但要注意：脚本被改坏时测试未必发现，`tests/pipeline/content-contract.test.ts` 与 `tests/unit/section-model.test.ts` 对**真实 content 目录**断言不变量，是第二道闸门（见「测试地图」）。
 - **`equivalence` 的参照系是本 topic 的基准**（ADR-24）。旧的全局常量 `equivalenceReference` 已删除；页面上那句"徽章以本页基准 X 为参照系"由 [EquivalenceBaselineNote.vue](src/components/compare/EquivalenceBaselineNote.vue) 渲染。基准列自己恒为 `identical`（它就是参照系），所以**基准列不渲染徽章**（`CodeBlock` 的 `isBaseline` prop，列头已有「基准」标记）——那枚 `=` 是自指、零信息量。
 
 ### 4. 内容里的两个约定
+
+**`@note` 与 `snippet.body` 的分工**（ADR-35）：**贴着某一行的**注意事项写 `@note`（内联，读者不用来回跳）；**一列整体上**是什么、和对面差在哪写 `body`（渲染在本列代码下方）。两者内容常常重合，重合时以 `@note` 为准，不要两处都说一遍。多列板块的每一列都该有自己的 `body`（R18 在过渡期按 warn 提示）。
 
 **`@note` 内联标记**：差异说明写在代码注释里，不用行号锚定（行号会随编辑静默漂移）。标记必须出现在该语言自己的行注释前缀（`meta.comment.line`，如 `//` / `#`）之后，位置不限：
 
@@ -144,7 +149,7 @@ MAX_RETRY = 3        # @note! 全大写只是约定，解释器不会阻止你�
 - **diff 刻意留在运行时**（[src/content/diff.ts](src/content/diff.ts)）：基准可切、对比列可多选、展示模式会变，预计算是几十种组合的浪费。用 `diffArrays` 逐行对齐，**不要换回 `diffLines`** —— 它会把相邻删除+新增合并成块，让完全相同的行也被标成"不同"（有回归测试）。
 - **内容分片粒度是一章一个文件**（`src/generated/content/<topicId>/<chapter>.json`），由 [src/content/repository.ts](src/content/repository.ts) 用 `import.meta.glob` 懒加载。按 topic 分片会涨到 732 KB，别再改回去。
 - **对级静态资源按对拆文件**（`src/generated/static/<baseline>--<target>.json` + 全局 `concepts.json`），同样懒加载。合成一个 `static.json` 会让 12 个方向的陷阱/词典/路线常驻主包，而用户一次只看一个方向。文件名能从 (基准, 目标) 直接推出来，客户端不做反查。
-- **对比列按内容裁剪**：[pickColumns](src/composables/useVisibleColumns.ts) 把列裁到「本模块真有实现」的语言。对比列是用户偏好，覆盖范围是内容属性 —— 不裁的话骨架期会出现整列"本模块不涉及该语言"的噪音。
+- **对比列按内容裁剪**：[pickColumns](src/composables/useVisibleColumns.ts) 把列裁到「本模块真有实现」的语言。对比列是用户偏好，覆盖范围是内容属性 —— 不裁的话骨架期会出现整列"本模块不涉及该语言"的噪音。裁剪**不补位**（ADR-34）：勾选的语言一门都没实现时**只留基准列**，曾经那层"补一门有实现的"兜底会让页面出现一列没勾上、也去不掉的语言（列读 `pickColumns` 含兜底，选择条勾选态读 `compareLangs`，两者对不上）。
 
 ### 6. SEO 与预渲染
 
@@ -168,8 +173,8 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 | 文件 | 钉住的不变量 |
 | --- | --- |
-| [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：无 error、覆盖率、provenance、许可台账、@note 残留、feature id 前缀 |
-| [tests/unit/section-model.test.ts](tests/unit/section-model.test.ts) | **对真实 content + 真实 `src/generated/` 分片**断言三轴模型：基准列徽章恒 `identical`、语言引用、缺口 |
+| [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：无 error、覆盖率、provenance、许可台账、@note 残留、feature id 前缀、**body 归属**（多列板块无 `feature.body`、基准列每格有 `body`、多列板块无 `exercise`） |
+| [tests/unit/section-model.test.ts](tests/unit/section-model.test.ts) | **对真实 content + 真实 `src/generated/` 分片**断言三轴模型：基准列徽章恒 `identical`、语言引用、缺口、**说明的落点**（多列分片的 feature 无 `bodyHtml`、基准列 snippet 有） |
 | [tests/unit/baseline-switch.test.ts](tests/unit/baseline-switch.test.ts) | 基准候选与默认值、可见列计算、目标语言推导、切基准回落、diff 缓存、manifest 来源 |
 | [tests/unit/diff.test.ts](tests/unit/diff.test.ts) | `compareToBaseline` 的行级对齐与缓存 |
 | [tests/unit/extract-notes.test.ts](tests/unit/extract-notes.test.ts) | `extractNotes` 的 `notes`（仅高危）/ `allNotes`（全部）分流契约 |
@@ -188,6 +193,8 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 - **YAML 普通标量不能以反引号开头**（``title: `x` 是什么`` 会让整章解析失败），也不能写裸 `null`（`aliases: [null]` 会被解析成空值）。这两条都踩过。
 - 对级板块的 trap/词典/路线**只能讲本方向的两门语言**（R5）：多写一门第三语言，读者会以为「带着当前基准的习惯」在那个方向也会踩到同样的坑。
 - **基准列自己的 `equivalence` 必须是 `identical`**（有测试钉住）——它就是参照系。给出 `absent` 仅当基准语言里也没有这个概念。
+- **多列板块（`columns: multi`）不得写 `feature.body`**（R19，有测试钉住）——那里的说明属于每一列，写在覆盖层的 `snippet.body` 里。它渲染在代码上方、横跨所有列，而矩阵视图根本不渲染它，同一份内容两种展示模式一个有一个没有。
+- **基准列的 `body` 只讲本语言**（R12，warn）：勾 Java+Go+Rust 时基准列讲 Python 就是幽灵语言。R12 同时扫 `@note` 与 `body`。
 - 所有外部 URL 必须是 `https`（R7）。
 - **compare 路由里没有 topicId** —— 它由 `(基准, 板块, 目标)` 从 `manifest` 反查（[repository.topicIdOf](src/content/repository.ts)）。组件里不要拼 topic id 字符串，`verify:ext` 也会拦住写死的语言 id。唯一的例外是内容详情页 `/feature/:topicId/:slug`，那个 `:topicId` 是路径参数，不走反查。
 - **面向用户的文案里不许写死语言名**：JS / Python / Java 三门基准**权重相同**，不是「以 JS 为主、其余为客」——`java2python` 页上写「JS 开发者必踩」就是错的（真踩过：`PitfallCard` 的徽章曾硬编码这四个字，于是三门基准的页面全在讲 JS）。语言名一律从 meta 取：i18n 里走 `{baseline}` 占位符（`pitfalls.fromBaselineBadge` 是样板），组件里由调用方以 prop 传入。`verify:ext` 的**第三道断言**守着这条：扫描 i18n 的**值**与 `.vue` 的 `<template>` 段（先摘掉 `<script>` 和 HTML 注释 —— 代码注释里拿语言举例是正常的），命中任何已启用语言的 `name` / `shortName` 即失败。注意它只认**显示名所在的文案位置**，第 2 道断言认的是**带引号的语言 id**，两者互补。
@@ -202,7 +209,8 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 ## 已知遗留
 
-- **搜索索引的 `javascript` 分片 118 KB(gz)，超出 90 KB 红线**（§15.6.5 起就存在，拆成按基准分片后仍是最大的那份）。下一步按 ADR-21 的既定路径把 `text` 里的 `@note` 文本降级为 summary-only。**实测提醒**：全部注记文本仅 67 KB raw，只占 javascript 分片 652 KB raw 的约 9%，单靠砍注记到不了 90 KB —— 真正的路径是 summary-only 连 `feature.body` / `snippet.body` 一并去掉，或按 section 域内检索。**推翻信号**：降到 150 KB 仍不达标就改为按 section 域内检索，牺牲跨板块检索。
+- **搜索索引三个分片全部超出原定的 90 KB(gz) 红线**：2026-10-02 实测 `javascript` **247 KB** / `python` **145 KB** / `java` **136 KB**（此前这里记的「javascript 118 KB」已过时 —— 内容补到 444 feature / 1274 实现之后涨了一倍）。同日把 `SEARCH_INDEX_BUDGET_KB` 上调到 280，**是承认现状而不是取消红线**：它仍是一条增长告警，越线时逐分片打印一行提示。真正能回到 90 KB 的只有 ADR-21 那条路（`text` 里的 `@note` 与 body 降级为 summary-only，或按 section 域内检索），代价是牺牲检索精度（注记是内容里检索价值最高的部分），属独立的产品决策。**实测提醒**：全部注记文本仅 67 KB raw，单靠砍它到不了 90 KB。**推翻信号**：降到 150 KB 仍不达标就改为按 section 域内检索，牺牲跨板块检索。
+- **矩阵模式（默认展示模式）不渲染 `feature.body`**：`MatrixLayout` 从不引用它，于是**迁移教程那份共享说明在默认视图下一直不可见**（ADR-35 记录时顺带发现，本次未修）。多列板块的说明走每列 `snippet.body`，不受影响。要修的话是在矩阵里给 feature 行加一条跨列的说明行，属于新交互，不是补一行模板能了事的。
 - **骨架期内容不完整，目前只有「JavaScript 基准 + Python 对比」一套算完整模板**：Python / Java 基准各只有 1 章基础语法、各只有 1 个迁移方向，6 个迁移方向也都只有 1 章教程（`01-functions`，5 个 feature 的样板）。R5 会按基准汇总一条 warn 列出缺哪些方向（刻意是 warn 不是 error，否则补齐内容前构建一直是红的）。**补内容时照下面这三处抄形态**（数字用 `npm run content:report` 复核）：
 
   | 维度 | 完整的那一套 | 其余 |

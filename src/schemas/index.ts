@@ -66,6 +66,9 @@ export const languageMetaSchema = z.object({
 /**
  * 'exercise' 是迁移教程的练习小节：题面写在 feature.body，
  * 「参考答案」走 snippet 的 code（from/to 两条正好被现有并排渲染当对照解法）。
+ *
+ * 它只存在于**单列**板块（`columns: single`，当前只有 migration）——
+ * 多列板块没有练习条目，因为那里没有「一条共享题面」的位置（见 R19）。
  */
 export const featureKindSchema = z.enum(['syntax', 'concept', 'behavior', 'mapping', 'exercise'])
 
@@ -76,7 +79,15 @@ export const featureSchema = z.object({
   kind: featureKindSchema,
   /** 一句话说明（纯文本，用于列表与 SEO description） */
   summary: z.string().optional(),
-  /** 权威说明，受限 Markdown（禁裸 HTML，见 ADR-09） */
+  /**
+   * 板块级权威说明，受限 Markdown（禁裸 HTML，见 ADR-09）。
+   *
+   * **仅供单列板块使用**（`columns: single`，当前只有 migration；`exercise`
+   * 的题面也走这里）。多列板块（basics / concepts）一律不得使用 —— 那里的列
+   * 是用户勾选的 1~5 门语言，一份横跨所有列的共享说明盖不住各语言自己的事实，
+   * 也放不下各自的差异，而且在矩阵模式下没有渲染点。正文改为写在每列代码
+   * 下方的 `snippet.body`（见 R18 / R19）。
+   */
   body: z.string().optional(),
   /**
    * 软引用：指向另一个 feature。
@@ -324,7 +335,19 @@ const snippetBase = z.object({
   blocks: z.array(snippetBlockSchema).optional(),
   /** 手写运行结果（无 runner，需与代码同等校对） */
   output: z.string().optional(),
-  /** 该语言的补充说明（受限 Markdown），主要用于 equivalence=absent 时给替代做法 */
+  /**
+   * 该语言自己的说明（受限 Markdown），渲染在**本列代码下方**（`pc-code-extra`）。
+   *
+   * 一个字段、两种角色，由「这一列是不是基准列」纯派生：
+   *   · 基准列（lang === topic.baseline）—— 写**本语言的客观事实**
+   *   · 对比列 —— 写**与基准语言的差别对比**
+   *
+   * 可选，为空则代码下方不渲染（基准列没有「与自己的差别」这回事，
+   * 它靠代码里的 `@note` 讲事实；对比列若确实没有差别也可以空着）。
+   *
+   * 它服务于**整体**上的差异；贴着某一行的注意事项走代码里的 `@note` 内联标记
+   * （ADR-10），两者不要重复写同一件事。
+   */
   body: z.string().optional(),
 })
 

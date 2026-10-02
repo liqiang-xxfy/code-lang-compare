@@ -22,6 +22,28 @@ snippets:
       String multi = """
               多行
               字符串""";               // @note 文本块（Java 15+），会剥掉行的公共缩进
+    body: |
+      这一层最容易带走的一条：**单引号与双引号在这里是两种类型**。
+
+      ```java
+      String s = "a";     // 字符串
+      char c = 'a';       // 字符 —— 一个 16 位的整数
+      // char bad = 'ab'; // 编译错误
+      ```
+
+      `char` 能参与算术（`'a' + 1` 得 98），也能和数字互相转换 ——
+      它本质是个数值类型，不是"长度为 1 的字符串"。另两门语言里没有这个类型，
+      单双引号只是省转义的风格选择，所以迁过来时很容易把两者混着写。
+
+      Java 15 起有**文本块**（`"""`），用来写多行字符串：
+
+      ```java
+      String multi = """
+              第一行
+              第二行""";
+      ```
+
+      它会剥掉各行的公共缩进 —— 这一点比"缩进原样带进去"的写法省心得多。
   - featureId: basics-java/template-string
     equivalence: identical
     code: |
@@ -32,6 +54,23 @@ snippets:
 
       // @note! 拼接顺序即求值顺序，长串里混着多个调用时边界要靠自己标
       // @note 复杂表达式要先用变量接住，无法在串内直接求值
+    body: |
+      Java **没有字符串插值**：字符串字面量里的一切都是字面量，
+      想把变量放进去只有两条路。
+
+      ```java
+      String msg = "你好，" + name + "！";              // 拼接
+      String msg2 = String.format("你好，%s！", name);   // 格式化
+      String msg3 = "你好，%s！".formatted(name);        // Java 15+
+      ```
+
+      代价不只是啰嗦：**拼接顺序即求值顺序**，一个长表达式串里混着多个方法调用时，
+      读的人必须自己在脑内标出每一段的边界。
+
+      另两门语言里都有插值语法，占位符同时承担了"这里是个表达式"和
+      "边界在哪"两个作用 —— 那正是它读起来更省力的原因。
+
+      文本块只解决换行与缩进，**不提供插值**，所以这一层没有缓解。
   - featureId: basics-java/string-methods
     equivalence: identical
     code: |
@@ -44,6 +83,25 @@ snippets:
       "abc".replace("a", "x");       // 返回新串
 
       String.join("\n", list);       // @note 静态方法，主语是分隔符
+    body: |
+      | 意图 | Java |
+      | --- | --- |
+      | 去首尾空白 | `strip()`（Java 11+）/ `trim()`（只去 ASCII 空白） |
+      | 大小写 | `toUpperCase()` / `toLowerCase()` |
+      | 判断包含 | `contains(x)`（返回 boolean） |
+      | 找下标 | `indexOf(x)`（找不到返回 `-1`） |
+      | 替换 | `replace(a, b)` |
+      | 切分 | `split(sep)` |
+      | 连接 | `String.join(sep, list)` |
+
+      三处与别处不同：
+
+      1. **方法名是驼峰**，且 `strip` / `trim` 两个名字并存，语义有细微差别
+         （`trim` 只处理码点小于等于 U+0020 的字符，`strip` 按 Unicode 空白判定）。
+      2. **`indexOf` 找不到返回 `-1`** —— 不是抛异常。所以"找没找到"要看
+         `>= 0` 而不是"有没有返回值"，这一点与另两门语言里的同名方法一致，
+         但与"找不到就抛"的那一类写法相反。
+      3. **`String.join` 的主语是分隔符**，这一点与某门语言一致、与另一门相反。
   - featureId: basics-java/multiline-string
     equivalence: identical
     code: |
@@ -56,6 +114,29 @@ snippets:
 
       "行尾延续\
       接在下一行";                    // @note 文本块里的 \ 可以抑制换行
+    body: |
+      文本块是首选写法：
+
+      ```java
+      String text = """
+              第一行
+              第二行""";
+      ```
+
+      它会按"公共缩进"自动去掉左边的空白，所以缩进不会跑进字符串里。
+      文本块里还有两个小工具：行尾的 `\` 抑制换行，`\s` 表示一个不会被剥掉的空格。
+
+      拼接序列用 `String.join`：
+
+      ```java
+      String.join("\n", list);
+      ```
+
+      主语是分隔符，元素必须是 `CharSequence` —— 数字要先转成字符串。
+      要拼接非字符串序列，得先 `map` 一道。
+
+      另需注意：文本块的结束分隔符位置会影响结果。把 `"""` 放在最后一行末尾
+      （如上面的写法）不会多出空行；单独另起一行则会多一个换行。
   - featureId: basics-java/fstring-format
     equivalence: identical
     code: |
@@ -67,6 +148,27 @@ snippets:
 
       String.format("%1$s 有 %2$d 项", name, count);   // @note 带序号，对应关系显式
       // @note! 规格串是普通字符串，参数顺序写反了不会报错，只是输出对调了
+    body: |
+      `String.format` 用的是 printf 风格：
+
+      ```java
+      String.format("%.2f", 3.14159);       // "3.14"
+      String.format("%08.2f", 3.14159);     // "00003.14" —— 总宽度 8
+      String.format("%,d", 1234567);        // "1,234,567"
+      String.format("%x", 255);             // "ff"
+      String.format("%.1f%%", 12.3);        // "12.3%" —— 百分号要自己写
+      ```
+
+      宽度、精度、对齐、进制、千分位都有，表达力上与另两门语言相当。
+
+      **关键差异是"格式串与参数分离"**：规格串是运行时的普通字符串，
+      编译器既看不懂 `%d` 也不知道参数该有几个。所以：
+
+      - 参数顺序写反了**不会报错**，只是输出把两个值对调了
+      - 参数个数不够时才在运行时抛 `MissingFormatArgumentException`
+      - 反过来说，规格串可以动态拼出来 —— 这是另外两种写法做不到的
+
+      参数一多建议用带序号的占位符 `%1$s`，把对应关系显式化。
   - featureId: basics-java/string-index-slice
     equivalence: identical
     code: |
@@ -79,6 +181,28 @@ snippets:
       // s.charAt(-1);             // @note! StringIndexOutOfBoundsException，没有负索引
       // s.charAt(999);            // @note! 同样抛，不会静默截断
       new StringBuilder(s).reverse().toString();   // @note 没有步长，反转要绕这一道
+    body: |
+      ```java
+      String s = "abcdef";
+      s.charAt(0);        // 'a'
+      s.substring(1, 4);  // "bcd" —— 左闭右开
+      s.substring(2);     // "cdef" —— 单参数才是"到末尾"
+      ```
+
+      与另两门语言相比，缺的全是"语法层的便利"：
+
+      | 想要 | Java 写法 |
+      | --- | --- |
+      | 最后一个字符 | `s.charAt(s.length() - 1)` |
+      | 反转 | `new StringBuilder(s).reverse().toString()` |
+      | 隔项取 | 自己写循环 |
+
+      **越界一律抛 `StringIndexOutOfBoundsException`** —— 这一点是好消息：
+      `charAt(999)` 当场炸，而不是静默返回空值把错误带到下游。
+      负索引则会直接抛（它被当成一个非法下标，不会有"从末尾数"的语义）。
+
+      `substring` 与 `subList` 不同，它返回的是**新字符串**（字符串不可变，
+      也没法返回视图），所以没有"改切片会写回原串"这类陷阱。
   - featureId: basics-java/string-regex
     equivalence: identical
     code: |
@@ -92,6 +216,31 @@ snippets:
 
       java.util.regex.Pattern.compile("(?<y>\\d{4})").matcher("2026").group("y");
       "a@b".replaceAll("(\\w+)@(\\w+)", "$2@$1");   // @note! 替换引用用 $1，不是 \1
+    body: |
+      正则要先编译成 `Pattern`，再拿 `Matcher` 去匹配：
+
+      ```java
+      var p = Pattern.compile("\\d+");    // 反斜杠一律双写
+      var m = p.matcher("a1");
+
+      m.matches();       // false —— 整串匹配
+      m.find();          // true  —— 任意位置查找
+      m.lookingAt();     // true  —— 从开头匹配
+      ```
+
+      **这三个方法的命名最容易弄反**：直觉上会以为 `matches` 对应"匹配"
+      （即"包含"），实际上它是**整串**必须完全匹配 —— 相当于别的语言里的
+      `fullmatch`。想"包含"要用 `find`。
+
+      替换时的分组引用用 `$1`（不是反斜杠）：
+
+      ```java
+      "a@b".replaceAll("(\\w+)@(\\w+)", "$2@$1");   // "b@a"
+      ```
+
+      命名分组是 `(?<name>...)`，取值 `m.group("name")`。
+      另外 `Pattern` 可以预编译复用（有性能收益），`String.matches(regex)`
+      那种简写每次都会重新编译。
   - featureId: basics-java/string-concat
     equivalence: identical
     code: |
@@ -103,6 +252,30 @@ snippets:
       for (String p : parts) sb.append(p);
       sb.toString();
       // @note 编译器只优化单条表达式内的拼接，跨循环的累加会退化成 O(n²)
+    body: |
+      `+` 对字符串是**重载的拼接**，而且会**静默把另一侧转成字符串**：
+
+      ```java
+      "a" + 1;        // "a1"
+      "a" + null;     // "anull" —— 不抛 NPE
+      "a" + obj;      // 调用 obj.toString()
+      ```
+
+      三处后果：数字、`null`、任意对象都能拼进字符串而不报错，
+      所以"这里根本不该为空"这类问题会被字符串拼接掩盖过去。
+
+      性能上有一条硬规则：**循环里反复 `+` 会退化成 O(n²)**。
+      编译器只优化单条表达式内的连续拼接（它们会被合成一次 `StringBuilder`），
+      跨循环的累加不在优化范围内：
+
+      ```java
+      StringBuilder sb = new StringBuilder();
+      for (String p : parts) sb.append(p);
+      String s = sb.toString();
+      ```
+
+      另两门语言里，一门有引擎层的 rope 优化（循环里 `+=` 通常不会退化），
+      另一门的字符串同样是不可变的、同样需要注意 —— 但都没有这边这么确定。
   - featureId: basics-java/string-raw-escape
     equivalence: identical
     code: |
@@ -114,3 +287,23 @@ snippets:
       String emoji = "\uD83D\uDE00";               // @note 代理对要写两段
       // @note Unicode 转义固定 4 位，而且是**编译期**处理 ——
       // 所以它甚至能出现在注释里，这是少数语言才有的行为
+    body: |
+      转义序列是通用的：`\n`、`\t`、`\\`、`\'`、`\"`。
+
+      但 Java **没有原始字符串字面量**，所以正则与 Windows 路径这类
+      "反斜杠密集"的场景只能逐个双写：
+
+      ```java
+      String path = "C:\\new\\test";
+      Pattern.compile("\\d+\\.\\d+");
+      ```
+
+      文本块**不关闭转义处理** —— `\n` 在文本块里依然是换行，
+      它新增的 `\` 续行与 `\s` 是控制空白的小工具，与"原样保留"是两回事。
+
+      Unicode 转义是 `\uXXXX`，**固定 4 位**且**在编译期处理**
+      （所以它甚至能出现在注释和标识符里，这是少数语言才有的行为）。
+      超过 BMP 的字符要写成代理对：`"\uD83D\uDE00"`。
+
+      从有 `r""` 的语言迁过来时，最该建立的反射是：
+      **看到反斜杠先想"这里要不要写两遍"**，而不是先想正则对不对。

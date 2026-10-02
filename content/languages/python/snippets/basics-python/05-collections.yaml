@@ -22,6 +22,30 @@ snippets:
       grid = [[0] * 3] * 3                   # @note! 三行是同一个列表
       grid[0][0] = 1                         # 三行全变了
       grid = [[0] * 3 for _ in range(3)]     # 正确写法
+    body: |
+      三种常见写法：
+
+      ```python
+      xs = [1, 2, 3]
+      xs = list(range(10))
+      xs = [i * i for i in range(10)]        # 推导式
+      xs = [i for i in range(10) if i % 2]   # 带过滤
+      ```
+
+      推导式是这门语言的招牌：它把"建一个空列表 → 循环 → append"
+      压缩成一行，而且比等价的显式循环快（少了每次 `append` 的方法查找）。
+
+      但有一个必踩的坑 —— **`[x] * n` 复制的是引用**：
+
+      ```python
+      grid = [[0] * 3] * 3     # 三行是同一个列表
+      grid[0][0] = 1           # 三行全变了
+
+      grid = [[0] * 3 for _ in range(3)]   # 正确写法
+      ```
+
+      对不可变元素（数字、字符串）`[0] * 3` 完全没问题，所以这个坑
+      只在嵌套时出现 —— 也正因如此，它总在你已经写完一大段之后才发作。
   - featureId: basics-python/array-index
     equivalence: identical
     code: |
@@ -31,6 +55,25 @@ snippets:
 
       xs[99:]                                # @note [] —— 切片越界反而静默，
       xs[99]                                 # 同一个列表上两种行为不一致
+    body: |
+      ```python
+      xs = [10, 20, 30]
+      xs[0]      # 10
+      xs[-1]     # 30 —— 负索引直接可用，不需要额外方法
+      xs[-2]     # 20
+      ```
+
+      越界**一律抛 `IndexError`**，没有"返回 undefined 让你自己判"这种选项：
+
+      ```python
+      xs[99]     # IndexError: list index out of range
+      ```
+
+      这条严格性在迁移时是净收益：靠越界返回空值"恰好能跑"的代码
+      会立刻暴露，而不是带着一个空值漂到下游才发作。
+
+      切片则相反，越界不报错（见「切片与拷贝」）。
+      所以同一个列表上，`xs[99]` 崩、`xs[99:]` 给空列表 —— 这个不一致要记住。
   - featureId: basics-python/array-mutate
     equivalence: identical
     code: |
@@ -43,6 +86,26 @@ snippets:
 
       xs + [5]              # @note 这是新列表，xs 不动
       xs.extend([5])        # 改自己
+    body: |
+      ```python
+      xs.append(4)          # 尾部追加，O(1)
+      xs.pop()              # 弹出尾部，O(1)
+      xs.pop(0)             # 弹出头部，O(n)
+      xs.insert(0, 4)       # 头部插入，O(n)
+      xs.extend([5, 6])     # 追加多个
+      xs.remove(20)         # 按**值**删第一个匹配项，找不到抛 ValueError
+      del xs[0]             # 按下标删
+      del xs[1:3]           # 按切片删一段
+      ```
+
+      删除有四种写法，选哪种取决于你手上有什么（值还是下标）以及要删几个：
+      `remove` 按值、`pop` 按下标并返回被删项、`del` 按下标或切片（不返回）、
+      以及推导式重建（要按条件批量删时最清晰）。
+
+      `xs + [5]` 会创建**新列表**，`xs.extend([5])` 改自己 —— 两者常被搞混，
+      而且 `+` 在循环里用会退化成 O(n²)。
+
+      头部插入/删除都是 O(n)，不要在循环里用它们建列表。
   - featureId: basics-python/array-slice
     equivalence: identical
     code: |
@@ -53,6 +116,30 @@ snippets:
 
       xs[1:3] = [9]          # @note 切片可以赋值，用来原地增删，长度可以不同
       xs[1:3] = []           # 等价于 del xs[1:3]
+    body: |
+      ```python
+      xs = [1, 2, 3, 4, 5]
+      xs[1:3]      # [2, 3] —— 左闭右开
+      xs[:2]       # [1, 2]
+      xs[2:]       # [3, 4, 5]
+      xs[::2]      # [1, 3, 5]
+      xs[::-1]     # [5, 4, 3, 2, 1] —— 一行反转
+      xs[:]        # 浅拷贝一份
+      ```
+
+      两件事必须同时记住：
+
+      1. **切片是浅拷贝** —— 新列表，但里面的元素还是原来那些对象。
+         嵌套列表"复制"之后改内层，两边都会变。
+      2. 切片可以赋值，用来原地增删：
+
+         ```python
+         xs[1:3] = [9]        # 用 [9] 替换掉下标 1..2，长度可以不同
+         xs[1:3] = []         # 等价于 del xs[1:3]
+         ```
+
+      步长不能为 0（`ValueError`）；带步长的切片赋值要求长度严格相等，
+      这是少数会直接报错的切片用法。
   - featureId: basics-python/array-iterate
     equivalence: identical
     code: |
@@ -67,6 +154,31 @@ snippets:
           if x < 0:
               xs.remove(x)         # @note! 边遍历边删会跳过元素
       xs = [x for x in xs if x >= 0]   # 正确写法：重建
+    body: |
+      `for` 拿到的**直接是元素**，不是下标：
+
+      ```python
+      for x in xs:            # 值
+      for i, x in enumerate(xs):      # 下标 + 值
+      for a, b in zip(xs, ys):        # 并行遍历两条序列
+      for x in reversed(xs):          # 反向
+      for x in sorted(xs):            # 排序后遍历（不改原列表）
+      ```
+
+      所以"遍历下标"这件事在 Python 里几乎总是错的写法 ——
+      `for i in range(len(xs))` 存在，但真正需要下标时 `enumerate` 才是惯用法。
+      `zip` 默认在**最短**的序列处停止（想要最长用 `itertools.zip_longest`）。
+
+      一个必修的坑：**不要在遍历时增删列表**。
+
+      ```python
+      for x in xs:
+          if bad(x):
+              xs.remove(x)     # 会跳过元素 —— 迭代器的下标在往前走，列表却缩短了
+      ```
+
+      正确写法是推导式重建（`xs = [x for x in xs if not bad(x)]`）
+      或者遍历副本（`for x in xs[:]`）。
   - featureId: basics-python/array-map-filter
     equivalence: identical
     code: |
@@ -80,6 +192,32 @@ snippets:
       sum(xs)                          # @note 聚合用内置函数
       any(xs)
       from functools import reduce     # @note! reduce 不在内置命名空间里，这是刻意的取向
+    body: |
+      首选推导式：
+
+      ```python
+      [x * 2 for x in xs]
+      [x for x in xs if x > 0]
+      [x * 2 for x in xs if x > 0]
+      {k: v for k, v in pairs}          # 字典推导式
+      {x for x in xs}                   # 集合推导式
+      ```
+
+      `map` / `filter` 能用，但**返回的是惰性迭代器**而不是列表 ——
+      这是最容易踩的一处：
+
+      ```python
+      m = map(str, [1, 2])
+      list(m)     # ['1', '2']
+      list(m)     # [] —— 迭代器已经耗尽了
+      ```
+
+      惰性本身是优点（省内存、可短路），代价是"只能遍历一次"。
+      需要反复用时 `list(...)` 固化，或者干脆用推导式。
+
+      聚合方面，`sum` / `min` / `max` / `any` / `all` 都是内置函数，
+      只有 `reduce` 在 `functools` 里（而且不在内置命名空间 —— 这是刻意的取向：
+      大多数 reduce 用显式循环或内置聚合更好读）。
   - featureId: basics-python/array-sort
     equivalence: identical
     code: |
@@ -92,6 +230,31 @@ snippets:
       xs.sort(reverse=True)
 
       [1, "a"].sort()                  # @note! TypeError —— 混合类型排不了，不会静默
+    body: |
+      两个入口，职责分明：
+
+      ```python
+      ys = sorted(xs)          # 新列表，xs 不变
+      xs.sort()                # 原地改，返回 None
+      ```
+
+      比较的是**元素本身**，不需要传比较函数。要按别的标准排就用 `key=`：
+
+      ```python
+      xs.sort(key=len)
+      xs.sort(key=lambda u: (u.age, u.name))   # 多字段：元组 key
+      xs.sort(key=str.lower)                   # 忽略大小写
+      xs.sort(reverse=True)
+      ```
+
+      元组 key 代替了"比较器"，好处是**不必处理返回 -1/0/1 的边界**
+      （比较器写反符号是经典 bug），而且排序是**稳定**的。
+
+      两个会抛异常的边界：
+
+      - **混合类型排序抛 `TypeError`**：`[1, "a"].sort()` 报
+        `'<' not supported between instances of 'str' and 'int'`。
+      - `xs.sort()` 返回 `None`，所以 `xs = xs.sort()` 会把列表变成 `None`。
   - featureId: basics-python/array-search
     equivalence: identical
     code: |
@@ -104,6 +267,29 @@ snippets:
       allowed = set(big_list)          # @note 循环里反复 in 要先转成 set，否则是 O(n²)
       if x in allowed:
           pass
+    body: |
+      三种意图，三种写法：
+
+      ```python
+      if x in xs:                    # 布尔
+      i = xs.index(x)                # 下标；找不到抛 ValueError
+      first = next((x for x in xs if cond(x)), None)   # 元素；找不到给默认值
+      ```
+
+      **`index()` 找不到时抛异常**而不是返回 -1，这是与"返回哨兵值"风格
+      最重要的差异：它逼你在写的时候就决定"找不到怎么办"，
+      但代价是不能偷懒写 `if xs.index(x) >= 0`（那会直接崩）。
+
+      判断"有没有"用 `in`，它是 O(n) 的线性扫描 —— 循环里反复 `in`
+      是常见的性能问题，这种情况应该换成 `set`：
+
+      ```python
+      allowed = set(big_list)
+      if x in allowed:      # O(1)
+      ```
+
+      按条件找元素用生成器加 `next` 的默认值，这一行同时表达了
+      "要找什么"和"找不到时用什么"，比先 filter 再判空短得多。
   - featureId: basics-python/array-unpack
     equivalence: identical
     code: |
@@ -114,3 +300,28 @@ snippets:
 
       merged = {**defaults, **overrides}   # @note 字典用双星号，后面的覆盖前面的
       f(**kwargs)
+    body: |
+      `*` 把序列摊平成一串元素，两个位置都能用：
+
+      ```python
+      merged = [*xs, *ys]        # 构造新列表
+      f(*args)                   # 调用时展开
+      a, *rest = xs              # 解包时收集剩余项
+      print(*xs, sep=", ")       # 常见用法
+      ```
+
+      字典用 `**`：
+
+      ```python
+      merged = {**defaults, **overrides}    # overrides 覆盖 defaults
+      f(**kwargs)                           # 按关键字展开
+      ```
+
+      两个容易混的点：
+
+      - `[*xs]` 是**浅拷贝**，与 `xs[:]`、`list(xs)` 等价。
+      - `{**a, **b}` 要求键是字符串，非字符串键要用 `a | b`（3.9+）
+        或者 `dict(a, **b)`。
+
+      与"把容器摊平"这个心智一致：`*` 用于序列，`**` 用于映射，
+      调用位置和构造位置是同一套符号。

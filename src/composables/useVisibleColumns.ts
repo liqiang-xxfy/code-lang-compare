@@ -8,10 +8,18 @@
  *
  * 两条规则：
  *  1. 基准列无论有没有实现都保留 —— 它是页面的参照系，缺了就不叫对比了
- *  2. 用户勾的语言一个都没被本模块覆盖时，**补上第一个被覆盖的语言** ——
- *     否则页面会退化成「只有基准一列」，看起来像功能坏了
+ *  2. 勾选的语言**一门都没被本模块覆盖时，就只留基准列，不从别处补位**（ADR-34）。
+ *     这里曾有一层兜底：从「全部已启用语言」里补上第一门有实现的当对比列，
+ *     好让页面不至于退化成单列。代价是补出来的那门用户既没勾、也去不掉 ——
+ *     点它是「新增」而不是「取消」，而选择条的勾选态读的是 `compareLangs`，
+ *     于是页面上并列着一列没勾上的语言，看着像控件失灵。
+ *
+ *     `concepts-java` 让这层兜底**必现**：它只覆盖 js / java，而默认对比语言是
+ *     python —— 保持默认的人只要以 Java 为基准进心智模型，就一定会看到一列
+ *     自己没勾的 JavaScript。覆盖面的实情本来就由 CompareSurface 的
+ *     `sections.scopeHint` 说清楚（「本模块目前只对照 X、Y」），
+ *     不需要再拿一门用户没要的语言把版面填满。
  */
-import { enabledLanguageMeta } from '@/generated/registry.gen'
 import type { LanguageMeta } from '@/schemas'
 
 export function pickColumns(
@@ -21,9 +29,5 @@ export function pickColumns(
 ): LanguageMeta[] {
   const base = ordered.find((m) => m.id === baseline)
   const picked = ordered.filter((m) => m.id !== baseline && present.has(m.id))
-  if (picked.length) return base ? [base, ...picked] : picked
-
-  const fallback = enabledLanguageMeta.find((m) => m.id !== baseline && present.has(m.id))
-  if (base) return fallback ? [base, fallback] : [base]
-  return fallback ? [fallback] : []
+  return base ? [base, ...picked] : picked
 }

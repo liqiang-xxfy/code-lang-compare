@@ -22,6 +22,7 @@ import {
 import { getCachedDiff } from '@/content/diff'
 import { manifest, resolvePairTarget } from '@/content/repository'
 import { resolveSwitchPath } from '@/composables/useBaselineSwitch'
+import { pickColumns } from '@/composables/useVisibleColumns'
 import { sectionEntryPath } from '@/router'
 import { useLanguageStore } from '@/stores/language'
 
@@ -136,6 +137,33 @@ describe('全局选择：列的计算', () => {
     expect(checked.length).toBeGreaterThan(0)
     // 「勾选集合」与「渲染列」恒等
     expect(store.compareMeta.map((m) => m.id)).toEqual(checked)
+  })
+
+  it('本章有实现的勾选语言按列序跟上，基准列恒在最左', () => {
+    const store = useLanguageStore()
+    store.setRouteContext('java', 'basics')
+    store.toggleCompare('go')
+    // 枚举顺序是 go / java / javascript / python / rust，列序照它走
+    expect(store.orderedMeta.map((m) => m.id)).toEqual(['java', 'go', 'python'])
+    // 基准列即便本章没有实现也保留；其余按「真有实现」过筛
+    expect(pickColumns(store.orderedMeta, 'java', new Set(['python', 'go'])).map((m) => m.id)).toEqual(
+      ['java', 'go', 'python'],
+    )
+  })
+
+  it('勾选的语言一门都没实现时只留基准列 —— 不补一门用户没勾、也去不掉的列', () => {
+    const store = useLanguageStore()
+    // concepts-java 只有 js / java 两条覆盖层，而默认对比语言是 python：
+    // 保持默认的人以 Java 为基准进心智模型时，勾选与覆盖的交集恒为空。
+    store.setRouteContext('java', 'concepts')
+    expect(store.compareLangs).toEqual([defaultCompareLanguageId])
+
+    const columns = pickColumns(store.orderedMeta, 'java', new Set(['java', 'javascript']))
+    expect(columns.map((m) => m.id)).toEqual(['java'])
+    // 这里曾补上一门有实现的语言（javascript）—— 它不在勾选集合里，
+    // 而选择条的勾选态读的正是 compareLangs，于是页面并列着一列没勾上的语言，
+    // 用户点它想"取消"，走的却是 toggleCompare 的新增分支。
+    expect(store.compareLangs).not.toContain('javascript')
   })
 })
 

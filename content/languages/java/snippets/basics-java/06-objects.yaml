@@ -26,6 +26,31 @@ snippets:
       record Point(int x, int y) { }
       Map<Point, String> grid = new HashMap<>();   // @note record 自动生成 equals/hashCode
       // @note! 普通类不重写这两个方法就当不好键：放进去再也找不出来
+    body: |
+      Java 没有字典字面量，造一个映射要调工厂方法：
+
+      ```java
+      Map<String, Integer> m = Map.of("a", 1, "b", 2);   // 不可变，最多 10 对
+      Map<String, Integer> big = Map.ofEntries(Map.entry("a", 1), /* ... */);
+      var mm = new HashMap<String, Integer>();           // 可变
+      ```
+
+      更值得先想清楚的是**该不该用 `Map`**。描述一条记录时，这边的默认答案
+      不是 `Map<String, Object>`，而是 `record`：
+
+      ```java
+      record User(int id, String name, boolean active) { }
+      User u = new User(1, "Ada", true);
+      u.name();                    // 编译期就有类型
+      ```
+
+      判据很简单：**这组字段固定吗？** 固定就用 `record`，确实动态才用 `Map`。
+      `Map<String, Object>` 取出来是 `Object`，每次都要强转，
+      而且拼错的键编译期查不出来 —— 那等于把这边最值钱的东西丢掉了。
+
+      `Map` 的键可以是任何对象，但**必须重写 `equals` 与 `hashCode`**：
+      不重写时比的是引用身份，放进去就再也找不出来。
+      `record` 会自动生成这一对，所以它当键是安全的。
   - featureId: basics-java/object-access
     equivalence: identical
     code: |
@@ -37,6 +62,26 @@ snippets:
       // @note! 值本身可以是 null 时，get 分不出"键不存在"和"值是 null"
       m.size();                    // @note 取长度是方法调用，m.size 编译不过
       // @note 多线程读写要用 ConcurrentHashMap，HashMap 不是线程安全的
+    body: |
+      ```java
+      Map<String, Integer> m = new HashMap<>();
+      m.put("a", 1);
+
+      m.get("a");                  // 1
+      m.get("z");                  // null —— 缺失不抛，静默返回空值
+      m.getOrDefault("z", 0);      // 0
+      m.containsKey("z");          // false
+      ```
+
+      **危险之处**：值本身可以为 `null` 时，`get` 分不出"键不存在"与
+      "键存在但值是 null"。要区分就必须配合 `containsKey`。
+
+      另有一条与语言无关但这里特别容易犯的：**点号不是取值**。
+      `m.size` 编译不过（那是方法 `size()`），`m.get("size")` 才是取键。
+      对象（`record` / 类）才用点号访问字段与访问器。
+
+      并发场景下还有一层：`HashMap` 不是线程安全的，
+      多线程读写要用 `ConcurrentHashMap`，否则可能死循环或丢数据。
   - featureId: basics-java/object-iterate
     equivalence: identical
     code: |
@@ -48,6 +93,31 @@ snippets:
       // @note! 遍历顺序取决于实现类：HashMap 无序、LinkedHashMap 按插入、TreeMap 按键排序
       m.entrySet().removeIf(e -> e.getValue() == null);
       // @note! 遍历时直接改结构会抛 ConcurrentModificationException
+    body: |
+      ```java
+      for (var e : m.entrySet()) {
+          e.getKey();
+          e.getValue();
+      }
+
+      m.forEach((k, v) -> { });        // 最简洁的形式
+      m.keySet();                      // 只要键
+      m.values();                      // 只要值
+      ```
+
+      **遍历顺序取决于实现类**，这是从 Java 出发时最容易忽略的一层：
+
+      | 实现 | 顺序 |
+      | --- | --- |
+      | `HashMap` | 无序，且会随扩容变化 |
+      | `LinkedHashMap` | 按插入顺序 |
+      | `TreeMap` | 按键排序 |
+
+      另两门语言里映射的顺序通常由语言规范保证（按插入），
+      所以"遍历出来是什么顺序"在那两处不是问题，在这里必须选对实现类。
+
+      遍历时不能直接改结构，会抛 `ConcurrentModificationException`。
+      要删得走 `removeIf`，或者用迭代器的 `remove`。
   - featureId: basics-java/object-default
     equivalence: identical
     code: |
@@ -58,6 +128,28 @@ snippets:
       m.compute(k, (key, v) -> v == null ? 1 : v + 1);
 
       // @note 名字里有没有 get 就是提示：getOrDefault 只读，其余三个都会写
+    body: |
+      ```java
+      m.getOrDefault(k, 0);                              // 纯读
+      m.putIfAbsent(k, 0);                               // 会写
+      m.computeIfAbsent(k, x -> new ArrayList<>());      // 会写
+      m.merge(k, 1, Integer::sum);                       // 会写，计数的惯用法
+      ```
+
+      **名字里有没有 `get` 就是提示**：`getOrDefault` 是纯读的，
+      `computeIfAbsent` / `putIfAbsent` / `merge` 都会把键写进映射。
+
+      这个区别对应另一门语言里"`get` 只读、`defaultdict` 会写"的那组差异 ——
+      但这里的判断依据更简单：看名字。
+
+      `computeIfAbsent` 是分组累加的惯用法，比"先判存在再放"短得多：
+
+      ```java
+      groups.computeIfAbsent(dept, k -> new ArrayList<>()).add(name);
+      ```
+
+      `merge` 则是计数与累加的惯用法，它的第三个参数在**键已存在**时
+      决定怎么合并；键不存在时直接用第二个参数。这个方法在别处没有直接对应物。
   - featureId: basics-java/object-merge
     equivalence: identical
     code: |
@@ -68,6 +160,26 @@ snippets:
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
                      (left, right) -> right));         // @note! 冲突时取谁必须显式给
       // @note! toMap 遇到重复键默认抛 IllegalStateException，不是"后者覆盖前者"
+    body: |
+      ```java
+      a.putAll(b);                                    // 原地改 a，返回 void
+      var merged = new HashMap<>(a); merged.putAll(b); // 要新对象得先拷
+      ```
+
+      这里**没有"返回新映射"的合并写法**，所以"不修改入参"这条实践
+      要自己用手写的复制补上。
+
+      用流合并时还要注意冲突处理：
+
+      ```java
+      Stream.concat(a.entrySet().stream(), b.entrySet().stream())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                     (left, right) -> right));       // 冲突时取谁，必须显式给
+      ```
+
+      **`toMap` 遇到重复键默认抛 `IllegalStateException`** ——
+      不传第三个参数就会在运行时报错。这比"静默覆盖"安全，
+      但迁移时容易以为它本来就是"后者覆盖前者"。
   - featureId: basics-java/object-nested
     equivalence: identical
     code: |
@@ -77,6 +189,30 @@ snippets:
       // @note! 没有内置深拷贝：Object.clone() 是浅的，Cloneable 还要靠反射
       // @note 推荐做法是把嵌套结构设计成不可变的（record + List.of / Map.of）
       // @note 否则只能手写复制构造（逐层 new），或者序列化往返
+    body: |
+      Java **没有深拷贝**，连浅拷贝都要自己写：
+
+      ```java
+      var a = new HashMap<String, Object>();
+      a.put("cfg", new HashMap<>(Map.of("retry", 3)));
+
+      var b = new HashMap<>(a);        // 浅拷贝：外层是新的
+      ((Map<String, Object>) b.get("cfg")).put("retry", 5);
+      // a 里的 cfg 也变了
+      ```
+
+      `Object.clone()` 是浅的，`Cloneable` 被广泛认为是设计失误
+      （它不包含 `clone` 方法，还得靠反射）。
+
+      三条出路，按推荐度排：
+
+      1. **把嵌套结构设计成不可变的**（`record` + `List.of` / `Map.of`），
+         从根上消灭共享可变状态 —— 这也是这门语言近年的方向
+      2. **手写复制构造**（`new ArrayList<>(other)` 只解决第一层，嵌套要逐层写）
+      3. **序列化往返**（慢，且要求类型可序列化）
+
+      从"拷贝默认是浅的、但至少有一行 deepcopy"的环境迁过来时，
+      最大的风险是**以为某处拷过了**。这里的默认答案应该是"没有拷"。
   - featureId: basics-java/object-comprehension
     equivalence: identical
     code: |
@@ -86,6 +222,24 @@ snippets:
       // @note! toMap 遇到重复键默认抛 IllegalStateException，
       // 必须传第三个参数（(left, right) -> right 才是"后者覆盖前者"）
       // @note 流是一次性的，同一个 stream() 不能复用
+    body: |
+      ```java
+      var byId = users.stream()
+              .collect(Collectors.toMap(User::id, u -> u));
+
+      var byDept = users.stream()
+              .collect(Collectors.groupingBy(User::dept));
+      ```
+
+      **与"推导式"最重要的差别是重复键的处理**：`toMap` 遇到两条记录映射到
+      同一个键时**抛 `IllegalStateException`**，必须显式传第三个参数
+      （`(left, right) -> right` 才是"后者覆盖前者"）。
+
+      默认报错其实更安全 —— 静默丢数据是更难查的一类 bug。
+      但迁移时要知道这条规则存在，否则第一次跑就会在运行时报错。
+
+      另一处差别是流是**一次性**的，同一个 `stream()` 不能复用；
+      而推导式每次求值都重新构造。
   - featureId: basics-java/object-equality
     equivalence: identical
     code: |
@@ -98,6 +252,26 @@ snippets:
 
       // @note 自定义类重写 equals 时必须同时重写 hashCode，否则 HashMap 行为错乱
       // @note 数组当键或放进 Set 时也是同一个问题：按身份算哈希
+    body: |
+      ```java
+      Map.of("a", 1).equals(Map.of("a", 1));    // true —— 映射按内容比
+      Map.of("a", 1) == Map.of("a", 1);         // false —— == 比引用
+      ```
+
+      集合与映射都重写了 `equals`，所以内容相同就是相等（`Map` 还与顺序无关）。
+      **自定义类不重写就是引用比较**，而且重写时必须**同时**重写
+      `equals` 与 `hashCode` —— 只重写一个会让 `HashMap` 行为错乱。
+
+      一个必须单独记住的例外：**数组不重写 `equals`**。
+
+      ```java
+      int[] a1 = {1, 2}, a2 = {1, 2};
+      a1.equals(a2);                  // false —— 比的是身份
+      Arrays.equals(a1, a2);          // true —— 数组比较必须用静态方法
+      ```
+
+      把数组当 `Map` 的键或放进 `Set` 时也是同一个问题：
+      它按身份算哈希，两个内容相同的数组永远是两个键。
   - featureId: basics-java/object-json
     equivalence: identical
     code: |
@@ -110,3 +284,23 @@ snippets:
       // 而不是在调用处传参数
       // @note 内置的 Java 序列化（Serializable）是另一套东西：
       // 二进制、跨语言不可读，而且反序列化本身有安全问题
+    body: |
+      Java 标准库**没有任何 JSON API** —— 这不是"藏在某个包里"，是真的没有。
+      序列化一律依赖第三方（Jackson / Gson / JSON-P），
+      在 `pom.xml` / `build.gradle` 里显式声明坐标。
+
+      由此带来两个连锁差异：
+
+      1. **映射关系要显式声明**。字段名、忽略规则、日期格式都靠注解写在类上
+         （`@JsonProperty` / `@JsonIgnore`），而不是像某门语言那样在调用处
+         传 `ensure_ascii=False` 这类参数。
+      2. **类型必须能构造**。反序列化需要目标类有无参构造器，
+         或者用 `record` / `@JsonCreator` 标注构造方式；
+         没有"直接还原成字典"这条路。
+
+      内置的 **Java 序列化**（`implements Serializable`）是另一套东西：
+      二进制、跨语言不可读，而且反序列化本身有安全问题
+      （恶意字节流可以构造出任意对象）—— 不要把它当 JSON 用。
+
+      从"标准库自带 JSON"的环境迁过来时，这一步往往是最先卡住的：
+      不是在写序列化代码，而是在配依赖和补注解。

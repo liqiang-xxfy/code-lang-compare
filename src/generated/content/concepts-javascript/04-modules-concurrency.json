@@ -12,7 +12,6 @@
       "title": "模块系统",
       "kind": "concept",
       "summary": "静态提升的 import vs 会真的执行一遍的 import",
-      "bodyHtml": "<p>JS 的 ESM <code>import</code> 是<strong>静态提升</strong>的：声明位置不影响执行顺序，\n且导入是绑定（活的引用），循环依赖能被处理。</p>\n<p>Python 的 <code>import</code> 是一句<strong>会在那一刻真的执行</strong>的语句：\n被导入模块的顶层代码立刻跑一遍，且默认只跑一次（缓存在 <code>sys.modules</code>）。\n因此「在模块顶层做了耗时或带副作用的事」在 Python 里后果更直接 ——\n它会拖慢第一次导入它的任何人。</p>\n<p>还有一个结构性差异：JS 里一个文件即一个模块，导出什么由 <code>export</code> 决定；\nPython 里一个 <code>.py</code> 是 module、含 <code>__init__.py</code> 的目录是 package，\n<strong>没有显式导出这回事 —— 所有顶层名字都可被导入</strong>（<code>_</code> 开头是约定私有）。</p>\n",
       "snippets": {
         "javascript": {
           "lang": "javascript",
@@ -24,7 +23,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>ESM import/export</strong> —— 一个文件即模块；<code>import</code> 是静态提升的，\n导入是活的绑定，循环依赖能被处理。</p>\n"
+          "bodyHtml": "<p>JS 的 ESM <code>import</code> 是<strong>静态提升</strong>的：声明位置不影响执行顺序，\n且导入是绑定（活的引用），循环依赖能被处理。</p>\n<p>Python 的 <code>import</code> 是一句<strong>会在那一刻真的执行</strong>的语句：\n被导入模块的顶层代码立刻跑一遍，且默认只跑一次（缓存在 <code>sys.modules</code>）。\n因此「在模块顶层做了耗时或带副作用的事」在 Python 里后果更直接 ——\n它会拖慢第一次导入它的任何人。</p>\n<p>还有一个结构性差异：JS 里一个文件即一个模块，导出什么由 <code>export</code> 决定；\nPython 里一个 <code>.py</code> 是 module、含 <code>__init__.py</code> 的目录是 package，\n<strong>没有显式导出这回事 —— 所有顶层名字都可被导入</strong>（<code>_</code> 开头是约定私有）。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -52,7 +51,6 @@
       "title": "内存管理",
       "kind": "concept",
       "summary": "标记清除 vs 引用计数，决定了「对象什么时候真的消失」",
-      "bodyHtml": "<p>JS 用标记清除式的 GC：从根出发找不到的对象被回收，循环引用不是问题。\n主要泄漏源是<strong>闭包持有</strong>与忘记解绑的事件监听。</p>\n<p>Python 是引用计数 + 循环 GC 的混合：对象引用数归零立刻释放，\n循环引用靠周期性 GC 兜底。所以 <code>del x</code> 只是<strong>减一次引用</strong>，\n对象不一定立刻消失 —— 还有别人引用着它就还在。</p>\n<p>迁移时的实际后果：Python 里可以用 <code>with</code> 语句把「释放」写成确定性的\n（文件、锁、连接），这比 JS 里依赖 GC 时机更可控；\n反过来，从 Python 到 JS 会失去这种确定性。</p>\n",
       "snippets": {
         "javascript": {
           "lang": "javascript",
@@ -64,7 +62,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>垃圾回收</strong> —— 标记清除；闭包是主要泄漏源。\n循环引用不是问题（从根出发找得到才算活着）。</p>\n"
+          "bodyHtml": "<p>JS 用标记清除式的 GC：从根出发找不到的对象被回收，循环引用不是问题。\n主要泄漏源是<strong>闭包持有</strong>与忘记解绑的事件监听。</p>\n<p>Python 是引用计数 + 循环 GC 的混合：对象引用数归零立刻释放，\n循环引用靠周期性 GC 兜底。所以 <code>del x</code> 只是<strong>减一次引用</strong>，\n对象不一定立刻消失 —— 还有别人引用着它就还在。</p>\n<p>迁移时的实际后果：Python 里可以用 <code>with</code> 语句把「释放」写成确定性的\n（文件、锁、连接），这比 JS 里依赖 GC 时机更可控；\n反过来，从 Python 到 JS 会失去这种确定性。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -92,7 +90,6 @@
       "title": "并发单元",
       "kind": "concept",
       "summary": "主线程单线程 vs 线程/进程/协程三选一，且有个 GIL 在中间",
-      "bodyHtml": "<p>JS 的并发模型是<strong>事件循环 + 单线程</strong>：所有回调在同一个线程上跑，\n没有数据竞争，CPU 密集任务只能丢给 Worker 隔离。</p>\n<p>Python 三种都有：线程、进程、协程。但有个关键约束 ——\n<strong>GIL</strong> 让多线程无法并行执行 CPU 密集任务，所以\n「想快就用多线程」在 Python 里只在 I/O 密集场景成立；\nCPU 密集必须用 <code>multiprocessing</code>（进程各有独立解释器与内存）。</p>\n<p>迁移视角：从 JS 过来会觉得「有线程了，终于能并行」，然后发现加了线程\n反而更慢 —— 这正是 GIL 那一课。反过来，JS 的「永远不用担心锁」\n是 Python 多线程里必须自己扛的事。</p>\n",
       "snippets": {
         "javascript": {
           "lang": "javascript",
@@ -104,7 +101,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>事件循环 + Worker</strong> —— 主线程单线程；没有数据竞争，\n代价是 CPU 密集任务必须隔离出去。</p>\n"
+          "bodyHtml": "<p>JS 的并发模型是<strong>事件循环 + 单线程</strong>：所有回调在同一个线程上跑，\n没有数据竞争，CPU 密集任务只能丢给 Worker 隔离。</p>\n<p>Python 三种都有：线程、进程、协程。但有个关键约束 ——\n<strong>GIL</strong> 让多线程无法并行执行 CPU 密集任务，所以\n「想快就用多线程」在 Python 里只在 I/O 密集场景成立；\nCPU 密集必须用 <code>multiprocessing</code>（进程各有独立解释器与内存）。</p>\n<p>迁移视角：从 JS 过来会觉得「有线程了，终于能并行」，然后发现加了线程\n反而更慢 —— 这正是 GIL 那一课。反过来，JS 的「永远不用担心锁」\n是 Python 多线程里必须自己扛的事。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -132,7 +129,6 @@
       "title": "异步模型",
       "kind": "concept",
       "summary": "微任务队列自动驱动 vs 必须先显式进入事件循环",
-      "bodyHtml": "<p>JS 的异步是<strong>运行时自动驱动</strong>的：事件循环一直在跑，<code>await</code> 之后\n不需要谁去「启动」它，写个 <code>async</code> 函数调用即可。</p>\n<p>Python 的 <code>asyncio</code> 需要一个<strong>显式启动的事件循环</strong>：\n协程函数调用后返回的是协程对象，不 <code>await</code> 或不用\n<code>asyncio.run()</code> / <code>create_task()</code> 驱动，它就<strong>一行都不会执行</strong>，\n而且通常<strong>不报错</strong>（只会有一条 RuntimeWarning）。</p>\n<p>这是从 JS 迁移过来最经典的静默失败：代码看起来对、跑起来什么都不发生。\n另外一边的事件循环阻塞会拖垮全部并发，两边同理 ——\n在协程里调用同步阻塞函数（如 <code>time.sleep</code>、同步的 HTTP 库），\n整个循环就被卡住了。</p>\n",
       "snippets": {
         "javascript": {
           "lang": "javascript",
@@ -144,7 +140,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>Promise / async-await</strong> —— 微任务队列，天然单线程并发。\n不需要谁去「启动」事件循环，<code>await</code> 之后自动继续。</p>\n"
+          "bodyHtml": "<p>JS 的异步是<strong>运行时自动驱动</strong>的：事件循环一直在跑，<code>await</code> 之后\n不需要谁去「启动」它，写个 <code>async</code> 函数调用即可。</p>\n<p>Python 的 <code>asyncio</code> 需要一个<strong>显式启动的事件循环</strong>：\n协程函数调用后返回的是协程对象，不 <code>await</code> 或不用\n<code>asyncio.run()</code> / <code>create_task()</code> 驱动，它就<strong>一行都不会执行</strong>，\n而且通常<strong>不报错</strong>（只会有一条 RuntimeWarning）。</p>\n<p>这是从 JS 迁移过来最经典的静默失败：代码看起来对、跑起来什么都不发生。\n另外一边的事件循环阻塞会拖垮全部并发，两边同理 ——\n在协程里调用同步阻塞函数（如 <code>time.sleep</code>、同步的 HTTP 库），\n整个循环就被卡住了。</p>\n"
         },
         "python": {
           "lang": "python",

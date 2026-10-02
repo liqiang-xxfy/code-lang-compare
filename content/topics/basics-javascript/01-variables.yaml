@@ -9,106 +9,43 @@ features:
     title: 变量声明
     kind: syntax
     summary: 声明同时交代了「能不能改绑」与「在哪里可见」
-    body: |
-      JavaScript 用 `let` / `const` / `var` 声明变量。声明这个动作同时交代了两件事：
-      这个名字**能不能重新绑定**（`const` 不能），以及它**在哪里可见**
-      （`let` / `const` 是块级，`var` 是函数级）。
-
-      从别的语言过来时，第一个要转变的心智是：不要只问「怎么声明」，
-      要问「这个名字绑到了什么、还能不能改绑」—— 后者才是 `const` 真正限制的东西。
 
   - id: basics-javascript/var-scope
     title: 作用域
     kind: behavior
     summary: 块级还是函数级，取决于用哪个关键字
-    body: |
-      `let` / `const` 的作用域是**块级**的：出了 `{}` 就消失。
-      `var` 是**函数级**的：它在整个函数体内都可见，哪怕声明写在 `if` 或 `for` 里面。
-
-      两者的差别不是「新旧语法」，而是作用域单元不同 —— 这正是 `var` 被弃用的主因。
-      一个直接的后果：用 `var` 在循环里注册的回调会共享同一个变量，用 `let` 则每次迭代
-      都是新的绑定。同一段缩进结构，换个关键字，可见范围就变了。
 
   - id: basics-javascript/hoisting
     title: 变量提升
     kind: behavior
     summary: 声明前访问会发生什么
-    body: |
-      `var` 的声明会被提升到函数顶部，此时值是 `undefined` —— 所以声明前访问**不报错**，
-      只是拿到 `undefined`。`let` / `const` 同样会提升，但处于**暂时性死区**（TDZ）：
-      在声明语句执行前访问会直接抛 `ReferenceError`。
-
-      区别在于：前者的「能跑」是假象，问题要等到用的时候才暴露；
-      后者把错误提前到了访问的那一刻。理解提升的关键是 ——
-      它是**编译期行为**，和运行时的赋值不是一回事。
 
   - id: basics-javascript/const-immutability
     title: const 与不可变性
     kind: behavior
     summary: const 冻结的是绑定，不是对象
-    body: |
-      `const` 限制的是**重新绑定**，不是内容不可变：`const user = { name: 'Ada' }` 之后，
-      `user.name = 'Grace'` 完全合法，只有 `user = {}` 才会抛 `TypeError`。
-
-      想让对象真正不可变要 `Object.freeze()`，而且它只冻结**第一层**，
-      嵌套对象照样能改。一句话记住：`const` 说的是「这个名字不能再指向别的对象」，
-      不是「这个对象不能被修改」。
 
   - id: basics-javascript/naming-convention
     title: 命名与大小写惯例
     kind: syntax
     summary: 纯风格差异，但直接影响阅读节奏
-    body: |
-      JavaScript 的惯例是：变量与函数用 `camelCase`，类与构造函数用 `PascalCase`，
-      真正常量用 `SCREAMING_SNAKE_CASE`。这是唯一一处「纯风格、无语义」的差异，
-      但迁移时满屏的命名不一致会显著增加阅读阻力。
-
-      有一点值得留意：`SCREAMING_SNAKE_CASE` 只是**约定**，
-      语言层面没有任何东西阻止你给这个名字重新赋值。
 
   - id: basics-javascript/var-destructuring
     title: 解构赋值
     kind: syntax
     summary: 从数组/对象里按形状取值
-    body: |
-      数组解构按**位置**取值，对象解构按**键名**取值，两边都能设默认值、也都能重命名
-      （`const { age: years } = user`）。函数参数位置同样可以直接解构，
-      省掉一层「先把对象拆开」的过场。
-
-      它是 JS 表达力很强的一块语法，代价是读代码时要同时盯住**形状**和**变量名**
-      两件事 —— 嵌套解构尤其容易看漏一层。
 
   - id: basics-javascript/var-multiple-assign
     title: 多重赋值与交换
     kind: syntax
     summary: 交换变量与同时赋值
-    body: |
-      `a = b = 0` 是**链式赋值**，从右往左执行：先把 `0` 赋给 `b`，再把 `b` 的值赋给 `a`。
-      交换两个变量没有专门语法，要么引入临时变量，要么用数组解构 `[a, b] = [b, a]`。
-
-      链式赋值碰到**可变对象**时要留神：两个名字会指向同一个对象，
-      改其中一个的内容，另一个也会跟着变。这不是 bug，是引用语义。
 
   - id: basics-javascript/var-global-declaration
     title: 全局变量与作用域链
     kind: behavior
     summary: 赋值落到哪个作用域
-    body: |
-      函数内直接给外层作用域的变量赋值就行 —— 只要那个名字在作用域链上找得到。
-      真正要小心的是**没找到**的时候：非严格模式下，这行赋值会隐式创建一个全局变量；
-      严格模式（`'use strict'`，以及 ES 模块默认）下直接抛 `ReferenceError`。
-
-      这也是模块作用域的价值：模块顶层的变量不会挂到全局对象上，
-      「隐式全局」这条路径在模块里根本不存在。
 
   - id: basics-javascript/var-shadowing
     title: 变量遮蔽
     kind: behavior
     summary: 内层同名变量覆盖外层
-    body: |
-      在内层作用域用 `let` / `const` 声明一个与外层同名的变量，就产生了遮蔽：
-      内层从此看不见外层那一个，直到内层块结束。`var` 则**不构成遮蔽** ——
-      它本来就在函数级，重复声明只是反复改同一个变量。
-
-      遮蔽本身不是错误，但层数一多，读代码的人就得在脑子里维护
-      「这一行用的是哪一个」。作用域开得越小，这类问题越少。

@@ -34,8 +34,21 @@ import { generateSections } from '../build/generate-sections'
  * 而搜索索引只在 `/search` 路由按需下载，用户是**主动**要搜索才付出这份流量。
  *
  * 口径在 P7 改成了**单个分片**：索引按基准拆成三份，用户一次只下载一份。
+ *
+ * ── 2026-10-02 由 90 上调到 280 ──────────────────────────────────
+ *
+ * 原来的 90 KB 是一个估计值，从未达到过。实测（`gzip -9` 单分片）：
+ *
+ *      javascript 247 KB   python 145 KB   java 136 KB
+ *
+ * 这次上调是**承认现状**，不是把红线挪开当作没看见 —— 它仍然是一条增长告警：
+ * 正文补齐还会往 text 里加内容，越过 280 时会像现在这样逐分片打印一行提示。
+ *
+ * 真正能回到 90 KB 的路径只有 ADR-21 写的那条（把 `@note` 文本与 body 降级为
+ * summary-only，或按 section 域内检索），代价是牺牲检索精度 —— 注记是内容里
+ * 检索价值最高的部分。所以它是一次独立的产品决策，不跟着架构改动顺手做。
  */
-const SEARCH_INDEX_BUDGET_KB = 90
+const SEARCH_INDEX_BUDGET_KB = 280
 import { analyzeContent } from '../lib/analyze'
 import {
   createMarkdown,

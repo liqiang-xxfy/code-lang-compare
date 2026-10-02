@@ -69,6 +69,60 @@ describe('内容不变量（对真实 content/ 目录断言）', () => {
   })
 })
 
+/**
+ * 说明写在哪一层 —— 「多列板块下沉到每列，单列板块留在 feature」。
+ *
+ * 这条边界很容易在内容迭代里被磨掉：随手给一条 feature 补个 body，多列页面上
+ * 就会出现一块横跨所有列的共享说明（矩阵视图里还完全看不到它）。R18/R19 是
+ * **过渡期 warn**（正文要按 topic 分批补，红了没意义），所以真实内容的不变量
+ * 由这里钉住。判据一律读板块注册表的 `columns`，不写死板块名。
+ */
+describe('body 归属：多列板块下沉到每列', () => {
+  const a = analyzeContent()
+  const isMulti = (topicId: string): boolean => {
+    const section = a.registry.topics[topicId]?.section
+    return section ? a.registry.sections[section]?.columns === 'multi' : false
+  }
+  const multiFeatures = a.features.filter(({ chapter }) => isMulti(chapter.topicId))
+
+  it('多列板块不再有共享说明 feature.body', () => {
+    const left = multiFeatures
+      .filter(({ feature }) => feature.body?.trim())
+      .map(({ feature }) => feature.id)
+    expect(left, '这些共享说明还没下沉到每列 snippet.body').toEqual([])
+  })
+
+  it('多列板块基准列的每一格都有 body（本语言的客观事实）', () => {
+    const missing: string[] = []
+    for (const { feature, chapter } of multiFeatures) {
+      const baseline = a.registry.topics[chapter.topicId]!.baseline
+      if (!a.snippets.get(feature.id)?.get(baseline)?.body?.trim()) missing.push(feature.id)
+    }
+    expect(missing, '基准列缺少 body —— 列下方的说明是这一列唯一的正文').toEqual([])
+  })
+
+  it('多列板块没有 kind: exercise（题面机制只存在于单列板块）', () => {
+    const bad = multiFeatures
+      .filter(({ feature }) => feature.kind === 'exercise')
+      .map(({ feature }) => feature.id)
+    expect(bad, '多列板块没有「一条共享题面」的位置').toEqual([])
+  })
+
+  it('单列板块（migration）仍保留 feature.body —— 范围边界', () => {
+    const kept = a.features.filter(
+      ({ chapter, feature }) => !isMulti(chapter.topicId) && Boolean(feature.body?.trim()),
+    )
+    expect(kept.length).toBeGreaterThan(0)
+  })
+
+  it('exercise 的题面仍由 feature.body 承载', () => {
+    for (const { feature } of a.features) {
+      if (feature.kind !== 'exercise') continue
+      expect(feature.body?.trim(), `${feature.id} 是练习却没有题面`).toBeTruthy()
+    }
+  })
+})
+
 describe('架构决策的可执行断言', () => {
   const a = analyzeContent()
 

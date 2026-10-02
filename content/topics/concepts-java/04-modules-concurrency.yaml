@@ -8,66 +8,18 @@ features:
     title: 模块系统
     kind: concept
     summary: 包加类、一个公开类一个文件 vs 文件即模块、import 会真的求值
-    body: |
-      Java 的组织单位是**包**（`package`）与**类**：一个 public 类一个文件，
-      `import` 只是引用名字、不执行代码；依赖靠 classpath 在编译与运行期解析；
-      Java 9 引入的模块系统（`module-info.java`）能进一步声明导出与依赖，但用得不算普遍。
-
-      JS 的组织单位是**文件即模块**：`export` 决定导出什么，`import` 是静态提升的绑定
-      （活引用，循环依赖可处理），模块顶层代码在求值阶段执行。没有 classpath 那种
-      「这个类从哪来」的问题，包由 npm 树负责。
-
-      从 Java 过去的两点：① `import` 在你的直觉里是「引用一个名字」，在 JS 里它是
-      **真的求值一个模块**、执行它的顶层代码；② 不再有「一个公开类一个文件」的强制 ——
-      JS 一个文件可以导出任意多个东西。
 
   - id: concepts-java/memory
     title: 内存管理
     kind: concept
     summary: JVM 分代回收加一堆调优旋钮 vs 标记清除、几乎不给你旋钮
-    body: |
-      Java 的 GC 在 **JVM 堆**上做分代回收（年轻代 / 老年代，多种收集器可选），
-      你基本不干预，`finalize` 已弃用；对象生命周期由可达性决定，没有引用计数，
-      循环引用不是问题。
-
-      JS 同样是**标记清除**式的自动 GC，从根出发找不到的对象被回收，循环引用不是问题；
-      主要泄漏源是**闭包持有**与忘记解绑的事件监听。
-
-      从 Java 过去这一块其实**很接近**：都是「可达性 + 自动回收、不看引用计数」。
-      差别在可控性 —— JVM 有丰富的 GC 调优参数与堆监控工具，JS 运行时（尤其是浏览器）
-      几乎不给你这些旋钮，内存问题基本只能靠工具快照加经验。你在 Java 里熟悉的
-      「调 JVM 参数」在 JS 里没有对应。
 
   - id: concepts-java/concurrency-unit
     title: 并发单元
     kind: concept
     summary: 线程真并行、代价是数据竞争 vs 单线程事件循环、没有竞争也没有共享内存
-    body: |
-      Java 的线程是**真并行**的：多个线程可以在多个核上同时跑，用 `ExecutorService`
-      管理线程池、用锁与 `synchronized` 处理共享状态的竞争；没有 GIL，代价是
-      **数据竞争**与内存可见性都要自己扛。近年还有虚拟线程（Java 21）降低高并发线程的成本。
-
-      JS 的并发模型相反：**事件循环 + 单线程**，所有回调在同一个线程上跑，
-      没有数据竞争、没有锁；CPU 密集只能丢给 `Worker` 隔离 —— Worker 有独立执行环境，
-      靠 `postMessage` 通信、不共享内存。
-
-      从 Java 过去会先失去「加线程就能并行」这件事：JS 主线程永远只有一个，`Worker`
-      也不是共享内存的线程而是独立上下文。好消息是那些 `synchronized` / 可见性 / 死锁
-      的坑在 JS 里几乎不存在 —— 代价是你得用消息传递重写原本靠共享状态的并行逻辑。
 
   - id: concepts-java/async-model
     title: 异步模型
     kind: concept
     summary: 线程池加 CompletableFuture vs 一直跑着的事件循环，await 不阻塞线程
-    body: |
-      Java 传统上并发靠线程与线程池，异步用 `CompletableFuture` 串联（或 Reactive Streams
-      那套），没有语言内建的「事件循环 + await」；Java 21 的虚拟线程让「用同步写法做
-      高并发 I/O」成为主流选择。
-
-      JS 的异步是**运行时自动驱动**的：事件循环一直在跑，`async` 函数调用即开始执行，
-      `await` 之后自动继续，Promise 是一等公民。
-
-      从 Java 过去的两点变化：① `await` 写起来像同步代码，但**它不会阻塞线程** ——
-      要和 `Thread.sleep` 的直觉区分开；② JS 没有「线程池」这层，异步任务都在同一个
-      事件循环上，所以**阻塞事件循环会拖垮全部并发**（在协程里调同步阻塞函数，
-      整个循环就卡住），这在 Java 的线程模型里是另一回事。

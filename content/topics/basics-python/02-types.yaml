@@ -9,189 +9,43 @@ features:
     title: 内置类型清单
     kind: concept
     summary: Python 的标量只有几种，但整数没有宽度上限
-    body: |
-      Python 的内置标量类型不多：`int`、`float`、`complex`、`bool`、`str`、`bytes`、`NoneType`。
-      最需要带走的一条：**`int` 是任意精度的**。没有 `int32` / `int64` 这种带宽度、
-      会溢出回绕的类型，也没有"整数其实是浮点"这回事 —— `2**100` 直接算得出来。
-
-      第二条反直觉的是 `bool` 是 `int` 的**子类**：
-
-      ```python
-      True == 1        # True
-      True + True      # 2 —— 能参与算术
-      isinstance(True, int)   # True
-      ```
-
-      所以 `sum([True, False, True])` 得 2，这不是 bug 是语言定义。
-
-      从 Python 出发看别的语言，容易低估的是**数字的分层**：那边通常把整数与浮点分开，
-      整数还按宽度分成好几种，溢出行为依宽度而定。Python 只有"整数"和"浮点"两档，
-      浮点固定是双精度。
 
   - id: basics-python/type-inference
     title: 类型与变量的绑定关系
     kind: concept
     summary: 名字没有类型，类型跟着对象走
-    body: |
-      Python 是**动态类型**：`x` 这个名字本身不携带类型，它只是一个指向对象的标签。
-      同一个名字先后指向整数和字符串完全合法：
-
-      ```python
-      x = 1
-      x = "一"        # 合法
-      ```
-
-      类型标注（`x: int = 0`）**不是声明**，解释器不检查、不强制，只写进 `__annotations__`
-      供工具读取。真正做检查的是 mypy / pyright 这类外部工具，运行时一点约束都没有。
-
-      这一点决定了迁移时的两种错觉：以为写了 `x: int` 就有了类型安全（没有），
-      以及以为"类型错了应该报错"（只有在**操作不支持**时才报，
-      比如 `1 + "a"` 抛 `TypeError`，而 `x = "a"` 本身永远没错）。
 
   - id: basics-python/type-checking
     title: 运行时类型检查
     kind: behavior
     summary: 用 isinstance，不要用 type(x) is T
-    body: |
-      Python 判类型的正解是 `isinstance()`，因为它**认继承关系**：
-
-      ```python
-      isinstance(True, int)          # True —— bool 是 int 的子类
-      isinstance(SubClass(), Base)   # True
-      type(True) is int              # False —— 精确匹配，子类不算
-      ```
-
-      `type(x) is T` 只在"要的就是精确类型、不接受子类"时才对。用它做守卫函数
-      （`if type(x) is int: ...`）是很常见的写法错误 —— 传进来一个 `bool` 或
-      `IntEnum` 成员就被挡在门外。
-
-      还有一层是 Python 特有的：**鸭子类型**。多数场景下根本不必判类型，
-      直接尝试操作、失败就抛异常（EAFP），比先检查再操作（LBYL）更符合这门语言的风格。
 
   - id: basics-python/null-undefined
     title: 空值：只有 None
     kind: behavior
     summary: 一个空值、一个单例，判等一律用 is
-    body: |
-      Python 只有 `None` 一个空值，它是**单例**，所以判等用 `is` 而不是 `==`：
-
-      ```python
-      if x is None: ...
-      if x is not None: ...
-      ```
-
-      `None` 在布尔上下文里是假值，但它**不等于** `False`、也不等于 `0`：
-      `None == False` 是 `False`。所以「用 `x == None` 判断」偶尔能跑，
-      但只要对象自己实现了 `__eq__` 就可能给出意外结果 —— 一律用 `is`。
-
-      最容易踩的是 `if not x:`：它把 `None`、`0`、`""`、`[]`、`{}` 全部归为假。
-      想区分"没有值"和"值为空"，必须写 `if x is None:`。
 
   - id: basics-python/number-precision
     title: 数值精度与除法
     kind: behavior
     summary: 整数不溢出，但除法有两种、除零会崩
-    body: |
-      三件事，按迁移时的踩坑频率排序：
-
-      1. **除法有两种**。`/` 永远返回浮点（`6 / 3` 得 `2.0` 而不是 `2`），
-         `//` 是向下取整除法（`-7 // 2` 得 `-4`，是**向下**不是向零取整）。
-         取余 `%` 跟着 `//` 走，所以 `-7 % 3` 得 `2`。
-      2. **除以零抛异常**。`1 / 0` 抛 `ZeroDivisionError`，`1 // 0` 也是。
-         没有"得到无穷大"或"得到 NaN"这回事 —— 静默的 `Infinity` 会一路传下去，
-         而异常会当场炸掉，这条差异决定了故障是"结果不对"还是"立刻停"。
-      3. **浮点仍是双精度**。`0.1 + 0.2 != 0.3` 在这里同样成立。
-         要精确小数用 `decimal.Decimal`，要精确分数用 `fractions.Fraction`，
-         两者都不是默认类型。
 
   - id: basics-python/type-casting
     title: 显式类型转换
     kind: syntax
     summary: 类型名就是构造函数，转换失败一律抛异常
-    body: |
-      Python 的转换就是**调用类型本身**：`int(x)`、`float(x)`、`str(x)`、`list(x)`、`bool(x)`。
-
-      与"尽力而为"式转换最大的区别是：**失败就抛异常，从不返回哨兵值**。
-
-      ```python
-      int("3.7")     # ValueError —— 不接受小数写法，要先 float 再 int
-      int(3.9)       # 3 —— 直接截断，不是四舍五入
-      int("12px")    # ValueError
-      float("nan")   # nan —— 这个字符串反而是合法的
-      ```
-
-      这条"失败即抛"的性质是好事：错误在转换点就暴露，不会带着一个 `NaN`
-      漂到几百行之后才发作。代价是解析用户输入时必须显式 `try`。
-
-      `int()` 还能指定进制（`int("ff", 16)`），而 `str()` 不接受进制参数 ——
-      格式化要用 `format()` / f-string。
 
   - id: basics-python/boolean-conversion
     title: 真值判断
     kind: behavior
     summary: 空容器是假值，这是与别处差异最大的一条
-    body: |
-      Python 的假值清单：`None`、`False`、数值零（`0`、`0.0`、`0j`）、
-      空字符串、以及**所有空容器**（`[]`、`()`、`{}`、`set()`、`range(0)`）。
-
-      判定顺序是先找 `__bool__`，没有再找 `__len__`：
-
-      ```python
-      if not items:        # 惯用法：列表为空
-      if not mapping:      # 字典为空
-      if not text:         # 字符串为空
-      ```
-
-      这是全套内容里最高频的陷阱来源，因为**它把一个"有没有内容"的问题
-      写成了"真不真"的问题**，读代码的人必须先知道那个变量的类型才能确定含义。
-      反过来，如果确实要判断"是不是 None 而不是空"，必须写 `x is None`，
-      否则一个空列表会走进同一个分支。
-
-      自定义类可以通过实现 `__bool__` 或 `__len__` 决定自己的真值 ——
-      这也意味着一个"看起来像数据"的对象，真值行为由它的作者决定。
 
   - id: basics-python/type-names
     title: 类型自省
     kind: behavior
     summary: type(x) 给的是类对象，不是字符串
-    body: |
-      `type(x)` 返回的是**类对象本身**，不是名字：
-
-      ```python
-      type(1)              # <class 'int'>
-      type(1).__name__     # 'int' —— 要字符串就取 __name__
-      type(1) is int       # True
-      ```
-
-      因为类名是开放的，自定义类会给出自己的名字，这对日志和错误信息很有用。
-      还有 `__qualname__` 能拿到带嵌套路径的名字（`Outer.Inner`），
-      以及 `x.__class__` 与 `type(x)` 在绝大多数情况下等价
-      （除非类重写了 `__class__` 属性，属于罕见玩法）。
-
-      需要注意的边界：类型判断别用 `type(x).__name__ == 'int'` 这种字符串比较，
-      它既慢又认不出子类，正确的写法自始至终都是 `isinstance`。
 
   - id: basics-python/immutable-primitives
     title: 不可变类型
     kind: behavior
     summary: 字符串数字元组改不了，只能换绑
-    body: |
-      `int`、`float`、`str`、`tuple`、`frozenset`、`bytes` 都是**不可变**的：
-      任何"修改"其实返回新对象，原对象不动。
-
-      ```python
-      s = "abc"
-      s.upper()      # 返回 "ABC"，s 仍是 "abc"
-      s = s.upper()  # 要接住返回值
-      ```
-
-      反过来 `list`、`dict`、`set` 是**原地修改**的：`append` / `sort` / `update`
-      直接改自己并返回 `None`。所以下面这行是个经典错误 —— 它把列表变成了 `None`：
-
-      ```python
-      items = items.sort()   # 错：sort() 返回 None
-      ```
-
-      口诀在两边都成立：**改内容会传染（容器在多个名字间共享），改绑定不会**
-      （字符串、数字是换了个标签指向新对象）。而 `tuple` 的"不可变"是浅的 ——
-      元组本身不能增删项，但里面的 `list` 照样能改。

@@ -8,65 +8,18 @@ features:
     title: 类与继承
     kind: concept
     summary: 你有 MRO 与多继承、没有真私有；JS 单继承但有语言级私有
-    body: |
-      Python 的 `class` 是一等公民：支持**多继承**，方法解析顺序由 MRO 决定
-      （`super()` 走的是 MRO 链，不是「父类」这一个）；实例方法第一个参数是显式的 `self`。
-
-      JS 的 `class` 是原型链的语法糖：**单继承**，`super` 沿原型向上找，
-      `this` 是隐式的、取决于调用方式。
-
-      但迁移时最该注意的差别在**私有**：Python 没有真私有 —— `_name` 是约定、
-      `__name` 只是名称改写（name mangling），外部依然够得着；JS 用 `#name`，
-      是**真正的语言级私有**，运行时外部拿不到。也就是「这个属性不该被外面碰」
-      在 JS 里可以是语言保证，在 Python 里只能靠约定。
-
-      另一处：Python 的实例方法取出来是**绑定的**（`obj.method` 自带 self），
-      JS 的方法取出来会丢掉 `this`（除非用箭头函数或显式 `bind`）——
-      从 Python 过来会觉得「方法怎么还要关心它怎么被调用」。
 
   - id: concepts-python/interface
     title: 接口与协议
     kind: concept
     summary: 你有 Protocol 与 ABC 两种强制手段，JS 在语言层面一种都没有
-    body: |
-      Python 两种都有：`Protocol`（结构化 —— 「长得像就算」）与 `ABC`（名义式 ——
-      「必须显式继承才能实例化」）。静态检查交给 mypy，运行时 ABC 还能在实例化时拦住
-      不完整的实现。
-
-      JS 在语言层面**没有接口这一概念**：一个对象能不能当某物使用，完全看它有没有
-      对应的方法（鸭子类型），`interface` 只是 TypeScript 的编译期概念，运行时不留下痕迹。
-
-      从 Python 过来，你会失去「把一项约束写下来并能被强制」的两种手段 ——
-      在 JS 里只能写在注释或文档里，或者引入 TS 才拿回编译期约束；
-      **运行时强制**（ABC 那种，实例化时就拦）在 JS 里没有等价物。
 
   - id: concepts-python/generics
     title: 泛型
     kind: concept
     summary: TypeVar 是渐进的可选标注，JS 连标注语法都没有，泛型全靠 TS
-    body: |
-      Python 有 `typing.TypeVar` 等标注工具，但它是**渐进类型**：标注自愿、可以只标一部分，
-      解释器自己不检查，检查交给 mypy 这类外部工具；类型参数在运行时被擦除。
-
-      JS 比 Python 更彻底 —— **语言本身连类型标注语法都没有**，泛型完全依赖 TypeScript，
-      而 TS 的泛型同样在运行时不保留。
-
-      共同点很重要：**两边的类型参数在运行时都不存在**，所以「用泛型来做运行时判断」
-      在任何一边都行不通，这条心智可以从 Python 直接搬过去。差别在「标注错了会怎样」：
-      Python 是 mypy 报错、程序照跑；JS 到 TS 是编译期就过不去。
 
   - id: concepts-python/error-handling
     title: 错误处理
     kind: concept
     summary: except 必须写类型，而 JS 能 throw 任何东西，catch 到的不一定是 Error
-    body: |
-      Python 只能抛 `BaseException` 的子类，`except` 必须写明类型（裸 `except:` 会连
-      `KeyboardInterrupt` 一起吞掉，是明确的反模式）；`try/except/else/finally` 比 JS
-      还多一个 `else`（没出错时执行，把成功路径从 `try` 里挪出来）。
-
-      JS 可以 `throw` **任意值**：字符串、对象、数字都行。所以 `catch` 到的东西
-      **不一定是 `Error`**，取 `e.message` 可能得到 `undefined` ——
-      你在 Python 里「异常一定是个有类型的对象」的假设会失效。
-
-      两边的一个共同点：**都没有受检异常**，签名上看不出「这个函数可能抛什么」。
-      从 Python 到 JS 这一条是平滑的，但从 Java 过来会突然失去编译器替你把关。

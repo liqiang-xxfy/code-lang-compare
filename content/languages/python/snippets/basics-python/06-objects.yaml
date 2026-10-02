@@ -23,6 +23,28 @@ snippets:
       {[1]: 2}                    # @note! TypeError: unhashable type: 'list'
 
       # @note 3.7 起保证插入顺序，按写入顺序遍历不需要额外的类型
+    body: |
+      ```python
+      d = {"a": 1, "b": 2}
+      d = dict(a=1, b=2)                 # 键必须是合法标识符时才能这么写
+      d = dict([("a", 1), ("b", 2)])     # 从键值对序列构造
+      d = dict(zip(keys, values))
+      ```
+
+      两条与别处不同的性质：
+
+      1. **键可以是任意可哈希对象** —— 数字、字符串、元组、`frozenset` 都行：
+
+         ```python
+         grid = {(0, 0): "起点", (1, 2): "终点"}    # 元组当键，很常用
+         counts = {True: 1, 1: 2}                   # 注意 True == 1，这是同一个键！
+         ```
+
+         可哈希要求"不可变"，所以 `list`、`dict`、`set` 不能当键
+         （要当键就先转成 `tuple` / `frozenset`）。
+
+      2. **保证插入顺序**（3.7 起是语言保证，不是实现细节）。
+         所以"按写入顺序遍历"不需要额外的有序字典类型。
   - featureId: basics-python/object-access
     equivalence: identical
     code: |
@@ -34,6 +56,22 @@ snippets:
 
       d.a                         # @note! AttributeError ——
                                   # 点号找的是对象属性，不是字典的键，取键只有方括号与 get
+    body: |
+      ```python
+      d = {"a": 1}
+      d["a"]        # 1
+      d["z"]        # KeyError —— 缺失一律抛，不返回空值
+      d.get("z")    # None —— 想容忍缺失就用 get
+      d.get("z", 0) # 0
+      ```
+
+      **缺失即抛异常**是这门语言统一的取向：它让"我以为有这个键"
+      这种假设在第一次访问时就崩掉，而不是把一个空值带到下游。
+
+      另一个高频错误：**`d.key` 不是取字典的键**。点号找的是**对象的属性**，
+      对字典来说只有 `keys` / `items` 这些方法，所以 `d.a` 会抛
+      `AttributeError: 'dict' object has no attribute 'a'`。
+      取键只有 `d["a"]` 或 `d.get("a")` 两种写法。
   - featureId: basics-python/object-iterate
     equivalence: identical
     code: |
@@ -50,6 +88,23 @@ snippets:
           del d[k]                # @note! RuntimeError: dictionary changed size during iteration
       for k in list(d):           # 要改就遍历副本
           del d[k]
+    body: |
+      ```python
+      for k in d:                    # 遍历键（默认）
+      for k in d.keys():             # 同上，显式写法
+      for v in d.values():           # 遍历值
+      for k, v in d.items():         # 键值一起，最常用
+      ```
+
+      `items()` 返回的是 `(key, value)` 元组，直接解包即可 —— 不需要
+      "先取条目数组再解构"那种两步写法。
+
+      两个细节：
+
+      - 遍历顺序是**插入顺序**，不是排序也不是哈希序。
+        要按值排序就 `sorted(d.items(), key=lambda kv: kv[1])`。
+      - 遍历字典时**不能增删键**，会抛 `RuntimeError: dictionary changed size
+        during iteration`。要改就遍历 `list(d.items())` 的副本。
   - featureId: basics-python/object-default
     equivalence: identical
     code: |
@@ -59,6 +114,31 @@ snippets:
       groups = collections.defaultdict(list)
       groups[k].append(v)         # @note 不用先判存在，分组累加的惯用法
       len(groups)                 # @note! 一次读取就把字典撑大了 —— 遍历 keys() 会看到空组
+    body: |
+      三个入口，语义差别很大：
+
+      ```python
+      d.get(k, 0)              # @只读：缺失也不写入
+      d.setdefault(k, [])      # 读取的同时**写入**默认值（键已存在则原样返回）
+      collections.defaultdict(list)   # 任何缺失访问都会写入
+      ```
+
+      `defaultdict` 是分组累加的惯用法：
+
+      ```python
+      groups = collections.defaultdict(list)
+      for k, v in pairs:
+          groups[k].append(v)     # 不需要先判存在
+      ```
+
+      但它的副作用要记住：**一次读取就会把字典撑大**。
+      用 `if k in groups` 判过之后再取，字典里已经多了一个空列表 ——
+      要输出"只有真实存在的键"时这会带出噪声，先转成普通 `dict` 也不行
+      （键已经进去了）。
+
+      `setdefault` 有同样的问题，只是范围可控（只写你指定的那个键）。
+      另外 `setdefault` 的默认值**每次调用都会求值** ——
+      里面放了构造开销大的表达式就是白算。
   - featureId: basics-python/object-merge
     equivalence: identical
     code: |
@@ -70,6 +150,21 @@ snippets:
       a |= b                      # 3.9+ 原地合并
 
       # @note | 对嵌套字典是浅合并：同名的键整体替换，不会递归合并
+    body: |
+      ```python
+      merged = {**a, **b}      # 新字典，b 覆盖 a
+      merged = a | b           # 3.9+，同样的语义，更短
+      a.update(b)              # 原地改 a，返回 None
+      a |= b                   # 3.9+，原地合并
+      ```
+
+      两组写法对应两种意图：**要新对象用 `|`，要改自己用 `update`**。
+
+      容易记混的是 `update` **返回 `None`** —— 所以 `a = a.update(b)`
+      会把 `a` 变成 `None`。这与 `list.sort()` 返回 `None` 是同一种设计取向。
+
+      `|` 对嵌套字典是**浅合并**：同名的键如果两边都是字典，右边的整体替换左边的，
+      不会递归合并。要递归合并得自己写或用第三方库。
   - featureId: basics-python/object-nested
     equivalence: identical
     code: |
@@ -83,6 +178,26 @@ snippets:
 
       import copy
       c = copy.deepcopy(a)        # @note 递归复制且能处理循环引用，代价是慢
+    body: |
+      ```python
+      b = dict(a)       # 浅拷贝
+      b = a.copy()      # 同上
+      b = {**a}         # 同上
+      ```
+
+      三者等价，都只复制第一层：嵌套的字典、列表仍然是**共享引用**。
+
+      ```python
+      a = {"cfg": {"retry": 3}}
+      b = dict(a)
+      b["cfg"]["retry"] = 5      # a 也变了！
+      ```
+
+      要真正独立用 `copy.deepcopy(a)`，它会递归复制并正确处理循环引用。
+      代价是慢，所以只在确实需要隔离时才用。
+
+      另一条容易忽略的：`copy.copy(a)` 与 `dict(a)` 一样是浅的，
+      名字里没有 "deep" 就不深 —— 这个命名是可靠的提示。
   - featureId: basics-python/object-comprehension
     equivalence: identical
     code: |
@@ -93,6 +208,23 @@ snippets:
 
       {v: k for k, v in d.items()}                   # @note! 反转键值：值必须可哈希，
                                                      # 原值重复时后者覆盖前者，静默丢数据
+    body: |
+      ```python
+      {k: v for k, v in pairs}
+      {u.id: u for u in users}                     # 按 id 建索引
+      {u.id: u for u in users if u.active}         # 带过滤
+      {k: v for k, v in d.items() if v is not None}   # 过滤字典
+      {v: k for k, v in d.items()}                 # 反转键值
+      ```
+
+      它把"建空字典 → 循环 → 赋值"压成一行，而且**重复键后者覆盖前者** ——
+      做索引时这正好是想要的行为（后出现的赢）。
+
+      反转键值那一行要小心：**值必须可哈希**，而且原值有重复时后面的会覆盖前面的，
+      静默丢数据。要保留多个值应该建成 `defaultdict(list)`。
+
+      集合推导式 `{x for x in xs}` 和生成器表达式 `(x for x in xs)`
+      是同族语法 —— 后者是惰性的，不建任何容器。
   - featureId: basics-python/object-equality
     equivalence: identical
     code: |
@@ -103,6 +235,21 @@ snippets:
 
       # @note 自定义类要参与 == 得实现 __eq__；实现了就应同时实现 __hash__，
       # 否则对象变得不可哈希，不能再放进 set 或当字典键
+    body: |
+      ```python
+      {"a": 1} == {"a": 1}             # True —— 内容相同就是相等
+      {"a": 1, "b": 2} == {"b": 2, "a": 1}   # True —— 与插入顺序无关
+      {"a": [1, 2]} == {"a": [1, 2]}   # True —— 嵌套也会递归比较
+      {"a": 1} == {"a": 1.0}           # True —— 1 == 1.0
+      ```
+
+      这一条在这门语言里是免费的：容器之间比较内容、递归到底，
+      不需要手写比较函数，也不需要序列化后再比。
+
+      代价是**比较成本与结构大小成正比** —— 在热路径上拿大字典做相等判断
+      要留意。另外自定义类要参与 `==` 得实现 `__eq__`，
+      而且实现了 `__eq__` 就应该同时实现 `__hash__`（否则对象变得不可哈希，
+      不能再放进 `set` 或当字典键）。
   - featureId: basics-python/object-json
     equivalence: identical
     code: |
@@ -115,3 +262,26 @@ snippets:
       json.dumps({"t": datetime.now()})       # @note! TypeError ——
                                               # 非 JSON 类型直接抛，不静默丢字段
       json.dumps({"t": dt}, default=str)      # 惯用替代写法
+    body: |
+      `json.dumps` 序列化、`json.loads` 反序列化：
+
+      ```python
+      json.dumps({"a": 1})                          # '{"a": 1}' —— 默认分隔符带空格
+      json.dumps(obj, ensure_ascii=False)           # 保留中文，不转义成 \uXXXX
+      json.dumps(obj, indent=2)                     # 美化
+      json.dumps(obj, sort_keys=True)               # 键排序，便于 diff
+      json.loads('{"a": 1}')
+      ```
+
+      三个反复踩的点：
+
+      1. **`ensure_ascii` 默认是 `True`**，所以中文会变成一堆 `中文`。
+         想输出可读的中文必须显式关掉。
+      2. **非 JSON 类型直接抛 `TypeError`**：`datetime`、`set`、自定义对象都不行。
+         处理 `datetime` 要传 `default=str` 或自定义 `default=` 函数。
+         这一条是好事 —— 静默丢字段比报错难查得多。
+      3. **默认输出带空格**（`{"a": 1}`），要紧凑得传
+         `separators=(",", ":")`。做签名、比对哈希时这一步不能少。
+
+      整数没有精度问题：Python 的 `int` 是任意精度，`loads` 出来的大整数
+      不会被改值（这一点与"整数是浮点"的语言正好相反）。

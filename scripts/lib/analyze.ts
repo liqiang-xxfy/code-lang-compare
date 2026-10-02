@@ -105,6 +105,62 @@ export interface Analysis {
 
 const rel = (p: string) => path.relative(ROOT, p).replace(/\\/g, '/')
 
+/** 多列板块基准列 body 里点名他语言的一次命中 */
+export interface BaselineBodyMention {
+  topicId: string
+  featureId: string
+  /** 被点名语言的显示名 */
+  name: string
+  /** 具体命中的那个词，便于排查误报 */
+  word: string
+}
+
+/**
+ * 扫描「多列板块的基准列 body 点名了屏幕外的语言」。
+ *
+ * 为什么单独抽出来：这条判定有两个消费者，而且两边的输出形态**刻意不同** ——
+ *   · 校验（R12）按 `(topic, 被点名语言)` **汇总**成一条：迁移后 294 条基准列
+ *     正文里有一百多条命中，逐条会打印上百行，把真正要看的 error 埋掉
+ *   · `npm run content:report` 列出**逐条明细**，那才是能照着清的分批待办
+ *
+ * 两份输出共用这一个函数，避免「报告说还有 176 条，校验说 170 条」这种对不上。
+ */
+function scanBaselineBodies(ctx: {
+  features: Array<{ feature: Feature; chapter: Chapter }>
+  snippets: Map<string, Map<string, SnippetSource>>
+  registry: Registry
+  enabledLanguageIds: string[]
+  metaById: Record<string, LanguageMeta>
+}): BaselineBodyMention[] {
+  const out: BaselineBodyMention[] = []
+  for (const { feature, chapter } of ctx.features) {
+    const cfg = ctx.registry.topics[chapter.topicId]
+    if (!cfg?.enabled) continue
+    /* 只查多列板块：单列板块（migration）的基准列讲 target 正是教学内容本身 */
+    if (ctx.registry.sections[cfg.section]?.columns !== 'multi') continue
+    const s = ctx.snippets.get(feature.id)?.get(cfg.baseline)
+    if (!s?.body?.trim()) continue
+    const mentionable = ctx.enabledLanguageIds
+      .map((id) => ctx.metaById[id])
+      .filter((m): m is LanguageMeta => Boolean(m))
+      .filter((m) => m.id !== cfg.baseline)
+    const hits = detectForeignLanguageMentions(
+      [{ line: 0, text: s.body, tone: 'info' }],
+      cfg.baseline,
+      mentionable,
+    )
+    for (const m of hits) {
+      out.push({ topicId: chapter.topicId, featureId: feature.id, name: m.name, word: m.word })
+    }
+  }
+  return out
+}
+
+/** `scanBaselineBodies` 的对外入口 —— 供 `npm run content:report` 列待清理明细 */
+export function baselineBodyMentions(a: Analysis): BaselineBodyMention[] {
+  return scanBaselineBodies(a)
+}
+
 export function analyzeContent(): Analysis {
   const issues: Issue[] = []
   const err = (rule: string, where: string, message: string) =>
@@ -359,6 +415,22 @@ export function analyzeContent(): Analysis {
     return enabledLanguageIds.filter((id) => scope.includes(id))
   }
 
+  /**
+   * 板块是否**多列并排**（`columns: multi`）—— 基础语法与心智模型。
+   *
+   * 与 `src/content/repository.ts` 的 `sectionIsMulti` 同源（都读板块注册表的
+   * `columns`），但那边经 `import.meta.glob` 取 manifest，Node 侧不可用，
+   * 所以这里直接读 registry。
+   *
+   * **判据必须是 `columns` 而不是板块 id**：R12 早先写的是 `section === 'basics'`，
+   * 于是 concepts 板块只因为「恰好没有 target」才走对了分支 —— 再加一个多列板块
+   * 就会静默走错。
+   */
+  const isMultiColumn = (topicId: string): boolean => {
+    const section = registry.topics[topicId]?.section
+    return section ? registry.sections[section]?.columns === 'multi' : false
+  }
+
   /* R2 覆盖率：适用范围内的语言不能有空洞 */
   const coverage: Record<string, { have: number; total: number }> = {}
   for (const lang of enabledLanguageIds) coverage[lang] = { have: 0, total: 0 }
@@ -369,6 +441,19 @@ export function analyzeContent(): Analysis {
    * 逐条提示会把整个校验报告淹没，真正需要看的 error 反而找不到了。
    */
   const pendingByLang = new Map<string, number>()
+
+  /**
+   * R18 待补 body 的格子数，按 `topicId · lang` 累计。
+   *
+   * 同样汇总而不逐条：多列板块共 974 格，本次架构改动时其中 762 格还没有
+   * body —— 逐条提示会打印一千多行，把真正需要看的 error 彻底埋掉。
+   * 明细清单由 `npm run content:report` 给出（那里不受「报告要能一眼扫完」约束）。
+   */
+  const missingBody = new Map<string, number>()
+  /** R19 仍带共享说明的 feature 数，按 topic 累计 */
+  const leftoverFeatureBody = new Map<string, number>()
+  /** R12 多列板块基准列 body 里点名他语言的次数，按 `topicId · 被点名语言` 累计 */
+  const bodyMentions = new Map<string, number>()
 
   for (const { feature, chapter } of features) {
     const bucket = snippets.get(feature.id)
@@ -399,6 +484,28 @@ export function analyzeContent(): Analysis {
       if (!hasCode && s.equivalence !== 'absent') {
         err('R2', `${feature.id} · ${lang}`, `equivalence 为 '${s.equivalence}' 但代码为空`)
       }
+      /*
+       * R18 多列板块的每一格都要有自己的说明。
+       *
+       * 列数随勾选变化，一份横跨所有列的共享说明盖不住各语言自己的事实，
+       * 所以正文下沉到每列代码下方：基准列写本语言的客观事实，对比列写与基准的
+       * 差别。排除 absent —— 那种格子已由上面的 R2「absent 无 body」覆盖，
+       * 两条一起报只是把同一件事说两遍。
+       */
+      if (isMultiColumn(chapter.topicId) && s.equivalence !== 'absent' && !s.body?.trim()) {
+        const key = `${chapter.topicId} · ${lang}`
+        missingBody.set(key, (missingBody.get(key) ?? 0) + 1)
+      }
+    }
+    /*
+     * R19 多列板块不再有共享说明。
+     *
+     * `feature.body` 渲染在整块上方、横跨所有列，而且在矩阵模式下**根本没有
+     * 渲染点**（MatrixLayout 不引用 feature.bodyHtml）—— 同一份内容在两种展示
+     * 模式下一个有一个没有。正文一律下移到每列 snippet.body。
+     */
+    if (isMultiColumn(chapter.topicId) && feature.body?.trim()) {
+      leftoverFeatureBody.set(chapter.topicId, (leftoverFeatureBody.get(chapter.topicId) ?? 0) + 1)
     }
     // 未启用语言有内容 → 只累计，不算问题（支持「先攒内容后启用」）
     for (const [lang] of bucket ?? []) {
@@ -442,31 +549,48 @@ export function analyzeContent(): Analysis {
         if (!n.text) warn('R4', `${where} 第 ${n.line} 行`, '@note 说明为空')
       }
 
-      // R11 有差异必配说明：徽章标了差异，读者却看不到差异在哪
-      if (s.equivalence !== 'identical' && allNotes.length === 0) {
+      /*
+       * R11 有差异必配说明：徽章标了差异，读者却看不到差异在哪。
+       *
+       * 说明有两个载体 —— 代码里的 `@note`（贴着那一行），以及代码下方的
+       * `body`（讲整体的差别）。任一个有内容就算交代过了。
+       *
+       * 多列板块**跳过**：那里的「没有 body」由 R18 单独负责，而 R18 的触发集
+       * 恰好覆盖 R11 剩下的那一半，两条一起报只是把同一格数两遍。
+       */
+      if (
+        !isMultiColumn(chapter.topicId) &&
+        s.equivalence !== 'identical' &&
+        allNotes.length === 0 &&
+        !s.body?.trim()
+      ) {
         warn(
           'R11',
           where,
-          `equivalence 为 '${s.equivalence}' 却没有任何 @note 说明差异。请补一条注记，或把 equivalence 改回 identical`,
+          `equivalence 为 '${s.equivalence}' 却既没有 @note 也没有 body 说明差异。请补一条注记，或在 body 里说明与基准的差别`,
         )
       }
 
-      // R12 基准列的注记只讲本方向的语言：基准列是这一页的参照系，
+      // R12 基准列的说明只讲本方向的语言：基准列是这一页的参照系，
       // 讲屏幕外的语言会把读者引向并不存在的一列。
-      //   · basics 是**多选列**板块，基准列只该讲自己 —— 勾 Java+Go+Rust 时
-      //     读到一句讲 Python 的注记，就是幽灵语言
+      //   · 多列板块的基准列只该讲自己 —— 勾 Java+Go+Rust 时读到一句讲
+      //     Python 的说明，就是幽灵语言
       //   · 对级板块只有 baseline↔target 两门，基准列讲 target 正是教学内容本身，
       //     所以那里只禁「第三门语言」
+      // 「是不是多列」读板块注册表的 columns，不再写死板块 id（ADR-28）。
       const topicCfg = registry.topics[chapter.topicId]
       if (topicCfg?.enabled && lang === topicCfg.baseline) {
         const allowed = new Set<string>(
-          topicCfg.section === 'basics' ? [lang] : [lang, topicCfg.target ?? ''].filter(Boolean),
+          isMultiColumn(chapter.topicId)
+            ? [lang]
+            : [lang, topicCfg.target ?? ''].filter(Boolean),
         )
         const mentionable = enabledLanguageIds
           .map((id) => metaById[id])
           .filter((m): m is LanguageMeta => Boolean(m))
           .filter((m) => !allowed.has(m.id))
-        for (const m of detectForeignLanguageMentions(allNotes, lang, mentionable)) {
+        const foreign = detectForeignLanguageMentions(allNotes, lang, mentionable)
+        for (const m of foreign) {
           warn(
             'R12',
             `${where} 第 ${m.line} 行`,
@@ -475,6 +599,58 @@ export function analyzeContent(): Analysis {
         }
       }
     }
+  }
+
+  /*
+   * R18 / R19 / R12-body 的汇总输出。
+   *
+   * **必须放在所有累加循环之后**：`bodyMentions` 是在上面 R4/R9 那个循环里填的，
+   * 输出写早了会永远打印 0 条（本轮真踩到过）。
+   *
+   * 三条都用「按 topic / 按列汇总一条」而不是逐条 emit：多列板块共 974 格，
+   * 过渡期缺口以百计 —— 逐条会打印上千行，把真正需要看的 error 埋掉
+   * （同 `pendingByLang` / `draftByLang` 的理由）。明细清单交给
+   * `npm run content:report`，那里不受「报告要能一眼扫完」的约束。
+   *
+   * 级别都是 warn：正文按 topic 分批补，补完之前就把构建变红毫无意义 ——
+   * 那会把「内容还没写完」和「内容写错了」混成同一种信号。等 report 里的
+   * 待补账目归零后，把 `warn(` 改成 `err(` 即可翻级。
+   */
+  for (const [key, count] of [...missingBody].sort(([a], [b]) => a.localeCompare(b))) {
+    warn(
+      'R18',
+      key,
+      `多列板块的这一列还有 ${count} 格没有 body 说明。每格都该有自己的说明：基准列写本语言的客观事实，对比列写与基准的差别（相关的事实性提醒走代码里的 @note，不要重复成段）`,
+    )
+  }
+  for (const [topicId, count] of [...leftoverFeatureBody].sort(([a], [b]) => a.localeCompare(b))) {
+    warn(
+      'R19',
+      topicId,
+      `多列板块仍有 ${count} 条 feature 带着共享说明 feature.body。列数随勾选变化，共享说明盖不住各语言自己的事实，也不进矩阵视图 —— 请把正文下移到每列 snippet.body`,
+    )
+  }
+  /*
+   * 扫描范围含 body：说明下沉到每列之后，正文成了差异说明的主要载体 ——
+   * 只扫 @note 的话，「基准列讲别的语言」会从正文里整段溜过去。
+   * 判定与 `baselineBodyMentions` 共用一份，报告里的待清理明细才与这里对得上。
+   */
+  for (const hit of scanBaselineBodies({
+    features,
+    snippets,
+    registry,
+    enabledLanguageIds,
+    metaById,
+  })) {
+    const key = `${hit.topicId} · 基准列 body 点名 ${hit.name}`
+    bodyMentions.set(key, (bodyMentions.get(key) ?? 0) + 1)
+  }
+  for (const [key, count] of [...bodyMentions].sort(([a], [b]) => a.localeCompare(b))) {
+    warn(
+      'R12',
+      key,
+      `基准列的 body 说明里有 ${count} 条点名了屏幕外的语言。基准列是这一页的参照系，对照说明应写在对应语言的对比列实现里`,
+    )
   }
 
   /* R3 provenance 与真实台账 */

@@ -8,70 +8,18 @@ features:
     title: 类与继承
     kind: concept
     summary: 原型链上的单继承 vs 原生多继承加 MRO，但真正的差别在「私有」
-    body: |
-      JS 的 `class` 是原型链的语法糖：单继承，`super` 沿原型向上找，
-      私有字段用 `#name`（真正的语言级私有）。
-
-      Python 的 `class` 是一等公民：支持**多继承**，方法解析顺序由 MRO
-      决定（`super()` 走的是 MRO 链，不是「父类」这一个）。
-
-      但迁移时真正的绊脚石是**私有**：Python 没有真私有 ——
-      `_name` 是约定、`__name` 只是名称改写（name mangling），
-      外部依然够得着。于是「这个属性不该被外面碰」在 Python 里
-      只能靠约定与文档，不能靠语言保证。
-
-      另外 Python 的实例方法第一个参数是显式的 `self`，没有隐式 `this`；
-      「把这个方法单独取出来用」时会丢掉绑定，这是从 JS 过来最常见的报错。
 
   - id: concepts-javascript/interface
     title: 接口与协议
     kind: concept
     summary: JS 运行时根本没有「接口」这个东西，而 Python 有两种表达方式
-    body: |
-      JS 在语言层面**没有接口**这一概念 —— 一个对象能不能当作某物使用，
-      完全看它有没有对应的方法（鸭子类型），`interface` 只是 TypeScript
-      的编译期概念，运行时不留下任何痕迹。
-
-      Python 两种都有：`Protocol`（结构化 —— 「长得像就算」）与
-      `ABC`（名义式 —— 「必须显式继承」）。选哪个是设计决策：
-      Protocol 更灵活且不侵入，ABC 能在实例化时就拦住不完整的实现。
-
-      迁移视角：在 JS 里「这个参数应该实现哪些方法」只能写在注释或 TS 类型里，
-      到 Python 里**它可以被运行时或类型检查器强制**。意识到这一点，
-      你才会去用它，而不是继续用注释。
 
   - id: concepts-javascript/generics
     title: 泛型
     kind: concept
     summary: 两边运行时都擦除，但 Python 的标注是「可选的、渐进的」
-    body: |
-      JS 本身没有泛型（靠 TypeScript 的编译期标注），Python 有
-      `typing.TypeVar` 等标注工具。
-
-      共同点很重要：**两边的类型参数在运行时都不存在**。
-      所以「用泛型来做运行时判断」在任何一边都行不通。
-
-      差别在强度：TypeScript 是「标注了就在编译期强约束」，
-      Python 是**渐进类型** —— 标注是自愿的、可以只标一部分，
-      检查交给 mypy 这类外部工具，解释器自己不检查。
-      于是 Python 里「标注写错了」不会阻止程序运行，只会让类型检查器报错。
 
   - id: concepts-javascript/error-handling
     title: 错误处理
     kind: concept
     summary: 能抛任意值 vs 只能抛异常类，以及「哪些错误必须处理」
-    body: |
-      JS 可以 `throw` 任意值 —— 字符串、对象、数字都行，所以 `catch` 到的东西
-      **不一定是 `Error`**，取 `e.message` 可能得到 `undefined`。
-
-      Python 只能抛 `BaseException` 的子类，`except` 必须写明类型
-      （裸 `except:` 会连 `KeyboardInterrupt` 一起吞掉，是明确的反模式）。
-
-      更根本的差异是**受检异常**：Java 把「必须处理」写进类型系统，
-      JS 与 Python 都没有 —— 任何函数都可能抛，签名上看不出来。
-      所以从 JS 到 Python 这一条是平滑的，但从 Java 到 Python
-      会突然失去「编译器替我盯着」这层保障。
-
-      另外 Python 的 `try/except/else/finally` 比 JS 多一个 `else`
-      （没出错时执行），把「成功路径」从 `try` 里挪出来，
-      避免误捕获成功路径中的异常。

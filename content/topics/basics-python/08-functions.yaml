@@ -9,274 +9,43 @@ features:
     title: 函数声明
     kind: syntax
     summary: 只有 def 一种形式，匿名只能靠单表达式
-    body: |
-      ```python
-      def greet(name, greeting="你好"):
-          """打个招呼。"""
-          return f"{greeting}，{name}"
-      ```
-
-      只有 `def` 一种形式 —— 没有"声明与表达式"之分，没有等价的箭头写法，
-      也不存在提升问题（函数必须**先用后定义**才调用得到，
-      模块级函数则因为先整块执行完定义再被调用而无所谓）。
-
-      想匿名用 `lambda`，但它的能力被刻意限制得很窄：
-      **只能是一个表达式**，不能有语句、不能多行、不能写类型标注、不能有 docstring。
-
-      这个限制是有意的取向：这门语言认为**有名字的函数更可读**，
-      所以 `lambda` 基本只出现在 `key=`、`sorted`、`max` 这类"用完即弃的短回调"位置。
-      需要多行逻辑就应该 `def` 出来 —— 把它塞进 `lambda` 只会让读者去猜。
 
   - id: basics-python/default-params
     title: 默认参数
     kind: behavior
     summary: 默认值在定义时求值一次，可变默认值会被共享
-    body: |
-      这是这门语言最经典的一个坑：
-
-      ```python
-      def add(item, bucket=[]):     # 错！
-          bucket.append(item)
-          return bucket
-
-      add(1)      # [1]
-      add(2)      # [1, 2] —— 不是 [2]
-      ```
-
-      原因是**默认值在函数定义时求值一次**，之后所有调用共用同一个对象。
-      不可变默认值（数字、字符串、`None`）看不出问题，一旦是可变的容器就中招。
-
-      正解是用 `None` 做哨兵：
-
-      ```python
-      def add(item, bucket=None):
-          if bucket is None:
-              bucket = []
-          bucket.append(item)
-          return bucket
-      ```
-
-      要理解这条规则，得知道"默认值"其实是函数对象的一个属性 ——
-      `add.__defaults__` 里存着的就是那个列表本身，所以它当然会被共享。
-
-      同样的机制也让默认值**不能引用后面定义的函数或类**，
-      以及默认值可以是一个只求值一次的表达式（比如 `time.time()` 会固定成定义时刻）。
 
   - id: basics-python/kwargs
     title: 关键字参数
     kind: behavior
     summary: 按名字传参，还能用 / 与 * 强制调用方写清意图
-    body: |
-      调用时可以按名字传：
-
-      ```python
-      greet(name="Ada", greeting="Hi")
-      ```
-
-      但真正重要的是签名里的两个分隔符：
-
-      ```python
-      def f(a, /, b, *, c):
-          ...
-      ```
-
-      - `/` 之前的参数**只能**位置传（`f(1, 2, c=3)`）
-      - `*` 之后的参数**只能**关键字传（`c=` 不能省）
-      - 中间的两者都行
-
-      这把"调用方该怎么传"写进了签名，而不是靠文档约定。典型用法是把它用在
-      布尔开关上：
-
-      ```python
-      def render(text, *, pretty=False, strict=False):
-          ...
-
-      render(text, pretty=True)     # 一眼看出这个 True 是什么
-      render(text, True)            # 这样写会直接 TypeError
-      ```
-
-      位置参数一多，`f(a, b, True, False)` 这种调用就读不懂了 ——
-      强制具名正好消掉这一类问题。这也是"新增一个关键字参数不会破坏既有调用"
-      的前提。
 
   - id: basics-python/rest-params
     title: 可变参数
     kind: syntax
     summary: "位置可变参数收成元组，关键字可变参数收成字典"
-    body: |
-      ```python
-      def f(*args, **kwargs):
-          print(args)      # 元组
-          print(kwargs)    # 字典
-
-      f(1, 2, x=3)         # (1, 2) 与 {'x': 3}
-      ```
-
-      位置可变与关键字可变被分成了**两个参数**，可以只要其中一个。
-      注意 `*args` 收到的是**元组**（不可变），不是列表。
-
-      调用侧用同样的符号摊开：
-
-      ```python
-      f(*xs)          # 把列表摊成位置参数
-      f(**d)          # 把字典摊成关键字参数
-      ```
-
-      一个必须警惕的性质：`**kwargs` 会**静默吞掉拼错的参数名**。
-
-      ```python
-      def connect(**kwargs): ...
-      connect(timout=30)      # @不报错，kwargs 里多了一个没人读的键
-      ```
-
-      所以对外 API 应该显式写出参数名（必要时用 `*` 强制具名），
-      只在真正需要"透传给下层"时才用 `**kwargs`。
-      `functools.wraps` 与装饰器是它的主要正当用途。
 
   - id: basics-python/return-multiple
     title: 多返回值
     kind: behavior
     summary: return a, b 返回的其实是元组
-    body: |
-      ```python
-      def min_max(xs):
-          return min(xs), max(xs)
-
-      lo, hi = min_max(xs)         # 解包
-      pair = min_max(xs)           # (1, 9) —— 就是一个元组
-      lo, *rest = min_max(xs)      # 还能用星号收集剩余项
-      ```
-
-      **返回的不是两个值，是一个元组**（逗号构造元组，不是括号）。
-      这个事实在需要把它整体传递时会显出来 —— `f(min_max(xs))` 传的是一个参数。
-
-      返回值数量由元组长度决定，调用方解包数量不匹配会抛 `ValueError`
-      （不是静默给 `None`），所以"改了几个返回值忘了改调用方"会立刻暴露。
-
-      顺带一个惯用法：返回 `None` 表示"没有结果"，
-      调用方用 `if result is None:` 判 —— 但这与"合法结果是 `None`"无法区分，
-      需要区分时应该抛异常或返回 `(ok, value)` 这种显式结构。
 
   - id: basics-python/lambda-arrow
     title: lambda
     kind: behavior
     summary: 只有一个表达式，主要用在短回调上
-    body: |
-      ```python
-      square = lambda x: x * x
-      sorted(users, key=lambda u: u.age)
-      max(xs, key=lambda x: abs(x))
-      ```
-
-      限制很硬：**只能是一个表达式**。没有语句、没有 `return`、不能多行、
-      不能有类型标注、不能有 docstring。要写条件就用条件表达式：
-
-      ```python
-      key=lambda x: x if x > 0 else 0
-      ```
-
-      与"短函数同时管作用域"的写法相比，这里的 `lambda` **没有独立的变量作用域问题**
-      可言 —— 它就是个函数，闭包规则与 `def` 完全一样。
-      所以它唯一的定位就是"省一个名字"，不是"改变行为"。
-
-      超过一行的逻辑就 `def` 出来。硬塞 `lambda` 的常见后果是把
-      三行逻辑压成一行之后，读者必须逐字符解析才能看懂。
 
   - id: basics-python/function-callback
     title: 一等函数与回调
     kind: syntax
     summary: 函数是值，但内置函数的参数顺序不统一
-    body: |
-      函数是普通对象，可以传递、返回、存进容器、放进字典做分派：
-
-      ```python
-      handlers = {"create": handle_create, "delete": handle_delete}
-      handlers[action](payload)          # 字典分派
-
-      def make_adder(n):
-          return lambda x: x + n         # 返回函数
-      ```
-
-      内置高阶函数的**参数顺序不统一**，这一点只能逐个记：
-
-      ```python
-      map(fn, xs)              # 函数在前
-      filter(fn, xs)           # 函数在前
-      sorted(xs, key=fn)       # 可迭代在前，函数作为关键字
-      max(xs, key=fn)
-      functools.reduce(fn, xs, init)
-      ```
-
-      规律大致是"惰性转换器把函数放前面，聚合/排序把序列放前面"，
-      但既然不统一，写的时候按签名查一次比记规律可靠。
-
-      `map` / `filter` 返回惰性迭代器（见《数组与列表》），
-      而 `sorted` 返回新列表 —— 也是同一套"转换器惰性、聚合立即"的取向。
 
   - id: basics-python/function-docstring
     title: 文档字符串
     kind: syntax
     summary: docstring 是字符串对象，不是注释
-    body: |
-      ```python
-      def greet(name):
-          """打个招呼。
-
-          参数:
-              name: 名字
-          返回:
-              问候语
-          """
-          return f"你好，{name}"
-      ```
-
-      docstring 是**字符串字面量**，不是注释 —— 它真的挂在对象上：
-
-      ```python
-      greet.__doc__        # 直接拿到内容
-      help(greet)          # 交互式帮助
-      ```
-
-      三条容易踩的规则：
-
-      1. **必须是函数体的第一条语句**。前面哪怕有一行注释之外的东西
-         （包括多余的空行也还好，但任何语句都不行），它就不再是 docstring。
-      2. 它会被 `help()`、`inspect`、IDE 读取，所以格式有约定
-         （PEP 257：首行摘要 + 空行 + 详细说明）。
-      3. 因为它是"数据"，`doctest` 能**直接执行文档里的示例**并比对输出 ——
-         文档与代码不一致会被测试抓到，这是别处很难做到的。
-
-      模块、类、方法都同样有 `__doc__`。用三引号写，即使只有一行。
 
   - id: basics-python/arg-passing
     title: 参数传递
     kind: behavior
     summary: 传的是对象引用的副本，可变性决定表现
-    body: |
-      既不是"值传递"也不是"引用传递"，官方说法是 **call by object reference**
-      （也叫 call by sharing）：传进去的是**对象引用的副本**。
-
-      实际表现由对象的可变性决定：
-
-      ```python
-      def mutate(items):
-          items.append(4)          # 原地改：调用方看得见
-
-      def rebind(items):
-          items = [9]              # 重新绑定：调用方看不见
-
-      xs = [1, 2, 3]
-      mutate(xs)                   # xs 变成 [1, 2, 3, 4]
-      rebind(xs)                   # xs 不变
-      ```
-
-      不可变对象（数字、字符串、元组）两种操作都看不出来，
-      因为"改"本身就只能是重新绑定。
-
-      一句话记忆：**改内容会传染，改绑定不会。**
-      这条在列表、字典、类实例上都成立，也是"函数偷偷改了传进来的参数"
-      这类 bug 的根源。
-
-      两个配套的实践：函数要么**返回新对象**（纯函数），要么在名字和文档里
-      明说它会改参数；`functools.partial` 与默认参数都遵循同一套绑定规则，
-      所以避免可变默认值（见「默认参数」）与这里其实是同一个道理。

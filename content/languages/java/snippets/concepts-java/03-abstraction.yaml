@@ -15,8 +15,18 @@ snippets:
           public void run() {}
       }
     body: |
-      **类 + 接口** —— 单一继承但可多接口；`private` 是真私有，
-      `this` 隐式且始终指向当前实例。
+      Java 的类是**单一继承 + 多接口**：`extends` 一个类、`implements` 多个接口
+      （接口可有 `default` 方法提供实现），`abstract` 类不能实例化，`private` 是编译期
+      强制的真私有，`this` 隐式。
+
+      JS 的 `class` 是原型链的语法糖：也是**单继承**，但没有接口这一层 ——
+      想表达「具备某组能力」只能靠鸭子类型或引入 TS；`#name` 是真正的语言级私有；
+      `this` 隐式，且取决于调用方式。
+
+      从 Java 过去有两处要重新学：① 「单继承不够用」时，Java 用接口补，JS 没有接口，
+      得改成组合或 TS 的 `interface`；② `this` 在 JS 里不是「当前实例」那么简单 ——
+      方法被单独取出或作为回调传入时会丢 `this`，Java 里不存在这个问题。
+      至于 `abstract`，JS 里没有直接对应，靠基类方法抛错来模拟。
 
   - featureId: concepts-java/interface
     equivalence: identical
@@ -26,8 +36,15 @@ snippets:
           default boolean empty() { return false; }   // default 方法
       }
     body: |
-      **interface** —— 一个类可实现多个接口，接口可有 `default` 方法、
-      可以是函数式接口，编译器会检查实现是否完整。
+      接口是 Java 的**中心概念**：一个类可以 `implements` 多个接口，接口有 `default` /
+      `static` 方法、可以是函数式接口（配 lambda）、可以带泛型。
+
+      JS 在语言层面**没有接口**：一个对象能不能当某物使用，完全看它有没有对应的方法
+      （鸭子类型），`interface` 只是 TypeScript 的编译期概念，运行时不留下任何痕迹。
+
+      从 Java 过去这是落差最大的一条：你会失去「用接口描述协议、让编译器检查实现」的
+      整套工作方式。在 JS 里同样的约束只能写在注释、文档或 TS 类型里；运行时没有任何机制
+      拦住一个不满足协议的对象 —— 直到某个方法被调用时才发现它不存在。
 
   - featureId: concepts-java/generics
     equivalence: identical
@@ -35,8 +52,16 @@ snippets:
       List<String> list = new ArrayList<>();   // 泛型在编译期检查
       list.getClass();                         // 运行期都是 ArrayList —— 擦除
     body: |
-      **泛型（运行时擦除）** —— 有类型参数、边界与通配符；
-      `List<String>` 与 `List<Integer>` 运行期都是 `List`。
+      Java 有完整的泛型：`List<String>`、类型参数、`extends` / `super` 边界、通配符 `?`；
+      但**运行时擦除** —— `List<String>` 与 `List<Integer>` 在运行期都是 `List`，
+      所以不能 `new T[]`、不能对泛型做 `instanceof`。
+
+      JS 语言本身**没有类型标注，更没有泛型** —— 泛型完全依赖 TypeScript，
+      而 TS 的泛型同样是编译期擦除、运行时不保留。
+
+      从 Java 过去的处境很特别：你在 Java 里已经习惯「泛型只是编译期的、运行时会擦除」，
+      这个心智模型**可以直接搬到 TS**；但 JS 是没有类型的版本，中间少了
+      「至少编译期有检查」这一层。
 
   - featureId: concepts-java/error-handling
     equivalence: identical
@@ -45,5 +70,15 @@ snippets:
       try { read(); }
       catch (IOException e) { }            // 只能抛 Throwable 的子类
     body: |
-      **try/catch + 受检异常** —— 只能抛 `Throwable` 子类；
-      受检异常把「必须处理」写进签名，编辑器强制调用方处理或声明。
+      Java 的错误处理带着**受检异常**：方法签名上 `throws IOException` 是契约，
+      编译器强制调用方处理或继续声明；只能抛 `Throwable` 的子类；
+      `try/catch/finally` 有 `finally` 但没有 `else`。
+
+      JS 可以 `throw` **任意值** —— 字符串、对象、数字都行，所以 `catch` 到的东西
+      **不一定是 `Error`**，取 `e.message` 可能得到 `undefined`；而且**没有受检异常**，
+      任何函数都可能抛，签名上看不出来。
+
+      从 Java 过去，最需要适应的是「编译器不再替我盯着」：Java 里「这个调用可能抛
+      IOException，你必须处理」这层保障在 JS 里彻底消失，错误处理从「类型契约」变成
+      「纪律加文档」。反过来，JS 的 `throw` 任意值在 Java 里根本不成立（编译器就拦住了），
+      也正因为它更松，`catch` 里更要先判断拿到的是什么。
