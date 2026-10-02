@@ -1,0 +1,231 @@
+id: basics-java/02-types
+topicId: basics-java
+title: 原始类型与类型推断
+order: 2
+summary: 原始类型与包装类型两层、整数有位宽、条件只认 boolean——从 Java 出发看类型这一层
+
+features:
+  - id: basics-java/primitive-types
+    title: 类型清单
+    kind: concept
+    summary: 原始类型与包装类型两层，整数按位宽分档
+    body: |
+      Java 的类型分**两层**：八个原始类型（`byte` / `short` / `int` / `long` /
+      `float` / `double` / `char` / `boolean`），以及它们各自对应的包装类
+      （`Integer` / `Long` / `Character`…）。
+
+      这层区分不是形式主义，它决定了三件事：
+
+      - **能不能为 `null`** —— 原始类型永远有值，包装类型可以没有
+      - **能不能进泛型** —— `List<int>` 非法，只能 `List<Integer>`
+      - **`==` 比的是什么** —— 原始类型比值，包装类型比引用
+
+      从 Java 出发看别的语言，最容易低估的是**整数有位宽**这件事：
+      这边 `int` 是 32 位、`long` 是 64 位，超出就回绕；而那边常常只有
+      一档"整数"，既不溢出也不需要选宽度。
+
+  - id: basics-java/type-inference
+    title: 类型与变量的绑定关系
+    kind: concept
+    summary: 类型写在声明上，var 只是省了类型名
+    body: |
+      Java 是**静态类型**：变量的类型在声明处定死，之后不能改。
+
+      Java 10 的 `var` 常被误当成动态类型，其实它只做一件事 ——
+      **让编译器从初始化表达式推断类型名**：
+
+      ```java
+      var y = 1;        // y 依然是 int，只是没写出来
+      y = "一";         // 编译错误
+      ```
+
+      所以 `var` 影响的是书写，不是类型系统。它还有使用限制（不能用于字段、
+      方法参数、没有初始化的声明）。
+
+      对照来看，另两门语言里名字不携带类型，可以先后绑到不同类型的对象上 ——
+      代价是"类型错了"这类问题要等到运行时。这边的错误在编译期就拦住了。
+
+  - id: basics-java/type-checking
+    title: 运行时类型检查
+    kind: behavior
+    summary: instanceof 认继承关系，但泛型参数看不见
+    body: |
+      ```java
+      Object v = 1;
+      v instanceof Integer          // true —— 认继承关系
+      v instanceof Number           // true
+      Integer.class.isInstance(v)   // 等价写法
+      ```
+
+      Java 16 起支持模式匹配，判定与绑定一步到位：
+
+      ```java
+      if (v instanceof Integer i) {
+          return i + 1;             // 这里 i 已经是 Integer，不用再强转
+      }
+      ```
+
+      **最需要记住的一条限制**：泛型在运行期被**擦除**，
+      所以 `v instanceof List<String>` 编译不过（只能写 `List<?>`）。
+      `List<String>` 与 `List<Integer>` 在运行时是同一个类。
+
+      另一个容易被忽略的点：`instanceof` 判的是**包装类型**。
+      基本类型没有类型检查这回事 —— 它在编译期就确定了。
+
+  - id: basics-java/null-undefined
+    title: 空值：只有 null，而且基本类型用不了
+    kind: behavior
+    summary: null 只能给引用类型，判空在编译期完全不拦
+    body: |
+      Java 只有 `null` 一种空值，但它**只能赋给引用类型**：
+
+      ```java
+      String s = null;      // 合法
+      int n = null;         // 编译错误
+      int n;                // 字段默认 0；局部变量必须显式赋值
+      ```
+
+      由此派生出一处 Python 里不存在的组合 —— **包装类型的拆箱**：
+
+      ```java
+      Integer boxed = null;
+      int unboxed = boxed;   // NullPointerException，拆箱那一刻才炸
+      ```
+
+      判空本身在编译期**完全不拦**：`s.length()` 写在 `null` 上，
+      编译器一句话都不说。
+
+      `Optional<T>` 是官方推荐的"显式表达可能没有"，但它只能装引用类型，
+      而且用在字段上通常被认为是不良实践 —— 它主要用在返回值边界。
+
+      对照来看，另两门语言里"任何名字都可能是空值"，
+      没有"基本类型不可能为空"这层保护 —— 那边的判空依靠的是约定而不是类型。
+
+  - id: basics-java/number-precision
+    title: 数值精度与运算
+    kind: behavior
+    summary: 位宽决定溢出，整数除法向零截断
+    body: |
+      三件事，按踩坑频率排：
+
+      1. **溢出静默回绕**。`Integer.MAX_VALUE + 1` 得 `-2147483648`，
+         不报错、不升级类型。选 `int` 还是 `long` 是每次都要做的决定。
+      2. **整数除法向零截断**。`7 / 2` 得 `3`；要浮点必须先把操作数转成 `double`。
+         `-7 / 2` 得 `-3`（向零），而"向下取整"要用 `Math.floorDiv`。
+      3. **除零分两种情况**。整数除零抛 `ArithmeticException`，
+      浮点除零得 `Infinity` 且静默。
+
+      取余 `%` 的符号**跟着被除数走**：`-7 % 3` 得 `-1`。
+      想要"永远非负"的取余，用 `Math.floorMod` —— 它必须与 `Math.floorDiv`
+      成对使用，只换一个会让商和余数对不上。
+
+      要任意精度得换 `BigInteger` / `BigDecimal`，而它们的运算符全部失效，
+      只能调方法。
+
+  - id: basics-java/type-casting
+    title: 显式类型转换
+    kind: syntax
+    summary: 宽化自动、窄化要括号，字符串解析走 parseXxx
+    body: |
+      数值转换有一套**自动规则**：
+
+      ```java
+      double d = 3;          // 宽化：自动，不丢信息
+      int i = (int) 3.9;     // 窄化：必须写括号，且直接截断（不是四舍五入）
+      ```
+
+      字符串与数值之间没有自动转换，走包装类的静态方法：
+
+      ```java
+      Integer.parseInt("42");       // 42
+      Integer.parseInt("ff", 16);   // 255 —— 进制在这里给
+      Double.parseDouble("3.7");
+      String.valueOf(255);          // "255"
+      Integer.toHexString(255);     // "ff"
+      ```
+
+      `parseInt("3.7")` 抛 `NumberFormatException`（不接受小数写法），
+      而 `parseInt("12px")` 也抛 —— 它是**整串解析**，不是"解析到非法字符为止"。
+
+      对象之间的强转 `(T) obj` 在运行时检查，转错抛 `ClassCastException`。
+      泛型擦除让这条检查变弱：`(List<String>) someList` 会通过（只检查到 `List`），
+      真正取元素时才可能炸。
+
+  - id: basics-java/boolean-conversion
+    title: 真值判断
+    kind: behavior
+    summary: 没有真值转换，条件位置只接受 boolean
+    body: |
+      Java **没有真值转换**：`if` / `while` / `&&` 的条件位置只接受 `boolean`，
+      传别的类型是编译错误。
+
+      ```java
+      List<String> items = List.of();
+      if (items) { }              // 编译错误
+      if (items.isEmpty()) { }    // 必须显式写出"空不空"
+      ```
+
+      这条限制反过来是好事：**读代码的人不需要先知道变量类型**，
+      就能确定 `if (x)` 在问什么。别处那种"`if (x)` 到底是判空还是判零"的歧义，
+      在这里不存在。
+
+      代价是代码更长，而且没有"有值就取、没有就兜底"的简写：
+
+      ```java
+      String r = (s != null) ? s : "默认";     // 只能写三元
+      ```
+
+      `Optional` 补上了一部分（`orElse` / `orElseGet`），但它只对"可能没有"有效，
+      不处理"值是 0 或空串"这种情况。
+
+  - id: basics-java/type-names
+    title: 类型自省
+    kind: behavior
+    summary: getClass 给全限定名，而且基本类型要先装箱
+    body: |
+      ```java
+      Integer.valueOf(1).getClass();                 // class java.lang.Integer
+      Integer.valueOf(1).getClass().getName();       // "java.lang.Integer"
+      Integer.valueOf(1).getClass().getSimpleName(); // "Integer"
+      ```
+
+      三处与别处不同：
+
+      1. **基本类型没有 `getClass`** —— `1.getClass()` 编译错误，必须先装箱。
+         这不是疏漏：基本类型不是对象。
+      2. **给的是全限定名**（带包名），要短名字得自己截取或用 `getSimpleName`。
+      3. **数组的名字是编码过的**：`int[]` 得到 `"[I"`，`String[]` 得到
+         `"[Ljava.lang.String;"` —— 直接打印会很难看。
+
+      类型判断一律用 `instanceof`，不要拿名字字符串比较 ——
+      那既认不出子类，也不受泛型擦除之外的任何保护。
+
+  - id: basics-java/immutable-primitives
+    title: 不可变类型
+    kind: behavior
+    summary: String 不可变，StringBuilder 和数组可变
+    body: |
+      `String` 是**不可变**的：所有"修改"方法都返回新对象。
+
+      ```java
+      String s = "abc";
+      s.toUpperCase();        // 返回 "ABC"，s 一点没变
+      s = s.toUpperCase();    // 要接住返回值
+      ```
+
+      但同一门语言里另外两个常用类型是可变的，这个反差是 bug 的高发地：
+
+      ```java
+      StringBuilder sb = new StringBuilder("abc");
+      sb.append("d");                    // 原地改，返回自身
+
+      int[] nums = {2, 1};
+      Arrays.sort(nums);                 // 数组原地排序
+      ```
+
+      基本类型（`int` / `boolean` / `double`）是**值**：赋值即复制，
+      两个变量之间没有任何联系。这与"对象赋值即共享引用"正好相反 ——
+      同一门语言里两套赋值语义，是另一处需要随时留意的反差。
+
+      包装类（`Integer` 等）不可变，所以可以安全共享；
+      但它们的 `==` 比引用，值比较要用 `equals`。

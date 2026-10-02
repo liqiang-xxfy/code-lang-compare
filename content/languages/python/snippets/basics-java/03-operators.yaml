@@ -1,0 +1,126 @@
+# python —— basics-java/03-operators 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/equality
+    equivalence: divergent
+    code: |
+      1 == "1"                    # @note! False —— 不做隐式转换
+      [1, 2] == [1, 2]            # @note True —— 容器按内容比，不需要调 equals
+      [1, 2] is [1, 2]            # @note! False —— is 判身份（这边才有 is）
+
+      a, b = 256, 256
+      a is b                      # @note! True —— 小整数被缓存，别拿 is 比数值
+      a = 257; b = 257
+      a is b                      # @note! False —— 出了缓存区就不是同一个对象
+
+      # @note! 与 Java 方向相反：那边 Objects.equals 是值比较，
+      # 这边 == 就是值比较，is 才是身份 —— 而 is 只该用于 None / True / False
+  - featureId: basics-java/arithmetic
+    equivalence: divergent
+    code: |
+      7 / 2                       # @note! 3.5 —— 不是 3！整数除法不再截断
+      7 // 2                      # 3 —— 要 Java 那种语义得显式写
+      -7 // 2                     # @note! -4 —— 而 // 是向下取整，Java 是向零
+      int(-7 / 2)                 # -3 —— 想完全对齐 Java 用这个
+      -7 % 3                      # @note! 2 —— 与 Java 的 -1 不同
+
+      2 ** 100                    # @note 任意精度 —— 没有回绕这回事
+      abs(-2 ** 63)               # @note 不存在"取绝对值自己溢出"的坑
+
+      1 / 0                       # @note! ZeroDivisionError，当场炸，不会静默变 Infinity
+  - featureId: basics-java/logical-short-circuit
+    equivalence: analogous
+    code: |
+      ok = flag and check()       # @note 短路行为一致
+      any_ok = flag or check()
+
+      r = s or "默认"              # @note! 返回操作数本身，不是布尔值
+      0 or 42                     # 42 —— 合法的 0 也会被兜底掉
+      r2 = s if s is not None else "默认"   # 只对 None 兜底要写条件表达式
+
+      # @note Java 的 && 结果只能是 boolean；这边可以当"默认值"用
+      # @note! 但在 Java 里把 & 写成 && 的笔误，在这边对应的是 and 写成 &（位运算），
+      # 对 int 合法、对 bool 也合法 —— 同样不短路，同样难看出来
+  - featureId: basics-java/truthiness
+    equivalence: divergent
+    code: |
+      bool([])                    # @note! False —— 空容器是假值
+      bool(0.0)                   # False
+      bool("0")                   # @note! True —— 非空字符串一律为真
+
+      items = []
+      if not items:               # @note 惯用法：这里问的是"空不空"
+          pass
+
+      class Bag: pass
+      bool(Bag())                 # @note! True —— 没定义 __bool__ / __len__ 就永远为真
+
+      r = s or "默认"              # @note 有简写，但 0 和 "" 也会被兜底掉
+  - featureId: basics-java/optional-chaining
+    equivalence: analogous
+    code: |
+      # @note 两边都没有安全导航语法，但替代写法不同
+      host = (cfg or {}).get("db", {}).get("host")       # 字典链
+      host = getattr(getattr(cfg, "db", None), "host", None)   # 对象链
+
+      # @note! (cfg or {}) 的前提是 cfg 只可能是 None 或空字典；
+      # 它是 0 / "" 这类合法的假值时会被悄悄换成 {}
+
+      # @note Java 的 Optional 会把值包起来再拆开；这边直接给 None，没有包装层，
+      # 也就没有 get() 抛 NoSuchElementException 那种"拿不到就崩"的写法
+  - featureId: basics-java/bitwise
+    equivalence: divergent
+    code: |
+      ~5                          # -6 —— 这条与 Java 一致
+      -8 >> 1                     # -4 —— 算术右移，同样一致
+      # @note! 没有 >>>：整数不是定长的，不存在"无符号右移"这个前提
+
+      2 ** 31 | 0                 # @note 2147483648 —— 不会被截成负数
+      1 << 100                    # 照常算得出来 —— 也没有移位量取模那回事
+
+      (x & 0xFFFFFFFF) >> 1       # @note 要定长语义得自己掩码
+  - featureId: basics-java/comparison-operators
+    equivalence: analogous
+    code: |
+      "2" < 10                    # @note! TypeError —— 跨类型比较直接抛
+      "a" < "B"                   # @note False —— 按 Unicode 码点，不是 UTF-16 码元
+
+      sorted(users, key=lambda u: (u.age, u.name))
+      # @note 多字段排序用元组 key 就够 —— Java 那边要显式串 comparator
+
+      # @note 对象只要实现了 __lt__ 等比较方法就能用 < ；
+      # 但实现全套比较方法的成本比 Java 实现 Comparable 低得多（functools.total_ordering）
+  - featureId: basics-java/increment-decrement
+    equivalence: divergent
+    code: |
+      i += 1                      # @note! 没有 ++ / --，只有复合赋值
+      # @note 也就不存在"前缀后缀只在表达式里有区别"这回事
+
+      i = 0
+      value = arr[i]              # @note! arr[i++] 必须拆成两行 ——
+      i += 1                      # 这边没有"表达式求值副作用"
+
+      a = b = [1]
+      a += [2]                    # @note! 原地 extend：b 也变成 [1, 2]
+      a = a + [2]                 # @note 这个是重新绑定：b 不变
+      # 同一个符号两种语义，取决于左边是不是可变对象；Java 那边 += 没有这层分歧
+  - featureId: basics-java/chained-comparison
+    equivalence: divergent
+    code: |
+      0 < x < 10                  # @note! 数学区间，等价于 0 < x and x < 10
+      a == b == c                 # 等价于 a == b and b == c
+
+      if 0 < len(items) < 100:    # @note 中间的操作数只求值一次
+          pass
+
+      # @note! Java 里这个写法是编译错误，这边却是合法且有意义的 ——
+      # 从 Java 迁过来时容易把区间直觉写死成 && 的形式，错过了这个语法

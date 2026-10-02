@@ -1,0 +1,120 @@
+# javascript —— basics-java/03-operators 的实现
+#
+# 本 topic 以 **Java 为基准**，JavaScript 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/equality
+    equivalence: divergent
+    code: |
+      1 == "1";                   // @note! true —— 宽松相等会隐式转换
+      1 === "1";                  // false —— 工程规范一律用 ===
+
+      const s1 = new String("x");
+      s1 === "x";                 // @note! false —— 对象比引用，这点与 Java 一致
+      // @note 但原始值之间 === 比的是值，不需要 equals 那一套
+
+      NaN === NaN;                // @note! false —— 唯一不等于自己的值
+      Object.is(NaN, NaN);        // true —— 精确相等，且区分 -0 与 0
+
+      // @note 没有装箱缓存那回事：数字就是数字，不存在"127 对、128 错"
+  - featureId: basics-java/arithmetic
+    equivalence: divergent
+    code: |
+      7 / 2;                      // @note! 3.5 —— 没有整数除法，与 Java 的 3 不同
+      Math.trunc(7 / 2);          // 3 —— 要截断得自己调用
+      Math.floor(-7 / 2);         // -4 —— 想模拟"向下取整"要用 floor
+      -7 % 3;                     // @note! -1 —— 这条与 Java 一致
+
+      2 ** 31 | 0;                // @note! -2147483648 —— 位运算会截成 32 位
+      // @note 普通算术不受 32 位限制：整数也是浮点，超范围是丢精度而不是回绕
+
+      Math.abs(-0);               // @note 0
+      // @note 没有 Math.abs(Integer.MIN_VALUE) 那种"取绝对值自己溢出"的坑
+  - featureId: basics-java/logical-short-circuit
+    equivalence: analogous
+    code: |
+      const ok = flag && check();     // @note 短路行为一致
+      const any = flag || check();
+
+      const r = s || "默认";           // @note! 返回操作数本身，不是 boolean
+      const r2 = s ?? "默认";          // @note 只对 null / undefined 兜底
+      const r3 = (s != null) ? s : "默认";
+
+      // @note Java 的 && 结果只能是 boolean；这边可以拿它当"默认值"用
+      // @note 同样没有"不短路"的 & 那种误用空间：& 在这里是位运算，对 boolean 不合法
+  - featureId: basics-java/truthiness
+    equivalence: divergent
+    code: |
+      // @note! 有真值转换，条件位置接受任何值
+      Boolean(0);                 // false
+      Boolean("");                // false
+      Boolean([]);                // @note! true —— 空数组是真值
+      Boolean({});                // @note! true
+
+      const items = [];
+      if (items) { }              // @note! 恒真，判空必须写 items.length === 0
+
+      const r = s || "默认";       // @note 有简写，但 0 和 "" 也会被兜底掉
+  - featureId: basics-java/optional-chaining
+    equivalence: divergent
+    code: |
+      const host = cfg?.db?.host;         // @note 语言级的空值安全导航
+      const port = cfg?.db?.port ?? 5432; // @note ?. 与 ?? 常常成对出现
+
+      obj?.method?.();                    // @note! 方法调用也能安全短路
+
+      // @note Java 只能逐层判空或用 Optional 链；这边一行就够，
+      // 而且不会像 Optional 那样把值包起来再拆开
+  - featureId: basics-java/bitwise
+    equivalence: divergent
+    code: |
+      ~5;                         // -6 —— 这条与 Java 一致
+      -8 >> 1;                    // -4 —— 算术右移，同样一致
+      -8 >>> 1;                   // @note 2147483644 —— 无符号右移也有
+
+      2 ** 31 | 0;                // @note! -2147483648 —— 位运算先把操作数截成 32 位
+      1 << 32;                    // @note! 1 —— 同样对 32 取模，与 Java 的行为一致
+
+      // @note 区别在于普通算术不截断：1 << 100 得 0（超出 32 位全丢光），
+      // 而 Java 的 long 移位能到 64 位
+  - featureId: basics-java/comparison-operators
+    equivalence: divergent
+    code: |
+      "2" < 10;                   // @note! true —— 会隐式转成数字再比
+      "a" < "B";                  // @note false —— 按 UTF-16 码元比较，与 Java 一致
+
+      [10, 9, 1].sort();          // @note! [1, 10, 9] —— 默认按字符串排
+      [10, 9, 1].sort((a, b) => a - b);   // 数值排序要传比较器
+
+      // @note 对象之间可以用 < 比较（会转成字符串或数字），不像 Java 那样编译不过
+      // @note 也没有 Comparable / Comparator 那一套，排序传的是比较函数
+  - featureId: basics-java/increment-decrement
+    equivalence: analogous
+    code: |
+      let i = 0;
+      i++;                        // @note 后缀：表达式的值是加之前的 0
+      ++i;                        // @note 前缀：加之后的 2 —— 与 Java 一致
+
+      const arr = [1, 2];
+      let idx = 0;
+      arr[idx++];                 // @note 取值并前进，同样能写成一行
+
+      let a = [1];
+      a += [2];                   // @note! '12' —— 数组没有 +=，这里退化成字符串拼接
+  - featureId: basics-java/chained-comparison
+    equivalence: divergent
+    code: |
+      const x = 5;
+      0 < x < 10;                 // @note! true —— 但它是 (0 < x) < 10，恒为真
+
+      0 < x && x < 10;            // @note 必须这样拆开写才是区间判断
+
+      // @note! 更糟的是它不报错：x = 999 时上面那行依然是 true
+      // Java 里同样的写法是编译错误，根本写不出来

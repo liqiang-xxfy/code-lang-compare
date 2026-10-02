@@ -1,0 +1,128 @@
+# java —— basics-java/03-operators 的实现
+#
+# 本 topic 以 **Java 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/equality
+    equivalence: identical
+    code: |
+      int a = 1, b = 1;
+      a == b;                     // @note true —— 原始类型比的是值
+
+      String s1 = new String("x"), s2 = new String("x");
+      s1 == s2;                   // @note! false —— 对象 == 比引用身份
+      s1.equals(s2);              // true —— 值比较必须显式调 equals
+
+      Integer i1 = 127, i2 = 127, j1 = 128, j2 = 128;
+      i1 == j1;                   // @note! true —— 装箱缓存 -128..127
+      j1 == j2;                   // @note! false —— 出了缓存区就是引用比较
+      java.util.Objects.equals(i1, j1);   // @note 容忍 null 的写法
+
+      // @note 看到 == 先问两边的类型：原始类型随便比，对象一律 equals
+  - featureId: basics-java/arithmetic
+    equivalence: identical
+    code: |
+      7 / 2;                      // @note 3 —— 整数除法，向零截断
+      -7 / 2;                     // -3
+      7 % 3;                      // 1
+      -7 % 3;                     // @note! -1 —— 符号跟着被除数走
+      Math.floorMod(-7, 3);       // 2 —— 要"永远非负"用这个
+      Math.floorDiv(-7, 2);       // -4 —— 必须与 floorMod 成对使用
+
+      Math.abs(Integer.MIN_VALUE);// @note! 还是负数 —— 取绝对值自己就溢出了
+      Integer.MAX_VALUE + 1;      // @note! 回绕成最小值
+
+      byte b = 1;
+      b += 1;                     // @note 合法：复合赋值带隐式窄化
+      // b = b + 1;               // 编译错误
+  - featureId: basics-java/logical-short-circuit
+    equivalence: identical
+    code: |
+      boolean ok = flag && check();     // @note 短路有效：flag 为 false 时 check() 不执行
+      boolean any = flag || check();
+      boolean neg = !flag;
+
+      // @note! 结果只能是 boolean，没有"返回操作数本身"这回事
+      String r = (s != null) ? s : "默认";
+
+      // @note! & 与 | 对 boolean 也合法但**不短路**，两边都会求值：
+      // if (x != null & x.isEmpty()) 一旦 x 是 null 就抛 NPE
+  - featureId: basics-java/truthiness
+    equivalence: identical
+    code: |
+      // @note! 不存在真值转换：条件位置只接受 boolean
+      // if (1) { }               // 编译错误
+      // if (items) { }           // 编译错误
+
+      java.util.List<String> items = java.util.List.of();
+      if (items.isEmpty()) { }    // 必须显式写出意图
+
+      java.util.Optional.ofNullable(s).orElse("默认");
+      // @note 好处：读代码的人不必先知道变量类型，就能确定 if (x) 在问什么
+  - featureId: basics-java/optional-chaining
+    equivalence: identical
+    code: |
+      // @note! 没有安全导航运算符，链式取值只能逐层判空
+      String host = null;
+      if (cfg != null && cfg.db != null) {
+          host = cfg.db.host;
+      }
+
+      // 惯用替代是把"可能没有"编码进类型：
+      java.util.Optional.ofNullable(cfg).map(Cfg::db).map(Db::host).orElse("localhost");
+
+      // @note! Optional.get() 为空时抛 NoSuchElementException ——
+      // "拿不到就崩"和"拿不到给默认值"要选清楚
+  - featureId: basics-java/bitwise
+    equivalence: identical
+    code: |
+      ~5;                         // @note -6 —— 按公式 ~x == -x-1
+      -8 >> 1;                    // @note -4 —— 算术右移，符号位跟着走
+      -8 >>> 1;                   // @note 2147483644 —— 无符号右移，高位补 0
+
+      1 << 32;                    // @note! 1 —— 移位量对 int 是 32 取模，等价于 1 << 0
+      1L << 64;                   // @note! 1L —— 对 long 是 64 取模
+
+      // @note! 位运算优先级低于比较运算：a & b == 0 实际是 a & (b == 0)，括号是必需的
+  - featureId: basics-java/comparison-operators
+    equivalence: identical
+    code: |
+      "2".compareTo("10") < 0;    // @note! true —— 字符串按字典序比，不是数值
+      Integer.parseInt("2") < 10; // 要数值比较必须先转换
+
+      users.sort(java.util.Comparator.comparingInt(User::age).thenComparing(User::name));
+      // @note 对象不能用 < / >，多字段排序要显式串比较器
+
+      // "2" < 10;                // @note! 编译错误 —— 跨类型比较根本写不出来
+
+      // @note 字符串按 UTF-16 码元比较；要按人读的顺序排序得用 Collator
+  - featureId: basics-java/increment-decrement
+    equivalence: identical
+    code: |
+      int i = 0;
+      i++;                        // @note 后缀：表达式的值是加之前的 0
+      ++i;                        // @note 前缀：表达式的值是加之后的 2
+
+      int[] arr = {1, 2};
+      int idx = 0;
+      arr[idx++];                 // @note! 取值并前进
+      arr[++idx];                 // @note! 先前进再取值 —— 与上一行只差一位
+
+      // @note 单独成句时 i++ 与 ++i 完全相同，只有嵌在表达式里才有区别
+  - featureId: basics-java/chained-comparison
+    equivalence: identical
+    code: |
+      int x = 5;
+      // 0 < x < 10;              // @note! 编译错误：boolean 不能参与 < 比较
+      0 < x && x < 10;            // 必须这样拆开写
+
+      // @note 写错是编译错误，不会静默变成一个恒真的条件 —— 这一点在迁移时反而省心
+      // @note 代价是没有区间语法糖：x 有副作用时要先接住，否则会被求值两次

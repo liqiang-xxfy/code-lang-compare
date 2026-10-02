@@ -1,0 +1,114 @@
+# python —— basics-java/02-types 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门，
+# 所以 equivalence 描述的是「相对 Java 基准」的差异。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/primitive-types
+    equivalence: divergent
+    code: |
+      n = 10 ** 30                 # @note! 整数任意精度，不会溢出也不会回绕
+      f = 3.14                     # 浮点固定双精度，没有 float/double 之分
+      ok = True
+      c = 'A'                      # @note! 没有 char：这就是长度为 1 的字符串
+
+      # @note Java 的原始类型 / 包装类型两层在这里完全不存在 ——
+      # 也就没有装箱、拆箱、"包装类型不能为 null"那一整类问题
+  - featureId: basics-java/type-inference
+    equivalence: divergent
+    code: |
+      x = 1                        # @note! 名字不携带类型
+      x = "一"                     # 合法 —— 编译期那道网不存在
+
+      value: int = 0               # @note 注解只是注解：解释器不检查、不强制
+      value = "text"               # 合法
+
+      # @note Java 的 var 只是省略类型名，类型本身还写死着；这边是真的没有类型
+  - featureId: basics-java/type-checking
+    equivalence: analogous
+    code: |
+      isinstance(True, int)        # @note True —— 也认继承关系
+      type(True) is int            # @note! False —— 精确匹配，子类不算
+
+      # @note! 没有泛型，也就没有"擦除后看不见类型参数"这个问题；
+      # 泛型擦除是 Java 特有的困扰
+      # @note 多数场景根本不必判类型：直接操作、失败就抛
+  - featureId: basics-java/null-undefined
+    equivalence: divergent
+    code: |
+      x = None                     # @note! 只有一个空值，而且任何名字都能是它
+      x is None                    # 判空统一用 is
+      None == False                # False —— 空值不等于假值
+
+      # @note! 没有"基本类型不可能为空"这层保护：你以为的 int 也可能是 None，
+      # 判空的依据从类型变成了约定
+      if not x:                    # @note! 把 None / 0 / "" / [] 全归为假
+          pass
+      if x is None:                # 要判"是不是空值"必须显式写
+          pass
+  - featureId: basics-java/number-precision
+    equivalence: divergent
+    code: |
+      2 ** 100                     # @note! 任意精度 —— 溢出与回绕彻底消失
+      7 / 2                        # @note! 3.5 —— 整数除法不再截断
+      7 // 2                       # 3 —— 要 Java 那种语义得显式写
+      -7 // 2                      # @note! -4 —— 而 // 是向下取整，Java 是向零
+      int(-7 / 2)                  # -3 —— 想完全对齐 Java 用这个
+      -7 % 3                       # @note! 2 —— 与 Java 的 -1 不同
+
+      1 / 0                        # @note! ZeroDivisionError，当场炸，不会静默变 Infinity
+  - featureId: basics-java/type-casting
+    equivalence: analogous
+    code: |
+      int("3.7")                   # @note! ValueError —— 与 parseInt 一样不接受小数
+      float("3.7")                 # 3.7 —— 要小数先转 float
+      int(3.9)                     # 3 —— 直接截断
+      int("ff", 16)                # 255 —— 进制给在这里
+
+      str(255)                     # '255'
+      hex(255)                     # '0xff' —— 带前缀，与 toHexString 不同
+      # @note 没有"宽化自动、窄化要括号"那套规则，转换一律显式调用
+  - featureId: basics-java/boolean-conversion
+    equivalence: divergent
+    code: |
+      bool([])                     # @note! False —— 空容器是假值
+      bool("0")                    # @note! True —— 非空字符串一律为真
+
+      if items:                    # @note 有真值转换：这里问的其实是"非空"
+          pass
+      class Bag: pass
+      bool(Bag())                  # @note! True —— 没定义 __bool__ / __len__ 就永远为真
+
+      r = s or "默认"               # @note 有简写，但 0 和 "" 也会被兜底掉
+      r2 = s if s is not None else "默认"   # 只对 None 兜底要显式写
+  - featureId: basics-java/type-names
+    equivalence: analogous
+    code: |
+      type(1)                      # @note <class 'int'> —— 返回类对象，不是字符串
+      type(1).__name__             # 'int' —— 要名字就取 __name__
+      type(1).__module__           # 'builtins' —— 才有"全限定"的味道
+
+      # @note 不存在 "[I" 那种编码名；列表的类型就是 list
+      # @note! 别用 type(x).__name__ == 'int' 判类型：既慢又认不出子类
+  - featureId: basics-java/immutable-primitives
+    equivalence: analogous
+    code: |
+      s = "abc"
+      s.upper()                    # @note 返回新字符串，s 不变 —— 这条与 String 一致
+      s = s.upper()
+
+      xs = [2, 1]
+      xs.sort()                    # @note 列表原地改，与 Java 的数组一致
+      xs = xs.sort()               # @note! 经典错误：xs 现在成了 None
+
+      t = (1, [2])                 # @note 元组不可变，但这是浅的：里面的列表照样能改
+
+      m = 1; k = m; k = 2
+      m                            # @note 1 —— 整数不可变，表现与 Java 的基本类型一致

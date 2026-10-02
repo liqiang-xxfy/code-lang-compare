@@ -1,0 +1,108 @@
+# python —— basics-java/01-variables 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门，
+# 所以 equivalence 描述的是「相对 Java 基准」的差异。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/var-declaration
+    equivalence: divergent
+    code: |
+      count = 0                 # @note! 没有"声明"这个动作，赋值即绑定
+      count = "一"              # @note 名字可以改绑到完全不同的类型上
+      # 从 Java 过来时最需要重建的直觉：这里没有类型先行
+
+      value: int = 0            # @note 注解不强制，解释器不检查
+  - featureId: basics-java/var-scope
+    equivalence: divergent
+    code: |
+      for i in range(3):
+          pass
+      print(i)                  # @note! 2 —— 块不产生作用域，循环变量出了循环还在
+
+      if True:
+          inside = 1
+      print(inside)             # @note! 1
+
+      # Java 那边这两处都是编译错误；这里"出块即失效"这条直觉完全不成立
+  - featureId: basics-java/hoisting
+    equivalence: divergent
+    code: |
+      print(v)                  # @note! NameError —— 没有提升，也没有默认值
+      v = 1
+
+      def bump():
+          print(total)          # @note! UnboundLocalError：下面有赋值，于是整个函数里都是局部的
+          total = 1
+
+      # @note 三门语言的失败时机：Java 编译期 / JS 静默给 undefined / 这里运行时抛异常
+  - featureId: basics-java/const-immutability
+    equivalence: divergent
+    code: |
+      MAX_RETRY = 3             # @note! 全大写只是约定，解释器不会阻止重新赋值
+      MAX_RETRY = 5             # 合法，不报警
+
+      POINT = (1, 2)            # @note 真正不可变靠类型：tuple / frozenset / str
+      COLORS = ["red"]          # 可变，谁都能 append
+      # Java 用 final + 不可变类型；这里没有关键字，只有"选一个不可变类型"
+  - featureId: basics-java/naming-convention
+    equivalence: analogous
+    code: |
+      max_retry_count = 3       # @note! 变量 snake_case（PEP 8），Java 是 camelCase
+      class HttpClient: ...     # 类 PascalCase（与 Java 一致）
+      MAX_RETRY_COUNT = 3       # 常量 SCREAMING_SNAKE_CASE（一致）
+
+      _internal = 1             # @note 前导下划线表示非公开 —— 只是约定，没有语言强制
+      # Java 用 private 在语言层面表达同一件事
+  - featureId: basics-java/var-destructuring
+    equivalence: analogous
+    code: |
+      a, b = pair               # @note 任意可迭代对象都能解包 —— 这边反而比 Java 强
+      first, *rest = [1, 2, 3]  # 星号收集剩余项
+
+      d = {"name": "Ada"}
+      d["name"]                 # @note! 没有按键解构，只能显式取值
+
+      # Java 两边都没有；这边至少拿回了序列解包这一半
+  - featureId: basics-java/var-multiple-assign
+    equivalence: analogous
+    code: |
+      a, b = 1, 2
+      a, b = b, a               # @note 先构造右侧元组再解包，不需要临时变量
+
+      x = y = []                # @note! 两个名字指向同一个列表，改一个另一个也变
+      # 链式赋值这条两边一致：共享的是同一个对象
+  - featureId: basics-java/var-global-declaration
+    equivalence: divergent
+    code: |
+      counter = 0
+
+      def bump():
+          global counter        # @note! 不写这行就是创建一个局部变量，外面不变，且不报错
+          counter += 1
+
+      def outer():
+          n = 0
+          def inner():
+              nonlocal n        # @note 改外层函数变量用 nonlocal
+              n += 1
+
+      # @note! 闭包捕获的是**变量绑定**不是值 ——
+      # Java 那边捕获值（要求 effectively final），所以循环变量共享这类坑在这边存在
+  - featureId: basics-java/var-shadowing
+    equivalence: divergent
+    code: |
+      name = "outer"
+      if True:
+          name = "inner"        # @note 这不是遮蔽：块没有作用域，改的就是同一个 name
+
+      list = [1, 2]             # @note! 盖掉内置函数，之后本模块所有 list(...) 都会 TypeError
+      id = 1                    # @note! 同理，而且报错位置离出错原因很远
+
+      # Java 禁止内层块遮蔽外层局部变量（编译错误），这边完全不禁

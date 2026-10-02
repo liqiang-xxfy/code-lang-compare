@@ -1,0 +1,115 @@
+# java —— basics-java/02-types 的实现
+#
+# 本 topic 以 **Java 为基准**，基准列（这里）全部标 identical；
+# 且注记里不点名别的语言（R12：基础语法是多选列，基准列讲某一门具体的"别处"
+# 就成了幽灵语言）。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/primitive-types
+    equivalence: identical
+    code: |
+      int n = 10;                 // @note 32 位，有宽度就有上限
+      long big = 10L;
+      double f = 3.14;
+      boolean ok = true;
+      char c = 'A';               // @note 单字符是独立的基本类型，不是长度为 1 的字符串
+
+      Integer boxed = 10;         // @note 包装类型：进泛型必须用它
+      int back = boxed;           // 自动拆箱
+  - featureId: basics-java/type-inference
+    equivalence: identical
+    code: |
+      int x = 1;                  // @note 变量有类型，写死在声明处
+      var y = 1;                  // @note var 只是省略类型名，y 依然是 int
+      // y = "一";                // 编译错误 —— 错误提前到编译期，不是运行时
+
+      // @note var 不能用于字段、方法参数、没有初始化的声明
+  - featureId: basics-java/type-checking
+    equivalence: identical
+    code: |
+      Object v = 1;
+      v instanceof Integer;       // @note true —— 认继承关系
+      if (v instanceof Integer i) { i + 1; }   // @note 模式匹配：判定与绑定一步到位
+
+      // @note! 泛型在运行期被擦除：v instanceof List<String> 编译不过
+      // 只能写 v instanceof List<?>
+  - featureId: basics-java/null-undefined
+    equivalence: identical
+    code: |
+      String s = null;            // @note 只有引用类型能为 null
+      int n;                      // @note 基本类型不可能为空：字段默认 0，局部必须赋值
+      // int m = null;            // 编译错误
+
+      s.length();                 // @note! NullPointerException，编译期一句话都不说
+
+      Integer boxed = null;
+      int unboxed = boxed;        // @note! 拆箱那一刻才炸
+
+      java.util.Optional.ofNullable(s).orElse("默认");
+  - featureId: basics-java/number-precision
+    equivalence: identical
+    code: |
+      7 / 2;                      // @note 3 —— 整数除法，向零截断
+      -7 / 2;                     // -3
+      -7 % 3;                     // @note! -1 —— 取余符号跟着被除数走
+
+      Math.floorDiv(-7, 2);       // -4 —— 要"向下取整"用这个
+      Math.floorMod(-7, 3);       // 2 —— 必须与 floorDiv 成对使用
+
+      Integer.MAX_VALUE + 1;      // @note! 溢出静默回绕，不报错也不升级类型
+      1 / 0;                      // @note! ArithmeticException（整数除零才抛）
+      1.0 / 0;                    // Infinity —— 浮点除零反而静默
+  - featureId: basics-java/type-casting
+    equivalence: identical
+    code: |
+      double d = 3;               // @note 宽化自动发生，不丢信息
+      int i = (int) 3.9;          // @note 窄化必须写括号，直接截断（不是四舍五入）
+
+      Integer.parseInt("3.7");    // @note! NumberFormatException —— 不接受小数写法
+      Integer.parseInt("12px");   // @note! 同样抛：它是整串解析，不是解析到非法字符为止
+      Integer.parseInt("ff", 16); // 255 —— 进制在这里给
+      String.valueOf(255);        // "255"
+  - featureId: basics-java/boolean-conversion
+    equivalence: identical
+    code: |
+      // @note! 没有真值转换：条件位置只接受 boolean
+      java.util.List<String> items = java.util.List.of();
+      // if (items) { }           // 编译错误
+      if (items.isEmpty()) { }
+
+      String r = (s != null) ? s : "默认";
+      // @note 也没有"有值就取、没有就兜底"的简写，只能写三元
+
+      // @note 好处：读代码的人不必先知道变量类型，就能确定 if (x) 在问什么
+  - featureId: basics-java/type-names
+    equivalence: identical
+    code: |
+      Integer.valueOf(1).getClass().getName();        // @note "java.lang.Integer" 全限定名
+      Integer.valueOf(1).getClass().getSimpleName();  // "Integer"
+
+      // @note! 基本类型没有 getClass：1.getClass() 是编译错误，要先装箱
+      int[] arr = {};
+      arr.getClass().getName();                       // @note! "[I" —— 数组的名字是编码过的
+
+      // @note 类型判断一律用 instanceof，别拿名字字符串比较
+  - featureId: basics-java/immutable-primitives
+    equivalence: identical
+    code: |
+      String s = "abc";
+      s.toUpperCase();            // @note 返回新字符串，s 一点没变
+      s = s.toUpperCase();        // 要接住返回值
+
+      StringBuilder sb = new StringBuilder("abc");
+      sb.append("d");             // @note! 这个是原地改的，与 String 的直觉正相反
+      int[] nums = {2, 1};
+      java.util.Arrays.sort(nums);// @note 数组同样原地改
+
+      int a = 1; int b = a; b = 2;
+      a;                          // @note! 还是 1 —— 基本类型是值复制，不是共享引用

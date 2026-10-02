@@ -1,0 +1,112 @@
+# javascript —— basics-java/02-types 的实现
+#
+# 本 topic 以 **Java 为基准**，JavaScript 是被对照的那一门，
+# 所以 equivalence 描述的是「相对 Java 基准」的差异。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/primitive-types
+    equivalence: divergent
+    code: |
+      let n = 10;                 // @note! 没有原始类型与包装类型之分，只有一种 number
+      let big = 10n;              // @note 要大整数得显式用 BigInt
+      let f = 3.14;
+      let ok = true;
+      let c = 'A';                // @note! 没有 char：这就是一个长度为 1 的字符串
+
+      // @note Java 的 int/Integer 两层在这里完全不存在 ——
+      // 也就没有"装箱""拆箱""包装类型不能为 null"那一整类问题
+  - featureId: basics-java/type-inference
+    equivalence: divergent
+    code: |
+      let x = 1;                  // @note! 名字不携带类型，只是当前指向一个数字
+      x = "一";                   // 合法 —— 编译期那道网在这里不存在
+      // @note Java 的 var 只是省略类型名，类型本身还写死着；这边是真的没有类型
+  - featureId: basics-java/type-checking
+    equivalence: divergent
+    code: |
+      typeof 1;                   // @note 'number' —— 给的是字符串，不是类对象
+      typeof null;                // @note! 'object' —— 历史遗留，无法修正
+      typeof [];                  // @note! 'object' —— 认不出数组，要用 Array.isArray
+
+      [] instanceof Array;        // @note 仅对原型链有效，跨 iframe 会失效
+      // @note 没有 Java 那种"泛型擦除"的困扰，因为这边压根没有泛型
+  - featureId: basics-java/null-undefined
+    equivalence: divergent
+    code: |
+      let a;                      // @note undefined —— 未赋值
+      let b = null;               // @note null —— 有意的空
+      // @note! Java 只有一个 null，也就没有"到底该判哪个"的噪音
+
+      a == null;                  // @note true：宽松相等同时匹配 null 与 undefined
+      // @note 这是全语言里唯一推荐用 == 的场景
+
+      const x = null;
+      x.length;                   // @note! TypeError，同样是运行时才炸
+  - featureId: basics-java/number-precision
+    equivalence: divergent
+    code: |
+      7 / 2;                      // @note! 3.5 —— 没有整数除法，与 Java 的 3 不同
+      Math.trunc(7 / 2);          // 3 —— 要整数得自己调用
+      Math.floor(-7 / 2);         // -4 —— 想"向下取整"要用 floor 而不是 trunc
+      -7 % 3;                     // @note! -1 —— 这条与 Java 一致
+
+      9007199254740993;           // @note! 变成 ...992 —— 整数也是浮点，超范围静默丢精度
+      Integer.MAX_VALUE + 1;      // @note 没有这回事：不存在 32 位回绕
+
+      1 / 0;                      // @note! Infinity —— 连整数除零都不抛，直接静默
+  - featureId: basics-java/type-casting
+    equivalence: analogous
+    code: |
+      Number("3.7");              // @note 3.7 —— 能直接解析小数，Java 的 parseInt 会抛
+      parseInt("3.7");            // 3
+      parseInt("12px");           // @note! 12 —— 解析到非法字符就停，不报错
+
+      String(255);                // '255'
+      (255).toString(16);         // 'ff' —— 进制在这里给
+      // @note Java 没有"宽化自动、窄化要括号"那套规则，转换一律显式调用
+  - featureId: basics-java/boolean-conversion
+    equivalence: divergent
+    code: |
+      // @note! 有真值转换，条件位置接受任何值
+      const items = [];
+      if (items) { }              // @note! 恒真 —— 空数组是真值
+      if (items.length) { }       // 判"非空"得写长度
+
+      Boolean(0);                 // false
+      Boolean("0");               // true
+
+      const r = s || "默认";       // @note 有简写，但 0 和 "" 也会被兜底掉
+      const r2 = s ?? "默认";      // @note 这个才只对 null / undefined 兜底
+  - featureId: basics-java/type-names
+    equivalence: analogous
+    code: |
+      typeof 1;                   // @note 'number' —— 小写字符串，不是全限定名
+      typeof {};                  // 'object' —— 自定义类一律归为 object
+
+      class Point {}
+      new Point().constructor.name;   // 'Point' —— 想要类名得绕这一道
+
+      // @note 不存在"[I"那种编码名；数组的 typeof 只是笼统的 'object'
+  - featureId: basics-java/immutable-primitives
+    equivalence: analogous
+    code: |
+      let s = "abc";
+      s.toUpperCase();            // @note 返回新字符串，s 不变 —— 这条与 Java 一致
+      s = s.toUpperCase();
+
+      const a = { n: 1 };
+      a.n = 2;                    // @note! 对象内容可变：const 冻结的是绑定
+      Object.freeze(a);           // 想真正冻结要显式调用（而且是浅的）
+
+      const xs = [2, 1];
+      xs.sort();                  // @note 数组原地改，与 Java 的数组一致
+
+      let m = 1; let k = m; k = 2;
+      m;                          // @note 1 —— 原始值是值复制，与 Java 的基本类型一致
