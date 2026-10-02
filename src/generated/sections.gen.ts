@@ -3,7 +3,7 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml 的 sections 段
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-02T10:04:42.443Z
+ * 生成时间：2026-10-02T10:27:39.111Z
  */
 
 /** 全部已注册板块，按 registry 的 order 排序。左栏顺序读它 */
