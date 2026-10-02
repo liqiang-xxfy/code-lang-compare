@@ -1,0 +1,123 @@
+# javascript —— basics-java/08-functions 的实现
+#
+# 本 topic 以 **Java 为基准**，JavaScript 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/function-declare
+    equivalence: divergent
+    code: |
+      function greet(name, greeting = "你好") { }      // @note! 函数可以独立存在，不必挂类上
+      const greet2 = function (name) { };              // 函数表达式
+      const greet3 = (name) => `你好，${name}`;         // 箭头函数
+      class C { greet() { } }                          // 类方法只是其中一种形态
+
+      hi();                                            // @note! 能跑：函数声明会被提升
+      function hi() { }
+
+      // @note 返回类型不用写；也没有重载 —— 同名函数后定义的直接覆盖前面的
+  - featureId: basics-java/default-params
+    equivalence: divergent
+    code: |
+      function greet(name, greeting = "你好") {        // @note! 有默认参数语法
+          return `${greeting}，${name}`;
+      }
+      greet("Ada");
+      greet("Ada", "Hi");
+
+      const o = { pretty: false };
+      function render(text, { pretty = false, strict = false } = {}) { }   // @note 解构默认值
+      render(text, { pretty: true });
+
+      // @note! Java 只能靠重载或 Builder；这边一行就能表达，而且默认值每次调用重新求值
+  - featureId: basics-java/kwargs
+    equivalence: absent
+    code: |
+      // @note! 也没有关键字参数：位置就是位置
+      render(text, true, false);       // 同样读不出来这两个布尔是什么意思
+
+      // 惯用替代是传一个选项对象并在参数位置解构：
+      function render2(text, { pretty = false } = {}) { }
+      render2(text, { pretty: true });   // 调用处自带名字，但仍不是语言强制的
+
+      // @note 与 Java 的 Builder 相比，这边不用先定义类型，代价是拼错的键静默走默认值
+  - featureId: basics-java/rest-params
+    equivalence: analogous
+    code: |
+      function joinAll(sep, ...parts) { return parts.join(sep); }   // @note 收集成数组
+      joinAll("-", "a", "b");
+      joinAll("-", ...arr);            // @note 调用侧也能展开
+
+      // @note 同样只能有一个，且必须在最后 —— 这一点与 Java 的 T... 一致
+      // @note! 但没有"关键字可变参数"：接住任意具名参数只能靠对象参数
+      function configure(options) { }
+  - featureId: basics-java/return-multiple
+    equivalence: analogous
+    code: |
+      function minMax(xs) {
+        return [Math.min(...xs), Math.max(...xs)];   // @note 显式建数组/对象
+      }
+
+      const [lo, hi] = minMax(xs);         // @note 解构接收
+      const { lo: l, hi: h } = minMaxObj(xs);
+
+      // @note! 也要先构造一个容器，与 Java 一样；区别是不必定义一个类型，随手 {} 或 [] 就行
+      // @note 数量不匹配时不会报错：多出来的解构变量是 undefined
+  - featureId: basics-java/lambda-arrow
+    equivalence: divergent
+    code: |
+      const square = (x) => x * x;         // @note! 箭头函数是独立的值，不必赋给接口
+      square(5);                           // @note! 直接调用，不像 Java 要 square.apply(5)
+
+      const f = (x) => { const y = x * 2; return y; };   // 可以有语句块
+
+      const obj = { name: "a", run() { return [1].map(() => this.name); } };
+      // @note! 箭头函数没有自己的 this，继承外层 —— 这是它被发明出来的原因
+
+      // @note! 捕获的是**变量绑定**不是值：循环里建闭包会共享同一个变量（Java 禁止这种写法）
+  - featureId: basics-java/function-callback
+    equivalence: analogous
+    code: |
+      xs.map((x) => x * 2);                        // @note "集合在前、函数在后"，与 Java 同序
+      xs.filter((x) => x > 0);
+      xs.sort((a, b) => a.age - b.age);            // @note 排序传比较函数
+
+      // @note! 没有方法引用那种简写；`String::trim` 在这里要写 (s) => s.trim()
+      // @note 也没有 Comparator 链：多字段排序要在同一个比较函数里手写
+      // @note 好处是不必先有一个"函数式接口"类型，随手就能传
+  - featureId: basics-java/function-docstring
+    equivalence: divergent
+    code: |
+      /**
+       * 打个招呼。
+       * @param {string} name 名字
+       * @returns {string} 问候语
+       */
+      function greet(name) { return `你好，${name}`; }
+
+      greet.toString();                    // @note! 能拿到源码文本，但没有结构化的文档字段
+
+      // @note 与 Java 一样：注释在运行时不是数据，没有 __doc__ 那样的属性
+      // @note 同样没有"必须是第一条语句"的约束
+  - featureId: basics-java/arg-passing
+    equivalence: analogous
+    code: |
+      function mutate(xs) { xs.push(4); }        // @note 看得见
+      function rebind(xs) { xs = [9]; }          // @note 看不见
+
+      const xs = [1, 2, 3];
+      mutate(xs);                                // @note xs 变成 [1, 2, 3, 4]
+      rebind(xs);                                // @note xs 不变
+
+      let k = 1;
+      function bump(n) { n += 1; }
+      bump(k);                                   // @note k 还是 1 —— 原始值是值复制
+
+      // @note! 结论与 Java 完全一致：改内容会传染，改绑定不会。
+      // 原始类型与 Java 的基本类型表现相同（真复制），对象与引用类型表现相同（引用副本）

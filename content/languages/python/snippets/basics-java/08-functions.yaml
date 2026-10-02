@@ -1,0 +1,129 @@
+# python —— basics-java/08-functions 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/function-declare
+    equivalence: divergent
+    code: |
+      def greet(name, greeting="你好"):     # @note! 函数可以独立存在，不必挂类上
+          return f"{greeting}，{name}"
+
+      # @note 返回类型不用写；也没有重载 —— 同名函数后定义的直接覆盖前面的
+      # @note 但多了匿名函数：lambda x: x * x（只能是一个表达式）
+      square = lambda x: x * x
+  - featureId: basics-java/default-params
+    equivalence: divergent
+    code: |
+      def greet(name, greeting="你好"):     # @note! 有默认参数语法
+          return f"{greeting}，{name}"
+
+      greet("Ada")
+      greet("Ada", greeting="Hi")           # @note! 还能按关键字传
+
+      def add(item, bucket=[]):             # @note! 默认值只在**定义时**求值一次
+          bucket.append(item)               # 所有调用共用同一个列表 —— Java 的重载没有这个问题
+          return bucket
+      add.__defaults__                      # 默认值就存在函数对象上
+  - featureId: basics-java/kwargs
+    equivalence: divergent
+    code: |
+      greet(name="Ada", greeting="Hi")      # @note! 有关键字参数，调用处带名字
+
+      def render(text, *, pretty=False, strict=False):
+          ...
+      # @note! * 之后的参数只能关键字传 —— 语言层面强制调用方写清意图
+      render(text, pretty=True)             # 一眼看出这个 True 是什么
+      render(text, True)                    # @note! TypeError
+
+      # @note Java 那边只能靠 Builder 约定，而且运行时不会校验漏设
+  - featureId: basics-java/rest-params
+    equivalence: divergent
+    code: |
+      def join_all(sep, *parts):            # @note 收集成**元组**（Java 是数组）
+          return sep.join(parts)
+
+      join_all("-", "a", "b")
+      join_all("-", *arr)                   # 调用侧也能展开
+
+      def configure(**options):             # @note! 还能接住任意具名参数
+          return options.get("retry", 3)
+      configure(retry=5)
+      configure(rettry=5)                   # @note! 不报错 —— 拼错的键被静默吞进 kwargs
+  - featureId: basics-java/return-multiple
+    equivalence: divergent
+    code: |
+      def min_max(xs):
+          return min(xs), max(xs)           # @note! 返回的是元组，由逗号构造，不用先建容器
+
+      lo, hi = min_max(xs)                  # @note 解包接收
+      pair = min_max(xs)                    # @note (1, 9) —— 整体就是一个对象，可以整体传递
+      lo, *rest = min_max(xs)               # 还能用星号收集
+
+      a, b, c = min_max(xs)                 # @note! ValueError —— 数量不匹配会抛，不静默给 None
+  - featureId: basics-java/lambda-arrow
+    equivalence: divergent
+    code: |
+      square = lambda x: x * x              # @note! 是独立的值，直接 square(5) 就能调
+      square(5)
+
+      sorted(users, key=lambda u: u.age)    # @note 主要用在这种短回调上
+      key = lambda x: x if x > 0 else 0     # @note 要条件就写条件表达式
+
+      # @note! 只能是一个表达式：不能有语句、不能多行、不能有标注与 docstring
+      # @note! 捕获的是**变量绑定**（Java 要求事实不变，禁止这类写法），
+      # 所以循环里建闭包会共享同一个变量
+  - featureId: basics-java/function-callback
+    equivalence: analogous
+    code: |
+      map(fn, xs)                           # @note! 函数在前 —— 与 Java 的 xs.stream().map(fn) 相反
+      filter(fn, xs)
+      sorted(xs, key=fn)                    # @note 序列在前、函数作关键字
+
+      handlers = {"create": handle_create}  # @note 字典分派
+      handlers[action](payload)
+
+      # @note 内置高阶函数的参数顺序**不统一**，按签名查一次比记规律可靠
+      # @note 也不需要"函数式接口"这层类型，随手就能传；少了一层间接，也少了编译期检查
+  - featureId: basics-java/function-docstring
+    equivalence: divergent
+    code: |
+      def greet(name):
+          """打个招呼。"""
+          return f"你好，{name}"
+
+      greet.__doc__      # @note! '打个招呼。' —— 是字符串对象，运行时能直接读到
+      help(greet)        # @note 交互式帮助能打印出来
+
+      def bad():
+          x = 1
+          """这不再是 docstring"""      # @note! 必须是函数体的第一条语句
+      # @note 因为它是"数据"，doctest 能直接执行文档里的示例并比对输出 —— Java 的 Javadoc 做不到
+  - featureId: basics-java/arg-passing
+    equivalence: identical
+    code: |
+      def mutate(xs):
+          xs.append(4)          # @note 看得见
+      def rebind(xs):
+          xs = [9]              # @note 看不见
+
+      def bump(n):
+          n += 1                # @note 看不见
+
+      xs = [1, 2, 3]
+      mutate(xs)                # @note xs 变成 [1, 2, 3, 4]
+      rebind(xs)                # @note xs 不变
+
+      k = 1
+      bump(k)                   # @note k 还是 1
+
+      # @note! 结论与 Java 完全一致：改内容会传染，改绑定不会。
+      # @note! 但"整数改不动"的原因不同：Java 是**值复制**，这里是**整数不可变**。
+      # 结论相同，机制不同 —— 遇到自定义的不可变类型时要按这边的机制推

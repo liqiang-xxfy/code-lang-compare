@@ -1,0 +1,140 @@
+# java —— basics-java/08-functions 的实现
+#
+# 本 topic 以 **Java 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/function-declare
+    equivalence: identical
+    code: |
+      class Greeter {
+          static String greet(String name, String greeting) {   // @note! 没有自由函数
+              return greeting + "，" + name;                    // 每个方法都必须挂在类上
+          }
+      }
+      Greeter.greet("Ada", "你好");
+
+      record Point(int x, int y) {
+          int manhattan() { return Math.abs(x) + Math.abs(y); }  // @note 实例方法
+      }
+
+      // @note 返回类型必须写全，连 void 也要写
+      // @note 重载是常态：同名方法按参数列表区分，这也是"没有默认参数"的补偿
+  - featureId: basics-java/default-params
+    equivalence: identical
+    code: |
+      static String greet(String name) { return greet(name, "你好"); }   // @note 短的转调长的
+      static String greet(String name, String greeting) { return greeting + "，" + name; }
+      // @note! 没有默认参数语法，只能靠重载；默认值只写一处
+
+      record Options(boolean pretty, boolean strict) {      // @note 参数多时改用 record + wither
+          static Options defaults() { return new Options(false, false); }
+          Options withPretty() { return new Options(true, strict); }
+      }
+
+      // @note 重载的默认值落在每个调用点上，不存在"默认值只在定义时求值一次"的共享问题
+  - featureId: basics-java/kwargs
+    equivalence: identical
+    code: |
+      render(text, true, false);      // @note! 这两个布尔各是什么意思，必须翻签名
+
+      RenderOptions.builder().pretty(true).build();   // @note 惯用缓解：配置对象 + Builder
+      // @note 那是约定不是语言约束：运行时不会检查有没有漏设字段
+
+      // @note! 没有"新增一个参数不破坏既有调用"这回事 —— 只能加重载或改所有调用点
+      // @note 重载解析本身还有歧义：f(int) 与 f(Integer) 并存时，传字面量可能选到意外的那个
+  - featureId: basics-java/rest-params
+    equivalence: identical
+    code: |
+      static String joinAll(String sep, String... parts) {   // @note! 只能有一个，必须在最后
+          return String.join(sep, parts);
+      }
+
+      joinAll("-", "a", "b");
+      joinAll("-", new String[]{"a", "b"});     // @note 数组可以直接传
+
+      // @note! 它编译成数组：f((int[]) null) 与 f() 是两回事，
+      // 前者在方法体里拿到的是 null 而不是空数组
+      // @note! 也没有"关键字可变参数"：要接住任意具名参数只能传 Map，类型安全就丢了
+  - featureId: basics-java/return-multiple
+    equivalence: identical
+    code: |
+      static int[] minMax(int[] xs) { ... }     // @note 塞进数组：丢类型信息，访问靠下标
+
+      record MinMax(int lo, int hi) { }         // @note 定义一个类型 —— 推荐
+      static MinMax minMax2(java.util.List<Integer> xs) {
+          return new MinMax(java.util.Collections.min(xs), java.util.Collections.max(xs));
+      }
+
+      var r = minMax2(xs);
+      r.lo();                                   // @note 访问器是方法调用
+
+      // @note! 一个方法只能返回一个值，没有元组 —— 选定容器后就固定了，后面再改要动所有调用点
+      // @note 用 Optional<T> 可以把"可能没有"写进返回类型
+  - featureId: basics-java/lambda-arrow
+    equivalence: identical
+    code: |
+      // @note! lambda 必须是某个函数式接口的实例，不能独立存在
+      java.util.function.Function<Integer, Integer> square = x -> x * x;
+      java.util.function.Supplier<String> s = () -> "值";
+      java.util.function.Consumer<String> c = x -> System.out.println(x);
+      java.util.function.Predicate<String> p = x -> !x.isEmpty();
+
+      square.apply(5);          // @note! 调用要经过接口方法名，不能直接 square(5)
+
+      // @note 方法体可以有多行：x -> { int y = x * 2; return y; }
+
+      int n = 1;
+      java.util.function.IntUnaryOperator plus = x -> x + n;
+      // n = 2;                 // @note! 编译错误：捕获的局部变量必须事实不变
+      // @note 捕获的是**值**，所以"闭包共享同一个变量"那类坑在这里不存在
+  - featureId: basics-java/function-callback
+    equivalence: identical
+    code: |
+      xs.stream().map(x -> x * 2).toList();          // @note lambda
+      xs.stream().map(String::trim).toList();        // @note! 方法引用，能用就用它
+      xs.sort(java.util.Comparator.comparingInt(User::age));
+      xs.removeIf(String::isEmpty);
+
+      // @note! 参数顺序是"集合在前、函数在后"，而排序那边是"序列在前、规则作关键字" —— 没有统一规律
+      // @note 没有内置的排序 key= ，要比什么就写进 Comparator
+  - featureId: basics-java/function-docstring
+    equivalence: identical
+    code: |
+      /**
+       * 打个招呼。
+       *
+       * @param name 名字
+       * @return 问候语
+       */
+      static String greet(String name) { return "你好，" + name; }
+
+      // @note! Javadoc 是**注释**，运行时不进字节码：没有 __doc__ 那样的属性
+      // 反射能拿到方法名、参数类型、注解，但拿不到文档文本
+
+      // @note 注释放哪里都行，没有"必须是第一条语句"的约束
+      // @note 注解（@Override / @Deprecated）是另一套东西：真的数据，能被反射读到
+  - featureId: basics-java/arg-passing
+    equivalence: identical
+    code: |
+      static void mutate(java.util.List<Integer> xs) { xs.add(4); }        // @note 看得见
+      static void rebind(java.util.List<Integer> xs) { xs = java.util.List.of(9); }  // 看不见
+      static void bump(int n) { n += 1; }                                  // @note! 永远看不见
+
+      var xs = new java.util.ArrayList<>(java.util.List.of(1, 2, 3));
+      mutate(xs);                    // @note xs 变成 [1, 2, 3, 4]
+      rebind(xs);                    // @note xs 不变
+
+      int k = 1;
+      bump(k);                       // @note! k 还是 1 —— 基本类型是真的复制了一份
+
+      // @note 口诀一致：改内容会传染，改绑定不会。
+      // @note! 但基本类型的"改不动"来自**值复制**，不是来自"不可变" —— 原因不同，结论相同
+      // @note 数组是可变的：mutate(int[]) 能改到调用方
