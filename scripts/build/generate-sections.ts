@@ -17,7 +17,7 @@
  *   若校验依赖生成物，`content:validate` 就会用**上一版**的 id 清单去校验**新**的
  *   registry.yaml —— 新增板块会以「invalid enum value」失败，而真正的生成步骤还没跑。
  *   因此：成员资格由 `registrySchema.superRefine` 读**当次解析的 YAML** 判定，
- *   本文件只负责类型。两者的一致性由 tests/unit/section-registry.test.ts 断言。
+ *   本文件只负责类型。两者的一致性由 tests/unit/section-model.test.ts 断言。
  */
 import fs from 'node:fs'
 import path from 'node:path'
