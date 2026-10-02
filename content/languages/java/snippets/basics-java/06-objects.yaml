@@ -1,0 +1,112 @@
+# java —— basics-java/06-objects 的实现
+#
+# 本 topic 以 **Java 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/object-create
+    equivalence: identical
+    code: |
+      // @note! 没有字典字面量，只能调工厂或构造器
+      Map<String, Integer> m = Map.of("a", 1, "b", 2);   // 不可变，最多 10 对
+      Map<String, Integer> big = Map.ofEntries(Map.entry("a", 1));
+      var mm = new HashMap<String, Integer>();
+      mm.put("a", 1);
+
+      record User(int id, String name, boolean active) { }   // @note 字段固定就该用 record
+      User u = new User(1, "Ada", true);
+
+      record Point(int x, int y) { }
+      Map<Point, String> grid = new HashMap<>();   // @note record 自动生成 equals/hashCode
+      // @note! 普通类不重写这两个方法就当不好键：放进去再也找不出来
+  - featureId: basics-java/object-access
+    equivalence: identical
+    code: |
+      m.get("a");                  // 1
+      m.get("z");                  // @note! null —— 缺失静默返回空值，不抛
+      m.getOrDefault("z", 0);      // 0
+      m.containsKey("z");          // false
+
+      // @note! 值本身可以是 null 时，get 分不出"键不存在"和"值是 null"
+      m.size();                    // @note 取长度是方法调用，m.size 编译不过
+      // @note 多线程读写要用 ConcurrentHashMap，HashMap 不是线程安全的
+  - featureId: basics-java/object-iterate
+    equivalence: identical
+    code: |
+      for (var e : m.entrySet()) { e.getKey(); e.getValue(); }
+      m.forEach((k, v) -> { });            // @note 最简洁的形式
+      m.keySet();
+      m.values();
+
+      // @note! 遍历顺序取决于实现类：HashMap 无序、LinkedHashMap 按插入、TreeMap 按键排序
+      m.entrySet().removeIf(e -> e.getValue() == null);
+      // @note! 遍历时直接改结构会抛 ConcurrentModificationException
+  - featureId: basics-java/object-default
+    equivalence: identical
+    code: |
+      m.getOrDefault(k, 0);                            // @note 纯读，不写入
+      m.putIfAbsent(k, 0);                             // @note! 会写入
+      m.computeIfAbsent(k, x -> new ArrayList<>());    // @note! 会写入
+      m.merge(k, 1, Integer::sum);                     // @note! 会写入，计数的惯用法
+      m.compute(k, (key, v) -> v == null ? 1 : v + 1);
+
+      // @note 名字里有没有 get 就是提示：getOrDefault 只读，其余三个都会写
+  - featureId: basics-java/object-merge
+    equivalence: identical
+    code: |
+      a.putAll(b);                                     // @note! 只有原地合并，返回 void
+      var merged = new HashMap<>(a); merged.putAll(b); // @note 要新对象得先拷一份
+
+      Stream.concat(a.entrySet().stream(), b.entrySet().stream())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                     (left, right) -> right));         // @note! 冲突时取谁必须显式给
+      // @note! toMap 遇到重复键默认抛 IllegalStateException，不是"后者覆盖前者"
+  - featureId: basics-java/object-nested
+    equivalence: identical
+    code: |
+      var b = new HashMap<>(a);        // @note 浅拷贝：外层是新的
+      // 改 b 里嵌套的那个映射 -> a 里的也跟着变
+
+      // @note! 没有内置深拷贝：Object.clone() 是浅的，Cloneable 还要靠反射
+      // @note 推荐做法是把嵌套结构设计成不可变的（record + List.of / Map.of）
+      // @note 否则只能手写复制构造（逐层 new），或者序列化往返
+  - featureId: basics-java/object-comprehension
+    equivalence: identical
+    code: |
+      var byId = users.stream().collect(Collectors.toMap(User::id, u -> u));
+      var byDept = users.stream().collect(Collectors.groupingBy(User::dept));
+
+      // @note! toMap 遇到重复键默认抛 IllegalStateException，
+      // 必须传第三个参数（(left, right) -> right 才是"后者覆盖前者"）
+      // @note 流是一次性的，同一个 stream() 不能复用
+  - featureId: basics-java/object-equality
+    equivalence: identical
+    code: |
+      Map.of("a", 1).equals(Map.of("a", 1));    // @note true —— 映射按内容比，与顺序无关
+      Map.of("a", 1) == Map.of("a", 1);         // @note! false —— == 比引用
+
+      int[] a1 = {1, 2}, a2 = {1, 2};
+      a1.equals(a2);                  // @note! false —— 数组没有重写 equals，比的是身份
+      java.util.Arrays.equals(a1, a2);          // true —— 数组比较必须用静态方法
+
+      // @note 自定义类重写 equals 时必须同时重写 hashCode，否则 HashMap 行为错乱
+      // @note 数组当键或放进 Set 时也是同一个问题：按身份算哈希
+  - featureId: basics-java/object-json
+    equivalence: identical
+    code: |
+      // @note! JDK 里完全没有 JSON 支持，必须引第三方（Jackson / Gson / JSON-P）
+      // var om = new ObjectMapper();
+      // String s = om.writeValueAsString(obj);
+      // Obj o = om.readValue(s, Obj.class);
+
+      // @note 字段映射靠注解写在类上（@JsonProperty / @JsonIgnore），
+      // 而不是在调用处传参数
+      // @note 内置的 Java 序列化（Serializable）是另一套东西：
+      // 二进制、跨语言不可读，而且反序列化本身有安全问题

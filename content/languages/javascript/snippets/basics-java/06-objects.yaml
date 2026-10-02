@@ -1,0 +1,118 @@
+# javascript —— basics-java/06-objects 的实现
+#
+# 本 topic 以 **Java 为基准**，JavaScript 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/object-create
+    equivalence: analogous
+    code: |
+      const d = { a: 1, b: 2 };            // @note! 有字面量，不需要工厂方法
+      const e = { "带空格的键": 1 };
+      const m = new Map();                 // @note! 要用对象/数字当键必须换 Map
+      m.set({ id: 1 }, "值");
+
+      const odd = { 2: "b", 1: "a", x: "c" };
+      Object.keys(odd);                    // @note! ['1', '2', 'x'] —— 整数键被提到前面
+
+      // @note record 那种"字段固定、有类型"的结构在这里没有对应物，
+      // 通常靠对象字面量 + TypeScript 类型标注
+  - featureId: basics-java/object-access
+    equivalence: divergent
+    code: |
+      const d = { a: 1 };
+      d.a;                  // 1
+      d["a"];               // @note 1 —— 点号与方括号完全等价
+      d.z;                  // @note! undefined —— 缺失静默返回空值，与 Java 的 get 一致
+
+      "a" in d;             // true —— 判存在要用 in 或 hasOwnProperty
+      // @note 同样是"分不出键不存在与值是 undefined"的老问题
+
+      // @note 好处是没有"点号取键还是取字段"的区分：两者在这里是一回事
+  - featureId: basics-java/object-iterate
+    equivalence: analogous
+    code: |
+      Object.entries(d);              // @note [['a', 1], ['b', 2]] —— 要自己解构
+      for (const [k, v] of Object.entries(d)) { }
+      Object.keys(d);
+      Object.values(d);
+
+      for (const k in d) { }          // @note! 会连原型链上的可枚举属性一起遍历
+
+      // @note! 顺序规则不同：整数键被提前，其余按插入 ——
+      // 没有 LinkedHashMap / TreeMap 那种"选实现决定顺序"
+      // @note 遍历时增删是未定义行为，但不会抛异常
+  - featureId: basics-java/object-default
+    equivalence: analogous
+    code: |
+      d.k ?? 0;                       // @note! 只对 null / undefined 兜底
+      d.k ??= [];                     // @note 这个才是"不存在就写入"
+
+      // @note! 没有 getOrDefault / computeIfAbsent 那一组方法：
+      // ?? 完全只读，"写默认值"要靠 ??= 或手写 if
+      if (!(k in d)) d[k] = [];
+
+      const g = new Map();
+      g.get(k) ?? (g.set(k, []), g.get(k));   // @note 没有 computeIfAbsent，写起来更绕
+  - featureId: basics-java/object-merge
+    equivalence: analogous
+    code: |
+      const merged = { ...a, ...b };  // @note! 新对象，b 覆盖 a —— 一步到位
+      const merged2 = Object.assign({}, a, b);
+
+      Object.assign(a, b);            // @note! 原地改 a 并返回它 —— 与展开写法语义不同
+      a = Object.assign(a, b);        // 看着像"取合并结果"，其实改的就是 a
+
+      // @note Java 只有 putAll 那种原地合并，"返回新对象"是这边的强项
+  - featureId: basics-java/object-nested
+    equivalence: analogous
+    code: |
+      const b = { ...a };             // @note 同样是浅拷贝
+      const a2 = { cfg: { retry: 3 } };
+      const b2 = { ...a2 };
+      b2.cfg.retry = 5;               // @note! a2 也变了
+
+      structuredClone(a2);            // @note! 有内置深拷贝，能处理 Date / Map / 循环引用
+      JSON.parse(JSON.stringify(a2)); // @note 老偏方：丢函数、丢 undefined、Date 变字符串
+
+      // @note Java 那边连浅拷贝都要自己写，更没有 deepcopy —— 这是明显的一处差异
+  - featureId: basics-java/object-comprehension
+    equivalence: divergent
+    code: |
+      Object.fromEntries(users.map((u) => [u.id, u]));   // @note 两步：先 map 再 fromEntries
+      Object.fromEntries(users.filter((u) => u.active).map((u) => [u.id, u]));
+
+      // @note! 重复键静默后者覆盖前者 —— Java 的 toMap 默认抛异常，这边不抛
+      // @note 也没有 groupingBy 那种现成的分组收集器，要自己 reduce
+  - featureId: basics-java/object-equality
+    equivalence: divergent
+    code: |
+      ({ a: 1 }) === ({ a: 1 });      // @note! false —— 比的是引用身份，与 Java 的 == 一致
+      const x = { a: 1 }; x === x;    // true
+
+      JSON.stringify({ a: 1 }) === JSON.stringify({ a: 2 - 1 });
+      // @note! 能跑通但依赖键的顺序，换个顺序就 false —— 不可靠
+
+      // @note 没有 equals 那种"类自己决定怎么比"的机制：
+      // 要按内容比较得自己写递归比较，或者引入库
+  - featureId: basics-java/object-json
+    equivalence: divergent
+    code: |
+      JSON.stringify({ a: 1 });              // @note! 语言内置，不需要引依赖
+      JSON.stringify({ a: 1 }, null, 2);     // 美化
+      JSON.parse('{"a":1}');
+
+      JSON.stringify({ f: () => {}, u: undefined, s: Symbol() });
+      // @note! '{}' —— 函数、undefined、Symbol 被**静默丢掉**，不报错
+
+      JSON.parse('{"n": 9007199254740993}').n;
+      // @note! 9007199254740992 —— 超过安全整数范围静默改值
+
+      // @note 与 Java 的取舍相反：这边是标准库自带但会静默丢字段，
+      // 那边要引依赖但当类型不对时会报错

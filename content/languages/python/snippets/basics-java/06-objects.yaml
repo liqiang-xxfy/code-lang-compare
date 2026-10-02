@@ -1,0 +1,124 @@
+# python —— basics-java/06-objects 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/object-create
+    equivalence: divergent
+    code: |
+      d = {"a": 1, "b": 2}         # @note! 有字面量，不需要工厂方法
+      d = dict(zip(keys, values))
+
+      grid = {(0, 0): "起点"}      # @note 键可以是任意可哈希对象，元组当键很常用
+      {[1]: 2}                     # @note! TypeError: unhashable type —— 列表不能当键
+
+      from dataclasses import dataclass
+      @dataclass(frozen=True)      # @note 字段固定时，这个最接近 record
+      class User:
+          id: int
+          name: str
+      # @note dataclass 默认按字段生成 __eq__，与 record 一致
+  - featureId: basics-java/object-access
+    equivalence: divergent
+    code: |
+      d = {"a": 1}
+      d["a"]                       # 1
+      d["z"]                       # @note! KeyError —— 缺失当场抛，不是返回 null
+      d.get("z")                   # None —— 想容忍缺失才用 get
+      d.get("z", 0)                # 0 —— 对应 getOrDefault
+      "z" in d                     # False
+
+      d.a                          # @note! AttributeError —— 点号找的是属性，不是字典的键
+      # @note 于是也没有"值本身是 None 时分不出来"那个问题：缺失是异常，None 是值
+  - featureId: basics-java/object-iterate
+    equivalence: analogous
+    code: |
+      for k, v in d.items():       # @note 直接给 (key, value) 元组，比 entrySet 短
+          pass
+      for k in d:                  # 默认遍历键
+          pass
+      for v in d.values():
+          pass
+
+      # @note! 顺序由语言保证是**插入顺序**（3.7+），不需要选实现类
+      for k in d:
+          del d[k]                 # @note! RuntimeError: dictionary changed size
+      for k in list(d):            # 要改就遍历副本
+          del d[k]
+  - featureId: basics-java/object-default
+    equivalence: analogous
+    code: |
+      d.get(k, 0)                  # @note 只读，不写入 —— 对应 getOrDefault
+      d.setdefault(k, [])          # @note! 读取的同时会写入
+
+      from collections import defaultdict
+      groups = defaultdict(list)
+      groups[k].append(v)          # @note! 读一次就建好 —— 对应 computeIfAbsent
+
+      # @note 这边的判断依据不是名字而是类型：get 只读，defaultdict / setdefault 会写；
+      # Java 那边看名字里有没有 get
+  - featureId: basics-java/object-merge
+    equivalence: divergent
+    code: |
+      merged = {**a, **b}          # @note! 新字典，b 覆盖 a —— 一行
+      merged = a | b               # 3.9+，同样的语义，更短
+      a.update(b)                  # @note! 原地改，返回 None
+      a = a.update(b)              # @note! 经典错误：a 现在成了 None
+
+      # @note Java 只有 putAll 那种原地合并；这边两种意图各有各的写法
+      # @note | 对嵌套是浅合并：同名的键整体替换，不递归
+  - featureId: basics-java/object-nested
+    equivalence: analogous
+    code: |
+      b = dict(a)                  # @note 浅拷贝
+      b = a.copy()                 # 同上
+      b = {**a}                    # 同上
+
+      a2 = {"cfg": {"retry": 3}}
+      b2 = dict(a2)
+      b2["cfg"]["retry"] = 5       # @note! a2 也变了 —— 内层还是同一个对象
+
+      import copy
+      c = copy.deepcopy(a2)        # @note! 有内置深拷贝，Java 那边完全没有
+
+      # @note 浅拷贝至少有一行写法（Java 要手写复制构造），深拷贝也有标准答案
+  - featureId: basics-java/object-comprehension
+    equivalence: divergent
+    code: |
+      {u.id: u for u in users}                       # @note! 一步到位，Java 要走流收集器
+      {u.id: u for u in users if u.active}           # 带过滤
+      {u.dept: g for u, g in ...}                    # 分组要自己累积
+
+      # @note! 重复键静默后者覆盖前者 —— Java 的 toMap 默认抛异常
+      # @note 常用集合类型都提供分组时可以直接用 itertools.groupby（要求先排序）
+  - featureId: basics-java/object-equality
+    equivalence: divergent
+    code: |
+      {"a": 1} == {"a": 1}                    # @note! True —— 比内容，不需要实现 equals
+      {"a": 1, "b": 2} == {"b": 2, "a": 1}    # @note True —— 与插入顺序无关
+      {"a": [1, 2]} == {"a": [1, 2]}          # @note True —— 嵌套也会递归比较
+
+      # @note! 容器之间的内容比较是免费的；Java 要自己重写 equals 与 hashCode
+      # @note 自定义类要参与 == 得实现 __eq__；实现了就应同时实现 __hash__，
+      # 否则对象变得不可哈希 —— 与 Java 的 equals/hashCode 契约同构，但报错更晚
+  - featureId: basics-java/object-json
+    equivalence: divergent
+    code: |
+      import json
+      json.dumps({"a": 1})                    # @note '{"a": 1}' —— 标准库自带，不用引依赖
+      json.dumps(obj, ensure_ascii=False)     # @note! 默认是 True，中文会变成 \uXXXX
+      json.dumps(obj, indent=2, sort_keys=True)
+      json.loads('{"a":1}')
+
+      json.dumps({"t": datetime.now()})       # @note! TypeError —— 非 JSON 类型直接抛
+      json.dumps({"t": dt}, default=str)      # 惯用替代写法
+
+      # @note 与 Java 的取舍相反：这边标准库自带、类型不对会报错；
+      # 那边要引第三方、映射关系靠注解
