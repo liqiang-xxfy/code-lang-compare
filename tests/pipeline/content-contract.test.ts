@@ -130,11 +130,12 @@ describe('架构决策的可执行断言', () => {
     expect(candidates).toContain(a.registry.defaultBaseline)
   })
 
-  it('equivalence 参照系已声明且是已启用语言', () => {
-    // 徽章是人手写的绝对值，无法随基准切换重算 —— 参照系必须是内容级常量，
-    // 而且必须指向一门真实启用的语言，否则页面上的说明文案会指向空气。
-    expect(a.registry.equivalenceReference).toBeTruthy()
-    expect(a.enabledLanguageIds).toContain(a.registry.equivalenceReference)
+  it('默认对比语言已启用且不等于默认基准', () => {
+    // 拿基准自己当对比列会渲染出一个恒等于基准的空列，所以这条必须钉死。
+    // 它取代了 v1 的 equivalenceReference（ADR-24：徽章改为相对本页基准，
+    // 不再需要一个全局参照系常量）。
+    expect(a.enabledLanguageIds).toContain(a.registry.defaultCompareLanguage)
+    expect(a.registry.defaultCompareLanguage).not.toBe(a.registry.defaultBaseline)
   })
 
   it('topic 声明的适用语言都是已知语言', () => {
@@ -143,6 +144,61 @@ describe('架构决策的可执行断言', () => {
     for (const [topicId, cfg] of Object.entries(a.registry.topics)) {
       for (const id of cfg.languages ?? []) {
         expect(a.metaById[id], `topic '${topicId}' 引用了未知语言 '${id}'`).toBeTruthy()
+      }
+    }
+  })
+
+  it('三轴字段自洽：基准级板块无 target，对级板块必有 target 且 ≠ baseline', () => {
+    for (const [topicId, cfg] of Object.entries(a.registry.topics)) {
+      expect(a.metaById[cfg.baseline], `topic '${topicId}' 的 baseline 未知`).toBeTruthy()
+      /*
+       * 判据读注册表的 `scope`，不写 `section === 'basics'`。
+       *
+       * 写死板块名的那版把 basics 当成了「唯一的基准级板块」—— 这是 ADR-28
+       * 拆分三属性之前的假设。加第二个基准级板块（心智模型）时，它会报
+       * 「对级 topic 'concepts-javascript' 缺 target」，指向的原因完全是错的。
+       * 「基准级还是对级」本来就是 scope 回答的问题，测试该问它。
+       */
+      if (a.registry.sections[cfg.section]?.scope === 'baseline') {
+        expect(cfg.target, `基准级 topic '${topicId}' 不该有 target`).toBeUndefined()
+      } else {
+        expect(cfg.target, `对级 topic '${topicId}' 缺 target`).toBeTruthy()
+        expect(cfg.target).not.toBe(cfg.baseline)
+        // 对级内容的覆盖率范围必须精确等于这两门语言，多一门会强求不存在的内容，
+        // 少一门则会让"缺一格"静默漏检。
+        expect([...(cfg.languages ?? [])].sort()).toEqual([cfg.baseline, cfg.target!].sort())
+      }
+    }
+  })
+
+  it('每个基准候选都有一套基础语法，且它的基准资格成立', () => {
+    for (const m of a.metas.filter((x) => x.baseline)) {
+      const has = Object.values(a.registry.topics).some(
+        (cfg) => cfg.section === 'basics' && cfg.baseline === m.id,
+      )
+      expect(has, `${m.id} 标了 baseline: true 却没有基础语法内容`).toBe(true)
+    }
+  })
+
+  it('每个对目录都能反查到 registry 里的 (基准, 目标) 组合', () => {
+    // 目录名写错会静默不渲染 —— R5 会报，但这里再钉一次，防止规则本身被改坏。
+    const declared = new Set(
+      Object.values(a.registry.topics)
+        .filter((cfg) => cfg.target)
+        .map((cfg) => `${cfg.baseline}|${cfg.target}`),
+    )
+    for (const pair of a.pairs) {
+      expect(declared.has(`${pair.baseline}|${pair.target}`), pair.topicId).toBe(true)
+    }
+  })
+
+  it('对级词典只讲本方向的两门语言', () => {
+    for (const pair of a.pairs) {
+      const allowed = new Set([pair.baseline, pair.target])
+      for (const g of pair.glossary) {
+        for (const lang of Object.keys(g.perLanguage)) {
+          expect(allowed.has(lang), `${pair.topicId} 的「${g.term}」含 ${lang}`).toBe(true)
+        }
       }
     }
   })

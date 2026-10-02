@@ -1,0 +1,516 @@
+{
+  "baseline": "javascript",
+  "target": "python",
+  "pitfalls": [
+    {
+      "id": "pitfall-block-scope",
+      "title": "出了 if 块变量竟然还在",
+      "symptomHtml": "<p>在 Python 里写 <code>if cond: x = 1</code>，然后在块外直接用 <code>x</code>，居然能拿到值；反过来在 JS 里同样的写法会 ReferenceError。</p>\n",
+      "causeHtml": "<p>JS 的 <code>let</code>/<code>const</code> 是块级作用域；Python 的块（<code>if</code>/<code>for</code>/<code>while</code>）<strong>不产生新作用域</strong>，只有函数、类、模块才产生。</p>\n",
+      "fixHtml": "<p>不要把 JS 的块级直觉带进 Python。迁移时把「变量的有效范围」从「看花括号」改成「看最近的函数边界」。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/var-scope",
+      "tags": [
+        "作用域"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-division-by-zero",
+      "title": "除以零在 JS 里静默产生 Infinity，在 Python 里直接崩",
+      "symptomHtml": "<p>一段在 JS 里&quot;跑得好好的&quot;计算，移植到 Python 后抛 <code>ZeroDivisionError</code>，线上 500。</p>\n",
+      "causeHtml": "<p>JS 遵循 IEEE 754，<code>1/0</code> 为 <code>Infinity</code>、<code>0/0</code> 为 <code>NaN</code>；Python 对整数除以零抛异常。</p>\n",
+      "fixHtml": "<p>JS 侧要把 <code>Infinity</code> 当成错误显式处理（<code>Number.isFinite</code> 校验），不要放任它进入下游；\nPython 侧要提前判零或用 try/except。两个方向都要改——<strong>这是&quot;看起来能跑&quot;掩盖的定时炸弹</strong>。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/number-precision",
+      "tags": [
+        "数值",
+        "异常"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-equality-coercion",
+      "title": "相等比较的隐式转换导致判断失效",
+      "symptomHtml": "<p><code>1 == &quot;1&quot;</code>、<code>&quot;&quot; == 0</code> 返回 true；字符串与数字比较时不报错但结果不符合预期。</p>\n",
+      "causeHtml": "<p>JS 的 <code>==</code> 会按规范做类型转换；Python 的 <code>==</code> 只在数值类型之间兼容（<code>1 == 1.0</code> 为真），不做字符串到数字的转换。</p>\n",
+      "fixHtml": "<p>JS 一律用 <code>===</code>；Python 里反过来要小心误用 <code>is</code>——<code>is</code> 判对象身份，不判值。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/equality",
+      "tags": [
+        "运算符",
+        "类型"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-integer-division",
+      "title": "分页算出了小数页码",
+      "symptomHtml": "<p>JS 里 <code>Math.floor(total / pageSize)</code> 直译成 Python 的 <code>total / pageSize</code>\n会得到浮点数，页码是 <code>3.0</code>；拿它去索引或切片就报 TypeError。\n负数上更乱：<code>-7 / 2</code> 两边都是 <code>-3.5</code>，但取整方式不同 ——\n<code>Math.floor</code> 与 <code>//</code> 得 <code>-4</code>，<code>int()</code> 与 <code>Math.trunc</code> 得 <code>-3</code>。</p>\n",
+      "causeHtml": "<p>JS 只有一种数字类型，<code>/</code> 永远得浮点，取整是额外的一步。\nPython 的 <code>/</code> 是真除法，但<strong>多了一个 <code>//</code></strong>（向下取整），\n而它与「先除再 <code>int()</code>」（向零取整）在负数上结果不同。</p>\n",
+      "fixHtml": "<p>要整除就写 <code>//</code>，不要写 <code>int(a / b)</code> —— 负数上语义不同。\n确实需要向零取整时显式写 <code>math.trunc(a / b)</code>，并把「它与 <code>//</code> 不同」\n写在注释里，不然下一个人会以为是同一件事。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/arithmetic",
+      "tags": [
+        "数值",
+        "运算符"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-truthiness-empty-container",
+      "title": "空数组/空字典的判断结果反了",
+      "symptomHtml": "<p>在 JS 里习惯写 <code>if (arr)</code> 判非空，迁移到 Python 后 <code>if arr:</code> 的行为看似一样，但语义完全相反——JS 里空数组是真值，Python 里空列表是假值。</p>\n",
+      "causeHtml": "<p>JS 的假值只有 8 个原始值（<code>false</code>/<code>0</code>/<code>-0</code>/<code>0n</code>/<code>&quot;&quot;</code>/<code>null</code>/<code>undefined</code>/<code>NaN</code>），\n对象与数组<strong>永远是真值</strong>；Python 的 <code>__bool__</code> 由容器长度决定，空容器为假。</p>\n",
+      "fixHtml": "<p>JS 里判数组非空必须写 <code>arr.length &gt; 0</code>，<code>if (arr)</code> 是错的（但它一直&quot;看起来能用&quot;）。\n迁移到 Python 后可以直接用 <code>if arr:</code>——<strong>这不是&quot;照搬出错&quot;，而是&quot;JS 的坏习惯在 Python 里恰好变对了&quot;</strong>，\n反过来从 Python 回 JS 时才会踩坑。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/truthiness",
+      "tags": [
+        "真值",
+        "集合"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-const-not-immutable",
+      "title": "const 对象居然能被改",
+      "symptomHtml": "<p>用 <code>const</code> 声明了一个配置对象，某个模块把它改了，其他地方全部受影响，但没有任何报错。</p>\n",
+      "causeHtml": "<p><code>const</code> 冻结的是<strong>绑定</strong>（不能重新赋值），不是对象内容。Python 干脆没有常量语法。</p>\n",
+      "fixHtml": "<p>JS 想真正不可变要 <code>Object.freeze()</code>（且只冻结第一层，深冻结要递归）；Python 侧不可变性来自<strong>不可变类型</strong>（tuple / frozenset / str）而不是语法。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/const-immutability",
+      "tags": [
+        "不可变"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-is-identity",
+      "title": "把 `===` 直译成 `is`，小数字碰巧对",
+      "symptomHtml": "<p><code>x is 1</code> 在多数时候是 True，测试全绿；直到某个值来自计算或配置，\n同一个写法突然变成 False —— 而 <code>x == 1</code> 是对的。</p>\n",
+      "causeHtml": "<p>JS 的 <code>===</code> 是「值相同且类型相同」，直译到 Python 时最像的词看起来是 <code>is</code>，\n但 <code>is</code> 比的是<strong>对象身份</strong>（内存里是不是同一个对象）。CPython 会缓存\n-5 到 256 的整数与部分字符串，所以小值经常恰好是同一个对象、大值不是 ——\n表现就是「有时候对」。</p>\n",
+      "fixHtml": "<p>判值一律用 <code>==</code>，<code>is</code> 只留给单例：<code>None</code>、<code>True</code>、<code>False</code>。\n（<code>is None</code> 是特例：那里用 <code>==</code> 反而错，因为 <code>==</code> 可以被重载。）</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/equality",
+      "tags": [
+        "相等",
+        "数值"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-negative-modulo",
+      "title": "负数取模的符号方向相反",
+      "symptomHtml": "<p><code>-7 % 2</code> 在 JS 是 <code>-1</code>，在 Python 是 <code>1</code>。分页、哈希、循环取余的逻辑会静默错位。</p>\n",
+      "causeHtml": "<p>JS 的 <code>%</code> 是「截断取余」（符号跟被除数），Python 的 <code>%</code> 是「向下取整取余」（符号跟除数）。</p>\n",
+      "fixHtml": "<p>不要依赖语言的默认行为来保证非负。需要非负余数时显式写 <code>((a % b) + b) % b</code>，或使用 Python 的 <code>divmod</code> 明确语义。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/arithmetic",
+      "tags": [
+        "运算符",
+        "数值"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-string-contains",
+      "title": "判断字符串包含拿到了 -1",
+      "symptomHtml": "<p>把 <code>&quot;abc&quot;.includes(&quot;b&quot;)</code> 直译成 <code>&quot;abc&quot;.find(&quot;b&quot;)</code>，然后用它当布尔值——<code>-1</code> 是真值，判断永远成立。</p>\n",
+      "causeHtml": "<p>JS 的 <code>includes</code> 返回布尔，Python 的 <code>find</code> 返回下标（找不到为 <code>-1</code>）。</p>\n",
+      "fixHtml": "<p>Python 里判断包含用 <code>&quot;b&quot; in &quot;abc&quot;</code>；只有真的需要下标时才用 <code>find</code>/<code>index</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/string-methods",
+      "tags": [
+        "字符串"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-var-leak",
+      "title": "var 在循环里泄漏成闭包共享变量",
+      "symptomHtml": "<p>循环里给多个回调绑定 <code>var i</code>，回调触发时全部拿到同一个最终值。</p>\n",
+      "causeHtml": "<p><code>var</code> 是函数级作用域且只有一份绑定，闭包捕获的是同一个变量；<code>let</code> 每次迭代创建新绑定。</p>\n",
+      "fixHtml": "<p>用 <code>let</code> 替代 <code>var</code>。这条是 JS 内部的历史问题，但迁移到 Python 时要意识到 Python 的 <code>for</code> 变量<strong>同样是单个绑定</strong>（在函数作用域里），所以闭包捕获也会共享——<strong>坑是同一个坑，只是换了语言</strong>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/var-scope",
+      "tags": [
+        "闭包",
+        "作用域"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-optional-chaining-missing",
+      "title": "obj?.key 在 Python 里是语法错误",
+      "symptomHtml": "<p>把带可选链的 JS 代码逐行翻译，Python 直接 SyntaxError；或者用 <code>obj and obj.key</code> 绕过后，遇到合法的假值（0、&quot;&quot;）又出错。</p>\n",
+      "causeHtml": "<p>Python 没有安全导航语法；<code>and</code> 短路返回的是操作数本身，会把 <code>0</code>、<code>&quot;&quot;</code> 这类合法值当成&quot;没有&quot;。</p>\n",
+      "fixHtml": "<p>用 <code>getattr(obj, &quot;key&quot;, None)</code> 或 <code>(obj or {}).get(&quot;k&quot;)</code>；\n更推荐<strong>把「可能缺失」显式建模成 <code>None</code> 并早返回</strong>，让控制流一眼可见。\n注意用 <code>is None</code> 判断，不要用 <code>and</code> 的假值短路。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/optional-chaining",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-string-join-order",
+      "title": "拼接列表时主宾写反了",
+      "symptomHtml": "<p>迁移后写 <code>[&quot;a&quot;,&quot;b&quot;].join(&quot;,&quot;)</code>（JS 习惯），在 Python 里报 <code>AttributeError</code>；反过来写 <code>&quot;,&quot;.join(list)</code> 在 JS 里也不成立。</p>\n",
+      "causeHtml": "<p>JS 把 join 定义在数组上（数组是主语），Python 把 join 定义在分隔符字符串上（分隔符是主语）。</p>\n",
+      "fixHtml": "<p>记一句口诀：<strong>JS 是「数组用分隔符连起来」，Python 是「分隔符把列表连起来」</strong>。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/multiline-string",
+      "tags": [
+        "字符串"
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "对象",
+      "aliases": [
+        "object"
+      ],
+      "perLanguage": {
+        "javascript": "\"对象\" 默认指 Object 字面量，也可以泛指一切非原始值",
+        "python": "\"对象\" 指一切值（连整数都是对象）；没有专门对应 JS Object 字面量的说法"
+      },
+      "note": "JS 的「对象」是同名异义最严重的一个词。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "列表 / 数组",
+      "aliases": [
+        "array",
+        "list"
+      ],
+      "perLanguage": {
+        "javascript": "Array（可变、长度可变、可混合类型）",
+        "python": "list（可变）；tuple（不可变，常被误当成 Array 用）"
+      },
+      "note": "Python 的 list 不是链表，是动态数组；性能特征与 JS 数组接近。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "字典 / 哈希表",
+      "aliases": [
+        "dict",
+        "map",
+        "hash"
+      ],
+      "perLanguage": {
+        "javascript": "Object 字面量（键只能是字符串/符号）或 Map（任意键）",
+        "python": "dict（任意可哈希键，3.7+ 保证插入有序）"
+      },
+      "note": "JS 的 Object 与 Map 语义不同（键类型、原型链、遍历顺序），Python 只有一个 dict。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface",
+        "protocol",
+        "trait"
+      ],
+      "perLanguage": {
+        "javascript": "无语言级概念，靠结构化类型隐式满足（TS 才引入 interface）",
+        "python": "Protocol（typing，结构化，3.8+）或 ABC（抽象基类，名义式）"
+      },
+      "note": "这是「同名不同义」的典型：TS 的 interface 是结构化，Python 的 ABC 是名义式。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "模块",
+      "aliases": [
+        "module",
+        "package"
+      ],
+      "perLanguage": {
+        "javascript": "一个文件即一个模块（ESM）；package 指 npm 包",
+        "python": "一个 .py 文件是 module，含 __init__.py 的目录是 package"
+      },
+      "note": "「module → package」的层级关系在 Python 里有明确语法，JS 里没有。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "闭包",
+      "aliases": [
+        "closure"
+      ],
+      "perLanguage": {
+        "javascript": "函数捕获定义时所在的词法环境",
+        "python": "同机制，但循环变量是单个绑定（这点与 JS 的 var 一样是坑）"
+      },
+      "note": "机制一致，坑也一致——只是当年 JS 用 let 修掉了，Python 的 for 变量仍然共享。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "装饰器",
+      "aliases": [
+        "decorator",
+        "annotation"
+      ],
+      "perLanguage": {
+        "javascript": "提案阶段语法 @decorator（TS 里已可用），写法在类/方法上",
+        "python": "成熟的语法特性 @decorator，可作用于任意函数/类，本质是高阶函数"
+      },
+      "note": "三个语言里 @xxx 长得一样，含义天差地别——同名不同义的高危词。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "迭代器 / 可迭代",
+      "aliases": [
+        "iterator",
+        "iterable",
+        "generator"
+      ],
+      "perLanguage": {
+        "javascript": "协议是 Symbol.iterator + next()；async 版本用 for await",
+        "python": "__iter__ / __next__；生成器函数用 yield，且是一次性消耗品"
+      },
+      "note": "两边的生成器都只能遍历一次，重复遍历要显式转成列表。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "cast",
+        "coercion"
+      ],
+      "perLanguage": {
+        "javascript": "隐式转换大量存在（+、==、比较），显式用 Number()/String()",
+        "python": "几乎不隐式转换，一律显式 int()/str()/float()"
+      },
+      "note": "「弱类型 vs 强类型」的实际差别就在这里。",
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "term": "可变默认参数",
+      "aliases": [],
+      "perLanguage": {
+        "javascript": "默认参数每次调用重新求值，不存在这个问题",
+        "python": "def f(x=[]) 的 [] 只求值一次，会被所有调用共享 —— 经典陷阱"
+      },
+      "note": "只有 Python 有这个问题，但它是 Python 面试题出现频率最高的坑之一。",
+      "baseline": "javascript",
+      "target": "python"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "py-1-anchor",
+      "order": 1,
+      "title": "先建立心智模型，不要背语法",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "通读本工具「心智模型」板块，把 npm/pip、Promise/asyncio 这类映射建起来",
+        "只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
+        "明确写下「哪些 JS 直觉必须丢掉」——块级作用域、隐式类型转换、对象字面量"
+      ],
+      "acceptance": [
+        "能说出 Python 与 JS 在「作用域」和「相等比较」上的两条根本差异",
+        "知道 Python 没有变量提升、没有可选链语法、没有常量语法"
+      ],
+      "resources": [
+        {
+          "label": "Python 官方教程（中文）",
+          "url": "https://docs.python.org/zh-cn/3/tutorial/"
+        },
+        {
+          "label": "Python for JS developers",
+          "url": "https://github.com/frankstepanski/python-for-js-developers"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "py-2-basics",
+      "order": 2,
+      "title": "基础语法逐条对照",
+      "durationHint": "1-2 天",
+      "todo": [
+        "按本工具「基础语法」板块的 8 个章节逐格对比，重点看标为「语义不同」的格子",
+        "每看一格，手写一遍两边的代码（不要复制）——建立肌肉记忆",
+        "把踩到的坑记进「迁移陷阱」板块的清单，并打上自己的严重度"
+      ],
+      "acceptance": [
+        "能独立写出变量、集合、控制流、函数定义，无语法错误",
+        "能解释 `is` 与 `==` 的区别，并知道什么时候必须用 `is None`"
+      ],
+      "resources": [
+        {
+          "label": "PEP 8 风格指南",
+          "url": "https://peps.python.org/pep-0008/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "py-3-practice",
+      "order": 3,
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "做 Exercism 的 Python track，接受 mentor 评审",
+        "把写过的一个小 JS 脚本（100-300 行）用 Python 重写一遍",
+        "重写时不要查 JS 原文件——凭记忆写，写完再对照"
+      ],
+      "acceptance": [
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法"
+      ],
+      "resources": [
+        {
+          "label": "Exercism Python Track",
+          "url": "https://exercism.org/tracks/python"
+        },
+        {
+          "label": "TheAlgorithms Python",
+          "url": "https://github.com/TheAlgorithms/Python"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "py-4-deep",
+      "order": 4,
+      "title": "补齐语义层（并发与内存）",
+      "durationHint": "3-5 天",
+      "todo": [
+        "真正理解 GIL：为什么多线程不能加速 CPU 密集任务",
+        "对比 JS 的事件循环与 asyncio 的事件循环（谁在驱动、怎么进入）",
+        "理解引用计数 + 循环 GC，以及 del 不等于释放",
+        "理解可变默认参数为什么是坑"
+      ],
+      "acceptance": [
+        "能解释为什么 Python 要用 multiprocessing 而不是 threading 做 CPU 密集任务",
+        "能写出正确的 asyncio 并发代码，并知道 asyncio.gather 与 Promise.all 的差别"
+      ],
+      "resources": [
+        {
+          "label": "asyncio 官方文档",
+          "url": "https://docs.python.org/3/library/asyncio.html"
+        },
+        {
+          "label": "Fluent Python（深入理解语言语义）",
+          "url": "https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    },
+    {
+      "id": "py-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 venv + pyproject.toml 管理一个真实项目，替代 node_modules 的直觉",
+        "配置 Ruff（= ESLint + Prettier 的合体），理解为什么 Python 工具链更\"独裁\"",
+        "用 pytest 写测试，注意 assert 与 expect 的区别",
+        "用 mypy 加类型标注，理解「gradual typing」的边界"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖管理、lint、测试、类型检查的 Python 工程",
+        "能说清 pyproject.toml / venv / pip / uv 各自解决什么问题"
+      ],
+      "resources": [
+        {
+          "label": "pytest 官方文档",
+          "url": "https://docs.pytest.org/"
+        },
+        {
+          "label": "Ruff",
+          "url": "https://docs.astral.sh/ruff/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "python"
+    }
+  ]
+}

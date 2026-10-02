@@ -1,0 +1,217 @@
+{
+  "baseline": "javascript",
+  "target": "go",
+  "pitfalls": [
+    {
+      "id": "pitfall-js2go-error-ignored",
+      "title": "忘了检查 err，编译器不会拦你",
+      "symptomHtml": "<p>调用返回 <code>(value, err)</code> 的函数时只接第一个返回值，出错时程序带着零值继续往下跑。</p>\n",
+      "causeHtml": "<p>Go 用返回值表达错误，而「不检查错误」在语法上完全合法 —— JS 里未捕获的 reject 至少会冒泡成未处理异常，Go 里连泡都不会冒。</p>\n",
+      "fixHtml": "<p>每个返回 err 的调用都立刻处理或显式向上返回；实在要忽略，\n写 <code>_ =</code> 并在注释里说明理由，让忽略成为一个需要解释的动作。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-javascript/error-handling",
+      "tags": [
+        "错误处理"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-interface-nil",
+      "title": "返回了 nil 却通过了 `err != nil` 的检查",
+      "symptomHtml": "<p>一个返回 <code>error</code> 的函数在成功分支写 <code>return nil</code>，调用方 <code>if err != nil</code>\n却成立，走进错误分支并打印出 <code>&lt;nil&gt;</code>。同理，一个装着 nil 指针的接口值，\n与 <code>nil</code> 比较永远是 false。</p>\n",
+      "causeHtml": "<p>Go 的接口值是一对 <code>(类型, 值)</code>，<strong>只有两半都是 nil 时接口才等于 nil</strong>。\n一个类型为 <code>*MyError</code>、值为 nil 的接口，类型那一半不是 nil。\nJS 里没有「接口值」这层包装，空就是空 —— 所以这个失败模式\n在 JS 的经验里根本不存在：它不是「Go 更严格」，而是一个<strong>新的空值形态</strong>。</p>\n",
+      "fixHtml": "<p>出错时返回未加类型的 nil（写 <code>return nil</code>，不要写 <code>return (*MyError)(nil)</code>\n再赋给接口）；或者干脆让函数返回具体类型，只在真需要抽象时才用接口。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-javascript/interface",
+      "tags": [
+        "接口",
+        "空值"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-nil-map-write",
+      "title": "往 nil map 里写会 panic，读却没事",
+      "symptomHtml": "<p>声明了 <code>var m map[string]int</code> 就直接 <code>m[&quot;a&quot;] = 1</code>，运行时 panic；但同样的 map 读 <code>m[&quot;a&quot;]</code> 返回 0，一切正常。</p>\n",
+      "causeHtml": "<p>Go 的 nil map 可以读（零值语义）但不能写，而 JS 里 <code>const m = {}</code> 天生可写 —— 直觉直接搬过来就会跳过 <code>make</code>。</p>\n",
+      "fixHtml": "<p>声明时就用 <code>m := make(map[string]int)</code> 或字面量 <code>map[string]int{}</code>，只有明确要&quot;只读的空 map&quot;时才留 nil。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/object-access",
+      "tags": [
+        "集合",
+        "空值"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-goroutine-loop-var",
+      "title": "循环里起的 goroutine 全部用了同一个变量",
+      "symptomHtml": "<p><code>for _, v := range xs { go func() { use(v) }() }</code> 里所有 goroutine 都拿到最后一个值。</p>\n",
+      "causeHtml": "<p>与 JS 的 <code>var</code> 闭包共享是同一个坑；Go 在 1.22 之前 range 变量在整个循环里是单个绑定。</p>\n",
+      "fixHtml": "<p>Go 1.22 起 range 变量每轮都是新绑定，坑已消失 —— 但在读旧代码时仍会遇到，\n且 <code>for i := 0; ...</code> 形式的循环变量至今仍是单绑定，需要显式传参\n<code>go func(v T) { ... }(v)</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/var-scope",
+      "tags": [
+        "并发",
+        "闭包"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "接口",
+      "aliases": [
+        "interface",
+        "type"
+      ],
+      "perLanguage": {
+        "javascript": "无语言级概念，靠鸭子类型隐式满足",
+        "go": "同样是隐式满足 —— 只要方法集齐了就算实现了接口，不需要 implements；这是与 Java 式接口最大的区别"
+      },
+      "note": "Go 的接口偏「先有实现、再抽象出接口」，与 JS 的隐式结构类型反而是同一种思路。",
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "term": "错误处理",
+      "aliases": [
+        "error",
+        "exception",
+        "try"
+      ],
+      "perLanguage": {
+        "javascript": "异常机制，throw / try / catch；未捕获的 Promise 拒绝会冒泡成 unhandledrejection",
+        "go": "错误是普通返回值，用 `(T, error)` 显式返回；panic 只留给真正的程序缺陷"
+      },
+      "note": "「错误是值」这件事改变了控制流写法 —— Go 里你会看到大量 if err != nil。",
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "term": "并发",
+      "aliases": [
+        "concurrency",
+        "async",
+        "goroutine"
+      ],
+      "perLanguage": {
+        "javascript": "单线程事件循环，async/await 是语法糖，本质是不阻塞的协作式调度",
+        "go": "真并行的 goroutine + channel，用通信来共享内存而不是共享内存来通信"
+      },
+      "note": "两边的 async 长得像，但 JS 里并发是\"同时等待\"，Go 里并发是\"同时执行\"。",
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "term": "值语义",
+      "aliases": [
+        "value",
+        "reference",
+        "struct"
+      ],
+      "perLanguage": {
+        "javascript": "对象与数组是引用；原始类型是值，但包装时会装箱",
+        "go": "struct 与数组是值类型，赋值即拷贝；slice / map / channel 内部持有引用"
+      },
+      "note": "Go 里「赋值到底是拷贝还是共享」要按类型逐个判断，比 JS 的二分法复杂。",
+      "baseline": "javascript",
+      "target": "go"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "js2go-1-mental-model",
+      "order": 1,
+      "title": "先接受「没有异常、没有类继承」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "通读「心智模型」板块，把两边在这些根本差异上的映射建起来",
+        "只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
+        "明确写下「哪些 JS 直觉必须丢掉」——try/catch 兜底、原型继承、对象即字典"
+      ],
+      "acceptance": [
+        "能说清 `(T, error)` 与 throw 在控制流上的区别",
+        "知道 Go 的接口是隐式满足的，不需要 implements"
+      ],
+      "resources": [
+        {
+          "label": "Go 官方教程（Tour of Go）",
+          "url": "https://go.dev/tour/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "js2go-2-basics",
+      "order": 2,
+      "title": "基础语法逐条对照",
+      "durationHint": "3-5 天",
+      "todo": [
+        "按基础语法板块的章节逐格对比，每看一格手写一遍两边的代码（不要复制）",
+        "把踩到的坑记进本方向的迁移陷阱清单并打上自己的严重度",
+        "练习把一段 JS 的数组链式调用改写成 Go 的循环（Go 没有 map/filter）"
+      ],
+      "acceptance": [
+        "能独立写出变量、切片、map、控制流、函数，无编译错误",
+        "能解释 slice 与数组的区别，以及 append 为什么常常要重新赋值"
+      ],
+      "resources": [
+        {
+          "label": "Effective Go",
+          "url": "https://go.dev/doc/effective_go"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "js2go-3-tooling",
+      "order": 3,
+      "title": "接上工具链与工程习惯",
+      "durationHint": "1 周",
+      "todo": [
+        "建一个 module（go mod init）并跑通 build / test / vet 三步",
+        "把 npm 的心智映射到 Go modules 与 go get",
+        "用 gofmt 固定格式，体会「格式没有争论」带来的协作收益"
+      ],
+      "acceptance": [
+        "能独立新建一个 module 并产出可执行文件",
+        "能读懂编译错误与 `go vet` 的提示定位问题"
+      ],
+      "resources": [
+        {
+          "label": "Go Modules 参考",
+          "url": "https://go.dev/ref/mod"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    }
+  ]
+}

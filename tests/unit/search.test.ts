@@ -7,9 +7,17 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest'
 import { analyzeContent } from '../../scripts/lib/analyze'
-import { buildSearchDocs, buildSearchIndexPayload } from '../../scripts/pipeline/search-index'
-import { loadSearchIndex, toHits, type SearchHit } from '../../src/content/search'
+import { buildSearchDocs, buildSearchIndexPayloads } from '../../scripts/pipeline/search-index'
+import {
+  loadSearchIndex,
+  queryOptions,
+  toHits,
+  type SearchHit,
+} from '../../src/content/search'
 import { tokenize, tokenizeQuery } from '../../src/content/search-tokenize'
+
+/** 索引按基准分片，默认基准那一份就是用户首访看到的范围 */
+const BASELINE = 'javascript'
 
 let search: (q: string) => SearchHit[]
 let docCount = 0
@@ -17,9 +25,11 @@ let byType: Record<string, number> = {}
 
 beforeAll(() => {
   const analysis = analyzeContent()
-  const payload = buildSearchIndexPayload(analysis, '2026-10-01T00:00:00.000Z')
+  const payloads = buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z')
+  const payload = payloads[BASELINE]!
   const engine = loadSearchIndex(payload.index)
-  search = (q: string) => toHits(engine.search(q) as Array<Record<string, unknown>>)
+  search = (q: string) =>
+    toHits(engine.search(q, queryOptions(BASELINE)) as Array<Record<string, unknown>>)
   docCount = payload.docCount
   byType = payload.byType
 })
@@ -89,9 +99,10 @@ describe('检索', () => {
     expect(search('zzzqxyz')).toHaveLength(0)
   })
 
-  it('五类内容都进了索引', () => {
+  it('四类内容都进了索引', () => {
     expect(docCount).toBeGreaterThan(0)
-    for (const type of ['feature', 'pitfall', 'concept', 'glossary', 'roadmap']) {
+    // 心智模型自 ADR-31 起是「板块下的章节型内容」，走 feature 文档，不再是独立类型
+    for (const type of ['feature', 'pitfall', 'glossary', 'roadmap']) {
       expect(byType[type]).toBeGreaterThan(0)
     }
   })
@@ -118,5 +129,86 @@ describe('文档构造', () => {
   it('文档 id 全局唯一（重复 id 会让 MiniSearch 静默覆盖）', () => {
     const docs = buildSearchDocs(analyzeContent())
     expect(new Set(docs.map((d) => d.id)).size).toBe(docs.length)
+  })
+
+  it('对级内容都带 (基准, 目标) —— 这是分片与查询过滤的依据', () => {
+    const docs = buildSearchDocs(analyzeContent())
+    for (const d of docs) {
+      if (d.type === 'pitfall' || d.type === 'glossary' || d.type === 'roadmap') {
+        expect(d.baseline, d.id).toBeTruthy()
+        expect(d.target, d.id).toBeTruthy()
+        expect(d.section, d.id).toBeTruthy()
+      }
+    }
+  })
+
+  it('心智模型按基准分片，不再是全局共享文档', () => {
+    /*
+     * 这条断言在 ADR-31 之前是反的：那时「心智模型」是与基准无关的一份全局内容，
+     * 26 条概念建成 `baseline: ''` 的文档、三个分片都收，url 一律指向
+     * `/lang/<默认基准>` —— 于是搜「包管理」只会落到同一张只读大表。
+     *
+     * 现在概念按基准视角分别撰写，是**板块下的章节型内容**，走 feature 文档
+     * （带自己的 baseline 与 `/feature/concepts-<基准>/<slug>` 地址）。
+     * 这里钉住的就是这件事：它们必须落在各自基准的分片里，而不是每片都收。
+     */
+    const analysis = analyzeContent()
+    const docs = buildSearchDocs(analysis)
+    const conceptDocs = docs.filter((d) => d.id.includes('concepts-'))
+    expect(conceptDocs.length).toBeGreaterThan(0)
+    for (const d of conceptDocs) {
+      expect(d.type, d.id).toBe('feature')
+      expect(d.baseline, d.id).toBeTruthy()
+      expect(d.url.startsWith('/feature/'), d.id).toBe(true)
+    }
+
+    // 每个概念文档只出现在**它自己基准**的分片里（分片键 = topic 的基准）
+    const payloads = buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z')
+    expect(Object.keys(payloads).sort()).toEqual(['java', 'javascript', 'python'])
+    for (const [baseline, p] of Object.entries(payloads)) {
+      const mine = conceptDocs.filter((d) => d.baseline === baseline).length
+      expect(p.byType.feature, `${baseline} 分片`).toBeGreaterThanOrEqual(mine)
+    }
+  })
+
+  it('每个分片只收本基准 + 全局共享的文档', () => {
+    const analysis = analyzeContent()
+    const docs = buildSearchDocs(analysis)
+    const payloads = buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z')
+
+    for (const [baseline, payload] of Object.entries(payloads)) {
+      const expected = docs.filter((d) => d.baseline === baseline || d.baseline === '').length
+      expect(payload.docCount, `${baseline} 分片文档数`).toBe(expected)
+    }
+    // 三套内容确实不同 —— 否则分片就只是徒增文件
+    const pythonOnly = docs.filter((d) => d.baseline === 'python').length
+    expect(pythonOnly).toBeGreaterThan(0)
+    expect(payloads.javascript!.docCount).toBeGreaterThan(payloads.python!.docCount)
+  })
+
+  it('查询过滤生效：拿着 A 基准的选项查 B 基准的分片，只能捞到全局共享项', () => {
+    const analysis = analyzeContent()
+    const docs = buildSearchDocs(analysis)
+    const pythonOnly = docs.find(
+      (d) => d.baseline === 'python' && d.type === 'glossary' && d.section === 'glossary',
+    )
+    expect(pythonOnly, '需要一条 python 基准独有的词典条目来验证过滤').toBeTruthy()
+
+    // python 分片里既有 python 基准的文档，也有全局共享的心智模型
+    const engine = loadSearchIndex(
+      buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z').python!.index,
+    )
+    const raw = engine.search(pythonOnly!.title) as unknown as Array<Record<string, unknown>>
+    const filtered = engine.search(
+      pythonOnly!.title,
+      queryOptions('javascript'),
+    ) as unknown as Array<Record<string, unknown>>
+
+    // 不过滤时能命中（文档确实在索引里）；带上 javascript 的过滤条件后，
+    // python 基准的文档必须全部消失，只剩全局共享的心智模型（baseline 为空）。
+    expect(raw.length).toBeGreaterThan(0)
+    expect(raw.some((r) => r.baseline === 'python')).toBe(true)
+    expect(filtered.every((r) => r.baseline === '')).toBe(true)
+    expect(filtered.length).toBeLessThan(raw.length)
   })
 })

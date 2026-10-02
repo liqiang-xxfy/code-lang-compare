@@ -6,6 +6,7 @@
  *  2. 校验只发生在构建期：src 侧只 `import type`，编译期擦除，不进客户端包。
  */
 import { z } from 'zod'
+import type { SectionId } from '../generated/sections.gen'
 
 /* ────────────────────────── 基础 ────────────────────────── */
 
@@ -104,15 +105,135 @@ export const chapterSchema = z.object({
  */
 export const topicKindSchema = z.enum(['concept', 'migration'])
 
-export const topicSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1),
-  order: z.number().int().nonnegative(),
-  summary: z.string().optional(),
-  kind: topicKindSchema.default('concept'),
-  /** 适用语言范围。缺省 = 全部已启用语言 */
-  languages: z.array(z.string()).optional(),
-})
+/**
+ * 一个板块的定义 —— `registry.yaml` 的 `sections:` 段的成员。
+ *
+ * 板块曾是**封闭枚举**（`z.enum(['basics', ...])`），于是加一个板块要改 17 处代码：
+ * 路由白名单、路由名 switch、导航分组、首页入口、SEO 分支、搜索文档类型……
+ * 其中四处用 `section === 'basics'` 当「是否基准级」的判据，漏改**不报错**，
+ * 只是静默按 migration 渲染。
+ *
+ * 现在板块是可注册的数据，三个正交维度分开声明：
+ *   shape    数据形态：chapter = 有章节的并排对照；list = 一页列表资源
+ *   scope    是否对级：baseline = 以基准为参照、可多门并列；pair = 锁定两门
+ *   columns  语言控件形态：multi = 多选并排；single = 单选
+ * 「基准级 + 单选」「对级 + 多选」这类组合在拆分后才成为可表达的状态。
+ */
+export const sectionDefSchema = z
+  .object({
+    /** 左栏排序 —— 板块顺序是策展决策，不是字母序 */
+    order: z.number().int().nonnegative(),
+    /** 侧栏与导航用的短名（如「基础语法」） */
+    label: z.string().min(1),
+    /** 页面 H1 用的长名（如「基础语法对比」） */
+    title: z.string().min(1),
+    shape: z.enum(['chapter', 'list']),
+    scope: z.enum(['baseline', 'pair']),
+    columns: z.enum(['multi', 'single']),
+    /**
+     * 是不是 `/compare/<基准>` 与顶栏「多语言对比」的落点板块。
+     *
+     * 写成数据而不是在路由里点名某个板块 id：**站点落点是策展决策**，
+     * 换一个板块只该改 registry 一行。写死 id 还会让 `verify:sections` 的白名单
+     * 多一条「为什么这里可以出现板块名」的谎话。
+     *
+     * 至多一个板块声明它（`registrySchema.superRefine` 会拦重复）。
+     * 一个都没声明时回落到「第一个章节型板块的首章」（旧行为）。
+     */
+    landing: z.boolean().optional(),
+    /** list 型必填：取自 PairPayload 的哪个字段（pitfalls / glossary / roadmaps） */
+    dataKey: z.string().optional(),
+    /**
+     * list 型必填：渲染器名，指向代码里的渲染器注册表。
+     * chapter 型省略即用内置的 ChapterCompareView。
+     */
+    renderer: z.string().optional(),
+    /**
+     * SEO 文案模板，构建期求值。占位符：
+     *   {baseline} {target} {direction}   语言名与「A → B」
+     *   {chapterTitle}                    章节标题（章节型板块）
+     *   {compared}                        基准级板块对照的语言名
+     *   {count} {sample}                  条目数与前 N 条标题（列表型板块）
+     */
+    seo: z.object({
+      title: z.string().min(1),
+      description: z.string().min(1),
+      /** {sample} 取前几条标题，默认 8 */
+      sampleLimit: z.number().int().positive().optional(),
+    }),
+  })
+  .superRefine((v, ctx) => {
+    if (v.shape !== 'list') return
+    if (!v.dataKey) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['dataKey'],
+        message: 'list 型板块必须声明 dataKey —— 它决定从 PairPayload 取哪份列表',
+      })
+    }
+    if (!v.renderer) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['renderer'],
+        message: 'list 型板块必须声明 renderer —— 列表型的交互各不相同，没有默认视图',
+      })
+    }
+  })
+
+/**
+ * topic 的板块归属 —— 值为 `registry.sections` 的键。
+ *
+ * **类型**来自 `src/generated/sections.gen.ts`（随 registry.yaml 自动更新），
+ * 所以 `z.infer` 出的 `Section` 仍是「已注册板块」的联合类型，不会退化成 `string` ——
+ * 各处 `section: Section` 的赋值照旧受检查。
+ *
+ * **成员资格**刻意不在这里校验（不用 `z.enum(SECTION_IDS)`）：CI 的顺序是
+ * `content:validate → … → content:build`，而 sections.gen.ts 只在 build 阶段重新生成。
+ * 若这里依赖生成物，`content:validate` 就会拿**上一版**的板块清单去校验**新**的
+ * registry.yaml，新增板块会以「invalid enum value」失败 —— 一个指向错误原因的报错。
+ * 因此运行时只保证「是非空字符串」，成员资格交给 `registrySchema.superRefine`
+ * 读当次解析的 YAML 判定；生成物是否过期由 section-registry 测试断言。
+ */
+export const sectionSchema = z.custom<SectionId>(
+  (v) => typeof v === 'string' && v.length > 0,
+  { message: '板块 id 必须是非空字符串' },
+)
+
+/**
+ * topic 配置 —— registry.topics 与校验共用的唯一真源。
+ *
+ * 三轴模型的落点：topic 不再只是「一个内容分组」，而是明确回答
+ * 「属于哪个板块（section）、以谁为基准（baseline）、对照谁（target）」。
+ * 后两个字段是**真值**，topic id 只是标签 —— R8 校验字段而不解析 id，
+ * 因此不需要维护 js ↔ javascript 这类别名映射表。
+ */
+export const topicConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    title: z.string().min(1),
+    kind: topicKindSchema.default('concept'),
+    section: sectionSchema,
+    /** 基准语言（from）。所有板块必填 */
+    baseline: z.string().min(1),
+    /** 目标语言（to）。scope 为 pair 的板块必填、为 baseline 的必须缺省 —— 由 registrySchema 校验 */
+    target: z.string().optional(),
+    /** 适用语言范围。缺省 = 全部已启用语言 */
+    languages: z.array(z.string()).optional(),
+  })
+  .superRefine((v, ctx) => {
+    /*
+     * 这里只做**自洽性**校验。「基准级不得有 target / 对级必须有 target」需要
+     * 同时看到板块注册表才知道该走哪一支，而 topicConfigSchema 是独立解析的 ——
+     * 那条判断在 registrySchema.superRefine 里（它能同时看到 sections 与 topics）。
+     */
+    if (v.target && v.target === v.baseline) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['target'],
+        message: 'baseline 与 target 不能相同（自己除外）',
+      })
+    }
+  })
 
 /* ────────────────────────── 一格内容 ────────────────────────── */
 
@@ -176,20 +297,97 @@ export const reviewRecordSchema = z.object({
   notes: z.string().optional(),
 })
 
-export const snippetSchema = z.object({
+/**
+ * 多段代码里的一段。
+ *
+ * `label` 必填 —— 段标签是并排视图里唯一能说明「第 2 段在跟哪一段比」的东西，
+ * 没有它就没法逐段对齐。
+ */
+export const snippetBlockSchema = z.object({
+  label: z.string().min(1),
+  code: z.string().default(''),
+})
+
+/** snippet 的公共字段 —— 校验逻辑在 snippetSchema / snippetEntrySchema 上各挂一次 */
+const snippetBase = z.object({
   featureId: z.string().min(1),
   equivalence: equivalenceSchema,
   flags: z.array(snippetFlagSchema).default([]),
-  /** 可含内联 @note 标记；构建期抽取后剥离标记 */
+  /** 单段代码。与 `blocks` 二选一（R16），可含内联 @note 标记 */
   code: z.string().default(''),
+  /**
+   * 多段对照代码 —— 用于「一个场景、一段或多段对照写法」（如「错误写法 / 正确写法」）。
+   *
+   * 单段内容继续写 `code`，渲染路径完全不变：**多段是增量，不是替换**。
+   * 两侧段数一致时按序号逐段 diff；不一致时并列展示并说明未做逐行对照。
+   */
+  blocks: z.array(snippetBlockSchema).optional(),
   /** 手写运行结果（无 runner，需与代码同等校对） */
   output: z.string().optional(),
-  review: reviewRecordSchema,
   /** 该语言的补充说明（受限 Markdown），主要用于 equivalence=absent 时给替代做法 */
   body: z.string().optional(),
 })
 
-export const snippetFileSchema = z.array(snippetSchema)
+/** R16：code 与 blocks 必须恰好给一个；多段时每段必须有非空 label */
+function refineSnippet(
+  v: { code: string; blocks?: Array<{ label: string }> },
+  ctx: z.RefinementCtx,
+): void {
+  const hasCode = v.code.trim().length > 0
+  const hasBlocks = (v.blocks?.length ?? 0) > 0
+  if (hasCode && hasBlocks) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['blocks'],
+      message: 'code 与 blocks 不能并存 —— 单段写 code、多段写 blocks，二选一（R16）',
+    })
+  }
+  if (!hasCode && !hasBlocks) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['code'],
+      message: '必须提供 code（单段）或 blocks（多段）之一（R16）',
+    })
+  }
+  for (const [i, b] of (v.blocks ?? []).entries()) {
+    if (!b.label.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['blocks', i, 'label'],
+        message: '多段的每一段都必须有非空 label —— 否则并排视图无法逐段对齐（R16）',
+      })
+    }
+  }
+}
+
+export const snippetSchema = snippetBase.extend({ review: reviewRecordSchema }).superRefine(refineSnippet)
+
+/**
+ * 文件内的条目 —— 与 `snippetSchema` 相同，但 `review` 可省略（继承文件级默认）。
+ * loader 在装载时补齐，因此下游（analyze / build）拿到的仍是 review 必填的 SnippetSource。
+ */
+export const snippetEntrySchema = snippetBase
+  .extend({ review: reviewRecordSchema.optional() })
+  .superRefine(refineSnippet)
+
+/**
+ * 语言覆盖层的一个文件。
+ *
+ * 顶层从**裸数组**改成对象，一次解决三件事：
+ *  1. 章节与列表不再靠 loader 的 `Array.isArray` 隐式区分 —— 那条约定对作者完全不可见，
+ *     一个 YAML 写成数组还是对象决定了它是什么
+ *  2. `review` 可提到文件级：实测同批生成的条目 provenance 逐字相同，
+ *     一份 5 条的文件要把它抄 5 遍，全仓库共 456 处，改一次就要改几百处
+ *  3. `topic` 显式声明本文件承载哪个 topic 的覆盖内容，featureId 前缀因此有了
+ *     可校验的声明来源（R15），而不是靠人记住「所有文件共用一个语言目录」
+ */
+export const snippetFileSchema = z.object({
+  /** 本文件承载的 topic id —— 必须与所在目录一致（R15） */
+  topic: z.string().min(1),
+  /** 文件级默认 review，条目可用自己的覆盖 */
+  review: reviewRecordSchema.optional(),
+  snippets: z.array(snippetEntrySchema).min(1),
+})
 
 /* ────────────────────────── 踩坑 / 心智模型 / 路线图 ────────────────────────── */
 
@@ -206,13 +404,6 @@ export const pitfallSchema = z.object({
   tags: z.array(z.string()).default([]),
 })
 
-export const conceptGroupSchema = z.object({
-  id: z.string().min(1),
-  concept: z.string().min(1),
-  /** N 列 —— 两列视图只是它的一个投影（v1 的 baseline/target 两列装不下 7 语言） */
-  entries: z.record(z.string(), z.object({ label: z.string(), detail: z.string() })),
-})
-
 export const glossaryTermSchema = z.object({
   term: z.string().min(1),
   aliases: z.array(z.string()).default([]),
@@ -222,7 +413,6 @@ export const glossaryTermSchema = z.object({
 
 export const roadmapStageSchema = z.object({
   id: z.string().min(1),
-  lang: z.string().min(1),
   order: z.number().int().nonnegative(),
   title: z.string().min(1),
   durationHint: z.string().optional(),
@@ -231,14 +421,34 @@ export const roadmapStageSchema = z.object({
   resources: z.array(resourceLinkSchema).default([]),
 })
 
+/* ──────────────── 列表资源 × (基准, 目标) 对 ──────────────── */
+
+/**
+ * 陷阱 / 词典 / 路线三类列表资源现在是**对级**的：它们挂在
+ * `content/topics/<baseline><target 短码>/` 目录里，归属由目录名决定。
+ *
+ * 为什么 pair 由 loader 注入而不写进每条 YAML：
+ * 12 个对里同一条陷阱可能要出现多次（若它跨多个方向成立），
+ * 逐条写 pair 字段会让「同一份内容」变成 12 份会各自漂移的副本。
+ */
+export const pairContextSchema = z.object({
+  baseline: z.string().min(1),
+  target: z.string().min(1),
+})
+
+export const scopedPitfallSchema = pitfallSchema.extend(pairContextSchema.shape)
+export const scopedGlossarySchema = glossaryTermSchema.extend(pairContextSchema.shape)
+export const scopedRoadmapStageSchema = roadmapStageSchema.extend(pairContextSchema.shape)
+
 /* ────────────────────────── 注册表 ────────────────────────── */
 
 export const languageToggleSchema = z.object({
   enabled: z.boolean().default(false),
 })
 
-export const registrySchema = z.object({
-  version: z.number().int().positive(),
+export const registrySchema = z
+  .object({
+    version: z.number().int().positive(),
   /**
    * 发布策略开关（D-A / ADR-07）：
    *  - 'include-draft-with-badge'：draft 参与构建与索引，但页面必须显示「未经人工校对」
@@ -248,36 +458,82 @@ export const registrySchema = z.object({
   /** 默认基准语言（首访默认值与 SSG 静态文案使用）。必须是已启用语言 */
   defaultBaseline: z.string().min(1),
   /**
-   * equivalence 徽章的参照系 —— 全局声明一次。
+   * 默认对比语言 —— 首访时对比列默认选中的那一门。
    *
-   * 徽章是人手写的**绝对值**（"Python 没有 var 提升"这类事实机器判不了），
-   * 无法随基准切换重算。因此参照系是内容级常量而非运行时变量：
-   * 切基准只影响行级 diff，不影响徽章。UI 必须如实说明这一点，
-   * 否则用户会以为徽章是"相对当前基准"的。
+   * 取代了 v1 的 `equivalenceReference`：那个常量把徽章的参照系钉死在一门语言上，
+   * 于是「以 Python 为基准」时徽章说的仍是「相对 JavaScript」。现在内容按
+   * (基准, 目标) 对撰写，徽章相对**该对所属的基准**，参照系随页面而变，
+   * 不再需要一个全局常量（ADR-24）。
    */
-  equivalenceReference: z.string().min(1),
+  defaultCompareLanguage: z.string().min(1),
   site: z.object({
     name: z.string().min(1),
     shortDescription: z.string().min(1),
     lang: z.string().default('zh-CN'),
   }),
-  languages: z.record(z.string(), languageToggleSchema),
-  topics: z.record(
-    z.string(),
-    z.object({
-      enabled: z.boolean().default(true),
-      title: z.string().min(1),
-      kind: topicKindSchema.default('concept'),
-      /**
-       * 该 topic 适用的语言范围。缺省 = 全部已启用语言。
-       *
-       * 迁移教程是第一个使用者：一个方向只涉及 from/to 两门语言，
-       * R2 覆盖率据此计算 —— 否则会按 5 门已启用语言报"缺 3 格"并阻断构建。
-       */
-      languages: z.array(z.string()).optional(),
-    }),
-  ),
-})
+    languages: z.record(z.string(), languageToggleSchema),
+    /** 板块注册表 —— 左栏分组、URL 段、页面标题、SEO 文案、语言控件形态的唯一来源 */
+    sections: z.record(z.string(), sectionDefSchema),
+    topics: z.record(z.string(), topicConfigSchema),
+  })
+  .superRefine((v, ctx) => {
+    /*
+     * 板块成员资格的判定落在这里，而不是 `sectionSchema` 的 z.enum ——
+     * 因为它读的是**当次解析的 YAML**，永远与 registry.yaml 同步；
+     * 若交给生成的 id 清单，content:validate（跑在生成之前）会用上一版清单
+     * 校验新内容，新增板块报「invalid enum value」这种指向错误原因的错。
+     */
+    const ids = new Set(Object.keys(v.sections))
+    if (!ids.size) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['sections'],
+        message: 'sections 段不能为空 —— 它是左栏、路由与 SEO 文案的来源',
+      })
+      return
+    }
+    for (const [topicId, cfg] of Object.entries(v.topics)) {
+      const def = v.sections[cfg.section]
+      if (!def) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['topics', topicId, 'section'],
+          message: `未知板块 '${cfg.section}' —— 请先在 registry.yaml 的 sections 段注册它`,
+        })
+        continue
+      }
+      // 「有没有 target」由板块的 scope 决定，不再由 `section === 'basics'` 决定
+      if (def.scope === 'pair' && !cfg.target) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['topics', topicId, 'target'],
+          message: `'${cfg.section}' 是 (基准, 目标) 对级板块，topic 必须声明 target`,
+        })
+      }
+      if (def.scope === 'baseline' && cfg.target) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['topics', topicId, 'target'],
+          message: `'${cfg.section}' 是基准级板块，topic 不得声明 target —— 它的列由运行时多选的对比语言决定`,
+        })
+      }
+    }
+
+    /*
+     * 落点板块至多一个。多个声明不会报错、只会按 order 静默取第一个，
+     * 正是「漏改不报错」那一类；这里让它显式失败。
+     */
+    const landings = Object.entries(v.sections).filter(([, def]) => def.landing)
+    if (landings.length > 1) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['sections'],
+        message: `只能有一个板块声明 landing: true，当前有 ${landings.length} 个：${landings
+          .map(([id]) => id)
+          .join('、')}`,
+      })
+    }
+  })
 
 /* ────────────────────────── 派生类型 ────────────────────────── */
 
@@ -286,17 +542,26 @@ export type LanguageMeta = z.infer<typeof languageMetaSchema>
 export type FeatureKind = z.infer<typeof featureKindSchema>
 export type Feature = z.infer<typeof featureSchema>
 export type Chapter = z.infer<typeof chapterSchema>
-export type Topic = z.infer<typeof topicSchema>
+export type TopicConfig = z.infer<typeof topicConfigSchema>
+/** @deprecated 用 TopicConfig —— 保留别名只为减少外围改名噪音 */
+export type Topic = TopicConfig
 export type TopicKind = z.infer<typeof topicKindSchema>
+/** 一个板块的定义（registry.yaml 的 sections 段成员），不含 id */
+export type SectionDef = z.infer<typeof sectionDefSchema>
+/** 板块 id —— 由 src/generated/sections.gen.ts 派生的联合类型 */
+export type Section = z.infer<typeof sectionSchema>
 export type Equivalence = z.infer<typeof equivalenceSchema>
 export type SnippetFlag = z.infer<typeof snippetFlagSchema>
 export type Provenance = z.infer<typeof provenanceSchema>
 export type ReviewRecord = z.infer<typeof reviewRecordSchema>
 export type SnippetSource = z.infer<typeof snippetSchema>
 export type Pitfall = z.infer<typeof pitfallSchema>
-export type ConceptGroup = z.infer<typeof conceptGroupSchema>
 export type GlossaryTerm = z.infer<typeof glossaryTermSchema>
 export type RoadmapStage = z.infer<typeof roadmapStageSchema>
+export type PairContext = z.infer<typeof pairContextSchema>
+export type ScopedPitfall = z.infer<typeof scopedPitfallSchema>
+export type ScopedGlossary = z.infer<typeof scopedGlossarySchema>
+export type ScopedRoadmapStage = z.infer<typeof scopedRoadmapStageSchema>
 export type Registry = z.infer<typeof registrySchema>
 
 /* ────────────────────────── 构建产物形态（非 YAML 契约） ────────────────────────── */
@@ -307,11 +572,33 @@ export interface Annotation {
   tone: 'info' | 'warn' | 'diff'
 }
 
+/** 多段代码里的一段（构建期渲染结果） */
+export interface RenderedBlock {
+  label: string
+  /** 原始代码（已剥离 @note / @note! 标记；高危注记留在行内，说明前带 `⚠`） */
+  code: string
+  html: string
+  htmlDark?: string
+  lineCount: number
+  /**
+   * 该段的高危注记。说明文本已在 `code` 里内联，这里是结构化副本 ——
+   * 页面**当前不渲染**（注记不再单独成栏），留作「只看高危」类视图与检索用。
+   */
+  notes: Annotation[]
+}
+
 export interface RenderedSnippet {
   lang: string
   equivalence: Equivalence
   flags: SnippetFlag[]
-  /** 原始代码（已剥离 @note 标记），供复制 */
+  /**
+   * 多段对照代码；单段内容没有这个字段。
+   *
+   * 有它时，顶层的 code / html / lineCount 是**各段拼接**的结果 ——
+   * 供复制，以及两侧段结构不一致时降级为整体 diff。
+   */
+  blocks?: RenderedBlock[]
+  /** 原始代码（已剥离 @note / @note! 标记），供复制。高危注记带 `⚠` 前缀，会一并复制 */
   code: string
   /** Shiki 预高亮 HTML。css-variables 主题下明暗共用一份 */
   html: string
@@ -343,6 +630,10 @@ export interface RenderedChapter {
   title: string
   order: number
   summary?: string
+  /** 所属板块 —— 视图与 SEO 直接用，免去回查 registry */
+  section: Section
+  baseline: string
+  target?: string
   features: RenderedFeature[]
 }
 
@@ -369,6 +660,30 @@ export interface RenderedPitfall {
   fromBaseline: boolean
   featureId?: string
   tags: string[]
+  /** 所属 (基准, 目标) 对 */
+  baseline: string
+  target: string
+}
+
+/**
+ * 一个 (基准, 目标) 对下的三份列表资源。
+ *
+ * 按对拆成 12 个文件而不是塞进一个 static.json：内容填满后单文件会静态进主包，
+ * 而用户一次只看一个方向。
+ */
+export interface PairPayload {
+  baseline: string
+  target: string
+  pitfalls: RenderedPitfall[]
+  glossary: GlossaryTerm[]
+  roadmaps: RoadmapStage[]
+}
+
+/** manifest.pairs 的成员 —— 客户端「有哪些方向可去」的单点来源 */
+export interface ManifestPair {
+  baseline: string
+  target: string
+  sections: Section[]
 }
 
 export interface ManifestChapter {
@@ -397,8 +712,28 @@ export interface Manifest {
    * 用的是同一份文案，不会出现「爬虫看到的标题和用户看到的不一样」。
    */
   seo: Record<string, { title: string; description: string }>
-  /** kind 供侧栏分组 —— 「概念对比」与「迁移教程」在导航上必须分得开 */
-  topics: Array<{ id: string; title: string; kind: TopicKind; chapters: ManifestChapter[] }>
+  /**
+   * 板块注册表 —— 客户端据此排左栏、决定语言控件形态（多选 / 单选）、
+   * 选渲染器，以及判断「这个板块有没有方向」。与 registry.yaml 的 sections 同源。
+   */
+  sections: Array<SectionDef & { id: Section }>
+  /** 左栏按 section 分组、按 baseline 过滤都靠这里，不需要客户端解析目录 */
+  topics: Array<{
+    id: string
+    title: string
+    kind: TopicKind
+    section: Section
+    baseline: string
+    target?: string
+    chapters: ManifestChapter[]
+  }>
+  /**
+   * 实际存在的 (基准, 目标) 方向。
+   *
+   * 左栏二级、基准切换的回落、`hasPairSection` 的死链防护三处共用同一份 ——
+   * 与 routes 同源，因此不可能出现「导航里有、路由里没有」。
+   */
+  pairs: ManifestPair[]
   featureIndex: Record<string, { title: string; chapterId: string; topicId: string }>
   counts: {
     features: number

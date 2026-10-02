@@ -1,0 +1,86 @@
+# javascript —— basics-python/01-variables 的实现
+#
+# 注意本文件与 01..08 的区别：那些文件里 JavaScript 是**基准**，
+# 这里它是**被对照的那一门**，所以 equivalence 描述的是「相对 Python 基准」的差异。
+# 属性：以 Python 为基准看 JavaScript 的变量模型。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: p7-skeleton-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-python/var-declaration
+    equivalence: analogous
+    code: |
+      let count = 0;        // @note Python 里只需 count = 0，没有声明关键字
+      const name = "Ada";   // @note const 冻结绑定，Python 没有对应语法
+      var legacy = 1;       // @note! var 是函数作用域且会提升，Python 里没有类比物
+  - featureId: basics-python/var-scope
+    equivalence: divergent
+    code: |
+      if (true) {
+        let inside = 1;   // @note! 出了这个 {} 就不可见，Python 的块不产生作用域
+      }
+      // inside -> ReferenceError
+
+      for (let i = 0; i < 3; i++) {}
+      // i -> ReferenceError（Python 里循环变量出了循环还在）
+  - featureId: basics-python/hoisting
+    equivalence: divergent
+    code: |
+      console.log(v);   // undefined —— var 的声明被提升
+      var v = 1;
+
+      console.log(c);   // @note! ReferenceError：let/const 有暂时性死区
+      let c = 2;
+      // Python 没有提升，两种情况都是 NameError
+  - featureId: basics-python/const-immutability
+    equivalence: analogous
+    code: |
+      const config = { retry: 3 };
+      config.retry = 5;            // @note! const 拦不住这个：冻结的是绑定不是内容
+      Object.freeze(config);       // 真正冻结内容要显式调用
+      // Python 只有全大写命名约定，没有等价的语法
+  - featureId: basics-python/naming-convention
+    equivalence: analogous
+    code: |
+      const maxRetryCount = 3;      // @note 变量 camelCase
+      class HttpClient {}           // @note 类 PascalCase
+      const MAX_RETRY_COUNT = 3;    // @note 常量 SCREAMING_SNAKE_CASE
+      let _internal = 1;            // @note! 下划线在 JS 里完全没有语义，纯约定
+  - featureId: basics-python/var-destructuring
+    equivalence: analogous
+    code: |
+      const [first, ...rest] = [1, 2, 3];   // 数组解构：与 Python 的 first, *rest 对应
+      const { name, age = 0 } = user;       // @note! 按键解构：Python 没有这个语法
+      // Python 侧只能写 user["name"] / user.get("age", 0)
+  - featureId: basics-python/var-multiple-assign
+    equivalence: divergent
+    code: |
+      // 交换必须借临时变量；[a, b] = [b, a] 才能一行完成
+      let a = 1, b = 2;
+      [a, b] = [b, a];
+      // Python 直接写 a, b = b, a，先构造元组再解包
+
+      let x, y;
+      x = y = 0;   // @note 链式赋值：两边共享同一个右侧值
+  - featureId: basics-python/var-global-declaration
+    equivalence: divergent
+    code: |
+      let counter = 0;
+
+      function bump() {
+        counter += 1;   // @note! 直接就能改外层变量，Python 必须写 global
+      }
+      // 反向的坑：Python 里同样的写法会静默创建一个局部变量，外面不变
+  - featureId: basics-python/var-shadowing
+    equivalence: analogous
+    code: |
+      let list = [1, 2];      // @note JS 里 list 不是内置名，随便用没事
+      // Python 里 list = [1, 2] 会盖掉内置函数，之后 list(...) 全部报错
+      {
+        let list = [];        // @note 块级遮蔽：只在块内生效
+      }

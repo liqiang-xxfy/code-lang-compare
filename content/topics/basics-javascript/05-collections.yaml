@@ -1,0 +1,89 @@
+id: basics-javascript/05-collections
+topicId: basics-javascript
+title: 数组与列表
+order: 5
+summary: 创建、索引、增删、切片、遍历、排序、查找与解包
+
+features:
+  - id: basics-javascript/array-create
+    title: 创建数组与列表
+    kind: syntax
+    summary: 字面量、构造函数与推导式
+    body: |
+      字面量都是方括号，看起来一样。差异在「批量生成」：JS 靠 `Array.from` / `fill` / `Array(n)`，
+      Python 有**列表推导式**，多数场景一行就能表达，且通常比等价的手写循环更快。
+
+  - id: basics-javascript/array-index
+    title: 索引与越界
+    kind: behavior
+    summary: 越界访问会发生什么
+    body: |
+      两边都支持负索引（Python 是原生，JS 要用 `at()`）。
+      最大差异在**越界**：JS 读取越界返回 `undefined`（静默），Python 抛 `IndexError`。
+      JS 的静默行为是很多线上 bug 的来源——迁移到 Python 后同样的代码会立刻崩，这是好事。
+
+  - id: basics-javascript/array-mutate
+    title: 增删元素
+    kind: syntax
+    summary: push/pop 与 append/pop 的对应关系
+    body: |
+      尾部操作可以一一对应（`push`↔`append`、`pop`↔`pop`）。
+      但 `splice` 在 Python 里没有等价物，要拆成「`del` 切片」或「`insert` + `pop`」两步。
+      Python 的 `insert(0, x)` 是 O(n)，和 JS 的 `unshift` 一样，不要放在循环里。
+
+  - id: basics-javascript/array-slice
+    title: 切片与拷贝
+    kind: behavior
+    summary: 浅拷贝、负索引与步长
+    body: |
+      JS 的 `slice()` 与 Python 的 `[a:b]` 语义接近，都是**浅拷贝**、都支持负索引。
+      关键差异有两个：Python 切片支持**步长**（`[::2]`、`[::-1]` 直接反转），JS 没有；
+      JS 的 `slice` 是方法调用，Python 是语法，写起来更短但也更容易看漏。
+
+  - id: basics-javascript/array-iterate
+    title: 遍历
+    kind: syntax
+    summary: for-of 与 for-in 的语义完全不同
+    body: |
+      这是 JS 自己就有的坑：`for...in` 遍历的是**键**（对数组是字符串下标），`for...of` 才是值。
+      Python 的 `for x in list` 直接给值，与 `for...of` 对应。
+      迁移时把 `for...in` 直译成 Python 的 `for...in` 会得到完全错误的结果——而两边的写法看起来一模一样。
+
+  - id: basics-javascript/array-map-filter
+    title: map / filter / reduce
+    kind: behavior
+    summary: 链式调用与推导式/生成器
+    body: |
+      JS 靠链式方法；Python 更常用**推导式**，`map`/`filter` 属于「能用但不地道」的写法。
+      `reduce` 在 Python 是 `functools.reduce`，而且不在内置命名空间里——这不是疏忽，是语言取向：
+      Python 更希望你写显式循环或用 `sum`/`min`/`max` 这类聚合函数。
+
+  - id: basics-javascript/array-sort
+    title: 排序
+    kind: behavior
+    summary: 默认排序规则与是否原地修改
+    body: |
+      **这是迁移时最容易静默出错的一格。** JS 的 `sort()` 默认把元素转成字符串比较——
+      所以 `[10, 9, 1].sort()` 得到 `[1, 10, 9]`，必须传比较函数；而且 `sort()` **原地修改**。
+      Python 的 `sorted()` 返回新列表、`list.sort()` 原地修改，而且**比较的是元素本身**，不需要比较函数。
+      另外 Python 的排序是稳定排序且有专门的 `key=` 参数，比 JS 的比较函数更好读。
+
+  - id: basics-javascript/array-search
+    title: 查找与包含
+    kind: behavior
+    summary: 返回值语义：布尔、下标还是异常
+    body: |
+      四个不同的返回值语义混在一起：JS `includes` 给布尔、`indexOf` 给下标（找不到 -1）、
+      `find` 给元素（找不到 `undefined`）；Python `in` 给布尔、`index` 给下标（找不到**抛异常**）、
+      `next(...)` 给元素。
+      「找不到时返回特殊值还是抛异常」是两门语言最重要的风格差异之一，会直接影响你的错误处理写法。
+
+  - id: basics-javascript/array-unpack
+    title: 展开与解包
+    kind: syntax
+    summary: 扩展运算符与星号解包
+    body: |
+      JS 的 `...` 在「构造新数组」和「函数调用传参」两个位置含义不同但写法相同；
+      Python 用 `*` 做解包，且同样两处都能用。两边的符号不同但心智一致：
+      **把容器摊平成一串元素**。
+      注意 Python 的 `*` 在解包字典时是 `**`，和 JS 的 `...` 统一符号不同。

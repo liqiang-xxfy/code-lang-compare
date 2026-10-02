@@ -1,0 +1,118 @@
+# java —— basics/02-types 的实现
+# 上下文：片段默认位于类的方法体内。⚠️ 本机无 JDK，未做执行验证，待补校对。
+topic: basics-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: workbuddy-agent
+    promptTemplateId: p5-add-languages-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-javascript/primitive-types
+    equivalence: analogous
+    code: |
+      // Java 有 8 种基本类型（primitive）—— 这是 JS 完全没有的一层
+      int i = 1;              // 32 位整数
+      long l = 1L;            // 64 位整数
+      double d = 1.0;         // 64 位浮点
+      boolean flag = true;    // @note 只有 true / false，不接受 1 / 0
+      char c = 'A';           // @note! 单引号是 char，双引号是 String —— 两者不可混用
+
+      // 其余：byte / short / float；以及全部引用类型（String / 数组 / 对象）
+      // @note JS 只有一个 number；Java 要你按位宽和精度主动选类型
+  - featureId: basics-javascript/type-inference
+    equivalence: divergent
+    code: |
+      // Java 是静态类型：变量一旦声明，类型就固定了
+      var count = 0;          // @note var 只是省掉写类型，推断出的是 int，之后仍是静态类型
+      // count = "text";      // 编译错误：incompatible types
+
+      // @note! 与 JS 的 var 毫无关系 —— 别因为同名就以为能重新赋别的类型
+  - featureId: basics-javascript/type-checking
+    equivalence: analogous
+    code: |
+      Object x = "hello";
+
+      x instanceof String;            // @note 类型判断（编译期 + 运行时共同保证）
+      x.getClass().getSimpleName();   // "String"
+
+      ((String) x).length();          // 强制转换后使用
+
+      // @note! instanceof 对 null 一律返回 false，不会抛异常 —— 与「对 null 调方法」完全不同
+  - featureId: basics-javascript/null-undefined
+    equivalence: divergent
+    code: |
+      String name = null;         // @note Java 只有一种「空」：null
+      // int count = null;        // 编译错误：基本类型不能为 null
+
+      // @note! JS 有 undefined 与 null 两种「空」，Java 只有 null；
+      //        但它能赋给任何引用类型，直到运行时才 NPE
+      Optional<String> maybe = Optional.ofNullable(name);
+      maybe.orElse("默认值");      // @note 把「可能没有」写进类型，强制调用方处理
+  - featureId: basics-javascript/number-precision
+    equivalence: divergent
+    code: |
+      int a = 2147483647;
+      a + 1;                      // @note! 溢出后回绕成 -2147483648，静默不报错
+      long b = 9223372036854775807L;
+
+      0.1 + 0.2;                  // 0.30000000000000004 —— 与 JS 同样的问题
+      new BigDecimal("0.1").add(new BigDecimal("0.2"));   // @note 精确小数用 BigDecimal
+
+      new BigInteger("9007199254740993");   // @note 任意精度整数
+
+      // @note! 与 JS 的关键差异：Java 的整数是定点宽度（会回绕），
+      //        不像 JS 用一个 double 全包 —— 但也就少了「大整数静默丢精度」那个坑
+  - featureId: basics-javascript/type-casting
+    equivalence: divergent
+    code: |
+      int i = 1;
+      long l = i;                 // 隐式提升：小类型 → 大类型，自动完成
+
+      double d = 3.99;
+      int n = (int) d;            // @note 显式窄化：直接截断 -> 3，不是四舍五入
+
+      String s = String.valueOf(42);
+      int parsed = Integer.parseInt("42");   // @note! 失败抛 NumberFormatException
+
+      // @note! JS 的 Number("abc") 返回 NaN，Java 直接抛异常 —— 迁移时错误处理要重写
+  - featureId: basics-javascript/boolean-conversion
+    equivalence: divergent
+    code: |
+      // Java 没有「真值 / 假值」：条件表达式必须是 boolean
+      // if (1) {}       // 编译错误：int cannot be converted to boolean
+      // if ("") {}      // 编译错误
+
+      Boolean.parseBoolean("true");    // @note 字符串转布尔：只有 "true"（忽略大小写）是 true
+
+      // @note 这是与 JS 差别最大的地方之一：空字符串、0、null 都不会被当成 false
+  - featureId: basics-javascript/type-names
+    equivalence: divergent
+    code: |
+      Object x = "hello";
+      x.getClass().getSimpleName();   // "String"          —— 具体类名
+      x.getClass().getName();         // "java.lang.String" —— 含包名
+      x instanceof CharSequence;      // true               —— @note 接口也算
+
+      int[] arr = {};
+      arr.getClass().getSimpleName(); // "int[]"
+
+      // @note! 与 JS 的 typeof 不同：Java 给出的是**真实类型名**，
+      //        而 JS 对几乎所有对象都只回一个 "object"
+  - featureId: basics-javascript/immutable-primitives
+    equivalence: analogous
+    code: |
+      int a = 1;
+      int b = a;
+      b = 2;
+      // a 仍是 1 —— @note 基本类型按值复制
+
+      String s1 = "hello";
+      String s2 = s1;
+      s2 = s2 + "!";      // @note 这是新对象，s1 不受影响
+      // s1 仍是 "hello"
+
+      // @note! String 不可变：所有「修改」方法都返回新字符串
+      // @note 规则与 JS 一致 —— 基本类型按值、引用类型复制引用；
+      //       区别在于 Java 多了一层「基本类型」，JS 的 number/string 也属于这一层

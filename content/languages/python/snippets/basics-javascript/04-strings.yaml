@@ -1,0 +1,205 @@
+# python —— basics/04-strings 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: basics-javascript
+snippets:
+  - featureId: basics-javascript/string-literal
+    equivalence: analogous
+    code: |
+      a = "double"     # @note 单双引号完全等价
+      b = 'single'
+      c = """triple"""  # @note 三引号：可跨行，也可当文档字符串
+
+      empty = ""       # Falsy
+      "a" + "b"        # 'ab' —— @note! 字符串与数字相加会 TypeError，不做隐式转换
+
+      f"{a}-{b}"       # @note 前缀 f 的字符串是格式化字符串
+      r"\d+"           # @note 前缀 r 表示原始字符串，正则里几乎总要加
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/template-string
+    equivalence: analogous
+    code: |
+      name = "Ada"
+      msg = f"Hello, {name}!"        # @note f-string（Python 3.6+）
+      s = f"1 + 2 = {1 + 2}"         # 可以放表达式
+
+      # 多行要靠三引号，不是 f-string 的能力
+      multi = f"""line1
+      {name}"""
+
+      # f-string 里不能含反斜杠转义，复杂表达式建议先算好
+      width = 10
+      pad = f"{name:>{width}}"       # 支持格式说明符，比 JS 强很多
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/string-methods
+    equivalence: divergent
+    code: |
+      "  hi  ".strip()          # 'hi'   —— @note 名字是 strip，不是 trim
+      "abc".find("b")           # 1      —— @note! 找不到返回 -1，不是布尔
+      "b" in "abc"              # True   —— @note 判断包含要用 in
+      "a,b".split(",")          # ['a', 'b']
+      "ab".zfill(4)             # '00ab' —— @note 没有 padStart
+      "ab".upper()              # 'AB'   —— @note 方法名全小写
+
+      "abc".startswith("a")     # @note 没有 startsWith
+      ",".join(["a", "b"])      # 'a,b'  —— @note! 分隔符在前，与 JS 相反
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/multiline-string
+    equivalence: analogous
+    code: |
+      s = """first
+      second"""                 # @note 三引号
+
+      joined = "\n".join(["a", "b"])   # @note! 分隔符.join(列表)，主宾顺序与 JS 相反
+
+      # 三引号也被用作函数的文档字符串（docstring）
+      def f():
+          """这是 docstring，不是普通字符串"""
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/fstring-format
+    equivalence: divergent
+    code: |
+      n = 3.14159
+
+      f"{n:.2f}"        # '3.14'          —— @note 格式说明符直接写在占位符里
+      f"{n:>8.2f}"      # '    3.14'      —— @note 总宽度 8，右对齐
+      f"{n:08.2f}"      # '00003.14'      —— @note 总宽度 8，补零
+      f"{0.25:.0%}"     # '25%'
+
+      # @note 说明符里有「总宽度」概念（:08.2f 是宽 8）；JS 的 Intl 只能控制整数位 / 小数位
+
+      "%s = %d" % ("x", 1)        # @note 老式 % 格式化，仍广泛存在于旧代码
+      "{} = {}".format("x", 1)    # @note str.format 是第三套写法
+    review:
+      state: reviewed
+      provenance:
+        origin: llm
+        model: claude-sonnet-4.5
+        promptTemplateId: m1-snippet-v1
+        generatedAt: '2026-10-01'
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/string-index-slice
+    equivalence: divergent
+    code: |
+      s = 'abc'
+
+      s[0]         # 'a'   —— @note Python 没有字符类型，单个位置取出来还是长度 1 的字符串
+      s[-1]        # 'c'   —— @note! 原生支持负索引，不用 at()
+      # s[99]      # @note! IndexError —— 越界立即报错，不静默
+
+      len(s)       # 3     —— @note 长度是内置函数，不是方法
+      len('a😀')   # 2     —— @note 按「字符」（码点）计，JS 是 3（码元）
+
+      s[1:]        # 'bc'      —— @note 切片是语法，不是方法
+      s[1:2]       # 'b'
+      s[::-1]      # 'cba'     —— @note! 一行反转，JS 要 split/reverse/join 三步
+      s[::2]       # 'ac'
+
+      'a' 'b'      # 'ab'  —— @note 相邻字面量自动拼接，JS 没有这个
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/string-regex
+    equivalence: divergent
+    code: |
+      import re
+
+      re.search(r'\d+', 'a1')          # @note! 没有正则字面量，用字符串 + re 函数
+      re.match(r'\d+', 'a1')           # None —— @note! match 只从「开头」匹配
+      re.fullmatch(r'\d+', 'a1')       # None —— 要求整串匹配
+
+      m = re.search(r'(\d)', 'a1')
+      m.group(1)                       # '1'  —— @note 取值用 .group()，不是数组下标
+
+      re.sub(r'\d', '#', 'a1b2')       # 'a#b#'
+      re.split(r'\d', 'a1b2')          # ['a', 'b', '']
+      re.findall(r'\w', 'a1')          # ['a', '1']
+
+      re.search(r'(?P<digit>\d)', 'a1').group('digit')   # @note 命名分组是 (?P<name>...)
+      re.compile(r'\d+')               # @note 复用正则应预编译
+
+      # @note! 正则字符串几乎总要加 r 前缀，否则 \d 会被当成转义序列
+      # @note match 只匹配开头这一条，是从 JS 过来最容易搞错的
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/string-concat
+    equivalence: divergent
+    code: |
+      # 'a' + 1        # @note! TypeError: can only concatenate str (not "int") to str
+      'a' + str(1)     # 'a1'   —— @note 必须显式转换
+
+      'a' * 3          # 'aaa'  —— @note! 字符串支持乘法重复，JS 没有
+      'ab' * 2         # 'abab'
+
+      '-'.join(['1', '2'])   # '1-2' —— @note 分隔符在前
+
+      out = []
+      for i in range(1000):
+          out.append(str(i))
+      ''.join(out)           # @note 批量拼接的标准写法，O(n)
+
+      # @note! 循环里用 += 反复拼字符串会退化成 O(n²)，是常见的性能问题
+      # @note f-string 也能拼接：f'{a}{b}'
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/string-raw-escape
+    equivalence: divergent
+    code: |
+      'line1\nline2'          # 转义生效
+      '\\n'                   # 反斜杠 + n
+
+      r'C:\Users\lq'          # @note! r 前缀 = 原始字符串，反斜杠不转义
+      r'\d+'                  # @note 正则里几乎总要加 r
+      r'\\'                   # @note 原始字符串不能以奇数个反斜杠结尾
+
+      '\u4e2d'                # '中' —— @note! Unicode 转义是 \uXXXX（4 位十六进制）
+      '\U0001F600'            # '😀' —— @note 8 位是 \UXXXXXXXX，大写 U
+      '\x41'                  # 'A'
+      '\N{SNOWMAN}'           # '☃' —— @note 按 Unicode 名字转义，JS 没有
+
+      # @note Python 没有大括号形式的 \u{...}；JS 那边正好相反
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'

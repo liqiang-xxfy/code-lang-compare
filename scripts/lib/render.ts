@@ -20,13 +20,14 @@ export type HighlightMode = 'css-variables' | 'dual'
  *
  * 【Q5 实测结论（2026-10-01）】
  *   该主题只输出颜色（`style="color:var(--shiki-token-comment)"`），
- *   **不输出 font-style / font-weight** —— 注释的斜体、关键字的粗体全部丢失。
+ *   **不输出 font-style / font-weight** —— 关键字的粗体全部丢失。
  *   shiki v1 的 createCssVariablesTheme 也不接受 fontStyle 选项。
  *
  *   处置：不放弃该主题，而是在 CSS 侧按 token 变量名补偿（产物仍是单份 HTML）：
  *     src/styles/base.css
- *       .pc-code pre.shiki span[style*='--shiki-token-comment'] { font-style: italic }
  *       .pc-code pre.shiki span[style*='--shiki-token-keyword'] { font-weight: 600 }
+ *   注释曾经也在这里补 `font-style: italic`，后来去掉了：注释内容以中文为主，
+ *   而中文没有真斜体，合成倾斜在 12px 下只会把字糊掉；区分度交给颜色即可。
  *   如果哪天这套补偿失效，resolveHighlightMode() 会实测出结果并自动降级为双主题输出。
  */
 export const CSS_VARIABLES_THEME_NAME = 'css-variables'

@@ -1,0 +1,219 @@
+{
+  "baseline": "javascript",
+  "target": "rust",
+  "pitfalls": [
+    {
+      "id": "pitfall-js2rust-checked-indexing",
+      "title": "下标访问越界是 panic，不是 undefined",
+      "symptomHtml": "<p><code>arr[10]</code> 越界时 JS 得到 <code>undefined</code>、继续往下跑；Rust 直接 panic 终止。</p>\n",
+      "causeHtml": "<p>Rust 的索引运算会做边界检查，越界即 panic；而 JS 的越界只是返回 undefined，把错误推迟到&quot;用的时候&quot;。</p>\n",
+      "fixHtml": "<p>用 <code>arr.get(10)</code> 拿到 <code>Option&lt;&amp;T&gt;</code> 再处理，把&quot;可能没有&quot;变成类型看得见的形状。\npanic 本身不是坏事 —— 它把 JS 里那种&quot;悄悄传下去的 undefined&quot;提前到了越界的那一行。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/array-index",
+      "tags": [
+        "集合",
+        "错误处理"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-move-after-use",
+      "title": "传过一次的变量就不能再用了",
+      "symptomHtml": "<p>把一个 <code>String</code> 传给函数之后，下一行再用它就编译不过：<code>value borrowed here after move</code>。</p>\n",
+      "causeHtml": "<p>Rust 默认是<strong>移动语义</strong>，赋值或传参会把所有权交出去；JS 里对象传的只是引用副本，原变量照样能用。</p>\n",
+      "fixHtml": "<p>想继续用原值就传借用（<code>&amp;s</code>），想复制内容就显式 <code>.clone()</code>。\n<code>.clone()</code> 是明确的开销声明 —— 它把&quot;这里真的复制了数据&quot;写在代码里，\n而不是像 JS 那样把拷贝藏起来。编译器会一路追着告诉你所有权在哪。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-javascript/value-semantics",
+      "tags": [
+        "所有权",
+        "内存"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-lifetimes",
+      "title": "借用检查器盯着的其实是「引用活得比数据久」",
+      "symptomHtml": "<p>函数想返回内部数据的一个引用，编译器报 <code>missing lifetime specifier</code>；\n给结构体加一个引用字段，整个类型突然需要生命周期参数；\n改一处标注，报错转移到另一个函数。</p>\n",
+      "causeHtml": "<p>JS 里对象由 GC 管，「谁还引用着它」不需要你操心，所以「引用」是一个\n不用思考的概念。Rust 没有 GC，编译器必须<strong>证明</strong>每个引用都不会比它指向的\n数据活得更久 —— 生命周期标注就是把这个证明写给编译器看。\n从 JS 过来难的不是语法（<code>'a</code> 只是个标签），而是<strong>你从来没有建立过\n「这块数据活多久」这个思维维度</strong>。</p>\n",
+      "fixHtml": "<p>先按「谁拥有、谁借用」重画数据流，别急着调标注：多数生命周期报错的正确\n修法是改变所有权结构（改成返回拥有的值、把借用范围收窄），\n而不是想办法把标注写对。标注是描述事实的，不是绕过检查的。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-javascript/memory",
+      "tags": [
+        "所有权",
+        "内存"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-null-absent",
+      "title": "没有 null，于是 `Option` 出现在每个可能为空的地方",
+      "symptomHtml": "<p>想表达&quot;这个字段可能没有&quot;，发现写不出 <code>null</code>，被迫套一层 <code>Option&lt;T&gt;</code>。</p>\n",
+      "causeHtml": "<p>Rust 用 <code>Option&lt;T&gt;</code> 在类型层面表达可空，并强制你在使用前处理 <code>None</code> 分支。</p>\n",
+      "fixHtml": "<p>把 <code>Option</code> 当成&quot;必须回答的空值问题&quot;而不是噪音：<code>match</code> / <code>if let</code> / <code>?</code> 三种写法覆盖绝大多数场景。\n迁移时最省事的做法是先把 JS 里那些&quot;可能为 undefined&quot;的路径列出来，再逐个决定用 Option 还是默认值。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-javascript/null-value",
+      "tags": [
+        "空值",
+        "类型"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "所有权",
+      "aliases": [
+        "ownership",
+        "borrow",
+        "move"
+      ],
+      "perLanguage": {
+        "javascript": "没有对应概念 —— 对象由 GC 管，谁都能持有引用，生命周期不由代码表达",
+        "rust": "每个值有唯一所有者，所有者离开作用域即释放；借用（&）是临时出借，编译期检查"
+      },
+      "note": "「谁负责释放」这件事在 JS 里根本不用想，在 Rust 里是每行代码都要回答的问题。",
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "term": "可变性",
+      "aliases": [
+        "mutability",
+        "const",
+        "let"
+      ],
+      "perLanguage": {
+        "javascript": "`const` 冻结绑定但不冻结内容；对象默认可变",
+        "rust": "`let` 默认不可变，要可变必须写 `let mut`；可变借用同时只能有一个"
+      },
+      "note": "JS 的 const 是\"不能重新赋值\"，Rust 的默认不可变是\"连内容也不能改\" —— 严格程度完全不同。",
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "term": "错误处理",
+      "aliases": [
+        "error",
+        "exception",
+        "result"
+      ],
+      "perLanguage": {
+        "javascript": "throw / try / catch；未捕获的异常会中断当前调用栈",
+        "rust": "可恢复错误用 `Result<T, E>` 显式返回，不可恢复用 panic；`?` 负责向上传递"
+      },
+      "note": "两边都不鼓励用 panic/throw 处理可预期的问题，但 Rust 把这个约定写进了类型。",
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "term": "字符串",
+      "aliases": [
+        "string",
+        "str",
+        "utf-8"
+      ],
+      "perLanguage": {
+        "javascript": "只有一种 string，UTF-16 编码，按码元索引",
+        "rust": "`String`（拥有所有权、可增长）与 `&str`（借用切片）两种；UTF-8 编码，不能直接按整数下标取字符"
+      },
+      "note": "从 JS 迁过来时，「字符串怎么会有两种」和「为什么不能 s[0]」是两个连着的惊讶。",
+      "baseline": "javascript",
+      "target": "rust"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "js2rust-1-mental-model",
+      "order": 1,
+      "title": "先接受「编译器会一直拦你」",
+      "durationHint": "3-4 小时",
+      "todo": [
+        "通读「心智模型」板块，把两边在这些根本差异上的映射建起来",
+        "只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
+        "明确写下「哪些 JS 直觉必须丢掉」——对象随处共享、null 表达缺失、异常兜底"
+      ],
+      "acceptance": [
+        "能说清移动、借用、克隆三者的区别，并知道什么时候该用哪个",
+        "知道 Rust 没有 null，缺失用 Option 表达"
+      ],
+      "resources": [
+        {
+          "label": "Rust 程序设计语言（中文版）",
+          "url": "https://kaisery.github.io/trpl-zh-cn/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "js2rust-2-basics",
+      "order": 2,
+      "title": "基础语法逐条对照",
+      "durationHint": "1 周",
+      "todo": [
+        "按基础语法板块的章节逐格对比，每看一格手写一遍两边的代码（不要复制）",
+        "把踩到的坑记进本方向的迁移陷阱清单并打上自己的严重度",
+        "练习把一段 JS 的对象处理改写成 struct + impl，体会类型定义与行为放在一起的写法"
+      ],
+      "acceptance": [
+        "能独立写出变量、集合、控制流、函数与结构体，无编译错误",
+        "能让一段涉及所有权的代码通过借用检查器，并解释为什么这样写是对的"
+      ],
+      "resources": [
+        {
+          "label": "Rust by Example",
+          "url": "https://doc.rust-lang.org/rust-by-example/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "js2rust-3-tooling",
+      "order": 3,
+      "title": "接上工具链与工程习惯",
+      "durationHint": "1 周",
+      "todo": [
+        "用 cargo 新建项目，跑通 build / test / clippy / fmt 四步",
+        "把 npm 的心智映射到 crates.io 与 Cargo.toml",
+        "认真读一次 borrow checker 的报错全文 —— 它的建议通常就是修法"
+      ],
+      "acceptance": [
+        "能独立新建 crate 并发布一个可执行程序",
+        "遇到借用冲突时能读懂 E0502 / E0499 这类错误码并自行修复"
+      ],
+      "resources": [
+        {
+          "label": "Cargo 手册",
+          "url": "https://doc.rust-lang.org/cargo/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    }
+  ]
+}

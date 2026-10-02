@@ -1,41 +1,76 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import SideNav from '@/components/ui/SideNav.vue'
 import ThemeToggle from '@/components/ui/ThemeToggle.vue'
 import DensityToggle from '@/components/ui/DensityToggle.vue'
 import { useI18n } from '@/composables/useI18n'
-import { hasRoadmap, manifest } from '@/content/repository'
-import { enabledLanguageMeta, siteInfo } from '@/generated/registry.gen'
+import { compareEntryPath, sectionOfRoute } from '@/router'
+import { useLanguageStore } from '@/stores/language'
+import { useUiStore } from '@/stores/ui'
+import { siteInfo } from '@/generated/registry.gen'
 
 const { t } = useI18n()
 const route = useRoute()
+const languages = useLanguageStore()
+const ui = useUiStore()
 
-/** 第一个章节与第一条路线都由数据决定，不在模板里写死路径 */
-const firstChapterPath = computed(() => {
-  const chapter = manifest.topics[0]?.chapters[0]
-  return chapter ? `/compare/${chapter.id}` : '/'
-})
-
-/** 路线图只指向「确实有内容」的语言；一门都没有时整项导航隐藏（避免死链） */
-const roadmapPath = computed(() => {
-  const lang = enabledLanguageMeta.find((m) => hasRoadmap(m.id))
-  return lang ? `/roadmap/${lang.id}` : null
-})
-
-const navItems = computed(() =>
-  [
-    { to: '/', label: t('nav.home'), match: 'home' },
-    { to: firstChapterPath.value, label: t('nav.basics'), match: 'chapter' },
-    { to: '/search', label: t('nav.search'), match: 'search' },
-    { to: '/pitfalls', label: t('nav.pitfalls'), match: 'pitfalls' },
-    { to: '/glossary', label: t('nav.glossary'), match: 'glossary' },
-    roadmapPath.value
-      ? { to: roadmapPath.value, label: t('nav.roadmap'), match: 'roadmap' }
-      : null,
-    { to: '/attributions', label: t('nav.attributions'), match: 'attributions' },
-  ].filter((item): item is { to: string; label: string; match: string } => item !== null),
+/**
+ * 基准与板块以**路由参数**为准写回 store。
+ *
+ * 为什么在这里而不是在每个视图里：进入/离开的时机由 router 统一给，
+ * 视图拿到的 `orderedMeta` 才是对的；分散在各视图里必然出现「切换路由时
+ * 有一帧用的是上一页的基准」。
+ *
+ * 板块直接读 `params.section` —— 此前它靠路由名逐个列举五个具名路由，
+ * 加板块必然漏；参数化之后板块就在参数里，不会再漂。
+ */
+watch(
+  () => [route.params.baseline, route.params.section] as const,
+  ([baseline]) => {
+    languages.setRouteContext(
+      typeof baseline === 'string' ? baseline : null,
+      sectionOfRoute(route),
+    )
+  },
+  { immediate: true },
 )
+
+/**
+ * 顶部「多语言对比」的落点 —— 与 `/compare/<基准>` 走**同一个函数**。
+ *
+ * 分头算的话，「点顶栏」与「敲地址」会落到不同地方，而且两边各改一次才对齐；
+ * 交给路由的 redirect 决定，顶栏就只是那个地址的另一个入口。
+ */
+const compareEntry = computed(() => compareEntryPath(languages.effectiveBaseline))
+
+/**
+ * 侧栏开合按钮的文案：图标是 ☰，这句话同时充当 title 与 aria-label。
+ * 按状态给两种说法，按钮才回答了「按下去会发生什么」。
+ */
+const sideNavLabel = computed(() => t(ui.sideNavOpen ? 'nav.toggleHide' : 'nav.toggleShow'))
+
+const navItems = computed(() => [
+  { to: '/', label: t('nav.home'), match: 'home' },
+  { to: compareEntry.value, label: t('nav.compare'), match: 'compare' },
+  { to: '/search', label: t('nav.search'), match: 'search' },
+  { to: '/attributions', label: t('nav.attributions'), match: 'attributions' },
+])
+
+/**
+ * 激活态判定。
+ *
+ * 「多语言对比」覆盖的是一整棵子树（五个板块 + 语言入口 + 特性详情），
+ * 所以它按**路径前缀**判，其余三项仍按路由名判 —— 用 route.name 判会让
+ * 进入任一子板块后顶部就失去高亮。
+ */
+const isActive = (item: { match: string }): boolean =>
+  item.match === 'compare'
+    ? route.path.startsWith('/compare/') ||
+      route.name === 'feature' ||
+      route.name === 'language'
+    : route.name === item.match
+
 </script>
 
 <template>
@@ -43,19 +78,40 @@ const navItems = computed(() =>
     <a class="pc-skip" href="#main">跳到主要内容</a>
 
     <header class="pc-header">
+      <!--
+        侧栏开合按钮放在最左：它控制的是紧挨着的左侧那一栏，位置本身就是说明。
+        用 aria-expanded + aria-controls 而不是只给个图标 —— 图标对屏幕阅读器
+        等于没有，而这是全站导航的开关。
+      -->
+      <button
+        type="button"
+        class="pc-btn"
+        :aria-expanded="ui.sideNavOpen"
+        aria-controls="pc-sidenav"
+        :title="sideNavLabel"
+        :aria-label="sideNavLabel"
+        @click="ui.toggleSideNav()"
+      >
+        <span aria-hidden="true">☰</span>
+      </button>
+
       <RouterLink to="/" class="pc-brand">{{ siteInfo.name }}</RouterLink>
 
       <nav class="pc-nav" aria-label="主导航">
         <RouterLink
           v-for="item in navItems"
-          :key="item.to"
+          :key="item.match"
           :to="item.to"
-          :class="{ 'router-link-active': route.name === item.match }"
+          :class="{ 'router-link-active': isActive(item) }"
         >
           {{ item.label }}
         </RouterLink>
       </nav>
 
+      <!--
+        基准语言与对比语言都不在顶栏：它们是同一件事的两个层级，并排放在
+        板块页内那条选择条上（CompareLanguageBar）。
+      -->
       <div class="pc-controls">
         <DensityToggle />
         <ThemeToggle />
@@ -63,6 +119,12 @@ const navItems = computed(() =>
     </header>
 
     <div class="pc-body">
+      <!--
+        左侧菜单**每一页都有**，首页也不例外：它是全站唯一按章节展开的入口，
+        首页自带的那几块导览是"第一次来该看什么"，两件事不重叠。
+        它可以被收起（状态在 ui store 里，持久化），但**默认展开** —— 收起是
+        用户读长表格时腾宽度的动作，不该是所有人的初始状态。
+      -->
       <SideNav />
       <main id="main" class="pc-main">
         <RouterView />

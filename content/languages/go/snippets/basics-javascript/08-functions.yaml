@@ -1,0 +1,148 @@
+# go —— basics/08-functions 的实现
+# 上下文：顶层 func 直接写在包里；假定已 import 所需包。
+# ⚠️ 本机无 Go 工具链，未做执行验证，待补校对。
+topic: basics-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: workbuddy-agent
+    promptTemplateId: p5-add-languages-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-javascript/function-declare
+    equivalence: divergent
+    code: |
+      func add(a int, b int) int {        // @note 返回类型写在参数括号**后面**
+          return a + b
+      }
+
+      func add2(a, b int) int { return a + b }   // @note 同类型参数可合并
+
+      func div(a, b int) (int, error) { }        // @note 多返回值写在括号里
+
+      // @note Go 支持顶层函数（不需要类），这点比 Java 自由
+  - featureId: basics-javascript/default-params
+    equivalence: absent
+    code: |
+      func Greet(name string) string { return "你好, " + name }
+
+      func Greet2(name string, opts ...string) string {
+          greeting := "你好"          // @note 手工取默认值
+          if len(opts) > 0 {
+              greeting = opts[0]
+          }
+          return greeting + ", " + name
+      }
+
+      Greet2("Ada")
+      Greet2("Ada", "嗨")
+    body: |
+      Go **没有默认参数**，也**没有函数重载**（同名函数只能有一个）。
+
+      两条惯用路线：
+
+      - 参数只有一两个可选时，用**变参 + 手动取默认值**（类型不安全，但短）
+      - 参数较多时用**选项函数模式**（Functional Options）：接收若干 `Option` 函数逐个改配置
+  - featureId: basics-javascript/kwargs
+    equivalence: absent
+    code: |
+      Greet("Ada")     // @note 只能按位置，参数一多就读不懂
+
+      type GreetOptions struct {
+          Name     string
+          Greeting string
+      }
+
+      Greet3(GreetOptions{Name: "Ada", Greeting: "嗨"})   // @note 调用处自带字段名
+    body: |
+      Go **没有关键字参数**，调用时只能按位置传。
+
+      惯用替代是**结构体字面量**：把参数收进一个 struct，调用处就能带字段名。
+      这也是 Go 里配置项普遍用 struct 而不是长参数列表的原因 ——
+      长参数列表在调用点完全不可读。
+  - featureId: basics-javascript/rest-params
+    equivalence: analogous
+    code: |
+      func sum(nums ...int) int {     // @note 变参：类型前加 ...
+          total := 0
+          for _, n := range nums {
+              total += n
+          }
+          return total
+      }
+
+      sum(1, 2, 3)
+      sum([]int{1, 2, 3}...)          // @note 传切片要加 ...
+
+      // @note! 与 JS 的 ...rest 语义接近；变参在函数体内就是一个普通的切片
+      // @note 一个函数只能有一个变参，且必须在最后
+  - featureId: basics-javascript/return-multiple
+    equivalence: divergent
+    code: |
+      func minMax(a []int) (int, int) {        // @note! Go **原生**支持多返回值
+          return 0, 1
+      }
+
+      min, max := minMax([]int{1, 2})          // @note 调用处自然解构
+
+      // 最经典的形态：值 + error
+      func div(a, b int) (int, error) {
+          if b == 0 {
+              return 0, errors.New("除零")
+          }
+          return a / b, nil
+      }
+
+      // @note! 这是 Go 与其他语言差别最大的地方之一：
+      //        多返回值是语言级的，不需要元组 / 数组 / 对象包装
+  - featureId: basics-javascript/lambda-arrow
+    equivalence: divergent
+    code: |
+      f := func(x int) int { return x * 2 }     // @note 匿名函数（函数字面量）
+      add := func(a, b int) int { return a + b }
+
+      func() { fmt.Println("hi") }()             // 立刻执行
+
+      count := 0
+      inc := func() { count++ }                  // @note 闭包按引用捕获外部变量
+      inc()
+
+      // @note! Go 没有 -> 或 => 这种箭头：闭包就是一个没有名字的 func
+  - featureId: basics-javascript/function-callback
+    equivalence: analogous
+    code: |
+      func run(cb func(string)) {    // @note 参数类型直接写函数签名
+          cb("hi")
+      }
+
+      run(func(s string) { fmt.Println(s) })
+      run(fmt.Println)                // @note 函数值可以直接传
+
+      // @note! 与 JS 类似：函数是一等值，能当参数、当返回值、放进 map
+      // @note 但类型必须写全（func(string) 这种），不像 JS 可以随手传
+  - featureId: basics-javascript/function-docstring
+    equivalence: divergent
+    code: |
+      // Add 计算两个数的和。
+      //
+      // 参数为负时返回错误。
+      func Add(a, b int) (int, error) { return a + b, nil }
+
+      // @note! Go 的文档注释就是普通 // 注释，**紧贴在声明上方**即可
+      // @note 约定：注释以函数名开头（"Add 计算..."），godoc 据此生成文档
+      // @note 没有 @param / @return 这类结构化标签 —— 全靠自然语言约定
+  - featureId: basics-javascript/arg-passing
+    equivalence: analogous
+    code: |
+      func mutate(arr []int, num int, p *User, m map[string]int) {
+          arr[0] = 99        // @note! 传染：切片共享底层数组
+          num = 999          // @note 不传染：基本类型按值
+          p.Name = "x"       // @note! 传染：通过指针改
+          m["k"] = 1         // @note! 传染：map 是引用语义
+      }
+
+      // @note! 规则：Go 一切按值传递，但 slice / map / channel / 指针 的「值」
+      //        本身就是描述符或地址，所以改内容会传染
+      // @note 口诀与 JS 相同（改内容传染、改绑定不传染），
+      //        但要多问一句「这个类型的值到底是个啥」

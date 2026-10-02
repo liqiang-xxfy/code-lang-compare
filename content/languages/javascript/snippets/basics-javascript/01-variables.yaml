@@ -1,0 +1,166 @@
+# javascript —— basics/01-variables 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: basics-javascript
+snippets:
+  - featureId: basics-javascript/var-declaration
+    equivalence: identical
+    code: |
+      let count = 0;          // @note 块级作用域，可以重新赋值
+      const name = "Ada";     // @note 块级作用域，绑定不可重新赋值
+      var legacy = 1;         // @note! 函数作用域且会提升，只应出现在遗留代码里
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/var-scope
+    equivalence: identical
+    code: |
+      if (true) {
+        let inside = 1;       // @note 块级作用域：出了这个 {} 就消失
+        var leaked = 2;       // @note! var 不认块，泄漏到外层函数
+      }
+
+      // inside  -> ReferenceError: inside is not defined
+      // leaked  -> 2
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/hoisting
+    equivalence: identical
+    code: |
+      // var：声明被提升到函数顶部，此时值是 undefined
+      console.log(v);         // undefined
+      var v = 1;
+
+      // let / const：同样会提升，但处于「暂时性死区」，访问即抛错
+      console.log(l);         // @note! ReferenceError: Cannot access 'l' before initialization
+      let l = 1;
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/const-immutability
+    equivalence: identical
+    code: |
+      const user = { name: "Ada" };
+
+      user.name = "Grace";    // @note! 允许：const 冻结的是绑定，不是对象内容
+      user = {};              // TypeError: Assignment to constant variable.
+
+      Object.freeze(user);    // @note 想真正不可变，必须显式冻结（且只冻结第一层）
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/naming-convention
+    equivalence: identical
+    code: |
+      const userName = "Ada";       // 变量 / 函数：camelCase
+      class UserProfile {}          // 类：PascalCase
+      const MAX_RETRY = 3;          // 真正常量：SCREAMING_SNAKE_CASE
+      function getUser() {}
+    review:
+      state: reviewed
+      provenance:
+        origin: manual
+        license: CC-BY-4.0
+      reviewedBy: 阿岩
+      reviewedAt: '2026-10-01'
+  - featureId: basics-javascript/var-destructuring
+    equivalence: identical
+    code: |
+      const [a, b] = [1, 2];                        // @note 数组解构：按「位置」
+      const { name, age = 18 } = { name: 'Ada' };   // @note 对象解构：按「键名」，且能给默认值
+      const { name: userName } = { name: 'Ada' };   // @note 冒号是重命名，不是赋默认值
+      const [first, ...rest] = [1, 2, 3];           // 收集剩余
+      const [, second] = [1, 2];                    // 跳过一个位置
+
+      // @note! 对象解构取不存在的键得到 undefined，不报错——拼错键名是静默失败
+      // @note 解构默认值只在值为 undefined 时生效，传 null 不会生效
+    review:
+      state: draft
+      provenance:
+        origin: llm
+        model: deepseek-v4.1-flash
+        promptTemplateId: p8-note-rewrite-v1
+        generatedAt: '2026-10-02'
+  - featureId: basics-javascript/var-multiple-assign
+    equivalence: identical
+    code: |
+      let a = 1;
+      let b = 2;
+
+      [a, b] = [b, a];        // @note 交换：右侧先整体求值再解构，所以不用临时变量
+
+      let x;
+      let y;
+      x = y = 0;              // @note 链式赋值：从右往左，两个名字都拿到 0
+
+      // @note! 链式赋值遇到对象时只是让两个名字指向同一个对象，不是复制
+      // @note 解构赋值两侧长度不必相等：多出的目标是 undefined，多的元素被丢弃
+    review:
+      state: draft
+      provenance:
+        origin: llm
+        model: deepseek-v4.1-flash
+        promptTemplateId: p8-note-rewrite-v1
+        generatedAt: '2026-10-02'
+  - featureId: basics-javascript/var-global-declaration
+    equivalence: identical
+    code: |
+      let counter = 0;
+
+      function bump() {
+        counter += 1;          // @note 直接改外层变量，不需要任何声明
+      }
+
+      function shadow() {
+        let counter = 99;      // @note 这是新变量，只是遮蔽了外层
+        return counter;
+      }
+
+      // @note! 完全不写声明的赋值会隐式创建全局变量（仅非严格模式）；
+      //        在 ESM / 'use strict' 下直接抛 ReferenceError
+      // @note! 内层函数读外层变量走作用域链，是词法（静态）绑定——与在哪里调用无关
+    review:
+      state: draft
+      provenance:
+        origin: llm
+        model: deepseek-v4.1-flash
+        promptTemplateId: p8-note-rewrite-v1
+        generatedAt: '2026-10-02'
+  - featureId: basics-javascript/var-shadowing
+    equivalence: identical
+    code: |
+      const value = 'outer';
+
+      {
+        const value = 'inner';    // @note 块级遮蔽：出了这个 {} 就恢复外层
+        console.log(value);       // 'inner'
+      }
+
+      console.log(value);         // 'outer'
+
+      // @note! 遮蔽内置名同样有害（比如把变量命名成 Array），
+      //        但 JS 里它是模块级局部，影响面被限制住了
+      // @note 同一个块里用 let 重复声明同名变量会直接抛 SyntaxError，var 则静默覆盖
+    review:
+      state: draft
+      provenance:
+        origin: llm
+        model: deepseek-v4.1-flash
+        promptTemplateId: p8-note-rewrite-v1
+        generatedAt: '2026-10-02'

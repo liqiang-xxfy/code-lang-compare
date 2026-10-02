@@ -3,26 +3,60 @@ import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
-import { getConcepts, manifest } from '@/content/repository'
-import { enabledLanguageIds, equivalenceReferenceName, getLanguageMeta } from '@/generated/registry.gen'
+import PageCrumb from '@/components/ui/PageCrumb.vue'
+import {
+  chapterPathOf,
+  firstChapterSection,
+  manifest,
+  orderedSections,
+  sectionFirstChapterPath,
+} from '@/content/repository'
+import { sectionEntryPath } from '@/router'
+import { getLanguageMeta } from '@/generated/registry.gen'
 
 const route = useRoute()
 const { t } = useI18n()
 
 const langId = computed(() => String(route.params.langId ?? ''))
 const lang = computed(() => getLanguageMeta(langId.value))
+const nameOf = (id: string) => getLanguageMeta(id)?.name ?? id
 
 usePageMeta(
   () => (lang.value ? `${lang.value.name} 对照入口` : undefined),
   () =>
-    lang.value
-      ? `${lang.value.name} 与 ${equivalenceReferenceName} 的心智模型对照、设计维度与生态差异。`
-      : undefined,
+    lang.value ? `${lang.value.name} 的语言设计维度、生态差异与相关章节入口。` : undefined,
 )
 
-/** 心智模型对照表本身就是 N 列结构，列随启用语言自动变化（v1 的两列结构装不下） */
-const concepts = getConcepts()
-const columns = enabledLanguageIds
+/**
+ * 语言入口页的两条通路。
+ *
+ * 三轴模型下「一门语言」有两种身份：**基准**（它是参照系）与**目标**（它被对照）。
+ * 一门语言可以两者兼具 —— 所以在同一页把两条入口都列出来，而不是二选一。
+ */
+const asBaseline = computed(() => {
+  const section = firstChapterSection()
+  return section ? sectionFirstChapterPath(section, langId.value) : null
+})
+
+const asTarget = computed(() =>
+  manifest.pairs
+    .filter((p) => p.target === langId.value)
+    .map((p) => {
+      // 优先给章节型板块的入口（内容最厚），否则退到该方向第一个有内容的板块
+      const section =
+        orderedSections().find((s) => s.shape === 'chapter' && p.sections.includes(s.id))?.id ??
+        p.sections[0]
+      return {
+        baseline: p.baseline,
+        /*
+         * 这里曾拼成 `/compare/<基准>/<板块>/<目标语言>` —— 把目标语言塞进了章节 slug 的位置。
+         * 它靠守卫的「slug 不存在就回落到首章」侥幸能打开，但地址本身是错的。
+         * 目标语言不进 URL，落点应当走 sectionEntryPath。
+         */
+        to: section ? sectionEntryPath(p.baseline, section) : '/404',
+      }
+    }),
+)
 
 const languageFacts = computed(() => {
   const meta = lang.value
@@ -42,16 +76,30 @@ const languageFacts = computed(() => {
   ] as Array<[string, string]>
 })
 
+/**
+ * 本语言相关的章节 —— 两个方向都算：它是某套内容的**基准**，或它是某个方向的**目标**。
+ *
+ * 此前这里是 `manifest.topics.flatMap(...)`，**一门语言的页面列出了全站所有章节** ——
+ * Java 页里会出现「JavaScript → Python」的章节。判据本来就在三轴字段上，不需要猜。
+ */
 const chapters = computed(() =>
-  manifest.topics.flatMap((topic) =>
-    topic.chapters.map((chapter) => ({ ...chapter, topicTitle: topic.title })),
-  ),
+  manifest.topics
+    .filter((topic) => topic.baseline === langId.value || topic.target === langId.value)
+    .flatMap((topic) =>
+      topic.chapters.map((chapter) => ({ ...chapter, topicTitle: topic.title })),
+    ),
 )
 </script>
 
 <template>
   <div v-if="lang">
-    <div class="pc-crumb">{{ t('nav.languages') }}</div>
+    <PageCrumb
+      :items="[
+        { label: t('nav.home'), to: '/' },
+        { label: t('nav.languages') },
+        { label: lang.name },
+      ]"
+    />
     <section class="pc-page-head">
       <h1>{{ lang.name }}</h1>
       <p v-if="lang.version" class="pc-hint">内容基于版本 {{ lang.version }}</p>
@@ -68,38 +116,36 @@ const chapters = computed(() =>
       </p>
     </section>
 
+    <!--
+      这里曾有一张「心智模型对照」只读大表。它已经升级成正式的「心智模型」板块
+      （左栏可进、按基准分章、可多列并排、可被检索），页面里再留一张就是两套真相。
+    -->
+
     <section class="pc-panel" style="margin-bottom: 20px">
-      <h2 style="font-size: var(--pc-fs-xl); margin-bottom: 6px">心智模型对照</h2>
-      <p class="pc-hint">前端世界 ↔ 目标世界。列数随启用的语言自动变化。</p>
-      <div style="overflow-x: auto; margin-top: 10px">
-        <table class="pc-table-simple">
-          <thead>
-            <tr>
-              <th>概念</th>
-              <th v-for="id in columns" :key="id">{{ getLanguageMeta(id)?.name ?? id }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="concept in concepts" :key="concept.id">
-              <th scope="row">{{ concept.concept }}</th>
-              <td v-for="id in columns" :key="`${concept.id}-${id}`">
-                <template v-if="concept.entries[id]">
-                  <strong>{{ concept.entries[id]!.label }}</strong>
-                  <div class="pc-hint">{{ concept.entries[id]!.detail }}</div>
-                </template>
-                <span v-else class="pc-hint">—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <h2 style="font-size: var(--pc-fs-xl); margin-bottom: 6px">两种进入方式</h2>
+      <p class="pc-hint">
+        一门语言在对比里可以是**参照系**（作为基准），也可以是**被对照的一方**（作为目标）。
+      </p>
+      <ul class="pc-tree" style="margin-top: 10px">
+        <li v-if="asBaseline">
+          <RouterLink :to="asBaseline">以 {{ lang.name }} 为基准浏览基础语法 →</RouterLink>
+        </li>
+        <li v-for="entry in asTarget" :key="entry.baseline">
+          <RouterLink :to="entry.to">
+            {{ nameOf(entry.baseline) }} → {{ lang.name }} 的迁移内容 →
+          </RouterLink>
+        </li>
+      </ul>
+      <p v-if="!asBaseline && !asTarget.length" class="pc-hint">
+        这门语言目前既不是基准候选，也还没有以它为目标的迁移内容。
+      </p>
     </section>
 
     <section style="margin-bottom: 20px">
       <h2 style="font-size: var(--pc-fs-xl); margin-bottom: 10px">章节入口</h2>
       <ul class="pc-tree">
         <li v-for="chapter in chapters" :key="chapter.id">
-          <RouterLink :to="`/compare/${chapter.id}`">
+          <RouterLink :to="chapterPathOf(chapter.id)">
             {{ chapter.topicTitle }} / {{ chapter.title }}
           </RouterLink>
         </li>

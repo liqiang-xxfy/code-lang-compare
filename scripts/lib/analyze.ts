@@ -8,30 +8,29 @@ import path from 'node:path'
 import type {
   AttributionEntry,
   Chapter,
-  ConceptGroup,
   Feature,
-  GlossaryTerm,
   Issue,
   LanguageMeta,
-  Pitfall,
   Registry,
-  RoadmapStage,
+  ScopedGlossary,
+  ScopedPitfall,
+  ScopedRoadmapStage,
   SnippetSource,
 } from '../../src/schemas'
 import {
   extractNotes,
   isSafeUrl,
   listLanguageIds,
+  listTopicIds,
   loadAllLanguageMeta,
   loadChapters,
-  loadConcepts,
-  loadGlossary,
-  loadPitfalls,
+  loadPairLists,
   loadRegistry,
-  loadRoadmap,
-  loadSnippets,
+  loadSnippetFiles,
   ROOT,
+  type PairLists,
 } from './core'
+import { detectForeignLanguageMentions } from './lang-mention'
 
 /* ────────────────────────── 许可台账 ────────────────────────── */
 
@@ -86,10 +85,13 @@ export interface Analysis {
   chapters: Chapter[]
   features: Array<{ feature: Feature; chapter: Chapter }>
   snippets: Map<string, Map<string, SnippetSource>> // featureId -> lang -> snippet
-  pitfalls: Pitfall[]
-  concepts: ConceptGroup[]
-  glossary: GlossaryTerm[]
-  roadmaps: Record<string, RoadmapStage[]>
+  /** 按 (基准, 目标) 对分组的陷阱 / 词典 / 路线 */
+  pairs: PairLists[]
+  /** 扁平化的陷阱（跨对），供搜索索引与全局视图 */
+  pitfalls: ScopedPitfall[]
+  glossary: ScopedGlossary[]
+  /** key = `${baseline}|${target}` */
+  roadmaps: Record<string, ScopedRoadmapStage[]>
   attributions: AttributionEntry[]
   issues: Issue[]
   stats: {
@@ -167,20 +169,70 @@ export function analyzeContent(): Analysis {
         `（候选：${baselineCandidateIds.join(', ') || '空'}）—— 请在该语言的 meta.yaml 里标 baseline: true`,
     )
   }
-  if (!enabledLanguageIds.includes(registry.equivalenceReference)) {
+  /*
+   * 默认对比语言：必须已启用，且不能就是默认基准 ——
+   * 拿基准自己当对比列会渲染出一个恒等于基准的空列。
+   */
+  if (!enabledLanguageIds.includes(registry.defaultCompareLanguage)) {
     err(
       'R8',
       'content/registry.yaml',
-      `equivalenceReference = '${registry.equivalenceReference}' 必须是已启用的语言`,
+      `defaultCompareLanguage = '${registry.defaultCompareLanguage}' 必须是已启用的语言`,
+    )
+  } else if (registry.defaultCompareLanguage === registry.defaultBaseline) {
+    err(
+      'R8',
+      'content/registry.yaml',
+      'defaultCompareLanguage 不能与 defaultBaseline 相同 —— 对比列必须有一门不同于基准的语言',
     )
   }
 
-  /* topic 的语言范围：必须是已知语言，否则 R2 会静默漏算 */
+  /* topic 的语言范围与三轴字段：必须是已知语言，否则 R2 会静默漏算 */
   for (const [topicId, cfg] of Object.entries(registry.topics)) {
     for (const id of cfg.languages ?? []) {
       if (!allLanguageIds.includes(id)) {
         err('R8', 'content/registry.yaml', `topic '${topicId}' 的 languages 含未知语言 '${id}'`)
       }
+    }
+    for (const [field, value] of [
+      ['baseline', cfg.baseline],
+      ['target', cfg.target],
+    ] as const) {
+      if (!value) continue
+      if (!allLanguageIds.includes(value)) {
+        err('R8', 'content/registry.yaml', `topic '${topicId}' 的 ${field} 含未知语言 '${value}'`)
+      } else if (!enabledLanguageIds.includes(value)) {
+        err(
+          'R8',
+          'content/registry.yaml',
+          `topic '${topicId}' 的 ${field} = '${value}' 未启用 —— 未启用的语言没有内容页可渲染`,
+        )
+      }
+    }
+    /*
+     * basics 的基准必须是「基准候选」，否则会出现一个切不过去的基准：
+     * 内容存在、URL 能打开，但基准选择器里没有它，用户永远到不了。
+     */
+    if (cfg.section === 'basics' && cfg.baseline && !baselineCandidateIds.includes(cfg.baseline)) {
+      err(
+        'R8',
+        'content/registry.yaml',
+        `basics topic '${topicId}' 的 baseline = '${cfg.baseline}' 不是基准候选` +
+          `（候选：${baselineCandidateIds.join(', ')}）—— 请在该语言的 meta.yaml 里标 baseline: true`,
+      )
+    }
+  }
+
+  /* topic 目录与 registry 必须一一对应（章节与列表资源都靠目录装载，写错会静默不渲染） */
+  const topicDirIds = listTopicIds()
+  for (const id of topicDirIds) {
+    if (!(id in registry.topics)) {
+      err('R8', `content/topics/${id}`, '目录存在但未在 content/registry.yaml 登记')
+    }
+  }
+  for (const topicId of Object.keys(registry.topics)) {
+    if (!topicDirIds.includes(topicId)) {
+      err('R8', 'content/registry.yaml', `登记了 topic '${topicId}' 但找不到 content/topics/${topicId}/ 目录`)
     }
   }
 
@@ -195,6 +247,20 @@ export function analyzeContent(): Analysis {
     for (const feature of chapter.features) {
       if (featureIds.has(feature.id)) {
         err('R8', 'content/topics', `featureId 重复：${feature.id}`)
+      }
+      /*
+       * R13：featureId 的前缀必须等于所属 topic 的 id。
+       *
+       * feature 内联在章节里，归属本来是明确的；但语言覆盖层**按 featureId 挂接**，
+       * 前缀写错会让实现挂到别的 topic 上（或根本挂不上），而构建全程不报错 ——
+       * 表现为那一格永远空着。章节 id 的前缀早有 R8 钉住，feature 这层一直空着。
+       */
+      if (feature.id.split('/')[0] !== chapter.topicId) {
+        err(
+          'R13',
+          `content/topics/${chapter.topicId}`,
+          `featureId '${feature.id}' 的前缀应等于 topicId '${chapter.topicId}'`,
+        )
       }
       featureIds.add(feature.id)
       features.push({ feature, chapter })
@@ -218,22 +284,59 @@ export function analyzeContent(): Analysis {
 
   /* R5 引用完整性 */
   const snippets = new Map<string, Map<string, SnippetSource>>()
-  const allSnippetFiles: Array<{ lang: string; file: string; items: SnippetSource[] }> = []
+  const allSnippetFiles: Array<{
+    lang: string
+    file: string
+    topic: string
+    items: SnippetSource[]
+  }> = []
   for (const lang of dirIds) {
-    allSnippetFiles.push({
-      lang,
-      file: rel(path.join(ROOT, 'content', 'languages', lang, 'snippets.yaml')),
-      items: loadSnippets(lang),
-    })
+    // 按文件分组保留真实路径 —— 此前的 file 字段拼的是一个不存在的 `snippets.yaml`，
+    // 报错定位不到实际文件
+    for (const group of loadSnippetFiles(lang)) {
+      allSnippetFiles.push({ lang, file: group.file, topic: group.topic, items: group.items })
+    }
   }
-  for (const { lang, file, items } of allSnippetFiles) {
+  for (const { lang, file, topic, items } of allSnippetFiles) {
+    /*
+     * R15：文件声明的 topic 必须与所在目录、与每条 featureId 的前缀一致。
+     *
+     * 三者一致才能保证「实现挂到了它以为是的那条 feature 上」。此前这条链
+     * 只有一个语言目录这一层，前缀靠人记 —— 分目录之后有了显式声明，就能校验。
+     */
+    const dirName = /[\\/]snippets[\\/]([^\\/]+)[\\/]/.exec(file)?.[1]
+    if (dirName && dirName !== topic) {
+      err('R15', file, `所在目录 '${dirName}' 与文件声明的 topic '${topic}' 不一致`)
+    }
+
     for (const s of items) {
+      if (s.featureId.split('/')[0] !== topic) {
+        err(
+          'R15',
+          file,
+          `文件声明 topic: '${topic}'，但 featureId '${s.featureId}' 的前缀是 '${s.featureId.split('/')[0]}'`,
+        )
+      }
       if (!featureIds.has(s.featureId)) {
         err('R5', file, `孤儿 snippet：featureId '${s.featureId}' 在 topics 里不存在`)
         continue
       }
       if (!allLanguageIds.includes(lang)) {
         err('R5', file, `语言 '${lang}' 不在语言目录列表中`)
+      }
+      /*
+       * R17：校对状态升级了却没留校对记录。
+       *
+       * `review.state` 是页面「未经人工校对」标记的唯一依据，也是切到
+       * reviewed-only 发布策略时的闸门。升级 state 却不记谁在什么时候校的，
+       * 等于让那个标记失去可追溯性。
+       */
+      if (s.review.state !== 'draft' && (!s.review.reviewedBy || !s.review.reviewedAt)) {
+        warn(
+          'R17',
+          file,
+          `featureId '${s.featureId}' 标为 ${s.review.state}，但缺少 reviewedBy / reviewedAt`,
+        )
       }
       const bucket = snippets.get(s.featureId) ?? new Map<string, SnippetSource>()
       if (bucket.has(lang)) {
@@ -282,13 +385,18 @@ export function analyzeContent(): Analysis {
         continue
       }
       coverage[lang]!.have += 1
+      /*
+       * 「有没有给代码」单段看 code、多段看 blocks —— R16 保证两者恰好有一个。
+       * 只看 code 的话，多段实现会被判成「代码为空」而阻断构建。
+       */
+      const hasCode = Boolean(s.code.trim() || s.blocks?.some((b) => b.code.trim()))
       if (s.equivalence === 'absent' && !s.body?.trim()) {
         warn('R2', `${feature.id} · ${lang}`, 'equivalence 为 absent，但没有用 body 说明替代做法')
       }
-      if (s.equivalence === 'absent' && s.code.trim()) {
+      if (s.equivalence === 'absent' && hasCode) {
         warn('R2', `${feature.id} · ${lang}`, 'equivalence 为 absent 但提供了代码，请确认这是「惯用替代写法」而非等价实现')
       }
-      if (!s.code.trim() && s.equivalence !== 'absent') {
+      if (!hasCode && s.equivalence !== 'absent') {
         err('R2', `${feature.id} · ${lang}`, `equivalence 为 '${s.equivalence}' 但代码为空`)
       }
     }
@@ -312,26 +420,59 @@ export function analyzeContent(): Analysis {
   /** draft 数量按语言累计：宽松策略下只汇总提示一次，避免几百条逐条刷屏 */
   const draftByLang = new Map<string, number>()
 
-  for (const { feature } of features) {
+  for (const { feature, chapter } of features) {
     const bucket = snippets.get(feature.id) ?? new Map<string, SnippetSource>()
     for (const [lang, s] of bucket) {
       const meta = metaById[lang]
       if (!meta) continue
       const where = `${feature.id} · ${lang}`
       const markers = (s.code.match(/@note!?\s+/g) ?? []).length
-      const { code, notes } = extractNotes(s.code, meta.comment.line)
-      if (markers !== notes.length) {
+      const { code, allNotes } = extractNotes(s.code, meta.comment.line)
+      if (markers !== allNotes.length) {
         err(
           'R4/R9',
           where,
-          `检测到 ${markers} 个 @note 标记，但只解析出 ${notes.length} 个。标记必须紧跟在 '${meta.comment.line}' 之后（该语言的注释前缀）`,
+          `检测到 ${markers} 个 @note 标记，但只解析出 ${allNotes.length} 个。标记必须紧跟在 '${meta.comment.line}' 之后（该语言的注释前缀）`,
         )
       }
       if (code.includes('@note')) {
         err('R4', where, '剥离后仍残留 "@note" 文本，请检查标记写法')
       }
-      for (const n of notes) {
+      for (const n of allNotes) {
         if (!n.text) warn('R4', `${where} 第 ${n.line} 行`, '@note 说明为空')
+      }
+
+      // R11 有差异必配说明：徽章标了差异，读者却看不到差异在哪
+      if (s.equivalence !== 'identical' && allNotes.length === 0) {
+        warn(
+          'R11',
+          where,
+          `equivalence 为 '${s.equivalence}' 却没有任何 @note 说明差异。请补一条注记，或把 equivalence 改回 identical`,
+        )
+      }
+
+      // R12 基准列的注记只讲本方向的语言：基准列是这一页的参照系，
+      // 讲屏幕外的语言会把读者引向并不存在的一列。
+      //   · basics 是**多选列**板块，基准列只该讲自己 —— 勾 Java+Go+Rust 时
+      //     读到一句讲 Python 的注记，就是幽灵语言
+      //   · 对级板块只有 baseline↔target 两门，基准列讲 target 正是教学内容本身，
+      //     所以那里只禁「第三门语言」
+      const topicCfg = registry.topics[chapter.topicId]
+      if (topicCfg?.enabled && lang === topicCfg.baseline) {
+        const allowed = new Set<string>(
+          topicCfg.section === 'basics' ? [lang] : [lang, topicCfg.target ?? ''].filter(Boolean),
+        )
+        const mentionable = enabledLanguageIds
+          .map((id) => metaById[id])
+          .filter((m): m is LanguageMeta => Boolean(m))
+          .filter((m) => !allowed.has(m.id))
+        for (const m of detectForeignLanguageMentions(allNotes, lang, mentionable)) {
+          warn(
+            'R12',
+            `${where} 第 ${m.line} 行`,
+            `基准列注记点名了 '${m.name}'（命中「${m.word}」）：对照说明应写在对应语言的对比列实现里`,
+          )
+        }
       }
     }
   }
@@ -421,45 +562,84 @@ export function analyzeContent(): Analysis {
     }
   }
 
-  /* 踩坑 / 心智模型 / 术语 / 路线图 */
-  const pitfalls = loadPitfalls()
-  for (const p of pitfalls) {
-    if (p.featureId && !featureIds.has(p.featureId)) {
-      err('R5', `content/topics/pitfalls/pitfalls.yaml#${p.id}`, `featureId '${p.featureId}' 不存在`)
-    }
-    for (const lang of p.languages) {
-      if (!allLanguageIds.includes(lang)) {
-        err('R5', `content/topics/pitfalls/pitfalls.yaml#${p.id}`, `语言 '${lang}' 不存在`)
+  /*
+   * 踩坑 / 术语 / 路线图 —— 三者都是**对级**资源，归属由所属目录的 topic 决定。
+   * pairLists 只包含 registry 里登记过的对目录，因此「目录名写错」这类问题
+   * 会在上面的目录比对里报出来，而不是在这里静默消失。
+   */
+  const pairs = loadPairLists(registry)
+  const pitfalls: ScopedPitfall[] = []
+  const glossary: ScopedGlossary[] = []
+  const roadmaps: Record<string, ScopedRoadmapStage[]> = {}
+
+  for (const pair of pairs) {
+    const where = rel(pair.dir)
+    const allowed = new Set([pair.baseline, pair.target])
+
+    for (const p of pair.pitfalls) {
+      pitfalls.push(p)
+      if (p.featureId && !featureIds.has(p.featureId)) {
+        err('R5', `${where}/pitfalls.yaml#${p.id}`, `featureId '${p.featureId}' 不存在`)
+      }
+      for (const lang of p.languages) {
+        if (!allLanguageIds.includes(lang)) {
+          err('R5', `${where}/pitfalls.yaml#${p.id}`, `语言 '${lang}' 不存在`)
+        }
       }
     }
-  }
-  const concepts = loadConcepts()
-  for (const c of concepts) {
-    if (!Object.keys(c.entries).length) err('R1', `concept ${c.id}`, 'entries 为空')
-    for (const lang of Object.keys(c.entries)) {
-      if (!allLanguageIds.includes(lang)) {
-        err('R5', `concept ${c.id}`, `entries 引用了不存在的语言 '${lang}'`)
+
+    /*
+     * 对级词典只允许讲这一个方向的两门语言。
+     * 留着一门第三语言，读者会以为「带着当前基准的习惯」也会在那里踩到同样的坑 ——
+     * 而这条术语根本没在讲那个方向。
+     */
+    for (const g of pair.glossary) {
+      glossary.push(g)
+      for (const lang of Object.keys(g.perLanguage)) {
+        if (!allLanguageIds.includes(lang)) {
+          err('R5', `${where}/glossary.yaml「${g.term}」`, `perLanguage 引用了不存在的语言 '${lang}'`)
+        } else if (!allowed.has(lang)) {
+          err(
+            'R5',
+            `${where}/glossary.yaml「${g.term}」`,
+            `perLanguage 含 '${lang}'，但本目录只讲 ${pair.baseline} → ${pair.target}` +
+              '（对级词典只能讲这两门语言）',
+          )
+        }
       }
     }
-  }
-  const glossary = loadGlossary()
-  for (const g of glossary) {
-    for (const lang of Object.keys(g.perLanguage)) {
-      if (!allLanguageIds.includes(lang)) {
-        err('R5', `glossary ${g.term}`, `perLanguage 引用了不存在的语言 '${lang}'`)
+
+    const stages = pair.roadmaps
+    if (stages.length) roadmaps[`${pair.baseline}|${pair.target}`] = stages
+    for (const s of stages) {
+      for (const r of s.resources) {
+        if (!isSafeUrl(r.url)) err('R7', `${where}/roadmap.yaml ${s.id}`, `资源 url 不是 https：${r.url}`)
       }
     }
   }
 
-  const roadmaps: Record<string, RoadmapStage[]> = {}
-  for (const lang of allLanguageIds) {
-    const stages = loadRoadmap(lang)
-    if (stages.length) roadmaps[lang] = stages
-    for (const s of stages) {
-      if (s.lang !== lang) err('R8', `roadmap ${s.id}`, `lang 字段为 '${s.lang}'，与所在语言 '${lang}' 不符`)
-      for (const r of s.resources) {
-        if (!isSafeUrl(r.url)) err('R7', `roadmap ${s.id}`, `资源 url 不是 https：${r.url}`)
-      }
+  /*
+   * 骨架期的「还差哪些方向」—— 汇总成 warn 而不是 error。
+   *
+   * 12 个方向 × 5 个板块不可能一次写全，而 R2 对已登记 topic 是 error 级：
+   * 把「还没开始的方向」也做成 error，等于让整条构建流水线在补齐内容前一直红着。
+   * 这里沿用「先攒内容后启用」的既有风格 —— 缺失可见，但不拦人。
+   */
+  const declaredPairs = new Set(
+    Object.values(registry.topics)
+      .filter((c) => c.target)
+      .map((c) => `${c.baseline}|${c.target}`),
+  )
+  for (const baseline of baselineCandidateIds) {
+    const missing = enabledLanguageIds.filter(
+      (id) => id !== baseline && !declaredPairs.has(`${baseline}|${id}`),
+    )
+    if (missing.length) {
+      warn(
+        'R5',
+        'content/registry.yaml',
+        `基准 '${baseline}' 下还没有这些方向的迁移内容：${missing.join(', ')}（骨架期允许，补齐后在 registry 登记）`,
+      )
     }
   }
 
@@ -479,8 +659,8 @@ export function analyzeContent(): Analysis {
     chapters,
     features,
     snippets,
+    pairs,
     pitfalls,
-    concepts,
     glossary,
     roadmaps,
     attributions,

@@ -1,0 +1,78 @@
+# java —— python2java/01-functions 的实现
+#
+# 以 Python 为基准看 Java 的函数与参数模型。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: p7-skeleton-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: python2java/intro
+    equivalence: divergent
+    code: |
+      static String greet(String name) {                 // @note! 没有默认值，只能重载
+          return greet(name, "Hello");
+      }
+
+      static String greet(String name, String greeting) {
+          return greeting + ", " + name + "!";
+      }
+      // @note! 调用方只能按位置传，没有 greeting="Hi" 这种写法
+  - featureId: python2java/param-passing
+    equivalence: analogous
+    code: |
+      static void addTag(List<String> tags) {
+          tags.add("new");                       // @note 改内容：调用方看得到
+          tags = new ArrayList<>();              // @note! 改绑定：只在函数内生效
+      }
+
+      static void bump(int v) {
+          v += 1;                                // @note int 是原始类型，真的按值拷贝
+      }
+  - featureId: python2java/defaults
+    equivalence: absent
+    code: |
+      static Connection connect(String host) {
+          return connect(host, 5432, 30);
+      }
+      static Connection connect(String host, int port, int timeout) {
+          return new Connection(host, port, timeout);
+      }
+    body: |
+      Java **没有默认参数语法**。可选配置的正统解法是重载 + 单一实现：
+
+      ```java
+      static Connection connect(String host) {
+          return connect(host, 5432, 30);   // 短的转调长的，默认值只写一处
+      }
+      static Connection connect(String host, int port) {
+          return connect(host, port, 30);
+      }
+      static Connection connect(String host, int port, int timeout) { ... }
+      ```
+
+      参数再多就该换成 Builder：`Config.builder().host(h).port(5432).build()`。
+      Builder 的额外好处是**具名**——它同时补上了 Java 缺失的关键字参数。
+  - featureId: python2java/variadic
+    equivalence: divergent
+    code: |
+      static String joinAll(String sep, String... parts) {     // @note 只能有一个，且必须在最后
+          return String.join(sep, parts);
+      }
+
+      static Map<String, Object> configure(Map<String, Object> options) { ... }
+      // @note! Java 没有关键字参数，调用方要么传 Map，要么用 Builder
+  - featureId: python2java/exercise
+    equivalence: analogous
+    code: |
+      static String summarize(List<String> items) {
+          return summarize(items, "-", "", 0);
+      }
+
+      static String summarize(List<String> items, String sep, String prefix, int limit) {
+          List<String> picked = limit <= 0 ? items : items.subList(0, Math.min(limit, items.size()));
+          return prefix + String.join(sep, picked);
+      }

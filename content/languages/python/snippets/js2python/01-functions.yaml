@@ -1,0 +1,102 @@
+# python —— js2python 迁移教程的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: migration-sample-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: js2python/intro
+    equivalence: analogous
+    code: |
+      # 同一件事在 Python 里的样子：形式更少，语义要重学
+      def greet(name, greeting='你好'):        # @note 只有 def 一种形式
+          return f'{greeting}，{name}'
+
+      # @note 没有箭头函数、没有 function 关键字、没有函数提升
+      # @note 想匿名只能用 lambda，且只能是**单个表达式**（不能有语句、不能多行）
+
+      greet('Ada')
+      greet('Ada', 'Hi')
+  - featureId: js2python/param-passing
+    equivalence: identical
+    code: |
+      # 与 JS 结论完全一致：改内容看得见，换引用看不见
+      def mutate(items):
+          items.append(4)          # 调用方看得见
+
+      def reassign(items):
+          items = [9, 9, 9]        # @note 只改了本地绑定，调用方看不到
+
+      data = [1, 2, 3]
+      mutate(data)                 # data → [1, 2, 3, 4]
+      reassign(data)               # data 不变
+
+      # @note 与 JS 的差别在**理由**而非结论：
+      #       JS 有原始类型（number/string 传的是拷贝），Python 里一切都是对象，
+      #       但 int / str 不可变，所以表现上仍然是"拷贝"。
+      #       @note! 别因此以为赋值是拷贝：a = b 永远只是绑定了同一个对象。
+  - featureId: js2python/defaults
+    equivalence: divergent
+    code: |
+      # @note! 这是整个模块最危险的一条：不报错，但行为是错的
+      def collect(x=[]):           # @note! 默认值只在**函数定义时**求值一次
+          x.append(1)
+          return x
+
+      collect()      # [1]
+      collect()      # [1, 1]  —— 拿到的是上一次那个列表，不是新数组
+
+      # 迁移做法：默认值用 None 作哨兵，函数体内再创建
+      def collect_safe(x=None):
+          if x is None:            # @note 必须用 is None，不能用 if not x（空列表会被误判）
+              x = []
+          x.append(1)
+          return x
+
+      collect_safe()  # [1]
+      collect_safe()  # [1]  —— 正确
+  - featureId: js2python/variadic
+    equivalence: analogous
+    code: |
+      # *args 收成**元组**（不可变），**kwargs 收成**字典**
+      def tag(*names):
+          return ' '.join(f'#{n}' for n in names)     # @note names 是 tuple，不是 list
+
+      tag('js', 'ts')
+
+      # 需要"收任意个具名参数"时不用像 JS 那样手动解构，语言原生支持：
+      def config(host, port=80, **rest):              # @note! rest 会把拼错的参数名静默吞掉
+          return {'host': host, 'port': port, **rest}
+
+      config('db', tls=True)
+
+      # 转发给下游函数时直接展开：
+      # def wrapper(*args, **kwargs):
+      #     return target(*args, **kwargs)
+  - featureId: js2python/exercise
+    equivalence: divergent
+    code: |
+      # 参考实现
+      def merge(*configs):
+          out = {}
+          for c in configs:
+              out.update(c)         # @note 后面的覆盖前面的，与 JS 的 Object.assign 同序
+          return out
+
+      merge({'a': 1}, {'b': 2})     # {'a': 1, 'b': 2}
+      merge()                       # {} —— 不传参数也正常
+
+      # @note! 如果你写成了下面这样，就同时踩中了可变默认值这个坑：
+      #
+      #     def merge(*configs, defaults={}):    # 错的
+      #         ...
+      #
+      #   第二次调用会拿到第一次留下的 defaults 内容。正确做法是
+      #   用 defaults=None 作哨兵，或者根本不需要这个参数（如上）。
+      #
+      # @note 另一处容易忽略的差异：JS 的 merge 返回新对象，Python 的 update
+      #       也是原地改 out（out 是函数内新建的，所以调用方不受影响）。

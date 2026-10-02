@@ -1,0 +1,102 @@
+id: java2python/01-functions
+topicId: java2python
+title: 1. 函数与参数传递
+order: 1
+summary: 带着 Java 的函数直觉写 Python：写起来更短，但少了编译器的兜底
+
+features:
+  - id: java2python/intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 从 Java 到 Python，函数这一层是"约束被拿掉"最集中的地方
+    body: |
+      从 Java 迁移到 Python，函数这一层**表面变化是"短了很多"**：
+      不用写类型、不用写 `static`、不用把函数塞进类里，`def` 一种形式走天下。
+
+      真正的风险在于**编译器不再替你兜底**。Java 能在编译期报出的错，
+      Python 里会变成运行时异常，或者干脆静默地做另一件事：
+
+      - 参数类型不匹配：Java 编译错误，Python 到运行时才 `TypeError`
+      - 拼错的具名参数：Java 编译错误，Python 的 `**kwargs` 会**静默吞掉**
+      - 返回类型不符：Java 编译错误，Python 只有调用方用到时才炸
+
+      本章按「能直接迁移 → 形似但不同 → 语义不同」的顺序排，
+      每个小节都给出两边的对照代码与迁移要点。
+
+  - id: java2python/param-passing
+    title: 参数传递：两边都是值传递
+    kind: behavior
+    summary: 结论一致，但 Python 的"不可变"和 Java 的原始类型不是一回事
+    body: |
+      Java 与 Python 在参数传递上**结论一致**：都是按值传递 ——
+      传进去的是引用的副本，所以「函数内重新赋值参数」不影响调用方，
+      而「函数内修改对象内容」会影响调用方。
+
+      差别在于 Java 的原始类型（`int` / `boolean`）是真正的值拷贝，
+      而 Python 里**一切都是对象**，连 `int` 都是；它表现得像拷贝，
+      只是因为 `int` 不可变。
+
+      **迁移要点**：Java 里"传 `int` 就是拷贝、传 `List` 就是共享"的分界线，
+      在 Python 里改成了"传不可变对象像拷贝、传可变对象是共享"。
+      分界线的位置变了，判断依据也变了。
+
+  - id: java2python/defaults
+    title: 默认参数：Java 靠重载，Python 有原生语法
+    kind: syntax
+    summary: 写法变简单了，但求值时机变危险了
+    body: |
+      Java 没有默认参数，只能写若干个重载方法；Python 直接写在签名里：
+
+      ```python
+      def connect(host, port=5432, timeout=30): ...
+      ```
+
+      表面上这是纯粹的简化，但**求值时机变了**，而且变得危险：
+      Java 的每个重载方法在调用时计算实参，而 Python 的默认值
+      **只在函数定义时求值一次**。
+
+      ```python
+      def collect(item, bucket=[]):   # @note! 这个列表被所有调用共享
+          bucket.append(item)
+          return bucket
+      ```
+
+      **迁移做法**：默认值一律用 `None` 当哨兵，函数体内再创建可变对象。
+      不可变默认值（数字、字符串、`None`）则没有这个问题。
+
+  - id: java2python/variadic
+    title: 可变参数：`T...` 与 `*args` / `**kwargs`
+    kind: syntax
+    summary: Python 把"位置可变"和"关键字可变"拆成两个参数
+    body: |
+      Java 的 `String... parts` 收集成一个**数组**，且只能有一个、必须在最后。
+      Python 拆成两个机制：`*args` 收集成**元组**（不可变），
+      `**kwargs` 收集成**字典**。
+
+      ```python
+      def join_all(sep, *parts): ...
+      def configure(**options): ...
+      ```
+
+      `**kwargs` 是 Java 完全没有的能力 —— 它让"具名可选参数"成为可能，
+      但也带来一个 Java 里不存在的坑：**拼错的关键字参数会被静默吞掉**。
+      Java 里写错参数名是编译错误，Python 里只是默默进了 `kwargs`。
+
+  - id: java2python/exercise
+    title: 练习：把这个 Java 工具方法迁到 Python
+    kind: exercise
+    summary: 三个改动点，其中一个是必须避开的陷阱
+    body: |
+      下面这个 Java 方法做的是「按分隔符拼接若干片段，可指定前缀与上限」。
+
+      请把它迁到 Python，要求保持**行为完全一致**，包括：
+
+      1. 调用方可以只传前两个参数
+      2. 可以传任意个片段
+      3. 上限为 0 时表示不限制
+
+      写完对照下方的参考实现 —— 如果你写了
+      `def summarize(items, sep="-", prefix="", limit=0, cache={})` 这种签名，
+      就已经埋下了一个会跨调用累积状态的隐患。
+
+      （提示：本例同时涉及默认参数与可变参数两个知识点。）

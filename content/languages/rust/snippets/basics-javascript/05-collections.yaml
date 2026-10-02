@@ -1,0 +1,118 @@
+# rust —— basics/05-collections 的实现
+# 上下文：片段默认位于某个 fn 内部。⚠️ 本机无 Rust 工具链，未做执行验证，待补校对。
+topic: basics-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: workbuddy-agent
+    promptTemplateId: p5-add-languages-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-javascript/array-create
+    equivalence: divergent
+    code: |
+      let arr: [i32; 3] = [1, 2, 3];      // @note 数组：长度写进**类型**，栈上分配
+      let v: Vec<i32> = vec![1, 2, 3];    // @note Vec：可增长、堆上分配（对应 JS 的 Array）
+      let zeros = vec![0; 5];             // [0, 0, 0, 0, 0]
+
+      // @note! [i32; 3] 和 [i32; 4] 是**不同类型**，长度是类型的一部分
+      // @note 需要可变长列表时一律用 Vec
+  - featureId: basics-javascript/array-index
+    equivalence: divergent
+    code: |
+      let v = vec![1, 2, 3];
+      v[0];            // 1
+      // v[5];         // @note! panic: index out of bounds
+
+      v.get(5);        // None      —— @note 安全版本返回 Option
+      v.get(0);        // Some(&1)
+
+      // @note! Rust 给了两种选择：会 panic 的 []、返回 Option 的 get()
+      //        越界既不是静默 undefined，也不像 Java 只有抛异常一条路
+  - featureId: basics-javascript/array-mutate
+    equivalence: analogous
+    code: |
+      let mut v = vec![1, 2, 3];
+      v.push(4);               // ≈ JS 的 push
+      v.pop();                 // Some(4) —— @note 返回 Option，不是元素本身
+      v.insert(0, 0);
+      v.remove(0);             // @note 按**下标**删，并返回被删元素
+
+      v[0] = 99;               // @note Rust 可以直接用下标赋值
+
+      // @note! pop() 返回 Option：空 vec 上 pop 得到 None，而不是 undefined
+  - featureId: basics-javascript/array-slice
+    equivalence: analogous
+    code: |
+      let v = vec![1, 2, 3, 4, 5];
+
+      &v[1..3];            // [2, 3] —— @note 左闭右开，返回**切片（借用）**
+      &v[..];              // 全长
+      &v[2..];             // [3, 4, 5]
+
+      v[1..3].to_vec();    // @note 想真拷贝要显式 to_vec()
+
+      // @note! 切片是借用：借用期间原 vec 不能可变 —— 这是 Rust 独有的约束
+      // @note 写法与 JS 的 slice 非常像，但语义是「看」而不是「拷」
+  - featureId: basics-javascript/array-iterate
+    equivalence: divergent
+    code: |
+      let v = vec![1, 2, 3];
+
+      for x in &v { }                          // @note 借用元素（x 是 &i32）
+      for x in v { }                           // @note! 这会**移动** v：之后 v 不可再用
+      for (i, x) in v.iter().enumerate() { }    // 带下标
+
+      // @note! 「for x in v」与「for x in &v」的差别是 Rust 特有的：
+      //        前者消耗掉 v，后者只是借来看
+  - featureId: basics-javascript/array-map-filter
+    equivalence: analogous
+    code: |
+      let v = vec![1, 2, 3, 4];
+
+      let doubled: Vec<i32> = v.iter().map(|x| x * 2).collect();       // [2, 4, 6, 8]
+      let evens: Vec<i32> = v.iter().filter(|x| *x % 2 == 0).collect();
+      let sum: i32 = v.iter().sum();
+
+      // @note! 与 JS 的关键差别：Rust 是**惰性迭代器** ——
+      //        没有 collect() / sum() / for_each() 这类终结操作，前面什么都不执行
+      // @note 好处是中间结果不分配内存，代价是类型标注常常跑不掉
+  - featureId: basics-javascript/array-sort
+    equivalence: analogous
+    code: |
+      let mut v = vec![3, 1, 2];
+      v.sort();                          // @note! 原地排序，且是正确的自然序
+
+      let mut f = vec![3.0, 1.0];
+      f.sort_by(|a, b| a.partial_cmp(b).unwrap());   // @note 浮点没有全序，必须给比较器
+
+      v.sort_unstable();                 // 不稳定但更快
+
+      // @note! Rust 的默认排序没有 JS 那个「按字符串比较」的历史包袱，
+      //        [10, 9, 1] 会老实排成 [1, 9, 10]
+  - featureId: basics-javascript/array-search
+    equivalence: divergent
+    code: |
+      let v = vec![1, 2, 3];
+
+      v.contains(&2);                    // true   —— @note 参数是引用
+      v.iter().position(|&x| x == 2);     // Some(1) —— @note 对应 JS 的 indexOf
+      v.iter().find(|&&x| x > 1);         // Some(&2)
+
+      // @note! 找不到时 position 返回 None，不是 -1 ——
+      //        JS 那个「-1 是真值」的经典坑在 Rust 里从类型上就不存在
+  - featureId: basics-javascript/array-unpack
+    equivalence: divergent
+    code: |
+      let a = vec![1, 2];
+      let b = vec![3, 4];
+
+      let mut merged = a.clone();
+      merged.extend(&b);                 // @note 合并用 extend
+
+      let [x, y, z] = [1, 2, 3];         // @note 解构能力比 JS 更强
+      let (first, rest) = (1, vec![2, 3]);
+
+      // @note! 但没有 JS 的展开运算符：没法把 Vec 的元素「展开」成函数实参
+      //        （这正是 Rust 里没有 func(...args) 的原因）

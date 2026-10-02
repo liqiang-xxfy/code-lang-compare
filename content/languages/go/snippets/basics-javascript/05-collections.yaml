@@ -1,0 +1,118 @@
+# go —— basics/05-collections 的实现
+# 上下文：片段默认位于某个 func 内部；假定已 import 所需包。
+# ⚠️ 本机无 Go 工具链，未做执行验证，待补校对。
+topic: basics-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: workbuddy-agent
+    promptTemplateId: p5-add-languages-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-javascript/array-create
+    equivalence: divergent
+    code: |
+      arr := [3]int{1, 2, 3}        // @note 数组：长度是类型的一部分（[3]int != [4]int）
+      slice := []int{1, 2, 3}       // @note 切片：日常几乎总是用它（对应 JS 的 Array）
+      made := make([]int, 0, 8)     // 长度 0、容量 8
+
+      // @note! Go 的「数组」很少直接用；「切片」才是惯用类型（动态长度 + 底层数组）
+  - featureId: basics-javascript/array-index
+    equivalence: divergent
+    code: |
+      s := []int{1, 2, 3}
+      s[0]              // 1
+      s[len(s)-1]       // 3
+      // s[5]           // @note! panic: index out of range
+
+      // @note! Go 只有 panic 这一条路，没有「安全取值」的版本（Rust 有 get()）
+      //        想安全访问得自己判 len(s) > i
+  - featureId: basics-javascript/array-mutate
+    equivalence: divergent
+    code: |
+      s := []int{1, 2, 3}
+      s = append(s, 4)               // @note! append 返回新切片，必须接收返回值
+      s = append(s[:1], s[2:]...)    // @note 删除下标 1 的惯用写法
+      s[0] = 99                      // @note 可以直接下标赋值
+
+      // @note! append 可能扩容并返回**新的底层数组** ——
+      //        忘记接收返回值是最常见的 bug（编译器还会因为「未使用」放过它）
+  - featureId: basics-javascript/array-slice
+    equivalence: divergent
+    code: |
+      s := []int{1, 2, 3, 4, 5}
+
+      s[1:3]        // [2, 3] —— @note 左闭右开
+      s[:2]         // [1, 2]
+      s[2:]         // [3, 4, 5]
+
+      sub := s[1:3]
+      sub[0] = 99
+      // @note! s[1] 也变成 99 —— 切片共享**同一个底层数组**，不是拷贝
+
+      // @note 想真拷贝要用 slices.Clone() 或 copy()
+  - featureId: basics-javascript/array-iterate
+    equivalence: analogous
+    code: |
+      s := []int{1, 2, 3}
+
+      for i, v := range s { }    // @note 两个值：下标 + 元素
+      for _, v := range s { }    // 只要元素
+      for i := range s { }       // 只要下标
+      for i := 0; i < len(s); i++ { }
+
+      // @note! Go 只有 for 一种循环（没有 while），但 range 覆盖了绝大多数遍历场景
+  - featureId: basics-javascript/array-map-filter
+    equivalence: divergent
+    code: |
+      s := []int{1, 2, 3, 4}
+
+      // @note! Go **没有** map / filter / reduce —— 必须手写循环
+      doubled := make([]int, 0, len(s))
+      for _, v := range s {
+          doubled = append(doubled, v*2)
+      }
+
+      // @note Go 1.21+ 的 slices 包提供了一些工具（Sort / Contains / Index），
+      //       但没有通用的 map —— 要的话得用泛型自己封一个
+
+      // @note! 这是从 JS / Python 过来最不适应的一点：链式调用那套完全不存在
+  - featureId: basics-javascript/array-sort
+    equivalence: analogous
+    code: |
+      s := []int{3, 1, 2}
+
+      slices.Sort(s)                        // @note Go 1.21+ 泛型排序，原地修改
+      sort.Ints(s)                          // 老写法
+      sort.Slice(s, func(i, j int) bool { return s[i] > s[j] })   // @note 自定义：降序
+
+      // @note! 与 JS 不同：Go 的默认排序是正确的自然序，
+      //        不存在 [10, 9, 1] 被排成 [1, 10, 9] 那个坑
+      // @note 排序在原地修改切片，没有返回值
+  - featureId: basics-javascript/array-search
+    equivalence: divergent
+    code: |
+      s := []int{1, 2, 3}
+
+      slices.Contains(s, 2)      // true
+      slices.Index(s, 2)         // 1    —— @note! 找不到返回 -1，而 -1 是真值
+
+      if idx := slices.Index(s, 9); idx >= 0 {   // @note 判断必须写 >= 0
+          _ = idx
+      }
+
+      // @note Go 没有「返回 Option」的查找版本：要么给布尔，要么给 -1
+  - featureId: basics-javascript/array-unpack
+    equivalence: divergent
+    code: |
+      a := []int{1, 2}
+      b := []int{3, 4}
+
+      merged := append(append([]int{}, a...), b...)   // @note! ... 是唯一的「展开」语法
+
+      // @note! Go 的 ... 只在函数调用（展开实参）与变参声明里可用，
+      //        不能像 JS 那样出现在字面量里（没有 [...a, ...b]）
+
+      x, y := 1, 2                                    // 多重赋值算是一点补偿
+      _, _ = x, y

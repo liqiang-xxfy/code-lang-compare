@@ -1,0 +1,94 @@
+id: python2java/01-functions
+topicId: python2java
+title: 1. 函数与参数传递
+order: 1
+summary: 带着 Python 的函数直觉写 Java：形式变多了，自由度却变少了
+
+features:
+  - id: python2java/intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 从 Python 到 Java，函数这一层是"能力被收回"最集中的地方
+    body: |
+      与 JavaScript → Python 的方向相反，从 Python 迁移到 Java 时，
+      函数这一层**表面变化是"变啰嗦了"**：每个参数要写类型，每个返回值要写类型，
+      一个文件里所有公开函数都得装进类里。
+
+      但真正需要重写直觉的不是啰嗦，而是**三样 Python 有、Java 没有的东西**：
+
+      - **默认参数**：Java 完全没有，只能靠重载或 Builder 模拟
+      - **关键字参数**：Java 只能按位置传，参数一多就靠 IDE 提示读签名
+      - **`**kwargs`**：Java 的可变参数 `T...` 只能有一个、且必须在最后，也不区分位置与关键字
+
+      本章按「能直接迁移 → 形似但不同 → 语义不同」的顺序排，
+      每个小节都给出两边的对照代码与迁移要点。
+
+  - id: python2java/param-passing
+    title: 参数传递：两边都是值传递
+    kind: behavior
+    summary: 结论一致，但 Java 有原始类型这一层
+    body: |
+      Python 与 Java 在参数传递上**结论一致**：都是按值传递 ——
+      传进去的是引用的副本，所以「函数内重新赋值参数」不影响调用方，
+      而「函数内修改对象内容」会影响调用方。
+
+      差别在于 Java 有**原始类型**（`int` / `boolean` / `double`）这一层，
+      它们是真的按值拷贝；Python 里连整数都是对象，只是不可变，表现上才像拷贝。
+
+      **迁移要点**：Python 里"可变对象传引用、不可变对象传值"的直觉可以直接搬过来，
+      但要记住 Java 的 `String` 和包装类（`Integer`）是不可变的，
+      而数组与集合是可变的 —— 后两者被函数改动时调用方会看到。
+
+  - id: python2java/defaults
+    title: 默认参数：Java 没有这个语法
+    kind: behavior
+    summary: 只能用重载、静态工厂或 Builder 模拟
+    body: |
+      这是从 Python 迁到 Java 时**第一个必须改写法**的地方：Java 不支持默认参数。
+
+      惯用替代方案有三种，按参数个数增长依次升级：
+
+      | 参数规模 | Java 惯用法 |
+      | --- | --- |
+      | 2–3 个可选参数 | 写若干个重载方法，短的转调长的 |
+      | 一组"可选配置" | Builder 模式（链式 `setX` 后 `build()`） |
+      | 大量可选 + 少量必填 | 静态工厂 + 具名构造方法 |
+
+      **迁移要点**：不要让每个重载都实现一遍逻辑 —— 让参数少的版本
+      调用参数全的版本并补上默认值，只有一处需要维护。
+
+  - id: python2java/variadic
+    title: 可变参数：`*args` / `**kwargs` 与 `T...`
+    kind: syntax
+    summary: Java 只有一个可变参数，且没有关键字参数
+    body: |
+      Python 把「任意个位置参数」和「任意个关键字参数」拆成 `*args` 与 `**kwargs`
+      两个机制；Java 只有 `类型...` 一种，而且必须放在参数列表**最后**，全类方法只能有一个。
+
+      ```java
+      static String join(String sep, String... parts) { ... }
+      ```
+
+      更关键的是 **Java 没有关键字参数**：调用方按位置传，
+      参数一多就只能靠 IDE 的行内提示与清晰的命名来兜底。
+
+      **迁移陷阱**：Python 里 `**kwargs` 会把拼错的关键字参数**静默吞掉**，
+      Java 里同样的错误会变成编译错误 —— 这是少见的「迁到 Java 反而更安全」的一处。
+
+  - id: python2java/exercise
+    title: 练习：把这个 Python 工具函数迁到 Java
+    kind: exercise
+    summary: 三个改动点，其中一个是必须换写法
+    body: |
+      下面这段 Python 做的是「按指定分隔符拼接若干片段，并允许指定一个前缀和上限」。
+
+      请把它迁到 Java，要求保持**行为完全一致**，包括：
+
+      1. 调用方可以只传前两个参数
+      2. 可以传任意个片段
+      3. 上限为 0 时表示不限制
+
+      写完对照下方的参考实现 —— 如果你为每个默认参数都写了一份完整实现，
+      那就有三份逻辑要同步维护了。
+
+      （提示：本例同时涉及默认参数与可变参数两个知识点。）

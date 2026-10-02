@@ -10,21 +10,19 @@ import { fileURLToPath } from 'node:url'
 import yaml from 'js-yaml'
 import {
   chapterSchema,
-  conceptGroupSchema,
-  glossaryTermSchema,
   languageMetaSchema,
-  pitfallSchema,
   registrySchema,
-  roadmapStageSchema,
+  scopedGlossarySchema,
+  scopedPitfallSchema,
+  scopedRoadmapStageSchema,
   snippetFileSchema,
   type Annotation,
   type Chapter,
-  type ConceptGroup,
-  type GlossaryTerm,
   type LanguageMeta,
-  type Pitfall,
   type Registry,
-  type RoadmapStage,
+  type ScopedGlossary,
+  type ScopedPitfall,
+  type ScopedRoadmapStage,
   type SnippetSource,
 } from '../../src/schemas'
 
@@ -111,7 +109,37 @@ export function loadAllLanguageMeta(): LanguageMeta[] {
  * 既不好 review（一次 PR 的 diff 覆盖整章），也不好并行编辑（同文件必冲突）。
  * 拆成「一章一文件」后，加一章内容 = 新增一个文件，diff 干净、冲突面最小。
  */
-export function loadSnippets(id: string): SnippetSource[] {
+/** 一个覆盖层文件装载后的结果：它承载哪个 topic、里面有哪些实现 */
+export interface SnippetFileGroup {
+  /** 相对仓库根的路径，用于错误定位 */
+  file: string
+  topic: string
+  items: SnippetSource[]
+}
+
+function yamlFilesIn(dir: string): string[] {
+  if (!exists(dir)) return []
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isFile() && d.name.endsWith('.yaml'))
+    .map((d) => path.join(dir, d.name))
+    .sort()
+}
+
+/**
+ * 装载一门语言的覆盖层，保留「哪条来自哪个文件」的信息（错误定位要用）。
+ *
+ * 目录约定（推荐第一种）：
+ *   content/languages/<id>/snippets/<topicId>/<NN>-<chapter>.yaml   按 topic 分目录
+ *   content/languages/<id>/snippets/<NN>-<chapter>.yaml             平铺（旧布局，仍支持）
+ *   content/languages/<id>/snippets.yaml                            单文件（语言内容少时够用）
+ *
+ * 为什么要有 topic 这一层：平铺布局里文件名必须自己携带 topic 信息
+ * （实测出现过 `13-basics-python-01-variables.yaml` 这种把 topic 名与章节名拼在一起的名字），
+ * 而序号是**语言目录内的局部序号**，同一序号在不同语言下指向不同 topic。
+ * 分目录之后，文件名只表达「第几章」，归属由目录表达。
+ */
+export function loadSnippetFiles(id: string): SnippetFileGroup[] {
   const dir = path.join(LANGUAGES_DIR, id)
   const files: string[] = []
 
@@ -120,16 +148,35 @@ export function loadSnippets(id: string): SnippetSource[] {
 
   const splitDir = path.join(dir, 'snippets')
   if (exists(splitDir)) {
-    files.push(
-      ...fs
-        .readdirSync(splitDir, { withFileTypes: true })
-        .filter((d) => d.isFile() && d.name.endsWith('.yaml'))
-        .map((d) => path.join(splitDir, d.name))
-        .sort(),
-    )
+    for (const entry of fs
+      .readdirSync(splitDir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.isDirectory()) files.push(...yamlFilesIn(path.join(splitDir, entry.name)))
+      else if (entry.name.endsWith('.yaml')) files.push(path.join(splitDir, entry.name))
+    }
   }
 
-  return files.flatMap((file) => snippetFileSchema.parse(readYaml(file)))
+  return files.map((file) => {
+    const rel = path.relative(ROOT, file)
+    const parsed = snippetFileSchema.parse(readYaml(file))
+    const items = parsed.snippets.map((entry) => {
+      // 条目级 review 覆盖文件级默认 —— 同批生成的条目共用一份 provenance 时，
+      // 文件级写一次即可（全仓库曾因此重复 456 处）
+      const review = entry.review ?? parsed.review
+      if (!review) {
+        throw new Error(
+          `${rel}：featureId '${entry.featureId}' 既没有条目级 review，文件级也没有默认 review`,
+        )
+      }
+      return { ...entry, review }
+    })
+    return { file: rel, topic: parsed.topic, items }
+  })
+}
+
+/** 扁平形式 —— 只要实现、不关心它来自哪个文件时的入口 */
+export function loadSnippets(id: string): SnippetSource[] {
+  return loadSnippetFiles(id).flatMap((g) => g.items)
 }
 
 /** 章节：content/topics/<topicId>/NN-*.yaml。列表型资源（数组）会被跳过。 */
@@ -153,35 +200,58 @@ export function loadChapters(): Chapter[] {
   return out.sort((a, b) => a.order - b.order)
 }
 
-function loadListFile<T>(rel: string): T[] {
-  const f = path.join(CONTENT_DIR, rel)
-  if (!exists(f)) return []
-  const raw = readYaml(f)
-  return Array.isArray(raw) ? (raw as T[]) : []
+function loadArray(file: string): unknown[] {
+  if (!exists(file)) return []
+  const raw = readYaml(file)
+  return Array.isArray(raw) ? raw : []
 }
 
-export function loadPitfalls(): Pitfall[] {
-  return loadListFile<unknown>('topics/pitfalls/pitfalls.yaml').map((x) => pitfallSchema.parse(x))
+/** 一个 (基准, 目标) 对目录下的三份列表资源 */
+export interface PairLists {
+  topicId: string
+  baseline: string
+  target: string
+  dir: string
+  pitfalls: ScopedPitfall[]
+  glossary: ScopedGlossary[]
+  roadmaps: ScopedRoadmapStage[]
 }
 
-export function loadConcepts(): ConceptGroup[] {
-  return loadListFile<unknown>('topics/concepts/concepts.yaml').map((x) =>
-    conceptGroupSchema.parse(x),
-  )
+/** topics 目录下实际存在的目录名（章节目录与对目录混在一起，靠 registry 区分） */
+export function listTopicIds(): string[] {
+  return listDirs(TOPICS_DIR)
 }
 
-export function loadGlossary(): GlossaryTerm[] {
-  return loadListFile<unknown>('topics/concepts/glossary.yaml').map((x) =>
-    glossaryTermSchema.parse(x),
-  )
-}
-
-export function loadRoadmap(langId: string): RoadmapStage[] {
-  const f = path.join(LANGUAGES_DIR, langId, 'roadmap.yaml')
-  if (!exists(f)) return []
-  const raw = readYaml(f)
-  if (!Array.isArray(raw)) return []
-  return raw.map((x) => roadmapStageSchema.parse(x)).sort((a, b) => a.order - b.order)
+/**
+ * 装载全部对级列表资源（陷阱 / 词典 / 路线）。
+ *
+ * 归属**由目录名反查 registry 得到**，不写进每条 YAML：同一条陷阱可能在多个
+ * 方向上都成立，逐条写 pair 字段会立刻产生 12 份会各自漂移的副本。
+ * 目录名对不上 registry 的（写错、或被停用）在这里被 R5 拦住，而不是静默不渲染。
+ */
+export function loadPairLists(registry: Registry): PairLists[] {
+  const out: PairLists[] = []
+  for (const [topicId, cfg] of Object.entries(registry.topics)) {
+    if (cfg.section === 'basics' || !cfg.target) continue
+    const dir = path.join(TOPICS_DIR, topicId)
+    if (!exists(dir)) continue
+    const ctx = { baseline: cfg.baseline, target: cfg.target }
+    out.push({
+      topicId,
+      ...ctx,
+      dir,
+      pitfalls: loadArray(path.join(dir, 'pitfalls.yaml')).map((x) =>
+        scopedPitfallSchema.parse({ ...(x as object), ...ctx }),
+      ),
+      glossary: loadArray(path.join(dir, 'glossary.yaml')).map((x) =>
+        scopedGlossarySchema.parse({ ...(x as object), ...ctx }),
+      ),
+      roadmaps: loadArray(path.join(dir, 'roadmap.yaml'))
+        .map((x) => scopedRoadmapStageSchema.parse({ ...(x as object), ...ctx }))
+        .sort((a, b) => a.order - b.order),
+    })
+  }
+  return out.sort((a, b) => a.topicId.localeCompare(b.topicId))
 }
 
 export function loadI18n(): Record<string, unknown> {
@@ -194,9 +264,12 @@ export function loadI18n(): Record<string, unknown> {
 const NOTE_RE = /@note(!)?\s+/
 
 export interface ExtractResult {
-  /** 已剥离 @note 标记的代码（用于展示与复制） */
+  /** 已剥离 @note 标记的代码（用于展示与复制）。高危项额外带一个 `⚠` 前缀 */
   code: string
+  /** 高危注记（`@note!`），tone 恒为 'warn'。**说明已内联进 code**，这里留一份结构化副本 */
   notes: Annotation[]
+  /** 全部注记（高危 + 普通），供搜索索引与构建期校验使用 */
+  allNotes: Annotation[]
 }
 
 /**
@@ -211,13 +284,23 @@ export interface ExtractResult {
  *   let x = 1;        // @note 说明                        ← 标记后面就是说明
  *   Boolean([]);      // true —— @note! 空数组是真值         ← 注释有正文，标记追加说明
  *
- * `@note!` 表示高危（warn 语气）。渲染时标记本身会被去掉：
- *   · 注释里还有正文 → 保留正文，剥掉标记
- *   · 注释里只有标记 → 用说明文本作为注释正文
+ * 两种语气的**说明都留在代码行内**，贴着那一行读，不另设说明栏 —— 把高危项单独抽到
+ * 代码块下方，读者得在两处之间来回跳，反而切断阅读。高危（`@note!`）的差别只在说明前
+ * 多一个 `⚠`，让它在满屏注释里能被一眼扫到；标记字符随 code 一起复制。
+ * 标记本身（`@note` / `@note!`）无论哪种都照常剥掉。
  */
 export function extractNotes(rawCode: string, commentLine: string): ExtractResult {
   const notes: Annotation[] = []
+  const allNotes: Annotation[] = []
   const lines = rawCode.replace(/\r\n/g, '\n').split('\n')
+
+  // 先量出 YAML 块标量自带的空行范围。抽取现在**原地保留注记行**（不再整行搬走），
+  // 但块标量自身的首尾空行仍要裁掉，而裁剪只认这个剥离前的范围 —— 行数一变，
+  // 行级 diff 与「就近阅读」依赖的行号就会整体错位。
+  let head = 0
+  while (head < lines.length && lines[head]!.trim() === '') head += 1
+  let tail = lines.length
+  while (tail > head && lines[tail - 1]!.trim() === '') tail -= 1
 
   const cleaned = lines.map((line, idx) => {
     const ci = line.indexOf(commentLine)
@@ -233,17 +316,27 @@ export function extractNotes(rawCode: string, commentLine: string): ExtractResul
 
     // 标记前若只剩分隔符（`——`、`-`、`·`）一并清掉，避免留下「// true ——」这种残尾
     const kept = before.replace(/[\s·—–-]+$/, '').trim()
-    const body = kept || text
+    const annotation: Annotation = { line: idx + 1, text, tone: bang ? 'warn' : 'info' }
+    allNotes.push(annotation)
+    if (bang) notes.push(annotation)
 
-    notes.push({ line: idx + 1, text, tone: bang ? 'warn' : 'info' })
-    return line.slice(0, ci + commentLine.length) + (body ? ` ${body}` : '')
+    const prefix = line.slice(0, ci + commentLine.length)
+
+    /*
+     * 两种语气都留在代码行内。**不能沿用旧的 `kept || text`** —— 那样
+     * `// true —— @note 说明` 的说明会被 kept 顶掉，两个出口都不出现。
+     *
+     * 高危只在**说明文本**前加一个 `⚠`（不是整条注释的最前面）：注释正文（kept）保持原样，
+     * 整行仍是「代码 // 正文 —— ⚠ 说明」的形状，读起来与普通注记无异，只是多一个可扫到的记号。
+     * 说明为空时不落单一个 `⚠`（R4 已就「说明为空」报警，这里不给残尾）。
+     */
+    const lead = bang && text ? '⚠ ' : ''
+    const body = kept ? `${kept} —— ${lead}${text}` : `${lead}${text}`
+    return `${prefix}${body ? ` ${body}` : ''}`
   })
 
-  // 去掉首尾空行（YAML 块标量常带一个尾随换行）
-  while (cleaned.length && cleaned[0]!.trim() === '') cleaned.shift()
-  while (cleaned.length && cleaned[cleaned.length - 1]!.trim() === '') cleaned.pop()
-
-  return { code: cleaned.join('\n'), notes }
+  // 只裁块标量自带的空行：注记行原地保留，抽取本身不再新增空行
+  return { code: cleaned.slice(head, tail).join('\n'), notes, allNotes }
 }
 
 /* ────────────────────────── 小工具 ────────────────────────── */

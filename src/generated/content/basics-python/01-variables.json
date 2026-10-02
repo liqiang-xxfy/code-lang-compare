@@ -1,0 +1,392 @@
+{
+  "id": "basics-python/01-variables",
+  "topicId": "basics-python",
+  "title": "变量与声明",
+  "order": 1,
+  "section": "basics",
+  "baseline": "python",
+  "features": [
+    {
+      "id": "basics-python/var-declaration",
+      "chapterId": "basics-python/01-variables",
+      "title": "变量声明",
+      "kind": "syntax",
+      "summary": "Python 没有声明语句，赋值本身就是声明",
+      "bodyHtml": "<p>Python 里<strong>不存在&quot;声明&quot;这个动作</strong>：<code>count = 0</code> 既是把名字 <code>count</code> 绑定到一个新对象上，\n也是这个词法的全部形式。没有类型标注语句（<code>x: int = 0</code> 是注解，解释器不强制），\n没有 <code>let</code> / <code>const</code> / <code>var</code>，也没有 Java 那种「先声明后赋值」的两步。</p>\n<p>从 Python 出发看别的语言，最容易低估的就是这一点：JS 与 Java 的\n「声明」同时在做两件事 —— 引入名字、并限制这个名字能不能被重新赋值和在哪里可见。\nPython 只有前者。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "let count = 0;        // Python 里只需 count = 0，没有声明关键字\nconst name = \"Ada\";   // const 冻结绑定，Python 没有对应语法\nvar legacy = 1;       // ⚠ var 是函数作用域且会提升，Python 里没有类比物",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> count </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// Python 里只需 count = 0，没有声明关键字</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> name</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Ada\"</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// const 冻结绑定，Python 没有对应语法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> legacy </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;       </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ var 是函数作用域且会提升，Python 里没有类比物</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [
+            {
+              "line": 3,
+              "text": "var 是函数作用域且会提升，Python 里没有类比物",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "count = 0            # 赋值即声明，没有关键字\nname = \"Ada\"\ncount = \"now a string\"   # 名字可以改绑到完全不同的类型上",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">count </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-comment)\">            # 赋值即声明，没有关键字</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Ada\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">count </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"now a string\"</span><span style=\"color:var(--shiki-token-comment)\">   # 名字可以改绑到完全不同的类型上</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    },
+    {
+      "id": "basics-python/var-scope",
+      "chapterId": "basics-python/01-variables",
+      "title": "作用域",
+      "kind": "behavior",
+      "summary": "块不产生作用域，函数才是边界",
+      "bodyHtml": "<p>Python 的作用域单元只有<strong>模块、函数、类</strong>三种，<code>if</code> / <code>for</code> / <code>while</code> / <code>with</code>\n的缩进块<strong>不构成作用域</strong>。所以：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-function)\"> range</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-token-punctuation)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    pass</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-token-punctuation)\">(i)</span><span style=\"color:var(--shiki-token-comment)\">   # 2 —— 循环变量在循环结束后依然存在</span></span></code></pre>\n<p>这是从 Python 出发最容易「反向踩坑」的地方：JS 的 <code>let</code> 是块级的，\nJava 的局部变量也是块级的。同一段缩进结构在三门语言里的可见范围完全不同。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "if (true) {\n  let inside = 1;   // ⚠ 出了这个 {} 就不可见，Python 的块不产生作用域\n}\n// inside -> ReferenceError\n\nfor (let i = 0; i < 3; i++) {}\n// i -> ReferenceError（Python 里循环变量出了循环还在）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-constant)\">true</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> inside </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 出了这个 {} 就不可见，Python 的块不产生作用域</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// inside -> ReferenceError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">; i </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">; i</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">) {}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// i -> ReferenceError（Python 里循环变量出了循环还在）</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 2,
+              "text": "出了这个 {} 就不可见，Python 的块不产生作用域",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "for i in range(3):\n    pass\nprint(i)             # ⚠ 2 —— 块不产生作用域，循环变量留在函数作用域里\n\nif True:\n    inside = 1\nprint(inside)        # ⚠ 1",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-function)\"> range</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-token-punctuation)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    pass</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-token-punctuation)\">(i)</span><span style=\"color:var(--shiki-token-comment)\">             # ⚠ 2 —— 块不产生作用域，循环变量留在函数作用域里</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-token-constant)\"> True</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    inside </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-token-punctuation)\">(inside)</span><span style=\"color:var(--shiki-token-comment)\">        # ⚠ 1</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 3,
+              "text": "2 —— 块不产生作用域，循环变量留在函数作用域里",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "1",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    },
+    {
+      "id": "basics-python/hoisting",
+      "chapterId": "basics-python/01-variables",
+      "title": "变量提升",
+      "kind": "behavior",
+      "summary": "Python 没有编译期提升，只有运行时名字查找",
+      "bodyHtml": "<p>Python 在执行函数体之前会先扫一遍<strong>局部名字</strong>（这让 <code>global</code> / <code>nonlocal</code> 有确定语义），\n但不会像 JS 的 <code>var</code> 那样把名字提前初始化为 <code>undefined</code>，\n也不会像 Java 那样给字段填默认值。访问一个还没绑定的名字一律是 <code>NameError</code>。</p>\n<p>值得记住的副作用：因为名字在<strong>整个函数体内</strong>都算局部，\n在函数末尾才赋值的名字，在函数开头读它是 <code>UnboundLocalError</code> 而不是读到外层的同名变量。\n这条规则是 Python 独有的，迁移时最容易被误诊成&quot;作用域没生效&quot;。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "console.log(v);   // undefined —— var 的声明被提升\nvar v = 1;\n\nconsole.log(c);   // ⚠ ReferenceError：let/const 有暂时性死区\nlet c = 2;\n// Python 没有提升，两种情况都是 NameError",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(v);   </span><span style=\"color:var(--shiki-token-comment)\">// undefined —— var 的声明被提升</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> v </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(c);   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ ReferenceError：let/const 有暂时性死区</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 没有提升，两种情况都是 NameError</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 4,
+              "text": "ReferenceError：let/const 有暂时性死区",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "print(v)             # ⚠ NameError —— 没有提升\nv = 1\n\ndef bump():\n    print(total)     # ⚠ UnboundLocalError：下面有赋值，于是整个函数里 total 都是局部的\n    total = 1",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-token-punctuation)\">(v)</span><span style=\"color:var(--shiki-token-comment)\">             # ⚠ NameError —— 没有提升</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">v </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> bump</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    print</span><span style=\"color:var(--shiki-token-punctuation)\">(total)</span><span style=\"color:var(--shiki-token-comment)\">     # ⚠ UnboundLocalError：下面有赋值，于是整个函数里 total 都是局部的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    total </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 1,
+              "text": "NameError —— 没有提升",
+              "tone": "warn"
+            },
+            {
+              "line": 5,
+              "text": "UnboundLocalError：下面有赋值，于是整个函数里 total 都是局部的",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    },
+    {
+      "id": "basics-python/const-immutability",
+      "chapterId": "basics-python/01-variables",
+      "title": "常量与不可变性",
+      "kind": "behavior",
+      "summary": "没有常量语法，不可变靠类型而不是靠声明",
+      "bodyHtml": "<p>Python <strong>没有 <code>const</code></strong>。全大写命名（<code>MAX_RETRY</code>）只是社区约定，解释器不会阻止重新赋值。</p>\n<p>真正不可变的是<strong>对象本身</strong>：<code>int</code> / <code>str</code> / <code>tuple</code> / <code>frozenset</code> 不可变，\n<code>list</code> / <code>dict</code> / <code>set</code> 可变。所以 Python 的&quot;常量&quot;策略是：\n选一个不可变类型放进去（比如用 <code>tuple</code> 而不是 <code>list</code>），而不是给名字加一个修饰符。</p>\n<p>对照来看，JS 的 <code>const</code> 冻结的是<strong>绑定</strong>而不是对象（想冻结对象要 <code>Object.freeze</code>），\nJava 的 <code>final</code> 冻结绑定、字段内容仍可变 —— 三者都容易被误读成&quot;内容不可变&quot;。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "const config = { retry: 3 };\nconfig.retry = 5;            // ⚠ const 拦不住这个：冻结的是绑定不是内容\nObject.freeze(config);       // 真正冻结内容要显式调用\n// Python 只有全大写命名约定，没有等价的语法",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> config</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> { retry</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\"> };</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">config</span><span style=\"color:var(--shiki-foreground)\">.retry </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 5</span><span style=\"color:var(--shiki-foreground)\">;            </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ const 拦不住这个：冻结的是绑定不是内容</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Object</span><span style=\"color:var(--shiki-token-function)\">.freeze</span><span style=\"color:var(--shiki-foreground)\">(config);       </span><span style=\"color:var(--shiki-token-comment)\">// 真正冻结内容要显式调用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 只有全大写命名约定，没有等价的语法</span></span></code></pre>",
+          "lineCount": 4,
+          "notes": [
+            {
+              "line": 2,
+              "text": "const 拦不住这个：冻结的是绑定不是内容",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "MAX_RETRY = 3        # 全大写只是约定，解释器不会阻止重新赋值\nMAX_RETRY = 5        # 合法，不报警\n\nPOINT = (1, 2)       # 真正不可变靠类型：tuple / frozenset / str\nCOLORS = [\"red\"]     # 可变，谁都能 append",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">MAX_RETRY </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">        # 全大写只是约定，解释器不会阻止重新赋值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">MAX_RETRY </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 5</span><span style=\"color:var(--shiki-token-comment)\">        # 合法，不报警</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">POINT </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">)       </span><span style=\"color:var(--shiki-token-comment)\"># 真正不可变靠类型：tuple / frozenset / str</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">COLORS </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-string-expression)\">\"red\"</span><span style=\"color:var(--shiki-foreground)\">]     </span><span style=\"color:var(--shiki-token-comment)\"># 可变，谁都能 append</span></span></code></pre>",
+          "lineCount": 5,
+          "notes": [],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    },
+    {
+      "id": "basics-python/naming-convention",
+      "chapterId": "basics-python/01-variables",
+      "title": "命名与大小写惯例",
+      "kind": "syntax",
+      "summary": "snake_case vs camelCase",
+      "bodyHtml": "<p>唯一一处「纯风格、无语义」的差异，但迁移时满屏的命名不一致会显著增加阅读阻力。\nPython 用 <code>snake_case</code>（PEP 8），JS / Java 用 <code>camelCase</code>；\n类名三者都是 <code>PascalCase</code>，常量三者都习惯 <code>SCREAMING_SNAKE_CASE</code>。</p>\n<p>唯一带语义的一条：Python 用前导下划线表示「非公开」（<code>_internal</code>），\n而 JS / Java 没有对应的语言级约定，只能靠文档。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "const maxRetryCount = 3;      // 变量 camelCase\nclass HttpClient {}           // 类 PascalCase\nconst MAX_RETRY_COUNT = 3;    // 常量 SCREAMING_SNAKE_CASE\nlet _internal = 1;            // ⚠ 下划线在 JS 里完全没有语义，纯约定",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> maxRetryCount</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// 变量 camelCase</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> HttpClient</span><span style=\"color:var(--shiki-foreground)\"> {}           </span><span style=\"color:var(--shiki-token-comment)\">// 类 PascalCase</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> MAX_RETRY_COUNT</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;    </span><span style=\"color:var(--shiki-token-comment)\">// 常量 SCREAMING_SNAKE_CASE</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> _internal </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;            </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 下划线在 JS 里完全没有语义，纯约定</span></span></code></pre>",
+          "lineCount": 4,
+          "notes": [
+            {
+              "line": 4,
+              "text": "下划线在 JS 里完全没有语义，纯约定",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "max_retry_count = 3     # 变量 snake_case（PEP 8）\nclass HttpClient: ...   # 类 PascalCase\nMAX_RETRY_COUNT = 3     # 常量 SCREAMING_SNAKE_CASE\n_internal = 1           # 前导下划线表示非公开，且有实际语义（from x import * 会跳过）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">max_retry_count </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">     # 变量 snake_case（PEP 8）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> HttpClient</span><span style=\"color:var(--shiki-foreground)\">: ...   </span><span style=\"color:var(--shiki-token-comment)\"># 类 PascalCase</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">MAX_RETRY_COUNT </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">     # 常量 SCREAMING_SNAKE_CASE</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">_internal </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">           # 前导下划线表示非公开，且有实际语义（from x import * 会跳过）</span></span></code></pre>",
+          "lineCount": 4,
+          "notes": [],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    },
+    {
+      "id": "basics-python/var-destructuring",
+      "chapterId": "basics-python/01-variables",
+      "title": "解包赋值",
+      "kind": "syntax",
+      "summary": "Python 的可迭代解包比 JS 的数组解构更强，但没有按键解构",
+      "bodyHtml": "<p>Python 的 <code>a, b = pair</code> 是对<strong>任意可迭代对象</strong>解包，并且支持星号收集剩余项：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">first</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-foreground)\">rest </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">]      </span><span style=\"color:var(--shiki-token-comment)\"># first=1, rest=[2, 3]</span></span></code></pre>\n<p>这一层 Python 比 JS 强 —— JS 的数组解构必须显式标注剩余项 <code>[first, ...rest]</code>，\n而且只能作用在可迭代对象上（不能作用于普通对象）。</p>\n<p>反过来，Python <strong>没有按键解构</strong>：JS 的 <code>const { name } = user</code> 在 Python 里\n只能写 <code>user[&quot;name&quot;]</code> 或 <code>user.get(&quot;name&quot;)</code>。想按名字取值就得显式查字典。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "const [first, ...rest] = [1, 2, 3];   // 数组解构：与 Python 的 first, *rest 对应\nconst { name, age = 0 } = user;       // ⚠ 按键解构：Python 没有这个语法\n// Python 侧只能写 user[\"name\"] / user.get(\"age\", 0)",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">first</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> ...</span><span style=\"color:var(--shiki-token-constant)\">rest</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">];   </span><span style=\"color:var(--shiki-token-comment)\">// 数组解构：与 Python 的 first, *rest 对应</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-constant)\">name</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> age</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\"> } </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> user;       </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 按键解构：Python 没有这个语法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 侧只能写 user[\"name\"] / user.get(\"age\", 0)</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [
+            {
+              "line": 2,
+              "text": "按键解构：Python 没有这个语法",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "first, *rest = [1, 2, 3]      # 星号收集剩余项\na, b = pair                   # 任意可迭代对象都能解包\nd = {\"name\": \"Ada\"}\nd[\"name\"]                     # ⚠ 没有按键解构，只能显式取值",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">first</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-foreground)\">rest </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">]      </span><span style=\"color:var(--shiki-token-comment)\"># 星号收集剩余项</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> pair                   </span><span style=\"color:var(--shiki-token-comment)\"># 任意可迭代对象都能解包</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">d </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-punctuation)\"> {</span><span style=\"color:var(--shiki-token-string-expression)\">\"name\"</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Ada\"</span><span style=\"color:var(--shiki-token-punctuation)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">d</span><span style=\"color:var(--shiki-token-punctuation)\">[</span><span style=\"color:var(--shiki-token-string-expression)\">\"name\"</span><span style=\"color:var(--shiki-token-punctuation)\">]</span><span style=\"color:var(--shiki-token-comment)\">                     # ⚠ 没有按键解构，只能显式取值</span></span></code></pre>",
+          "lineCount": 4,
+          "notes": [
+            {
+              "line": 4,
+              "text": "没有按键解构，只能显式取值",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    },
+    {
+      "id": "basics-python/var-multiple-assign",
+      "chapterId": "basics-python/01-variables",
+      "title": "多重赋值与交换",
+      "kind": "syntax",
+      "summary": "a, b = b, a 靠「先构造元组再解包」",
+      "bodyHtml": "<p>Python 的 <code>a, b = b, a</code> 一行交换，语义是<strong>先构造右侧元组、再逐项绑定</strong>，\n因此不会出现中间态。JS 要用数组解构 <code>[a, b] = [b, a]</code> 才能达到同样效果，\nJava 则必须借助临时变量。</p>\n<p>另一个容易混淆的点是链式赋值：<code>a = b = 0</code> 在 Python 与 JS 里都合法，\n但都是「先把 0 绑定给 b，再把 b 的值绑定给 a」——\n当右侧是<strong>可变对象</strong>时（<code>a = b = []</code>），两个名字指向同一个对象，\n改其中一个另一个也会变。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// 交换必须借临时变量；[a, b] = [b, a] 才能一行完成\nlet a = 1, b = 2;\n[a, b] = [b, a];\n// Python 直接写 a, b = b, a，先构造元组再解包\n\nlet x, y;\nx = y = 0;   // 链式赋值：两边共享同一个右侧值",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 交换必须借临时变量；[a, b] = [b, a] 才能一行完成</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [b</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> a];</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 直接写 a, b = b, a，先构造元组再解包</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> x</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> y;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> y </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// 链式赋值：两边共享同一个右侧值</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "a, b = 1, 2\na, b = b, a          # 先构造右侧元组再解包，不需要临时变量\n\nx = y = []           # ⚠ 两个名字指向同一个列表，改一个另一个也变",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> b</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> a          </span><span style=\"color:var(--shiki-token-comment)\"># 先构造右侧元组再解包，不需要临时变量</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> y </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> []           </span><span style=\"color:var(--shiki-token-comment)\"># ⚠ 两个名字指向同一个列表，改一个另一个也变</span></span></code></pre>",
+          "lineCount": 4,
+          "notes": [
+            {
+              "line": 4,
+              "text": "两个名字指向同一个列表，改一个另一个也变",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    },
+    {
+      "id": "basics-python/var-global-declaration",
+      "chapterId": "basics-python/01-variables",
+      "title": "全局变量与 global",
+      "kind": "behavior",
+      "summary": "函数内赋值默认创建局部名字，要改外层必须显式声明",
+      "bodyHtml": "<p>Python 的规则是：<strong>函数体内只要有对某个名字的赋值，这个名字就整个函数内都是局部的</strong>。\n所以「读取模块级变量」不需要任何声明，而「修改它」必须写 <code>global</code>；\n修改外层函数的变量要写 <code>nonlocal</code>。</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> bump</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    global</span><span style=\"color:var(--shiki-foreground)\"> counter</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    counter </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span></code></pre>\n<p>这条「必须声明意图」的设计能挡掉大量意外覆盖，但也意味着逐行翻译 JS 代码时，\n原本能跑的代码在 Python 里会静默变成「改了个局部变量，外面没变」——\n不报错，只是没生效。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "let counter = 0;\n\nfunction bump() {\n  counter += 1;   // ⚠ 直接就能改外层变量，Python 必须写 global\n}\n// 反向的坑：Python 里同样的写法会静默创建一个局部变量，外面不变",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> bump</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  counter </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 直接就能改外层变量，Python 必须写 global</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 反向的坑：Python 里同样的写法会静默创建一个局部变量，外面不变</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 4,
+              "text": "直接就能改外层变量，Python 必须写 global",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "counter = 0\n\ndef bump():\n    global counter   # ⚠ 不写这行就是创建一个局部变量，外面不变，且不报错\n    counter += 1\n\ndef outer():\n    n = 0\n    def inner():\n        nonlocal n   # 改外层函数变量用 nonlocal\n        n += 1",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> bump</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    global</span><span style=\"color:var(--shiki-foreground)\"> counter   </span><span style=\"color:var(--shiki-token-comment)\"># ⚠ 不写这行就是创建一个局部变量，外面不变，且不报错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    counter </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> outer</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    def</span><span style=\"color:var(--shiki-token-function)\"> inner</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        nonlocal</span><span style=\"color:var(--shiki-foreground)\"> n   </span><span style=\"color:var(--shiki-token-comment)\"># 改外层函数变量用 nonlocal</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">        n </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 4,
+              "text": "不写这行就是创建一个局部变量，外面不变，且不报错",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    },
+    {
+      "id": "basics-python/var-shadowing",
+      "chapterId": "basics-python/01-variables",
+      "title": "变量遮蔽",
+      "kind": "behavior",
+      "summary": "遮蔽内置名是 Python 特有的高危操作",
+      "bodyHtml": "<p>Python 允许遮蔽任何外层名字，但因为<strong>块不产生作用域</strong>，在 <code>if</code> 里重复赋值\n并不是遮蔽 —— 它就是改同一个名字。</p>\n<p>真正的坑是<strong>遮蔽内置名</strong>：<code>list = [1, 2]</code>、<code>id = 1</code>、<code>str = &quot;x&quot;</code>\n会把内置函数盖掉，之后同一模块里所有 <code>list(...)</code> 都会报\n<code>TypeError: 'list' object is not callable</code>，而且报错位置和出错原因隔得很远。</p>\n<p>JS / Java 里同样能遮蔽，但影响范围通常限于当前块，\n不会像 Python 这样污染整个模块。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "let list = [1, 2];      // JS 里 list 不是内置名，随便用没事\n// Python 里 list = [1, 2] 会盖掉内置函数，之后 list(...) 全部报错\n{\n  let list = [];        // 块级遮蔽：只在块内生效\n}",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> list </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">];      </span><span style=\"color:var(--shiki-token-comment)\">// JS 里 list 不是内置名，随便用没事</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 里 list = [1, 2] 会盖掉内置函数，之后 list(...) 全部报错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">{</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> list </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [];        </span><span style=\"color:var(--shiki-token-comment)\">// 块级遮蔽：只在块内生效</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+          "lineCount": 5,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "list = [1, 2]        # ⚠ 盖掉内置函数，之后本模块所有 list(...) 都会 TypeError\nid = 1               # ⚠ 同理\n\nname = \"outer\"\nif True:\n    name = \"inner\"   # 这不是遮蔽：块没有作用域，改的就是同一个 name",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">list</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">]        </span><span style=\"color:var(--shiki-token-comment)\"># ⚠ 盖掉内置函数，之后本模块所有 list(...) 都会 TypeError</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">id</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">               # ⚠ 同理</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"outer\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-token-constant)\"> True</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"inner\"</span><span style=\"color:var(--shiki-token-comment)\">   # 这不是遮蔽：块没有作用域，改的就是同一个 name</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 1,
+              "text": "盖掉内置函数，之后本模块所有 list(...) 都会 TypeError",
+              "tone": "warn"
+            },
+            {
+              "line": 2,
+              "text": "同理",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "reviewed",
+          "provenanceOrigin": "manual"
+        }
+      }
+    }
+  ],
+  "summary": "赋值即绑定、函数级作用域、没有常量语法——从 Python 出发看其余语言的这一层"
+}

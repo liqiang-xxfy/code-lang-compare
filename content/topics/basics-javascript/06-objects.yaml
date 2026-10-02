@@ -1,0 +1,96 @@
+id: basics-javascript/06-objects
+topicId: basics-javascript
+title: 对象与字典
+order: 6
+summary: 创建、访问、遍历、默认值、合并、嵌套浅拷贝、推导式、相等与序列化
+
+features:
+  - id: basics-javascript/object-create
+    title: 创建对象与字典
+    kind: syntax
+    summary: 字面量的形态差异
+    body: |
+      两者形状相似但约束不同：JS 的对象字面量**键只能是字符串或 Symbol**，
+      想用对象做键必须上 `Map`；Python 的 `dict` 键可以是任意可哈希对象，数字、元组都能当键。
+      另外 Python 的 `dict` 保证插入有序（3.7+），JS 对象也有序但存在「整数键被提前」的特殊规则。
+
+  - id: basics-javascript/object-access
+    title: 属性访问与缺失行为
+    kind: behavior
+    summary: 缺失键是静默 undefined 还是抛异常
+    body: |
+      JS 访问不存在的属性返回 `undefined`（静默），Python 抛 `KeyError`。
+      JS 用点号 `obj.key` / 方括号 `obj['key']` 都能访问，且两者等价；
+      Python 的点号访问的是**对象的属性**（方法、字段），方括号访问的才是**字典的键**——
+      `d.key` 和 `d['key']` 在 Python 里不是一回事，这是从 JS 过来最容易犯的错。
+
+  - id: basics-javascript/object-iterate
+    title: 遍历键值
+    kind: syntax
+    summary: for-in / Object.entries 与 items
+    body: |
+      JS 的 `Object.entries(obj)` 拿到 `[key, value]` 数组再解构；
+      Python 的 `d.items()` 直接给 `(key, value)` 元组，且是最常用的写法。
+      注意 JS 的 `for...in` 会遍历到原型链上的可枚举属性——这是它不如 `Object.entries` 可靠的原因。
+
+  - id: basics-javascript/object-default
+    title: 缺失键的默认值
+    kind: behavior
+    summary: 取默认值的几种写法与副作用
+    body: |
+      JS 用 `??` 或逻辑或；Python 用 `dict.get(key, default)`。
+      **但两者有个关键区别**：Python 的 `d.get(k, default)` 只读不写；
+      而 `defaultdict` 会在读取时**写入**默认值（顺带把字典撑大）。
+      另外 JS 的 `||` 会把 `0`、`""` 这类合法值当成「空」，必须用 `??`——这一条在《运算符与真值判断》一章已验证过。
+
+  - id: basics-javascript/object-merge
+    title: 合并与更新
+    kind: syntax
+    summary: 展开合并与 update / 管道运算符
+    body: |
+      JS 的 `{...a, ...b}` 返回新对象（后者的键覆盖前者）；Python 在 3.9+ 用 `a | b`，
+      或 `{**a, **b}`。**注意 JS 的 `Object.assign(a, b)` 是原地修改 `a` 并返回它**，
+      与展开写法语义不同，这个区别经常被忽略。
+      Python 的 `a.update(b)` 同样是原地修改。
+
+  - id: basics-javascript/object-nested
+    title: 嵌套与浅拷贝陷阱
+    kind: behavior
+    summary: 展开/合并都是浅拷贝
+    body: |
+      两门语言的「拷贝」默认都是**浅拷贝**：`{...obj}`、`Object.assign`、
+      `dict(a)`、`a.copy()` 都只复制第一层，嵌套对象仍是共享引用。
+      JS 要深拷贝用 `structuredClone()`（浏览器/Node 内置，比 `JSON.parse(JSON.stringify())` 正确，
+      因为它能处理 `Date`、`Map`、循环引用）；Python 用 `copy.deepcopy()`。
+      这一格是「看起来复制了，改新对象却动了旧对象」这类 bug 的根源。
+
+  - id: basics-javascript/object-comprehension
+    title: 推导式与批量构造
+    kind: syntax
+    summary: Object.fromEntries 与字典推导式
+    body: |
+      JS 要「数组 → 对象」得走 `Object.fromEntries(arr.map(...))` 两步；
+      Python 的字典推导式 `{k: v for ...}` 一步到位，并支持带条件的过滤。
+      推导式是 Python 最具辨识度的语法之一，值得专门练到「不假思索就能写」。
+
+  - id: basics-javascript/object-equality
+    title: 对象相等比较
+    kind: behavior
+    summary: 引用相等 vs 值相等
+    body: |
+      JS 的 `===` 对对象比的是**引用**，所以 `{} === {}` 是 `false`，
+      要按内容比较得自己写或上 `JSON.stringify`（不可靠）。
+      Python 的 `==` 对 dict/list 比的是**内容**，嵌套结构会递归比较。
+      所以 Python 里「两个字典内容相同」这一判断是免费的，JS 里不是。
+
+  - id: basics-javascript/object-json
+    title: JSON 序列化
+    kind: behavior
+    summary: 名称、行为与非 JSON 类型
+    body: |
+      同名不同写：JS 叫 `JSON.stringify` / `JSON.parse`，Python 叫 `json.dumps` / `json.loads`。
+      差异在于对非 JSON 类型的处理：JS 会把函数、`undefined`、`Symbol` **静默丢掉**；
+      Python 遇到 `datetime`、`set`、自定义对象会**直接抛 TypeError**（不静默）。
+      另外 Python 的 `ensure_ascii` 默认为真，中文会被转义成 `\uXXXX`，想保留中文要显式关掉；
+      Python 默认输出的分隔符还带空格（`{"a": 1}`，JS 是紧凑的 `{"a":1}`）。
+      整数精度这两门语言恰好相反：JS 的 `JSON.parse` 超过 2^53 会静默改值，Python 的 int 是任意精度。

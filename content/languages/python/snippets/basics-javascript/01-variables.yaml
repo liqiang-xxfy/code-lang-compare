@@ -1,0 +1,135 @@
+# python —— basics/01-variables 的实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: basics-javascript
+review:
+  state: reviewed
+  provenance:
+    origin: manual
+    license: CC-BY-4.0
+  reviewedBy: 阿岩
+  reviewedAt: '2026-10-01'
+snippets:
+  - featureId: basics-javascript/var-declaration
+    equivalence: analogous
+    code: |
+      count = 0            # @note 赋值即声明，没有 let / const 这类关键字
+      name = "Ada"         # @note 没有「常量」语法
+
+      MAX_RETRY = 3        # @note! 全大写只是约定，解释器不会阻止你重新赋值
+      MAX_RETRY = 5        # 合法，且不会报警
+  - featureId: basics-javascript/var-scope
+    equivalence: divergent
+    code: |
+      if True:
+          inside = 1       # @note! 块不产生新作用域：出块之后仍然可见
+
+      print(inside)        # 1 —— 与 JS 的 let 行为完全相反
+
+      def f():
+          same = 2         # @note 只有函数 / 类 / 模块才产生新作用域
+
+      print(same)          # NameError: name 'same' is not defined
+  - featureId: basics-javascript/hoisting
+    equivalence: absent
+    code: |
+      print(v)             # @note! NameError: name 'v' is not defined
+      v = 1
+
+      # 函数体内的规则稍有不同：赋过值的名字在整个函数内都是局部名，
+      # 因此下面这段在 Python 里也是 NameError，而不是拿到外层的 v：
+      v = 10
+      def f():
+          print(v)         # UnboundLocalError（因为函数里下面有 v = ...）
+          v = 20
+    body: |
+      Python **没有变量提升**这个概念，也没有「暂时性死区」。
+      名字查找只发生在运行时：在赋值语句执行之前访问该名字，一律是 `NameError`。
+      对本格的正解是把 JS 的直觉彻底丢掉——Python 里「声明顺序即执行顺序」。
+  - featureId: basics-javascript/const-immutability
+    equivalence: analogous
+    code: |
+      user = {"name": "Ada"}
+
+      user["name"] = "Grace"   # @note 允许：变量只是名字，改的是对象内容
+
+      # 真正不可变要用不可变类型，而不是靠语法
+      point = (1, 2)
+      point[0] = 3             # @note! TypeError: 'tuple' object does not support item assignment
+
+      FROZEN = (1, 2, 3)       # @note 全大写是「别改我」的约定，不是强制
+  - featureId: basics-javascript/naming-convention
+    equivalence: analogous
+    code: |
+      user_name = "Ada"        # 变量 / 函数：snake_case
+      class UserProfile: ...   # 类：PascalCase（与 JS 一致）
+      MAX_RETRY = 3            # 常量约定：SCREAMING_SNAKE_CASE
+      def get_user(): ...
+
+      _internal = 1            # @note 单下划线前缀 = 「内部使用」的约定
+      __mangled = 1            # @note 双下划线触发名字改写，不是「私有」
+  - featureId: basics-javascript/var-destructuring
+    equivalence: divergent
+    code: |
+      a, b = [1, 2]              # @note 只能按「位置」解包
+      first, *rest = [1, 2, 3]   # first=1, rest=[2, 3] —— 星号收集剩余
+      a, (b, c) = [1, [2, 3]]    # @note 支持嵌套解包，能对上形状
+
+      # @note! 没有对象解构：想按名字取值只能 d['key'] / d.get('key')
+      name = {'name': 'Ada'}['name']
+
+      # @note 解包数量不匹配会直接抛 ValueError，不会静默给 None
+      # a, b = [1, 2, 3]         # ValueError: too many values to unpack
+  - featureId: basics-javascript/var-multiple-assign
+    equivalence: divergent
+    code: |
+      a, b = 1, 2
+      a, b = b, a          # @note! 一行交换，右侧先构造元组再解包
+
+      x = y = 0            # @note 链式赋值，两边都是 0
+
+      # @note! 但链式赋值遇到可变对象时，两个名字指向同一个对象
+      p = q = []
+      p.append(1)
+      q                    # [1] —— 是同一个列表
+
+      # @note 元组解包还常用于「同时更新」，语义比引入临时变量清楚
+  - featureId: basics-javascript/var-global-declaration
+    equivalence: divergent
+    code: |
+      counter = 0
+
+      def bump():
+          global counter       # @note! 不写这行，下面的赋值只会创建一个局部变量
+          counter += 1
+
+      def broken_bump():
+          counter += 1         # @note! UnboundLocalError：Python 认为 counter 是本地的
+
+      def outer():
+          hits = 0
+          def inner():
+              nonlocal hits    # @note 改外层函数变量用 nonlocal
+              hits += 1
+          inner()
+          return hits
+
+      # @note Python 强制声明意图，能挡掉大量意外覆盖；代价是逐行翻译 JS 时会「静默改成局部变量」
+  - featureId: basics-javascript/var-shadowing
+    equivalence: analogous
+    code: |
+      value = 'outer'
+
+      def f():
+          value = 'inner'      # @note 这是新变量（局部），不是改外层
+          return value
+
+      f()                      # 'inner'
+      value                    # 'outer'  —— 没变
+
+      # @note! if / for 块不产生作用域，所以下面不是遮蔽，是改同一个名字：
+      if True:
+          value = 'changed'
+      value                    # 'changed'
+
+      # @note! 最危险的是遮蔽内置名：写 list = [1,2] 会盖掉整个模块里的 list()，
+      #        之后任何 list(...) 调用都会报 'list' object is not callable，且很难定位

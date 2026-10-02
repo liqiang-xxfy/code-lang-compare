@@ -79,3 +79,35 @@ export function getCachedDiff(key: string, baselineCode: string, targetCode: str
   cache.set(key, result)
   return result
 }
+
+/* ────────────────── 多段代码 ────────────────── */
+
+/**
+ * 逐段差异。
+ *
+ * 每一段有自己的行号空间，把各段拼起来整体 diff 的话，行号对不上任何一段 ——
+ * 着色会整体错位。所以两侧**段数一致**时按序号逐段算。
+ *
+ * 段数不一致（一侧单段、一侧多段，或段数不同）时返回 null ——
+ * 接口不知道该怎么配对，由调用方降级为整体 diff 并在界面上说明未做逐行对照。
+ */
+export function compareBlockArrays(
+  baseCodes: string[],
+  targetCodes: string[],
+): Array<LineDiff> | null {
+  if (!baseCodes.length || baseCodes.length !== targetCodes.length) return null
+  return baseCodes.map((code, i) => compareToBaseline(code, targetCodes[i]!))
+}
+
+const blockCache = new Map<string, Array<LineDiff> | null>()
+
+export function getCachedBlockDiffs(
+  key: string,
+  baseCodes: string[],
+  targetCodes: string[],
+): Array<LineDiff> | null {
+  if (blockCache.has(key)) return blockCache.get(key)!
+  const result = compareBlockArrays(baseCodes, targetCodes)
+  blockCache.set(key, result)
+  return result
+}

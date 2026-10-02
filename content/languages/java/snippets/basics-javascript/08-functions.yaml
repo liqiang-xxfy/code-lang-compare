@@ -1,0 +1,135 @@
+# java —— basics/08-functions 的实现
+# 上下文：片段默认位于类体内（Java 没有顶层函数）。⚠️ 本机无 JDK，未做执行验证。
+topic: basics-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: workbuddy-agent
+    promptTemplateId: p5-add-languages-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-javascript/function-declare
+    equivalence: divergent
+    code: |
+      // @note! Java 的函数必须是类的**方法**：不存在顶层函数
+      public class Util {
+          static int add(int a, int b) {     // @note 返回类型、参数类型、可见性都要写
+              return a + b;
+          }
+      }
+
+      // @note 与 JS 的 function add(a, b) 相比：多了可见性修饰符与 static，
+      //        而且不能脱离类存在
+  - featureId: basics-javascript/default-params
+    equivalence: absent
+    code: |
+      static String greet(String name) {
+          return greet(name, "你好");
+      }
+      static String greet(String name, String greeting) {
+          return greeting + ", " + name;
+      }
+
+      greet("Ada");                 // 走第一个重载
+      greet("Ada", "嗨");           // 走第二个
+    body: |
+      Java **没有默认参数**。参数可选性只能靠两条路表达：
+
+      - **重载**：为常用组合各写一个方法，短的那个转调长的那个
+      - **Builder / record + 静态工厂**：参数多（≥4）时的正统做法
+
+      这也是 Java 里 Builder 模式如此流行的根本原因 —— 不是设计口味，是语言缺能力。
+  - featureId: basics-javascript/kwargs
+    equivalence: absent
+    code: |
+      greet("Ada", "嗨");         // @note 只能按位置，看不出哪个是名字哪个是问候语
+
+      // 参数多时的惯用替代：封装成 record
+      record GreetOptions(String name, String greeting) {}
+      greet2(new GreetOptions("Ada", "嗨"));   // @note 调用处自带字段名，可读性反而更好
+    body: |
+      Java **没有关键字参数**，调用处只能按位置传。参数一多，调用点就读不懂了
+      —— `configure(true, false, null, 3)` 这种代码在 Java 里很常见。
+
+      应对方式与「默认参数」相同：重载、Builder、或者把参数收进一个 record。
+  - featureId: basics-javascript/rest-params
+    equivalence: analogous
+    code: |
+      static int sum(int... nums) { }        // @note 可变参数：类型后加 ...
+
+      sum(1, 2, 3);
+      sum(new int[]{1, 2, 3});               // @note 可以整体传数组（varargs 本质就是数组）
+
+      // @note! 与 JS 的 ...rest 的差别：
+      //        ① 只能有一个，且必须在参数表最后
+      //        ② 它在方法体内就是一个真正的数组，不是特殊的收集器
+  - featureId: basics-javascript/return-multiple
+    equivalence: divergent
+    code: |
+      // @note Java 没有多返回值，三种常见做法：
+      static int[] minMax(int[] a) { return new int[]{0, 1}; }      // ① 数组：类型不安全
+
+      record MinMax(int min, int max) {}                             // ② record：推荐
+      static MinMax minMax2(int[] a) { return new MinMax(0, 1); }
+
+      // ③ 通过可变参数传出（不推荐）
+
+      // @note 与 JS 的数组解构、Python 的元组解包相比，
+      //        Java 必须**显式定义一个类型**，哪怕只是临时的一对数
+  - featureId: basics-javascript/lambda-arrow
+    equivalence: analogous
+    code: |
+      // @note Java 的 lambda 必须依附于一个「函数式接口」
+      Function<Integer, Integer> f = x -> x * 2;
+      BiFunction<Integer, Integer, Integer> add = (a, b) -> a + b;
+      Supplier<String> s = () -> "hi";
+      Runnable r = () -> { };
+
+      Function<String, Integer> len = String::length;    // @note 方法引用
+
+      // @note! 与 JS 的关键差别：Java 的箭头函数有**明确的类型**（那个接口），
+      //        且不存在 this 绑定的坑 —— lambda 里的 this 就是外层对象的 this
+  - featureId: basics-javascript/function-callback
+    equivalence: analogous
+    code: |
+      static void run(Consumer<String> cb) { cb.accept("hi"); }
+
+      run(s -> System.out.println(s));
+      run(System.out::println);            // @note 方法引用更简洁
+
+      // @note Java 8 之前必须写匿名内部类；现在 lambda 已经很接近 JS 的写法
+      // @note! 但仍不能「随手传一个箭头函数」—— 必须先有匹配的函数式接口
+  - featureId: basics-javascript/function-docstring
+    equivalence: analogous
+    code: |
+      /**
+       * 计算两个数的和。
+       *
+       * @param a 第一个加数
+       * @param b 第二个加数
+       * @return 两数之和
+       * @throws IllegalArgumentException 当参数为负时
+       */
+      static int add(int a, int b) { return a + b; }
+
+      // @note! Javadoc 是**结构化标签**（@param / @return / @throws），
+      //        与 Python docstring 的自由文本约定不同，反而更接近 JS 的 JSDoc
+      // @note javadoc 工具能据此生成 HTML 文档
+  - featureId: basics-javascript/arg-passing
+    equivalence: identical
+    code: |
+      static void mutate(int[] arr, int num, List<String> list) {
+          arr[0] = 99;          // @note! 改内容会传染（数组是引用）
+          num = 999;            // @note 改绑定不会
+          list.add("x");        // @note! 改内容会传染
+      }
+
+      int[] a = {1};
+      int n = 1;
+      List<String> l = new ArrayList<>();
+      mutate(a, n, l);
+      // a[0] == 99、n == 1、l.size() == 1
+
+      // @note! 口诀与 JS 完全相同：改内容会传染，改绑定不会。
+      //        Java 全是传值，只不过对象传的是「引用的副本」

@@ -1,0 +1,64 @@
+# python —— java2python/01-functions 的实现
+#
+# 以 Java 为基准看 Python 的函数与参数模型。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: p7-skeleton-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: java2python/intro
+    equivalence: analogous
+    code: |
+      def greet(name, greeting="Hello"):     # @note! 少写类型，也少了一层编译期兜底
+          return f"{greeting}, {name}!"
+
+      greet("Ada")
+      greet("Ada", "Hi")
+      greet(name="Ada", greeting="Hi")       # @note 关键字参数 —— Java 没有
+  - featureId: java2python/param-passing
+    equivalence: analogous
+    code: |
+      def add_tag(tags: list):
+          tags.append("new")      # @note 改内容：调用方看得到 —— 与 Java 一致
+          tags = ["replaced"]     # @note 改绑定：只在函数内生效 —— 与 Java 一致
+
+      n = 1
+      def bump(v):
+          v += 1                  # @note! int 是对象，只是不可变；与 Java 原始类型的机制不同
+      bump(n)                     # n 仍然是 1
+  - featureId: java2python/defaults
+    equivalence: divergent
+    code: |
+      def connect(host, port=5432, timeout=30):   # @note 原生语法，不用写重载
+          ...
+
+      # @note! 与 Java 最危险的一处差异：默认值只在定义时求值一次
+      def collect(item, bucket=[]):
+          bucket.append(item)
+          return bucket
+
+      # 正统写法：用 None 当哨兵
+      def collect(item, bucket=None):
+          bucket = [] if bucket is None else bucket
+          bucket.append(item)
+          return bucket
+  - featureId: java2python/variadic
+    equivalence: divergent
+    code: |
+      def join_all(sep, *parts):      # @note *parts 收成元组（不可变），Java 里是数组
+          return sep.join(parts)
+
+      def configure(**options):       # @note! 关键字参数集合 —— Java 完全没有对应能力
+          return options.get("retry", 3)
+
+      configure(rettry=5)             # @note! 拼错也不报错，静默返回默认值
+  - featureId: java2python/exercise
+    equivalence: analogous
+    code: |
+      def summarize(items, sep="-", prefix="", limit=0):
+          picked = items if limit <= 0 else items[:limit]
+          return prefix + sep.join(picked)

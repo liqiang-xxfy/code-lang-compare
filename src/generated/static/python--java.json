@@ -1,0 +1,235 @@
+{
+  "baseline": "python",
+  "target": "java",
+  "pitfalls": [
+    {
+      "id": "pitfall-py2java-boxing-equality",
+      "title": "`Integer` 的 `==` 有时对、有时不对",
+      "symptomHtml": "<p><code>Integer a = 127; Integer b = 127;</code> 时 <code>a == b</code> 是 true；\n换成 128 就变成 false。同一段代码，只因为数值大小不同而行为不同。</p>\n",
+      "causeHtml": "<p>Java 的 <code>==</code> 比的是引用。<code>Integer</code> 是包装类，<code>-128..127</code> 这一段会被\n自动装箱缓存复用同一个对象，超出范围就各建一个 —— 于是「小数字对、\n大数字错」。而 Python 的 <code>int</code> 是值语义（只有 <code>is</code> 才有身份问题），\n所以「两个整数相等」这件事在 Python 里从来没有陷阱。</p>\n",
+      "fixHtml": "<p>包装类一律用 <code>.equals()</code> 比较，需要容忍 null 时用 <code>Objects.equals(a, b)</code>；\n数值计算优先用基本类型 <code>int</code> / <code>long</code>，只在必须进集合或泛型时才装箱。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "java"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-python/numeric-type",
+      "tags": [
+        "相等",
+        "数值"
+      ],
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "id": "pitfall-py2java-defaults-missing",
+      "title": "以为参数能少传，结果编译不过",
+      "symptomHtml": "<p>照抄 Python 的函数签名，调用处只传前两个参数，Java 直接编译报错「实际参数列表和形式参数列表长度不同」。</p>\n",
+      "causeHtml": "<p>Java 没有默认参数语法，签名里的每个参数调用时都必须给全。</p>\n",
+      "fixHtml": "<p>用重载补默认值：让参数少的版本转调参数全的版本，默认值只写一处。\n可选参数再多就换成 Builder（<code>Config.builder().port(5432).build()</code>），\n它顺带补上了 Java 缺失的具名参数。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "java"
+      ],
+      "fromBaseline": true,
+      "featureId": "python2java/defaults",
+      "tags": [
+        "函数",
+        "签名"
+      ],
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "id": "pitfall-py2java-indentation-is-not-scope",
+      "title": "以为缩进也决定了变量作用域",
+      "symptomHtml": "<p>在 <code>if</code> 块里声明的变量，出了块还想用，Java 编译报错「找不到符号」。</p>\n",
+      "causeHtml": "<p>Python 的块不产生作用域，Java 的局部变量是块级的 —— 缩进结构看起来一样，作用域规则相反。</p>\n",
+      "fixHtml": "<p>在 Java 里把「变量可见范围」按 <code>{}</code> 来读，而不是按缩进。\n迁移时最省事的做法：把 Python 里那些&quot;在块内赋值、块外使用&quot;的变量\n提到块的上一层声明。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "java"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-python/var-scope",
+      "tags": [
+        "作用域"
+      ],
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "id": "pitfall-py2java-none-vs-null",
+      "title": "`None` 迁成 `null` 之后，字符串拼接没炸但结果不对",
+      "symptomHtml": "<p>Python 里 <code>f&quot;{name}&quot;</code> 遇到 <code>None</code> 会打印 &quot;None&quot;；Java 里 <code>&quot;x&quot; + null</code> 得到 &quot;xnull&quot;，看起来&quot;能用&quot;，于是错误被带到了下游。</p>\n",
+      "causeHtml": "<p>两种语言都把空值转成了一段文本而不是报错，但文本不同（&quot;None&quot; vs &quot;null&quot;），而且都不会提醒你这里根本不该为空。</p>\n",
+      "fixHtml": "<p>不要依赖字符串拼接暴露空值。在 Java 侧显式判空\n（<code>Objects.requireNonNull</code> 或 <code>Optional</code>），让&quot;不该为空却为空&quot;在最近的地方失败。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "java"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-python/null-value",
+      "tags": [
+        "空值",
+        "字符串"
+      ],
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "id": "pitfall-py2java-kwargs-typed",
+      "title": "`**kwargs` 没有对应物，被迫改成 Map",
+      "symptomHtml": "<p>Python 里靠 <code>configure(**options)</code> 收集的散装配置，迁到 Java 后不知道该用什么类型接。</p>\n",
+      "causeHtml": "<p>Java 没有关键字参数，也没有同类型的&quot;任意具名参数&quot;机制；<code>Map&lt;String, Object&gt;</code> 是唯一能装下不确定键的手段。</p>\n",
+      "fixHtml": "<p>短期用 <code>Map&lt;String, Object&gt;</code>，但要意识到这<strong>丢掉了类型安全</strong> ——\nPython 里静默吞掉拼错的键，Java 里会变成运行时 <code>ClassCastException</code>。\n长期方案是把配置项固化成 Builder 或 record，让编译期能拦住拼错的键。</p>\n",
+      "severity": 1,
+      "languages": [
+        "python",
+        "java"
+      ],
+      "fromBaseline": true,
+      "featureId": "python2java/variadic",
+      "tags": [
+        "函数",
+        "类型"
+      ],
+      "baseline": "python",
+      "target": "java"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "函数",
+      "aliases": [
+        "function",
+        "method"
+      ],
+      "perLanguage": {
+        "python": "一等对象，模块级函数与类方法没有本质区别；`def` 即可定义",
+        "java": "必须挂在类上；Java 8 起有 lambda，但它只能赋给函数式接口类型，不是独立类型"
+      },
+      "note": "Python 的「函数」迁到 Java 时，第一个要决定的就是\"它该挂在哪个类上\"。",
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "term": "重载",
+      "aliases": [
+        "overload",
+        "override"
+      ],
+      "perLanguage": {
+        "python": "没有重载 —— 同名函数后定义的会直接覆盖先定义的",
+        "java": "编译期按参数列表选择同名方法；`@Override` 是另一件事（子类覆盖父类实现）"
+      },
+      "note": "「重载」与「覆盖」在 Java 里是两个词，Python 里只有后者，而且不需要标注。",
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "term": "参数",
+      "aliases": [
+        "parameter",
+        "argument"
+      ],
+      "perLanguage": {
+        "python": "支持默认值、关键字传参、`*args` / `**kwargs` 四种自由度",
+        "java": "只能按位置传；可变参数 `T...` 只能一个且在最后；没有默认值"
+      },
+      "note": "从 Python 到 Java，参数这一层的自由度是**被收回**最多的地方。",
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "term": "类型标注",
+      "aliases": [
+        "type hint",
+        "annotation",
+        "generic"
+      ],
+      "perLanguage": {
+        "python": "注解只是给工具看的，运行时完全不强制；写错了不会报错",
+        "java": "泛型在编译期擦除，但类型检查是真的会拦你；`List<String>` 与 `List<Integer>` 在运行期是同一个类"
+      },
+      "note": "两边都有「类型信息在运行时消失」这件事，但原因和时间点完全不同。",
+      "baseline": "python",
+      "target": "java"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "py2java-1-types",
+      "order": 1,
+      "title": "先把类型系统补上",
+      "durationHint": "2-3 天",
+      "todo": [
+        "通读「心智模型」板块的「类型与值」一章，先建立「类型先行」的直觉",
+        "手写一遍原始类型与包装类的对应关系，注意 int/Integer 的装箱与 null",
+        "记住 Java 的编译期检查能拦住哪些 Python 只能在运行时发现的错"
+      ],
+      "acceptance": [
+        "能徒手写出带泛型的集合声明，不再靠 var 猜",
+        "能说清 final 冻结的是绑定而不是内容"
+      ],
+      "resources": [
+        {
+          "label": "Java 官方教程（Oracle）",
+          "url": "https://dev.java/learn/"
+        }
+      ],
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "id": "py2java-2-functions",
+      "order": 2,
+      "title": "重写函数这一层的直觉",
+      "durationHint": "3-4 天",
+      "todo": [
+        "读《函数与参数传递》一章，把默认参数改写成重载、把 kwargs 改写成 Builder",
+        "练习把一段工具函数搬进类里，并决定它是 static 还是实例方法",
+        "观察 lambda 只能捕获事实不变变量这条规则，理解它为什么能避免闭包共享的坑"
+      ],
+      "acceptance": [
+        "能不用默认参数语法、只靠重载写出等价签名的 API",
+        "能解释为什么 Java 里没有「拼错参数名却被静默吞掉」这种问题"
+      ],
+      "resources": [
+        {
+          "label": "Java 语言规范 · 方法重载",
+          "url": "https://docs.oracle.com/javase/specs/jls/se21/html/jls-8.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "java"
+    },
+    {
+      "id": "py2java-3-tooling",
+      "order": 3,
+      "title": "接上工具链与工程习惯",
+      "durationHint": "1 周",
+      "todo": [
+        "用 Maven 或 Gradle 建一个空项目，跑通「写代码 → 编译 → 测试 → 打包」",
+        "把 pip/venv 的心智映射到 Maven Central 与依赖声明",
+        "配好 IDE 的重构与跳转，体会编译期检查带来的反馈速度"
+      ],
+      "acceptance": [
+        "能独立新建一个项目并让它产出可执行 jar",
+        "遇到编译错误时能读懂 javac 的报错并定位到具体类型不匹配"
+      ],
+      "resources": [
+        {
+          "label": "Maven 官方入门",
+          "url": "https://maven.apache.org/guides/getting-started/"
+        }
+      ],
+      "baseline": "python",
+      "target": "java"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+# java —— basics-java/01-variables 的实现
+#
+# 本 topic 以 **Java 为基准**，所以基准列标 identical。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: p7-skeleton-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-java/var-declaration
+    equivalence: identical
+    code: |
+      int count = 0;              // @note 类型先行；也可以先声明后赋值
+      final String name = "Ada";  // final 冻结绑定
+      var inferred = 1;           // @note! Java 10+ 的类型推断，类型仍在编译期定死，不是动态类型
+  - featureId: basics-java/var-scope
+    equivalence: identical
+    code: |
+      for (int i = 0; i < 3; i++) { }
+      // i -> 编译错误：局部变量是块级的
+
+      class Counter {
+        private int total;   // @note 字段属于对象，与代码块无关，生命周期跟随实例
+      }
+  - featureId: basics-java/hoisting
+    equivalence: identical
+    code: |
+      class Config {
+        int retry;           // @note 字段自动填默认值 0，声明后立刻可读
+        String label;        // null
+        boolean on;          // false
+      }
+
+      void run() {
+        int local;
+        System.out.println(local);   // @note! 编译错误：局部变量没有默认值
+      }
+  - featureId: basics-java/const-immutability
+    equivalence: identical
+    code: |
+      final List<String> xs = new ArrayList<>();
+      xs.add("a");              // @note! final 拦不住这个：冻结的是绑定不是内容
+
+      List<String> frozen = List.of("a", "b");   // @note 不可变靠类型
+      record Point(int x, int y) { }             // record 的字段天然 final
+  - featureId: basics-java/naming-convention
+    equivalence: identical
+    code: |
+      int maxRetryCount = 3;        // 变量 camelCase
+      class HttpClient { }          // 类 PascalCase
+      static final int MAX_RETRY = 3;   // static final 常量 SCREAMING_SNAKE_CASE
+  - featureId: basics-java/var-destructuring
+    equivalence: identical
+    code: |
+      Point p = new Point(1, 2);
+      int x = p.x();               // @note! 没有解构赋值，逐个访问
+
+      if (p instanceof Point(int px, int py)) {   // @note Java 21 record pattern：
+        System.out.println(px);                   //        是模式匹配，不是赋值语句
+      }
+  - featureId: basics-java/var-multiple-assign
+    equivalence: identical
+    code: |
+      int a = 1, b = 2;
+      int t = a; a = b; b = t;     // @note! 没有多重赋值，交换必须借临时变量
+
+      int x, y;
+      x = y = 0;                   // 链式赋值合法（赋值表达式的值就是赋进去的值）
+  - featureId: basics-java/var-global-declaration
+    equivalence: identical
+    code: |
+      class Config {
+        static int counter = 0;    // @note 没有全局变量，最接近的是 static 字段
+        static void bump() { counter += 1; }
+      }
+
+      int base = 10;
+      Function<Integer, Integer> f = v -> v + base;   // @note! 只能捕获 final / 事实不变的局部变量：
+                                                      //         捕获的是值，不是变量绑定
+  - featureId: basics-java/var-shadowing
+    equivalence: identical
+    code: |
+      class User {
+        private final String name;
+        User(String name) { this.name = name; }   // @note 参数遮蔽字段，靠 this. 区分
+      }
+
+      void run() {
+        int n = 1;
+        // int n = 2;   // @note! 同一方法内重复声明同名局部变量是编译错误——语言层面直接拦住
+      }

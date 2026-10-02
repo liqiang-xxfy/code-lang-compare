@@ -1,0 +1,60 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 Go 会踩的坑
+# 骨架期样板：先各列两条，后续按同形态补全
+
+- id: pitfall-js2go-error-ignored
+  featureId: concepts-javascript/error-handling
+  title: 忘了检查 err，编译器不会拦你
+  symptom: 调用返回 `(value, err)` 的函数时只接第一个返回值，出错时程序带着零值继续往下跑。
+  cause: Go 用返回值表达错误，而「不检查错误」在语法上完全合法 —— JS 里未捕获的 reject 至少会冒泡成未处理异常，Go 里连泡都不会冒。
+  fix: |
+    每个返回 err 的调用都立刻处理或显式向上返回；实在要忽略，
+    写 `_ =` 并在注释里说明理由，让忽略成为一个需要解释的动作。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [错误处理]
+
+- id: pitfall-js2go-nil-map-write
+  featureId: basics-javascript/object-access
+  title: 往 nil map 里写会 panic，读却没事
+  symptom: 声明了 `var m map[string]int` 就直接 `m["a"] = 1`，运行时 panic；但同样的 map 读 `m["a"]` 返回 0，一切正常。
+  cause: Go 的 nil map 可以读（零值语义）但不能写，而 JS 里 `const m = {}` 天生可写 —— 直觉直接搬过来就会跳过 `make`。
+  fix: 声明时就用 `m := make(map[string]int)` 或字面量 `map[string]int{}`，只有明确要"只读的空 map"时才留 nil。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [集合, 空值]
+
+- id: pitfall-js2go-goroutine-loop-var
+  featureId: basics-javascript/var-scope
+  title: 循环里起的 goroutine 全部用了同一个变量
+  symptom: '`for _, v := range xs { go func() { use(v) }() }` 里所有 goroutine 都拿到最后一个值。'
+  cause: 与 JS 的 `var` 闭包共享是同一个坑；Go 在 1.22 之前 range 变量在整个循环里是单个绑定。
+  fix: |
+    Go 1.22 起 range 变量每轮都是新绑定，坑已消失 —— 但在读旧代码时仍会遇到，
+    且 `for i := 0; ...` 形式的循环变量至今仍是单绑定，需要显式传参
+    `go func(v T) { ... }(v)`。
+  severity: 2
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [并发, 闭包]
+
+- id: pitfall-js2go-interface-nil
+  featureId: concepts-javascript/interface
+  title: 返回了 nil 却通过了 `err != nil` 的检查
+  symptom: |
+    一个返回 `error` 的函数在成功分支写 `return nil`，调用方 `if err != nil`
+    却成立，走进错误分支并打印出 `<nil>`。同理，一个装着 nil 指针的接口值，
+    与 `nil` 比较永远是 false。
+  cause: |
+    Go 的接口值是一对 `(类型, 值)`，**只有两半都是 nil 时接口才等于 nil**。
+    一个类型为 `*MyError`、值为 nil 的接口，类型那一半不是 nil。
+    JS 里没有「接口值」这层包装，空就是空 —— 所以这个失败模式
+    在 JS 的经验里根本不存在：它不是「Go 更严格」，而是一个**新的空值形态**。
+  fix: |
+    出错时返回未加类型的 nil（写 `return nil`，不要写 `return (*MyError)(nil)`
+    再赋给接口）；或者干脆让函数返回具体类型，只在真需要抽象时才用接口。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [接口, 空值]

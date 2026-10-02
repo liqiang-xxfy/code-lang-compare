@@ -1,0 +1,95 @@
+# javascript —— js2go 迁移教程的「出发侧」实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2go
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: migration-sample-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: js2go/intro
+    equivalence: identical
+    code: |
+      // Go 与 JS 的函数形态是本次对比里最接近的一对：
+      //   函数是一等值、可以赋值/传参/返回、有闭包和匿名函数、函数无需挂在类上。
+      //
+      // 但三处规则被彻底改写：
+      //   1. 多返回值是原生的      —— return a, b 就是返回两个值
+      //   2. 错误是返回值不是异常  —— 每个可能失败的调用都要显式处理
+      //   3. 没有默认参数          —— 可选性靠函数选项模式
+
+      function divmod(a, b) {              // @note JS 只能返回对象或数组
+        return { q: Math.trunc(a / b), r: a % b };
+      }
+      const { q, r } = divmod(7, 2);
+  - featureId: js2go/param-passing
+    equivalence: identical
+    code: |
+      // JS：数组永远改的是同一个对象
+      function appendOne(arr) {
+        arr.push(1);          // 调用方一定看得见
+      }
+
+      const data = [1, 2];
+      appendOne(data);        // data → [1, 2, 1]
+
+      // @note! 迁到 Go 后这条直觉会失效：
+      //        func appendOne(s []int) { s = append(s, 1) }
+      //        —— 若 append 触发扩容，s 指向了新的底层数组，调用方看不到这个 1。
+      //
+      //        Go 的正统写法是让函数**返回新的切片**，而不是偷偷改：
+      //        func appendOne(s []int) []int { return append(s, 1) }
+  - featureId: js2go/defaults
+    equivalence: identical
+    code: |
+      // JS 用解构默认值表达可选配置：调用方只写关心的那几项
+      function newServer(addr, { timeout = 30000, tls = false } = {}) {
+        return { addr, timeout, tls };
+      }
+
+      newServer(':8080');
+      newServer(':8080', { tls: true });
+
+      // 迁到 Go 后没有默认参数，也没有重载。
+      // 正统解法是函数选项模式：WithTimeout(...) 这类函数作为可变参数传入。
+      //
+      // @note 不要用「传零值表示不设置」凑合 —— 那会让「超时设为 0」
+      //       和「没设置超时」无法区分。
+  - featureId: js2go/variadic
+    equivalence: identical
+    code: |
+      // JS 的剩余参数收集成数组，展开用 ...
+      function sum(...nums) {
+        return nums.reduce((a, b) => a + b, 0);
+      }
+      sum(1, 2, 3);
+      const picked = [1, 2, 3];
+      sum(...picked);           // @note ... 写在**调用方**，紧贴参数
+
+      // Go 的写法形状很像，但两处不同：
+      //   func sum(nums ...int) int      // 收成**切片**，必须是最后一个参数且只能有一个
+      //   sum(picked...)                 // ... 写在**实参后面**，位置相反
+      //
+      // @note Go 的变参要求所有元素同类型；JS 里 sum(1, 'a') 能跑，Go 里编译不过。
+  - featureId: js2go/exercise
+    equivalence: identical
+    code: |
+      // 练习：改掉两个从 JS 带来的习惯 —— 抛异常、返回对象
+      function parsePort(s) {
+        const n = Number.parseInt(s, 10);
+        if (Number.isNaN(n)) throw new Error('不是合法端口');
+        if (n < 1 || n > 65535) throw new Error('端口超出范围');
+        return { port: n, isPrivileged: n < 1024 };
+      }
+
+      try {
+        const { port, isPrivileged } = parsePort('8080');
+        console.log(port, isPrivileged);
+      } catch (e) {
+        console.error(e.message);
+      }
+
+      // @note Go 里没有 try/catch：错误是返回值，调用方必须显式处理。
+      //       Go 的惯例是 error 永远是最后一个返回值。

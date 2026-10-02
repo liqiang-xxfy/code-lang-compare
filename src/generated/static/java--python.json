@@ -1,0 +1,270 @@
+{
+  "baseline": "java",
+  "target": "python",
+  "pitfalls": [
+    {
+      "id": "pitfall-eq-hash-contract",
+      "title": "放进 set 之后去重失效 —— 忘了 `__hash__`",
+      "symptomHtml": "<p>自定义类的对象放进 <code>set</code> 或当 <code>dict</code> 的键，两个「相等」的对象却各占一格；\n或者更直接：定义完 <code>__eq__</code> 之后，这个类的实例一放进 <code>set</code> 就抛 TypeError。</p>\n",
+      "causeHtml": "<p>Java 的约定是重写 <code>equals</code> 必须同时重写 <code>hashCode</code>，IDE 会替你生成一对。\nPython 里这两个名字是 <code>__eq__</code> 与 <code>__hash__</code>，默认的 <code>__hash__</code> 按\n<strong>对象身份</strong>算 —— 只重写 <code>__eq__</code> 时，相等性与哈希值就脱钩了。\n更隐蔽的一层：一旦你定义了 <code>__eq__</code>，Python 会把 <code>__hash__</code> 置为 <code>None</code>，\n这个类<strong>直接变得不可哈希</strong>，而且要到运行到那一行才知道。</p>\n",
+      "fixHtml": "<p>重写 <code>__eq__</code> 的同一次就显式给出 <code>__hash__</code>（用参与比较的那几个不可变字段算）。\n如果这个类本来就该可变、又想按值比较，就别实现 <code>__hash__</code>，让它明确不可哈希 ——\n而不是留一个按身份算的默认值。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-python/class-inheritance",
+      "tags": [
+        "相等",
+        "集合"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-java2py-block-scope",
+      "title": "块里声明的变量出了块还能用",
+      "symptomHtml": "<p>在 <code>if</code> 里赋值的变量，出块之后不但能用，还带着里面的值 —— 在 Java 里这是编译错误。</p>\n",
+      "causeHtml": "<p>Python 的块（<code>if</code> / <code>for</code> / <code>while</code>）不产生作用域，只有函数、类、模块才产生；Java 的局部变量是块级的。</p>\n",
+      "fixHtml": "<p>把「变量有效范围」的判断从&quot;看 <code>{}</code>&quot;改成&quot;看最近的函数边界&quot;。\n真要限制范围，就把那段逻辑抽成一个小函数。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-python/var-scope",
+      "tags": [
+        "作用域"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-java2py-kwargs-swallow",
+      "title": "拼错的具名参数被静默吞掉",
+      "symptomHtml": "<p>调用 <code>configure(rettry=5)</code>，本意是 <code>retry</code>，程序不报错，只是配置没生效，直到线上才发现。</p>\n",
+      "causeHtml": "<p>Java 里参数名写错是编译错误；Python 的 <code>**kwargs</code> 会把任何未匹配的关键字参数照单全收，拼错的名字只是变成了字典里的另一个键。</p>\n",
+      "fixHtml": "<p>尽量少用裸 <code>**kwargs</code>；必须用时在函数开头显式校验允许的键名，\n不认识的键直接抛 <code>TypeError</code>。这就是把 Java 的编译期检查手动搬回运行时的第一步。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "java2python/variadic",
+      "tags": [
+        "函数",
+        "参数"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-java2py-mutable-default",
+      "title": "可变默认参数在两次调用之间记住了上次的结果",
+      "symptomHtml": "<p>一个看起来人畜无害的 <code>def collect(item, bucket=[])</code>，第二次调用时返回的列表里带着上一次的元素。</p>\n",
+      "causeHtml": "<p>Java 的每个重载方法都在调用时计算实参，而 Python 的默认值<strong>只在函数定义时求值一次</strong>，那个列表从此成为函数对象的一部分，被所有调用共享。</p>\n",
+      "fixHtml": "<p>默认值一律用 <code>None</code> 当哨兵，函数体内再创建可变对象：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> collect</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">item</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> bucket</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">None</span><span style=\"color:var(--shiki-foreground)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    bucket </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [] </span><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> bucket </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-token-constant)\"> None</span><span style=\"color:var(--shiki-token-keyword)\"> else</span><span style=\"color:var(--shiki-foreground)\"> bucket</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    bucket</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">append</span><span style=\"color:var(--shiki-token-punctuation)\">(item)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> bucket</span></span></code></pre>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "java2python/defaults",
+      "tags": [
+        "函数",
+        "默认参数"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-checked-exception-absent",
+      "title": "没有受检异常，没人再逼你处理它",
+      "symptomHtml": "<p>Java 里一个方法声明了 <code>throws IOException</code>，调用方不 try/catch 就编译不过。\n迁到 Python 后同样的调用能直接跑过去，直到某天线上抛出来才第一次发现。</p>\n",
+      "causeHtml": "<p>Java 把「必须处理」写进了类型系统（受检异常），编译器强制调用方表态。\nPython <strong>没有任何机制</strong>表达这件事 —— 一个函数会不会抛，签名上看不出来，\n文档通常也不写。这层保障是<strong>消失</strong>，不是变弱。</p>\n",
+      "fixHtml": "<p>把「编译器原先替你盯着的点」变成一份显式清单：调用可能失败的 IO / 网络 /\n解析时主动写 try/except 并说明降级行为。类型检查器也帮不上 ——\n它同样不追踪异常。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-python/error-handling",
+      "tags": [
+        "错误处理",
+        "类型"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-java2py-integer-cache",
+      "title": "用 `is` 比较整数，小数字碰巧对、大数字翻车",
+      "symptomHtml": "<p>用 <code>if x is 1000</code> 判等，在 Python REPL 里试 <code>is 100</code> 时是对的，换个大数字就变成 False。</p>\n",
+      "causeHtml": "<p>Java 的 <code>==</code> 比较原始类型是比值、比较对象是比引用，规则清晰；Python 的 <code>is</code> 恒比身份，小整数有缓存（通常 -5..256）所以&quot;碰巧&quot;相同，超出范围就是两个不同对象。</p>\n",
+      "fixHtml": "<p>值比较一律用 <code>==</code>，<code>is</code> 只留给 <code>None</code> / <code>True</code> / <code>False</code> 这三个单例。\n这一点与 Java 里「<code>==</code> 比引用、<code>equals</code> 比值」的坑<strong>方向相反</strong>，需要重新建立条件反射。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-python/numeric-type",
+      "tags": [
+        "相等",
+        "对象"
+      ],
+      "baseline": "java",
+      "target": "python"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "重载",
+      "aliases": [
+        "overload"
+      ],
+      "perLanguage": {
+        "java": "编译期按参数列表选同名方法，是最常用的\"默认参数\"替代方案",
+        "python": "不存在 —— 后定义的同名函数直接覆盖前一个，没有警告"
+      },
+      "note": "从 Java 到 Python 时，靠重载堆出来的 API 必须重新设计签名，不能逐个搬。",
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface",
+        "protocol",
+        "abc"
+      ],
+      "perLanguage": {
+        "java": "名义式 —— 必须显式 implements，编译期检查是否满足契约",
+        "python": "靠 Protocol（结构化，无需声明）或 ABC（名义式，需要继承）；前者不检查，只给工具看"
+      },
+      "note": "Java 的接口是强制的契约，Python 的 Protocol 更像\"事后描出来的形状\"。",
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic",
+        "type parameter"
+      ],
+      "perLanguage": {
+        "java": "编译期检查，运行期擦除；`List<String>` 与 `List<Integer>` 运行时是同一个类",
+        "python": "类型参数只存在于注解里，运行时不检查也不擦除（因为本来就不存在）"
+      },
+      "note": "两边运行期都拿不到类型参数，但 Java 至少编译期会拦你。",
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "term": "包 / 模块",
+      "aliases": [
+        "package",
+        "module",
+        "import"
+      ],
+      "perLanguage": {
+        "java": "package 是命名空间，目录结构必须与包名一致；import 只影响书写",
+        "python": "module 是一个 .py 文件，package 是含 `__init__.py` 的目录；import 真的会执行模块代码"
+      },
+      "note": "「导入会执行代码」是 Python 独有的一点，Java 的 import 纯粹是名字解析。",
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "term": "final",
+      "aliases": [
+        "final",
+        "const",
+        "immutable"
+      ],
+      "perLanguage": {
+        "java": "冻结绑定；对象内容可变，不可变要靠类型设计（List.of / record）",
+        "python": "没有对应关键字，全大写命名只是约定；不可变靠选用不可变类型（tuple / frozenset）"
+      },
+      "note": "两边都容易被误读成\"内容不可变\"，实际都只管绑定。",
+      "baseline": "java",
+      "target": "python"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2py-1-mental-model",
+      "order": 1,
+      "title": "先接受「编译器不再兜底」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "列出 Java 编译期能拦住、Python 只能在运行时发现的四类错误：类型不匹配、拼错参数名、返回类型不符、未初始化",
+        "通读基础语法板块里变量那一章，把「块级作用域」这条直觉标记为必须丢掉",
+        "明确写下哪些 Java 直觉要重写：== 与 equals、块作用域、final 的含义"
+      ],
+      "acceptance": [
+        "能说出 Python 里 `is` 与 `==` 的分工，以及为什么不能拿 `is` 比值",
+        "知道 Python 没有编译期检查，因此测试与类型标注的地位更高"
+      ],
+      "resources": [
+        {
+          "label": "Python 官方教程（中文）",
+          "url": "https://docs.python.org/zh-cn/3/tutorial/"
+        }
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "java2py-2-functions",
+      "order": 2,
+      "title": "重写函数与参数这一层",
+      "durationHint": "1-2 天",
+      "todo": [
+        "读《函数与参数传递》一章，把重载改写成默认参数、把具名构造改写成关键字参数",
+        "亲手写一次可变默认参数的坑，确认自己记住了要拿 None 当哨兵",
+        "练习用 `*args` / `**kwargs` 写一个转发函数"
+      ],
+      "acceptance": [
+        "能一眼看出签名里 `def f(x=[])` 的问题",
+        "能解释为什么拼错的关键字参数在 Python 里不报错"
+      ],
+      "resources": [
+        {
+          "label": "PEP 8 风格指南",
+          "url": "https://peps.python.org/pep-0008/"
+        }
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "java2py-3-tooling",
+      "order": 3,
+      "title": "换一套工具链",
+      "durationHint": "1 周",
+      "todo": [
+        "用 venv + pip 建好隔离环境，把 Maven 的依赖声明映射到 requirements 或 pyproject",
+        "挑一个 Maven 项目改写成 Python，体会「没有编译步骤」带来的反馈速度变化",
+        "把常用的静态检查（ruff / mypy）接进编辑器，用工具补回一部分编译期检查"
+      ],
+      "acceptance": [
+        "能独立创建虚拟环境并锁定依赖版本",
+        "能配置 mypy 并让它拦住一处类型错误"
+      ],
+      "resources": [
+        {
+          "label": "Python 打包用户指南",
+          "url": "https://packaging.python.org/"
+        }
+      ],
+      "baseline": "java",
+      "target": "python"
+    }
+  ]
+}

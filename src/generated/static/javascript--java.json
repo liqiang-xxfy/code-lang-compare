@@ -1,0 +1,172 @@
+{
+  "baseline": "javascript",
+  "target": "java",
+  "pitfalls": [
+    {
+      "id": "pitfall-js2java-number-types",
+      "title": "`0.1 + 0.2` 的结果在两个语言里一样错，但 Java 会拦住你的隐式转换",
+      "symptomHtml": "<p>把 JS 的金额计算搬到 Java，突然编译不过了：<code>int</code> 与 <code>double</code> 不能悄悄互转。</p>\n",
+      "causeHtml": "<p>JS 只有一种数字类型（双精度浮点），所有运算都在这一种类型里发生，因此 <code>1 / 2</code> 得到 <code>0.5</code>；Java 的整数除法 <code>1 / 2</code> 得到 <code>0</code>，而且混合类型运算要显式转换。</p>\n",
+      "fixHtml": "<p>在 Java 里做除法前先想清楚要整数还是浮点：<code>1 / 2</code> 与 <code>1.0 / 2</code> 是两个结果。\n金额计算两边都不能用二进制浮点，Java 用 <code>BigDecimal</code>，JS 侧同样需要十进制定点方案。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "java"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/arithmetic",
+      "tags": [
+        "数值",
+        "类型"
+      ],
+      "baseline": "javascript",
+      "target": "java"
+    },
+    {
+      "id": "pitfall-js2java-string-equality",
+      "title": "用 `==` 比较字符串，碰巧对了几次之后突然失效",
+      "symptomHtml": "<p>JS 里 <code>a == b</code> 比字符串完全没问题，Java 里同样的写法对短字符串&quot;能用&quot;，换成拼接出来的对象就变成 false。</p>\n",
+      "causeHtml": "<p>Java 的 <code>==</code> 比较的是引用，<code>String</code> 又是对象；字面量因为字符串常量池共享同一个实例，所以&quot;碰巧&quot;相等，而 <code>new String(...)</code> 或运行期拼接的结果不共享。</p>\n",
+      "fixHtml": "<p>Java 里字符串比较一律用 <code>equals</code>（注意常量在前：<code>&quot;a&quot;.equals(x)</code> 可以免判空）。\n这与 JS 里「<code>==</code> 危险、<code>===</code> 安全」的记忆正好相反 —— 那边要比值，\n这边 <code>==</code> 比引用、<code>equals</code> 才比值。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "java"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/equality",
+      "tags": [
+        "相等",
+        "字符串"
+      ],
+      "baseline": "javascript",
+      "target": "java"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "类",
+      "aliases": [
+        "class",
+        "prototype"
+      ],
+      "perLanguage": {
+        "javascript": "语法糖，底层仍是原型链；字段可以在构造函数之外用 `field = value` 声明",
+        "java": "语言的基础单位，字段与方法的归属在这里是强制的；没有原型链，继承是单继承 + 接口"
+      },
+      "note": "JS 的 class 可以随时挂上新方法，Java 的类在编译期就定死了形状。",
+      "baseline": "javascript",
+      "target": "java"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface",
+        "protocol",
+        "type"
+      ],
+      "perLanguage": {
+        "javascript": "无语言级概念，靠鸭子类型隐式满足（TypeScript 才引入 interface，且只在编译期存在）",
+        "java": "显式 implements 的名义式契约，编译期强制检查；可以有 default 方法实现"
+      },
+      "note": "JS 里\"能跑就是实现了\"，Java 里\"没写 implements 就不是\"。",
+      "baseline": "javascript",
+      "target": "java"
+    },
+    {
+      "term": "空值",
+      "aliases": [
+        "null",
+        "undefined",
+        "optional"
+      ],
+      "perLanguage": {
+        "javascript": "null 与 undefined 是两个值，前者\"被显式置空\"、后者\"从未赋值\"",
+        "java": "只有一个 null；Optional 是另一层包装，不替代 null"
+      },
+      "note": "JS 要区分两种空，Java 只有一种 —— 从 JS 迁过去时容易多写一层没用到的判断。",
+      "baseline": "javascript",
+      "target": "java"
+    },
+    {
+      "term": "数组 / 列表",
+      "aliases": [
+        "array",
+        "list"
+      ],
+      "perLanguage": {
+        "javascript": "Array 长度可变、元素类型可混合，`length` 可写",
+        "java": "数组长度固定且类型固定；要可变长度用 List，`ArrayList` 是常用实现"
+      },
+      "note": "JS 的 Array 更像 Java 的 List，而不是 Java 的数组 —— 三方对照时最容易错位的一处。",
+      "baseline": "javascript",
+      "target": "java"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "js2java-1-mental-model",
+      "order": 1,
+      "title": "先建立心智模型，不要背语法",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "通读「心智模型」板块，把两边在这些根本差异上的映射建起来",
+        "只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
+        "明确写下「哪些 JS 直觉必须丢掉」——隐式类型转换、`==` 的宽松语义、对象即字典"
+      ],
+      "acceptance": [
+        "能说出 Java 的 `==` 与 `equals` 的分工，并知道字符串该用哪个",
+        "知道 Java 是编译型语言，很多错误在编辑器里就会亮红"
+      ],
+      "resources": [
+        {
+          "label": "Java 官方教程（Oracle）",
+          "url": "https://dev.java/learn/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "java"
+    },
+    {
+      "id": "js2java-2-basics",
+      "order": 2,
+      "title": "基础语法逐条对照",
+      "durationHint": "3-5 天",
+      "todo": [
+        "按基础语法板块的章节逐格对比，每看一格手写一遍两边的代码（不要复制）",
+        "把踩到的坑记进本方向的迁移陷阱清单并打上自己的严重度",
+        "练习把一段 JS 的 `Array.map/filter/reduce` 链改写成 Java 的 Stream"
+      ],
+      "acceptance": [
+        "能独立写出变量、集合、控制流、方法定义，无编译错误",
+        "能解释 `int` 与 `Integer` 的区别，以及自动装箱在什么时候会咬人"
+      ],
+      "resources": [],
+      "baseline": "javascript",
+      "target": "java"
+    },
+    {
+      "id": "js2java-3-tooling",
+      "order": 3,
+      "title": "接上工具链与工程习惯",
+      "durationHint": "1 周",
+      "todo": [
+        "用 Maven 或 Gradle 建一个空项目，跑通「写代码 → 编译 → 测试 → 打包」",
+        "把 npm 的心智映射到 Maven Central 与依赖声明",
+        "配好 IDE 的跳转与重构，体会编译期检查带来的反馈速度"
+      ],
+      "acceptance": [
+        "能独立新建一个项目并让它产出可执行 jar",
+        "能读懂 javac 的类型不匹配报错并定位到具体位置"
+      ],
+      "resources": [
+        {
+          "label": "Maven 官方入门",
+          "url": "https://maven.apache.org/guides/getting-started/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "java"
+    }
+  ]
+}

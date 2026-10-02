@@ -1,0 +1,80 @@
+# javascript —— js2java 迁移教程的「出发侧」实现
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: migration-sample-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: js2java/intro
+    equivalence: identical
+    code: |
+      // 从 JS 迁到 Java，函数这一层最大的变化是「函数的身份」：
+      //
+      //   JS：函数是**一等值**，可以脱离任何对象存在
+      //   Java：不存在顶层函数，一切都是类/接口的方法
+      //
+      // 所以「把函数当参数传」在 Java 里要用函数式接口显式表达类型。
+
+      const add = (a, b) => a + b;         // 可以直接赋值给变量
+      [1, 2, 3].map(add);                  // 可以直接当参数传
+  - featureId: js2java/param-passing
+    equivalence: identical
+    code: |
+      // 与 Java 结论一致：改内容看得见，换引用看不见
+      function mutate(obj) { obj.count = 1; }
+      function reassign(obj) { obj = { count: 1 }; }   // @note 无效
+
+      const state = {};
+      mutate(state);      // state.count === 1
+      reassign(state);    // state 仍是 {}
+
+      // 唯一需要重学的是：Java 的基本类型（int / boolean）是真值，
+      // 没有 Number / String 包装对象那一层，所以不存在 JS 里
+      // new Number(1) !== 1 这类困惑。
+  - featureId: js2java/overloading-vs-defaults
+    equivalence: identical
+    code: |
+      // JS 用默认参数表达可选性，一行搞定
+      function connect(host, port = 8080, tls = false) {
+        return { host, port, tls };
+      }
+
+      connect('db');                    // 只给必填项
+      connect('db', 5432);              // 覆盖第一个可选
+      // connect('db', undefined, true) // @note 想跳过中间那个只能显式传 undefined
+
+      // 迁到 Java 时这段要整段重写：Java 没有默认参数，
+      // 可选性要用重载链或 Builder 表达。
+  - featureId: js2java/variadic
+    equivalence: identical
+    code: |
+      // JS 的剩余参数：数组，位置任意，类型可混合
+      function sum(...nums) {
+        return nums.reduce((a, b) => a + b, 0);
+      }
+      sum(1, 2, 3);
+      sum();                            // 0 —— 无参安全
+
+      // 可以和中段参数共存，也可以混合类型：
+      function mixed(first, ...rest) { return [first, rest]; }
+      mixed(1, 'a', true);              // [1, ['a', true]]
+
+      // Java 的 T... 长得像，但必须是最后一个参数，且所有元素同类型。
+  - featureId: js2java/exercise
+    equivalence: identical
+    code: |
+      // 练习：把这两处可选参数改成 Java 的写法
+      function fetchWithRetry(url, { timeout = 3000, retries = 2 } = {}) {
+        return { url, timeout, retries };
+      }
+
+      fetchWithRetry('/api');                          // 全默认
+      fetchWithRetry('/api', { retries: 5 });          // 只覆盖一个
+      fetchWithRetry('/api', { timeout: 100, retries: 1 });
+
+      // @note Java 里没有「无参调用时解构出空对象」这种写法，
+      //        所以「全默认」这一档必须单独提供一个重载或 Builder 入口。

@@ -1,0 +1,225 @@
+{
+  "id": "python2java/01-functions",
+  "topicId": "python2java",
+  "title": "1. 函数与参数传递",
+  "order": 1,
+  "section": "migration",
+  "baseline": "python",
+  "features": [
+    {
+      "id": "python2java/intro",
+      "chapterId": "python2java/01-functions",
+      "title": "本章要解决什么",
+      "kind": "concept",
+      "summary": "从 Python 到 Java，函数这一层是\"能力被收回\"最集中的地方",
+      "bodyHtml": "<p>与 JavaScript → Python 的方向相反，从 Python 迁移到 Java 时，\n函数这一层<strong>表面变化是&quot;变啰嗦了&quot;</strong>：每个参数要写类型，每个返回值要写类型，\n一个文件里所有公开函数都得装进类里。</p>\n<p>但真正需要重写直觉的不是啰嗦，而是<strong>三样 Python 有、Java 没有的东西</strong>：</p>\n<ul>\n<li><strong>默认参数</strong>：Java 完全没有，只能靠重载或 Builder 模拟</li>\n<li><strong>关键字参数</strong>：Java 只能按位置传，参数一多就靠 IDE 提示读签名</li>\n<li><strong><code>**kwargs</code></strong>：Java 的可变参数 <code>T...</code> 只能有一个、且必须在最后，也不区分位置与关键字</li>\n</ul>\n<p>本章按「能直接迁移 → 形似但不同 → 语义不同」的顺序排，\n每个小节都给出两边的对照代码与迁移要点。</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "static String greet(String name) {                 // ⚠ 没有默认值，只能重载\n    return greet(name, \"Hello\");\n}\n\nstatic String greet(String name, String greeting) {\n    return greeting + \", \" + name + \"!\";\n}\n// ⚠ 调用方只能按位置传，没有 greeting=\"Hi\" 这种写法",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> greet(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> name)</span><span style=\"color:var(--shiki-foreground)\"> {                 </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有默认值，只能重载</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-function)\"> greet(name</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Hello\"</span><span style=\"color:var(--shiki-token-function)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> greet(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> name</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> greeting)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> greeting </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-string-expression)\"> \", \"</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-foreground)\"> name </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-string-expression)\"> \"!\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 调用方只能按位置传，没有 greeting=\"Hi\" 这种写法</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 1,
+              "text": "没有默认值，只能重载",
+              "tone": "warn"
+            },
+            {
+              "line": 8,
+              "text": "调用方只能按位置传，没有 greeting=\"Hi\" 这种写法",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "def greet(name, greeting=\"Hello\"):     # 默认值写在签名里\n    return f\"{greeting}, {name}!\"\n\ngreet(\"Ada\")                            # 可以不传 greeting\ngreet(\"Ada\", greeting=\"Hi\")             # ⚠ 也可以按关键字传 —— Java 没有这个能力\ngreet(name=\"Ada\", greeting=\"Hi\")        # 顺序也可以颠倒",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">name</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> greeting</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\">\"Hello\"</span><span style=\"color:var(--shiki-foreground)\">):     </span><span style=\"color:var(--shiki-token-comment)\"># 默认值写在签名里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-keyword)\"> f</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">{</span><span style=\"color:var(--shiki-foreground)\">greeting</span><span style=\"color:var(--shiki-token-constant)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">, </span><span style=\"color:var(--shiki-token-constant)\">{</span><span style=\"color:var(--shiki-foreground)\">name</span><span style=\"color:var(--shiki-token-constant)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">!\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">greet</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"Ada\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">                            # 可以不传 greeting</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">greet</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"Ada\"</span><span style=\"color:var(--shiki-token-punctuation)\">, greeting</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\">\"Hi\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">             # ⚠ 也可以按关键字传 —— Java 没有这个能力</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">greet</span><span style=\"color:var(--shiki-token-punctuation)\">(name</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\">\"Ada\"</span><span style=\"color:var(--shiki-token-punctuation)\">, greeting</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\">\"Hi\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">        # 顺序也可以颠倒</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 5,
+              "text": "也可以按关键字传 —— Java 没有这个能力",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "python2java/param-passing",
+      "chapterId": "python2java/01-functions",
+      "title": "参数传递：两边都是值传递",
+      "kind": "behavior",
+      "summary": "结论一致，但 Java 有原始类型这一层",
+      "bodyHtml": "<p>Python 与 Java 在参数传递上<strong>结论一致</strong>：都是按值传递 ——\n传进去的是引用的副本，所以「函数内重新赋值参数」不影响调用方，\n而「函数内修改对象内容」会影响调用方。</p>\n<p>差别在于 Java 有<strong>原始类型</strong>（<code>int</code> / <code>boolean</code> / <code>double</code>）这一层，\n它们是真的按值拷贝；Python 里连整数都是对象，只是不可变，表现上才像拷贝。</p>\n<p><strong>迁移要点</strong>：Python 里&quot;可变对象传引用、不可变对象传值&quot;的直觉可以直接搬过来，\n但要记住 Java 的 <code>String</code> 和包装类（<code>Integer</code>）是不可变的，\n而数组与集合是可变的 —— 后两者被函数改动时调用方会看到。</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "static void addTag(List<String> tags) {\n    tags.add(\"new\");                       // 改内容：调用方看得到\n    tags = new ArrayList<>();              // ⚠ 改绑定：只在函数内生效\n}\n\nstatic void bump(int v) {\n    v += 1;                                // int 是原始类型，真的按值拷贝\n}",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> void</span><span style=\"color:var(--shiki-token-function)\"> addTag(</span><span style=\"color:var(--shiki-token-keyword)\">List&#x3C;</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-function)\"> tags)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    tags</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"new\"</span><span style=\"color:var(--shiki-foreground)\">);                       </span><span style=\"color:var(--shiki-token-comment)\">// 改内容：调用方看得到</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    tags </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-keyword)\"> ArrayList</span><span style=\"color:var(--shiki-foreground)\">&#x3C;>();              </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 改绑定：只在函数内生效</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> void</span><span style=\"color:var(--shiki-token-function)\"> bump(</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-function)\"> v)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    v </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;                                </span><span style=\"color:var(--shiki-token-comment)\">// int 是原始类型，真的按值拷贝</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 3,
+              "text": "改绑定：只在函数内生效",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "def add_tag(tags: list):\n    tags.append(\"new\")        # 改内容：调用方看得到\n    tags = [\"replaced\"]       # ⚠ 改绑定：只在函数内生效，调用方不受影响\n\nxs = []\nadd_tag(xs)                   # xs == [\"new\"]\n\nn = 1\ndef bump(v):\n    v += 1                    # int 不可变，调用方永远看不到变化\nbump(n)                       # n 仍然是 1",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> add_tag</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">tags</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-constant)\"> list</span><span style=\"color:var(--shiki-foreground)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    tags</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">append</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"new\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">        # 改内容：调用方看得到</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    tags </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-string-expression)\">\"replaced\"</span><span style=\"color:var(--shiki-foreground)\">]       </span><span style=\"color:var(--shiki-token-comment)\"># ⚠ 改绑定：只在函数内生效，调用方不受影响</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">xs </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> []</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">add_tag</span><span style=\"color:var(--shiki-token-punctuation)\">(xs)</span><span style=\"color:var(--shiki-token-comment)\">                   # xs == [\"new\"]</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> bump</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">v</span><span style=\"color:var(--shiki-foreground)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    v </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">                    # int 不可变，调用方永远看不到变化</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">bump</span><span style=\"color:var(--shiki-token-punctuation)\">(n)</span><span style=\"color:var(--shiki-token-comment)\">                       # n 仍然是 1</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 3,
+              "text": "改绑定：只在函数内生效，调用方不受影响",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "python2java/defaults",
+      "chapterId": "python2java/01-functions",
+      "title": "默认参数：Java 没有这个语法",
+      "kind": "behavior",
+      "summary": "只能用重载、静态工厂或 Builder 模拟",
+      "bodyHtml": "<p>这是从 Python 迁到 Java 时<strong>第一个必须改写法</strong>的地方：Java 不支持默认参数。</p>\n<p>惯用替代方案有三种，按参数个数增长依次升级：</p>\n<table>\n<thead>\n<tr>\n<th>参数规模</th>\n<th>Java 惯用法</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>2–3 个可选参数</td>\n<td>写若干个重载方法，短的转调长的</td>\n</tr>\n<tr>\n<td>一组&quot;可选配置&quot;</td>\n<td>Builder 模式（链式 <code>setX</code> 后 <code>build()</code>）</td>\n</tr>\n<tr>\n<td>大量可选 + 少量必填</td>\n<td>静态工厂 + 具名构造方法</td>\n</tr>\n</tbody>\n</table>\n<p><strong>迁移要点</strong>：不要让每个重载都实现一遍逻辑 —— 让参数少的版本\n调用参数全的版本并补上默认值，只有一处需要维护。</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "absent",
+          "flags": [],
+          "code": "static Connection connect(String host) {\n    return connect(host, 5432, 30);\n}\nstatic Connection connect(String host, int port, int timeout) {\n    return new Connection(host, port, timeout);\n}",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> Connection</span><span style=\"color:var(--shiki-token-function)\"> connect(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> host)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-function)\"> connect(host</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 5432</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 30</span><span style=\"color:var(--shiki-token-function)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> Connection</span><span style=\"color:var(--shiki-token-function)\"> connect(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> host</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-token-function)\"> port</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-token-function)\"> timeout)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Connection(host</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> port</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> timeout)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p>Java <strong>没有默认参数语法</strong>。可选配置的正统解法是重载 + 单一实现：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> Connection</span><span style=\"color:var(--shiki-token-function)\"> connect(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> host)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-function)\"> connect(host</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 5432</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 30</span><span style=\"color:var(--shiki-token-function)\">)</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// 短的转调长的，默认值只写一处</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> Connection</span><span style=\"color:var(--shiki-token-function)\"> connect(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> host</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-token-function)\"> port)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-function)\"> connect(host</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> port</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 30</span><span style=\"color:var(--shiki-token-function)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> Connection</span><span style=\"color:var(--shiki-token-function)\"> connect(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> host</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-token-function)\"> port</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-token-function)\"> timeout)</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-foreground)\"> }</span></span></code></pre>\n<p>参数再多就该换成 Builder：<code>Config.builder().host(h).port(5432).build()</code>。\nBuilder 的额外好处是<strong>具名</strong>——它同时补上了 Java 缺失的关键字参数。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "def connect(host, port=5432, timeout=30):\n    ...\n\n# ⚠ 默认值只在**定义时**求值一次 —— 可变默认值会被所有调用共享\ndef collect(item, bucket=[]):\n    bucket.append(item)\n    return bucket",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> connect</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">host</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> port</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">5432</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> timeout</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">30</span><span style=\"color:var(--shiki-foreground)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    ...</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># ⚠ 默认值只在**定义时**求值一次 —— 可变默认值会被所有调用共享</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> collect</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">item</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> bucket</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\">[]):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    bucket</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">append</span><span style=\"color:var(--shiki-token-punctuation)\">(item)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> bucket</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 4,
+              "text": "默认值只在**定义时**求值一次 —— 可变默认值会被所有调用共享",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "python2java/variadic",
+      "chapterId": "python2java/01-functions",
+      "title": "可变参数：`*args` / `**kwargs` 与 `T...`",
+      "kind": "syntax",
+      "summary": "Java 只有一个可变参数，且没有关键字参数",
+      "bodyHtml": "<p>Python 把「任意个位置参数」和「任意个关键字参数」拆成 <code>*args</code> 与 <code>**kwargs</code>\n两个机制；Java 只有 <code>类型...</code> 一种，而且必须放在参数列表<strong>最后</strong>，全类方法只能有一个。</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> join(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> sep</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-token-constant)\"> parts</span><span style=\"color:var(--shiki-token-function)\">)</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-foreground)\"> }</span></span></code></pre>\n<p>更关键的是 <strong>Java 没有关键字参数</strong>：调用方按位置传，\n参数一多就只能靠 IDE 的行内提示与清晰的命名来兜底。</p>\n<p><strong>迁移陷阱</strong>：Python 里 <code>**kwargs</code> 会把拼错的关键字参数<strong>静默吞掉</strong>，\nJava 里同样的错误会变成编译错误 —— 这是少见的「迁到 Java 反而更安全」的一处。</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "static String joinAll(String sep, String... parts) {     // 只能有一个，且必须在最后\n    return String.join(sep, parts);\n}\n\nstatic Map<String, Object> configure(Map<String, Object> options) { ... }\n// ⚠ Java 没有关键字参数，调用方要么传 Map，要么用 Builder",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> joinAll(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> sep</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-token-constant)\"> parts</span><span style=\"color:var(--shiki-token-function)\">)</span><span style=\"color:var(--shiki-foreground)\"> {     </span><span style=\"color:var(--shiki-token-comment)\">// 只能有一个，且必须在最后</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-constant)\"> String</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">join</span><span style=\"color:var(--shiki-foreground)\">(sep</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> parts);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> Map&#x3C;</span><span style=\"color:var(--shiki-foreground)\">String</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> Object</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-function)\"> configure(</span><span style=\"color:var(--shiki-token-keyword)\">Map&#x3C;</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> Object</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-function)\"> options)</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Java 没有关键字参数，调用方要么传 Map，要么用 Builder</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 6,
+              "text": "Java 没有关键字参数，调用方要么传 Map，要么用 Builder",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "def join_all(sep, *parts):        # *parts 收成元组\n    return sep.join(parts)\n\ndef configure(**options):        # ⚠ **options 收成字典，拼错的键会被静默吞掉\n    return options.get(\"retry\", 3)\n\nconfigure(retry=5)\nconfigure(rettry=5)              # ⚠ 不报错，返回默认值 —— Java 里这是编译错误",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> join_all</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">sep</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-token-parameter)\">parts</span><span style=\"color:var(--shiki-foreground)\">):        </span><span style=\"color:var(--shiki-token-comment)\"># *parts 收成元组</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> sep</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">join</span><span style=\"color:var(--shiki-token-punctuation)\">(parts)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> configure</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">**</span><span style=\"color:var(--shiki-token-parameter)\">options</span><span style=\"color:var(--shiki-foreground)\">):        </span><span style=\"color:var(--shiki-token-comment)\"># ⚠ **options 收成字典，拼错的键会被静默吞掉</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> options</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"retry\"</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">configure</span><span style=\"color:var(--shiki-token-punctuation)\">(retry</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">configure</span><span style=\"color:var(--shiki-token-punctuation)\">(rettry</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">              # ⚠ 不报错，返回默认值 —— Java 里这是编译错误</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 4,
+              "text": "**options 收成字典，拼错的键会被静默吞掉",
+              "tone": "warn"
+            },
+            {
+              "line": 8,
+              "text": "不报错，返回默认值 —— Java 里这是编译错误",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "python2java/exercise",
+      "chapterId": "python2java/01-functions",
+      "title": "练习：把这个 Python 工具函数迁到 Java",
+      "kind": "exercise",
+      "summary": "三个改动点，其中一个是必须换写法",
+      "bodyHtml": "<p>下面这段 Python 做的是「按指定分隔符拼接若干片段，并允许指定一个前缀和上限」。</p>\n<p>请把它迁到 Java，要求保持<strong>行为完全一致</strong>，包括：</p>\n<ol>\n<li>调用方可以只传前两个参数</li>\n<li>可以传任意个片段</li>\n<li>上限为 0 时表示不限制</li>\n</ol>\n<p>写完对照下方的参考实现 —— 如果你为每个默认参数都写了一份完整实现，\n那就有三份逻辑要同步维护了。</p>\n<p>（提示：本例同时涉及默认参数与可变参数两个知识点。）</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "static String summarize(List<String> items) {\n    return summarize(items, \"-\", \"\", 0);\n}\n\nstatic String summarize(List<String> items, String sep, String prefix, int limit) {\n    List<String> picked = limit <= 0 ? items : items.subList(0, Math.min(limit, items.size()));\n    return prefix + String.join(sep, picked);\n}",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> summarize(</span><span style=\"color:var(--shiki-token-keyword)\">List&#x3C;</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-function)\"> items)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-function)\"> summarize(items</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"-\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-function)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">static</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> summarize(</span><span style=\"color:var(--shiki-token-keyword)\">List&#x3C;</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-function)\"> items</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> sep</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> prefix</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-token-function)\"> limit)</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    List</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\">> picked </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> limit </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-keyword)\"> ?</span><span style=\"color:var(--shiki-foreground)\"> items </span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> items</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">subList</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> Math</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">min</span><span style=\"color:var(--shiki-foreground)\">(limit</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> items</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">size</span><span style=\"color:var(--shiki-foreground)\">()));</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> prefix </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\"> String</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">join</span><span style=\"color:var(--shiki-foreground)\">(sep</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> picked);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "def summarize(items, sep=\"-\", prefix=\"\", limit=0):\n    picked = items if limit <= 0 else items[:limit]\n    return prefix + sep.join(picked)",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> summarize</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">items</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> sep</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\">\"-\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> prefix</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\">\"\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> limit</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    picked </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> items </span><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> limit </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-keyword)\"> else</span><span style=\"color:var(--shiki-foreground)\"> items</span><span style=\"color:var(--shiki-token-punctuation)\">[:</span><span style=\"color:var(--shiki-foreground)\">limit</span><span style=\"color:var(--shiki-token-punctuation)\">]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> prefix </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-foreground)\"> sep</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">join</span><span style=\"color:var(--shiki-token-punctuation)\">(picked)</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    }
+  ],
+  "summary": "带着 Python 的函数直觉写 Java：形式变多了，自由度却变少了",
+  "target": "java"
+}

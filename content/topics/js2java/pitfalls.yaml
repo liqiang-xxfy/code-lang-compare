@@ -1,0 +1,29 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 Java 会踩的坑
+# 骨架期样板：先各列两条，后续按同形态补全
+
+- id: pitfall-js2java-string-equality
+  featureId: basics-javascript/equality
+  title: 用 `==` 比较字符串，碰巧对了几次之后突然失效
+  symptom: JS 里 `a == b` 比字符串完全没问题，Java 里同样的写法对短字符串"能用"，换成拼接出来的对象就变成 false。
+  cause: Java 的 `==` 比较的是引用，`String` 又是对象；字面量因为字符串常量池共享同一个实例，所以"碰巧"相等，而 `new String(...)` 或运行期拼接的结果不共享。
+  fix: |
+    Java 里字符串比较一律用 `equals`（注意常量在前：`"a".equals(x)` 可以免判空）。
+    这与 JS 里「`==` 危险、`===` 安全」的记忆正好相反 —— 那边要比值，
+    这边 `==` 比引用、`equals` 才比值。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [相等, 字符串]
+
+- id: pitfall-js2java-number-types
+  featureId: basics-javascript/arithmetic
+  title: '`0.1 + 0.2` 的结果在两个语言里一样错，但 Java 会拦住你的隐式转换'
+  symptom: 把 JS 的金额计算搬到 Java，突然编译不过了：`int` 与 `double` 不能悄悄互转。
+  cause: JS 只有一种数字类型（双精度浮点），所有运算都在这一种类型里发生，因此 `1 / 2` 得到 `0.5`；Java 的整数除法 `1 / 2` 得到 `0`，而且混合类型运算要显式转换。
+  fix: |
+    在 Java 里做除法前先想清楚要整数还是浮点：`1 / 2` 与 `1.0 / 2` 是两个结果。
+    金额计算两边都不能用二进制浮点，Java 用 `BigDecimal`，JS 侧同样需要十进制定点方案。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [数值, 类型]

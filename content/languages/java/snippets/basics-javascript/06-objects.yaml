@@ -1,0 +1,128 @@
+# java —— basics/06-objects 的实现
+# 上下文：片段默认位于类的方法体内。⚠️ 本机无 JDK，未做执行验证，待补校对。
+topic: basics-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: workbuddy-agent
+    promptTemplateId: p5-add-languages-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-javascript/object-create
+    equivalence: divergent
+    code: |
+      record User(String name, int age) {}          // @note Java 16+：一行定义数据类
+      User u = new User("Ada", 36);
+
+      Map<String, Object> dict = new HashMap<>();   // @note 想用「字典」得显式选 Map 实现
+      dict.put("name", "Ada");
+
+      Map<String, Integer> of = Map.of("a", 1);     // @note 不可变
+
+      // @note! JS 的对象字面量一身二任（既是记录又是字典）；
+      //        Java 把这两件事分成 record / class（有形状）与 Map（无形状）
+  - featureId: basics-javascript/object-access
+    equivalence: divergent
+    code: |
+      record User(String name, int age) {}
+      User u = new User("Ada", 36);
+      u.name();                       // @note record 的访问器是方法，不是字段
+      u.age();
+
+      Map<String, Object> dict = new HashMap<>();
+      dict.get("missing");            // @note! null —— 缺失键静默给 null（类似 undefined）
+      dict.getOrDefault("missing", "默认值");
+
+      // @note 有形状的对象（record / class）字段访问是**编译期检查**的，写错名字直接编译错误；
+      //       只有 Map 才允许运行时缺键
+  - featureId: basics-javascript/object-iterate
+    equivalence: analogous
+    code: |
+      Map<String, Integer> m = Map.of("a", 1, "b", 2);
+
+      for (Map.Entry<String, Integer> e : m.entrySet()) {
+          e.getKey();
+          e.getValue();
+      }
+      m.forEach((k, v) -> { });
+
+      // @note Java 没有 for-in / Object.entries，入口是 entrySet()
+      // @note 迭代顺序取决于实现：HashMap 无序 / LinkedHashMap 插入序 / TreeMap 键序
+  - featureId: basics-javascript/object-default
+    equivalence: analogous
+    code: |
+      Map<String, Integer> m = new HashMap<>();
+
+      m.getOrDefault("a", 0);              // @note 只读默认值，不写入
+      m.computeIfAbsent("a", k -> 0);      // @note! 取不到就**写入**（有副作用）
+      m.putIfAbsent("a", 0);
+
+      // @note! computeIfAbsent 会真的插入键 —— 这是与 getOrDefault 的关键区别，
+      //        也是「只想读却意外写了」的常见 bug 来源
+  - featureId: basics-javascript/object-merge
+    equivalence: divergent
+    code: |
+      Map<String, Integer> a = new HashMap<>(Map.of("x", 1));
+      Map<String, Integer> b = Map.of("y", 2);
+
+      a.putAll(b);                                             // @note 后者覆盖前者
+
+      Map<String, Integer> merged = new HashMap<>(a);
+      b.forEach((k, v) -> merged.merge(k, v, Integer::sum));    // @note 冲突时求和
+
+      // @note Java 没有对象展开语法（{...a, ...b}），合并只能靠 putAll / merge
+  - featureId: basics-javascript/object-nested
+    equivalence: analogous
+    code: |
+      record Address(String city) {}
+      record User(String name, Address address) {}
+
+      User u = new User("Ada", new Address("成都"));
+      u.address().city();
+
+      User u2 = u;
+      // @note! u2 与 u 是同一个对象的两个名字（引用语义，与 JS 一致）
+      // @note 但因为没有展开语法，反而少了 JS 那种「以为展开了、其实是浅拷贝」的错觉
+  - featureId: basics-javascript/object-comprehension
+    equivalence: divergent
+    code: |
+      List<String> names = List.of("a", "bb");
+
+      // @note Java 没有推导式，批量构造走 stream + collect
+      Map<String, Integer> m = names.stream()
+          .collect(Collectors.toMap(n -> n, String::length));
+
+      Map<String, Integer> m2 = new HashMap<>();
+      for (String n : names) m2.put(n, n.length());
+
+      // @note! JS 的 Object.fromEntries(map(...)) 与 Python 的字典推导式，
+      //        在 Java 里都要展开成 stream 管道或显式循环
+  - featureId: basics-javascript/object-equality
+    equivalence: divergent
+    code: |
+      record Point(int x, int y) {}
+      Point a = new Point(1, 2);
+      Point b = new Point(1, 2);
+
+      a == b;          // @note! false —— 引用比较（两个不同对象）
+      a.equals(b);     // true  —— @note record 自动生成 equals / hashCode
+
+      class Plain { int x; }
+      new Plain() == new Plain();                // false
+      new Plain().equals(new Plain());           // @note! false —— 默认 equals 就是引用比较
+
+      // @note! 普通类想按值比较，必须自己覆写 equals + hashCode（或者改用 record）。
+      //        JS 的对象也是引用比较 —— 区别在于 Java 提供了「显式声明值语义」的手段
+  - featureId: basics-javascript/object-json
+    equivalence: divergent
+    code: |
+      // @note Java 标准库**没有** JSON：必须引第三方库（Jackson / Gson）
+      ObjectMapper mapper = new ObjectMapper();
+
+      mapper.writeValueAsString(user);            // {"name":"Ada",...}
+      mapper.readValue(json, User.class);
+
+      // @note! 与 JS 的 JSON.stringify / Python 的 json 不同：
+      //        Java 的 JSON 能力是外部依赖，不属于语言或标准库
+      // @note 好处是天然强类型、字段名可用注解精确控制

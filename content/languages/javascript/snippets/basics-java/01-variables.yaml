@@ -1,0 +1,81 @@
+# javascript —— basics-java/01-variables 的实现
+#
+# 以 Java 为基准看 JavaScript 的变量模型。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: p7-skeleton-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: basics-java/var-declaration
+    equivalence: analogous
+    code: |
+      let count = 0;        // @note Java 要写 int count = 0;（类型先行）
+      const name = "Ada";   // @note Java 用 final String name = "Ada";
+      var inferred = 1;     // @note! JS 的 var 是函数作用域（历史遗留），
+                            //         Java 的 var 是编译期类型推断 —— 同名不同义
+  - featureId: basics-java/var-scope
+    equivalence: analogous
+    code: |
+      for (let i = 0; i < 3; i++) {}
+      // i -> ReferenceError：let 与 Java 的局部变量一样是块级的
+
+      if (true) { var leaked = 1; }
+      // @note! leaked === 1：var 不认块，Java 里没有对应的东西
+  - featureId: basics-java/hoisting
+    equivalence: divergent
+    code: |
+      console.log(field);   // undefined —— var 提升并初始化为 undefined
+      var field = 1;
+
+      // Java 里字段会被自动填默认值（0 / false / null），局部变量则是编译错误；
+      // JS 没有"编译期"兜底，错误要等到运行时才以 ReferenceError 暴露
+  - featureId: basics-java/const-immutability
+    equivalence: analogous
+    code: |
+      const xs = [];
+      xs.push("a");          // @note! const 拦不住内容修改，与 Java 的 final 完全一致
+      Object.freeze(xs);     // @note 想真不可变得显式冻结；Java 靠不可变类型（List.of）
+  - featureId: basics-java/naming-convention
+    equivalence: identical
+    code: |
+      const maxRetryCount = 3;      // 变量 camelCase —— 与 Java 一致
+      class HttpClient {}           // 类 PascalCase —— 与 Java 一致
+      const MAX_RETRY_COUNT = 3;    // 常量 SCREAMING_SNAKE_CASE —— 与 Java 一致
+  - featureId: basics-java/var-destructuring
+    equivalence: divergent
+    code: |
+      const [x, y] = point;              // @note! Java 没有解构赋值，只能逐个 x() / y()
+      const { name, age = 0 } = user;    // @note! 按名字取值在 Java 里是 user.getName()
+      const [first, ...rest] = list;     // 剩余项收集，Java 里要自己开子列表
+  - featureId: basics-java/var-multiple-assign
+    equivalence: divergent
+    code: |
+      let a = 1, b = 2;
+      [a, b] = [b, a];   // @note! Java 里必须写临时变量 t = a; a = b; b = t;
+
+      let x, y;
+      x = y = 0;         // 链式赋值两种语言都合法（Java 要求类型兼容）
+  - featureId: basics-java/var-global-declaration
+    equivalence: divergent
+    code: |
+      counter = 0;         // @note! 严格模式外这样写会创建真正的全局变量 —— Java 没有全局变量
+
+      const base = 10;
+      const add = (x) => x + base;   // @note 闭包捕获的是**变量绑定**而非值：
+                                     //         改 base 会影响已创建的函数；Java 捕获值，不受影响
+  - featureId: basics-java/var-shadowing
+    equivalence: analogous
+    code: |
+      class User {
+        constructor(name) {
+          this.name = name;   // @note JS 必须写 this.name，否则会给参数本身赋值
+        }
+      }
+      {
+        let name = "a";
+        { let name = "b"; }   // @note! JS 允许内层块重复声明同名 let；Java 直接编译错误
+      }

@@ -1,0 +1,63 @@
+# java —— java2python/01-functions 的实现
+#
+# 本 topic 以 **Java 为基准**（from 侧），所以基准列标 identical。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: p7-skeleton-v1
+    generatedAt: '2026-10-01'
+snippets:
+  - featureId: java2python/intro
+    equivalence: identical
+    code: |
+      static String greet(String name) {              // @note 每个参数都要类型
+          return greet(name, "Hello");
+      }
+      static String greet(String name, String greeting) {
+          return greeting + ", " + name + "!";
+      }
+      // @note! 没有默认参数、没有关键字参数，能力靠重载一个个补出来
+  - featureId: java2python/param-passing
+    equivalence: identical
+    code: |
+      static void addTag(List<String> tags) {
+          tags.add("new");                 // @note 改内容：调用方看得到
+          tags = new ArrayList<>();        // @note 改绑定：只在方法内生效
+      }
+
+      static void bump(int v) { v += 1; }  // @note int 是原始类型，真拷贝
+  - featureId: java2python/defaults
+    equivalence: identical
+    code: |
+      static Connection connect(String host) {
+          return connect(host, 5432, 30);          // @note 默认值只写在这一处
+      }
+      static Connection connect(String host, int port) {
+          return connect(host, port, 30);
+      }
+      static Connection connect(String host, int port, int timeout) { ... }
+
+      // @note! 每个重载在调用时才求值 —— 不会有"共享的可变默认值"这个问题
+  - featureId: java2python/variadic
+    equivalence: identical
+    code: |
+      static String joinAll(String sep, String... parts) {   // @note 只能有一个可变参数
+          return String.join(sep, parts);
+      }
+
+      static Map<String, Object> configure(Map<String, Object> options) { ... }
+      // @note! 没有关键字参数：要么传 Map，要么上 Builder
+  - featureId: java2python/exercise
+    equivalence: identical
+    code: |
+      static String summarize(List<String> items) {
+          return summarize(items, "-", "", 0);
+      }
+
+      static String summarize(List<String> items, String sep, String prefix, int limit) {
+          List<String> picked = limit <= 0 ? items : items.subList(0, Math.min(limit, items.size()));
+          return prefix + String.join(sep, picked);
+      }

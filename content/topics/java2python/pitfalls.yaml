@@ -1,0 +1,100 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 Python 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-java2py-mutable-default
+  title: 可变默认参数在两次调用之间记住了上次的结果
+  symptom: 一个看起来人畜无害的 `def collect(item, bucket=[])`，第二次调用时返回的列表里带着上一次的元素。
+  cause: Java 的每个重载方法都在调用时计算实参，而 Python 的默认值**只在函数定义时求值一次**，那个列表从此成为函数对象的一部分，被所有调用共享。
+  fix: |
+    默认值一律用 `None` 当哨兵，函数体内再创建可变对象：
+
+    ```python
+    def collect(item, bucket=None):
+        bucket = [] if bucket is None else bucket
+        bucket.append(item)
+        return bucket
+    ```
+  severity: 3
+  languages: [java, python]
+  fromBaseline: true
+  featureId: java2python/defaults
+  tags: [函数, 默认参数]
+
+- id: pitfall-java2py-kwargs-swallow
+  title: 拼错的具名参数被静默吞掉
+  symptom: 调用 `configure(rettry=5)`，本意是 `retry`，程序不报错，只是配置没生效，直到线上才发现。
+  cause: Java 里参数名写错是编译错误；Python 的 `**kwargs` 会把任何未匹配的关键字参数照单全收，拼错的名字只是变成了字典里的另一个键。
+  fix: |
+    尽量少用裸 `**kwargs`；必须用时在函数开头显式校验允许的键名，
+    不认识的键直接抛 `TypeError`。这就是把 Java 的编译期检查手动搬回运行时的第一步。
+  severity: 3
+  languages: [java, python]
+  fromBaseline: true
+  featureId: java2python/variadic
+  tags: [函数, 参数]
+
+- id: pitfall-java2py-block-scope
+  title: 块里声明的变量出了块还能用
+  symptom: 在 `if` 里赋值的变量，出块之后不但能用，还带着里面的值 —— 在 Java 里这是编译错误。
+  cause: Python 的块（`if` / `for` / `while`）不产生作用域，只有函数、类、模块才产生；Java 的局部变量是块级的。
+  fix: |
+    把「变量有效范围」的判断从"看 `{}`"改成"看最近的函数边界"。
+    真要限制范围，就把那段逻辑抽成一个小函数。
+  severity: 3
+  languages: [java, python]
+  fromBaseline: true
+  featureId: basics-python/var-scope
+  tags: [作用域]
+
+- id: pitfall-java2py-integer-cache
+  featureId: concepts-python/numeric-type
+  title: 用 `is` 比较整数，小数字碰巧对、大数字翻车
+  symptom: 用 `if x is 1000` 判等，在 Python REPL 里试 `is 100` 时是对的，换个大数字就变成 False。
+  cause: Java 的 `==` 比较原始类型是比值、比较对象是比引用，规则清晰；Python 的 `is` 恒比身份，小整数有缓存（通常 -5..256）所以"碰巧"相同，超出范围就是两个不同对象。
+  fix: |
+    值比较一律用 `==`，`is` 只留给 `None` / `True` / `False` 这三个单例。
+    这一点与 Java 里「`==` 比引用、`equals` 比值」的坑**方向相反**，需要重新建立条件反射。
+  severity: 2
+  languages: [java, python]
+  fromBaseline: true
+  tags: [相等, 对象]
+
+- id: pitfall-checked-exception-absent
+  featureId: concepts-python/error-handling
+  title: 没有受检异常，没人再逼你处理它
+  symptom: |
+    Java 里一个方法声明了 `throws IOException`，调用方不 try/catch 就编译不过。
+    迁到 Python 后同样的调用能直接跑过去，直到某天线上抛出来才第一次发现。
+  cause: |
+    Java 把「必须处理」写进了类型系统（受检异常），编译器强制调用方表态。
+    Python **没有任何机制**表达这件事 —— 一个函数会不会抛，签名上看不出来，
+    文档通常也不写。这层保障是**消失**，不是变弱。
+  fix: |
+    把「编译器原先替你盯着的点」变成一份显式清单：调用可能失败的 IO / 网络 /
+    解析时主动写 try/except 并说明降级行为。类型检查器也帮不上 ——
+    它同样不追踪异常。
+  severity: 2
+  languages: [java, python]
+  fromBaseline: true
+  tags: [错误处理, 类型]
+
+- id: pitfall-eq-hash-contract
+  featureId: concepts-python/class-inheritance
+  title: 放进 set 之后去重失效 —— 忘了 `__hash__`
+  symptom: |
+    自定义类的对象放进 `set` 或当 `dict` 的键，两个「相等」的对象却各占一格；
+    或者更直接：定义完 `__eq__` 之后，这个类的实例一放进 `set` 就抛 TypeError。
+  cause: |
+    Java 的约定是重写 `equals` 必须同时重写 `hashCode`，IDE 会替你生成一对。
+    Python 里这两个名字是 `__eq__` 与 `__hash__`，默认的 `__hash__` 按
+    **对象身份**算 —— 只重写 `__eq__` 时，相等性与哈希值就脱钩了。
+    更隐蔽的一层：一旦你定义了 `__eq__`，Python 会把 `__hash__` 置为 `None`，
+    这个类**直接变得不可哈希**，而且要到运行到那一行才知道。
+  fix: |
+    重写 `__eq__` 的同一次就显式给出 `__hash__`（用参与比较的那几个不可变字段算）。
+    如果这个类本来就该可变、又想按值比较，就别实现 `__hash__`，让它明确不可哈希 ——
+    而不是留一个按身份算的默认值。
+  severity: 3
+  languages: [java, python]
+  fromBaseline: true
+  tags: [相等, 集合]
