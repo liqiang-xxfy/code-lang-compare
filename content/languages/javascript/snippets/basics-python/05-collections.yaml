@@ -1,0 +1,103 @@
+# javascript —— basics-python/05-collections 的实现
+#
+# 本 topic 以 **Python 为基准**，JavaScript 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/array-create
+    equivalence: analogous
+    code: |
+      const xs = [1, 2, 3];
+      const ys = Array.from({ length: 10 }, (_, i) => i * i);   // @note 没有推导式
+      const zs = Array.from({ length: 10 }, (_, i) => i).filter((i) => i % 2);
+
+      const zeros = new Array(3).fill(0);      // @note 这反而不会共享引用：fill 的是值
+      const grid = Array.from({ length: 3 }, () => new Array(3).fill(0));
+      // @note! Python 的 [[0]*3]*3 会三行共享同一个列表，这边 new Array(3).fill([]) 同样会
+  - featureId: basics-python/array-index
+    equivalence: divergent
+    code: |
+      const xs = [10, 20, 30];
+      xs[-1];              // @note! undefined —— 负索引不生效（会被当成属性名 "-1"）
+      xs.at(-1);           // @note 30 —— 要负索引得用 at()
+
+      xs[99];              // @note! undefined —— 越界静默返回空值，不抛
+      xs[99].toString();   // @note! 于是这里才崩，报错位置离原因很远
+  - featureId: basics-python/array-mutate
+    equivalence: divergent
+    code: |
+      const xs = [1, 2, 3];
+      xs.push(4);          // @note 尾部追加，与 append 对应
+      xs.pop();
+      xs.unshift(0);       // @note! 头部插入 O(n)
+      xs.shift();          // @note! 头部弹出 O(n)
+
+      xs.splice(1, 2);     // @note! 按下标删两个并返回被删项：Python 里要拆成 del 切片
+      xs.splice(1, 0, 9);  // 在 1 处插入 9
+      // @note 没有"按值删"：要删某个值得先 indexOf 再 splice，或者 filter 重建
+  - featureId: basics-python/array-slice
+    equivalence: analogous
+    code: |
+      const xs = [1, 2, 3, 4, 5];
+      xs.slice(1, 3);      // [2, 3] —— 同样是左闭右开、浅拷贝
+      xs.slice(-2);        // @note [4, 5] —— slice 支持负索引（与下标访问不同）
+      xs.slice();          // @note 浅拷贝一份，对应 Python 的 xs[:]
+
+      // @note! 没有步长：Python 的 xs[::2] 要写 xs.filter((_, i) => i % 2 === 0)
+      [...xs].reverse();   // 反转要显式复制再 reverse（reverse 是原地的）
+  - featureId: basics-python/array-iterate
+    equivalence: divergent
+    code: |
+      for (const x of xs) { }              // @note for...of 给值，对应 Python 的 for x in xs
+      for (const i in xs) { }              // @note! for...in 给的是**下标**（字符串形式！）
+
+      xs.forEach((x, i) => { });           // 下标是第二个参数，对应 enumerate
+      // @note 没有 zip：并行遍历要自己按下标走，或者 xs.map((x, i) => [x, ys[i]])
+      // @note 这边的 for...of 遍历时增删同样会跳元素，且没有"遍历副本"的惯用法
+  - featureId: basics-python/array-map-filter
+    equivalence: analogous
+    code: |
+      xs.map((x) => x * 2);                        // @note 链式方法，对应推导式
+      xs.filter((x) => x > 0);
+      xs.map((x) => x * 2).filter((x) => x > 0);   // 这个顺序读起来是"先映射再过滤"
+
+      xs.reduce((acc, x) => acc + x, 0);           // @note reduce 是数组方法，不用额外 import
+
+      // @note! 每个方法都新建一个数组并**立刻求值**，不像 Python 的 map/filter 是惰性迭代器；
+      // 链一长就是多次完整遍历，Python 那边则是一次一个元素流过
+  - featureId: basics-python/array-sort
+    equivalence: divergent
+    code: |
+      const xs = [10, 9, 1];
+      xs.sort();                   // @note! [1, 10, 9] —— 默认按字符串比较
+      xs.sort((a, b) => a - b);    // [1, 9, 10] —— 数值排序必须传比较器
+
+      const ys = xs.sort((a, b) => a - b);
+      // @note! sort 原地改**并返回同一个数组**，所以这种写法看着像"取排序副本"其实不是
+      [...xs].sort();              // 要副本得先复制
+
+      // @note 没有 key=；多字段要手写比较器，且必须自己处理相等时返回 0
+  - featureId: basics-python/array-search
+    equivalence: divergent
+    code: |
+      xs.includes(20);             // @note 布尔 —— 对应 Python 的 in 运算符
+      xs.indexOf(20);              // @note! 找不到返回 -1（不是抛异常）
+      xs.find((x) => x > 15);      // @note 元素；找不到返回 undefined
+
+      // @note 三者的"找不到"语义各不相同：false / -1 / undefined，
+      // Python 那边只有 index() 会抛，其余两个返回布尔或默认值
+  - featureId: basics-python/array-unpack
+    equivalence: analogous
+    code: |
+      const merged = [...xs, ...ys];       // @note 展开运算符，对应 *
+      Math.max(...xs);                     // 调用时展开
+      const [a, ...rest] = xs;             // 解包时收集剩余项
+
+      const mergedObj = { ...defaults, ...overrides };   // @note! 对象也是 ... 同一个符号
+      // Python 那边字典要用 ** 与序列的 * 区分开，这边不区分

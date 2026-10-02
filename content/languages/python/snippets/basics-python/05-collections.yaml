@@ -1,0 +1,116 @@
+# python —— basics-python/05-collections 的实现
+#
+# 本 topic 以 **Python 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/array-create
+    equivalence: identical
+    code: |
+      xs = [1, 2, 3]
+      xs = list(range(10))
+      xs = [i * i for i in range(10)]        # @note 推导式：建列表的默认写法
+      xs = [i for i in range(10) if i % 2]   # 带过滤
+
+      grid = [[0] * 3] * 3                   # @note! 三行是同一个列表
+      grid[0][0] = 1                         # 三行全变了
+      grid = [[0] * 3 for _ in range(3)]     # 正确写法
+  - featureId: basics-python/array-index
+    equivalence: identical
+    code: |
+      xs = [10, 20, 30]
+      xs[-1]                                 # @note 30 —— 负索引原生支持
+      xs[99]                                 # @note! IndexError，越界一律抛
+
+      xs[99:]                                # @note [] —— 切片越界反而静默，
+      xs[99]                                 # 同一个列表上两种行为不一致
+  - featureId: basics-python/array-mutate
+    equivalence: identical
+    code: |
+      xs.append(4)          # @note 尾部追加，O(1)
+      xs.pop()              # 弹尾部并返回它
+      xs.pop(0)             # @note! 弹头部是 O(n)
+      xs.insert(0, 4)       # @note! 头部插入同样是 O(n)，别放在循环里
+      xs.remove(20)         # @note 按值删第一个匹配项，找不到抛 ValueError
+      del xs[1:3]           # 按切片删一段
+
+      xs + [5]              # @note 这是新列表，xs 不动
+      xs.extend([5])        # 改自己
+  - featureId: basics-python/array-slice
+    equivalence: identical
+    code: |
+      xs[1:3]                # @note [2, 3] —— 左闭右开
+      xs[::2]                # 步长
+      xs[::-1]               # @note 一行反转
+      xs[:]                  # @note 浅拷贝：新列表，但元素还是原来那些对象
+
+      xs[1:3] = [9]          # @note 切片可以赋值，用来原地增删，长度可以不同
+      xs[1:3] = []           # 等价于 del xs[1:3]
+  - featureId: basics-python/array-iterate
+    equivalence: identical
+    code: |
+      for x in xs:                 # @note 直接拿到值，不是下标
+          pass
+      for i, x in enumerate(xs):   # 下标 + 值，这才是取下标的惯用法
+          pass
+      for a, b in zip(xs, ys):     # @note 并行遍历，在最短的那条处停
+          pass
+
+      for x in xs:
+          if x < 0:
+              xs.remove(x)         # @note! 边遍历边删会跳过元素
+      xs = [x for x in xs if x >= 0]   # 正确写法：重建
+  - featureId: basics-python/array-map-filter
+    equivalence: identical
+    code: |
+      [x * 2 for x in xs]              # @note 首选推导式
+      [x * 2 for x in xs if x > 0]
+
+      m = map(str, [1, 2])
+      list(m)                          # @note ['1', '2']
+      list(m)                          # @note! [] —— 迭代器只能遍历一次
+
+      sum(xs)                          # @note 聚合用内置函数
+      any(xs)
+      from functools import reduce     # @note! reduce 不在内置命名空间里，这是刻意的取向
+  - featureId: basics-python/array-sort
+    equivalence: identical
+    code: |
+      ys = sorted(xs)                  # @note 新列表，xs 不变
+      xs.sort()                        # @note 原地改，返回 None
+      xs = xs.sort()                   # @note! 经典错误：xs 现在成了 None
+
+      xs.sort(key=len)
+      xs.sort(key=lambda u: (u.age, u.name))   # @note 元组 key 代替比较器，排序是稳定的
+      xs.sort(reverse=True)
+
+      [1, "a"].sort()                  # @note! TypeError —— 混合类型排不了，不会静默
+  - featureId: basics-python/array-search
+    equivalence: identical
+    code: |
+      if x in xs:                      # @note 布尔，O(n) 线性扫描
+          pass
+
+      xs.index(x)                      # @note! 找不到抛 ValueError，不是返回 -1
+      next((x for x in xs if x > 0), None)   # @note 按条件找元素，带默认值
+
+      allowed = set(big_list)          # @note 循环里反复 in 要先转成 set，否则是 O(n²)
+      if x in allowed:
+          pass
+  - featureId: basics-python/array-unpack
+    equivalence: identical
+    code: |
+      merged = [*xs, *ys]              # @note 构造新列表
+      f(*args)                         # 调用时展开
+      print(*xs, sep=", ")
+      a, *rest = xs                    # @note 解包时收集剩余项
+
+      merged = {**defaults, **overrides}   # @note 字典用双星号，后面的覆盖前面的
+      f(**kwargs)

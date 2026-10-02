@@ -1,0 +1,153 @@
+# java —— basics-python/05-collections 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/array-create
+    equivalence: divergent
+    code: |
+      int[] a = {1, 2, 3};                     // @note! 数组长度固定，不能增删
+      int[] zeros = new int[10];               // 自动填 0
+      java.util.List<Integer> xs = new java.util.ArrayList<>();   // 可变长度只能用集合
+
+      java.util.List<Integer> ys = java.util.stream.IntStream
+              .range(0, 10).map(i -> i * i).boxed().toList();
+      // @note 没有推导式，这个是最接近的形态 —— 而且比推导式重得多
+
+      java.util.List<Integer> grid = java.util.stream.IntStream.range(0, 3)
+              .mapToObj(i -> new java.util.ArrayList<>(java.util.List.of(0, 0, 0)))
+              .toList();
+      // @note! 这边必须显式 new 一个内层列表，否则同样会三行共享同一个对象
+  - featureId: basics-python/array-index
+    equivalence: divergent
+    code: |
+      int[] a = {10, 20, 30};
+      a[0];
+      // a[-1];                    // @note! 没有负索引
+      a[a.length - 1];             // 取末尾得自己算
+
+      // a[99];                    // @note! ArrayIndexOutOfBoundsException —— 越界立刻抛，
+      //                            // 不像"返回空值"那样把错误拖到下游
+
+      java.util.List<Integer> xs = java.util.List.of(10, 20, 30);
+      xs.get(99);                  // @note! IndexOutOfBoundsException，集合同样抛
+  - featureId: basics-python/array-mutate
+    equivalence: divergent
+    code: |
+      // @note! 数组长度固定：增删只能换集合
+      int[] a = {1, 2, 3};
+      a[0] = 9;                    // 只能改，不能增删
+
+      java.util.List<Integer> xs = new java.util.ArrayList<>(java.util.List.of(1, 2, 3));
+      xs.add(4);                   // @note 尾部追加（均摊 O(1)）
+      xs.add(0, 4);                // @note! 头部插入 O(n)
+      xs.set(0, 9);                // 按**下标**改，对应 Python 的 xs[0] = 9
+      xs.remove(1);                // @note! 按**下标**删 —— 想按值删要先装箱：xs.remove(Integer.valueOf(1))
+      xs.removeAll(java.util.List.of(2, 3));   // 按值批量删
+
+      // @note 删下标还是删值取决于参数是 int 还是对象，这是 Java 集合的经典歧义
+  - featureId: basics-python/array-slice
+    equivalence: absent
+    code: |
+      // @note! 没有切片语法，取子序列只能调方法
+      java.util.List<Integer> xs = java.util.List.of(1, 2, 3, 4, 5);
+
+      xs.subList(1, 3);                        // @note! 这是**视图**不是拷贝：改它会写回原列表
+      new java.util.ArrayList<>(xs.subList(1, 3));   // 要拷贝得这样包一层
+
+      java.util.Arrays.copyOfRange(new int[]{1, 2, 3, 4, 5}, 1, 3);
+      // @note 数组有 copyOfRange，集合有 subList，两套 API、语义还不一致
+
+      // @note! 没有步长，没有负索引，也没有"切片赋值"
+    body: |
+      Java 没有切片语法。取子序列靠 `subList`（集合）或 `Arrays.copyOfRange`（数组），
+      而且两者有一个关键差别：**`subList` 返回的是原列表的视图**，
+      对它的修改会写回原列表 —— 而 `copyOfRange` 是真的拷贝。
+
+      从有切片语法的语言迁过来时，"取一段"的直觉是**拷贝**，
+      于是 `subList` 的视图语义会静默地改到不该改的地方。
+
+      另外两个缺失：没有步长（要隔项取只能自己循环），没有负索引
+      （末尾只能写 `size() - 1`）。
+  - featureId: basics-python/array-iterate
+    equivalence: analogous
+    code: |
+      for (int x : xs) { }                       // @note 增强 for，直接给值
+
+      for (int i = 0; i < xs.size(); i++) { }    // @note 需要下标只能显式写循环
+
+      java.util.stream.IntStream.range(0, xs.size())
+              .forEach(i -> { });                // 或者用流拿下标
+
+      // @note! 没有 enumerate，也没有 zip —— 两者都要手写下标
+      // @note 增强 for 里修改集合会抛 ConcurrentModificationException（比"跳过元素"更早暴露）
+  - featureId: basics-python/array-map-filter
+    equivalence: divergent
+    code: |
+      xs.stream()
+        .map(x -> x * 2)
+        .filter(x -> x > 0)
+        .toList();                               // @note 流是惰性的，但必须用 toList 收回来
+
+      xs.stream().mapToInt(Integer::intValue).sum();          // @note 求和要转原始类型流
+      xs.stream().anyMatch(x -> x > 0);
+      xs.stream().allMatch(x -> x > 0);
+
+      xs.stream().reduce(0, Integer::sum);       // @note reduce 在这里是流的方法
+      // @note! 流只能消费一次，重复用会抛 IllegalStateException（与迭代器耗尽同类）
+  - featureId: basics-python/array-sort
+    equivalence: analogous
+    code: |
+      int[] a = {10, 9, 1};
+      java.util.Arrays.sort(a);                  // @note! 原地改，且比的是数值本身
+      // @note 与"默认按字符串比较"不同，这边数值排序不需要比较器
+
+      java.util.List<Integer> xs = new java.util.ArrayList<>(java.util.List.of(10, 9, 1));
+      java.util.Collections.sort(xs);            // 原地改，返回 void
+      xs.sort(java.util.Comparator.comparingInt(u -> u));
+
+      xs.stream().sorted().toList();             // 要副本就走流
+      // @note 排序是稳定的；多字段用 Comparator.comparing(...).thenComparing(...)
+      // @note! 如果元素不可比较（Mixed types），这里是编译期就过不去
+  - featureId: basics-python/array-search
+    equivalence: divergent
+    code: |
+      java.util.List<Integer> xs = java.util.List.of(10, 20, 30);
+      xs.contains(20);                           // @note 布尔
+      xs.indexOf(20);                            // @note! 找不到返回 -1（不抛）
+
+      xs.stream().filter(x -> x > 15).findFirst();          // Optional<Integer>
+      xs.stream().filter(x -> x > 15).findFirst().orElse(null);   // @note 带默认值
+
+      // @note! 没有 in 运算符，一律是方法调用；而且找不到时的返回值
+      // 在 contains / indexOf / findFirst 三处各不相同
+  - featureId: basics-python/array-unpack
+    equivalence: absent
+    code: |
+      // @note! 没有展开运算符，构造新列表只能逐个 add 或用流
+      java.util.List<Integer> merged = new java.util.ArrayList<>(xs);
+      merged.addAll(ys);
+
+      // @note 唯一沾边的是可变参数：方法**定义与调用**处可以是若干值
+      int sum(int... nums) { return java.util.stream.IntStream.of(nums).sum(); }
+      sum(1, 2, 3);
+      // sum(xs);                                // @note! 数组可以直接传，但 List 不行，得先转成数组
+
+      // @note 解包成多个变量也不存在，只能逐项取值
+    body: |
+      Java 没有展开/解包运算符，`...` 只是可变参数的语法糖，且只作用于
+      方法签名，不能用在构造表达式里。
+
+      "把两个列表合成一个"只能 `new ArrayList<>(a)` 再 `addAll(b)`；
+      "把列表摊开传给方法"要先把 `List` 转成数组（`xs.toArray(new Integer[0])`）。
+      两边都要求先想清楚目标类型，而不能像 `[*a, *b]` 那样一步到位。
+
+      可变参数本身也有个陷阱：它编译成数组，所以 `sum()` 与 `sum((int[]) null)`
+      是两回事 —— 后者在方法体里会拿到一个 `null` 而不是空数组。
