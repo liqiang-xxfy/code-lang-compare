@@ -19,7 +19,12 @@ function setMeta(name: string, content: string): void {
 }
 
 export function pageTitle(title?: string): string {
-  return title ? `${title} · ${siteInfo.name}` : siteInfo.name
+  /*
+   * 首页传进来的「标题」就是站名本身，直接拼接会得到「X · X」。
+   * 与其要求每个调用点自己记着「别把站名当标题传」，不如在这里兜住：
+   * 标题与站名相同（或没给）时，标题就是站名。
+   */
+  return title && title !== siteInfo.name ? `${title} · ${siteInfo.name}` : siteInfo.name
 }
 
 export function usePageMeta(

@@ -8,21 +8,26 @@
 # 这里先落「领域词汇」这一层，因为它是唯一会随功能演进而反复调整的文案。
 
 site:
-  name: 多语言并排对比
+  name: 编程语言对照手册
   tagline: 把多门语言的同一概念并排对照，突出差异，让已有知识快速迁移
 
 nav:
   home: 首页
-  basics: 基础语法
-  pitfalls: 迁移陷阱
-  concepts: 心智模型
-  glossary: 术语词典
-  roadmap: 学习路线
+  # 顶部第二项：板块的共同入口。左侧整栏都是它的子菜单
+  compare: 多语言对比
   attributions: 内容来源
   languages: 语言
   search: 速查
-  # 侧栏分组标题：迁移教程与概念对比是两种不同性质的内容，必须分得开
-  migrations: 迁移教程
+  backToCompare: 返回多语言对比
+  jumpTo: 直接进入
+  # 板块名（基础语法 / 迁移教程 / 迁移陷阱 / 速语词典 / 迁移学习路线）**刻意不在这里**：
+  # 它们是内容维度的属性，声明在 content/registry.yaml 的 sections 段，页面读注册表。
+  # 留在 i18n 里的话，加一个板块要记得补 5 处 key，漏一处页面上就显示裸 key。
+  # 顶栏那个侧栏开合按钮：图标是 ☰，这几句是它的 title 与无障碍标签。
+  # 按状态给两句而不是一句中性文案 —— 按钮不说出"按下去会发生什么"，
+  # 屏幕阅读器用户就只能靠试。
+  toggleShow: 展开内容导航
+  toggleHide: 收起内容导航
 
 viewMode:
   label: 展示方式
@@ -33,12 +38,19 @@ viewMode:
 baseline:
   label: 基准语言
   hint: 基准列固定在左侧并冻结滚动
-  # {ref} = registry.equivalenceReference（参照系语言名）
+  current: 当前基准：{name}
+  switch: 切换基准语言
+  # {name} = 当前页面的基准语言名
   #
-  # 这条说明是必须的：等价性徽章是人手写的**绝对值**，机器无法随基准切换重算。
-  # 不说明的话，用户切到 Python 基准后会以为徽章也是「相对 Python」的 —— 那是错的。
+  # P7 之后徽章的参照系就是**当前页面的基准**（内容按 (基准,目标) 对撰写，ADR-24），
+  # 所以这句话不再是「与上面选的东西无关」的免责声明，而是在说明这一页的
+  # 判断标准是什么。切换基准会换到另一套内容 —— 它有自己的地址。
   # 注意：i18n 文案是**纯文本**，不经过 Markdown 渲染，所以这里不能写 ** 之类的标记。
-  referenceNote: 等价性徽章（= ≈ ≠ ∅）恒以 {ref} 为参照系判定，不随上方基准切换 —— 它记录的是「相对 {ref} 是否有差异」这一事实。切换基准只改变列的排序与行级代码 diff。
+  # 折叠态的摘要行。参照系（哪一门语言）必须留在这里 —— 它是这一页的判断标准，
+  # 四个符号的含义才是可以按需展开的细节。
+  referenceNoteSummary: 等价性徽章（= ≈ ≠ ∅）以本页基准 {name} 为参照系 —— 各符号含义
+  referenceNote: 等价性徽章（= ≈ ≠ ∅）以本页基准 {name} 为参照系判定：= 同构、≈ 形似、≠ 语义不同、∅ 该语言没有这个概念。基准列自身不显示徽章 —— 它就是参照系。
+  switchHint: 每个基准有各自的一套内容与地址，切换会跳转到对应的页面。
 
 density:
   label: 信息密度
@@ -63,11 +75,42 @@ equivalence:
   absentHint: 该语言没有这个概念
 
 pitfalls:
-  # {ref} = registry.equivalenceReference
-  referenceNote: 本清单的陷阱均以 {ref} 为出发语言 —— 描述的是「带着 {ref} 的习惯写目标语言」时会踩的坑，与上方选择的基准无关。
-  fromReference: 只看「{ref} 开发者必踩」
+  # {baseline} / {target} 来自本页的 (基准, 目标) 对
+  referenceNote: 本清单描述的是「带着 {baseline} 的习惯写 {target}」时会踩的坑。
+  fromReference: 只看「{baseline} 开发者必踩」
+  # 卡片上的徽章（fromBaseline: true）。{baseline} 是**本页基准**的显示名 ——
+  # 基准有 JS / Python / Java 三个，写死任何一个都会在另外两门的页面上说谎
+  fromBaselineBadge: '{baseline} 开发者必踩'
   targetLang: 目标语言
   allTargets: 全部
+
+sections:
+  # 板块标题也不在这里 —— 见上面 nav 段的说明，它们声明在 registry.yaml 的 sections 段
+  # （页面标题用 length 较长的 title，左栏用较短的 label）。
+  # {langs} = 本模块实际对照的语言。
+  # 覆盖范围是内容属性，对比列是用户偏好 —— 两者不一致时要说明，
+  # 否则「勾了却没反应」看起来像坏了。
+  scopeHint: 本模块目前只对照 {langs}，其余语言尚未写入本模块。
+
+compare:
+  baselineLabel: 以 {name} 为基准
+  targetLabel: 对照 {name}
+  columns: 对比列 = 基准 + 你勾选的语言
+
+# 每个板块页内那条语言选择条（CompareLanguageBar）。基准与对比语言并排在这里，
+# 但用两种控件语法分开：基准是连体分段控件（页面本身），对比语言是各自独立的
+# chip（页内的列，且多选框 / 单选本身就说明了这个板块是"多列并排"还是"一篇文章"）。
+compareBar:
+  groupLabel: 对比语言
+  # 基础语法：基准 + 多选，勾几门并排几门
+  multiHint: 勾几门就并排对照几门；本模块没写入的语言不会成列。
+  # 其余四个板块：逐方向撰写，一次只看一个方向
+  singleHint: 迁移教程、陷阱、词典与路线是逐方向撰写的，一次只看一个方向。
+  # 灰显项的 title：本板块没有这个方向的内容
+  unavailable: 本板块还没有这个方向的内容
+  # {requested} = 你最近想看的方向，{actual} = 本板块实际显示的方向。
+  # 说明为什么不覆写偏好，而不是替他改掉 —— 回到有该方向的板块时会自动恢复。
+  fallback: 本板块暂无 {requested} 的内容，已显示 {actual}。
 
 filter:
   onlyDifferent: 只看有差异的
@@ -80,6 +123,13 @@ code:
   collapse: 收起
   noEquivalent: 该语言无等价概念
   language: 语言
+  # 以 { 开头的普通标量必须加引号，否则 YAML 会当成流式映射解析失败
+  lineCount: '{n} 行'
+  diffFromBaseline: 相对基准
+  diffChanged: '{n} 行不同'
+  diffAdded: '{n} 行新增'
+  # 两侧都是多段、但段数不同：无法逐段对齐。宁可不着色，也不给出错位的对照
+  blocksMismatch: 两边的分段结构不同，未做逐行对照
 
 review:
   draft: 未经人工校对
@@ -96,6 +146,9 @@ flags:
   api-only: 仅限特定 API
 
 loading: 加载中…
+# 分片装载失败（网络出错 / 文件缺失）。此前 ensureChapter / ensurePair 没有 catch，
+# 失败会一直停在「加载中…」—— 用户无从判断是慢还是坏了。
+loadFailed: 内容加载失败，请刷新重试。
 empty: 暂无内容
 emptyCell: 该语言尚未提供实现
 # 迁移教程只覆盖 from/to 两门语言，其余列不是「尚未提供」而是「本方向不涉及」——
@@ -107,6 +160,10 @@ backHome: 返回首页
 search:
   title: 速查
   lead: 在 {count} 条对照特性、迁移陷阱、术语、心智模型与路线阶段中检索。支持中文词、代码符号（如「?.」「??=」）、以及「语言名 + 关键词」组合。
+  # 内容按基准拆成三套，索引也按基准分片 —— 一次只搜当前这一套，否则同一概念会出三条近似结果。
+  # 基准可以在本页就地切换（`?baseline=`），所以这句话不再要求用户离开当前页。
+  scopeLabel: 检索范围
+  scopeNote: 检索范围限于「{baseline} 基准」这一套内容；换一套用上面的「检索范围」。
   placeholder: 搜索概念、代码符号或陷阱…
   noResult: 没有匹配「{q}」的内容。换个说法试试，或用左侧导航按章节浏览。
   unavailable: 搜索索引未能加载，请改用左侧导航浏览。
@@ -115,5 +172,4 @@ search:
     feature: 对照特性
     pitfall: 迁移陷阱
     glossary: 术语
-    concept: 心智模型
     roadmap: 学习路线

@@ -1,8 +1,20 @@
 # code-lang-compare
 
-多语言并排对比学习工具。以 **JavaScript 为基准语言**，把目标语言的同一概念并排放在一起，**突出差异**，让已有知识快速迁移。
+多语言并排对比学习工具。选一门**基准语言**（默认 JavaScript，也可选 Python / Java），沿五个板块并排对照目标语言，**突出差异**，让已有知识快速迁移。
+
+```
+顶栏：☰ · 站点名 · 首页 · 多语言对比 · 速查 · 内容来源
+左侧（「多语言对比」的子菜单，顶栏 ☰ 可开合）：
+  基础语法 → 迁移教程 → 迁移陷阱 → 速语词典 → 迁移学习路线
+
+每个板块页内：以 X 为基准 · [Y][Z][…]  ← 基础语法多选，其余四个单选
+```
+
+**基准与对比语言分开**：基准平铺在顶栏、单选、点击即切换；对比语言在**每个板块页内**——基础语法是多选（勾几门并排几门），迁移教程、陷阱、词典、路线是单选（逐方向撰写，一门目标 = 一篇文章）。控件形态本身就说明了这个板块是哪种。
 
 对标基线是 [hyperpolyglot.org/scripting](https://hyperpolyglot.org/scripting)，但补上了它缺的四件事：语言列可勾选、三种对比视角、差异标记、移动端可用。
+
+**基准不是"一个可以随手切的视角"，而是内容维度**：同一门语言，从 JavaScript 出发和从 Python 出发要讲的东西不同（"带着 JS 习惯写 Go 会踩什么" ≠ "带着 Python 习惯写 Go"）。所以每个基准有各自的一套内容与地址（`/compare/<基准>/...`），都能预渲染、能分享。
 
 ---
 
@@ -28,7 +40,26 @@ npm run preview            # 本地预览 dist/
 
 ---
 
-## 这个项目的三条核心设计
+## 这个项目的四条核心设计
+
+### 0. 内容按 (基准, 目标) 对组织，只有五个板块
+
+`content/topics/` 下每个目录是一个 topic，它在 `registry.yaml` 里声明 `section` / `baseline` / `target` 三个字段：
+
+```
+basics-javascript/  basics-python/  basics-java/     ← 板块一「基础语法」：基准级，一套一个基准
+js2python/  python2java/  …（共 12 个方向）            ← 其余四个板块：每个 (基准,目标) 对一个目录
+  ├─ 01-functions.yaml   迁移教程（章节）
+  ├─ pitfalls.yaml       迁移陷阱
+  ├─ glossary.yaml       速语词典
+  └─ roadmap.yaml        迁移学习路线
+```
+
+**基础语法是唯一没有 `target` 的板块** —— 它的列由页内的多选决定；其余四个板块是逐对撰写的，换一门目标语言等于换一篇文章。
+
+`equivalence` 徽章（= ≈ ≠ ∅）以**本 topic 的基准**为参照系：同一个特性在 `basics-javascript` 与 `basics-python` 下是两条独立内容，各有各的徽章。
+
+**地址里只有基准，没有目标语言**：`/compare/javascript/pitfalls` 不指定方向，方向由页内选择条决定。基准进 URL 是因为每个基准是一套独立内容（要能预渲染、能分享）；目标不进 URL 是因为它是"我现在想看哪个方向"——写进地址会让同一份内容散成 12 个地址，而且基础语法（多列）与对级板块（一篇文章）会出现两套互不相容的 URL 语义。
 
 ### 1. 内容只有一个真源：`content/`
 
@@ -68,13 +99,16 @@ Markdown 走 `markdown-it`，**`html: false`**（禁裸 HTML）—— 因为内�
 
 ### 加一个特性
 
-1. 在 `content/topics/<topic>/<NN>-<chapter>.yaml` 里加一条 feature（id 形如 `basics/var-declaration`）
-2. 在 `content/languages/<lang>/snippets/<NN>-<chapter>.yaml` 里给每门**已启用**的语言各加一条同 `featureId` 的实现
+1. 在 `content/topics/<topicId>/<NN>-<chapter>.yaml` 里加一条 feature（id 形如 `basics-javascript/var-declaration`）
+2. 在 `content/languages/<lang>/snippets/<topicId>/<NN>-<chapter>.yaml` 里给该 topic 覆盖范围内的每门语言各加一条同 `featureId` 的实现
 3. 跑 `npm run content:validate` 看缺口，`npm run dev` 看效果
 
-> 实现是**一章一个文件**（`snippets/` 目录），不是每门语言一个大文件。
+> 实现是**一章一个文件**，且**按 topic 分目录** —— 文件名只表达「第几章」，归属由目录表达。
 > 单文件在 72 个 Feature 的量级下会涨到千行以上：一次 PR 的 diff 覆盖整章、同文件必冲突。
-> loader 同时支持 `snippets.yaml`（单文件）与 `snippets/*.yaml`（按章拆分），两者会被合并。
+> 文件顶层是对象（`topic` + 可选的文件级 `review` + `snippets[]`）。同批生成的条目
+> provenance 往往逐字相同，写到文件级即可 —— 全仓库曾因此重复 456 处。
+
+**完整的内容书写规范（加特性 / 章节 / 方向 / 板块 / 语言，`@note` 与 `equivalence` 的判据，多段代码，常见错误）见 [docs/内容书写标准.md](docs/内容书写标准.md)。**
 
 ### 在代码里标差异：`@note`
 
@@ -91,11 +125,11 @@ count = 0            # @note 赋值即声明，没有 let / const 这类关键�
 MAX_RETRY = 3        # @note! 全大写只是约定，解释器不会阻止你重新赋值
 ```
 
-- `@note  …` → 一般差异说明
-- `@note! …` → 高危陷阱（红色显示）
+- `@note  …` → 一般差异说明，**留在代码注释里**，贴着那一行读
+- `@note! …` → 高危陷阱，同样留在行内，只是说明前多一个 `⚠` 标记
 - 标记必须紧跟在该语言的注释前缀之后（`meta.comment.line`），否则校验会报 `R4/R9`
 
-构建期会把标记抽成结构化的 `notes`（带行号与语气）并从展示文本里剥离，所以读者看到的是自然的注释。
+构建期抽取**只剥掉标记本身**，说明文本原样留在代码行里 —— 不另设说明栏，读者不必在代码与注释之间来回跳。高危项靠那个 `⚠` 在满屏注释里被扫到；它是 `code` 的一部分，**复制代码时会一并带走**。
 
 ### `equivalence` 四态
 
@@ -108,11 +142,22 @@ MAX_RETRY = 3        # @note! 全大写只是约定，解释器不会阻止你�
 
 `absent` 时**可以**给代码 —— 表示「没有等价语法，这是惯用替代写法」，同时必须用 `body` 说明。
 
+### 加一个 (基准, 目标) 方向
+
+1. 建目录 `content/topics/<baseline>2<target>/`，写迁移教程章节与（可选的）`pitfalls.yaml` / `glossary.yaml` / `roadmap.yaml`
+2. 在 `content/registry.yaml` 的 `topics` 段登记：`section: migration` + `baseline` + `target` + `languages: [baseline, target]`
+3. `npm run content:build` —— 左栏、路由、sitemap 全部自动跟上
+
+> 三份列表资源与章节放在同一个目录里，靠 loader 的「数组 = 列表、对象 = 章节」约定区分。
+> **归属由目录名反查 registry 得到，不写进每条 YAML**：同一条陷阱可能在多个方向成立，
+> 逐条写 pair 字段会立刻产生 12 份会各自漂移的副本。
+
 ### 加一门语言
 
 1. 复制脚手架目录：`cp -r content/languages/_template content/languages/<新语言 id>`，填 `meta.yaml`（`id` 必须等于目录名，去掉前导下划线）
 2. 在 `content/registry.yaml` 里登记并 `enabled: true`
 3. `npm run content:build && npm run verify:ext`
+4. 若它要当基准：在它的 `meta.yaml` 里标 `baseline: true`，补一套 `content/topics/basics-<id>/`，并在 `registry.yaml` 补它与其它语言的各个方向
 
 **不需要改任何组件、类型或路由代码** —— `LanguageId` 是由 `scripts/build/generate-registry.ts` 扫描目录生成的。`npm run verify:ext` 就是这条承诺的可执行断言：它真的造一门临时语言，然后断言 `src/`（不含 `generated/`）里没有任何代码提到它。
 
@@ -131,10 +176,10 @@ MAX_RETRY = 3        # @note! 全大写只是约定，解释器不会阻止你�
 
 | 策略 | 行为 |
 | --- | --- |
-| `include-draft-with-badge` | draft 参与构建与索引，但页面上必须显示「未经人工校对」 |
-| `reviewed-only`（**当前**） | 严格模式：draft 会**阻断构建** |
+| `include-draft-with-badge`（**当前**） | draft 参与构建与索引，但页面上必须显示「未经人工校对」 |
+| `reviewed-only` | 严格模式：draft 会**阻断构建** |
 
-**当前是 `reviewed-only`**：M1 全部 8 章 144 条实现已完成首轮校对（2026-10-01）。后续新增内容若先以 `draft` 落盘，需临时切回 `include-draft-with-badge` 才能预览。
+**当前是 `include-draft-with-badge`**：「基础语法」的 8 章 144 条实现已于 2026-10-01 完成首轮校对（JS/Python 标 `reviewed`），但 Java / Rust / Go 的实现以及三轴重构新增的骨架内容由 AI 生成且**本机没有这些语言的工具链**，无法逐条实跑验证 —— 因此全部标为 `draft`，让页面上的标记如实承载这个事实。能实跑验证后再切回 `reviewed-only`。
 
 > 首轮校对不是走形式：**7 条 LLM 产出里查出 1 处断言完全写反**（原称 Python 的 `json.loads`
 > 会丢大整数精度 —— 实测恰恰相反，Python 的 `int` 是任意精度，丢精度的是 JS 的 `JSON.parse`），
@@ -205,12 +250,12 @@ rm -rf node_modules package-lock.json && npm install
 
 ```
 content/                  # 【唯一人工编辑入口】
-  registry.yaml           #   语言启用开关 + 发布策略 + 站点信息
-  topics/                 #   【轴一】语言无关：定义 Chapter 与 Feature
-  languages/<id>/         #   【轴二】语言覆盖层
-    meta.yaml             #   语言元信息（注释符驱动 @note 解析、shikiLang 驱动高亮）
+  registry.yaml           #   语言启用开关 + 基准/对比语言默认值 + 发布策略 + topics 三轴声明
+  topics/<topicId>/       #   章节（NN-*.yaml）+ 对级列表资源（pitfalls/glossary/roadmap.yaml）
+  concepts/concepts.yaml  #   心智模型对照表（与基准无关，全局一份）
+  languages/<id>/         #   语言覆盖层
+    meta.yaml             #   语言元信息（注释符驱动 @note 解析、shikiLang 驱动高亮、baseline 候选资格）
     snippets/<NN>-*.yaml  #   按章拆分的实现（一章一文件）
-    roadmap.yaml          #   学习路线
   languages/_template/    #   新增语言时复制的脚手架（`_` 前缀 = 私有目录）
   i18n/zh-CN.yaml         #   界面文案（内容本身不做多语言）
 scripts/
@@ -220,11 +265,14 @@ scripts/
 src/
   generated/              #   【构建产物，禁止手改】
     content/<topicId>/<chapter>.json   # 内容分片：一章一个文件
-    search-index.json                   # 搜索倒排索引（只在 /search 按需加载）
+    static/concepts.json               # 全局静态资源
+    static/<基准>--<目标>.json          # 对级：陷阱 / 词典 / 路线
+    search-index/<基准>.json            # 搜索倒排索引，按基准分片
   schemas/                #   内容契约（Zod，唯一真源）
   content/                #   ContentRepository + 行级 diff + 搜索（分词 / 装载 / 查询）
+  composables/            #   i18n / pageMeta / 持久化 / 基准切换回落 / 可见列裁剪
   components/             #   compare / code / content / ui
-  views/                  #   10 个路由视图
+  views/                  #   路由视图
   styles/                 #   tokens（明暗 × 密度）+ base
 tests/                    #   单元 + 内容契约测试
 ```
@@ -252,7 +300,11 @@ tests/                    #   单元 + 内容契约测试
 
 拉丁词与代码符号按原样保留（`?.`、`??=` 是真实的检索需求）。分词实现在 `src/content/search-tokenize.ts`，**构建期与客户端共用同一份** —— 两边分叉会导致同一个静默失败。
 
-索引当前约 66 KB(gzip)。预算在 `04-build.ts` 里是 90 KB：比内容分片的 60 KB 宽，因为它只在 `/search` 按需下载、不进首屏。超线会打印优化路径。
+**索引按基准分片**（`src/generated/search-index/<基准>.json`）。内容按基准拆成三套后，同一个概念会有三条文档；不分片的话一次要下载三倍，还会在结果里出现三条近似项。查询侧再用 `queryOptions(基准)` 的 `filter` 兜一层 —— MiniSearch 的 `loadJSON` 不记住 options，必须显式传。与基准无关的内容（心智模型对照表）用空 `baseline` 标记，每个分片都收。
+
+预算在 `04-build.ts` 里是**单分片** 90 KB(gzip)：比内容分片的 60 KB 宽，因为它只在 `/search` 按需下载、不进首屏。超线会打印优化路径。
+
+> 当前 `javascript` 分片 118 KB(gz)，**超出红线**（这是拆片前就有的遗留）。下一步按既定路径把索引 `text` 里的 `@note` 文本降级为 summary-only。
 
 ## 已知边界（首期不做）
 
