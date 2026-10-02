@@ -1,0 +1,111 @@
+id: python2java/02-types-and-values
+topicId: python2java
+title: 2. 类型、数值与字符串
+order: 2
+summary: 从 Python 到 Java：类型从"跟着值走"变成"写在声明上"，数字多了位宽，字符串多了个 char
+
+features:
+  - id: python2java/types-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 类型不再跟着值走，而是跟着名字写死
+    body: |
+      Python 里类型属于**运行时的值**，名字只是标签；Java 里类型写在**声明处**，
+      跟着名字走一辈子。这一层差别会改变你写代码的节奏：
+
+      - 每个变量、参数、返回值都要写出类型（`var` 只是让编译器替你推断）
+      - 类型错了**编译不过**，而不是跑到那一行才炸
+      - 想装"任意类型"只能用 `Object`，取回来还要强转
+
+      数值与字符串各多出一层需要专门记的规则：**整数有了位宽**（溢出会静默回绕），
+      **字符串旁边多了个 char 类型**（单引号与双引号不再是风格选择）。
+      本章按「数值 → 字符串 → 空值」排，每节给出两边的对照与迁移要点。
+
+  - id: python2java/numeric-types
+    title: 数值：一档 int 变成按位宽分档
+    kind: behavior
+    summary: 溢出静默回绕，除法向零截断
+    body: |
+      Python 只有一档 `int`（任意精度）和一档 `float`（双精度）；
+      Java 把整数按位宽分成 `byte` / `short` / `int` / `long`，浮点分成 `float` / `double`。
+
+      ```java
+      int a = Integer.MAX_VALUE;
+      a + 1;                        // -2147483648 —— 静默回绕，不报错
+      long b = 9007199254740993L;   // 装得下；再大要 BigInteger
+      ```
+
+      **迁移要点**：算钱、算 ID、算时间戳时先问"这个量级 int 够不够"。
+      Python 里从不需要考虑的问题，在这里是必须做的一次心算。
+
+      第二处是除法，两边结果不同且都不会报错：
+
+      | 表达式 | Python | Java |
+      | --- | --- | --- |
+      | `7 / 2` | `3.5` | `3`（整数除法） |
+      | `-7 // 2` | `-4`（向下） | `-3`（向零） |
+      | `-7 % 3` | `2` | `-1` |
+
+      Java 里想拿到 Python 那种"向下取整"的语义，要用 `Math.floorDiv` 与 `Math.floorMod`
+      —— 它们是一对，必须同时换，只换一个会让商和余数对不上。
+
+  - id: python2java/strings
+    title: 字符串：不可变一致，但多了 char 与拼接开销
+    kind: behavior
+    summary: 双引号才是字符串，循环里拼接要换 StringBuilder
+    body: |
+      `String` 与 Python 的 `str` 都是**不可变**的，所有"修改"都返回新对象 ——
+      这一层直觉可以直接搬过来。
+
+      三处需要改写法的地方：
+
+      1. **单引号是 `char`，不是字符串**。`'a'` 是字符类型（本质是个数字），
+         `"a"` 才是字符串。`'ab'` 编译不过。
+      2. **没有插值**。`f"{name}"` 对应的是 `String.format("%s", name)`
+         或 `"..." + name`，格式串与参数分离。
+      3. **循环里 `+` 拼接退化成 O(n²)**：编译器只优化单条表达式内的拼接，
+         跨循环的累加要换成 `StringBuilder`。
+
+      **迁移要点**：`"{}".format(...)` / f-string 全部要改写成
+      `String.format`；而 `.format` 里那套格式规格（`:.2f`）在 Java 里是
+      printf 风格（`%.2f`），语义能对上但不通用。
+
+  - id: python2java/nullability
+    title: 空值：None 变成 null，而且多了包装类型
+    kind: behavior
+    summary: 基本类型不能为 null，拆箱时才 NPE
+    body: |
+      Python 的 `None` 是一个普通对象，任何变量都能是它；
+      Java 的 `null` 只能赋给**引用类型** —— `int` / `boolean` / `double` 这些
+      基本类型永远有值（字段默认 0，局部必须显式赋值）。
+
+      这带来一个 Python 里不存在的组合：**包装类型**。
+
+      ```java
+      Integer boxed = null;
+      int n = boxed;          // NullPointerException —— 拆箱那一刻才炸
+      ```
+
+      **迁移要点**：判空在 Java 里要分两层想 ——
+      这个字段是基本类型（不可能为空，不用判）还是包装类型（可能为空，拆箱前必须判）。
+      泛型集合里装的都是包装类型（`List<Integer>`），所以从集合里取出来的值
+      天然带这一层风险。
+
+      `Optional<T>` 是官方推荐的"显式表达可能没有"，但它只能装引用类型，
+      且用在字段上通常被认为是不良实践 —— 它主要用在返回值边界。
+
+  - id: python2java/types-exercise
+    title: 练习：迁移一个统计函数
+    kind: exercise
+    summary: 三个改动点，其中一个是位宽
+    body: |
+      下面这段 Python 统计一组成绩的平均分与总分，并保留两位小数。
+
+      请把它迁到 Java，要求**行为完全一致**：
+
+      1. 总分可能是很大的整数（这里决定用 `int` 还是 `long`）
+      2. 平均分要保留两位小数
+      3. 空列表时返回 `null`（Java 里是包装类型还是 `Optional`，由你决定并说明理由）
+
+      对照下方的参考实现时，重点看两处：**位宽的选择**，
+      以及**除法是整数还是浮点**（Python 的 `/` 在 Java 里不成立）。

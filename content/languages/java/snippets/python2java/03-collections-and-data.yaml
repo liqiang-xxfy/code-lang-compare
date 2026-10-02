@@ -1,0 +1,84 @@
+# java —— python2java/03-collections-and-data 的实现
+#
+# 以 Python 为基准看 Java 的容器与建模方式。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: python2java/collections-intro
+    equivalence: divergent
+    code: |
+      List<String> xs = new ArrayList<>();      // @note! 接口声明、实现构造，要选两次
+      Map<String, Integer> m = new HashMap<>();
+      Set<String> s = new HashSet<>();
+
+      Map<String, Integer> ordered = new LinkedHashMap<>();   // @note 按插入顺序
+      Map<String, Integer> sorted = new TreeMap<>();          // @note 按键的大小
+
+      List.of(1, 2, 3);                         // @note 不可变字面量
+      Map.of("a", 1);
+
+      // @note! 自定义类当 Map 的键必须重写 equals 与 hashCode，否则"放进去就找不到"
+  - featureId: python2java/list-model
+    equivalence: divergent
+    code: |
+      List<Integer> xs = new ArrayList<>(List.of(1, 2, 3, 4, 5));
+
+      xs.subList(1, 3);                         // @note! 这是**视图**，不是拷贝
+      var view = xs.subList(1, 3);
+      view.set(0, 9);                           // @note! xs 也变了 —— 与切片直觉相反
+      new ArrayList<>(xs.subList(1, 3));        // 要拷贝必须这样包一层
+
+      // @note! 没有步长、没有负索引：反转要 Collections.reverse，末尾要 xs.get(xs.size()-1)
+      xs.get(99);                               // @note IndexOutOfBoundsException，这点与 Python 一致
+
+      Collections.reverse(new ArrayList<>(xs)); // 而且 reverse 是原地改
+  - featureId: python2java/map-model
+    equivalence: divergent
+    code: |
+      Map<String, Integer> m = new HashMap<>();
+      m.put("a", 1);
+
+      m.get("z");                               // @note! null —— 缺失静默返回空值，不抛
+      m.getOrDefault("z", 0);                   // 0 —— 要默认值用这个，它只读
+      m.containsKey("z");                       // false —— 单独判存在
+
+      m.computeIfAbsent("新部门", k -> new ArrayList<>()).add("x");
+      // @note! computeIfAbsent 会写入，名字里没有 get，就是提示；
+      // 而 get / getOrDefault 都是纯读的
+
+      // @note 危险处：值本身可能是 null 时，get 分不出"键不存在"和"值是 null"
+  - featureId: python2java/data-modeling
+    equivalence: divergent
+    code: |
+      // @note! 字段固定的小结构应该用 record，而不是 Map<String, Object>
+      record Employee(int id, String name, String dept) { }
+
+      var e = new Employee(1, "Ada", "研发");
+      e.name();                                 // @note 编译期就有类型
+      // e.nmae();                              // 编译错误 —— 拼错当场发现
+
+      Map<String, Object> bad = new HashMap<>();      // @note 这条路能走，但取出来是 Object
+      bad.put("id", 1);
+      int id = (int) bad.get("id");                   // @note! 每次都要强转，转错运行时才炸
+
+      // @note 判据：这组字段固定吗？固定用 record，确实动态才用 Map
+  - featureId: python2java/collections-exercise
+    equivalence: analogous
+    code: |
+      record Employee(int id, String name, String dept) { }
+
+      static Map<String, List<String>> groupByDept(List<Employee> employees) {
+          Map<String, List<String>> groups = new HashMap<>();
+          for (Employee e : employees) {
+              groups.computeIfAbsent(e.dept(), k -> new ArrayList<>()).add(e.name());
+              // @note! 没有 defaultdict，用 computeIfAbsent 代替 —— 它同样是"读一次就写入"
+          }
+          return groups;
+      }
+      // @note 空输入自然返回空 Map，不需要特判 —— 与 Python 的版本一致

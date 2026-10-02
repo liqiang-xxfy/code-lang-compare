@@ -1,0 +1,71 @@
+# python —— python2java/02-types-and-values 的实现
+#
+# 本 topic 以 **Python 为基准**（from 侧），所以基准列标 identical。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: python2java/types-intro
+    equivalence: identical
+    code: |
+      count = 0                 # @note 名字不携带类型，赋值即绑定
+      count = "一"              # 合法，运行时没有任何约束
+
+      value: int = 0            # @note 注解只是注解：解释器不检查、不强制
+      # @note! 类型错误只在"操作不支持"时才报：1 + "a" 抛 TypeError，
+      # 但 x = "a" 本身永远没错
+  - featureId: python2java/numeric-types
+    equivalence: identical
+    code: |
+      2 ** 100                  # @note 任意精度，不会溢出、不会回绕
+      10 ** 30 + 1              # 原样算得出来
+
+      7 / 2                     # @note 3.5 —— / 永远返回浮点
+      7 // 2                    # 3
+      -7 // 2                   # @note -4 —— 向下取整
+      -7 % 3                    # @note 2 —— 负数的取余结果与自己一致
+
+      # @note! 除零抛 ZeroDivisionError，当场炸；不会静默变成 Infinity
+  - featureId: python2java/strings
+    equivalence: identical
+    code: |
+      s = "abc"                 # @note 不可变：所有"修改"都返回新对象
+      s[0]                      # 'a' —— 长度为 1 的字符串，没有独立的字符类型
+      s.upper()                 # 返回新串，s 不变
+
+      name = "Ada"
+      f"你好，{name}！"          # @note 插值：表达式直接写在串里
+      f"{3.14159:.2f}"          # '3.14' —— 格式规格跟在冒号后
+
+      parts = []
+      for p in many:
+          parts.append(p)       # @note 先收集，最后一次性 join
+      "".join(parts)
+  - featureId: python2java/nullability
+    equivalence: identical
+    code: |
+      x = None                  # @note 任何变量都能是 None，没有"基本类型"这一层
+      x is None                 # 判空统一用 is
+
+      d = {"a": None}
+      d["a"]                    # None —— 取出来就是 None，不会在取的时候炸
+
+      # @note! 但 None 在布尔上下文里是假值，与 0 / "" / [] 归在一起：
+      if not d["a"]:            # 分不清"没有值"和"值是空"
+          pass
+      if d["a"] is None:        # 要区分就得显式判
+          pass
+  - featureId: python2java/types-exercise
+    equivalence: identical
+    code: |
+      def summarize(scores):
+          if not scores:
+              return None
+          total = sum(scores)                       # @note 任意精度，不用选位宽
+          avg = total / len(scores)                 # @note / 天然是浮点除法
+          return f"总分 {total}，平均 {avg:.2f}"

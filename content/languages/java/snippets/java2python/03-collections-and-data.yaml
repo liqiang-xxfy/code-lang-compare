@@ -1,0 +1,77 @@
+# java —— java2python/03-collections-and-data 的实现
+#
+# 本 topic 以 **Java 为基准**（from 侧），所以基准列标 identical。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: java2python/collections-intro
+    equivalence: identical
+    code: |
+      List<String> xs = new ArrayList<>();      // @note 接口声明、实现构造
+      Map<String, Integer> m = new HashMap<>();
+      Set<String> s = new HashSet<>();
+
+      Map<String, Integer> ordered = new LinkedHashMap<>();   // @note 按插入顺序
+      Map<String, Integer> sorted = new TreeMap<>();          // @note 按键的大小
+
+      // @note! 类型参数是编译期保证：往 List<String> 里塞 int 编译不过
+      // @note! 自定义类当键必须重写 equals 与 hashCode，否则放进去就找不到
+  - featureId: java2python/list-model
+    equivalence: identical
+    code: |
+      List<Integer> xs = new ArrayList<>(List.of(1, 2, 3, 4, 5));
+
+      var view = xs.subList(1, 3);
+      view.set(0, 9);                           // @note! xs 也变了 —— subList 是视图不是拷贝
+      new ArrayList<>(xs.subList(1, 3));        // 要拷贝必须包一层
+
+      xs.get(xs.size() - 1);                    // @note 取末尾要自己算下标
+      xs.get(99);                               // @note! IndexOutOfBoundsException
+
+      Collections.reverse(new ArrayList<>(xs)); // @note reverse 是原地改，所以先复制
+      // @note! 没有步长、没有负索引，隔项取只能自己写循环
+  - featureId: java2python/map-model
+    equivalence: identical
+    code: |
+      Map<String, Integer> m = new HashMap<>();
+      m.put("a", 1);
+
+      m.get("z");                               // @note! null —— 缺失静默返回空值
+      m.getOrDefault("z", 0);                   // 0 —— 纯读，不写入
+      m.containsKey("z");                       // false
+
+      m.computeIfAbsent("新部门", k -> new ArrayList<>()).add("x");
+      // @note! 这个名字会写入 —— 名字里没有 get，就是提示
+
+      // @note 合并时默认就会抛 IllegalStateException，重复键要显式给取舍函数
+  - featureId: java2python/data-modeling
+    equivalence: identical
+    code: |
+      record Employee(int id, String name, String dept) { }   // @note 不可变，按字段比较
+
+      var e = new Employee(1, "Ada", "研发");
+      e.name();                                 // @note 访问器是方法调用
+      // e.nmae();                              // 编译错误 —— 拼错当场发现
+
+      // @note! 换成 Map<String, Object> 也能写，但取出来是 Object，每次要强转，
+      // 而且拼错的键编译期查不出来
+  - featureId: java2python/collections-exercise
+    equivalence: identical
+    code: |
+      record Employee(int id, String name, String dept) { }
+
+      static Map<String, List<String>> groupByDept(List<Employee> employees) {
+          Map<String, List<String>> groups = new HashMap<>();
+          for (Employee e : employees) {
+              groups.computeIfAbsent(e.dept(), k -> new ArrayList<>()).add(e.name());
+              // @note! 等价于 Python 的 defaultdict：读一次就建好一个空列表
+          }
+          return groups;
+      }
+      // @note 空输入自然返回空 Map

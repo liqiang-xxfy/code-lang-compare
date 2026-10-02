@@ -1,0 +1,115 @@
+id: java2python/02-types-and-values
+topicId: java2python
+title: 2. 类型、数值与字符串
+order: 2
+summary: 从 Java 到 Python：类型从声明上消失，编译期那道网也没了，而除法会给你惊喜
+
+features:
+  - id: java2python/types-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 类型检查从编译期挪到了"运行时才发现"
+    body: |
+      从 Java 到 Python，最大的变化不是语法变短，而是**那道编译期的网没了**。
+
+      在 Java 里，类型写错、方法名拼错、少传一个参数，都是编译错误 ——
+      你在跑起来之前就知道。到了 Python，这些统统变成运行时才发现的问题，
+      而且很多根本不会报错（拼错的参数名进了 `**kwargs`、写错的属性在别处才崩）。
+
+      **迁移要点**：把"编译"这一步省下来的时间，转移到**测试**上。
+      Java 里靠编译器兜住的那一类错误，在 Python 里需要测试或类型检查工具来接。
+      这不是可选项 —— 没有东西替你兜底了。
+
+      数值与字符串各有一处会直接改变结果的差异：**除法**（`7 / 2` 在 Java 是 3，
+      在 Python 是 3.5）与**溢出**（Java 会回绕，Python 不会）。
+      本章按「数值 → 字符串 → 空值」排。
+
+  - id: java2python/numeric-types
+    title: 数值：位宽消失，除法语义反了
+    kind: behavior
+    summary: 没有溢出，但整数除法不再截断
+    body: |
+      两个方向的变化，第二个更危险。
+
+      **往好的方向**：`int` 变成任意精度，溢出与回绕彻底消失。
+      Java 里要 `long` 甚至 `BigInteger` 的地方，在 Python 里直接写就行：
+
+      ```python
+      10 ** 30 + 1        # 原样算得出来，不用选位宽
+      ```
+
+      **危险的方向**：`/` 不再截断。
+
+      | 表达式 | Java | Python |
+      | --- | --- | --- |
+      | `7 / 2` | `3` | **`3.5`** |
+      | `-7 / 2` | `-3` | **`-3.5`** |
+      | `-7 % 3` | `-1` | `2` |
+
+      从 Java 过来时，"整数除整数得整数"是刻在肌肉记忆里的。
+      在 Python 里想保留原来的语义必须显式写 `//`（向下取整）
+      或 `int(a / b)`（向零截断）—— 后者的含义与 Java 一致。
+
+      **迁移要点**：凡是迁移算下标、算分页、算平均值的代码，
+      逐处确认 `/` 是不是该写成 `//`。写成 `/` 不会报错，只会得到小数。
+
+  - id: java2python/strings
+    title: 字符串：char 没了，插值有了
+    kind: behavior
+    summary: 单引号双引号等价，格式化改成格式规格串
+    body: |
+      `String` 与 `str` 都是**不可变**的，这一层不变。
+      变的是写法与"字符"这个类型。
+
+      1. **没有 `char`**。`'a'` 与 `"a"` 在这里是同一个东西 ——
+         单引号与双引号完全等价，只是省转义的风格选择。
+         Java 里 `char` 与 `String` 是两种类型，很多 `charAt` 返回 `char` 的代码
+         迁过来之后其实就是普通字符串，可以简化。
+      2. **有插值**。`String.format("%s", name)` 对应的 `f"{name}"`，
+         表达式就在占位符里，不必再对着参数列表数位置。
+      3. **换行拼接变简洁**。Java 要 `StringBuilder` 的地方，
+         Python 里是先收集到列表再 `"".join(parts)`。
+
+      **迁移要点**：printf 风格的格式规格能直接换成 Python 的格式说明符
+      （`%08.2f` → `:08.2f`），宽度、精度、对齐这几个概念是对应的，
+      但 `%s` 没有直接对应物 —— 直接插值即可。
+
+  - id: java2python/nullability
+    title: 空值：null 变成 None，但"任何东西都可能为空"
+    kind: behavior
+    summary: 基本类型那层保护没有了
+    body: |
+      `null` 换成 `None`，判空从 `== null` 换成 `is None`。
+
+      真正需要重建直觉的是：**Java 里"基本类型不可能为空"这层保证没有了**。
+      在 Java 里，`int n` 永远有值，只有 `Integer` 才可能是 null，
+      所以"要不要判空"有个类型上的依据。在 Python 里，任何名字都可能是 `None`，
+      包括你以为是数字、是字符串的那些 —— 判空的依据从类型变成了约定。
+
+      ```python
+      x = None
+      x is None            # 判空用 is，不用 ==
+      ```
+
+      **两条迁移要点**：
+
+      1. `Optional<T>` 那套"显式表达可能没有"在这里没有对应物，
+         惯例是**直接返回 `None`** 并在文档里写明，或者干脆抛异常。
+      2. 判空别用 `if not x` —— 它把 `0`、`""`、`[]` 全归为假，
+         与 Java 里 `x == null` 的含义完全不同。要判"是不是空值"就写 `x is None`。
+
+  - id: java2python/types-exercise
+    title: 练习：把统计函数迁到 Python
+    kind: exercise
+    summary: 重点在除法与位宽两处
+    body: |
+      下面这段 Java 统计一组成绩的总分与平均分。
+
+      请把它迁到 Python，要求**行为完全一致**。注意两处：
+
+      1. 原版的 `(double) total / scores.size()` 做了强制转换 ——
+         在 Python 里这层转换是多余还是必需？
+      2. 原版用 `long` 存总分是因为担心溢出 —— Python 里还需要考虑吗？
+
+      如果你把 `total / scores.size()` 直接搬过去，行为确实一致；
+      但如果你在别处也顺手搬了 `/`，很可能已经悄悄改变了语义。

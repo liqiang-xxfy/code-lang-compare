@@ -1,0 +1,86 @@
+# java —— python2java/02-types-and-values 的实现
+#
+# 以 Python 为基准看 Java 的类型与取值模型。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: python2java/types-intro
+    equivalence: divergent
+    code: |
+      int count = 0;                  // @note! 类型写在声明上，跟着名字走一辈子
+      // count = "一";                // 编译错误 —— 错误提前到编译期
+
+      var inferred = 0;               // @note var 只是省略类型名，inferred 依然是 int
+
+      Object anything = 1;            // @note 想装任意类型只能用 Object
+      int back = (int) anything;      // @note! 取回来要强转，转错在运行时抛 ClassCastException
+  - featureId: python2java/numeric-types
+    equivalence: divergent
+    code: |
+      // @note! 整数按位宽分档：byte / short / int / long，都有上限
+      Integer.MAX_VALUE + 1;          // @note! -2147483648 —— 静默回绕，不报错
+      long big = 9007199254740993L;   // 装得下；再大要用 BigInteger，运算符随之失效
+
+      7 / 2;                          // @note! 3 —— 整数除法，Python 那边是 3.5
+      -7 / 2;                         // -3 —— 向零截断
+      -7 % 3;                         // @note! -1 —— 与 Python 的 2 不同
+
+      Math.floorDiv(-7, 2);           // @note -4 —— 要 Python 那种向下取整得换这一对
+      Math.floorMod(-7, 3);           // 2 —— floorDiv 与 floorMod 必须同时换
+
+      1 / 0;                          // @note! ArithmeticException（整数除零才抛）
+      1.0 / 0;                        // @note! Infinity —— 浮点除零静默
+  - featureId: python2java/strings
+    equivalence: divergent
+    code: |
+      String s = "abc";               // @note 不可变，这点与 Python 一致
+      char c = 'a';                   // @note! 单引号是 char，不是长度为 1 的字符串
+      // char bad = 'ab';             // 编译错误
+
+      s.charAt(0);                    // 'a'
+      s.toUpperCase();                // 返回新串
+
+      String name = "Ada";
+      String msg = "你好，" + name + "！";              // @note 没有插值，只能拼
+      String msg2 = String.format("你好，%s！", name);
+      String.format("%.2f", 3.14159);                   // @note '3.14'，printf 风格的格式规格
+
+      StringBuilder sb = new StringBuilder();           // @note! 循环里拼接必须换成这个
+      for (String p : many) sb.append(p);
+      sb.toString();
+  - featureId: python2java/nullability
+    equivalence: divergent
+    code: |
+      String x = null;                // @note 只有引用类型能为 null
+
+      int n;                          // @note! 基本类型不能为 null：字段默认 0，局部必须赋值
+      // int m = null;                // 编译错误
+
+      Integer boxed = null;
+      int unboxed = boxed;            // @note! NullPointerException —— 拆箱那一刻才炸
+
+      List<Integer> xs = new ArrayList<>();   // @note 泛型只能装包装类型
+      xs.add(null);
+      xs.get(0) + 1;                  // @note! 这里才 NPE，报错位置离原因很远
+
+      java.util.Optional.ofNullable(x).orElse("默认");
+      // @note 官方推荐用它表达"可能没有"，但只能装引用类型
+  - featureId: python2java/types-exercise
+    equivalence: analogous
+    code: |
+      static String summarize(List<Integer> scores) {
+          if (scores.isEmpty()) {
+              return null;                          // @note 与 Python 的 None 对应
+          }
+          long total = 0;                           // @note! 先想位宽：int 可能不够
+          for (int s : scores) total += s;
+
+          double avg = (double) total / scores.size();   // @note! 不转 double 就是整数除法
+          return String.format("总分 %d，平均 %.2f", total, avg);
+      }

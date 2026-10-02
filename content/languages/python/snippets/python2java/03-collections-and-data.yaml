@@ -1,0 +1,73 @@
+# python —— python2java/03-collections-and-data 的实现
+#
+# 本 topic 以 **Python 为基准**（from 侧），所以基准列标 identical。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: python2java/collections-intro
+    equivalence: identical
+    code: |
+      xs = []                  # @note 没有"选实现"这一步：list 就是 list
+      d = {}
+      s = set()
+      t = (1, 2)               # @note 元组是内置的不可变序列
+
+      from collections import defaultdict, OrderedDict, Counter
+      # @note! 需要特殊行为时才有额外的类型可选；
+      # dict 本身保证插入顺序（3.7+），不需要 OrderedDict
+  - featureId: python2java/list-model
+    equivalence: identical
+    code: |
+      xs = [1, 2, 3, 4, 5]
+      xs[1:3]                  # @note [2, 3] —— 切片是**新列表**，改它不影响原列表
+      xs[::-1]                 # 一行反转
+      xs[::2]                  # 步长
+      xs[-1]                   # 5 —— 负索引原生支持
+
+      sub = xs[1:3]
+      sub[0] = 9               # @note! xs 不受影响 —— 与 Java 的 subList 视图正好相反
+
+      xs[99]                   # @note! IndexError，越界当场抛
+  - featureId: python2java/map-model
+    equivalence: identical
+    code: |
+      d = {"a": 1}
+      d["z"]                   # @note! KeyError —— 缺失即抛，挡住"我以为有"的假设
+      d.get("z")               # None —— 想容忍缺失才用 get
+      d.get("z", 0)            # 0
+      "z" in d                 # False —— 判存在
+
+      from collections import defaultdict
+      groups = defaultdict(list)
+      groups["新部门"].append("x")   # @note! 读取时就会写入一个空列表，把字典撑大
+  - featureId: python2java/data-modeling
+    equivalence: identical
+    code: |
+      user = {"id": 1, "name": "Ada", "active": True}
+      user["name"]             # @note 随手就能建一条记录，不用先建类型
+
+      # @note! 代价是拼错的键要到运行时才炸：
+      user["nmae"]             # KeyError，而且只有跑到这一行才发现
+
+      from dataclasses import dataclass
+      @dataclass
+      class User:              # @note 字段比较固定时，dataclass 是更好的选择
+          id: int
+          name: str
+          active: bool
+  - featureId: python2java/collections-exercise
+    equivalence: identical
+    code: |
+      from collections import defaultdict
+
+      def group_by_dept(employees):
+          groups = defaultdict(list)
+          for e in employees:
+              groups[e["dept"]].append(e["name"])
+          return dict(groups)          # @note 转成普通 dict，避免"读一次多一个空组"

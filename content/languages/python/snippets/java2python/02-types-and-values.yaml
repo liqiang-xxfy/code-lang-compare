@@ -1,0 +1,81 @@
+# python —— java2python/02-types-and-values 的实现
+#
+# 以 Java 为基准看 Python 的类型与取值模型。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: java2python/types-intro
+    equivalence: divergent
+    code: |
+      count = 0                      # @note 名字不携带类型，赋值即绑定
+      count = "一"                   # @note! 合法 —— 编译期那道网没有了
+
+      value: int = 0                 # @note 注解不强制，解释器不检查
+      value = "text"                 # 合法
+
+      # @note! 方法名拼错、少传参数都要等运行时才炸，甚至根本不报错；
+      # 原来靠编译器兜住的那些，现在要靠测试或类型检查工具接住
+  - featureId: java2python/numeric-types
+    equivalence: divergent
+    code: |
+      2 ** 100                       # @note 任意精度 —— 溢出与回绕彻底消失
+      10 ** 30 + 1                   # 不用再选位宽
+
+      7 / 2                          # @note! 3.5 —— 不是 3！整数除法不再截断
+      -7 / 2                         # @note! -3.5 —— 这是最危险的一处
+      7 // 2                         # 3 —— 要 Java 那种语义得显式写 //
+      -7 // 2                        # @note -4 —— 而 // 是"向下取整"，与 Java 的"向零"仍不同
+      int(-7 / 2)                    # -3 —— 想完全对齐 Java 用这个
+      -7 % 3                         # @note! 2 —— 与 Java 的 -1 不同
+
+      1 / 0                          # @note! ZeroDivisionError，当场炸，不再静默变 Infinity
+  - featureId: java2python/strings
+    equivalence: divergent
+    code: |
+      s = "abc"                      # @note 不可变，与 String 一致
+      c = 'a'                        # @note! 单引号与双引号完全等价，没有 char 类型
+      s[0]                           # 'a' —— 长度为 1 的字符串
+      s.upper()                      # 返回新串
+
+      f"你好，{name}！"               # @note 插值：表达式直接写在串里
+      f"{3.14159:.2f}"               # '3.14' —— 对应 %.2f
+      f"{3.14159:08.2f}"             # '00003.14' —— 总宽度概念也对得上
+
+      parts = []
+      for p in many:
+          parts.append(p)            # @note 不必用 StringBuilder：先收集再 join
+      "".join(parts)
+  - featureId: java2python/nullability
+    equivalence: divergent
+    code: |
+      x = None                       # @note 任何名字都可能是 None ——
+                                     # "基本类型不可能为空"那层保证没有了
+
+      x is None                      # @note 判空用 is，不是 ==
+      x == None                      # @note! 能跑但不该用：对象自定义了 __eq__ 就可能反直觉
+
+      # @note! 判空别写 if not x：它把 0 / "" / [] 全归为假，
+      # 与 Java 的 x == null 含义完全不同
+      if not x:
+          pass
+      if x is None:                  # 要判"是不是空值"就写这个
+          pass
+
+      # @note 没有 Optional 的对应物，惯例是直接返回 None 并在文档里写明
+  - featureId: java2python/types-exercise
+    equivalence: analogous
+    code: |
+      def summarize(scores):
+          if not scores:
+              return None
+          total = sum(scores)                    # @note 不用 long，也不会溢出
+          avg = total / len(scores)              # @note! 这里不需要 (double) 强转 ——
+                                                 # / 本来就是浮点除法，行为恰好与 Java 一致
+          return f"总分 {total}，平均 {avg:.2f}"
+      # @note! 但"恰好一致"是运气：换一处 / 想表达整除时就静默变成了小数

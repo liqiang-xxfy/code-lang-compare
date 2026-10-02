@@ -1,0 +1,73 @@
+# java —— java2python/02-types-and-values 的实现
+#
+# 本 topic 以 **Java 为基准**（from 侧），所以基准列标 identical。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: java2python/types-intro
+    equivalence: identical
+    code: |
+      int count = 0;                 // @note 类型写在声明上，编译期就检查
+      // count = "一";               // 编译错误 —— 跑起来之前就知道
+
+      var inferred = 0;              // @note var 只是省略类型名
+
+      // @note! 方法名拼错、少传参数、类型不匹配 —— 全是编译错误
+      // 到了 Python 这些要等运行时才发现，甚至根本不报错
+  - featureId: java2python/numeric-types
+    equivalence: identical
+    code: |
+      Integer.MAX_VALUE + 1;         // @note! -2147483648 —— int 溢出静默回绕
+      long big = 9007199254740993L;  // @note 位宽要自己选：byte/short/int/long
+
+      7 / 2;                         // @note 3 —— 整数除法，向零截断
+      -7 / 2;                        // -3
+      -7 % 3;                        // @note -1 —— 取余跟着被除数符号走
+
+      1 / 0;                         // @note! ArithmeticException
+      1.0 / 0;                       // Infinity —— 浮点除零反而静默
+
+      // @note 想"任意精度"得换 BigInteger，运算符随之失效，只能调方法
+  - featureId: java2python/strings
+    equivalence: identical
+    code: |
+      String s = "abc";              // @note 不可变
+      char c = 'a';                  // @note! 单引号是 char，与 String 是两种类型
+      s.charAt(0);                   // 'a'
+      s.toUpperCase();
+
+      String.format("你好，%s！", name);       // @note 格式串与参数分离
+      String.format("%.2f", 3.14159);          // '3.14'
+      String.format("%08.2f", 3.14159);        // '00003.14' —— 有总宽度概念
+
+      StringBuilder sb = new StringBuilder();  // @note! 循环里拼接必须换成它
+      for (String p : many) sb.append(p);
+  - featureId: java2python/nullability
+    equivalence: identical
+    code: |
+      String x = null;               // @note 只有引用类型能为 null
+
+      int n;                         // @note! 基本类型不可能为空：字段默认 0
+      // int m = null;               // 编译错误 —— 这层保证在 Python 里没有
+
+      Integer boxed = null;
+      int unboxed = boxed;           // @note! NullPointerException，拆箱时才炸
+
+      // @note "要不要判空"在 Java 里有类型上的依据：看它是基本类型还是包装类型
+  - featureId: java2python/types-exercise
+    equivalence: identical
+    code: |
+      static String summarize(List<Integer> scores) {
+          if (scores.isEmpty()) return null;
+          long total = 0;                                  // @note 选 long 是怕 int 溢出
+          for (int s : scores) total += s;
+
+          double avg = (double) total / scores.size();      // @note! 不转 double 就是整数除法
+          return String.format("总分 %d，平均 %.2f", total, avg);
+      }

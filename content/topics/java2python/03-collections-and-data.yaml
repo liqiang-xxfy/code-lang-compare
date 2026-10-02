@@ -1,0 +1,110 @@
+id: java2python/03-collections-and-data
+topicId: java2python
+title: 3. 容器与数据建模
+order: 3
+summary: 从 Java 到 Python：接口与实现合并成一种类型，但泛型那层保险也没了
+
+features:
+  - id: java2python/collections-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 选实现这一步消失了，代价是没有类型参数
+    body: |
+      Java 里"声明用接口、构造选实现"是本能动作；Python 里这一步整个消失 ——
+      `list` / `dict` / `set` 既是类型也是实现，没有 `ArrayList` 与 `LinkedList` 之分。
+
+      省掉选型的同时，也丢掉了两样东西：
+
+      1. **类型参数**。`List<String>` 变成 `list`，里面装什么没有编译期约束。
+         `xs.append(1)` 与 `xs.append("a")` 可以同时成立，直到某处操作不支持才报错。
+      2. **`equals` / `hashCode` 那套契约**。Python 的 `dict` 用 `__hash__` 与
+         `__eq__`，但那是另一套写法（见《心智模型》）。
+
+      **迁移要点**：Java 里靠容器类型参数获得的"这堆东西是同一种类型"的保证，
+      在 Python 里需要靠测试或类型检查工具补回来。写的时候把
+      `xs: list[str]` 这类注解写上 —— 它不影响运行，但让工具能替你查。
+
+  - id: java2python/list-model
+    title: 列表：切片的直觉要重学，subList 的视图陷阱消失
+    kind: behavior
+    summary: 切片总是新列表，负索引与步长回来了
+    body: |
+      `List` 对应 `list`，除了去掉泛型，表达力反而变强：
+
+      | Java | Python |
+      | --- | --- |
+      | `xs.subList(1, 3)`（视图） | `xs[1:3]`（**新列表**） |
+      | `xs.get(xs.size() - 1)` | `xs[-1]` |
+      | 循环 + `Collections.reverse` | `xs[::-1]` |
+      | 自己写循环 | `xs[::2]` |
+
+      **最大的一处行为反转**：Java 的 `subList` 是视图，改它会写回原列表；
+      Python 的切片是**浅拷贝**，改它对原列表毫无影响。
+      带着 Java 的直觉迁过来，容易以为"改 subList 会同步"，于是漏掉回写；
+      反过来从 Python 迁到 Java 则会误以为切片安全。
+
+      越界行为两边一致：`xs[99]` 抛 `IndexError`，都是当场炸。
+
+  - id: java2python/map-model
+    title: 字典：缺失键从返回 null 变成抛异常
+    kind: behavior
+    summary: 这层保护回来了，但 get 的写法也不同
+    body: |
+      `Map` 对应 `dict`，**缺失键的行为反过来了**：
+
+      ```java
+      map.get("z");              // null —— 静默
+      map.getOrDefault("z", 0);  // 0
+      ```
+
+      ```python
+      d["z"]                     # KeyError —— 当场炸
+      d.get("z", 0)              # 0
+      ```
+
+      **迁移要点**：这其实是往好的方向变 —— Java 里那个一路传下去的 `null`，
+      在这里会在第一次访问时就暴露。所以原本"要判空"的地方，
+      很多可以直接写 `d["z"]`，让异常替你把关。
+
+      但要注意 `getOrDefault` 与 `defaultdict` 不是一回事：
+      前者是纯读的，后者**读取时会写入**（把字典撑大）。
+      Python 里想"读一次就建好"要用 `setdefault` 或 `defaultdict`，
+      而它们都有这个副作用 —— 名字里带 `default` 的才是会写的那个。
+
+  - id: java2python/data-modeling
+    title: 数据建模：record 变成 dataclass 或 dict
+    kind: behavior
+    summary: 字段固定的结构仍然值得定义类型
+    body: |
+      Java 的 `record`（以及更早的手写 POJO）在 Python 里有两个对应物，
+      选哪个取决于你想要多少约束：
+
+      | 需求 | Python |
+      | --- | --- |
+      | 只想省掉样板 | `@dataclass` |
+      | 要不可变 | `@dataclass(frozen=True)` —— 最接近 `record` |
+      | 随手一放、不求类型 | `dict` |
+
+      **迁移要点**：`record` 迁过来时，**不要直接降级成 `dict`**。
+      `record` 给你的"字段名写错编译不过"，在 Python 里只有
+      `dataclass` 加类型检查工具才能部分找回来；换成 `dict` 就完全没有了。
+      `@dataclass(frozen=True)` 是与 `record` 语义最接近的一个。
+
+      另一处差异：`dataclass` 默认生成 `__eq__`（按字段比较），
+      而 Java 的普通类不重写 `equals` 时是按引用比较 —— 这一层恰好与 `record` 一致。
+
+  - id: java2python/collections-exercise
+    title: 练习：把分组统计迁到 Python
+    kind: exercise
+    summary: 重点是那个会写入的默认值
+    body: |
+      下面这段 Java 按部门把员工分组。
+
+      请把它迁到 Python，要求**行为完全一致**：
+
+      1. `computeIfAbsent` 那一步换成什么？注意它有"读一次就写入"的副作用
+      2. `Employee` 这个 record 换成什么？（想想 `dict` 会丢掉什么）
+      3. 空输入时返回空结果而不是 `None`
+
+      对照参考实现时，重点看两处：分组累加用的是哪个类型，
+      以及返回之前做了一次什么处理（不做的话会多出东西）。

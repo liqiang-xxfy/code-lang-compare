@@ -1,0 +1,87 @@
+# python —— java2python/03-collections-and-data 的实现
+#
+# 以 Java 为基准看 Python 的容器与建模方式。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: java2python/collections-intro
+    equivalence: divergent
+    code: |
+      xs = []                  # @note! 没有"选实现"这一步：list 既是类型也是实现
+      d = {}
+      s = set()
+
+      xs.append(1)
+      xs.append("a")           # @note! 合法 —— 没有类型参数，装什么都能进
+      # 直到某处操作不支持才报错，而不是在放进去的时候
+
+      xs: list[str] = []       # @note 注解能帮工具查，但运行时一点约束都没有
+  - featureId: java2python/list-model
+    equivalence: divergent
+    code: |
+      xs = [1, 2, 3, 4, 5]
+
+      sub = xs[1:3]
+      sub[0] = 9               # @note! xs 不受影响 —— 切片是**新列表**，不是视图
+      # 与 subList 的行为正好相反：那边改视图会写回原列表
+
+      xs[-1]                   # @note 5 —— 负索引原生支持
+      xs[::-1]                 # 一行反转
+      xs[::2]                  # 步长
+
+      xs[99]                   # @note! IndexError，越界同样当场抛
+  - featureId: java2python/map-model
+    equivalence: divergent
+    code: |
+      d = {"a": 1}
+
+      d["z"]                   # @note! KeyError —— 缺失即抛，不再是一路传下去的 null
+      d.get("z")               # None —— 想容忍缺失才用 get
+      d.get("z", 0)            # 0 —— 对应 getOrDefault，同样是纯读的
+      "z" in d                 # False
+
+      from collections import defaultdict
+      groups = defaultdict(list)
+      groups["新部门"].append("x")   # @note! 读一次就写入一个空列表，把字典撑大
+      # @note 名字里带 default 的才会写：get 是纯读，setdefault / defaultdict 会写
+  - featureId: java2python/data-modeling
+    equivalence: analogous
+    code: |
+      from dataclasses import dataclass
+
+      @dataclass(frozen=True)          # @note frozen=True 是最接近 record 的形态
+      class Employee:
+          id: int
+          name: str
+          dept: str
+
+      e = Employee(1, "Ada", "研发")
+      e.name                           # @note 属性访问，不是方法调用
+      # @note dataclass 默认按字段生成 __eq__，这一点与 record 一致
+
+      # @note! 别直接降级成 dict：那会丢掉"字段名写错能被查出来"这层保障
+      user = {"id": 1, "nmae": "Ada"}  # 拼错要到运行时才炸
+  - featureId: java2python/collections-exercise
+    equivalence: analogous
+    code: |
+      from collections import defaultdict
+
+      @dataclass(frozen=True)
+      class Employee:
+          id: int
+          name: str
+          dept: str
+
+      def group_by_dept(employees):
+          groups = defaultdict(list)
+          for e in employees:
+              groups[e.dept].append(e.name)   # @note! 对应 computeIfAbsent：读一次就建好
+          return dict(groups)
+          # @note! 这一步是必须的：不转会留下"读一次就多一个空组"的痕迹
+      # @note 空输入自然返回空字典
