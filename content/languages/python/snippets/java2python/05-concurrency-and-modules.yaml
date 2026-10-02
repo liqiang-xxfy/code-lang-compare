@@ -1,0 +1,106 @@
+# python —— java2python/05-concurrency-and-modules 的实现
+#
+# 以 Java 为基准看 Python 的并发与模块模型。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: java2python/concurrency-intro
+    equivalence: divergent
+    code: |
+      counter = 0
+      def bump():
+          global counter
+          counter += 1        # @note 实践中不会坏 —— 但这是 CPython 的实现细节，不是语言保证
+
+      lock = threading.Lock()
+      def get(key):
+          with lock:                          # @note! 这一处不能删：保护的是复合逻辑
+              if key not in cache:
+                  cache[key] = compute(key)
+              return cache[key]
+
+      # @note! 关键是分清 synchronized 保护的是什么：
+      # 防丢更新的可以删（GIL 挡着），防"检查后写入"的不能删
+  - featureId: java2python/threading-model
+    equivalence: divergent
+    code: |
+      from concurrent.futures import ThreadPoolExecutor
+
+      t = threading.Thread(target=work)
+      t.start()
+      t.join()
+
+      with ThreadPoolExecutor(max_workers=4) as pool:      # @note 形态与 Executor 几乎一样
+          futures = [pool.submit(work, i) for i in range(10)]
+          results = [f.result() for f in futures]
+
+      # @note! 但同一时刻真正执行的只有一个线程 ——
+      # CPU 密集的任务加线程池**不会变快**，通常还会因为切换开销更慢
+      # 真要压榨多核只能用 multiprocessing
+  - featureId: java2python/async-model
+    equivalence: divergent
+    code: |
+      import asyncio
+
+      async def run(url):
+          try:
+              result = (await fetch(url)).strip()      # @note await 是显式的让出标记
+          except Exception:
+              result = "默认"
+          return result
+
+      async def run_all(urls):
+          return await asyncio.gather(*[run(u) for u in urls])
+
+      asyncio.run(run_all(urls))
+
+      # @note 异常回到普通的 try/except，不再有"完成异常到 join 才浮出来"那层间接
+      # @note! 但 async 有传染性：调用链上一路都要 async；
+      # 而且所有协程共享一个事件循环 —— 一个阻塞调用会卡住全部
+  - featureId: java2python/module-packaging
+    equivalence: divergent
+    code: |
+      from pathlib import Path
+      from myapp.utils import helper      # @note! import 会**执行**整个模块，不只是名字解析
+
+      # @note 目录不必与"包名"严格对应，结构自由
+      # @note 有模块级代码：import 时就会跑一遍，所以不能随手写有副作用的语句
+
+      # 依赖写在 pyproject.toml 里：
+      # [project]
+      # dependencies = ["requests>=2.31"]
+      # @note 每个项目一个虚拟环境，天然隔离 —— ClassCastException 那类冲突基本不会遇到
+      # @note! 但也没有编译期检查：模块名拼错要等导入时才炸
+  - featureId: java2python/concurrency-exercise
+    equivalence: analogous
+    code: |
+      import threading
+      from concurrent.futures import ThreadPoolExecutor
+
+      counter = 0
+      cache = {}
+      lock = threading.Lock()
+
+      def bump(n):
+          global counter
+          for _ in range(n):
+              counter += 1            # @note 这一处的 synchronized 可以删
+
+      def get(key):
+          with lock:                  # @note! 这一处必须保留：保护的是复合逻辑
+              if key not in cache:
+                  cache[key] = compute(key)
+              return cache[key]
+
+      with ThreadPoolExecutor(max_workers=4) as pool:
+          for _ in range(4):
+              pool.submit(bump, 1000)
+
+      # @note! 两处结论不同的原因：GIL 保证单个字节码操作不撕裂，
+      # 但"检查 key 在不在"与"写进去"之间照样可能被切走 —— 那是两个字节码

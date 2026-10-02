@@ -1,0 +1,93 @@
+# java —— java2python/05-concurrency-and-modules 的实现
+#
+# 本 topic 以 **Java 为基准**（from 侧），所以基准列标 identical。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: java2python/concurrency-intro
+    equivalence: identical
+    code: |
+      static int counter = 0;
+      static synchronized void bump() { counter += 1; }   // @note 防丢更新
+
+      static final Object lock = new Object();
+      static String get(String key) {
+          synchronized (lock) {
+              if (!cache.containsKey(key)) {              // @note! 保护的是"检查后写入"这个复合动作
+                  cache.put(key, compute(key));
+              }
+              return cache.get(key);
+          }
+      }
+
+      // @note! 两种保护用途不同：一个是防丢更新，一个是防检查与写入之间被插队
+  - featureId: java2python/threading-model
+    equivalence: identical
+    code: |
+      Thread t = new Thread(() -> work());
+      t.start();
+      t.join();
+
+      try (var pool = java.util.concurrent.Executors.newFixedThreadPool(4)) {
+          var futures = new java.util.ArrayList<java.util.concurrent.Future<Integer>>();
+          for (int i = 0; i < 10; i++) {
+              final int n = i;
+              futures.add(pool.submit(() -> work(n)));
+          }
+          for (var f : futures) f.get();
+      }
+
+      // @note! 并行是真的：线程数直接决定资源占用，开池就是为了加速
+  - featureId: java2python/async-model
+    equivalence: identical
+    code: |
+      var f = java.util.concurrent.CompletableFuture
+              .supplyAsync(() -> fetch(url))
+              .thenApply(String::trim)
+              .exceptionally(e -> "默认");
+
+      f.join();
+
+      var all = java.util.concurrent.CompletableFuture.allOf(f1, f2, f3);
+
+      // @note! thenApply 里抛的异常不会当场抛出，而是变成"完成异常"，到 join 时才浮出来
+      // @note 没有 await 那样的显式让出标记，多步组合后不易看出执行顺序
+  - featureId: java2python/module-packaging
+    equivalence: identical
+    code: |
+      package com.example.app;                     // @note 包名必须与目录结构严格对应
+      import com.example.app.utils.Helper;         // @note import 只是名字解析，没有副作用
+
+      public class Main {
+          static { }                               // @note 静态初始化块
+      }
+
+      // @note 依赖写在 pom.xml / build.gradle，三段坐标，传递依赖自动解析
+      // @note! classpath 是平铺的：同名类只能有一个版本，冲突时"先出现者赢"
+  - featureId: java2python/concurrency-exercise
+    equivalence: identical
+    code: |
+      static final AtomicInteger counter = new AtomicInteger();
+      static final Map<String, String> cache = new HashMap<>();
+      static final Object lock = new Object();
+
+      static void bump(int n) {
+          for (int i = 0; i < n; i++) counter.incrementAndGet();   // @note 原子类，无锁
+      }
+
+      static String get(String key) {
+          synchronized (lock) {                    // @note! 这里保护的是复合动作，不能删
+              if (!cache.containsKey(key)) {
+                  cache.put(key, compute(key));
+              }
+              return cache.get(key);
+          }
+      }
+
+      // @note! 两处的用途不同：一个防丢更新，一个防"检查与写入"之间被插队

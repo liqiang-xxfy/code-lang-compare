@@ -1,0 +1,134 @@
+id: java2python/05-concurrency-and-modules
+topicId: java2python
+title: 5. 并发与模块化
+order: 5
+summary: 从 Java 到 Python：并行不再是真的，但小心别把原来的并发假设也一起丢掉
+
+features:
+  - id: java2python/concurrency-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 代码变简单了，但"什么时候会切换"这个问题还在
+    body: |
+      从 Java 到 Python，并发这一层表面上**大幅简化**：不需要考虑可见性、
+      不用挑原子类、`synchronized` 没有对应物，很多原来的同步代码看起来可以直接删掉。
+
+      但要小心：**GIL 只保证单个字节码操作不撕裂，不保证你的复合逻辑是原子的。**
+
+      ```python
+      counter += 1        # 在 CPython 里实践中不会坏，但这是实现细节不是语言保证
+      if key not in d:    # 检查与插入之间照样可能被切走
+          d[key] = compute()
+      ```
+
+      **迁移要点**：把 `synchronized` 那层删掉是合理的，
+      但删之前要分清它保护的是什么 ——
+      保护"单个计数器自增"的可以删，保护"检查后写入"这类复合逻辑的不能删，
+      后者要用 `threading.Lock`。
+
+      另一半是规模问题：GIL 之下多线程**不会让 CPU 密集型任务变快**，
+      所以在 Java 里靠线程池压榨多核的写法，迁过来之后要先问
+      "这活儿是 IO 密集还是 CPU 密集"，前者用线程、后者只能用多进程。
+
+  - id: java2python/threading-model
+    title: 线程模型：Executor 变成 concurrent.futures
+    kind: behavior
+    summary: 形态接近，但真正并行的只有一个线程
+    body: |
+      ```java
+      try (var pool = Executors.newFixedThreadPool(4)) {
+          var future = pool.submit(() -> work());
+          future.get();
+      }
+      ```
+
+      ```python
+      with ThreadPoolExecutor(max_workers=4) as pool:
+          future = pool.submit(work)
+          future.result()
+      ```
+
+      形态几乎是照着来的：`submit` / `Future.result()` / `with` 对应 try-with-resources。
+
+      **实质差别在能跑多快**：
+
+      | | Java | Python |
+      | --- | --- | --- |
+      | 同一时刻真正执行 | 与核数相当 | 1（受 GIL 限制） |
+      | CPU 密集任务 | 开线程就变快 | 开线程**不会**变快 |
+      | 想要真并行 | 直接开线程 | 只能 `multiprocessing` |
+
+      **迁移要点**：Java 里"加线程池"是加速手段，在 Python 里只对 IO 密集型任务有效。
+      把 CPU 密集的任务照搬过来加线程池，结果通常是变慢（多了切换开销）。
+
+  - id: java2python/async-model
+    title: 异步模型：CompletableFuture 变成 asyncio
+    kind: behavior
+    summary: 链式组合变成 await，可读性回来了但要重学错误语义
+    body: |
+      ```java
+      var f = CompletableFuture.supplyAsync(() -> fetch(url))
+              .thenApply(String::trim)
+              .exceptionally(e -> "默认");
+      f.join();
+      ```
+
+      ```python
+      async def run():
+          try:
+              result = (await fetch(url)).strip()
+          except Exception:
+              result = "默认"
+          return result
+
+      asyncio.run(run())
+      ```
+
+      **`await` 是显式的让出标记** —— 一眼能看出哪里会切换，
+      这是链式组合给不了的。异常也回到了普通的 `try/except`，
+      不再有"完成异常到 join 才浮出来"这层间接。
+
+      **迁移要点**：
+
+      - 异步函数必须**一路 async 上去**（`async` 有传染性），
+        同步上下文里想调用只能用 `asyncio.run` 或 `run_in_executor`。
+      - 所有协程跑在同一个事件循环上，**一个阻塞调用会卡住全部** ——
+        在 Java 里某个任务阻塞只影响它自己那个线程。
+
+  - id: java2python/module-packaging
+    title: 模块与打包：package 变成 import，坐标变成依赖列表
+    kind: behavior
+    summary: 目录不再绑死命名空间，虚拟环境替代 classpath
+    body: |
+      从 Java 到 Python，模块系统是**变轻**的：
+
+      | Java | Python |
+      | --- | --- |
+      | `package com.example.app`（与目录严格对应） | 目录路径即是模块路径，但不必与"包名"严格对应 |
+      | `src/main/java` 固定结构 | 结构自由 |
+      | 依赖写三段坐标 | `pyproject.toml` 里写名字加版本范围 |
+      | classpath 平铺、同名类冲突 | 每个项目一个虚拟环境，天然隔离 |
+      | 类里写静态初始化块 | 模块级代码，`import` 时直接执行 |
+
+      **两条要重建的直觉**：
+
+      1. **`import` 会执行代码**。Java 的 `import` 只是名字解析，没有副作用；
+         Python 的 `import` 会把整个模块跑一遍。所以"模块级代码"不能随手写。
+      2. **没有编译期检查**，所以"这个模块到底存不存在、名字对不对"
+         要等导入时才炸 —— 拼错一个模块名不会在写的时候就报错。
+
+  - id: java2python/concurrency-exercise
+    title: 练习：判断哪些同步可以删
+    kind: exercise
+    summary: 重点不是改写，是分辨
+    body: |
+      下面这段 Java 用了两种不同的保护手段。请把它迁到 Python，
+      并对每一处**说明你的处理**：
+
+      1. 计数器自增那一处 —— 删掉同步吗？为什么？
+      2. "检查后写入"那一处 —— 删掉同步吗？为什么？
+      3. 两者如果需要不同的处理，Python 里分别用什么？
+
+      这道题的重点不是语法转换，而是**分辨两种保护的用途**：
+      一样是"防止丢更新"，一样是"防止检查与写入之间被插队"，
+      它们在 GIL 之下的命运并不相同。

@@ -1,0 +1,121 @@
+id: python2java/05-concurrency-and-modules
+topicId: python2java
+title: 5. 并发与模块化
+order: 5
+summary: 从 Python 到 Java：并行变成真的，于是"线程安全"第一次成为一个必须回答的问题
+
+features:
+  - id: python2java/concurrency-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: GIL 消失之后，竞态从"不会发生"变成"随时会发生"
+    body: |
+      这是整条迁移路线里**风险最高的一章**，原因不在于语法难，
+      而在于 Python 的 GIL 替你挡掉了一整类问题。
+
+      在 CPython 里，同一时刻只有一个线程执行字节码，所以
+      `counter += 1` 这类操作在实践中不会撕裂 —— 你在 Python 里
+      顺手写的共享可变状态，**看似线程安全**。
+
+      到了 Java，并行是真的。同一段代码会开始出现：
+
+      - 计数器丢更新（`counter++` 不是原子操作）
+      - 集合在遍历中被另一个线程修改（`ConcurrentModificationException`）
+      - 主线程看不到子线程写的新值（可见性问题）
+
+      **迁移要点**：把"这段代码在 Python 里跑得好好的"当作**无效证据**。
+      凡是跨线程共享的可变状态，都要重新问一遍是否需要同步 ——
+      具体用 `synchronized`、`AtomicInteger` 还是 `java.util.concurrent` 的容器，
+      取决于你要保护的是复合操作还是单个写。
+
+  - id: python2java/threading-model
+    title: 线程模型：从"够用就行"到要选执行器
+    kind: behavior
+    summary: 线程要显式管理，池化是常规做法
+    body: |
+      Python 里起线程是 `threading.Thread(target=f).start()`，
+      线程池用 `concurrent.futures`。Java 的形态类似，但**池化是常规做法**：
+
+      ```java
+      try (var pool = Executors.newFixedThreadPool(4)) {
+          var future = pool.submit(() -> work());
+          future.get();
+      }
+      ```
+
+      差别主要在规模与语义上：
+
+      | | Python | Java |
+      | --- | --- | --- |
+      | 同一时刻真正执行的线程数 | 1（受 GIL 限制） | 与核数相当 |
+      | 线程池 | 可选 | 常规 |
+      | 虚拟线程 | 无 | Java 21+，可开到百万级 |
+
+      **迁移要点**：Python 里"多开几个线程"几乎不会让 CPU 跑满，
+      所以线程数怎么定不太要紧；Java 里线程数直接决定资源占用，
+      要么用固定大小的池，要么用虚拟线程。
+
+  - id: python2java/async-model
+    title: 异步模型：asyncio 与 CompletableFuture
+    kind: behavior
+    summary: 一个事件循环 vs 链式组合
+    body: |
+      Python 的 `async def` / `await` 是**语言级**的异步，
+      所有协程跑在同一个事件循环上；Java 的 `CompletableFuture`
+      是一个**库类型**，背后是真实的线程池。
+
+      ```python
+      async def fetch_all(urls):
+          return await asyncio.gather(*[fetch(u) for u in urls])
+      ```
+
+      ```java
+      var all = CompletableFuture.allOf(
+              urls.stream().map(u -> CompletableFuture.supplyAsync(() -> fetch(u))).toArray(CompletableFuture[]::new));
+      ```
+
+      **迁移要点**：`await` 是"在这里让出"的显式标记，一眼能看出哪里会切换；
+      `thenApply` 链没有这个标记，多步组合之后很难看出执行顺序。
+      更麻烦的是异常语义：`thenApply` 里抛的异常不会当场抛出，
+      而是变成"完成异常"，在最后 `join()` 时才浮出来。
+
+      并发运行的数量控制也不同：Python 靠信号量或 `gather` 的分批，
+      Java 靠线程池的大小。
+
+  - id: python2java/module-packaging
+    title: 模块与打包：import 变成 package 加构建坐标
+    kind: behavior
+    summary: 目录即命名空间，依赖要写成坐标
+    body: |
+      Python 的模块系统很轻：一个 `.py` 文件就是一个模块，`import` 指到哪算哪。
+
+      Java 有三层，而且要各自维护：
+
+      1. **包名**（`com.example.app`）—— 必须与目录结构严格对应
+      2. **构建坐标**（`com.example:app:1.0`）—— 另一个命名空间，写在构建文件里
+      3. **classpath** —— 运行时把依赖铺平放在一起，没有隔离
+
+      **迁移要点**：
+
+      - 没有"模块级代码"，一切都要包在类里
+      - `__init__.py` 那种"包初始化"的惯用法没有对应物（静态初始化块能做类似的事，
+        但语义与时机都不同）
+      - 依赖不是"装到环境里"，而是写进 `pom.xml` / `build.gradle`，
+        传递依赖由构建工具解析 —— 版本冲突也由它裁决
+
+  - id: python2java/concurrency-exercise
+    title: 练习：把一个共享计数器改成线程安全
+    kind: exercise
+    summary: 先判断哪里不安全，再选手段
+    body: |
+      下面这段 Python 用一个共享计数器统计各线程处理的任务数。
+
+      在 Python 里它跑得好好的。请把它迁到 Java，
+      要求**结果正确**且在多线程下不出错：
+
+      1. 先指出哪一处共享状态是危险的
+      2. 选择保护手段，并说明为什么是它（`synchronized`？`AtomicInteger`？还是换成不共享？）
+      3. 保证所有任务完成后才读取最终结果
+
+      对照参考实现时注意：本例的重点不是"改写语法"，
+      而是**同一段代码在 Python 里不需要保护，在这里必须保护**。

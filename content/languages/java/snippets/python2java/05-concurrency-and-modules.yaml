@@ -1,0 +1,101 @@
+# java —— python2java/05-concurrency-and-modules 的实现
+#
+# 以 Python 为基准看 Java 的并发与模块模型。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: python2java/concurrency-intro
+    equivalence: divergent
+    code: |
+      static int counter = 0;
+
+      static void bump() {
+          counter += 1;      // @note! 真并行下会丢更新 —— 读、加、写三步之间可能被切走
+      }
+
+      // @note! 同一段代码在 Python 里跑得好好的，是因为 GIL 挡着 ——
+      // 那是**无效证据**，不能作为"不需要同步"的理由
+
+      static final java.util.concurrent.atomic.AtomicInteger safe =
+              new java.util.concurrent.atomic.AtomicInteger();
+      safe.incrementAndGet();          // @note 复合操作交给原子类
+  - featureId: python2java/threading-model
+    equivalence: divergent
+    code: |
+      Thread t = new Thread(() -> work());
+      t.start();
+      t.join();                        // @note 等它结束
+
+      try (var pool = java.util.concurrent.Executors.newFixedThreadPool(4)) {   // @note 池化是常规做法
+          var futures = new java.util.ArrayList<java.util.concurrent.Future<Integer>>();
+          for (int i = 0; i < 10; i++) {
+              final int n = i;
+              futures.add(pool.submit(() -> work(n)));
+          }
+          for (var f : futures) f.get();
+      }
+
+      // Java 21 虚拟线程：按任务开，数量可以到百万级
+      try (var exec = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+          exec.submit(() -> work());
+      }
+
+      // @note! 这边并行是真的：线程数直接决定资源占用，要显式控制
+  - featureId: python2java/async-model
+    equivalence: divergent
+    code: |
+      var all = java.util.concurrent.CompletableFuture.allOf(
+              urls.stream()
+                  .map(u -> java.util.concurrent.CompletableFuture.supplyAsync(() -> fetch(u)))
+                  .toArray(java.util.concurrent.CompletableFuture[]::new));
+
+      var one = java.util.concurrent.CompletableFuture
+              .supplyAsync(() -> fetch(url))
+              .thenApply(String::trim)
+              .exceptionally(e -> "默认");
+      one.join();
+
+      // @note! 没有 await 那样的显式让出标记，多步组合后很难看出执行顺序
+      // @note! thenApply 里抛的异常不会当场抛出，而是变成"完成异常"，到 join 时才浮出来
+  - featureId: python2java/module-packaging
+    equivalence: divergent
+    code: |
+      package com.example.app;                    // @note 必须与目录结构严格对应
+
+      import java.nio.file.Path;
+      import com.example.app.utils.Helper;
+
+      public class Main { }                       // @note 一个文件一个 public 类，文件名要一致
+
+      // @note! 没有"模块级代码"：一切都要包在类里；
+      // 静态初始化块能做类似的事，但时机与语义都不同
+      // @note 依赖写在 pom.xml / build.gradle 里，用三段坐标声明，
+      // 传递依赖由构建工具解析 —— 构建坐标与包名是**两套**命名空间
+  - featureId: python2java/concurrency-exercise
+    equivalence: analogous
+    code: |
+      static final java.util.concurrent.atomic.AtomicInteger counter =
+              new java.util.concurrent.atomic.AtomicInteger();
+
+      static void bump(int n) {
+          for (int i = 0; i < n; i++) {
+              counter.incrementAndGet();      // @note! 换成原子类：复合操作不再撕裂
+          }
+      }
+
+      static int run() throws InterruptedException {
+          try (var pool = java.util.concurrent.Executors.newFixedThreadPool(4)) {
+              for (int i = 0; i < 4; i++) pool.submit(() -> bump(1000));
+          }                                   // @note try-with-resources 退出时会等所有任务结束
+          return counter.get();               // @note 4000 —— 不用 synchronized 也能对
+      }
+
+      // @note! 三个判断点：哪一处共享状态危险（counter += 1）、
+      // 保护手段为什么选原子类（保护的是单个复合操作，不需要锁整个方法）、
+      // 以及"什么时候读结果"（必须在所有任务结束之后）

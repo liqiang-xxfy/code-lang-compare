@@ -1,0 +1,90 @@
+# python —— python2java/05-concurrency-and-modules 的实现
+#
+# 本 topic 以 **Python 为基准**（from 侧），所以基准列标 identical。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: python2java/concurrency-intro
+    equivalence: identical
+    code: |
+      counter = 0
+
+      def bump():
+          global counter
+          counter += 1        # @note! GIL 挡着：实践中不会撕裂，但这不是语言保证
+
+      # @note CPython 的 GIL 让同一时刻只有一个线程执行字节码，
+      # 所以"顺手写共享可变状态"在这里通常不会出事
+      # @note! 到了真并行的环境，counter += 1 是"读-改-写"三步，会丢更新
+  - featureId: python2java/threading-model
+    equivalence: identical
+    code: |
+      import threading
+
+      t = threading.Thread(target=work)
+      t.start()
+      t.join()                       # @note 等它结束
+
+      from concurrent.futures import ThreadPoolExecutor
+      with ThreadPoolExecutor(max_workers=4) as pool:
+          futures = [pool.submit(work, i) for i in range(10)]
+          results = [f.result() for f in futures]
+
+      # @note! 受 GIL 限制，同一时刻真正执行的只有一个线程 ——
+      # 线程数怎么定不那么要紧，CPU 密集型任务多开线程也不会更快
+  - featureId: python2java/async-model
+    equivalence: identical
+    code: |
+      import asyncio
+
+      async def fetch(url):
+          ...
+
+      async def fetch_all(urls):
+          return await asyncio.gather(*[fetch(u) for u in urls])
+          # @note await 是显式的"在这里让出"标记，一眼能看出哪里会切换
+
+      asyncio.run(fetch_all(urls))
+
+      # @note 所有协程跑在同一个事件循环上，不是真线程
+      # @note 并发上限靠信号量控制，或者用 gather 分批
+  - featureId: python2java/module-packaging
+    equivalence: identical
+    code: |
+      import os
+      from pathlib import Path
+      from myapp.utils import helper
+
+      # @note 一个 .py 文件就是一个模块，import 指到哪算哪 ——
+      # 目录不必与"包名"严格对应
+      # @note 有模块级代码：import 时就会执行
+
+      # 依赖写在 pyproject.toml 里：
+      # [project]
+      # dependencies = ["requests>=2.31"]
+      # @note 没有"构建坐标"这一层，装到环境里就完事
+  - featureId: python2java/concurrency-exercise
+    equivalence: identical
+    code: |
+      import threading
+      from concurrent.futures import ThreadPoolExecutor
+
+      counter = 0
+
+      def bump(n):
+          global counter
+          for _ in range(n):
+              counter += 1        # @note! 在 CPython 里侥幸正确，但不该依赖
+
+      with ThreadPoolExecutor(max_workers=4) as pool:
+          for _ in range(4):
+              pool.submit(bump, 1000)
+      # with 退出时会等所有任务完成
+      print(counter)
+      # @note 迁到真并行的环境时，这一行会开始给出小于 4000 的数字
