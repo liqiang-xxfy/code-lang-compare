@@ -1,0 +1,83 @@
+# python —— js2python/02-types-and-values 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），Python 是被对照的那一门。
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2python/types-intro
+    equivalence: analogous
+    code: |
+      x = 1
+      x = "一"                 # @note 同样合法，这一层不用重学
+
+      type(1)                  # @note <class 'int'> —— 返回类对象，不是字符串
+      type(1).__name__         # 'int' —— 要字符串名字就取 __name__
+      isinstance(1, int)       # @note 判类型用这个，它认继承关系
+
+      # @note! 别用 type(x).__name__ == 'int' 判类型：既慢又认不出子类 ——
+      # 与 JS 的 typeof 一样不可靠，只是不可靠的方式不同
+  - featureId: js2python/numeric-types
+    equivalence: divergent
+    code: |
+      10 ** 30                 # @note! 整数任意精度 —— 不需要 BigInt，也不会丢精度
+      9007199254740993         # 原样保留，不像 JS 变成 ...992
+
+      7 / 2                    # @note 3.5 —— 这条两边一致
+      7 // 2                   # @note! 3 —— 有专门的整除运算符，不用 Math.trunc
+      -7 // 2                  # @note! -4 —— 但是**向下取整**，JS 的 Math.trunc 是向零
+      int(-7 / 2)              # -3 —— 要完全对齐 Math.trunc 用这个
+      -7 % 3                   # @note! 2 —— 与 JS 的 -1 不同，静默给出不同结果
+
+      1 / 0                    # @note! ZeroDivisionError，当场炸，不会静默变 Infinity
+      round(0.5)               # @note! 0 —— 银行家舍入，JS 的 Math.round(0.5) 是 1
+  - featureId: js2python/strings
+    equivalence: divergent
+    code: |
+      name = "Ada"
+      f"你好，{name}！"          # @note f-string 更紧凑，不必给每个表达式套括号
+      f"{3.14159:.2f}"          # @note! 格式规格内联：宽度、精度一把控制
+      # f"{'\n'.join(xs)}"      # @note! 语法错误：花括号里不能有反斜杠
+
+      s[1:4]                    # 'bcd'
+      s[-1]                     # @note! 'f' —— 负索引原生支持，不必 at()
+      s[::-1]                   # @note 还能一步反转
+
+      "\n".join(["a", "b"])     # @note! 分隔符当主语 —— 与 arr.join() 的主宾语正好相反
+      ",".join(map(str, nums))  # @note! join 只收字符串，数字要先 map
+      "  x  ".strip()           # @note 名字不同：JS 叫 trim
+  - featureId: js2python/nullability
+    equivalence: divergent
+    code: |
+      x = None                 # @note! 两种空值合成一种，不再需要判断"哪种空"
+      x is None                # @note 判等用 is，不是 ==
+      x == None                # @note! 能跑但不该用：自定义 __eq__ 时可能反直觉
+      None == False            # False —— 空值不等于假值
+
+      items = []
+      if not items:            # @note! 空列表是假值 —— 这条与 JS 相反
+          pass
+      # @note! 所以 JS 里可靠的 `if (arr.length)` 要改成 `if items`；
+      # 而 JS 的 `if (!items)` 在这里反而"能用了"，但含义变了
+  - featureId: js2python/types-exercise
+    equivalence: analogous
+    code: |
+      def total(price, qty, rate=1):
+          if qty == 0:
+              return 0
+          total = price * qty
+          return round(total * rate, 2)
+
+      # @note! round 是银行家舍入：round(0.5) 得 0，round(2.5) 得 2。
+      # 要 JS 那种"四舍五入"得用 decimal 或自己写：
+      from decimal import Decimal, ROUND_HALF_UP
+      def total_half_up(price, qty, rate=1):
+          return float(Decimal(str(price * qty * rate)).quantize(
+              Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+      # @note! 金额很大时这边不需要任何处理 —— int 是任意精度，float 的精度问题才需要 Decimal

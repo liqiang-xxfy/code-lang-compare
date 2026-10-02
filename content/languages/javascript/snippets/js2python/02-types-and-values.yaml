@@ -1,0 +1,71 @@
+# javascript —— js2python/02-types-and-values 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2python/types-intro
+    equivalence: identical
+    code: |
+      let x = 1;               // @note 名字不携带类型，与 Python 一致
+      x = "一";                // 合法
+
+      typeof x;                // @note! 'string' —— 给的是字符串，而且对 null 给 'object'
+      Number.isInteger(1.5);   // false —— 判整数要显式调用
+  - featureId: js2python/numeric-types
+    equivalence: identical
+    code: |
+      9007199254740993;        // @note! 变成 ...992 —— 整数也是浮点，超范围静默丢精度
+      10n ** 30n;              // @note 要大整数必须显式用 BigInt，而且不能与 number 混算
+
+      7 / 2;                   // @note 3.5 —— 除法永远给浮点
+      Math.trunc(7 / 2);       // 3 —— 要整除得自己调用
+      Math.floor(-7 / 2);      // @note -4 —— 想"向下取整"要用 floor 而不是 trunc
+
+      -7 % 3;                  // @note! -1 —— 取余符号跟着被除数走
+
+      1 / 0;                   // @note! Infinity —— 不报错，会一路传下去
+      0.1 + 0.2;               // 0.30000000000000004
+  - featureId: js2python/strings
+    equivalence: identical
+    code: |
+      const name = "Ada";
+      `你好，${name}！`;         // @note 模板字符串：表达式写在 ${} 里
+      `${(3.14159).toFixed(2)}`; // @note 格式化要调方法，没有格式规格语法
+
+      s.slice(1, 4);           // 'bcd'
+      s.at(-1);                // @note! 负索引要显式用 at()
+      s[-1];                   // @note! undefined —— 下标访问不支持负索引
+
+      ["a", "b"].join("\n");   // @note! 数组当主语调用 join
+      [1, 2].join(",");        // '1,2' —— 会自动转字符串
+  - featureId: js2python/nullability
+    equivalence: identical
+    code: |
+      let a;                   // @note undefined —— 未赋值
+      let b = null;            // @note null —— 有意的空
+
+      a == null;               // @note! true：宽松相等同时匹配 null 与 undefined
+      a === null;              // @note! false —— 只挡住 null，漏掉 undefined
+
+      Boolean([]);             // @note! true —— 空数组是真值
+      const items = [];
+      if (!items) { }          // @note! 永远不成立
+      if (items.length === 0) { }   // 判空必须写长度
+  - featureId: js2python/types-exercise
+    equivalence: identical
+    code: |
+      function total(price, qty, rate = 1) {
+        if (qty === 0) return 0;
+        const sum = price * qty;                 // @note 大额时这里可能丢精度
+        return Math.round(sum * rate * 100) / 100;
+      }
+
+      total(19.99, 3);                           // 59.97
+      // @note! Math.round(0.5) 得 1 —— 是"四舍五入"，而 Python 的 round 是银行家舍入

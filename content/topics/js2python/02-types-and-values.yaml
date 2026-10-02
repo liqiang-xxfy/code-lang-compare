@@ -1,0 +1,138 @@
+id: js2python/02-types-and-values
+topicId: js2python
+title: 2. 类型、数值与字符串
+order: 2
+summary: 从 JavaScript 到 Python：一个 number 变成三档、两种空值合成一种、除法不再需要 Math.floor
+
+features:
+  - id: js2python/types-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 类型这一层是"少了限制、多了规则"
+    body: |
+      JS 与 Python 都是动态类型，所以"变量没有类型"这一层不用重学。
+      真正要重建直觉的是**值的层面**：同一种值在两边的行为不一样。
+
+      本章按「数值 → 字符串 → 空值」排，每节给出两边的对照与迁移要点。
+      其中有两处会**静默给出错误结果**，必须先记住：
+
+      - **整数除法**：JS 的 `/` 对整数也返回浮点，Python 同样；
+        但要"整除"时 JS 写 `Math.trunc(a / b)`，Python 写 `//` ——
+        而 `//` 是**向下取整**，负数时与 JS 的 `Math.trunc` 结果不同。
+      - **整数精度**：JS 的整数也是浮点，超过 2^53 静默丢精度；
+        Python 的 `int` 是任意精度。从 JS 迁过来不会出错，
+        但**反向**（Python 迁 JS）会，所以这条要记牢。
+
+      好消息占多数：Python 在这一层给的东西普遍更宽 ——
+      整数不溢出、字符串能插值的写法更多、切片自带负索引与步长。
+
+  - id: js2python/numeric-types
+    title: 数值：一个 number 变成三档
+    kind: behavior
+    refFeatureId: basics-javascript/number-precision
+    summary: 整数任意精度、除零会抛、整除用 //
+    body: |
+      JS 只有一种数字（IEEE 754 双精度），大整数要另上 `BigInt`；
+      Python 把整数与浮点分开，而且**整数是任意精度**。
+
+      | 场景 | JS | Python |
+      | --- | --- | --- |
+      | 大整数 | 超过 2^53 静默丢精度，要用 `BigInt` | `int` 原生任意精度 |
+      | 整除 | `Math.trunc(a / b)` | `a // b`（**向下**取整） |
+      | 负数取余 | `-7 % 3` 得 `-1` | `-7 % 3` 得 `2` |
+      | 除零 | `1 / 0` 得 `Infinity` | `1 / 0` 抛 `ZeroDivisionError` |
+      | 精确小数 | 无（要靠库） | `decimal.Decimal` |
+
+      **两处最容易静默出错的**：
+
+      1. `Math.trunc(-7 / 2)` 得 `-3`，而 `-7 // 2` 得 `-4` ——
+         需要"向零截断"时得写 `int(-7 / 2)`。
+      2. 负数取余的符号不同。JS 的符号跟着被除数，Python 的跟着除数 ——
+         这个差异在算环形下标时会直接给出错误结果，而且不报错。
+
+      除零那一处反而是好事：JS 里 `1 / 0` 得到的 `Infinity` 会一路传下去，
+      Python 当场抛异常，错误停在发生的地方。
+
+  - id: js2python/strings
+    title: 字符串：插值写得更多，join 的主宾语反了
+    kind: behavior
+    refFeatureId: basics-javascript/string-methods
+    summary: f-string 比模板字符串更紧凑，''.join(list) 与 arr.join() 相反
+    body: |
+      两边都有插值，但写法与能力不同：
+
+      ```js
+      `你好，${name}！`            // 反引号 + ${}
+      `${(price * 1.1).toFixed(2)}`
+      ```
+
+      ```python
+      f"你好，{name}！"            # f 前缀 + {}
+      f"{price * 1.1:.2f}"        # 格式规格直接写在里面
+      ```
+
+      Python 的 f-string **更紧凑**（不必为每个表达式套括号），
+      格式规格也内联（`:08.2f` 一把控制宽度与精度）。
+      但有个限制要知道：**花括号里不能写反斜杠**，
+      `f"{'\n'.join(xs)}"` 是语法错误，得先接住再插值。
+
+      **拼接这一处最容易写错**：主宾语是反的。
+
+      ```js
+      lines.join("\n")             // 数组当主语
+      ```
+
+      ```python
+      "\n".join(lines)             // 分隔符当主语
+      ```
+
+      而且 Python 的 `join` **只收字符串**，数字要先 `map(str, ...)` ——
+      JS 那边会自动转换。
+
+      其余方法名与返回值语义的差异（`trim` vs `strip`、`includes` 返回布尔 vs
+      `in` 运算符）属于"知道就好，不知道会卡住"那一类，逐条对照即可。
+
+  - id: js2python/nullability
+    title: 空值：两种空合成一种
+    kind: behavior
+    refFeatureId: basics-javascript/null-undefined
+    summary: null 与 undefined 合并成 None，判等改用 is
+    body: |
+      JS 有两个空值：`undefined`（未赋值 / 缺省）与 `null`（有意的空）。
+      Python 只有 `None` 一个。
+
+      **这是净简化**：不再需要判断"这个字段到底是没赋值还是被显式置空"，
+      也不用纠结该用 `=== null` 还是 `== null`（JS 里唯一推荐用宽松相等的场景）。
+
+      但有两处需要重建：
+
+      1. **判等改用 `is`**。`x is None` 而不是 `x == None` ——
+         后者能跑，但对象自定义了 `__eq__` 时结果可能反直觉。
+      2. **`None` 是假值，而且和 `0`、`""`、`[]` 归在一起**。
+         JS 里 `if (!x)` 只挡 `null` / `undefined` / `0` / `""` / `NaN`，
+         空数组与空对象是**真值**；Python 里空容器全是假值。
+         所以 `if not items:` 在 Python 里是"列表为空"，
+         而在 JS 里同样意图必须写 `items.length === 0`。
+
+      迁移时最常踩的是第二处：把 JS 里可靠的 `if (arr.length)` 习惯
+      带成 `if arr` —— 看起来一样，但在两边问的不是同一件事。
+
+  - id: js2python/types-exercise
+    title: 练习：迁移一个金额计算函数
+    kind: exercise
+    summary: 三个改动点，其中一个是静默的
+    body: |
+      下面这段 JS 按单价与数量算总价，做四舍五入到分，并按汇率换算。
+
+      请把它迁到 Python，要求**行为完全一致**，包括：
+
+      1. 结果保留两位小数（注意 Python 的 `round` 是**银行家舍入**：
+         `round(0.5)` 得 `0`，而 JS 的 `Math.round(0.5)` 得 `1`）
+      2. 数量为 0 时返回 0，而不是报错
+      3. 金额可能很大（想想 JS 里为什么这里要小心，Python 里还需要吗）
+
+      对照参考实现时，重点看两处：**舍入方式**，以及
+      **你在哪里用了 `/`，它是不是该写成 `//`**。
+
+      （提示：第 3 问的答案是"Python 里不需要担心，JS 里需要"——
+      说明这条差异只在反方向才是坑。）
