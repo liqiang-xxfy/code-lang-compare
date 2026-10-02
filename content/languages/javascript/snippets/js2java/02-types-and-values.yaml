@@ -1,0 +1,70 @@
+# javascript —— js2java/02-types-and-values 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2java/types-intro
+    equivalence: identical
+    code: |
+      let x = 1;               // @note 名字不携带类型
+      x = "一";                // 合法 —— 编译期那道网不存在
+
+      typeof 1;                // @note 'number' —— 运行时才拿得到类型信息
+      // @note! 拼错的方法名、少传的参数都要等跑到那一行才发现
+  - featureId: js2java/numeric-types
+    equivalence: identical
+    code: |
+      7 / 2;                   // @note 3.5 —— 除法永远给小数
+      Math.trunc(7 / 2);       // 3 —— 要整数得自己调用
+      -7 % 3;                  // -1 —— 取余符号跟着被除数走
+
+      9007199254740993;        // @note! 变成 ...992 —— 整数也是浮点，超范围静默丢精度
+      10n ** 30n;              // 要大整数必须显式用 BigInt
+
+      "a" * 3;                 // @note! NaN —— 不是字符串重复，是数字乘法
+      "6" / "2";               // @note 3 —— 字符串被当成数字
+      Math.abs(-0);            // 0
+  - featureId: js2java/strings
+    equivalence: identical
+    code: |
+      const name = "Ada";
+      `你好，${name}！`;         // @note 模板字符串
+      `${(3.14159).toFixed(2)}`; // @note 格式化调方法，没有格式规格语法
+
+      "a" + null;              // @note! 'anull' —— 静默把空值拼进去
+      "a" + 1;                 // 'a1'
+      'a' + 1;                 // @note 'a1' —— 单引号也是字符串，不是字符类型
+
+      let s = "";
+      for (const p of parts) s += p;    // @note 引擎有 rope 优化，通常不会退化成 O(n²)
+  - featureId: js2java/nullability
+    equivalence: identical
+    code: |
+      let a;                   // @note undefined —— 未赋值
+      let b = null;            // @note null —— 有意的空
+
+      a == null;               // @note! true：宽松相等同时匹配 null 与 undefined
+      a === null;              // @note! false —— 只挡住 null
+
+      Boolean(0);              // false
+      Boolean("");             // false
+      let n = 0;
+      if (!n) { }              // @note! 真值转换：0 也是"空" —— Java 里这种写法编译不过
+  - featureId: js2java/types-exercise
+    equivalence: identical
+    code: |
+      function summarize(orders) {
+        if (orders.length === 0) return 0;
+        const total = orders.reduce((acc, o) => acc + o.price * o.qty, 0);
+        const avg = total / orders.length;        // @note 除以零由上面的守卫挡住
+        return Number(avg.toFixed(2));           // @note toFixed 自带四舍五入
+      }
+
+      // @note! 总金额超过 2^53 时这里会静默丢精度 —— 大额订单要格外小心

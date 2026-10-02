@@ -1,0 +1,78 @@
+# javascript —— js2java/03-collections-and-data 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2java/collections-intro
+    equivalence: identical
+    code: |
+      const xs = [1, 2, 3];        // @note 数组：可变长、能装任何东西
+      const o = { a: 1 };
+      const m = new Map();         // @note Map 保证插入顺序
+      const s = new Set([1, 2]);
+
+      xs.push("a");                // @note! 一个数组里混装数字与字符串完全合法
+      // @note 没有"选实现"这一步，也没有"只能装对象"的限制
+  - featureId: js2java/list-model
+    equivalence: identical
+    code: |
+      const xs = [1, 2, 3, 4, 5];
+      const sub = xs.slice(1, 3);
+      sub[0] = 9;                  // @note! xs 不受影响 —— slice 是**拷贝**，永远是
+
+      xs.at(-1);                   // @note 5 —— 负索引要显式用 at()
+      xs[99];                      // @note! undefined —— 越界静默
+      [...xs].reverse();           // @note 反转要先复制（reverse 是原地的）
+
+      // @note! 没有步长：隔项取要 filter((_, i) => i % 2 === 0)
+      xs.splice(1, 2);             // 按下标删两个并返回被删项
+  - featureId: js2java/map-model
+    equivalence: identical
+    code: |
+      const d = { a: 1 };
+      d.a;                         // @note 1
+      d.z;                         // @note! undefined —— 缺失静默，不抛
+      "a" in d;                    // true —— 判存在
+
+      const m = new Map();
+      m.set("a", 1);
+      m.get("z");                  // @note undefined，同样不抛
+      m.get("z") ?? 0;             // 兜默认值
+
+      // @note! 对象字面量的键只能是字符串或 Symbol，字符串天然按值比较 ——
+      // "放进去取不出来"这类问题在 JS 里基本不会遇到
+  - featureId: js2java/data-modeling
+    equivalence: identical
+    code: |
+      const user = { id: 1, name: "Ada", active: true };
+      user.name;                   // @note 随手就能建一条记录
+
+      user.nmae;                   // @note! undefined —— 拼错静默，不报错
+
+      // @note 想要类型约束只能上 TypeScript 或手写 class；
+      // 运行时对字段名完全没有约束
+  - featureId: js2java/collections-exercise
+    equivalence: identical
+    code: |
+      function groupByDept(employees) {
+        const groups = new Map();                    // @note Map 保证插入顺序
+        for (const e of employees) {
+          (groups.get(e.dept) ?? groups.set(e.dept, []).get(e.dept)).push(e.name);
+        }
+        return groups;
+      }
+
+      function avgAge(employees) {
+        if (employees.length === 0) return 0;
+        const total = employees.reduce((acc, e) => acc + e.age, 0);
+        return total / employees.length;             // @note 天然是浮点除法，不必转换
+      }
+
+      // @note 空输入自然返回空 Map

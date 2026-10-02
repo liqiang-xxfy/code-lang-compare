@@ -1,0 +1,150 @@
+id: js2java/02-types-and-values
+topicId: js2java
+title: 2. 类型、数值与字符串
+order: 2
+summary: 从 JavaScript 到 Java：类型写在声明上、整数有了位宽、除法不再给你小数
+
+features:
+  - id: js2java/types-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 编译期那道网回来了，代价是每个变量都要写类型
+    body: |
+      从 JS 到 Java，最需要重建的不是语法而是**节奏**：在 JS 里
+      "写完跑一下看看"的循环，在 Java 里被"编译不过就改"替代了。
+
+      类型写错、方法名拼错、少传一个参数 —— 这些在 JS 里要跑到那一行才知道，
+      在这里**编译期就报错**。这不是负担，而是把一类问题提前暴露出来。
+
+      本章按「类型 → 数值 → 字符串 → 空值」排，其中**数值那一节最危险**：
+
+      - JS 的 `number` 是"一个类型打天下"，Java 分成 `byte`/`short`/`int`/`long`/`float`/`double`
+      - **整数会溢出**，而且是静默回绕（JS 里整数也是浮点，超范围是丢精度）
+      - **`7 / 2` 得 `3`** —— 这一条最容易静默算错，
+        因为结果依然是个合法数字
+
+      好消息是字符串与空值那两节的坑更浅：
+      `String` 与 JS 的字符串同样是不可变的，`null` 也与 JS 的 `null` 相当接近。
+
+  - id: js2java/numeric-types
+    title: 数值：一个 number 变成六种，而且会溢出
+    kind: behavior
+    refFeatureId: basics-javascript/number-precision
+    summary: 整数有宽度会回绕，整数除法会截断
+    body: |
+      三处与 JS 直接冲突的地方，按危险程度排：
+
+      **1. `/` 不再给你小数**
+
+      ```java
+      7 / 2;              // 3   —— JS 里是 3.5
+      ```
+
+      要浮点必须先把其中一个操作数转成 `double`：
+
+      ```java
+      (double) a / b;
+      ```
+
+      这条最危险的地方在于**结果依然是个合法数字**，不会报错，只会悄悄少一截。
+
+      **2. 整数会溢出，而且是静默回绕**
+
+      ```java
+      9007199254740993L;          // 装得下 —— long 是 64 位
+      Integer.MAX_VALUE + 1;      // -2147483648 —— 不报错，直接回绕
+      ```
+
+      JS 里整数也是浮点，"溢出"表现为丢精度；这里是回绕成负数 ——
+      两种表现都会让数据悄悄变错，但**回绕后的数更难看出问题**。
+
+      **3. 有 `char` 这个独立类型**
+
+      ```java
+      char c = 'a';       // 不是"长度为 1 的字符串"
+      c + 1;              // 98 —— 它本质是数值
+      ```
+
+      JS 里 `'a'` 与 `"a"` 是同一个东西，这里不是。
+
+      取余的符号规则也不同（`-7 % 3` 在 JS 得 `-1`，Java 同样得 `-1` ——
+      这一条恰好一致），但"向下取整"要用 `Math.floorDiv` 而不是 `Math.floor`。
+
+  - id: js2java/strings
+    title: 字符串：不可变一致，但插值与拼接要改写法
+    kind: behavior
+    refFeatureId: basics-javascript/string-methods
+    summary: 没有模板字符串，循环里拼接要换 StringBuilder
+    body: |
+      `String` 与 JS 的字符串都是**不可变**的，所以"所有修改都返回新值"
+      这条直觉可以直接搬过来。
+
+      三处需要改写法：
+
+      1. **没有模板字符串**。`` `你好，${name}` `` 对应
+         `"你好，" + name` 或 `String.format("你好，%s", name)`。
+         格式规格是 printf 风格（`%.2f`），与 `toFixed(2)` 表达力相当，
+         但**格式串与参数分离**，参数顺序写反了不会报错。
+      2. **单引号是 `char`**，不是字符串。`'a' + 1` 得 `98` 而不是 `'a1'` ——
+         这类静默转换在 JS 里不存在。
+      3. **循环里 `+=` 会退化成 O(n²)**。JS 引擎普遍做了 rope 优化，
+         所以那边循环里拼接通常不会出事；这里必须换 `StringBuilder`：
+
+         ```java
+         StringBuilder sb = new StringBuilder();
+         for (String p : parts) sb.append(p);
+         ```
+
+      另外 `"a" + null` 在这里得 `"anull"`、在 JS 里得 `"anull"` —— 这一条一致，
+      两边都会把空值静默拼进字符串。
+
+  - id: js2java/nullability
+    title: 空值：null 只剩一种，但多了"不能为 null"的类型
+    kind: behavior
+    refFeatureId: basics-javascript/null-undefined
+    summary: 两种空合成一种，判空反而简化了
+    body: |
+      JS 的 `undefined` 与 `null` 在这里合成一个 `null` ——
+      这是**净简化**：不必再纠结该判 `=== null` 还是 `== null`。
+
+      但多了一层 JS 里完全没有的东西：**基本类型不能是 null**。
+
+      ```java
+      String s = null;        // 合法
+      int n = null;           // 编译错误
+      int n;                  // 字段默认 0；局部变量必须显式赋值
+      ```
+
+      由此派生出一处新的失败模式 —— **包装类型的拆箱**：
+
+      ```java
+      Integer boxed = null;
+      int unboxed = boxed;    // NullPointerException，拆箱那一刻才炸
+      ```
+
+      JS 里没有这个中间态，所以这条要专门记：
+      **看到 `Integer` / `Long` / `Boolean` 就要想到它可能是 null，
+      而一旦参与算术或比较就会炸。**
+
+      判空本身倒是简单了：只有 `== null` 一种写法，
+      而且没有 JS 那种"`!x` 把 0 和空串也当空"的歧义 ——
+      这里条件位置只接受 `boolean`，所以"判空"与"判真"不会混。
+
+  - id: js2java/types-exercise
+    title: 练习：迁移一个统计函数
+    kind: exercise
+    summary: 三个改动点，其中两个会静默算错
+    body: |
+      下面这段 JS 统计一组订单的总金额与平均单价。
+
+      请把它迁到 Java，要求**行为完全一致**：
+
+      1. 总金额可能很大（想想 JS 里为什么这里要小心，Java 里该选什么类型）
+      2. 平均单价保留两位小数
+      3. 订单为空时返回 0
+
+      对照参考实现时，重点看三处：**位宽的选择**、**除法有没有加 `(double)`**，
+      以及**格式化用的是哪个 API**。
+
+      （提示：第 1 问在两门语言里的答案不同 —— JS 怕精度、Java 怕溢出。
+      第 2 问是本章最容易静默出错的地方。）

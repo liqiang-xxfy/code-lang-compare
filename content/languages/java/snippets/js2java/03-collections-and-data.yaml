@@ -1,0 +1,91 @@
+# java —— js2java/03-collections-and-data 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），Java 是被对照的那一门。
+topic: js2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2java/collections-intro
+    equivalence: divergent
+    code: |
+      List<Integer> xs = new ArrayList<>();    // @note! 接口声明、实现构造，要选两次
+      Map<String, Integer> m = new HashMap<>();          // 无序
+      Map<String, Integer> ordered = new LinkedHashMap<>();   // @note 按插入顺序 —— JS 的 Map 默认如此
+      Set<Integer> s = new HashSet<>();
+
+      // xs.add("a");                          // @note! 编译错误：泛型只能装对象，且类型固定
+      // List<int> bad;                        // @note! 编译错误：泛型不能用基本类型，只能 Integer
+
+      java.util.List<Integer> fixed = java.util.List.of(1, 2, 3);   // 不可变字面量
+  - featureId: js2java/list-model
+    equivalence: divergent
+    code: |
+      var xs = new ArrayList<>(java.util.List.of(1, 2, 3, 4, 5));
+
+      var view = xs.subList(1, 3);
+      view.set(0, 9);                          // @note! 这是**视图**：xs 也跟着变了
+      new ArrayList<>(xs.subList(1, 3));       // @note 要拷贝必须这样包一层
+      // @note! JS 的 slice 永远是拷贝，带着那个直觉用 subList 会静默改到原列表
+
+      xs.get(xs.size() - 1);                   // @note 取末尾要自己算
+      // xs.get(-1);                           // @note! 编译不过（下标是 int）或越界抛
+      // xs.get(99);                           // @note! IndexOutOfBoundsException —— 比 undefined 安全
+
+      java.util.Collections.reverse(new ArrayList<>(xs));   // @note 反转要复制再原地改
+      xs.remove(1);                            // @note! 按下标删（参数是 int）
+      xs.remove(Integer.valueOf(1));           // @note! 按值删（参数是对象）
+  - featureId: js2java/map-model
+    equivalence: divergent
+    code: |
+      Map<String, Integer> m = new HashMap<>();
+      m.put("a", 1);
+      m.get("z");                              // @note null —— 缺失静默，与 JS 的 undefined 对应
+      m.getOrDefault("z", 0);                  // 0
+      m.containsKey("z");                      // false
+
+      m.computeIfAbsent("k", x -> new ArrayList<>()).add("v");   // @note! 会写入
+
+      // @note! 键按 equals / hashCode 判等：
+      record Point(int x, int y) { }           // 当键安全
+      class Bad { }                            // @note! 不重写这两个方法 → 比引用
+      // map.put(new Bad(), 1); map.get(new Bad());  // 放进去就再也取不出来，且不报错
+  - featureId: js2java/data-modeling
+    equivalence: analogous
+    code: |
+      record User(int id, String name, boolean active) { }   // @note! 字段固定就用 record
+
+      var u = new User(1, "Ada", true);
+      u.name();                                // @note 访问器是方法调用，但有类型
+      // u.nmae();                             // @note! 编译错误 —— 拼错当场发现，JS 里是静默 undefined
+
+      Map<String, Object> bad = new HashMap<>();      // @note 这条路能走，但会丢类型
+      bad.put("id", 1);
+      int id = (int) bad.get("id");                   // @note! 每次强转，拼错的键查不出来
+
+      // @note record 顺带给了按字段的 equals / hashCode / toString 与不可变性 —— JS 里都要自己写
+  - featureId: js2java/collections-exercise
+    equivalence: analogous
+    code: |
+      record Employee(String name, String dept, int age) { }
+
+      static Map<String, List<String>> groupByDept(List<Employee> employees) {
+          Map<String, List<String>> groups = new java.util.LinkedHashMap<>();   // @note! 按插入顺序
+          for (Employee e : employees) {
+              groups.computeIfAbsent(e.dept(), k -> new ArrayList<>()).add(e.name());
+              // @note! 对应 JS 的 (groups.get(k) ?? groups.set(k, []).get(k)).push(...)
+          }
+          return groups;
+      }
+
+      static double avgAge(List<Employee> employees) {
+          if (employees.isEmpty()) return 0;
+          int total = employees.stream().mapToInt(Employee::age).sum();
+          return (double) total / employees.size();    // @note! 不转 double 就是整数除法
+      }
+
+      // @note 空输入自然返回空 Map

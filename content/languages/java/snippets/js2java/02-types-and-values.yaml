@@ -1,0 +1,87 @@
+# java —— js2java/02-types-and-values 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），Java 是被对照的那一门。
+topic: js2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2java/types-intro
+    equivalence: divergent
+    code: |
+      int x = 1;               // @note! 类型写在声明上，跟着名字走一辈子
+      // x = "一";             // 编译错误 —— 错误提前到编译期
+
+      var y = 1;               // @note var 只是省略类型名，y 依然是 int
+
+      // @note! 拼错的方法名、少传的参数、类型不匹配全是编译错误，
+      // 不必跑到那一行才发现 —— 这是从 JS 过来最大的节奏变化
+  - featureId: js2java/numeric-types
+    equivalence: divergent
+    code: |
+      7 / 2;                   // @note! 3 —— 整数除法，JS 里是 3.5
+      (double) 7 / 2;          // 3.5 —— 要小数必须先转 double
+      -7 / 2;                  // @note -3 —— 向零截断
+      -7 % 3;                  // -1 —— 这条与 JS 一致
+
+      Integer.MAX_VALUE + 1;   // @note! -2147483648 —— 溢出静默回绕，JS 里是丢精度
+      9007199254740993L;       // @note 装得下 —— long 是 64 位
+      new java.math.BigInteger("9007199254740993");    // 再大要换类型，运算符随之失效
+
+      char c = 'a';            // @note! 有独立的 char 类型，不是长度为 1 的字符串
+      c + 1;                   // 98 —— 它本质是数值
+      // "a" * 3;              // @note! 编译错误：JS 里这个得 NaN，这边根本写不出来
+  - featureId: js2java/strings
+    equivalence: divergent
+    code: |
+      String name = "Ada";
+      // @note! 没有模板字符串：
+      String msg = "你好，" + name + "！";
+      String msg2 = String.format("你好，%s！", name);
+      String.format("%.2f", 3.14159);       // @note "3.14"，对应 toFixed(2)
+
+      "a" + null;              // @note 'anull' —— 这条与 JS 一致，都会静默拼进去
+      "a" + 1;                 // "a1"
+      // 'a' + 1;              // @note! 得 98 —— 单引号是 char，不是字符串
+
+      StringBuilder sb = new StringBuilder();   // @note! 循环里拼接必须换成这个
+      for (String p : parts) sb.append(p);
+      // @note 编译器只优化单条表达式内的拼接，跨循环会退化成 O(n²)
+
+      // @note! String.format 的格式串与参数分离，参数顺序写反了不会报错
+  - featureId: js2java/nullability
+    equivalence: divergent
+    code: |
+      String s = null;         // @note 两种空合成一种，判空只剩 == null 一种写法
+
+      int n;                   // @note! 基本类型不能为 null：字段默认 0，局部必须赋值
+      // int m = null;         // 编译错误 —— JS 里没有这层限制
+
+      s.length();              // @note! NullPointerException，编译期完全不拦
+
+      Integer boxed = null;
+      int unboxed = boxed;     // @note! 拆箱那一刻才炸 —— JS 里没有这个中间态
+
+      // @note! 条件位置只接受 boolean，所以"判空"与"判真"不会混：
+      // if (!n) 在这里是编译错误，必须写 n == 0
+  - featureId: js2java/types-exercise
+    equivalence: analogous
+    code: |
+      static double summarize(java.util.List<Order> orders) {
+          if (orders.isEmpty()) return 0;
+          long total = 0;                              // @note! 先想位宽：int 可能不够
+          for (Order o : orders) total += (long) o.price() * o.qty();
+
+          double avg = (double) total / orders.size(); // @note! 不转 double 就是整数除法
+          return Double.parseDouble(String.format("%.2f", avg));
+      }
+
+      record Order(double price, int qty) { }
+
+      // @note! 两处静默错误都在这一行里：
+      // 除以 size() 忘了转 double（得整数），以及 total 用 int 会回绕
+      // @note JS 那边怕的是精度，这边怕的是溢出 —— 同一段代码、两种担心
