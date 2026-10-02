@@ -1,0 +1,171 @@
+{
+  "id": "concepts-java/04-modules-concurrency",
+  "topicId": "concepts-java",
+  "title": "模块、并发与内存",
+  "order": 4,
+  "section": "concepts",
+  "baseline": "java",
+  "features": [
+    {
+      "id": "concepts-java/module-system",
+      "chapterId": "concepts-java/04-modules-concurrency",
+      "title": "模块系统",
+      "kind": "concept",
+      "summary": "包加类、一个公开类一个文件 vs 文件即模块、import 会真的求值",
+      "bodyHtml": "<p>Java 的组织单位是<strong>包</strong>（<code>package</code>）与<strong>类</strong>：一个 public 类一个文件，\n<code>import</code> 只是引用名字、不执行代码；依赖靠 classpath 在编译与运行期解析；\nJava 9 引入的模块系统（<code>module-info.java</code>）能进一步声明导出与依赖，但用得不算普遍。</p>\n<p>JS 的组织单位是<strong>文件即模块</strong>：<code>export</code> 决定导出什么，<code>import</code> 是静态提升的绑定\n（活引用，循环依赖可处理），模块顶层代码在求值阶段执行。没有 classpath 那种\n「这个类从哪来」的问题，包由 npm 树负责。</p>\n<p>从 Java 过去的两点：① <code>import</code> 在你的直觉里是「引用一个名字」，在 JS 里它是\n<strong>真的求值一个模块</strong>、执行它的顶层代码；② 不再有「一个公开类一个文件」的强制 ——\nJS 一个文件可以导出任意多个东西。</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "package com.example;         // 组织单位是包与类，一个公开类一个文件\nimport java.util.List;       // import 只引用名字，不执行代码",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">package</span><span style=\"color:var(--shiki-token-keyword)\"> com</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">example</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// 组织单位是包与类，一个公开类一个文件</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-keyword)\"> java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">util</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">List</span><span style=\"color:var(--shiki-foreground)\">;       </span><span style=\"color:var(--shiki-token-comment)\">// import 只引用名字，不执行代码</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>package + class</strong> —— 一个 public 类一个文件；<code>import</code> 只引用名字，\n依赖靠 classpath 解析。</p>\n"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "import { helper } from \"./util.js\";   // ⚠ import 会真的求值这个模块\nexport function run() {}              // 没有 classpath，包由 npm 树负责",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { helper } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> \"./util.js\"</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ import 会真的求值这个模块</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> run</span><span style=\"color:var(--shiki-foreground)\">() {}              </span><span style=\"color:var(--shiki-token-comment)\">// 没有 classpath，包由 npm 树负责</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [
+            {
+              "line": 1,
+              "text": "import 会真的求值这个模块",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>ESM import/export</strong> —— 文件即模块；<code>import</code> 是会求值的绑定，\n不再只是「引用一个名字」。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-java/memory",
+      "chapterId": "concepts-java/04-modules-concurrency",
+      "title": "内存管理",
+      "kind": "concept",
+      "summary": "JVM 分代回收加一堆调优旋钮 vs 标记清除、几乎不给你旋钮",
+      "bodyHtml": "<p>Java 的 GC 在 <strong>JVM 堆</strong>上做分代回收（年轻代 / 老年代，多种收集器可选），\n你基本不干预，<code>finalize</code> 已弃用；对象生命周期由可达性决定，没有引用计数，\n循环引用不是问题。</p>\n<p>JS 同样是<strong>标记清除</strong>式的自动 GC，从根出发找不到的对象被回收，循环引用不是问题；\n主要泄漏源是<strong>闭包持有</strong>与忘记解绑的事件监听。</p>\n<p>从 Java 过去这一块其实<strong>很接近</strong>：都是「可达性 + 自动回收、不看引用计数」。\n差别在可控性 —— JVM 有丰富的 GC 调优参数与堆监控工具，JS 运行时（尤其是浏览器）\n几乎不给你这些旋钮，内存问题基本只能靠工具快照加经验。你在 Java 里熟悉的\n「调 JVM 参数」在 JS 里没有对应。</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "Object o = new Object();     // JVM 分代回收，可达性决定生命周期\no = null;                    // 没有引用计数，循环引用不是问题",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Object</span><span style=\"color:var(--shiki-foreground)\"> o </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Object()</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// JVM 分代回收，可达性决定生命周期</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">o </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;                    </span><span style=\"color:var(--shiki-token-comment)\">// 没有引用计数，循环引用不是问题</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>JVM 分代 GC</strong> —— 你基本不干预，<code>finalize</code> 已弃用；\n没有引用计数，循环引用不是问题。</p>\n"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "let o = {};               // 标记清除，与 JVM 的可达性 GC 相似\no = null;                 // ⚠ 但没有 JVM 那套 GC 调优旋钮与堆监控",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> o </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> {};               </span><span style=\"color:var(--shiki-token-comment)\">// 标记清除，与 JVM 的可达性 GC 相似</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">o </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;                 </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但没有 JVM 那套 GC 调优旋钮与堆监控</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [
+            {
+              "line": 2,
+              "text": "但没有 JVM 那套 GC 调优旋钮与堆监控",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>垃圾回收</strong> —— 同样是可达性 + 自动回收，循环引用不是问题；\n差别在可控性：JS 几乎不给你 GC 调优与堆监控的旋钮。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-java/concurrency-unit",
+      "chapterId": "concepts-java/04-modules-concurrency",
+      "title": "并发单元",
+      "kind": "concept",
+      "summary": "线程真并行、代价是数据竞争 vs 单线程事件循环、没有竞争也没有共享内存",
+      "bodyHtml": "<p>Java 的线程是<strong>真并行</strong>的：多个线程可以在多个核上同时跑，用 <code>ExecutorService</code>\n管理线程池、用锁与 <code>synchronized</code> 处理共享状态的竞争；没有 GIL，代价是\n<strong>数据竞争</strong>与内存可见性都要自己扛。近年还有虚拟线程（Java 21）降低高并发线程的成本。</p>\n<p>JS 的并发模型相反：<strong>事件循环 + 单线程</strong>，所有回调在同一个线程上跑，\n没有数据竞争、没有锁；CPU 密集只能丢给 <code>Worker</code> 隔离 —— Worker 有独立执行环境，\n靠 <code>postMessage</code> 通信、不共享内存。</p>\n<p>从 Java 过去会先失去「加线程就能并行」这件事：JS 主线程永远只有一个，<code>Worker</code>\n也不是共享内存的线程而是独立上下文。好消息是那些 <code>synchronized</code> / 可见性 / 死锁\n的坑在 JS 里几乎不存在 —— 代价是你得用消息传递重写原本靠共享状态的并行逻辑。</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "new Thread(task).start();                 // 线程真并行，多核同时跑\nExecutorService pool = Executors.newFixedThreadPool(4);\nsynchronized (lock) { /* 共享状态要自己加锁 */ }",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Thread(task)</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">start</span><span style=\"color:var(--shiki-foreground)\">();                 </span><span style=\"color:var(--shiki-token-comment)\">// 线程真并行，多核同时跑</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">ExecutorService</span><span style=\"color:var(--shiki-foreground)\"> pool </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> Executors</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">newFixedThreadPool</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">4</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">synchronized</span><span style=\"color:var(--shiki-foreground)\"> (lock) { </span><span style=\"color:var(--shiki-token-comment)\">/* 共享状态要自己加锁 */</span><span style=\"color:var(--shiki-foreground)\"> }</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>线程 / ExecutorService</strong> —— 线程真并行，代价是数据竞争与可见性要自己扛；\n没有 GIL，近年还有虚拟线程降低高并发成本。</p>\n"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "setTimeout(() => {}, 0);  // ⚠ 主线程永远只有一个，没有真并行的线程\nnew Worker(\"worker.js\");  // Worker 不共享内存，靠 postMessage 通信",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-function)\">setTimeout</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> {}</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">);  </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 主线程永远只有一个，没有真并行的线程</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Worker</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"worker.js\"</span><span style=\"color:var(--shiki-foreground)\">);  </span><span style=\"color:var(--shiki-token-comment)\">// Worker 不共享内存，靠 postMessage 通信</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [
+            {
+              "line": 1,
+              "text": "主线程永远只有一个，没有真并行的线程",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>事件循环 + Worker</strong> —— 失去「加线程就能并行」；\n但 <code>synchronized</code> / 可见性 / 死锁那一类坑也随之消失。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-java/async-model",
+      "chapterId": "concepts-java/04-modules-concurrency",
+      "title": "异步模型",
+      "kind": "concept",
+      "summary": "线程池加 CompletableFuture vs 一直跑着的事件循环，await 不阻塞线程",
+      "bodyHtml": "<p>Java 传统上并发靠线程与线程池，异步用 <code>CompletableFuture</code> 串联（或 Reactive Streams\n那套），没有语言内建的「事件循环 + await」；Java 21 的虚拟线程让「用同步写法做\n高并发 I/O」成为主流选择。</p>\n<p>JS 的异步是<strong>运行时自动驱动</strong>的：事件循环一直在跑，<code>async</code> 函数调用即开始执行，\n<code>await</code> 之后自动继续，Promise 是一等公民。</p>\n<p>从 Java 过去的两点变化：① <code>await</code> 写起来像同步代码，但<strong>它不会阻塞线程</strong> ——\n要和 <code>Thread.sleep</code> 的直觉区分开；② JS 没有「线程池」这层，异步任务都在同一个\n事件循环上，所以<strong>阻塞事件循环会拖垮全部并发</strong>（在协程里调同步阻塞函数，\n整个循环就卡住），这在 Java 的线程模型里是另一回事。</p>\n",
+      "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "CompletableFuture.supplyAsync(() -> 1)\n    .thenApply(x -> x + 1);               // 异步靠线程池与 Future\nThread.sleep(100);                        // 会真的阻塞线程，与 await 不同",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">CompletableFuture</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">supplyAsync</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">    .</span><span style=\"color:var(--shiki-token-function)\">thenApply</span><span style=\"color:var(--shiki-foreground)\">(x </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">);               </span><span style=\"color:var(--shiki-token-comment)\">// 异步靠线程池与 Future</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Thread</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">sleep</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">100</span><span style=\"color:var(--shiki-foreground)\">);                        </span><span style=\"color:var(--shiki-token-comment)\">// 会真的阻塞线程，与 await 不同</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>CompletableFuture / 线程池</strong> —— 没有语言内建的事件循环；\n<code>Thread.sleep</code> 会阻塞线程，与 JS 的 <code>await</code> 不是一回事。</p>\n"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "async function load() { return 1; }\nload();                   // ⚠ 调用即开始跑，事件循环一直在驱动\n// 没有线程池；阻塞事件循环会拖垮全部并发",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> load</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">load</span><span style=\"color:var(--shiki-foreground)\">();                   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 调用即开始跑，事件循环一直在驱动</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有线程池；阻塞事件循环会拖垮全部并发</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [
+            {
+              "line": 2,
+              "text": "调用即开始跑，事件循环一直在驱动",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>Promise / async-await</strong> —— 事件循环自动驱动，<code>await</code> 不阻塞线程；\n与 <code>Thread.sleep</code> 的直觉要区分开。</p>\n"
+        }
+      }
+    }
+  ],
+  "summary": "代码怎么分文件、内存谁来收、同时干几件事时到底谁在跑"
+}

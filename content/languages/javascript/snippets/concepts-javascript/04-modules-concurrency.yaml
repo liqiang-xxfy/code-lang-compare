@@ -1,0 +1,45 @@
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/module-system
+    equivalence: identical
+    code: |
+      import { helper } from "./util.js";   // 静态提升：声明位置不影响执行顺序
+      export function run() {}
+    body: |
+      **ESM import/export** —— 一个文件即模块；`import` 是静态提升的，
+      导入是活的绑定，循环依赖能被处理。
+
+  - featureId: concepts-javascript/memory
+    equivalence: identical
+    code: |
+      let big = new Array(1e6).fill(0);
+      big = null;                  // 标记清除：没有引用指向它，GC 会回收
+      // 主要泄漏源是闭包持有与忘记解绑的监听器
+    body: |
+      **垃圾回收** —— 标记清除；闭包是主要泄漏源。
+      循环引用不是问题（从根出发找得到才算活着）。
+
+  - featureId: concepts-javascript/concurrency-unit
+    equivalence: identical
+    code: |
+      setTimeout(() => {}, 0);     // 事件循环：所有回调在同一个线程上
+      new Worker("worker.js");     // CPU 密集只能靠 Worker 隔离
+    body: |
+      **事件循环 + Worker** —— 主线程单线程；没有数据竞争，
+      代价是 CPU 密集任务必须隔离出去。
+
+  - featureId: concepts-javascript/async-model
+    equivalence: identical
+    code: |
+      async function load() { return await fetch("/api"); }
+      load();                      // 调用即开始跑 —— 事件循环一直在驱动
+    body: |
+      **Promise / async-await** —— 微任务队列，天然单线程并发。
+      不需要谁去「启动」事件循环，`await` 之后自动继续。

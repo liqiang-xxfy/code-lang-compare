@@ -1,0 +1,57 @@
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/class-inheritance
+    equivalence: divergent
+    code: |
+      class A:
+          def greet(self): return "A"     # @note! self 是显式参数；单独取出方法会丢绑定
+      class B(A): pass                    # @note 支持多继承，super() 走 MRO 链
+      a = A()
+      a.__dict__                          # @note 没有真私有：_x 只是约定，__x 只是改名
+    body: |
+      **class + 多继承** —— 支持多继承与 MRO；私有靠约定，没有语言级私有。
+
+  - featureId: concepts-javascript/interface
+    equivalence: divergent
+    code: |
+      from typing import Protocol
+      class Renderable(Protocol):           # @note 结构化：长得像就算，不必显式继承
+          def to_text(self) -> str: ...
+      from abc import ABC, abstractmethod
+      class Base(ABC):                      # @note 名义式：必须显式继承，实例化时就拦
+          @abstractmethod
+          def to_text(self) -> str: ...
+    body: |
+      **Protocol / ABC** —— Protocol 是结构化，ABC 是名义式，两者都存在。
+      在 JS 里只能写进注释的约束，这里可以被强制。
+
+  - featureId: concepts-javascript/generics
+    equivalence: analogous
+    code: |
+      from typing import TypeVar
+      T = TypeVar("T")
+      def first(items: list[T]) -> T: ...   # @note 标注在运行时被擦除，只是给检查器看的
+    body: |
+      **typing.TypeVar** —— 标注层面存在，运行时同样擦除。
+      但 Python 是**渐进类型**：解释器不检查，要靠 mypy。
+
+  - featureId: concepts-javascript/error-handling
+    equivalence: divergent
+    code: |
+      raise ValueError("出错了")     # @note! 只能抛 BaseException 的子类，抛字符串会 TypeError
+      try:
+          risky()
+      except ValueError as e:       # @note except 必须写类型；裸 except 会吞掉 Ctrl+C
+          pass
+      else:
+          pass                       # @note 多一个 else：没出错时执行，把成功路径挪出 try
+    body: |
+      **try/except + 异常类** —— 只能抛 `BaseException` 子类；`except` 必须写类型。
+      两边都没有受检异常，签名上看不出「谁可能抛」。

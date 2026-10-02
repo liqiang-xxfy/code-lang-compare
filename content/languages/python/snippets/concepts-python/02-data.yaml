@@ -1,0 +1,68 @@
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/collections
+    equivalence: identical
+    code: |
+      d = {1: "a"}          # 键可以是任意可哈希对象，不会被转成字符串
+      t = (1, 2)            # 不可变有序容器
+      [[0] * 3] * 3         # 三行是同一个内层列表
+    body: |
+      **list / dict / set / tuple** —— `dict` 任意可哈希键且有插入顺序；
+      `tuple` 不可变，可作为字典键。
+
+  - featureId: concepts-python/immutable-data
+    equivalence: identical
+    code: |
+      t = (1, 2)
+      t[0] = 9              # 抛 TypeError —— 不可变是类型属性
+      {(1, 2): "值"}         # 正因为不可变，元组可以当字典键
+    body: |
+      **tuple / frozenset** —— 不可变是「类型属性」，因此能被类型系统利用
+      （当键、当集合元素）。
+
+  - featureId: concepts-python/string-format
+    equivalence: identical
+    code: |
+      n = 3.14159
+      f"{n:.2f}"            # "3.14" —— 内嵌一整套格式说明符
+      f"{1234567:,}"        # "1,234,567"
+    body: |
+      **f-string + 格式说明符** —— 对齐写 `f"{n:>10}"`；它是门小语言，
+      知道存在能省掉大量手工拼接。
+
+  - featureId: concepts-python/regex
+    equivalence: identical
+    code: |
+      import re
+      re.match(r"\d", "a1")             # None —— match 只从开头匹配
+      re.search(r"\d", "a1")            # 找任意位置要用 search
+      re.match(r"(?P<num>\d+)", "12")   # 命名分组是 (?P<name>...)
+    body: |
+      **re 模块 + r 字符串** —— `match` 只匹配开头；`\d` 这类转义必须用原始字符串。
+
+  - featureId: concepts-python/serialization
+    equivalence: identical
+    code: |
+      import json, datetime
+      json.dumps({"n": 1}, ensure_ascii=False)   # 中文不转义
+      json.dumps({"d": datetime.date.today()})   # 抛 TypeError，不静默丢弃
+    body: |
+      **json.dumps / loads** —— 遇到非 JSON 类型抛 `TypeError`；中文默认转义成
+      `\uXXXX`。
+
+  - featureId: concepts-python/date-time
+    equivalence: identical
+    code: |
+      from datetime import datetime
+      d = datetime(2026, 1, 5)     # 月份从 1 起
+      d.replace(month=2)           # 不可变：返回新对象，d 本身没变
+    body: |
+      **datetime（不可变、月从 1 起）** —— 带时区要显式 `tzinfo`，
+      否则是 naive 时间，与 aware 时间相减会抛 `TypeError`。

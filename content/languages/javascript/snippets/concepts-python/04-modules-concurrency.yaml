@@ -1,0 +1,46 @@
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/module-system
+    equivalence: divergent
+    code: |
+      import { helper } from "./util.js";   // @note 静态提升：声明位置不影响执行顺序
+      export function run() {}              // @note 没被 export 的名字外部拿不到
+    body: |
+      **ESM import/export** —— 导入是活的绑定，循环依赖可处理；
+      导出什么由 `export` 明确决定，没有「所有顶层名字都可导入」这回事。
+
+  - featureId: concepts-python/memory
+    equivalence: divergent
+    code: |
+      let big = new Array(1e6).fill(0);
+      big = null;                  // @note 标记清除：没有引用指向它，GC 会回收
+      // @note 没有引用计数，也没有 with —— 清理要写在 finally 里
+    body: |
+      **垃圾回收** —— 标记清除；循环引用不是问题，
+      但失去了 `with` 那种「出了这个块就一定释放」的确定性。
+
+  - featureId: concepts-python/concurrency-unit
+    equivalence: divergent
+    code: |
+      setTimeout(() => {}, 0);     // @note! 所有回调在同一个线程上，没有数据竞争
+      new Worker("worker.js");     // @note CPU 密集只能靠 Worker 隔离，靠消息通信
+    body: |
+      **事件循环 + Worker** —— 主线程单线程；没有共享内存这回事，
+      你原先靠共享变量协调的写法要改成消息传递。
+
+  - featureId: concepts-python/async-model
+    equivalence: divergent
+    code: |
+      async function load() { return 1; }
+      load();                      // @note! 调用即开始跑 —— 事件循环一直在驱动
+      // @note 不需要 asyncio.run 那样的显式启动
+    body: |
+      **Promise / async-await** —— 事件循环自动驱动，`await` 之后自动继续；
+      从 Python 过去要重新建立「调用即执行」这条直觉。

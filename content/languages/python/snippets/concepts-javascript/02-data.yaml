@@ -1,0 +1,68 @@
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/collections
+    equivalence: divergent
+    code: |
+      d = {1: "a"}                 # @note 键可以是任意可哈希对象，不会被转成字符串
+      t = (1, 2)                   # @note 不可变的有序容器 —— JS 没有对应物
+      [[0] * 3] * 3                # @note! 三行是同一个内层列表，改一行全变
+    body: |
+      **list / dict / set / tuple** —— `tuple` 不可变且可作字典键；
+      `dict` 有插入顺序保证（3.7+）。
+
+  - featureId: concepts-javascript/immutable-data
+    equivalence: divergent
+    code: |
+      t = (1, 2)
+      t[0] = 9              # @note! 抛 TypeError —— 不可变是类型属性，改不了就是改不了
+      {(1, 2): "值"}         # @note 正因为不可变，元组可以当字典的键
+    body: |
+      **tuple / frozenset** —— 不可变是「类型属性」而非运行时开关，
+      因此可以被类型系统利用（当键、当集合元素）。
+
+  - featureId: concepts-javascript/string-format
+    equivalence: divergent
+    code: |
+      n = 3.14159
+      f"{n:.2f}"            # @note "3.14" —— 内嵌一整套格式说明符，不用调方法
+      f"{1234567:,}"        # @note "1,234,567"，对齐写 f"{n:>10}"
+    body: |
+      **f-string + 格式说明符** —— 表达力最强；另有 `%` 与 `format`。
+      它是门小语言，知道存在能省掉大量手工拼接。
+
+  - featureId: concepts-javascript/regex
+    equivalence: divergent
+    code: |
+      import re
+      re.match(r"\d", "a1")      # @note! None —— match 只从开头匹配
+      re.search(r"\d", "a1")     # @note 要找任意位置得用 search
+      re.match(r"(?P<num>\d+)", "12")   # @note 命名分组是 (?P<name>...)
+    body: |
+      **re 模块 + r 字符串** —— `match` 只匹配开头；`\d` 这类转义必须用原始字符串。
+
+  - featureId: concepts-javascript/serialization
+    equivalence: divergent
+    code: |
+      import json, datetime
+      json.dumps({"n": 1}, ensure_ascii=False)   # @note 中文默认被转义，要显式关掉
+      json.dumps({"d": datetime.date.today()})   # @note! 抛 TypeError，不静默丢弃
+    body: |
+      **json.dumps / loads** —— 遇到非 JSON 类型抛 `TypeError`；
+      中文默认转义成 `\uXXXX`。吵，但那是在替你挡住「字段莫名消失」。
+
+  - featureId: concepts-javascript/date-time
+    equivalence: divergent
+    code: |
+      from datetime import datetime
+      d = datetime(2026, 1, 5)     # @note 月份从 1 起 —— 与 JS 的 new Date(2026, 0, 5) 同一天
+      d.replace(month=2)           # @note 不可变：返回新对象，d 本身没变
+    body: |
+      **datetime（不可变、月从 1 起）** —— 带时区要显式 `tzinfo`，
+      否则是 naive 时间，与 aware 时间相减会抛 `TypeError`。

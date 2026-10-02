@@ -1,0 +1,48 @@
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/type-system
+    equivalence: divergent
+    code: |
+      let n = 1;                // @note! 动态类型：类型属于运行时的值
+      n = "x";                  // @note 改类型不报错，直到某条路径「结果不对」
+      1 == "1"                  // @note true —— 弱类型还会隐式转换
+    body: |
+      **动态 + 弱类型** —— 编译期检查这一层完全消失；
+      想找回它要引入 TypeScript，且那是额外加的一层。
+
+  - featureId: concepts-java/numeric-type
+    equivalence: divergent
+    code: |
+      0.1 + 0.2                 // @note! 0.30000000000000004 —— 只有一种 number
+      9007199254740993          // @note 变成 ...992 —— 没有 int / long 的宽度概念
+      5 >>> 1                   // @note 按位运算固定 32 位，先转成 int32
+    body: |
+      **number（统一 float64）+ BigInt** —— 整数也是浮点；
+      按位运算是 32 位的，与 Java 对 `long` 也成立不同。
+
+  - featureId: concepts-java/null-value
+    equivalence: divergent
+    code: |
+      let x;                    // @note! undefined —— Java 里没有这个值
+      x === null                // @note false —— 只挡 null，会漏掉 undefined
+      x == null                 // @note 惯用写法：同时挡 null 与 undefined
+    body: |
+      **null + undefined** —— 两个空值，且任何变量都可能是它们；
+      Java 的 `Optional` 那层「可能没有」的类型表达也没有对应物。
+
+  - featureId: concepts-java/value-semantics
+    equivalence: analogous
+    code: |
+      const arr = [1];          // @note const 类似 final：只约束绑定，不约束内容
+      arr.push(2);              // 允许 —— JS 没有 List.of 那种不可变集合
+      let s = "x";              // @note string 是不可变原始值，不是对象
+    body: |
+      **原始值按值、对象按引用** —— 说法能直接搬；
+      但 JS 的 string 是原始值（不是对象），也没有装箱与 int / Integer 之分。

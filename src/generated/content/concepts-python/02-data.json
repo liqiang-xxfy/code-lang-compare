@@ -1,0 +1,245 @@
+{
+  "id": "concepts-python/02-data",
+  "topicId": "concepts-python",
+  "title": "数据与字符串",
+  "order": 2,
+  "section": "concepts",
+  "baseline": "python",
+  "features": [
+    {
+      "id": "concepts-python/collections",
+      "chapterId": "concepts-python/02-data",
+      "title": "常用集合",
+      "kind": "concept",
+      "summary": "你的 dict 是任意键的映射，JS 的对象字面量只是「字符串键的映射」",
+      "bodyHtml": "<p>Python 的容器分工清晰：<code>list</code> 有序可重复、<code>dict</code> 任意可哈希键、<code>set</code> 去重、\n<code>tuple</code> 不可变。</p>\n<p>JS 里最像 <code>dict</code> 的是对象字面量，但<strong>它的键只能是字符串或 Symbol</strong>，数字键会被\n转成字符串（<code>{1: &quot;a&quot;}[1]</code> 与 <code>{1: &quot;a&quot;}[&quot;1&quot;]</code> 是同一格）。真正的任意键映射要显式用 <code>Map</code>。</p>\n<p>从 Python 出发要改的习惯是「用字典表达映射」：在 JS 里得先判断键的类型 ——\n键都是字符串就用对象字面量，键可能是数字 / 对象 / 任何值就必须用 <code>Map</code>，\n否则会静默串键（<code>1</code> 与 <code>&quot;1&quot;</code> 撞在一起）。</p>\n<p>另一处：<code>dict</code> 在 3.7+ 有插入顺序保证，对象字面量的字符串键也有；至于 <code>tuple</code>，\nJS 里没有对应物，「这个序列不该被改」只能靠约定。列表复制那条经典坑同理还在\n（<code>[[0] * 3] * 3</code> 共享内层，到 JS 里是 <code>Array(3).fill([0, 0, 0])</code>）。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "const o = { 1: \"a\" };\no[1] === o[\"1\"]      // ⚠ true —— 对象字面量的数字键被转成字符串\nconst m = new Map(); // 任意键映射要显式用 Map；JS 没有 tuple",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> o</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"a\"</span><span style=\"color:var(--shiki-foreground)\"> };</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">o[</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">===</span><span style=\"color:var(--shiki-foreground)\"> o[</span><span style=\"color:var(--shiki-token-string-expression)\">\"1\"</span><span style=\"color:var(--shiki-foreground)\">]      </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ true —— 对象字面量的数字键被转成字符串</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> m</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Map</span><span style=\"color:var(--shiki-foreground)\">(); </span><span style=\"color:var(--shiki-token-comment)\">// 任意键映射要显式用 Map；JS 没有 tuple</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [
+            {
+              "line": 2,
+              "text": "true —— 对象字面量的数字键被转成字符串",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>Array / Object / Map / Set</strong> —— 对象字面量只支持字符串键，\n真正的任意键映射要显式用 <code>Map</code>。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "d = {1: \"a\"}          # 键可以是任意可哈希对象，不会被转成字符串\nt = (1, 2)            # 不可变有序容器\n[[0] * 3] * 3         # 三行是同一个内层列表",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">d </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-punctuation)\"> {</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"a\"</span><span style=\"color:var(--shiki-token-punctuation)\">}</span><span style=\"color:var(--shiki-token-comment)\">          # 键可以是任意可哈希对象，不会被转成字符串</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">t </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">)            </span><span style=\"color:var(--shiki-token-comment)\"># 不可变有序容器</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">         # 三行是同一个内层列表</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>list / dict / set / tuple</strong> —— <code>dict</code> 任意可哈希键且有插入顺序；\n<code>tuple</code> 不可变，可作为字典键。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-python/immutable-data",
+      "chapterId": "concepts-python/02-data",
+      "title": "不可变数据",
+      "kind": "concept",
+      "summary": "不可变在 Python 是类型属性，在 JS 只是一次运行时的浅冻结",
+      "bodyHtml": "<p>Python 的不可变是<strong>类型属性</strong>：<code>tuple</code>、<code>frozenset</code>、<code>str</code> 天生不可变，\n改不了就是改不了，而且正因为不可变，它们<strong>可以作为字典的键</strong>（<code>{(1, 2): &quot;值&quot;}</code>）。</p>\n<p>JS 里没有「不可变类型」这个概念。想让一个对象不可变要用 <code>Object.freeze</code>，\n而它是<strong>浅的</strong>（嵌套对象照样能改）、是运行时行为，且不影响任何类型签名。\n复制用 <code>structuredClone</code>（深）或展开运算符（浅）。</p>\n<p>从 Python 迁移的实质损失：你会失去「用类型表达不可变」的能力 ——\n没有 tuple 那种「改不了、还能当键」的类型。要用元组当键得自己序列化成字符串，\n想共享一份配置得靠 <code>freeze</code> 加纪律，没有任何机制在你犯规时提醒。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "const o = Object.freeze({ inner: { n: 1 } });\no.inner.n = 2        // ⚠ 2 —— freeze 是浅的，嵌套照样能改\n// 没有不可变类型，也就不能用「不可变」当字典键",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> o</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> Object</span><span style=\"color:var(--shiki-token-function)\">.freeze</span><span style=\"color:var(--shiki-foreground)\">({ inner</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-foreground)\"> { n</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\"> } });</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">o</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">inner</span><span style=\"color:var(--shiki-foreground)\">.n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">        // ⚠ 2 —— freeze 是浅的，嵌套照样能改</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有不可变类型，也就不能用「不可变」当字典键</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [
+            {
+              "line": 2,
+              "text": "2 —— freeze 是浅的，嵌套照样能改",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>Object.freeze（浅）</strong> —— 冻结是运行时行为，不是类型属性；\n没有 tuple 那种「改不了又能当键」的类型。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "t = (1, 2)\nt[0] = 9              # 抛 TypeError —— 不可变是类型属性\n{(1, 2): \"值\"}         # 正因为不可变，元组可以当字典键",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">t </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">t</span><span style=\"color:var(--shiki-token-punctuation)\">[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-punctuation)\">]</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 9</span><span style=\"color:var(--shiki-token-comment)\">              # 抛 TypeError —— 不可变是类型属性</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">{</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"值\"</span><span style=\"color:var(--shiki-token-punctuation)\">}</span><span style=\"color:var(--shiki-token-comment)\">         # 正因为不可变，元组可以当字典键</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>tuple / frozenset</strong> —— 不可变是「类型属性」，因此能被类型系统利用\n（当键、当集合元素）。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-python/string-format",
+      "chapterId": "concepts-python/02-data",
+      "title": "字符串格式化",
+      "kind": "concept",
+      "summary": "f-string 内嵌一门格式小语言，JS 只有模板字符串加方法调用",
+      "bodyHtml": "<p>Python 的 f-string 不只是拼接：<code>f&quot;{n:.2f}&quot;</code>（两位小数）、<code>f&quot;{n:&gt;10}&quot;</code>（右对齐）、\n<code>f&quot;{n:,}&quot;</code>（千分位）、<code>f&quot;{d:%Y-%m-%d}&quot;</code>（日期格式化）—— 内嵌了一整套格式说明符语言。</p>\n<p>JS 的主力是模板字符串 <code>`${x}`</code>，它只负责求值插入，<strong>格式化全靠方法</strong>：\n小数用 <code>toFixed</code>、千分位用 <code>toLocaleString</code>、对齐用 <code>padStart</code>、日期用\n<code>Intl.DateTimeFormat</code>。没有语言级的 printf 风格格式串（<code>console.log</code> 里的 <code>%s</code>\n只作用于日志，不是字符串 API）。</p>\n<p>迁移时容易低估：Python 里一行 <code>f&quot;{...}&quot;</code> 能表达的，到 JS 里要串几个方法调用。\n知道每个格式化需求对应哪个方法，能省掉大量手写补零与对齐的代码。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "const n = 3.14159;\nn.toFixed(2)                 // \"3.14\" —— 格式化靠方法调用，没有格式串\n(1234567).toLocaleString()   // \"1,234,567\"，对齐要 padStart",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> n</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 3.14159</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">n</span><span style=\"color:var(--shiki-token-function)\">.toFixed</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">)                 </span><span style=\"color:var(--shiki-token-comment)\">// \"3.14\" —— 格式化靠方法调用，没有格式串</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1234567</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-function)\">.toLocaleString</span><span style=\"color:var(--shiki-foreground)\">()   </span><span style=\"color:var(--shiki-token-comment)\">// \"1,234,567\"，对齐要 padStart</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>模板字符串 + toFixed</strong> —— 没有 printf 风格的语言级格式化，\n小数、千分位、对齐、日期各要一个方法或库。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "n = 3.14159\nf\"{n:.2f}\"            # \"3.14\" —— 内嵌一整套格式说明符\nf\"{1234567:,}\"        # \"1,234,567\"",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3.14159</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">f</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">{</span><span style=\"color:var(--shiki-foreground)\">n</span><span style=\"color:var(--shiki-token-keyword)\">:.2f</span><span style=\"color:var(--shiki-token-constant)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-comment)\">            # \"3.14\" —— 内嵌一整套格式说明符</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">f</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">{1234567</span><span style=\"color:var(--shiki-token-keyword)\">:,</span><span style=\"color:var(--shiki-token-constant)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-comment)\">        # \"1,234,567\"</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>f-string + 格式说明符</strong> —— 对齐写 <code>f&quot;{n:&gt;10}&quot;</code>；它是门小语言，\n知道存在能省掉大量手工拼接。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-python/regex",
+      "chapterId": "concepts-python/02-data",
+      "title": "正则表达式",
+      "kind": "concept",
+      "summary": "re.match 只匹配开头，于是你对「match 是任意位置」这件事有错误直觉",
+      "bodyHtml": "<p>Python 的 <code>re.match()</code> <strong>只从开头匹配</strong>，要找任意位置必须用 <code>re.search()</code> ——\n这是最容易记反的一对。</p>\n<p>到 JS 里，<code>str.match(re)</code> 与 <code>re.test(str)</code> 都是<strong>任意位置</strong>匹配，没有「只匹配开头」\n的同名函数（要自己加 <code>^</code> 锚点）。所以你的 <code>re.match</code> 直觉会反向失效：\n你以为在找开头，其实在找任意位置。</p>\n<p>命名分组写法不同：Python 是 <code>(?P&lt;name&gt;...)</code>，JS 是 <code>(?&lt;name&gt;...)</code>。</p>\n<p>还有一条 Python 特有的坑在 JS 里不存在：Python 里 <code>&quot;\\d&quot;</code> 会被解释器先转义一次，\n所以一律写原始字符串 <code>r&quot;\\d+&quot;</code>；JS 的正则字面量 <code>/\\d+/</code> 本来就不经过字符串转义，\n不需要 <code>r</code> 前缀。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "\"a1\".match(/\\d/)     // ⚠ [\"1\"] —— 任意位置匹配，没有「只匹配开头」\n/(?<num>\\d+)/.exec(\"12\")?.groups?.num   // 命名分组是 (?<name>...)",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"a1\"</span><span style=\"color:var(--shiki-token-function)\">.match</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">/\\d/</span><span style=\"color:var(--shiki-foreground)\">)     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ [\"1\"] —— 任意位置匹配，没有「只匹配开头」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">/(?&#x3C;num>\\d</span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-string-expression)\">)/</span><span style=\"color:var(--shiki-token-function)\">.exec</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"12\"</span><span style=\"color:var(--shiki-foreground)\">)?.</span><span style=\"color:var(--shiki-token-constant)\">groups</span><span style=\"color:var(--shiki-foreground)\">?.num   </span><span style=\"color:var(--shiki-token-comment)\">// 命名分组是 (?&#x3C;name>...)</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [
+            {
+              "line": 1,
+              "text": "[\"1\"] —— 任意位置匹配，没有「只匹配开头」",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>/pattern/flags 字面量</strong> —— <code>match</code> 与 <code>test</code> 都是任意位置匹配，\nPython 的 <code>re.match</code> 直觉在这里会反向失效。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "import re\nre.match(r\"\\d\", \"a1\")             # None —— match 只从开头匹配\nre.search(r\"\\d\", \"a1\")            # 找任意位置要用 search\nre.match(r\"(?P<num>\\d+)\", \"12\")   # 命名分组是 (?P<name>...)",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> re</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">re</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">match</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-keyword)\">r</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">\\d</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">\"a1\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">             # None —— match 只从开头匹配</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">re</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">search</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-keyword)\">r</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">\\d</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">\"a1\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">            # 找任意位置要用 search</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">re</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">match</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-keyword)\">r</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">?P&#x3C;num></span><span style=\"color:var(--shiki-token-constant)\">\\d</span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\">)</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">\"12\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">   # 命名分组是 (?P&#x3C;name>...)</span></span></code></pre>",
+          "lineCount": 4,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>re 模块 + r 字符串</strong> —— <code>match</code> 只匹配开头；<code>\\d</code> 这类转义必须用原始字符串。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-python/serialization",
+      "chapterId": "concepts-python/02-data",
+      "title": "序列化",
+      "kind": "concept",
+      "summary": "json 遇到不认识的类型抛错，JS 的 JSON 静默丢字段 —— 后者难查得多",
+      "bodyHtml": "<p>Python 的 <code>json.dumps</code> 遇到 <code>datetime</code>、<code>set</code> 这类非 JSON 类型会<strong>直接抛\n<code>TypeError</code></strong>，逼你显式处理；另外中文默认转义成 <code>\\uXXXX</code>，要可读得写\n<code>ensure_ascii=False</code>。</p>\n<p>JS 的 <code>JSON.stringify</code> 相反：函数、<code>undefined</code>、Symbol 会被<strong>静默丢弃</strong>，\n只有循环引用才抛错；<code>JSON.parse</code> 拿到什么是什么，也不验证形状。</p>\n<p>从 Python 过来会先觉得 JS「宽松真好」，然后在某个「字段莫名消失」的 bug 上\n花掉半天 —— 那种「丢了一点也不告诉你」的行为，正是 Python 的吵闹替你挡住的那一类问题。\n另外 JS 没有 Python 的 <code>default=</code> 钩子那种等价物，自定义类型要自己先转成普通对象。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "JSON.stringify({ f: () => 1, u: undefined, n: 1 })   // ⚠ '{\"n\":1}' —— 静默丢弃\n// 不报错也不提示，字段「莫名消失」时就该想到这里",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">JSON</span><span style=\"color:var(--shiki-token-function)\">.stringify</span><span style=\"color:var(--shiki-foreground)\">({ </span><span style=\"color:var(--shiki-token-function)\">f</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-foreground)\"> () </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> u</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> undefined</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> n</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\"> })   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ '{\"n\":1}' —— 静默丢弃</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 不报错也不提示，字段「莫名消失」时就该想到这里</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [
+            {
+              "line": 1,
+              "text": "'{\"n\":1}' —— 静默丢弃",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>JSON.stringify / parse</strong> —— 语言内置、宽松：函数与 <code>undefined</code> 被静默丢弃，\n只有循环引用才抛错。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "import json, datetime\njson.dumps({\"n\": 1}, ensure_ascii=False)   # 中文不转义\njson.dumps({\"d\": datetime.date.today()})   # 抛 TypeError，不静默丢弃",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> json</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> datetime</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">json</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">dumps</span><span style=\"color:var(--shiki-token-punctuation)\">({</span><span style=\"color:var(--shiki-token-string-expression)\">\"n\"</span><span style=\"color:var(--shiki-token-punctuation)\">: </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">}, ensure_ascii</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">False</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">   # 中文不转义</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">json</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">dumps</span><span style=\"color:var(--shiki-token-punctuation)\">({</span><span style=\"color:var(--shiki-token-string-expression)\">\"d\"</span><span style=\"color:var(--shiki-token-punctuation)\">: datetime.date.</span><span style=\"color:var(--shiki-token-function)\">today</span><span style=\"color:var(--shiki-token-punctuation)\">()})</span><span style=\"color:var(--shiki-token-comment)\">   # 抛 TypeError，不静默丢弃</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>json.dumps / loads</strong> —— 遇到非 JSON 类型抛 <code>TypeError</code>；中文默认转义成\n<code>\\uXXXX</code>。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-python/date-time",
+      "chapterId": "concepts-python/02-data",
+      "title": "日期时间",
+      "kind": "concept",
+      "summary": "datetime 不可变、月从 1 起；JS 的 Date 可变、月从 0 起，两个差异叠在一起最坑",
+      "bodyHtml": "<p>Python 的 <code>datetime</code> 是<strong>不可变的</strong>（运算返回新对象），月份从 1 开始；时区要显式带\n<code>tzinfo</code>，不带就是 naive 时间，naive 与 aware 不能直接相减（抛 <code>TypeError</code>）。</p>\n<p>JS 的 <code>Date</code> 是<strong>可变的</strong>（<code>setMonth</code> 改自己），月份从 0 开始。两个差异叠在一起，\n典型错误是：按 Python 直觉写 <code>new Date(2026, 1, 5)</code>，以为是一月五号，\n实际得到的是二月五号 —— 月份基准差 1，每次传月份都要重新确认。</p>\n<p>第二处：Python 里 <code>d = d.replace(month=2)</code> 必须接返回值，习惯之后到 JS 写\n<code>d.setMonth(1)</code> 会<strong>就地改了 d</strong>；若别处还引用着同一个 <code>Date</code>，就会看到意外的变化。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "const d = new Date(2026, 0, 5);   // ⚠ 月份从 0 起 —— 这里其实是 1 月 5 日\nd.setMonth(1);                    // 就地修改 d 本身，与 datetime 的不可变相反",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> d</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Date</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">2026</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 5</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 月份从 0 起 —— 这里其实是 1 月 5 日</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">d</span><span style=\"color:var(--shiki-token-function)\">.setMonth</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">);                    </span><span style=\"color:var(--shiki-token-comment)\">// 就地修改 d 本身，与 datetime 的不可变相反</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [
+            {
+              "line": 1,
+              "text": "月份从 0 起 —— 这里其实是 1 月 5 日",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>Date（可变、月从 0 起）</strong> —— 建议改用 Temporal 或 dayjs。\n月份基准差 1 与「就地修改」叠在一起，是这段迁移最容易踩的一格。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "from datetime import datetime\nd = datetime(2026, 1, 5)     # 月份从 1 起\nd.replace(month=2)           # 不可变：返回新对象，d 本身没变",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-foreground)\"> datetime </span><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> datetime</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">d </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> datetime</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">2026</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">     # 月份从 1 起</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">d</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">replace</span><span style=\"color:var(--shiki-token-punctuation)\">(month</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">           # 不可变：返回新对象，d 本身没变</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>datetime（不可变、月从 1 起）</strong> —— 带时区要显式 <code>tzinfo</code>，\n否则是 naive 时间，与 aware 时间相减会抛 <code>TypeError</code>。</p>\n"
+        }
+      }
+    }
+  ],
+  "summary": "装数据的容器、不可变的那一套、文本与时间的处理方式"
+}

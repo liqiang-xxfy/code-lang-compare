@@ -1,0 +1,45 @@
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/module-system
+    equivalence: divergent
+    code: |
+      import { helper } from "./util.js";   // @note! import 会真的求值这个模块
+      export function run() {}              // @note 没有 classpath，包由 npm 树负责
+    body: |
+      **ESM import/export** —— 文件即模块；`import` 是会求值的绑定，
+      不再只是「引用一个名字」。
+
+  - featureId: concepts-java/memory
+    equivalence: analogous
+    code: |
+      let o = {};               // @note 标记清除，与 JVM 的可达性 GC 相似
+      o = null;                 // @note! 但没有 JVM 那套 GC 调优旋钮与堆监控
+    body: |
+      **垃圾回收** —— 同样是可达性 + 自动回收，循环引用不是问题；
+      差别在可控性：JS 几乎不给你 GC 调优与堆监控的旋钮。
+
+  - featureId: concepts-java/concurrency-unit
+    equivalence: divergent
+    code: |
+      setTimeout(() => {}, 0);  // @note! 主线程永远只有一个，没有真并行的线程
+      new Worker("worker.js");  // @note Worker 不共享内存，靠 postMessage 通信
+    body: |
+      **事件循环 + Worker** —— 失去「加线程就能并行」；
+      但 `synchronized` / 可见性 / 死锁那一类坑也随之消失。
+
+  - featureId: concepts-java/async-model
+    equivalence: divergent
+    code: |
+      async function load() { return 1; }
+      load();                   // @note! 调用即开始跑，事件循环一直在驱动
+      // @note 没有线程池；阻塞事件循环会拖垮全部并发
+    body: |
+      **Promise / async-await** —— 事件循环自动驱动，`await` 不阻塞线程；
+      与 `Thread.sleep` 的直觉要区分开。

@@ -1,0 +1,46 @@
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/type-system
+    equivalence: divergent
+    code: |
+      1 == "1"      # @note! 得 False —— 不做隐式转换，类型不同就是不等
+      1 + "1"       # @note! 抛 TypeError，而不是拼成 "11"
+    body: |
+      **动态 + 强类型** —— 同样是运行时类型，但基本不做隐式转换。
+      在 JS 里靠 `console.log` 猜类型的调试直觉，到这里会失效。
+
+  - featureId: concepts-javascript/numeric-type
+    equivalence: divergent
+    code: |
+      9007199254740993    # @note! int 任意精度，原样保留（JS 会丢成 ...992）
+      7 / 2               # 3.5 —— 真除法
+      7 // 2              # @note 整除，向下取整；JS 没有对应运算符
+    body: |
+      **int（任意精度）+ float + Decimal** —— 整数不溢出；精确小数要 `Decimal`。
+
+  - featureId: concepts-javascript/null-value
+    equivalence: divergent
+    code: |
+      None is None        # @note 只有一个空值，判空统一写 is None
+      0 or "默认"          # @note! 结果是 "默认" —— or 兜底会吃掉合法的 0 和空串
+    body: |
+      **None** —— 只有一种空值。但 `or` 兜底不能替代判空，见上。
+
+  - featureId: concepts-javascript/value-semantics
+    equivalence: analogous
+    code: |
+      a = {"n": 1}
+      b = a
+      b["n"] = 2
+      a["n"]              # @note 2 —— 可变对象同样共享，与 JS 的对象一致
+      s = "x"             # @note 不可变对象怎么传都安全，JS 里没有等价物
+    body: |
+      **一切都是引用** —— 但真正的判据是「这个类型可变吗」：
+      可变（list/dict/set）共享，不可变（int/str/tuple）安全。

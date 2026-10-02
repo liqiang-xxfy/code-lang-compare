@@ -1,0 +1,49 @@
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/type-system
+    equivalence: divergent
+    code: |
+      1 == "1"      // @note! true —— == 会做隐式转换，Python 里这是 False
+      1 + "1"       // @note! 得 "11" —— 字符串拼接，不是抛 TypeError
+      "3" * "2"     // @note 得 6 —— 字符串被当成数字
+    body: |
+      **动态 + 弱类型** —— 同样是运行时类型，但比较与算术都会隐式转换。
+      在 Python 里靠异常定位问题的直觉，到这里会失效。
+
+  - featureId: concepts-python/numeric-type
+    equivalence: divergent
+    code: |
+      9007199254740993     // @note! 变成 ...992 —— 超出安全整数范围静默丢精度
+      7 / 2                // 3.5 —— 真除法与 Python 一致
+      // @note 没有整除运算符，7 // 2 要写 Math.floor(7 / 2)
+    body: |
+      **number（统一 float64）+ BigInt** —— 整数也是浮点，超范围静默丢精度。
+
+  - featureId: concepts-python/null-value
+    equivalence: divergent
+    code: |
+      let x;
+      x === null           // @note! false —— 只挡住 null，漏掉 undefined
+      x == null            // @note 惯用写法：一次挡掉两种空值
+    body: |
+      **null + undefined** —— 两种空值。Python 的 `x is None` 直译成 `=== null`
+      会漏掉更常见的 `undefined`。
+
+  - featureId: concepts-python/value-semantics
+    equivalence: analogous
+    code: |
+      const a = { n: 1 };
+      const b = a;
+      b.n = 2;
+      a.n                  // @note 2 —— 对象与 Python 的可变对象一样共享
+      let s = "x";         // @note 原始值不可变，对应 Python 的不可变对象
+    body: |
+      **原始值按值、对象按引用** —— 与 Python 结论一致；差别是 JS 有「原始值」
+      这一层，且没有 tuple / frozenset 那种能安全共享又复合的类型。

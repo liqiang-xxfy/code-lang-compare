@@ -3,7 +3,7 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml + content/languages/<id>/meta.yaml
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-01T10:37:38.274Z
+ * 生成时间：2026-10-02T09:30:56.010Z
  */
 import type { LanguageMeta } from '../schemas'
 export const allLanguageIds = ['arkts', 'dart', 'go', 'java', 'javascript', 'kotlin', 'python', 'rust', 'swift', 'typescript'] as const
@@ -20,14 +20,14 @@ export const publishPolicy = 'include-draft-with-badge' as const
 export const defaultBaselineLanguageId = 'javascript' as const
 /** 可作基准的语言（由各语言 meta.yaml 的 baseline: true 派生）。基准选择器只列这些 */
 export const baselineLanguageIds = ['java', 'javascript', 'python'] as const
-/** equivalence 徽章的参照系。内容级常量，**不随运行时基准切换** */
-export const equivalenceReferenceId = 'javascript' as const
-/** 参照系的语言显示名 —— 供页面文案使用，免去每处再查一次 meta */
-export const equivalenceReferenceName = 'JavaScript' as const
+/** 首访时对比列默认选中的语言。必须已启用且 ≠ 默认基准 */
+export const defaultCompareLanguageId = 'python' as const
+/** 默认对比语言的显示名 —— 供静态文案使用，免去每处再查一次 meta */
+export const defaultCompareLanguageName = 'Python' as const
 
 export const siteInfo = {
-  name: '多语言并排对比',
-  shortDescription: '并排对比多门语言的同一概念。默认以 JavaScript 为基准，也可选 Python / Java，突出差异，让已有知识快速迁移。',
+  name: '编程语言对照手册',
+  shortDescription: '选一门基准语言，逐板块对照目标语言的基础语法、迁移教程、迁移陷阱、速语词典与学习路线。默认以 JavaScript 为基准。',
   lang: 'zh-CN',
 } as const
 

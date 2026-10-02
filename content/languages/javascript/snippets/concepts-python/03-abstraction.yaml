@@ -1,0 +1,46 @@
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/class-inheritance
+    equivalence: divergent
+    code: |
+      class Base { #secret = 1; }   // @note # 是真正的语言级私有，Python 没有
+      class Sub extends Base {}     // @note! 只能单继承，没有 MRO / 多继承
+      // @note this 是隐式的：方法单独取出或当回调传入时会丢 this
+    body: |
+      **class + 原型链** —— 单继承，但 `#name` 是真私有；
+      Python 的 `self` 是显式且绑定的，JS 的 `this` 不是。
+
+  - featureId: concepts-python/interface
+    equivalence: divergent
+    code: |
+      // @note! 语言层面没有 interface，只要求「有这个方法」
+      function render(x) { return x.toText(); }   // @note 运行时不强制任何协议
+    body: |
+      **无语言级概念** —— `Protocol` 的静态检查与 `ABC` 的运行时强制
+      在 JS 里都没有等价物，只能写注释或上 TS。
+
+  - featureId: concepts-python/generics
+    equivalence: divergent
+    code: |
+      function first(list) { return list[0]; }    // @note! JS 没有类型标注，更没有泛型
+      // @note 要泛型得用 TS，且同样运行时擦除
+    body: |
+      **无（靠 TS）** —— 语言本身连标注语法都没有，泛型完全依赖 TypeScript。
+
+  - featureId: concepts-python/error-handling
+    equivalence: divergent
+    code: |
+      throw "出错了";               // @note! 可以抛任意值，不限于异常类
+      try { risky(); } catch (e) {
+        e.message                   // @note undefined —— e 不一定是 Error
+      }
+    body: |
+      **try/catch + Error 子类** —— 可以 `throw` 任意值，
+      所以「异常一定是个有类型的对象」这个假设会失效。

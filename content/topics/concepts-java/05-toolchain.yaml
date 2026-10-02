@@ -1,0 +1,134 @@
+id: concepts-java/05-toolchain
+topicId: concepts-java
+title: 工具链与生态
+order: 5
+summary: 装包、跑起来、测、查、格式化 —— 迁移后每天都要用的那一套
+features:
+  - id: concepts-java/package-manager
+    title: 包管理
+    kind: concept
+    summary: 构建工具兼管依赖、拉的是 JAR vs 独立的 npm 生态、拉的是源码包
+    body: |
+      Java 的包管理由**构建工具**承担：Maven 用 `pom.xml`、Gradle 用 `build.gradle`，
+      依赖用坐标（`groupId:artifactId:version`）从中央仓库拉 JAR，工具负责传递依赖解析；
+      编译期与运行期共享同一份 classpath。
+
+      JS 用 `package.json` 声明依赖 + `node_modules` 落地，`npm install` 装的是源码包
+      （能读到代码，不只是二进制），锁文件标配。
+
+      从 Java 过去的几个变化：① 「包管理」不再是构建工具的一部分，而是独立的 npm 生态；
+      ② 依赖带着源码与类型声明，调试能直接进库代码；③ 版本范围写法不同（`^` / `~`），
+      锁文件让「拉到的到底是哪一版」比 Maven 的版本仲裁更明确。反过来，Maven 有
+      `dependencyManagement` 那种集中仲裁，npm 里要另找工具。
+
+  - id: concepts-java/dependency-isolation
+    title: 依赖隔离
+    kind: concept
+    summary: classpath 扁平、一个类名只能一个版本 vs node_modules 就近查找、多版本共存
+    body: |
+      Java 的 classpath 是**扁平**的：同一个类加载器下，一个类名只能对应一个版本，
+      多版本共存要靠类加载器隔离或 shading（把依赖改名重打包）。这正是「classpath 地狱」
+      的根源 —— 两个库要求同一依赖的不同版本时，只能选一个。
+
+      JS 的 `node_modules` **就近查找**：不同的包可以各自依赖同一库的不同版本，
+      互不干扰（代价是体积与「到底装了哪个版本」的困惑）。
+
+      从 Java 过去会觉得这一条**明显更省心**：不再需要 `dependencyManagement` 仲裁、
+      不再需要 shading。但要理解 npm 为此付出的代价：树可以非常大，同一库多版本并存
+      也让「我改的到底是哪一份」更难查。
+
+  - id: concepts-java/runner
+    title: 运行时
+    kind: concept
+    summary: JVM 字节码加 JIT、跑热了更快 vs 浏览器与 Node 两个引擎、各给各的 API
+    body: |
+      Java 的运行时是 **JVM**：源码编译成字节码，JVM 负责解释执行与 **JIT** 即时编译
+      （热点代码编译成机器码，所以「跑热了更快」），字节码带来跨平台；代价是启动慢、
+      内存占用大。
+
+      JS 的运行时是**分裂**的：浏览器引擎与 Node 各有各的 API，「这段代码在哪跑」必须
+      时刻意识到；引擎同样有 JIT，但你没有 JVM 那样统一的运行时与调优面。
+
+      从 Java 过去的两点：① `javac` 那一步没有了 —— JS 直接跑源码（构建工具是另一回事）；
+      ② JVM 那套「统一的堆、线程模型、监控工具」在 JS 里没有对等物，浏览器里更是什么
+      都不给你。反过来 JS 的启动比 JVM 快得多，脚本类任务的手感完全不同。
+
+  - id: concepts-java/build-tool
+    title: 构建工具
+    kind: concept
+    summary: 构建等于编译、工具即项目骨架 vs 不构建也能跑、工具面向发布与浏览器
+    body: |
+      Java 的「构建」是**编译**：`javac` 把源码编成字节码。Maven / Gradle 不只是打包器，
+      而是项目的骨架 —— 依赖、编译、测试、打包、发布都在里面声明，产出 JAR / WAR。
+
+      JS 的构建是**打包 + 转译**：Vite / webpack 把 `node_modules` 与最新语法处理成
+      浏览器能直接跑的产物。开发时不编译（源码直接执行），构建是「为了运行环境」
+      而不是「为了生成可执行物」。
+
+      从 Java 过去要转变理解：Java 里不编译就没法运行，JS 里不构建也能运行（浏览器 / Node
+      直接跑）；构建工具在 JS 里更多是「面向发布与浏览器」的。别把「Maven 那种一站式
+      项目骨架」的心智直接搬过来 —— 测试、lint、打包在 JS 里是各自独立的工具。
+
+  - id: concepts-java/test-framework
+    title: 测试框架
+    kind: concept
+    summary: JUnit 的注解加静态断言 vs describe/it/expect，发现方式也换了
+    body: |
+      Java 的测试是 **JUnit 5**：方法上标 `@Test`，断言用 `assertEquals` / `assertThrows`
+      这类静态方法（或 AssertJ 的流式断言），测试发现靠**注解**，可以在注解上参数化、分组。
+
+      JS 的测试是「描述 + 回调」风格：`test('名', () => { expect(x).toBe(y) })`，
+      框架提供 `describe` / `it` / `expect` 一整套词汇。
+
+      从 Java 过去要记两件事：① 断言从 `assertEquals(expected, actual)` 换成
+      `expect(actual).toBe(expected)`，参数顺序与语义都变了（`toBe` 是 `===`、
+      `toEqual` 才是深比较）；② 测试发现不再靠注解，而是框架按文件名 / 目录 glob 收集 ——
+      少了「忘了标 `@Test` 就不跑」的隐式陷阱，多了「文件放错目录就不跑」的新陷阱。
+
+  - id: concepts-java/testing-mock
+    title: 测试替身
+    kind: concept
+    summary: 依赖是注入的、替换很自然 vs 依赖是模块导入的、ESM 绑定换不动
+    body: |
+      Java 的 mock 主流是 **Mockito**：`@Mock` / `@InjectMocks` 靠字节码生成代理，
+      能验证调用次数与参数；静态方法与构造器 mock 需要额外能力（mockito-inline），
+      Spring 那套还能靠容器注入替身。
+
+      JS 的模块级 mock（`vi.mock` / `jest.mock`）需要**提升到 import 之前**，
+      写法偏魔法，且对 ESM 的支持一直有坑；对象属性可以直接替换。
+
+      从 Java 过去，落差在「依赖是显式注入还是模块导入」：Java 里依赖通常作为字段 /
+      构造参数注入，替换它们很自然；JS 里依赖常常是模块顶部的 `import`，而 ESM 绑定只读，
+      替换不动 —— 必须提前用 `vi.mock` 声明。你习惯的「注入替身」在 JS 里要先解决
+      「这个依赖怎么进来的」。
+
+  - id: concepts-java/lint-format
+    title: 代码检查与格式化
+    kind: concept
+    summary: 检查与格式化常是各自独立的工具 vs ESLint + Prettier 可插拔组合
+    body: |
+      Java 的检查工具是分类的：Checkstyle 管风格、SpotBugs / Error Prone 管缺陷，
+      格式化用 google-java-format（配 Spotless 集成进构建），通常由 Maven / Gradle 插件
+      在构建时执行、失败就阻断。
+
+      JS 的 ESLint 是**规则可插拔**的：检查什么、报什么级别都能配，风格交给 Prettier，
+      两者刻意分离，于是每个项目一套配置，通常跑在 CI 或 pre-commit 而非构建里。
+
+      从 Java 过去的两点：① 「检查」与「格式化」在 Java 里常是各自独立的工具链，
+      JS 里是 ESLint + Prettier 的组合；② JS 的项目配置差异比 Java 大得多，
+      你在 Java 里熟悉的「一套 google-java-format 走天下」在 JS 里不成立，
+      先看团队既有配置再动手。
+
+  - id: concepts-java/repl
+    title: 交互式环境
+    kind: concept
+    summary: jshell 能用但手感一般；到 JS 里随手验证变成了几秒钟的事
+    body: |
+      Java 9 起有 `jshell` 可以交互式求值，但 Java 的编译加类型系统让 REPL 的手感不如
+      动态语言顺 —— 很多「一段话验证一个语法」的事，在 Java 里更常靠写个小类跑。
+
+      JS 用 `node` 进 REPL，或在浏览器控制台里试；REPL 里可以直接定义函数、对象、跑异步。
+
+      从 Java 过去，REPL 会变成一件**更顺手**的事：没有 `public class` 外壳、没有编译步骤，
+      随手验证一条语法或一个行为就是几秒钟的事。核对本手册里任何一条差异，最快的办法
+      就是两边各开一个会话敲一遍。

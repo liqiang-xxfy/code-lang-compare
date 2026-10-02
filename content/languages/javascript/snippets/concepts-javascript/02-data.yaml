@@ -1,0 +1,63 @@
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/collections
+    equivalence: identical
+    code: |
+      const o = { 1: "a" };
+      o[1] === o["1"]        // true —— 数字键被转成字符串
+      const m = new Map();   // 键可以是任意值
+    body: |
+      **Array / Object / Map / Set** —— 对象字面量与 `Map` 语义不同：
+      前者的键只能是字符串或 Symbol。另**没有不可变的有序容器**。
+
+  - featureId: concepts-javascript/immutable-data
+    equivalence: identical
+    code: |
+      const o = Object.freeze({ inner: { n: 1 } });
+      o.inner.n = 2          // 2 —— freeze 是浅的，嵌套照样能改
+      o.n = 3                // 静默失败（严格模式下抛错）
+    body: |
+      **Object.freeze（浅）** —— 深冻结要递归；`structuredClone` 用于复制。
+      冻结是运行时行为，不是类型属性。
+
+  - featureId: concepts-javascript/string-format
+    equivalence: identical
+    code: |
+      const n = 3.14159;
+      `${n}`                 // "3.14159"
+      n.toFixed(2)           // "3.14" —— 格式化靠方法调用，不是格式串
+    body: |
+      **模板字符串 + toFixed** —— 没有 printf 风格的语言级格式化，
+      对齐、千分位、日期格式各要一个方法或库。
+
+  - featureId: concepts-javascript/regex
+    equivalence: identical
+    code: |
+      "a1b".match(/\d/)      // ["1"] —— 匹配任意位置
+      /(?<num>\d+)/.exec("a12")?.groups?.num   // "12"
+    body: |
+      **/pattern/flags 字面量** —— `match` 匹配任意位置；命名分组是 `(?<name>...)`。
+
+  - featureId: concepts-javascript/serialization
+    equivalence: identical
+    code: |
+      JSON.stringify({ f: () => 1, u: undefined, n: 1 })   // '{"n":1}' —— 静默丢弃
+      JSON.stringify({ d: new Date() })                    // 日期变成字符串
+    body: |
+      **JSON.stringify / parse** —— 静默丢弃函数与 `undefined`，
+      不报错也不提示，字段「莫名消失」时就该想到这里。
+
+  - featureId: concepts-javascript/date-time
+    equivalence: identical
+    code: |
+      const d = new Date(2026, 0, 5);   // 月份从 0 起 —— 这里其实是 1 月
+      d.setMonth(1);                    // 就地修改，d 本身变了
+    body: |
+      **Date（可变、月从 0 起）** —— 建议改用 Temporal 或 dayjs。

@@ -1,0 +1,83 @@
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/package-manager
+    equivalence: identical
+    code: |
+      npm install lodash
+      npm install -D vitest
+      npx vitest
+    body: |
+      **npm / pnpm** —— `package.json` 声明 + `node_modules` 落地，
+      锁文件（`package-lock.json`）是标配。
+
+  - featureId: concepts-javascript/dependency-isolation
+    equivalence: identical
+    code: |
+      // node_modules 就近查找：同一个库的不同版本可以共存
+      node_modules/a/node_modules/lodash
+      node_modules/lodash
+    body: |
+      **node_modules（就近查找）** —— 同一依赖可能有多个版本共存，
+      代价是体积与「到底装了哪一版」的困惑。
+
+  - featureId: concepts-javascript/runner
+    equivalence: identical
+    code: |
+      // 同一份写法在两端 API 不同
+      fetch("/api");        // 浏览器与 Node 18+ 都有，但 fs / DOM 各只有一边有
+    body: |
+      **Node.js / 浏览器引擎** —— 事件循环驱动，单线程 + 异步 I/O。
+      「这段代码在哪跑」是必须时刻意识到的问题。
+
+  - featureId: concepts-javascript/build-tool
+    equivalence: identical
+    code: |
+      npm run build      // 打包 + 转译 + 压缩，产物面向浏览器
+      // 浏览器不能直接跑 node_modules 与最新语法，所以这一步是必备的
+    body: |
+      **Vite / webpack** —— 打包 + 转换，产物面向浏览器。
+      开发时也一直在跑，是日常的一部分。
+
+  - featureId: concepts-javascript/test-framework
+    equivalence: identical
+    code: |
+      import { test, expect } from "vitest";
+      test("加法", () => { expect(1 + 1).toBe(2); });
+    body: |
+      **Vitest / Jest** —— `test('名', () => {})` 风格，
+      断言靠 `expect` 链（`toBe` / `toEqual` 语义不同）。
+
+  - featureId: concepts-javascript/testing-mock
+    equivalence: identical
+    code: |
+      vi.mock("./api", () => ({ fetchUser: vi.fn() }));   // 提升到 import 之前
+      const spy = vi.fn().mockReturnValue(1);
+    body: |
+      **vi.fn / jest.mock** —— 模块级 mock 需要提升，写法偏魔法，
+      且对 ESM 的支持一直有坑。
+
+  - featureId: concepts-javascript/lint-format
+    equivalence: identical
+    code: |
+      npx eslint .        # 规则可插拔，报什么级别都能配
+      npx prettier --write .
+    body: |
+      **ESLint + Prettier** —— 规则可插拔，风格与检查分离，
+      于是每个项目一套配置。
+
+  - featureId: concepts-javascript/repl
+    equivalence: identical
+    code: |
+      node
+      > [1, 2, 3].map((x) => x * 2)
+      [ 2, 4, 6 ]
+    body: |
+      **node / 浏览器控制台** —— `node` 直接进 REPL。
+      核对本手册里任意一条差异，最快的办法就是两边各敲一遍。

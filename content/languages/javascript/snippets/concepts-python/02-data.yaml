@@ -1,0 +1,65 @@
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/collections
+    equivalence: divergent
+    code: |
+      const o = { 1: "a" };
+      o[1] === o["1"]      // @note! true —— 对象字面量的数字键被转成字符串
+      const m = new Map(); // @note 任意键映射要显式用 Map；JS 没有 tuple
+    body: |
+      **Array / Object / Map / Set** —— 对象字面量只支持字符串键，
+      真正的任意键映射要显式用 `Map`。
+
+  - featureId: concepts-python/immutable-data
+    equivalence: divergent
+    code: |
+      const o = Object.freeze({ inner: { n: 1 } });
+      o.inner.n = 2        // @note! 2 —— freeze 是浅的，嵌套照样能改
+      // @note 没有不可变类型，也就不能用「不可变」当字典键
+    body: |
+      **Object.freeze（浅）** —— 冻结是运行时行为，不是类型属性；
+      没有 tuple 那种「改不了又能当键」的类型。
+
+  - featureId: concepts-python/string-format
+    equivalence: divergent
+    code: |
+      const n = 3.14159;
+      n.toFixed(2)                 // @note "3.14" —— 格式化靠方法调用，没有格式串
+      (1234567).toLocaleString()   // @note "1,234,567"，对齐要 padStart
+    body: |
+      **模板字符串 + toFixed** —— 没有 printf 风格的语言级格式化，
+      小数、千分位、对齐、日期各要一个方法或库。
+
+  - featureId: concepts-python/regex
+    equivalence: divergent
+    code: |
+      "a1".match(/\d/)     // @note! ["1"] —— 任意位置匹配，没有「只匹配开头」
+      /(?<num>\d+)/.exec("12")?.groups?.num   // @note 命名分组是 (?<name>...)
+    body: |
+      **/pattern/flags 字面量** —— `match` 与 `test` 都是任意位置匹配，
+      Python 的 `re.match` 直觉在这里会反向失效。
+
+  - featureId: concepts-python/serialization
+    equivalence: divergent
+    code: |
+      JSON.stringify({ f: () => 1, u: undefined, n: 1 })   // @note! '{"n":1}' —— 静默丢弃
+      // @note 不报错也不提示，字段「莫名消失」时就该想到这里
+    body: |
+      **JSON.stringify / parse** —— 语言内置、宽松：函数与 `undefined` 被静默丢弃，
+      只有循环引用才抛错。
+
+  - featureId: concepts-python/date-time
+    equivalence: divergent
+    code: |
+      const d = new Date(2026, 0, 5);   // @note! 月份从 0 起 —— 这里其实是 1 月 5 日
+      d.setMonth(1);                    // @note 就地修改 d 本身，与 datetime 的不可变相反
+    body: |
+      **Date（可变、月从 0 起）** —— 建议改用 Temporal 或 dayjs。
+      月份基准差 1 与「就地修改」叠在一起，是这段迁移最容易踩的一格。

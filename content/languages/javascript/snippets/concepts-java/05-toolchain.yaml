@@ -1,0 +1,81 @@
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/package-manager
+    equivalence: analogous
+    code: |
+      npm install lodash        // @note 独立于构建工具的包管理生态
+      npm install -D vitest     // @note 依赖带源码与类型声明，调试能进库代码
+    body: |
+      **npm / pnpm** —— 包管理不再是构建工具的一部分；
+      锁文件让「拉到的到底是哪一版」比 Maven 仲裁更明确。
+
+  - featureId: concepts-java/dependency-isolation
+    equivalence: divergent
+    code: |
+      node_modules/a/node_modules/lodash   // @note! 就近查找，多版本共存
+      // @note 不需要 dependencyManagement 仲裁，也不用 shading
+    body: |
+      **node_modules（就近查找）** —— 多版本共存，解决 classpath 地狱的另一种方式；
+      代价是体积与「我改的是哪一份」更难查。
+
+  - featureId: concepts-java/runner
+    equivalence: divergent
+    code: |
+      fetch("/api");            // @note! 运行时分裂成浏览器与 Node，各给各的 API
+      // @note 没有统一的 JVM 与监控工具，但启动快得多
+    body: |
+      **Node.js / 浏览器引擎** —— 没有统一的 JVM 与调优面；
+      能直接跑源码，启动比 JVM 快得多。
+
+  - featureId: concepts-java/build-tool
+    equivalence: divergent
+    code: |
+      npm run build             // @note! 打包 + 转译；不构建也能直接跑源码
+      // @note 构建工具不是项目骨架，测试 / lint / 打包各自独立
+    body: |
+      **Vite / webpack** —— 构建面向运行环境（浏览器），不是「生成可执行物」；
+      别把 Maven 那种一站式项目骨架的心智直接搬过来。
+
+  - featureId: concepts-java/test-framework
+    equivalence: divergent
+    code: |
+      test("加法", () => { expect(1 + 1).toBe(2); });   // @note 断言参数顺序与 Java 相反
+      // @note! 发现靠文件 glob，不靠 @Test 注解
+    body: |
+      **Vitest / Jest** —— 断言从 `assertEquals(expected, actual)` 换成
+      `expect(actual).toBe(expected)`；测试发现不再靠注解。
+
+  - featureId: concepts-java/testing-mock
+    equivalence: divergent
+    code: |
+      vi.mock("./api", () => ({ fetchUser: vi.fn() }));   // @note! 模块绑定只读，替换不动
+      // @note 依赖是 import 进来的、不是注入的，所以要先声明 mock
+    body: |
+      **vi.fn / jest.mock** —— 依赖通常不是注入的而是模块导入的，
+      ESM 绑定只读，必须提前用 `vi.mock` 声明。
+
+  - featureId: concepts-java/lint-format
+    equivalence: divergent
+    code: |
+      npx eslint .              // @note! 检查与格式化是 ESLint + Prettier 的组合
+      npx prettier --write .    // @note 每个项目一套配置，没有统一的 google-java-format
+    body: |
+      **ESLint + Prettier** —— 规则可插拔、风格与检查分离；
+      项目配置差异比 Java 大得多，先看团队既有配置。
+
+  - featureId: concepts-java/repl
+    equivalence: identical
+    code: |
+      node
+      > [1, 2, 3].map((x) => x * 2)
+      [ 2, 4, 6 ]
+    body: |
+      **node / 浏览器控制台** —— 没有 `public class` 外壳、没有编译步骤，
+      随手验证一条语法就是几秒钟的事。

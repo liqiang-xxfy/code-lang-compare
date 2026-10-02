@@ -11,6 +11,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { defaultCompareLanguageId } from '../../src/generated/registry.gen'
 import { resolveBasePath, resolveSiteUrl } from '../lib/env-paths'
 
 const DIST = path.resolve('dist')
@@ -28,7 +29,16 @@ interface Manifest {
   /** 预渲染但**不进 sitemap** 的额外路由（/search）—— 详细理由见 04-build.ts */
   prerenderExtra?: string[]
   seo: Record<string, { title: string; description: string }>
-  topics: Array<{ id: string; title: string; chapters: Array<{ id: string; title: string }> }>
+  topics: Array<{
+    id: string
+    title: string
+    section: string
+    baseline: string
+    target?: string
+    chapters: Array<{ id: string; title: string }>
+  }>
+  pairs: Array<{ baseline: string; target: string; sections: string[] }>
+  sections: Array<{ id: string; shape: string; scope: string; dataKey?: string }>
   featureIndex: Record<string, { title: string; chapterId: string; topicId: string }>
 }
 
@@ -56,14 +66,67 @@ function routeToHtml(route: string): string {
   return path.join(DIST, route.replace(/^\//, ''), 'index.html')
 }
 
-/** 每条路由用来验证「内容确实被预渲染了」的探针文本 */
+/**
+ * 该 (基准, 板块) 下**预渲染实际采用**的方向。
+ *
+ * 与运行时 `resolvePairTarget` 同一套规则：优先默认对比语言，否则该板块第一个
+ * 有内容的方向。探针必须跟着它走 —— 用 `manifest.pairs[0]`（按字母序的
+ * `javascript--go`）去找首条陷阱，会对着讲 `javascript → python` 的页面
+ * 报「找不到内容」。
+ */
+function pickPair(baseline: string, section: string) {
+  const candidates = manifest.pairs.filter(
+    (p) => p.baseline === baseline && p.sections.includes(section),
+  )
+  return candidates.find((p) => p.target === defaultCompareLanguageId) ?? candidates[0]
+}
+
+/**
+ * 每条路由用来验证「内容确实被预渲染了」的探针文本。
+ *
+ * ⚠ 这里曾用 `/^\/compare\/([^/]+)\/([^/]+)$/` —— 那是 P7 之前**两段旧地址**的形状，
+ * 而现在的章节路由是 4 段（`/compare/<基准>/<板块>/<章节 slug>`）。
+ * 结果是**所有 /compare 路由的验收都静默失效**（正则不匹配 → 返回 null → 跳过检查），
+ * 只有 /feature 那几条还在真正工作。也就是说「空壳预渲染会在这里失败」这句话，
+ * 对板块页一直没有兑现。
+ */
 function probeTextFor(route: string): string | null {
-  const chapter = /^\/compare\/([^/]+)\/([^/]+)$/.exec(route)
+  // 章节型：/compare/<基准>/<板块>/<章节 slug>
+  const chapter = /^\/compare\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(route)
   if (chapter) {
-    const chapterId = `${chapter[1]}/${chapter[2]}`
-    const topic = manifest.topics.find((t) => t.chapters.some((c) => c.id === chapterId))
-    return topic?.chapters.find((c) => c.id === chapterId)?.title ?? null
+    const [, baseline, section, slug] = chapter
+    const def = manifest.sections.find((s) => s.id === section)
+    if (!def) return null
+    /*
+     * 对级板块必须连 target 一起匹配 —— 多个方向会有同名 slug（`01-functions` 到处都是），
+     * 而预渲染出来的那一页只讲**默认方向**（与运行时 resolvePairTarget 同规则）。
+     */
+    const target = def.scope === 'pair' ? pickPair(baseline!, section!)?.target : undefined
+    const topic = manifest.topics.find(
+      (t) =>
+        t.baseline === baseline &&
+        t.section === section &&
+        (def.scope !== 'pair' || t.target === target),
+    )
+    return topic?.chapters.find((c) => c.id.split('/')[1] === slug)?.title ?? null
   }
+
+  // 列表型：/compare/<基准>/<板块> —— 用该方向首条内容的标题做探针
+  const list = /^\/compare\/([^/]+)\/([^/]+)$/.exec(route)
+  if (list) {
+    const [, baseline, section] = list
+    const dataKey = manifest.sections.find((s) => s.id === section)?.dataKey
+    const pair = pickPair(baseline!, section!)
+    if (!pair || !dataKey) return null
+    const shard = path.resolve(`src/generated/static/${pair.baseline}--${pair.target}.json`)
+    if (!fs.existsSync(shard)) return null
+    const payload = JSON.parse(fs.readFileSync(shard, 'utf8')) as Record<string, unknown>
+    const items = payload[dataKey]
+    const first = Array.isArray(items) ? (items[0] as Record<string, unknown> | undefined) : undefined
+    // 陷阱/路线用 title，词典用 term
+    return (first?.title as string) ?? (first?.term as string) ?? null
+  }
+
   const feature = /^\/feature\/([^/]+)\/([^/]+)$/.exec(route)
   if (feature) return manifest.featureIndex[`${feature[1]}/${feature[2]}`]?.title ?? null
   return null

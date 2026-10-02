@@ -1,0 +1,57 @@
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/class-inheritance
+    equivalence: identical
+    code: |
+      class A:
+          def greet(self): return "A"     # self 是显式参数
+      class B(A): pass                    # 支持多继承，super() 走 MRO 链
+      a = A()
+      a.__dict__                          # 没有真私有：_x 只是约定
+    body: |
+      **class + 多继承** —— 支持多继承与 MRO；私有靠约定，没有语言级私有。
+
+  - featureId: concepts-python/interface
+    equivalence: identical
+    code: |
+      from typing import Protocol
+      class Renderable(Protocol):           # 结构化：长得像就算，不必显式继承
+          def to_text(self) -> str: ...
+      from abc import ABC, abstractmethod
+      class Base(ABC):                      # 名义式：必须显式继承
+          @abstractmethod
+          def to_text(self) -> str: ...
+    body: |
+      **Protocol / ABC** —— Protocol 是结构化，ABC 是名义式；
+      ABC 还能在实例化时就拦住不完整的实现。
+
+  - featureId: concepts-python/generics
+    equivalence: identical
+    code: |
+      from typing import TypeVar
+      T = TypeVar("T")
+      def first(items: list[T]) -> T: ...   # 标注在运行时被擦除
+    body: |
+      **typing.TypeVar** —— 标注层面存在，运行时擦除，解释器自己不检查，
+      靠 mypy 这类外部工具。
+
+  - featureId: concepts-python/error-handling
+    equivalence: identical
+    code: |
+      raise ValueError("出错了")     # 只能抛 BaseException 的子类
+      try:
+          risky()
+      except ValueError as e:       # except 必须写类型
+          pass
+      else:
+          pass                       # 多一个 else：没出错时执行
+    body: |
+      **try/except + 异常类** —— 只能抛 `BaseException` 子类；`except` 必须写类型；
+      `else` 把成功路径从 `try` 里挪出来。

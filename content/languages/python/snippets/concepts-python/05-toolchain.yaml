@@ -1,0 +1,82 @@
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/package-manager
+    equivalence: identical
+    code: |
+      pip install requests
+      uv add requests              # dev 依赖组对标 npm install -D
+      uvx ruff                     # 对标 npx，临时跑一个工具
+    body: |
+      **pip / uv** —— `pyproject.toml` 或 `requirements.txt` 声明，
+      依赖装进环境；锁文件不是标配。
+
+  - featureId: concepts-python/dependency-isolation
+    equivalence: identical
+    code: |
+      python -m venv .venv
+      # 同一个环境里同名包只能有一个版本
+      # 冲突时正确动作是建第二个 venv，不是升降级
+    body: |
+      **venv（全局一套）** —— 同名包只能有一个版本，
+      没有「各装各的」这回事。
+
+  - featureId: concepts-python/runner
+    equivalence: identical
+    code: |
+      python app.py
+      # 运行时就是解释器本身，不存在「平台 API 不一致」这层问题
+    body: |
+      **CPython 解释器** —— GIL 限制下多线程不能并行跑 CPU 密集任务；
+      好处是不用想「这段代码在哪跑」。
+
+  - featureId: concepts-python/build-tool
+    equivalence: identical
+    code: |
+      python -m build        # 只有发布时才打包成 wheel / sdist
+      # 开发时不需要构建 —— 改完直接跑
+    body: |
+      **通常不需要** —— 解释执行；只有发布时才打包。
+
+  - featureId: concepts-python/test-framework
+    equivalence: identical
+    code: |
+      def test_add():
+          assert 1 + 1 == 2      # 测试就是普通函数加裸 assert
+      # 发现靠命名约定：test_*.py / test_*
+    body: |
+      **pytest** —— `def test_x(): assert ...`，用 `assert` 而非 `expect`。
+
+  - featureId: concepts-python/testing-mock
+    equivalence: identical
+    code: |
+      def test_it(monkeypatch):
+          monkeypatch.setattr(api, "fetch_user", lambda: {"id": 1})
+          # 直接替换属性，作用域由 fixture 管，用完自动还原
+    body: |
+      **unittest.mock / monkeypatch** —— 靠鸭子类型替换属性，通常更直白。
+
+  - featureId: concepts-python/lint-format
+    equivalence: identical
+    code: |
+      ruff check .
+      ruff format .
+      # 风格几乎没有可选项 —— 官方偏好就是唯一答案
+    body: |
+      **Ruff / Black** —— 风格几乎不可配置，生态默认值就是共识。
+
+  - featureId: concepts-python/repl
+    equivalence: identical
+    code: |
+      python
+      >>> [x * 2 for x in [1, 2, 3]]
+      [2, 4, 6]
+    body: |
+      **python / ipython** —— `python` 直接进 REPL，无参数；
+      `ipython` 提供更好的补全与历史。

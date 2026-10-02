@@ -1,0 +1,159 @@
+{
+  "id": "concepts-javascript/03-abstraction",
+  "topicId": "concepts-javascript",
+  "title": "抽象与错误",
+  "order": 3,
+  "section": "concepts",
+  "baseline": "javascript",
+  "features": [
+    {
+      "id": "concepts-javascript/class-inheritance",
+      "chapterId": "concepts-javascript/03-abstraction",
+      "title": "类与继承",
+      "kind": "concept",
+      "summary": "原型链上的单继承 vs 原生多继承加 MRO，但真正的差别在「私有」",
+      "bodyHtml": "<p>JS 的 <code>class</code> 是原型链的语法糖：单继承，<code>super</code> 沿原型向上找，\n私有字段用 <code>#name</code>（真正的语言级私有）。</p>\n<p>Python 的 <code>class</code> 是一等公民：支持<strong>多继承</strong>，方法解析顺序由 MRO\n决定（<code>super()</code> 走的是 MRO 链，不是「父类」这一个）。</p>\n<p>但迁移时真正的绊脚石是<strong>私有</strong>：Python 没有真私有 ——\n<code>_name</code> 是约定、<code>__name</code> 只是名称改写（name mangling），\n外部依然够得着。于是「这个属性不该被外面碰」在 Python 里\n只能靠约定与文档，不能靠语言保证。</p>\n<p>另外 Python 的实例方法第一个参数是显式的 <code>self</code>，没有隐式 <code>this</code>；\n「把这个方法单独取出来用」时会丢掉绑定，这是从 JS 过来最常见的报错。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "class Base { #secret = 1; }        // # 是真正的语言级私有\nclass Sub extends Base {}          // 只能单继承，super 沿原型链向上",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Base</span><span style=\"color:var(--shiki-foreground)\"> { #secret </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; }        </span><span style=\"color:var(--shiki-token-comment)\">// # 是真正的语言级私有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Sub</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> Base</span><span style=\"color:var(--shiki-foreground)\"> {}          </span><span style=\"color:var(--shiki-token-comment)\">// 只能单继承，super 沿原型链向上</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>class + 原型链</strong> —— 单继承，多态靠原型；私有字段用 <code>#name</code>，\n是语言保证的私有（运行时外部拿不到）。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "class A:\n    def greet(self): return \"A\"     # ⚠ self 是显式参数；单独取出方法会丢绑定\nclass B(A): pass                    # 支持多继承，super() 走 MRO 链\na = A()\na.__dict__                          # 没有真私有：_x 只是约定，__x 只是改名",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> A</span><span style=\"color:var(--shiki-foreground)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    def</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">self</span><span style=\"color:var(--shiki-foreground)\">): </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-string-expression)\"> \"A\"</span><span style=\"color:var(--shiki-token-comment)\">     # ⚠ self 是显式参数；单独取出方法会丢绑定</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> B</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">A</span><span style=\"color:var(--shiki-foreground)\">): </span><span style=\"color:var(--shiki-token-keyword)\">pass</span><span style=\"color:var(--shiki-token-comment)\">                    # 支持多继承，super() 走 MRO 链</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> A</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">__dict__</span><span style=\"color:var(--shiki-token-comment)\">                          # 没有真私有：_x 只是约定，__x 只是改名</span></span></code></pre>",
+          "lineCount": 5,
+          "notes": [
+            {
+              "line": 2,
+              "text": "self 是显式参数；单独取出方法会丢绑定",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>class + 多继承</strong> —— 支持多继承与 MRO；私有靠约定，没有语言级私有。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-javascript/interface",
+      "chapterId": "concepts-javascript/03-abstraction",
+      "title": "接口与协议",
+      "kind": "concept",
+      "summary": "JS 运行时根本没有「接口」这个东西，而 Python 有两种表达方式",
+      "bodyHtml": "<p>JS 在语言层面<strong>没有接口</strong>这一概念 —— 一个对象能不能当作某物使用，\n完全看它有没有对应的方法（鸭子类型），<code>interface</code> 只是 TypeScript\n的编译期概念，运行时不留下任何痕迹。</p>\n<p>Python 两种都有：<code>Protocol</code>（结构化 —— 「长得像就算」）与\n<code>ABC</code>（名义式 —— 「必须显式继承」）。选哪个是设计决策：\nProtocol 更灵活且不侵入，ABC 能在实例化时就拦住不完整的实现。</p>\n<p>迁移视角：在 JS 里「这个参数应该实现哪些方法」只能写在注释或 TS 类型里，\n到 Python 里<strong>它可以被运行时或类型检查器强制</strong>。意识到这一点，\n你才会去用它，而不是继续用注释。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "// 语言层面没有 interface —— 只要求「有这个方法」即可\nfunction render(x) { return x.toText(); }   // 传什么进来都行，跑起来才知道",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 语言层面没有 interface —— 只要求「有这个方法」即可</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> render</span><span style=\"color:var(--shiki-foreground)\">(x) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> x</span><span style=\"color:var(--shiki-token-function)\">.toText</span><span style=\"color:var(--shiki-foreground)\">(); }   </span><span style=\"color:var(--shiki-token-comment)\">// 传什么进来都行，跑起来才知道</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>无语言级概念</strong> —— 靠结构化类型隐式满足。\n<code>interface</code> 是 TypeScript 的编译期概念，运行时不留痕迹。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "from typing import Protocol\nclass Renderable(Protocol):           # 结构化：长得像就算，不必显式继承\n    def to_text(self) -> str: ...\nfrom abc import ABC, abstractmethod\nclass Base(ABC):                      # 名义式：必须显式继承，实例化时就拦\n    @abstractmethod\n    def to_text(self) -> str: ...",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-foreground)\"> typing </span><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> Protocol</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Renderable</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">Protocol</span><span style=\"color:var(--shiki-foreground)\">):           </span><span style=\"color:var(--shiki-token-comment)\"># 结构化：长得像就算，不必显式继承</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    def</span><span style=\"color:var(--shiki-token-function)\"> to_text</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">self</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-token-constant)\"> str</span><span style=\"color:var(--shiki-foreground)\">: ...</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-foreground)\"> abc </span><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> ABC</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> abstractmethod</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Base</span><span style=\"color:var(--shiki-foreground)\">(ABC):                      </span><span style=\"color:var(--shiki-token-comment)\"># 名义式：必须显式继承，实例化时就拦</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    @abstractmethod</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    def</span><span style=\"color:var(--shiki-token-function)\"> to_text</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">self</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-token-constant)\"> str</span><span style=\"color:var(--shiki-foreground)\">: ...</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>Protocol / ABC</strong> —— Protocol 是结构化，ABC 是名义式，两者都存在。\n在 JS 里只能写进注释的约束，这里可以被强制。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-javascript/generics",
+      "chapterId": "concepts-javascript/03-abstraction",
+      "title": "泛型",
+      "kind": "concept",
+      "summary": "两边运行时都擦除，但 Python 的标注是「可选的、渐进的」",
+      "bodyHtml": "<p>JS 本身没有泛型（靠 TypeScript 的编译期标注），Python 有\n<code>typing.TypeVar</code> 等标注工具。</p>\n<p>共同点很重要：<strong>两边的类型参数在运行时都不存在</strong>。\n所以「用泛型来做运行时判断」在任何一边都行不通。</p>\n<p>差别在强度：TypeScript 是「标注了就在编译期强约束」，\nPython 是<strong>渐进类型</strong> —— 标注是自愿的、可以只标一部分，\n检查交给 mypy 这类外部工具，解释器自己不检查。\n于是 Python 里「标注写错了」不会阻止程序运行，只会让类型检查器报错。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "function first(list) { return list[0]; }    // 没有类型参数\n// 想在编译期约束只能靠 TS：function first<T>(list: T[]): T",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> first</span><span style=\"color:var(--shiki-foreground)\">(list) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> list[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">]; }    </span><span style=\"color:var(--shiki-token-comment)\">// 没有类型参数</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想在编译期约束只能靠 TS：function first&#x3C;T>(list: T[]): T</span></span></code></pre>",
+          "lineCount": 2,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>无（靠 TS）</strong> —— 运行时不保留类型参数，编译期擦除。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "from typing import TypeVar\nT = TypeVar(\"T\")\ndef first(items: list[T]) -> T: ...   # 标注在运行时被擦除，只是给检查器看的",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-foreground)\"> typing </span><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> TypeVar</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">T </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> TypeVar</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"T\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> first</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">items</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-foreground)\"> list</span><span style=\"color:var(--shiki-token-punctuation)\">[</span><span style=\"color:var(--shiki-foreground)\">T</span><span style=\"color:var(--shiki-token-punctuation)\">]</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-foreground)\"> T: ...   </span><span style=\"color:var(--shiki-token-comment)\"># 标注在运行时被擦除，只是给检查器看的</span></span></code></pre>",
+          "lineCount": 3,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>typing.TypeVar</strong> —— 标注层面存在，运行时同样擦除。\n但 Python 是<strong>渐进类型</strong>：解释器不检查，要靠 mypy。</p>\n"
+        }
+      }
+    },
+    {
+      "id": "concepts-javascript/error-handling",
+      "chapterId": "concepts-javascript/03-abstraction",
+      "title": "错误处理",
+      "kind": "concept",
+      "summary": "能抛任意值 vs 只能抛异常类，以及「哪些错误必须处理」",
+      "bodyHtml": "<p>JS 可以 <code>throw</code> 任意值 —— 字符串、对象、数字都行，所以 <code>catch</code> 到的东西\n<strong>不一定是 <code>Error</code></strong>，取 <code>e.message</code> 可能得到 <code>undefined</code>。</p>\n<p>Python 只能抛 <code>BaseException</code> 的子类，<code>except</code> 必须写明类型\n（裸 <code>except:</code> 会连 <code>KeyboardInterrupt</code> 一起吞掉，是明确的反模式）。</p>\n<p>更根本的差异是<strong>受检异常</strong>：Java 把「必须处理」写进类型系统，\nJS 与 Python 都没有 —— 任何函数都可能抛，签名上看不出来。\n所以从 JS 到 Python 这一条是平滑的，但从 Java 到 Python\n会突然失去「编译器替我盯着」这层保障。</p>\n<p>另外 Python 的 <code>try/except/else/finally</code> 比 JS 多一个 <code>else</code>\n（没出错时执行），把「成功路径」从 <code>try</code> 里挪出来，\n避免误捕获成功路径中的异常。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "throw \"出错了\";                    // 可以抛任意值\ntry { risky(); } catch (e) {\n  e.message                        // undefined —— 因为 e 不一定是 Error\n}",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-string-expression)\"> \"出错了\"</span><span style=\"color:var(--shiki-foreground)\">;                    </span><span style=\"color:var(--shiki-token-comment)\">// 可以抛任意值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">risky</span><span style=\"color:var(--shiki-foreground)\">(); } </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  e</span><span style=\"color:var(--shiki-foreground)\">.message                        </span><span style=\"color:var(--shiki-token-comment)\">// undefined —— 因为 e 不一定是 Error</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+          "lineCount": 4,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>try/catch + Error 子类</strong> —— 可以 <code>throw</code> 任意值，\n所以 <code>catch</code> 到的东西不一定是 <code>Error</code>。</p>\n"
+        },
+        "python": {
+          "lang": "python",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "raise ValueError(\"出错了\")     # ⚠ 只能抛 BaseException 的子类，抛字符串会 TypeError\ntry:\n    risky()\nexcept ValueError as e:       # except 必须写类型；裸 except 会吞掉 Ctrl+C\n    pass\nelse:\n    pass                       # 多一个 else：没出错时执行，把成功路径挪出 try",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">raise</span><span style=\"color:var(--shiki-token-constant)\"> ValueError</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"出错了\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">     # ⚠ 只能抛 BaseException 的子类，抛字符串会 TypeError</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    risky</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">except</span><span style=\"color:var(--shiki-token-constant)\"> ValueError</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-foreground)\"> e</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-comment)\">       # except 必须写类型；裸 except 会吞掉 Ctrl+C</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    pass</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">else</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    pass</span><span style=\"color:var(--shiki-token-comment)\">                       # 多一个 else：没出错时执行，把成功路径挪出 try</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 1,
+              "text": "只能抛 BaseException 的子类，抛字符串会 TypeError",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>try/except + 异常类</strong> —— 只能抛 <code>BaseException</code> 子类；<code>except</code> 必须写类型。\n两边都没有受检异常，签名上看不出「谁可能抛」。</p>\n"
+        }
+      }
+    }
+  ],
+  "summary": "怎么组织代码、怎么表达「必须具备的能力」、怎么处理出错"
+}

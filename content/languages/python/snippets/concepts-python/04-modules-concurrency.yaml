@@ -1,0 +1,50 @@
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/module-system
+    equivalence: identical
+    code: |
+      import util                  # import 会真的执行：模块顶层代码此刻跑一遍
+      from util import helper      # 没有显式导出 —— 所有顶层名字都可被导入
+    body: |
+      **import / from ... import** —— 一个 `.py` 是 module，
+      含 `__init__.py` 的目录是 package。
+
+  - featureId: concepts-python/memory
+    equivalence: identical
+    code: |
+      x = [1, 2, 3]
+      del x                        # 只是减一次引用，别人还引用着就还在
+      with open("f") as f:         # with 写出确定性的释放
+          pass
+    body: |
+      **引用计数 + 循环 GC** —— `del` 只是减引用；好处是可以用 `with`
+      写出确定性的释放，不依赖 GC 时机。
+
+  - featureId: concepts-python/concurrency-unit
+    equivalence: identical
+    code: |
+      import threading, multiprocessing
+      # GIL：多线程无法并行跑 CPU 密集任务
+      # CPU 密集要真并行，只能用多进程
+    body: |
+      **线程 + 进程 + 协程** —— GIL 使线程只能并发不能并行；
+      CPU 密集要 `multiprocessing`。
+
+  - featureId: concepts-python/async-model
+    equivalence: identical
+    code: |
+      import asyncio
+      async def load():
+          return 1
+      load()                       # 返回协程对象，一行都不执行
+      asyncio.run(load())          # 必须显式启动事件循环
+    body: |
+      **asyncio / 协程** —— 需要显式进入事件循环。
+      不驱动就一行不跑，而且通常只给一条 RuntimeWarning。

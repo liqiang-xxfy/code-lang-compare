@@ -18,6 +18,7 @@ import {
   loadRegistry,
   writeText,
 } from '../lib/core'
+import { generateSections } from './generate-sections'
 
 export interface RegistryGenResult {
   allLanguageIds: string[]
@@ -87,9 +88,15 @@ export function generateRegistry(options: RegistryGenOptions = {}): RegistryGenR
         `（候选：${baselineCandidateIds.join(', ')}）—— 请在它的 meta.yaml 里标 baseline: true`,
     )
   }
-  if (!enabledLanguageIds.includes(registry.equivalenceReference)) {
+  if (!enabledLanguageIds.includes(registry.defaultCompareLanguage)) {
     throw new Error(
-      `registry.equivalenceReference = '${registry.equivalenceReference}' 未启用，参照系必须是已启用的语言`,
+      `registry.defaultCompareLanguage = '${registry.defaultCompareLanguage}' 未启用，默认对比语言必须是已启用的语言`,
+    )
+  }
+  if (registry.defaultCompareLanguage === registry.defaultBaseline) {
+    throw new Error(
+      `registry.defaultCompareLanguage 与 defaultBaseline 同为 '${registry.defaultBaseline}' —— ` +
+        '对比列必须有一门不同于基准的语言',
     )
   }
 
@@ -123,11 +130,11 @@ export function generateRegistry(options: RegistryGenOptions = {}): RegistryGenR
     `export const defaultBaselineLanguageId = ${q(registry.defaultBaseline)} as const`,
     '/** 可作基准的语言（由各语言 meta.yaml 的 baseline: true 派生）。基准选择器只列这些 */',
     `export const baselineLanguageIds = [${arr(baselineCandidateIds)}] as const`,
-    '/** equivalence 徽章的参照系。内容级常量，**不随运行时基准切换** */',
-    `export const equivalenceReferenceId = ${q(registry.equivalenceReference)} as const`,
-    '/** 参照系的语言显示名 —— 供页面文案使用，免去每处再查一次 meta */',
-    `export const equivalenceReferenceName = ${q(
-      metas.find((m) => m.id === registry.equivalenceReference)?.name ?? registry.equivalenceReference,
+    '/** 首访时对比列默认选中的语言。必须已启用且 ≠ 默认基准 */',
+    `export const defaultCompareLanguageId = ${q(registry.defaultCompareLanguage)} as const`,
+    '/** 默认对比语言的显示名 —— 供静态文案使用，免去每处再查一次 meta */',
+    `export const defaultCompareLanguageName = ${q(
+      metas.find((m) => m.id === registry.defaultCompareLanguage)?.name ?? registry.defaultCompareLanguage,
     )} as const`,
     '',
     'export const siteInfo = {',
@@ -157,10 +164,13 @@ export function generateRegistry(options: RegistryGenOptions = {}): RegistryGenR
 
 const isMain = process.argv[1] && import.meta.url.endsWith(path.basename(process.argv[1]))
 if (isMain) {
+  // 板块清单与语言清单同源（都来自 registry.yaml），一次命令刷新两份产物
+  const sectionIds = generateSections()
   const r = generateRegistry()
+  console.log(`[sections] 已注册 ${sectionIds.length} 个板块：${sectionIds.join(' → ')}`)
   console.log(
     `[registry] 全集 ${r.allLanguageIds.length} 门：${r.allLanguageIds.join(', ')}\n` +
       `[registry] 已启用：${r.enabledLanguageIds.join(', ')}\n` +
-      `[registry] 已写入 src/generated/registry.gen.ts`,
+      `[registry] 已写入 src/generated/registry.gen.ts 与 sections.gen.ts`,
   )
 }

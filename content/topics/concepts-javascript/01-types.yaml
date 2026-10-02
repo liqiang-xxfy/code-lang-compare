@@ -1,0 +1,71 @@
+id: concepts-javascript/01-types
+topicId: concepts-javascript
+title: 类型与值
+order: 1
+summary: 语言的地基 —— 类型怎么绑、数字怎么存、空值有几个、赋值到底传了什么
+features:
+  - id: concepts-javascript/type-system
+    title: 类型系统
+    kind: concept
+    summary: 两边都是动态类型，但一边比较时会偷偷转换，另一边不会
+    body: |
+      两边都是**动态类型**：类型属于运行时的值，不属于变量名。
+
+      差别在**强弱**。JS 是弱类型 —— `==`、`+`、`if` 都会隐式转换，于是
+      `1 == "1"` 为真、`[] + {}` 有结果、`"3" * "2"` 得 6。Python 是强类型：
+      类型不对就抛异常，不做任何猜测。
+
+      这条差异的后果不是「哪个更好」，而是**迁移时你的调试直觉会失效**：
+      在 JS 里靠 `console.log` 看值猜类型很管用，因为错误往往表现为「结果不对」；
+      到 Python 里同样是「结果不对」，但原因通常是**某处静默变成了另一种类型**
+      （比如整数除法），而异常反而不常出现。
+
+  - id: concepts-javascript/numeric-type
+    title: 数值类型
+    kind: concept
+    summary: 一个 number 打天下 vs int / float / Decimal 三分，精度行为完全不同
+    body: |
+      JS 只有一种数字：IEEE 754 双精度浮点（外加 BigInt 用于大整数）。
+      **整数也是浮点**，所以 `0.1 + 0.2 !== 0.3`、超过 2^53 的整数静默丢精度。
+
+      Python 把整数与浮点分开：`int` 是**任意精度**（不会溢出、不会丢精度），
+      `float` 是双精度，需要精确小数时另有 `Decimal`。
+
+      迁移时最先绊住的两处：① JS 里 `9007199254740993` 会变成
+      `9007199254740992`，Python 里原样保留；② 除法。JS 的 `/` 永远得浮点，
+      Python 的 `/` 也是，但 Python **多了** `//`（向下取整）——
+      从 Python 迁回 JS 时 `//` 没有对应写法，是最容易写错的一格。
+
+  - id: concepts-javascript/null-value
+    title: 空值
+    kind: concept
+    summary: 两个空值 vs 一个空值，判空写法的噪音量差一倍
+    body: |
+      JS 有两个表示「没有」的值：`null`（人为赋值）与 `undefined`（未赋值 /
+      属性不存在 / 函数无返回）。绝大多数判空代码其实两者都要挡，于是有了
+      `== null` 这个「同时匹配两者」的惯用写法，以及 `?.` / `??` 这套语法。
+
+      Python 只有一个：`None`。判断用 `is None`（`is` 比对象身份，
+      `==` 可以被重载，所以惯例是 `is`）。
+
+      迁移时的实质变化：JS 那套「`||` 兜底」在 Python 里不能用 ——
+      `0`、`""`、`[]` 都是假值，`value or default` 会把合法的 0 当成缺失。
+      必须显式写 `if value is None`。
+
+  - id: concepts-javascript/value-semantics
+    title: 值语义与引用语义
+    kind: concept
+    summary: 「传引用还是传值」这个问题两边都问错了，真正要问的是「什么可变」
+    body: |
+      JS 的说法是「原始值按值、对象按引用」：给变量赋一个对象，两个名字指向
+      同一份数据；赋一个数字，各自独立。
+
+      Python 的说法是「一切都是引用」，但结论出人意料地接近 ——
+      差别在于 **JS 的对象对应 Python 的可变对象（list/dict/set），
+      JS 的原始值对应 Python 的不可变对象（int/str/tuple）**。
+      也就是说：**变的不是「传值还是传引用」，而是这个类型的可变性**。
+
+      于是有一条跨两边的统一判断法：拿到一个值，先问「它可变吗」。
+      可变 → 赋值、传参、放进容器都是共享；不可变 → 怎么传都安全。
+      Python 的 `tuple` 与 `frozenset` 存在的意义正是「我需要一个能安全共享的集合」，
+      而 JS 里**没有对应物**（`Object.freeze` 只是浅冻结，且不是类型属性）。

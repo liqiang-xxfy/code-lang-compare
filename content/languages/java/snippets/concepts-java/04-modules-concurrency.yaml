@@ -1,0 +1,46 @@
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/module-system
+    equivalence: identical
+    code: |
+      package com.example;         // 组织单位是包与类，一个公开类一个文件
+      import java.util.List;       // import 只引用名字，不执行代码
+    body: |
+      **package + class** —— 一个 public 类一个文件；`import` 只引用名字，
+      依赖靠 classpath 解析。
+
+  - featureId: concepts-java/memory
+    equivalence: identical
+    code: |
+      Object o = new Object();     // JVM 分代回收，可达性决定生命周期
+      o = null;                    // 没有引用计数，循环引用不是问题
+    body: |
+      **JVM 分代 GC** —— 你基本不干预，`finalize` 已弃用；
+      没有引用计数，循环引用不是问题。
+
+  - featureId: concepts-java/concurrency-unit
+    equivalence: identical
+    code: |
+      new Thread(task).start();                 // 线程真并行，多核同时跑
+      ExecutorService pool = Executors.newFixedThreadPool(4);
+      synchronized (lock) { /* 共享状态要自己加锁 */ }
+    body: |
+      **线程 / ExecutorService** —— 线程真并行，代价是数据竞争与可见性要自己扛；
+      没有 GIL，近年还有虚拟线程降低高并发成本。
+
+  - featureId: concepts-java/async-model
+    equivalence: identical
+    code: |
+      CompletableFuture.supplyAsync(() -> 1)
+          .thenApply(x -> x + 1);               // 异步靠线程池与 Future
+      Thread.sleep(100);                        // 会真的阻塞线程，与 await 不同
+    body: |
+      **CompletableFuture / 线程池** —— 没有语言内建的事件循环；
+      `Thread.sleep` 会阻塞线程，与 JS 的 `await` 不是一回事。

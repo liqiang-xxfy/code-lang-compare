@@ -1,0 +1,66 @@
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/collections
+    equivalence: identical
+    code: |
+      List<String> list = new ArrayList<>();         // 容器是类，必须带泛型
+      Map<String, Integer> counts = new HashMap<>(); // 键要实现 equals / hashCode
+      list.add("a");
+    body: |
+      **ArrayList / HashMap / HashSet** —— 都是类且带泛型参数，没有字面量语法；
+      `HashMap` 的键要正确实现 `equals` / `hashCode`。
+
+  - featureId: concepts-java/immutable-data
+    equivalence: identical
+    code: |
+      String s = "x";                 // String 天生不可变
+      List.of(1, 2);                  // 不可变集合，修改抛异常
+      record Point(int x, int y) {}   // 不可变浅值对象
+    body: |
+      **String / List.of / record / final** —— 不变性有多种载体，
+      `List.of` 在运行时拒绝修改，`record` 提供不可变浅值对象。
+
+  - featureId: concepts-java/string-format
+    equivalence: identical
+    code: |
+      String.format("%.2f", 3.14159)   // "3.14" —— printf 风格格式串
+      String.format("%,d", 1234567)    // "1,234,567"
+    body: |
+      **String.format + 文本块** —— 库级 printf 风格格式化；
+      循环拼接用 `StringBuilder`，多行文本用 `"""`。
+
+  - featureId: concepts-java/regex
+    equivalence: identical
+    code: |
+      Pattern p = Pattern.compile("\\d+");
+      p.matcher("a12").matches()   // false —— matches 要求整串匹配
+      p.matcher("a12").find()      // true —— find 才找任意位置
+    body: |
+      **Pattern / Matcher** —— `matches()` 要求整串匹配，`find()` 才找任意位置；
+      命名分组是 `(?<name>...)`。
+
+  - featureId: concepts-java/serialization
+    equivalence: identical
+    code: |
+      // 标准库没有 JSON，要引 Jackson / Gson
+      new ObjectMapper().writeValueAsString(obj);   // Jackson
+    body: |
+      **序列化靠库** —— 标准库没有 JSON；`Serializable` 是另一套二进制机制，
+      长期被视为安全隐患，新代码不建议用。
+
+  - featureId: concepts-java/date-time
+    equivalence: identical
+    code: |
+      LocalDate d = LocalDate.of(2026, 1, 5);   // 月份从 1 起
+      d.plusMonths(1);                          // 不可变：返回新对象
+      ZonedDateTime.now(ZoneId.of("UTC"));      // 时区是一等概念
+    body: |
+      **java.time（不可变、月从 1 起）** —— 时区是一等概念；
+      旧的 `Date` / `Calendar` 可变且月份从 0 起，已弃用。

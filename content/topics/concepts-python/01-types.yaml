@@ -1,0 +1,77 @@
+id: concepts-python/01-types
+topicId: concepts-python
+title: 类型与值
+order: 1
+summary: 语言的地基 —— 类型什么时候检查、数字怎么存、空值有几个、赋值到底传了什么
+features:
+  - id: concepts-python/type-system
+    title: 类型系统
+    kind: concept
+    summary: 你习惯「类型不对就报错」，到 JS 里会变成「默默算出一个别的结果」
+    body: |
+      Python 是**动态 + 强类型**：类型属于运行时的值，但类型不符就抛异常 ——
+      `1 + "1"` 直接 `TypeError`，不做任何猜测。
+
+      JS 是**动态 + 弱类型**：`==`、`+`、`if` 都会隐式转换，于是 `1 == "1"` 为真、
+      `1 + "1"` 得 `"11"`、`"3" * "2"` 得 6。
+
+      从 Python 出发，最大的变化不是写法，而是**错误的形态**：在 Python 里问题以异常
+      出现，调用栈直接指到出错那一行；在 JS 里同样的问题常常是「结果不对但全程不报错」，
+      于是你得回头找是哪一步悄悄转换了类型。你「看异常猜位置」的调试直觉会先失效一段时间。
+
+      工程上把这一半收回来的手段是 `===`（不做隐式转换）—— 语言不会拦你，靠规范约定。
+
+  - id: concepts-python/numeric-type
+    title: 数值类型
+    kind: concept
+    summary: int 不会溢出是你默认的前提，JS 里整数也是浮点，超范围静默丢精度
+    body: |
+      Python 的 `int` 是**任意精度**（不溢出、不丢精度），`float` 是双精度，
+      需要精确小数时另有 `Decimal`。
+
+      JS 只有一种数字：IEEE 754 双精度浮点，外加 `BigInt` 用于大整数。
+      **整数也是浮点**，所以 `0.1 + 0.2 !== 0.3`，超过 2^53 的整数静默丢精度。
+
+      从 Python 出去最先绊住的两处：① `9007199254740993` 会变成 `9007199254740992`，
+      而且不报错；② Python 的 `//`（向下取整）在 JS 里没有运算符，要写成
+      `Math.floor(a / b)`。除法本身两边都是真除法（`7 / 2` 得 3.5），这一格反倒通用。
+
+      大整数与精确十进制在 JS 里也存在（`BigInt`、第三方 decimal 库），只是**都不是默认** ——
+      而默认行为才是迁移时最常踩的地方。
+
+  - id: concepts-python/null-value
+    title: 空值
+    kind: concept
+    summary: 你只有一个 None，JS 有两个空值，判空写法不能直接照搬
+    body: |
+      Python 只有一种「没有」：`None`，而且惯例用 `is None` 判断（`is` 比对象身份，
+      `==` 可以被重载，所以不用它）。
+
+      JS 有两个：`null`（人为置空）与 `undefined`（未赋值 / 属性不存在 / 函数无返回）。
+      绝大多数判空其实两者都要挡，于是 JS 有一整套专门写法 —— `== null` 同时匹配两者、
+      可选链 `?.`、空值合并 `??`。
+
+      从 Python 迁移最容易写错的一格，是把 `x is None` 直译成 `x === null`：
+      它会漏掉所有 `undefined`，而 `undefined` 出现的频率比 `null` 高得多
+      （没传参、没赋值的变量、访问不存在的属性都是它）。
+
+      顺带一条共通的坑：Python 的 `value or default` 会把合法的 `0`、`""`、`[]`
+      当缺失，JS 的 `||` 是同一个问题；两边都该显式判空。
+
+  - id: concepts-python/value-semantics
+    title: 值语义与引用语义
+    kind: concept
+    summary: 你熟悉「一切皆引用」，但真正决定共享与否的是「这个类型可变吗」
+    body: |
+      Python 里说「一切皆引用」，实际结论要看可变性：`list` / `dict` / `set` 可变，
+      赋值、传参、放进容器都是共享；`int` / `str` / `tuple` 不可变，怎么传都安全。
+
+      JS 用另一套说法描述同一件事：「原始值按值、对象按引用」。对应关系是 ——
+      JS 的**对象** = Python 的可变对象，JS 的**原始值**（number / string / boolean /
+      null / undefined / symbol）= Python 的不可变对象。也就是说「传值还是传引用」
+      这个问法两边都容易带偏，真问题是「这个值能不能被改」。
+
+      差异在补集：Python 有 `tuple` / `frozenset` 这种「不可变又复合」的类型，
+      可以安全共享、还能当字典键；JS **没有对应物** —— `Object.freeze` 只是浅的
+      运行时冻结，也不是类型属性。从 Python 到 JS 会失去「我需要一个能安全共享的集合类型」
+      这个表达。

@@ -1,0 +1,62 @@
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/collections
+    equivalence: divergent
+    code: |
+      const list = [];               // @note! 不带类型参数，装什么靠命名与惯例
+      const m = new Map();           // @note 对象字面量只支持字符串键，任意键要用 Map
+    body: |
+      **Array / Object / Map / Set** —— 变量不再写明类型；
+      `Map` 与对象字面量的选择成了一个新的判断。
+
+  - featureId: concepts-java/immutable-data
+    equivalence: divergent
+    code: |
+      Object.freeze({ n: 1 });       // @note! 浅冻结，且是运行时行为，不影响类型签名
+      // @note 没有 final 字段 / List.of / record 那种保证
+    body: |
+      **Object.freeze（浅）** —— 没有「不可变类型」这个概念，
+      用类型表达不变性这一整套手段在 JS 里都不存在。
+
+  - featureId: concepts-java/string-format
+    equivalence: divergent
+    code: |
+      (3.14159).toFixed(2)           // @note "3.14" —— 没有 String.format，靠方法
+      (1234567).toLocaleString()     // @note "1,234,567"，对齐要 padStart
+    body: |
+      **模板字符串 + 方法** —— 没有 printf 风格格式串，也没有 `StringBuilder`；
+      每个格式化需求都要找一个方法。
+
+  - featureId: concepts-java/regex
+    equivalence: divergent
+    code: |
+      /\d+/.test("a12")              // @note! true —— 任意位置匹配，没有整串 matches
+      "a12".match(/\d+/)             // @note 命名分组这次两边都是 (?<name>...)
+    body: |
+      **/pattern/flags 字面量** —— `test` / `match` 都是任意位置匹配；
+      Java 里 `matches` 的「整串」直觉在这里要反过来。
+
+  - featureId: concepts-java/serialization
+    equivalence: divergent
+    code: |
+      JSON.stringify({ f: () => 1, u: undefined, n: 1 })   // @note! '{"n":1}' —— 静默丢弃
+      // @note 语言内置，不用选库；但也没有任何形状校验
+    body: |
+      **JSON.stringify / parse** —— 语言内置，省掉选库；
+      代价是不看类型、丢字段不告诉你，`parse` 回来的是普通对象。
+
+  - featureId: concepts-java/date-time
+    equivalence: divergent
+    code: |
+      const d = new Date(2026, 0, 5);   // @note! 月份从 0 起，可变，没有 LocalDate 那种类型
+      d.setMonth(1);                    // @note 就地修改 —— 像被淘汰的 java.util.Date
+    body: |
+      **Date（可变、月从 0 起）** —— 更像旧的 `java.util.Date` / `Calendar`；
+      `java.time` 的不可变与时区模型在这里没有对等物。

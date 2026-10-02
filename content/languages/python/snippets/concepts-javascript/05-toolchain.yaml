@@ -1,0 +1,85 @@
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: claude-code-agent
+    promptTemplateId: concepts-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/package-manager
+    equivalence: analogous
+    code: |
+      pip install requests
+      uv add requests          # @note 对应 npm install -D 的写法是 dev 依赖组
+      uvx ruff                 # @note 对应 npx：临时跑一个工具，不装进环境
+    body: |
+      **pip / uv** —— `pyproject.toml` 或 `requirements.txt` + 环境隔离。
+      默认**不锁版本**（要另配 `uv lock`），这是 Python 依赖问题更多的原因之一。
+
+  - featureId: concepts-javascript/dependency-isolation
+    equivalence: divergent
+    code: |
+      python -m venv .venv
+      # @note! 同一个环境里同名包只能有一个版本 —— 没有「各装各的」这回事
+      # @note A 要 requests 2.x、B 要 3.x 时，正确动作是建第二个 venv，不是升降级
+    body: |
+      **venv（全局一套）** —— 同名包只能有一个版本。
+      从 JS 过来的人会本能地升降级「试试」，那会弄坏另一个依赖。
+
+  - featureId: concepts-javascript/runner
+    equivalence: divergent
+    code: |
+      python app.py
+      # @note 运行时就是解释器本身，不存在「浏览器 API 与 Node API 不一致」这层问题
+      # @note! 代价是也没有 DOM / fetch 那套，做界面要借助别的体系
+    body: |
+      **CPython 解释器** —— GIL 限制下多线程不能并行跑 CPU 密集任务。
+      好处是不用再想「这段代码在哪跑」。
+
+  - featureId: concepts-javascript/build-tool
+    equivalence: divergent
+    code: |
+      python -m build        # @note 只有发布时才打包成 wheel / sdist
+      # @note! 开发时不需要构建 —— 改完直接跑，不存在打包步骤
+    body: |
+      **通常不需要** —— 解释执行；只有发布时才打包。
+      从 JS 过来最容易多做的一件事，是配一套并不需要的构建管线。
+
+  - featureId: concepts-javascript/test-framework
+    equivalence: divergent
+    code: |
+      def test_add():            # @note 文件名 test_*.py、函数名 test_* —— 不符合就静默不跑
+          assert 1 + 1 == 2      # @note 裸 assert，没有 expect 链
+    body: |
+      **pytest** —— `def test_x(): assert ...`，用 `assert` 而非 `expect`。
+      注意「跑了 0 个测试却显示通过」这种情况。
+
+  - featureId: concepts-javascript/testing-mock
+    equivalence: divergent
+    code: |
+      def test_it(monkeypatch):
+          monkeypatch.setattr(api, "fetch_user", lambda: {"id": 1})
+          # @note 直接替换属性即可，不需要提升到 import 之前
+    body: |
+      **unittest.mock / monkeypatch** —— 靠鸭子类型替换，通常更直白，
+      作用域由 fixture 管，用完自动还原。
+
+  - featureId: concepts-javascript/lint-format
+    equivalence: divergent
+    code: |
+      ruff check .
+      ruff format .
+      # @note 风格几乎没有可选项 —— 官方偏好就是唯一答案，不必先吵一轮规则
+    body: |
+      **Ruff / Black** —— 风格几乎不可配置，生态默认值就是共识。
+
+  - featureId: concepts-javascript/repl
+    equivalence: identical
+    code: |
+      python
+      >>> [x * 2 for x in [1, 2, 3]]
+      [2, 4, 6]
+    body: |
+      **python / ipython** —— `python` 直接进 REPL，无参数。
+      另有 `ipython` 提供更好的补全与历史。
