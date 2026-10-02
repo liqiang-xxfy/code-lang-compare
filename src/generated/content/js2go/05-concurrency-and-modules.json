@@ -1,0 +1,295 @@
+{
+  "id": "js2go/05-concurrency-and-modules",
+  "topicId": "js2go",
+  "title": "5. 并发与模块化",
+  "order": 5,
+  "section": "migration",
+  "baseline": "javascript",
+  "features": [
+    {
+      "id": "js2go/concurrency-intro",
+      "chapterId": "js2go/05-concurrency-and-modules",
+      "title": "本章要解决什么",
+      "kind": "concept",
+      "summary": "并发变得极便宜，而且有一句官方格言要记住",
+      "bodyHtml": "<p>JS 的并发模型是&quot;单线程 + 事件循环&quot;：所有任务在一个线程上轮流跑，\n同步阻塞会卡住所有人。</p>\n<p>Go 的模型完全不同 —— <strong>goroutine 极便宜</strong>（初始栈只有几 KB，\n可以开几十万个），而且<strong>并行是真的</strong>（跑在多核上）。</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-token-function)\"> doWork</span><span style=\"color:var(--shiki-foreground)\">()             </span><span style=\"color:var(--shiki-token-comment)\">// 加一个 go 关键字就并发执行了</span></span></code></pre>\n<p>代价是共享内存的问题回来了：<code>counter++</code> 在并发下会丢更新。\n但 Go 给了一条不同的路线：</p>\n<blockquote>\n<p>不要通过共享内存来通信，而要通过通信来共享内存。</p>\n</blockquote>\n<p>意思是<strong>优先用通道传数据</strong>，而不是用锁保护共享变量：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">ch </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> make</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">chan</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-foreground)\">() { ch </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;-</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">() }()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">result </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;-</span><span style=\"color:var(--shiki-foreground)\">ch</span></span></code></pre>\n<p>数据从 goroutine A 传给 B 之后，<strong>A 就不再持有它</strong> ——\n所有权在传递中转移，于是不需要锁。这与 Rust 的所有权思路相似，\n但 Go 靠<strong>约定与工具</strong>（race detector）而不是编译器强制。</p>\n<p><strong>迁移要点</strong>：JS 里没有&quot;共享内存 + 锁&quot;的直觉要丢，\n但也没有&quot;通道&quot;的直觉要建。推荐先学通道风格，\n只在通道不合适时（比如高频读写的缓存）才用 <code>sync.Mutex</code>。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "go doWork()                  // ⚠ 加一个 go 关键字就并发执行 —— 极便宜\n\n// ⚠ goroutine 初始栈只有几 KB，可以开几十万个；而且并行是真的（跑在多核上）\n// 官方格言：不要通过共享内存来通信，而要通过通信来共享内存\nch := make(chan int)\ngo func() { ch <- compute() }()\nresult := <-ch               // 数据传过来之后，发送方就不再持有它\n\n// Go 的并发安全靠约定 + race detector，不是编译器强制（与 Rust 不同）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-token-function)\"> doWork</span><span style=\"color:var(--shiki-foreground)\">()                  </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 加一个 go 关键字就并发执行 —— 极便宜</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ goroutine 初始栈只有几 KB，可以开几十万个；而且并行是真的（跑在多核上）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 官方格言：不要通过共享内存来通信，而要通过通信来共享内存</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">ch </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> make</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">chan</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-foreground)\">() { ch </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;-</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">() }()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">result </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;-</span><span style=\"color:var(--shiki-foreground)\">ch               </span><span style=\"color:var(--shiki-token-comment)\">// 数据传过来之后，发送方就不再持有它</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 的并发安全靠约定 + race detector，不是编译器强制（与 Rust 不同）</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 1,
+              "text": "加一个 go 关键字就并发执行 —— 极便宜",
+              "tone": "warn"
+            },
+            {
+              "line": 3,
+              "text": "goroutine 初始栈只有几 KB，可以开几十万个；而且并行是真的（跑在多核上）",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "let counter = 0;\nasync function bump() { counter += 1; }    // ⚠ 主线程只有一个，不会真的并发写\n\nnew Worker(\"worker.js\");                   // 真并行只能靠 Worker，且不共享内存\n\n// ⚠ \"共享可变状态\"这一整类问题在这里不存在，也没有\"通道\"这个概念\n// Go 用 go 关键字就能开并发，而且官方推荐用通道传数据而不是共享内存",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> bump</span><span style=\"color:var(--shiki-foreground)\">() { counter </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; }    </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 主线程只有一个，不会真的并发写</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Worker</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"worker.js\"</span><span style=\"color:var(--shiki-foreground)\">);                   </span><span style=\"color:var(--shiki-token-comment)\">// 真并行只能靠 Worker，且不共享内存</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ \"共享可变状态\"这一整类问题在这里不存在，也没有\"通道\"这个概念</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 用 go 关键字就能开并发，而且官方推荐用通道传数据而不是共享内存</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 2,
+              "text": "主线程只有一个，不会真的并发写",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "\"共享可变状态\"这一整类问题在这里不存在，也没有\"通道\"这个概念",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2go/async-model",
+      "chapterId": "js2go/05-concurrency-and-modules",
+      "title": "异步：Promise 变成通道",
+      "kind": "behavior",
+      "summary": "没有 async/await，组合靠 select",
+      "bodyHtml": "<p>Go <strong>没有 <code>async/await</code></strong>，也没有 Promise。并发任务之间的协作靠通道：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">ch </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> make</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">chan</span><span style=\"color:var(--shiki-token-keyword)\"> string</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> _, u </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-foreground)\"> urls {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    go</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-foreground)\">(u </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">) { ch </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;-</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(u) }(u)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-foreground)\"> urls {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    results </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> append</span><span style=\"color:var(--shiki-foreground)\">(results, </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;-</span><span style=\"color:var(--shiki-foreground)\">ch)      </span><span style=\"color:var(--shiki-token-comment)\">// 收够 N 个</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>\n<p><code>Promise.all</code> 的对应物是 <code>sync.WaitGroup</code>：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> wg </span><span style=\"color:var(--shiki-token-function)\">sync</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">WaitGroup</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> _, u </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-foreground)\"> urls {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    wg.</span><span style=\"color:var(--shiki-token-function)\">Add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    go</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-foreground)\">(u </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">) { </span><span style=\"color:var(--shiki-token-keyword)\">defer</span><span style=\"color:var(--shiki-foreground)\"> wg.</span><span style=\"color:var(--shiki-token-function)\">Done</span><span style=\"color:var(--shiki-foreground)\">(); </span><span style=\"color:var(--shiki-token-function)\">fetch</span><span style=\"color:var(--shiki-foreground)\">(u) }(u)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">wg.</span><span style=\"color:var(--shiki-token-function)\">Wait</span><span style=\"color:var(--shiki-foreground)\">()</span></span></code></pre>\n<p><code>Promise.race</code> 对应 <code>select</code>：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">select</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">case</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;-</span><span style=\"color:var(--shiki-foreground)\">ch1:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">case</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;-</span><span style=\"color:var(--shiki-foreground)\">ch2:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">case</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;-</span><span style=\"color:var(--shiki-foreground)\">time.</span><span style=\"color:var(--shiki-token-function)\">After</span><span style=\"color:var(--shiki-foreground)\">(time.Second):      </span><span style=\"color:var(--shiki-token-comment)\">// 超时分支</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>\n<p><strong>三处与 JS 的实质差别</strong>：</p>\n<ol>\n<li><strong>没有返回值可以 await</strong>。goroutine 的结果要通过通道或共享变量传出来，\n而且<strong>goroutine 里 panic 会让整个程序崩</strong>（不像 Promise 那样变成 rejection）。</li>\n<li><strong>错误也要自己传</strong>。惯用法是把结果与错误一起放进结构体走通道，\n或者用 <code>errgroup</code>（<code>golang.org/x/sync</code>）—— 后者接近&quot;会返回错误的 Promise.all&quot;。</li>\n<li><strong>没有事件循环</strong>。goroutine 由 Go 运行时调度到多个系统线程上，\n所以一个 goroutine 阻塞<strong>不会</strong>卡住别的 —— 这与 JS 正相反。</li>\n</ol>\n<p><code>context.Context</code> 是这边特有的一层：取消、超时、跨调用链传递请求级数据\n都靠它。JS 的 <code>AbortController</code> 定位相近，但在这边它是<strong>每个\n可能阻塞的函数都要带上的第一个参数</strong>。</p>\n",
+      "refFeatureId": "basics-javascript/exception-flow",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// ⚠ 没有 async/await，也没有 Promise\nch := make(chan string)\nfor _, u := range urls {\n    go func(u string) { ch <- fetch(u) }(u)\n}\nfor range urls {\n    results = append(results, <-ch)      // 收够 N 个\n}\n\nvar wg sync.WaitGroup                    // 对应 Promise.all\nwg.Add(1)\ngo func() { defer wg.Done(); fetch() }()\nwg.Wait()\n\nselect {                                 // 对应 Promise.race\ncase r := <-ch1:\ncase r := <-ch2:\ncase <-time.After(time.Second):          // 超时分支，JS 里要另外包一层\n}\n\n// ⚠ goroutine 里 panic 会让**整个程序**崩，不像 Promise 那样变成 rejection\n// context.Context 是每个可能阻塞的函数都要带的第一个参数（对应 AbortController）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有 async/await，也没有 Promise</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">ch </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> make</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">chan</span><span style=\"color:var(--shiki-token-keyword)\"> string</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> _, u </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-foreground)\"> urls {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    go</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-foreground)\">(u </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">) { ch </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;-</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(u) }(u)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-foreground)\"> urls {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    results </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> append</span><span style=\"color:var(--shiki-foreground)\">(results, </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;-</span><span style=\"color:var(--shiki-foreground)\">ch)      </span><span style=\"color:var(--shiki-token-comment)\">// 收够 N 个</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> wg </span><span style=\"color:var(--shiki-token-function)\">sync</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">WaitGroup</span><span style=\"color:var(--shiki-token-comment)\">                    // 对应 Promise.all</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">wg.</span><span style=\"color:var(--shiki-token-function)\">Add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">defer</span><span style=\"color:var(--shiki-foreground)\"> wg.</span><span style=\"color:var(--shiki-token-function)\">Done</span><span style=\"color:var(--shiki-foreground)\">(); </span><span style=\"color:var(--shiki-token-function)\">fetch</span><span style=\"color:var(--shiki-foreground)\">() }()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">wg.</span><span style=\"color:var(--shiki-token-function)\">Wait</span><span style=\"color:var(--shiki-foreground)\">()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">select</span><span style=\"color:var(--shiki-foreground)\"> {                                 </span><span style=\"color:var(--shiki-token-comment)\">// 对应 Promise.race</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">case</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;-</span><span style=\"color:var(--shiki-foreground)\">ch1:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">case</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;-</span><span style=\"color:var(--shiki-foreground)\">ch2:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">case</span><span style=\"color:var(--shiki-token-keyword)\"> &#x3C;-</span><span style=\"color:var(--shiki-foreground)\">time.</span><span style=\"color:var(--shiki-token-function)\">After</span><span style=\"color:var(--shiki-foreground)\">(time.Second):          </span><span style=\"color:var(--shiki-token-comment)\">// 超时分支，JS 里要另外包一层</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ goroutine 里 panic 会让**整个程序**崩，不像 Promise 那样变成 rejection</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// context.Context 是每个可能阻塞的函数都要带的第一个参数（对应 AbortController）</span></span></code></pre>",
+          "lineCount": 22,
+          "notes": [
+            {
+              "line": 1,
+              "text": "没有 async/await，也没有 Promise",
+              "tone": "warn"
+            },
+            {
+              "line": 21,
+              "text": "goroutine 里 panic 会让**整个程序**崩，不像 Promise 那样变成 rejection",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "const ch = null;                           // ⚠ 没有通道这个概念\nconst rs = await Promise.all(urls.map((u) => fetch(u)));    // Promise.all\nconst first = await Promise.race(tasks);                    // Promise.race\n\n// ⚠ 有 async/await 语法糖，可以把异步写成顺序代码\n// Go 没有 async/await：组合靠 WaitGroup 与 select，结果通过通道传出来\n// 关键差异：Promise 的 rejection 只在那一处生效；\n// goroutine 里 panic 会让**整个程序**崩",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> ch</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;                           </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有通道这个概念</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> rs</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-constant)\"> Promise</span><span style=\"color:var(--shiki-token-function)\">.all</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">urls</span><span style=\"color:var(--shiki-token-function)\">.map</span><span style=\"color:var(--shiki-foreground)\">((u) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(u)));    </span><span style=\"color:var(--shiki-token-comment)\">// Promise.all</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> first</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-constant)\"> Promise</span><span style=\"color:var(--shiki-token-function)\">.race</span><span style=\"color:var(--shiki-foreground)\">(tasks);                    </span><span style=\"color:var(--shiki-token-comment)\">// Promise.race</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 有 async/await 语法糖，可以把异步写成顺序代码</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 没有 async/await：组合靠 WaitGroup 与 select，结果通过通道传出来</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 关键差异：Promise 的 rejection 只在那一处生效；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// goroutine 里 panic 会让**整个程序**崩</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 1,
+              "text": "没有通道这个概念",
+              "tone": "warn"
+            },
+            {
+              "line": 5,
+              "text": "有 async/await 语法糖，可以把异步写成顺序代码",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2go/module-system",
+      "chapterId": "js2go/05-concurrency-and-modules",
+      "title": "模块系统：package 与导出规则",
+      "kind": "behavior",
+      "summary": "目录即包，首字母大写才是导出的",
+      "bodyHtml": "<p>Go 的包就是<strong>一个目录</strong>，目录里的所有文件共享同一个包名：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">package</span><span style=\"color:var(--shiki-token-function)\"> utils</span><span style=\"color:var(--shiki-token-comment)\">               // 目录内所有文件都写这个</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> Helper</span><span style=\"color:var(--shiki-foreground)\">() { }           </span><span style=\"color:var(--shiki-token-comment)\">// 大写开头 = 导出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> helper</span><span style=\"color:var(--shiki-foreground)\">() { }           </span><span style=\"color:var(--shiki-token-comment)\">// 小写开头 = 包内私有</span></span></code></pre>\n<p>三处与 JS 不同：</p>\n<ol>\n<li>\n<p><strong>没有 <code>export</code> 关键字</strong>：可见性由<strong>首字母大小写</strong>决定。\n这既是命名约定也是访问控制 —— 而 JS 的模块内定义默认可导出，\n方向正好相反（要隐藏才需要额外处理）。</p>\n</li>\n<li>\n<p><strong>同一个目录里所有文件必须同属一个包</strong>（测试文件 <code>_test.go</code> 除外）。\nJS 里一个文件就是一个模块，这里一个目录才是一个包。</p>\n</li>\n<li>\n<p><strong>导入路径是完整的模块路径</strong>，不是相对路径：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> \"github.com/user/project/utils\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> \"fmt\"</span></span></code></pre>\n<p>没有 <code>./utils</code> 这种写法 —— 相对导入在 Go 里是被刻意排除的。</p>\n</li>\n</ol>\n<p>包名与目录名<strong>不要求一致</strong>（但强烈建议一致），\n而导入时的<strong>标识符取自包名而不是路径的最后一段</strong>，这一处常让人意外。</p>\n<p>另有一条与 JS 根本不同的：<strong>没有循环导入</strong>。\n两个包互相 import 会直接编译错误 —— 这逼着你把共享的部分抽成第三个包，\n结构反而更清楚。</p>\n",
+      "refFeatureId": "basics-javascript/function-declare",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "package utils                // ⚠ 目录才是包，目录内所有文件同属一个包\n\nfunc Helper() { }            // ⚠ 首字母大写 = 导出\nfunc helper() { }            // 小写 = 包内私有\n\nimport \"github.com/user/project/utils\"   // 完整模块路径，没有相对导入\nimport \"fmt\"\n\n// ⚠ 没有 export 关键字：可见性由大小写决定 —— 与 JS 的\"默认导出\"正好相反\n// ⚠ 循环导入是编译错误 —— 逼你把共享部分抽成第三个包\n// 导入时用的标识符取自**包名**，不是路径最后一段（这一处常让人意外）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">package</span><span style=\"color:var(--shiki-token-function)\"> utils</span><span style=\"color:var(--shiki-token-comment)\">                // ⚠ 目录才是包，目录内所有文件同属一个包</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> Helper</span><span style=\"color:var(--shiki-foreground)\">() { }            </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 首字母大写 = 导出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> helper</span><span style=\"color:var(--shiki-foreground)\">() { }            </span><span style=\"color:var(--shiki-token-comment)\">// 小写 = 包内私有</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> \"github.com/user/project/utils\"</span><span style=\"color:var(--shiki-token-comment)\">   // 完整模块路径，没有相对导入</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> \"fmt\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有 export 关键字：可见性由大小写决定 —— 与 JS 的\"默认导出\"正好相反</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 循环导入是编译错误 —— 逼你把共享部分抽成第三个包</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 导入时用的标识符取自**包名**，不是路径最后一段（这一处常让人意外）</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 1,
+              "text": "目录才是包，目录内所有文件同属一个包",
+              "tone": "warn"
+            },
+            {
+              "line": 3,
+              "text": "首字母大写 = 导出",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "没有 export 关键字：可见性由大小写决定 —— 与 JS 的\"默认导出\"正好相反",
+              "tone": "warn"
+            },
+            {
+              "line": 10,
+              "text": "循环导入是编译错误 —— 逼你把共享部分抽成第三个包",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "import { helper } from \"./utils.js\";       // 文件即模块，支持相对路径\nexport function helper() { }\nexport default function def() { }\n\n// ⚠ 模块内定义的东西默认**可以**从外面导入\n// Go 里目录才是包，且**首字母大写才是导出的** —— 方向正好相反\n// Go 没有相对导入，也没有 default export，也**不允许循环导入**",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { helper } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> \"./utils.js\"</span><span style=\"color:var(--shiki-foreground)\">;       </span><span style=\"color:var(--shiki-token-comment)\">// 文件即模块，支持相对路径</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> helper</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> default</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> def</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 模块内定义的东西默认**可以**从外面导入</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 里目录才是包，且**首字母大写才是导出的** —— 方向正好相反</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 没有相对导入，也没有 default export，也**不允许循环导入**</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 5,
+              "text": "模块内定义的东西默认**可以**从外面导入",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2go/package-manager",
+      "chapterId": "js2go/05-concurrency-and-modules",
+      "title": "包管理与构建：go mod 与内置工具",
+      "kind": "behavior",
+      "summary": "依赖、构建、测试、格式化全在 go 一条命令下",
+      "bodyHtml": "<table>\n<thead>\n<tr>\n<th>事情</th>\n<th>JS</th>\n<th>Go</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>声明依赖</td>\n<td><code>package.json</code></td>\n<td><code>go.mod</code></td>\n</tr>\n<tr>\n<td>锁定版本</td>\n<td><code>package-lock.json</code></td>\n<td><code>go.sum</code></td>\n</tr>\n<tr>\n<td>装依赖</td>\n<td><code>npm install</code></td>\n<td><code>go mod tidy</code>（自动拉）</td>\n</tr>\n<tr>\n<td>构建</td>\n<td>打包器（选一个）</td>\n<td><code>go build</code>（标准）</td>\n</tr>\n<tr>\n<td>测试</td>\n<td>测试框架（选一个）</td>\n<td><code>go test</code>（标准，<code>_test.go</code>）</td>\n</tr>\n<tr>\n<td>格式化</td>\n<td>Prettier（选一个）</td>\n<td><code>gofmt</code>（唯一答案）</td>\n</tr>\n<tr>\n<td>静态检查</td>\n<td>ESLint（选一个）</td>\n<td><code>go vet</code>（标准）</td>\n</tr>\n</tbody>\n</table>\n<p><strong>与 Rust 的 cargo 很像，但更&quot;官方包办&quot;</strong>：\n连测试框架都是标准库自带的（<code>testing</code> 包），没有 Jest/Vitest 之争。\n格式化更是只有一个答案 —— <code>gofmt</code> 不接受配置，\n所以 Go 社区的代码风格是<strong>真正统一</strong>的，这一条 JS 生态很难做到。</p>\n<p>依赖写进 <code>go.mod</code>：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span>module github.com/user/project</span></span>\n<span class=\"line\"><span></span></span>\n<span class=\"line\"><span>go 1.22</span></span>\n<span class=\"line\"><span></span></span>\n<span class=\"line\"><span>require github.com/stretchr/testify v1.9.0</span></span></code></pre>\n<p><strong>两个值得注意的地方</strong>：</p>\n<ol>\n<li><strong><code>go mod tidy</code> 会自动增删依赖</strong>，不像 <code>npm install</code> 那样只增不减。</li>\n<li><strong>没有 <code>node_modules</code> 那种项目内目录</strong> —— 依赖下载到全局缓存\n（<code>GOPATH/pkg/mod</code>），构建时按 <code>go.sum</code> 校验。\n所以也没有&quot;删了重装&quot;这个常规操作。</li>\n</ol>\n<p><code>go vet</code> 与 race detector（<code>go test -race</code>）值得单独提：\n后者能在运行时抓出数据竞争 —— 因为 Go 的并发安全靠约定，\n这个工具就是那层补充的保障。</p>\n",
+      "refFeatureId": "basics-javascript/function-declare",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "// go.mod\n// module github.com/user/project\n// go 1.22\n// require github.com/stretchr/testify v1.9.0\n\ngo mod tidy;      // ⚠ 会自动增删依赖（npm install 只增不减）\ngo build;         // 构建\ngo test;          // 测试框架是标准库自带的 testing 包，没有 Jest/Vitest 之争\ngo vet;           // 官方静态检查\ngofmt -w .;       // ⚠ 唯一答案，不接受配置 —— 所以 Go 社区代码风格真正统一\ngo test -race;    // ⚠ 运行时抓数据竞争 —— Go 并发安全靠约定，这是补充保障\n\n// 依赖下载到全局缓存，没有 node_modules 那种项目内目录",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go.mod</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// module github.com/user/project</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go 1.22</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// require github.com/stretchr/testify v1.9.0</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> mod tidy;      </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 会自动增删依赖（npm install 只增不减）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> build;         </span><span style=\"color:var(--shiki-token-comment)\">// 构建</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> test;          </span><span style=\"color:var(--shiki-token-comment)\">// 测试框架是标准库自带的 testing 包，没有 Jest/Vitest 之争</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> vet;           </span><span style=\"color:var(--shiki-token-comment)\">// 官方静态检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">gofmt </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">w .;       </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 唯一答案，不接受配置 —— 所以 Go 社区代码风格真正统一</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> test </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">race;    </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 运行时抓数据竞争 —— Go 并发安全靠约定，这是补充保障</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 依赖下载到全局缓存，没有 node_modules 那种项目内目录</span></span></code></pre>",
+          "lineCount": 13,
+          "notes": [
+            {
+              "line": 6,
+              "text": "会自动增删依赖（npm install 只增不减）",
+              "tone": "warn"
+            },
+            {
+              "line": 10,
+              "text": "唯一答案，不接受配置 —— 所以 Go 社区代码风格真正统一",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "运行时抓数据竞争 —— Go 并发安全靠约定，这是补充保障",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "// package.json\n// {\n//   \"dependencies\": { \"express\": \"^4.18.0\" },\n//   \"devDependencies\": { \"vitest\": \"^1.0.0\" },\n//   \"scripts\": { \"test\": \"vitest\", \"lint\": \"eslint .\" }\n// }\n\nnpm install; npm run test; npm run lint; npm publish;\n\n// ⚠ 每一环都有若干竞争者：打包器、测试框架、lint、格式化各选各的\n// Go 那边 go build / go test / go vet / gofmt 都是官方标准 ——\n// 尤其 gofmt 不接受配置，所以社区风格是真正统一的",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// package.json</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"dependencies\": { \"express\": \"^4.18.0\" },</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"devDependencies\": { \"vitest\": \"^1.0.0\" },</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"scripts\": { \"test\": \"vitest\", \"lint\": \"eslint .\" }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">npm install; npm run test; npm run lint; npm publish;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 每一环都有若干竞争者：打包器、测试框架、lint、格式化各选各的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 那边 go build / go test / go vet / gofmt 都是官方标准 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 尤其 gofmt 不接受配置，所以社区风格是真正统一的</span></span></code></pre>",
+          "lineCount": 12,
+          "notes": [
+            {
+              "line": 10,
+              "text": "每一环都有若干竞争者：打包器、测试框架、lint、格式化各选各的",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2go/concurrency-exercise",
+      "chapterId": "js2go/05-concurrency-and-modules",
+      "title": "练习：把回调式的并发改写成通道",
+      "kind": "exercise",
+      "summary": "重点是从\"共享状态\"改到\"传消息\"",
+      "bodyHtml": "<p>下面这段 JS 用一个模块级 Map 做缓存，两个异步任务并发读写它。</p>\n<p>请把它迁到 Go，要求<strong>行为正确</strong>，并回答三个问题：</p>\n<ol>\n<li>同样的缓存，用 <code>sync.Mutex</code> 保护怎么写？用通道又怎么写？</li>\n<li>两种写法各自适合什么场景？</li>\n<li><code>go test -race</code> 能帮你发现什么？它不能发现什么？</li>\n</ol>\n<p>对照参考实现时，重点看两处：<strong>锁的作用域</strong>（<code>defer mu.Unlock()</code> 的位置），\n以及<strong>哪些地方其实可以不共享</strong>。</p>\n<p>（提示：第 2 问的分界大致是&quot;高频短临界区用锁、有明确的数据流转用通道&quot;。\n第 3 问：race detector 只报<strong>实际发生过</strong>的竞争 ——\n没跑到的路径它看不出来，所以它不能替代设计上的正确性。）</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "type cache struct {\n    mu sync.Mutex\n    m  map[int]int\n}\n\nfunc (c *cache) get(k int) int {\n    c.mu.Lock()\n    defer c.mu.Unlock()                  // ⚠ 紧跟 Lock 写，作用域一眼可见\n    if v, ok := c.m[k]; ok {\n        return v\n    }\n    v := compute(k)\n    c.m[k] = v\n    return v\n}\n\n// ⚠ 三问的答案：\n// 1. 锁的写法就是上面这样；通道的写法是把缓存本身做成一个 goroutine，\n//    通过请求/响应通道访问它（\"用一个 owner goroutine 串行化所有访问\"）\n// 2. 分界大致是：高频短临界区用锁（开销小、直观）；\n//    有明确的数据流转、或者要表达\"所有权转移\"时用通道\n// 3. race detector 只报**实际发生过**的竞争 —— 没跑到的路径它看不出来，\n//    所以它不能替代设计上的正确性\n// ⚠ 不加锁直接并发写同一个 map 会 panic（concurrent map writes），\n// 而且编译器一句话都不说 —— JS 里同样这段代码不会坏，因为那边没有真并行",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> cache</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    mu </span><span style=\"color:var(--shiki-token-function)\">sync</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">Mutex</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    m  </span><span style=\"color:var(--shiki-token-keyword)\">map</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-keyword)\">int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (c </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">cache</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-foreground)\">(k </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    c.mu.</span><span style=\"color:var(--shiki-token-function)\">Lock</span><span style=\"color:var(--shiki-foreground)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    defer</span><span style=\"color:var(--shiki-foreground)\"> c.mu.</span><span style=\"color:var(--shiki-token-function)\">Unlock</span><span style=\"color:var(--shiki-foreground)\">()                  </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 紧跟 Lock 写，作用域一眼可见</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-foreground)\"> v, ok </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> c.m[k]; ok {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        return</span><span style=\"color:var(--shiki-foreground)\"> v</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    v </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">(k)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    c.m[k] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> v</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> v</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 三问的答案：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 1. 锁的写法就是上面这样；通道的写法是把缓存本身做成一个 goroutine，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//    通过请求/响应通道访问它（\"用一个 owner goroutine 串行化所有访问\"）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 2. 分界大致是：高频短临界区用锁（开销小、直观）；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//    有明确的数据流转、或者要表达\"所有权转移\"时用通道</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 3. race detector 只报**实际发生过**的竞争 —— 没跑到的路径它看不出来，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//    所以它不能替代设计上的正确性</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不加锁直接并发写同一个 map 会 panic（concurrent map writes），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 而且编译器一句话都不说 —— JS 里同样这段代码不会坏，因为那边没有真并行</span></span></code></pre>",
+          "lineCount": 25,
+          "notes": [
+            {
+              "line": 8,
+              "text": "紧跟 Lock 写，作用域一眼可见",
+              "tone": "warn"
+            },
+            {
+              "line": 17,
+              "text": "三问的答案：",
+              "tone": "warn"
+            },
+            {
+              "line": 24,
+              "text": "不加锁直接并发写同一个 map 会 panic（concurrent map writes），",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "const cache = new Map();\n\nasync function compute(k) { return k * 2; }\n\nasync function get(k) {\n  if (!cache.has(k)) {                       // \"检查后写入\"这个复合动作\n    cache.set(k, await compute(k));          // 有 await，这里真的会被切走\n  }\n  return cache.get(k);\n}\n\nawait Promise.all([get(1), get(1)]);\n// ⚠ 最坏是 compute(1) 被算两次 —— cache 不会损坏（单线程，没有并发写）\n// ⚠ Go 里是真的并发写同一个 map，会直接 panic（concurrent map writes）——\n// 而且这个 panic 是运行时才出现的，编译器不会提醒",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> cache</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Map</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">(k) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> k </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> get</span><span style=\"color:var(--shiki-foreground)\">(k) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">!</span><span style=\"color:var(--shiki-token-constant)\">cache</span><span style=\"color:var(--shiki-token-function)\">.has</span><span style=\"color:var(--shiki-foreground)\">(k)) {                       </span><span style=\"color:var(--shiki-token-comment)\">// \"检查后写入\"这个复合动作</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    cache</span><span style=\"color:var(--shiki-token-function)\">.set</span><span style=\"color:var(--shiki-foreground)\">(k</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">(k));          </span><span style=\"color:var(--shiki-token-comment)\">// 有 await，这里真的会被切走</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-constant)\"> cache</span><span style=\"color:var(--shiki-token-function)\">.get</span><span style=\"color:var(--shiki-foreground)\">(k);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-constant)\"> Promise</span><span style=\"color:var(--shiki-token-function)\">.all</span><span style=\"color:var(--shiki-foreground)\">([</span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> get</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">)]);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 最坏是 compute(1) 被算两次 —— cache 不会损坏（单线程，没有并发写）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Go 里是真的并发写同一个 map，会直接 panic（concurrent map writes）——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 而且这个 panic 是运行时才出现的，编译器不会提醒</span></span></code></pre>",
+          "lineCount": 15,
+          "notes": [
+            {
+              "line": 13,
+              "text": "最坏是 compute(1) 被算两次 —— cache 不会损坏（单线程，没有并发写）",
+              "tone": "warn"
+            },
+            {
+              "line": 14,
+              "text": "Go 里是真的并发写同一个 map，会直接 panic（concurrent map writes）——",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    }
+  ],
+  "summary": "从 JavaScript 到 Go：并行是真的，但官方让你用通道而不是共享内存",
+  "target": "go"
+}

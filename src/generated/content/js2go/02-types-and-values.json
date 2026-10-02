@@ -1,0 +1,335 @@
+{
+  "id": "js2go/02-types-and-values",
+  "topicId": "js2go",
+  "title": "2. 类型、数值与字符串",
+  "order": 2,
+  "section": "migration",
+  "baseline": "javascript",
+  "features": [
+    {
+      "id": "js2go/types-intro",
+      "chapterId": "js2go/02-types-and-values",
+      "title": "本章要解决什么",
+      "kind": "concept",
+      "summary": "类型变静态了，但\"零值\"让空值问题换了个形式",
+      "bodyHtml": "<p>从 JS 到 Go，类型这一层的变化比其他方向温和：没有所有权、\n没有泛型擦除、没有受检异常 —— 主要就是<strong>类型写出来了</strong>。</p>\n<p>真正需要重建的是<strong>零值</strong>这个概念：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">        // 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-token-comment)\">     // \"\"（空串，不是 nil）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> p </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">User</span><span style=\"color:var(--shiki-token-comment)\">      // nil</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> xs []</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">     // nil（不是空切片）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> m </span><span style=\"color:var(--shiki-token-keyword)\">map</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">   // nil —— 读可以，写会 panic</span></span></code></pre>\n<p>每个类型都有零值，而且<strong>声明即初始化</strong>，不像 JS 那样有个 <code>undefined</code> 的\n&quot;未赋值&quot;状态。这带来两个连锁后果：</p>\n<ul>\n<li>没有&quot;忘了初始化&quot;这个失败模式 —— 但也没有&quot;这里根本不该为空&quot;的表达手段</li>\n<li><strong><code>nil</code> 分类型</strong>：<code>nil</code> 切片可以 <code>len()</code> 与 <code>range</code>，\n<code>nil</code> map 读返回零值、写却 panic。同一个 <code>nil</code>，行为不同</li>\n</ul>\n<p>本章按「类型 → 数值 → 字符串 → 空值」排。整体上这章比 Rust 温和得多，\n但 <code>nil</code> 那几条细节要专门记。</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "var x int = 1                // ⚠ 类型写在声明上\n// x = \"一\"                 // 编译错误\ny := 1                       // := 是声明并推断，只能在函数内用\n\nvar n int                    // ⚠ 0 —— 每个类型都有零值，声明即初始化\nvar s string                 // \"\"（空串，不是 nil）\nvar p *User                  // nil\nvar xs []int                 // nil（不是空切片）\nvar m map[string]int         // ⚠ nil —— 读可以，写会 panic\n\n// ⚠ 没有\"未赋值\"这个状态，也就没有 undefined；但也没有\"这里根本不该为空\"的表达手段",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">                // ⚠ 类型写在声明上</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// x = \"一\"                 // 编译错误</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">y </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">                       // := 是声明并推断，只能在函数内用</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">                    // ⚠ 0 —— 每个类型都有零值，声明即初始化</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-token-comment)\">                 // \"\"（空串，不是 nil）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> p </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">User</span><span style=\"color:var(--shiki-token-comment)\">                  // nil</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> xs []</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">                 // nil（不是空切片）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> m </span><span style=\"color:var(--shiki-token-keyword)\">map</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">         // ⚠ nil —— 读可以，写会 panic</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有\"未赋值\"这个状态，也就没有 undefined；但也没有\"这里根本不该为空\"的表达手段</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 1,
+              "text": "类型写在声明上",
+              "tone": "warn"
+            },
+            {
+              "line": 5,
+              "text": "0 —— 每个类型都有零值，声明即初始化",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "nil —— 读可以，写会 panic",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "没有\"未赋值\"这个状态，也就没有 undefined；但也没有\"这里根本不该为空\"的表达手段",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "let x = 1;               // 名字不携带类型\nx = \"一\";                // 合法 —— 编译期那道网不存在\n\nlet a;                   // ⚠ undefined —— \"已声明但未赋值\"是一个独立状态\n// Go 里没有这个状态：每个类型都有零值，声明即初始化",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;               </span><span style=\"color:var(--shiki-token-comment)\">// 名字不携带类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"一\"</span><span style=\"color:var(--shiki-foreground)\">;                </span><span style=\"color:var(--shiki-token-comment)\">// 合法 —— 编译期那道网不存在</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> a;                   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ undefined —— \"已声明但未赋值\"是一个独立状态</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 里没有这个状态：每个类型都有零值，声明即初始化</span></span></code></pre>",
+          "lineCount": 5,
+          "notes": [
+            {
+              "line": 4,
+              "text": "undefined —— \"已声明但未赋值\"是一个独立状态",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2go/numeric-types",
+      "chapterId": "js2go/02-types-and-values",
+      "title": "数值：整数有了位宽与符号",
+      "kind": "behavior",
+      "summary": "分有符号与无符号，溢出静默回绕",
+      "bodyHtml": "<p>JS 只有一种数字。Go 把它拆成 <code>int8</code>/<code>int16</code>/<code>int32</code>/<code>int64</code>、\n对应的 <code>uint*</code>，加上 <code>float32</code>/<code>float64</code>，以及<strong>平台相关的 <code>int</code> 与 <code>uint</code></strong>\n（在 64 位平台上是 64 位）。另有两个别名：<code>byte</code> = <code>uint8</code>、<code>rune</code> = <code>int32</code>。</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 10</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">int64</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 9007199254740993</span><span style=\"color:var(--shiki-token-comment)\">      // 装得下，JS 里这个数会丢精度</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-keyword)\">uint8</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 255</span></span></code></pre>\n<p><strong>溢出是静默回绕</strong>（与 Rust 的 debug panic 不同，与 JS 的丢精度也不同）：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">uint8</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 255</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">               // 编译错误：常量溢出，编译期就拦住</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-token-comment)\">                 // 0 —— 运行期回绕，不报错</span></span></code></pre>\n<p>常量溢出在编译期就被抓住，运行期计算才会回绕 —— 这条例外值得记住。</p>\n<p><strong>整数除法截断</strong>：<code>7 / 2</code> 得 <code>3</code>（JS 里是 <code>3.5</code>）。\n要浮点必须两边都是浮点类型，而且<strong>Go 不做隐式数值转换</strong>：\n<code>int</code> 与 <code>float64</code> 混算直接编译错误，必须显式 <code>float64(n)</code>。\n这一条比 JS 严格得多，好处是&quot;忘了转换&quot;这类问题编译期就暴露。</p>\n<p>取余的符号跟着被除数（<code>-7 % 3</code> 得 <code>-1</code>），与 JS 一致。\n除零：整数除零是<strong>运行期 panic</strong>（不是编译错误，因为除数可能是变量），\n浮点除零得 <code>+Inf</code>。</p>\n",
+      "refFeatureId": "basics-javascript/number-precision",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "7 / 2;                       // ⚠ 3 —— 整数除法，JS 里是 3.5\nfloat64(7) / 2;              // 3.5 —— 要浮点必须显式转换\n-7 % 3;                      // -1 —— 这条与 JS 一致\n\nvar big int64 = 9007199254740993    // 装得下，JS 里这个数会丢精度\nvar u uint8 = 255\nu++                          // ⚠ 0 —— 运行期溢出静默回绕\n// 常量溢出反而是编译错误，只有运行期计算才回绕\n\nvar i int = 10\nvar f float64 = 1.5\n// i + f                    // —— ⚠ 编译错误：整数与浮点不能混算，必须显式转换\nfloat64(i) + f\n\n1 / 0;                       // ⚠ panic（整数除零）；浮点除零得 +Inf",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;                       </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 3 —— 整数除法，JS 里是 3.5</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;              </span><span style=\"color:var(--shiki-token-comment)\">// 3.5 —— 要浮点必须显式转换</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;                      </span><span style=\"color:var(--shiki-token-comment)\">// -1 —— 这条与 JS 一致</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> big </span><span style=\"color:var(--shiki-token-keyword)\">int64</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 9007199254740993</span><span style=\"color:var(--shiki-token-comment)\">    // 装得下，JS 里这个数会丢精度</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> u </span><span style=\"color:var(--shiki-token-keyword)\">uint8</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 255</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">u</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-token-comment)\">                          // ⚠ 0 —— 运行期溢出静默回绕</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 常量溢出反而是编译错误，只有运行期计算才回绕</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 10</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> f </span><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1.5</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// i + f                    // —— ⚠ 编译错误：整数与浮点不能混算，必须显式转换</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-foreground)\">(i) </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-foreground)\"> f</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;                       </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ panic（整数除零）；浮点除零得 +Inf</span></span></code></pre>",
+          "lineCount": 15,
+          "notes": [
+            {
+              "line": 1,
+              "text": "3 —— 整数除法，JS 里是 3.5",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "0 —— 运行期溢出静默回绕",
+              "tone": "warn"
+            },
+            {
+              "line": 12,
+              "text": "编译错误：整数与浮点不能混算，必须显式转换",
+              "tone": "warn"
+            },
+            {
+              "line": 15,
+              "text": "panic（整数除零）；浮点除零得 +Inf",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "7 / 2;                   // 3.5 —— 除法永远给小数\nMath.trunc(7 / 2);       // 3\n-7 % 3;                  // -1 —— 取余符号跟着被除数走\n\n9007199254740993;        // ⚠ 变成 ...992 —— 整数也是浮点，超范围静默丢精度\n10n ** 30n;              // 要大整数必须显式用 BigInt\n\n0.1 + 0.2;               // 0.30000000000000004\n1 / 0;                   // ⚠ Infinity —— 除零静默\n\"6\" / \"2\";               // ⚠ 3 —— 字符串被隐式转成数字",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;                   </span><span style=\"color:var(--shiki-token-comment)\">// 3.5 —— 除法永远给小数</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Math</span><span style=\"color:var(--shiki-token-function)\">.trunc</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">);       </span><span style=\"color:var(--shiki-token-comment)\">// 3</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;                  </span><span style=\"color:var(--shiki-token-comment)\">// -1 —— 取余符号跟着被除数走</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">9007199254740993</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 变成 ...992 —— 整数也是浮点，超范围静默丢精度</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">10</span><span style=\"color:var(--shiki-token-keyword)\">n</span><span style=\"color:var(--shiki-token-keyword)\"> **</span><span style=\"color:var(--shiki-token-constant)\"> 30</span><span style=\"color:var(--shiki-token-keyword)\">n</span><span style=\"color:var(--shiki-foreground)\">;              </span><span style=\"color:var(--shiki-token-comment)\">// 要大整数必须显式用 BigInt</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">0.1</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-token-constant)\"> 0.2</span><span style=\"color:var(--shiki-foreground)\">;               </span><span style=\"color:var(--shiki-token-comment)\">// 0.30000000000000004</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;                   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ Infinity —— 除零静默</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"6\"</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-string-expression)\"> \"2\"</span><span style=\"color:var(--shiki-foreground)\">;               </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 3 —— 字符串被隐式转成数字</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 5,
+              "text": "变成 ...992 —— 整数也是浮点，超范围静默丢精度",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "Infinity —— 除零静默",
+              "tone": "warn"
+            },
+            {
+              "line": 10,
+              "text": "3 —— 字符串被隐式转成数字",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2go/strings",
+      "chapterId": "js2go/02-types-and-values",
+      "title": "字符串：只读字节序列，没有模板字符串",
+      "kind": "behavior",
+      "summary": "字符串不可变、按字节索引，插值靠 fmt",
+      "bodyHtml": "<p>Go 的 <code>string</code> 是<strong>只读的字节序列</strong>（UTF-8 编码），不可变这一点与 JS 一致：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"abc\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">]            </span><span style=\"color:var(--shiki-token-comment)\">// 97 —— 是 byte，不是字符！</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">(s[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">])    </span><span style=\"color:var(--shiki-token-comment)\">// \"a\" —— 要转一下才是字符串</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-foreground)\">(s)          </span><span style=\"color:var(--shiki-token-comment)\">// 3 —— 字节数，不是字符数</span></span></code></pre>\n<p><strong>索引拿到的是字节</strong>，这与 JS 的&quot;拿到一个字符&quot;不同。\n且 <code>len</code> 数的是字节：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"你好\"</span><span style=\"color:var(--shiki-foreground)\">)              </span><span style=\"color:var(--shiki-token-comment)\">// 6 —— 两个汉字各 3 字节</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">utf8.</span><span style=\"color:var(--shiki-token-function)\">RuneCountInString</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"你好\"</span><span style=\"color:var(--shiki-foreground)\">)   </span><span style=\"color:var(--shiki-token-comment)\">// 2 —— 想数字符用这个</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> i, r </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-token-string-expression)\"> \"你好\"</span><span style=\"color:var(--shiki-foreground)\"> { }     </span><span style=\"color:var(--shiki-token-comment)\">// range 给的是 rune（字符），不是字节</span></span></code></pre>\n<p><code>range</code> 遍历字符串时给的是 <code>rune</code>，而 <code>s[i]</code> 给的是 <code>byte</code> ——\n同一个字符串两种遍历方式，拿到的东西不一样，这是最容易混的一处。</p>\n<p><strong>没有模板字符串</strong>，插值靠 <code>fmt</code>：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">msg </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> fmt.</span><span style=\"color:var(--shiki-token-function)\">Sprintf</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"你好，</span><span style=\"color:var(--shiki-token-constant)\">%s</span><span style=\"color:var(--shiki-token-string-expression)\">！\"</span><span style=\"color:var(--shiki-foreground)\">, name)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">fmt.</span><span style=\"color:var(--shiki-token-function)\">Sprintf</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">%.2f</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">3.14159</span><span style=\"color:var(--shiki-foreground)\">)      </span><span style=\"color:var(--shiki-token-comment)\">// \"3.14\"</span></span></code></pre>\n<p>格式化用的是 printf 风格，与 JS 的 <code>toFixed</code> 表达力相当，\n但格式串与参数分离，参数顺序写反了不会报错。</p>\n<p>拼接用 <code>+</code> 或 <code>strings.Builder</code>（循环里用后者）。\n字符串与数字之间<strong>没有隐式转换</strong>：<code>&quot;a&quot; + 1</code> 是编译错误，\n必须 <code>strconv.Itoa(1)</code> 或 <code>fmt.Sprintf</code> —— 这一点比 JS 严格得多。</p>\n",
+      "refFeatureId": "basics-javascript/string-methods",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "s := \"abc\"\ns[0]                         // ⚠ 97 —— 拿到的是 byte，不是字符\nstring(s[0])                 // \"a\" —— 要转一下才是字符串\nlen(s)                       // 3 —— 字节数，不是字符数\n\nlen(\"你好\")                   // ⚠ 6 —— 两个汉字各 3 字节\nutf8.RuneCountInString(\"你好\") // 2 —— 想数字符用这个\nfor i, r := range \"你好\" { }  // ⚠ range 给的是 rune（字符），s[i] 给的是 byte\n\nname := \"Ada\"\nfmt.Sprintf(\"你好，%s！\", name)   // ⚠ 没有模板字符串，用 fmt\nfmt.Sprintf(\"%.2f\", 3.14159)      // \"3.14\"\n// 格式串与参数分离，顺序写反了不会报错\n\n// \"a\" + 1                   // —— ⚠ 编译错误：字符串与数字没有隐式转换\n\"a\" + strconv.Itoa(1)\nvar b strings.Builder        // 循环里拼接用它\nb.WriteString(\"a\")\nb.String()",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"abc\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">]                         </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 97 —— 拿到的是 byte，不是字符</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">(s[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">])                 </span><span style=\"color:var(--shiki-token-comment)\">// \"a\" —— 要转一下才是字符串</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-foreground)\">(s)                       </span><span style=\"color:var(--shiki-token-comment)\">// 3 —— 字节数，不是字符数</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"你好\"</span><span style=\"color:var(--shiki-foreground)\">)                   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 6 —— 两个汉字各 3 字节</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">utf8.</span><span style=\"color:var(--shiki-token-function)\">RuneCountInString</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"你好\"</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-comment)\">// 2 —— 想数字符用这个</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> i, r </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-token-string-expression)\"> \"你好\"</span><span style=\"color:var(--shiki-foreground)\"> { }  </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ range 给的是 rune（字符），s[i] 给的是 byte</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">name </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Ada\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">fmt.</span><span style=\"color:var(--shiki-token-function)\">Sprintf</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"你好，</span><span style=\"color:var(--shiki-token-constant)\">%s</span><span style=\"color:var(--shiki-token-string-expression)\">！\"</span><span style=\"color:var(--shiki-foreground)\">, name)   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有模板字符串，用 fmt</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">fmt.</span><span style=\"color:var(--shiki-token-function)\">Sprintf</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">%.2f</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">3.14159</span><span style=\"color:var(--shiki-foreground)\">)      </span><span style=\"color:var(--shiki-token-comment)\">// \"3.14\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 格式串与参数分离，顺序写反了不会报错</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// \"a\" + 1                   // —— ⚠ 编译错误：字符串与数字没有隐式转换</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-foreground)\"> strconv.</span><span style=\"color:var(--shiki-token-function)\">Itoa</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-function)\">strings</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">Builder</span><span style=\"color:var(--shiki-token-comment)\">        // 循环里拼接用它</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">b.</span><span style=\"color:var(--shiki-token-function)\">WriteString</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">b.</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">()</span></span></code></pre>",
+          "lineCount": 19,
+          "notes": [
+            {
+              "line": 2,
+              "text": "97 —— 拿到的是 byte，不是字符",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "6 —— 两个汉字各 3 字节",
+              "tone": "warn"
+            },
+            {
+              "line": 8,
+              "text": "range 给的是 rune（字符），s[i] 给的是 byte",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "没有模板字符串，用 fmt",
+              "tone": "warn"
+            },
+            {
+              "line": 15,
+              "text": "编译错误：字符串与数字没有隐式转换",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "const name = \"Ada\";\n`你好，${name}！`;         // 模板字符串：花括号里能放任意表达式\n\nconst s = \"abc\";\ns[0];                    // ⚠ 'a' —— 拿到的是一个字符（UTF-16 码元）\ns.length;                // 3 —— 码元数\n\"你好\".length;           // ⚠ 2 —— 恰好等于字符数，中文用 UTF-16 只占一个码元\n\n\"a\" + 1;                 // ⚠ 'a1' —— 静默把数字转成字符串\nlet out = \"\";\nfor (const p of parts) out += p;   // 引擎有 rope 优化",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> name</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Ada\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">`你好，</span><span style=\"color:var(--shiki-token-keyword)\">${</span><span style=\"color:var(--shiki-foreground)\">name</span><span style=\"color:var(--shiki-token-keyword)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">！`</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// 模板字符串：花括号里能放任意表达式</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> s</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"abc\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">];                    </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 'a' —— 拿到的是一个字符（UTF-16 码元）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">s</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-foreground)\">;                </span><span style=\"color:var(--shiki-token-comment)\">// 3 —— 码元数</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"你好\"</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-foreground)\">;           </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 2 —— 恰好等于字符数，中文用 UTF-16 只占一个码元</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;                 </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 'a1' —— 静默把数字转成字符串</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> out </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> p</span><span style=\"color:var(--shiki-token-keyword)\"> of</span><span style=\"color:var(--shiki-foreground)\"> parts) out </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-foreground)\"> p;   </span><span style=\"color:var(--shiki-token-comment)\">// 引擎有 rope 优化</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 5,
+              "text": "'a' —— 拿到的是一个字符（UTF-16 码元）",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "2 —— 恰好等于字符数，中文用 UTF-16 只占一个码元",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "'a1' —— 静默把数字转成字符串",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2go/nullability",
+      "chapterId": "js2go/02-types-and-values",
+      "title": "空值：没有 undefined，nil 分类型",
+      "kind": "behavior",
+      "summary": "两种空合成一种，但 nil 在不同类型上行为不同",
+      "bodyHtml": "<p>Go 只有 <code>nil</code> 一个空值（与 JS 的 <code>null</code> 相当，<code>undefined</code> 不存在）：\n因为变量声明即初始化，不存在&quot;未赋值&quot;这个状态。</p>\n<p><strong>但 <code>nil</code> 的行为取决于它是什么类型</strong> —— 这是最需要专门记的一节：</p>\n<table>\n<thead>\n<tr>\n<th>类型</th>\n<th><code>nil</code> 的行为</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>切片 <code>[]T</code></td>\n<td>可以 <code>len()</code>、<code>range</code>、<code>append</code> —— 与空切片几乎无差别</td>\n</tr>\n<tr>\n<td>map</td>\n<td><strong>读返回零值，写会 panic</strong></td>\n</tr>\n<tr>\n<td>指针 / 接口 / 通道 / 函数</td>\n<td>调用或解引用会 panic</td>\n</tr>\n<tr>\n<td>结构体</td>\n<td>结构体没有 nil，它的字段各有零值</td>\n</tr>\n</tbody>\n</table>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> m </span><span style=\"color:var(--shiki-token-keyword)\">map</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-keyword)\">int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">m[</span><span style=\"color:var(--shiki-token-string-expression)\">\"k\"</span><span style=\"color:var(--shiki-foreground)\">]              </span><span style=\"color:var(--shiki-token-comment)\">// 0 —— 读没问题</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">m[</span><span style=\"color:var(--shiki-token-string-expression)\">\"k\"</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">          // panic: assignment to entry in nil map</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">m </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> make</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">map</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">)   </span><span style=\"color:var(--shiki-token-comment)\">// 必须先 make</span></span></code></pre>\n<p><strong>判空也分类型</strong>：切片用 <code>len(xs) == 0</code>（它同时覆盖 nil 与空切片），\n指针用 <code>p == nil</code>，字符串用 <code>s == &quot;&quot;</code>。</p>\n<p>还有一处 JS 里没有的：<strong>非空接口里装着 nil 指针</strong>。\n一个接口变量只有在&quot;类型与值都为 nil&quot;时才是 nil，\n装了一个 nil 指针进去之后它就不是 nil 了 —— 这是 Go 里最著名的坑之一，\n判空会失效。</p>\n",
+      "refFeatureId": "basics-javascript/null-undefined",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "var p *User                  // ⚠ 只有 nil 一个空值，没有 undefined\nif p == nil { }\n\nvar xs []int\nlen(xs)                      // 0 —— nil 切片可以 len / range / append\nxs = append(xs, 1)           // 与空切片几乎无差别\n\nvar m map[string]int\nm[\"k\"]                       // 0 —— 读没问题\n// m[\"k\"] = 1                // —— ⚠ panic: assignment to entry in nil map\nm = make(map[string]int)     // 必须先 make\n\n// ⚠ 最著名的坑：非空接口里装着 nil 指针时，接口本身**不是 nil**\nvar e error = (*MyErr)(nil)\ne == nil                     // false —— 判空失效\n\n// 判空分类型：切片用 len(xs) == 0，指针用 p == nil，字符串用 s == \"\"",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> p </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">User</span><span style=\"color:var(--shiki-token-comment)\">                  // ⚠ 只有 nil 一个空值，没有 undefined</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> p </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-token-constant)\"> nil</span><span style=\"color:var(--shiki-foreground)\"> { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> xs []</span><span style=\"color:var(--shiki-token-keyword)\">int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-foreground)\">(xs)                      </span><span style=\"color:var(--shiki-token-comment)\">// 0 —— nil 切片可以 len / range / append</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">xs </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> append</span><span style=\"color:var(--shiki-foreground)\">(xs, </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">)           </span><span style=\"color:var(--shiki-token-comment)\">// 与空切片几乎无差别</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> m </span><span style=\"color:var(--shiki-token-keyword)\">map</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-keyword)\">int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">m[</span><span style=\"color:var(--shiki-token-string-expression)\">\"k\"</span><span style=\"color:var(--shiki-foreground)\">]                       </span><span style=\"color:var(--shiki-token-comment)\">// 0 —— 读没问题</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// m[\"k\"] = 1                // —— ⚠ panic: assignment to entry in nil map</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">m </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> make</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">map</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">)     </span><span style=\"color:var(--shiki-token-comment)\">// 必须先 make</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 最著名的坑：非空接口里装着 nil 指针时，接口本身**不是 nil**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> e </span><span style=\"color:var(--shiki-token-keyword)\">error</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">MyErr</span><span style=\"color:var(--shiki-foreground)\">)(</span><span style=\"color:var(--shiki-token-constant)\">nil</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">e </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-token-constant)\"> nil</span><span style=\"color:var(--shiki-token-comment)\">                     // false —— 判空失效</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 判空分类型：切片用 len(xs) == 0，指针用 p == nil，字符串用 s == \"\"</span></span></code></pre>",
+          "lineCount": 17,
+          "notes": [
+            {
+              "line": 1,
+              "text": "只有 nil 一个空值，没有 undefined",
+              "tone": "warn"
+            },
+            {
+              "line": 10,
+              "text": "panic: assignment to entry in nil map",
+              "tone": "warn"
+            },
+            {
+              "line": 13,
+              "text": "最著名的坑：非空接口里装着 nil 指针时，接口本身**不是 nil**",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "let a;                   // undefined\nlet b = null;            // null\n\na == null;               // ⚠ true：宽松相等同时匹配两种空\nobj?.a?.b;               // 可选链：一路 null 也不崩\n\nconst m = new Map();\nm.get(\"z\");              // undefined —— 读缺失的键不报错\nm.set(\"z\", 1);           // ⚠ 任何时候都能写，不需要先初始化\n// Go 的 nil map 读可以、写会 panic —— 这是最容易踩的一处差异",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> a;                   </span><span style=\"color:var(--shiki-token-comment)\">// undefined</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;            </span><span style=\"color:var(--shiki-token-comment)\">// null</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;               </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ true：宽松相等同时匹配两种空</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">obj</span><span style=\"color:var(--shiki-foreground)\">?.</span><span style=\"color:var(--shiki-token-constant)\">a</span><span style=\"color:var(--shiki-foreground)\">?.b;               </span><span style=\"color:var(--shiki-token-comment)\">// 可选链：一路 null 也不崩</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> m</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Map</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">m</span><span style=\"color:var(--shiki-token-function)\">.get</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"z\"</span><span style=\"color:var(--shiki-foreground)\">);              </span><span style=\"color:var(--shiki-token-comment)\">// undefined —— 读缺失的键不报错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">m</span><span style=\"color:var(--shiki-token-function)\">.set</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"z\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">);           </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 任何时候都能写，不需要先初始化</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 的 nil map 读可以、写会 panic —— 这是最容易踩的一处差异</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 4,
+              "text": "true：宽松相等同时匹配两种空",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "任何时候都能写，不需要先初始化",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2go/types-exercise",
+      "chapterId": "js2go/02-types-and-values",
+      "title": "练习：迁移一个金额统计函数",
+      "kind": "exercise",
+      "summary": "三个改动点，其中一个是类型选择",
+      "bodyHtml": "<p>下面这段 JS 统计一组订单的总金额与平均单价。</p>\n<p>请把它迁到 Go，要求<strong>行为完全一致</strong>：</p>\n<ol>\n<li>总金额用哪个数值类型（想想 JS 里为什么这里要小心）</li>\n<li>平均单价保留两位小数</li>\n<li>订单为空时返回什么（Go 没有 <code>null</code>，想想 <code>(值, ok)</code> 或指针两种写法）</li>\n</ol>\n<p>对照参考实现时，重点看三处：<strong>数值类型的选择</strong>、\n<strong>除法有没有踩到整数截断</strong>，以及<strong>格式化用的是哪个函数</strong>。</p>\n<p>（提示：第 2 问注意 Go 不做隐式数值转换，<code>int</code> 与 <code>float64</code> 混算编译不过。\n第 3 问是这个方向特有的一处设计选择 —— Go 既没有 <code>null</code>，\n也不像 Rust 那样有 <code>Option</code>。）</p>\n",
+      "snippets": {
+        "go": {
+          "lang": "go",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "type Order struct {\n    Price float64\n    Qty   int\n}\n\n// ⚠ Go 没有 null 也没有 Option，惯用写法是 (值, ok) 两个返回值\nfunc summarize(orders []Order) (float64, bool) {\n    if len(orders) == 0 {\n        return 0, false          // ok=false 表示\"没有结果\"\n    }\n    var total float64\n    for _, o := range orders {\n        total += o.Price * float64(o.Qty)   // ⚠ 不转 float64 就是整数乘法\n    }\n    avg := total / float64(len(orders))     // ⚠ 不转就是整数除法\n    return math.Round(avg*100) / 100, true\n}\n\n// 调用方必须显式处理 ok，不像 JS 的 null 那样容易忘记\n// float64 仍是二进制浮点，金额精度问题两边一样，要精确得用定点方案",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> Order</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    Price </span><span style=\"color:var(--shiki-token-keyword)\">float64</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    Qty   </span><span style=\"color:var(--shiki-token-keyword)\">int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Go 没有 null 也没有 Option，惯用写法是 (值, ok) 两个返回值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> summarize</span><span style=\"color:var(--shiki-foreground)\">(orders []</span><span style=\"color:var(--shiki-token-function)\">Order</span><span style=\"color:var(--shiki-foreground)\">) (</span><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-keyword)\">bool</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-token-function)\"> len</span><span style=\"color:var(--shiki-foreground)\">(orders) </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        return</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">false</span><span style=\"color:var(--shiki-token-comment)\">          // ok=false 表示\"没有结果\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    var</span><span style=\"color:var(--shiki-foreground)\"> total </span><span style=\"color:var(--shiki-token-keyword)\">float64</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    for</span><span style=\"color:var(--shiki-foreground)\"> _, o </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-foreground)\"> orders {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">        total </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-foreground)\"> o.Price </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-keyword)\"> float64</span><span style=\"color:var(--shiki-foreground)\">(o.Qty)   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不转 float64 就是整数乘法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    avg </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> total </span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-token-keyword)\"> float64</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-foreground)\">(orders))     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不转就是整数除法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> math.</span><span style=\"color:var(--shiki-token-function)\">Round</span><span style=\"color:var(--shiki-foreground)\">(avg</span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\">100</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-token-constant)\"> 100</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 调用方必须显式处理 ok，不像 JS 的 null 那样容易忘记</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// float64 仍是二进制浮点，金额精度问题两边一样，要精确得用定点方案</span></span></code></pre>",
+          "lineCount": 20,
+          "notes": [
+            {
+              "line": 6,
+              "text": "Go 没有 null 也没有 Option，惯用写法是 (值, ok) 两个返回值",
+              "tone": "warn"
+            },
+            {
+              "line": 13,
+              "text": "不转 float64 就是整数乘法",
+              "tone": "warn"
+            },
+            {
+              "line": 15,
+              "text": "不转就是整数除法",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "function summarize(orders) {\n  if (orders.length === 0) return null;        // ⚠ 用 null 表示\"没有结果\"\n  const total = orders.reduce((acc, o) => acc + o.price * o.qty, 0);\n  const avg = total / orders.length;           // 天然浮点除法\n  return Number(avg.toFixed(2));\n}\n\n// ⚠ 大额订单超过 2^53 时会静默丢精度\n// null 与数字是同一个类型的两种取值，调用方很容易忘记判空",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> summarize</span><span style=\"color:var(--shiki-foreground)\">(orders) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-constant)\">orders</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-token-keyword)\"> ===</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 用 null 表示\"没有结果\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  const</span><span style=\"color:var(--shiki-token-constant)\"> total</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> orders</span><span style=\"color:var(--shiki-token-function)\">.reduce</span><span style=\"color:var(--shiki-foreground)\">((acc</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> o) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> acc </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\"> o</span><span style=\"color:var(--shiki-foreground)\">.price </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> o</span><span style=\"color:var(--shiki-foreground)\">.qty</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  const</span><span style=\"color:var(--shiki-token-constant)\"> avg</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> total </span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-token-constant)\"> orders</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-foreground)\">;           </span><span style=\"color:var(--shiki-token-comment)\">// 天然浮点除法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-function)\"> Number</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">avg</span><span style=\"color:var(--shiki-token-function)\">.toFixed</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">));</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 大额订单超过 2^53 时会静默丢精度</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// null 与数字是同一个类型的两种取值，调用方很容易忘记判空</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 2,
+              "text": "用 null 表示\"没有结果\"",
+              "tone": "warn"
+            },
+            {
+              "line": 8,
+              "text": "大额订单超过 2^53 时会静默丢精度",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    }
+  ],
+  "summary": "从 JavaScript 到 Go：类型写在声明上、变量有零值、字符串是只读字节序列",
+  "target": "go"
+}

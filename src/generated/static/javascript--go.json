@@ -22,6 +22,26 @@
       "target": "go"
     },
     {
+      "id": "pitfall-js2go-goroutine-panic",
+      "title": "goroutine 里 panic，整个程序挂掉",
+      "symptomHtml": "<p>HTTP 服务里某个请求处理 panic，整个进程退出 ——\n而这个 panic 发生在一个 <code>go</code> 出去的 goroutine 里。</p>\n",
+      "causeHtml": "<p>JS 里 Promise 里的异常会变成 rejection，只在那一处生效；\nGo 里 <strong>goroutine 的 panic 没人接住就会终止整个程序</strong> ——\n外面的 <code>recover</code> 管不到它，因为那是另一个栈。</p>\n",
+      "fixHtml": "<p>每个&quot;入口 goroutine&quot;（尤其是 <code>go</code> 出去处理请求的）都要自带 recover：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    defer</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        if</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> recover</span><span style=\"color:var(--shiki-foreground)\">(); r </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> nil</span><span style=\"color:var(--shiki-foreground)\"> { log.</span><span style=\"color:var(--shiki-token-function)\">Printf</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"panic: </span><span style=\"color:var(--shiki-token-constant)\">%v</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-foreground)\">, r) }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    }()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    work</span><span style=\"color:var(--shiki-foreground)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}()</span></span></code></pre>\n<p>这也是为什么标准库的 <code>http.Server</code> 会替你做这件事 ——\n自己起 goroutine 时别忘了这一层。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/exception-flow",
+      "tags": [
+        "并发",
+        "错误处理"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
       "id": "pitfall-js2go-interface-nil",
       "title": "返回了 nil 却通过了 `err != nil` 的检查",
       "symptomHtml": "<p>一个返回 <code>error</code> 的函数在成功分支写 <code>return nil</code>，调用方 <code>if err != nil</code>\n却成立，走进错误分支并打印出 <code>&lt;nil&gt;</code>。同理，一个装着 nil 指针的接口值，\n与 <code>nil</code> 比较永远是 false。</p>\n",
@@ -62,6 +82,86 @@
       "target": "go"
     },
     {
+      "id": "pitfall-js2go-slice-shared-backing",
+      "title": "append 写进了另一个切片的领地",
+      "symptomHtml": "<p><code>b := a[1:3]</code> 之后 <code>b = append(b, 99)</code>，结果 <code>a[3]</code> 莫名其妙变成了 99 ——\n而代码里从没直接写过 <code>a[3]</code>。</p>\n",
+      "causeHtml": "<p>切片是<strong>底层数组的视图</strong>，<code>append</code> 在<strong>容量足够时</strong>直接写原数组，\n容量不够时才分配新数组。所以同一个操作有时安全、有时改到别人，\n取决于当时剩多少容量 —— 这让它在测试里常常看不出来。\nJS 的 <code>slice()</code> <strong>总是</strong>拷贝，所以那边没有这个坑。</p>\n",
+      "fixHtml": "<p>要隔离就限制容量或显式复制：\n<code>c := a[1:3:3]</code>（三索引切片，让 append 必然分配新数组）、\n<code>append([]int(nil), b...)</code>，或者 <code>slices.Clone(b)</code>。\n判断依据是&quot;这个切片会不会被 append，以及有没有别人共享同一段底层数组&quot;。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/array-slice",
+      "tags": [
+        "容器",
+        "切片"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-string-byte-vs-rune",
+      "title": "字符串长度不等于字符数，索引拿到的也不是字符",
+      "symptomHtml": "<p><code>len(&quot;你好&quot;)</code> 得 6 而不是 2；<code>s[0]</code> 拿到的是 228 这样的数字，\n不是字符；按 <code>s[i]</code> 遍历中文会得到一串乱码。</p>\n",
+      "causeHtml": "<p>Go 的字符串是 <strong>UTF-8 字节序列</strong>，<code>len</code> 数的是字节、<code>s[i]</code> 取的是 <code>byte</code>。\nJS 用 UTF-16：<code>&quot;你好&quot;.length</code> 恰好是 2、<code>s[0]</code> 恰好是 <code>'你'</code>，\n所以那边很少撞上这个问题 —— 而中文在 UTF-8 里占 3 个字节。</p>\n",
+      "fixHtml": "<p>要按字符操作就用 <code>for _, r := range s</code>（给的是 <code>rune</code>）、\n<code>utf8.RuneCountInString(s)</code> 数个数、<code>[]rune(s)</code> 转成字符切片。\n只在确实处理二进制或 ASCII 时才按字节索引。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/string-index-slice",
+      "tags": [
+        "字符串",
+        "编码"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-defer-in-loop",
+      "title": "defer 写在循环里，资源堆到函数返回才释放",
+      "symptomHtml": "<p>一个循环里打开若干文件，循环跑完后句柄数一直涨，\n直到函数返回才集中关闭 —— 文件多时直接 <code>too many open files</code>。</p>\n",
+      "causeHtml": "<p><code>defer</code> 的注册发生在<strong>当前行</strong>，但执行发生在<strong>函数返回时</strong>，\n不是&quot;当前块结束时&quot;。所以写在循环体里等于注册了 N 个延迟调用，\n全部堆到函数退出才跑。这与 JS 里 <code>finally</code> 附着在 try 上、\n循环里每次迭代各跑一次完全不同。</p>\n",
+      "fixHtml": "<p>把&quot;一轮迭代&quot;抽成一个函数，<code>defer</code> 写在那个函数里 ——\n这样每轮返回时就会释放：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> tryOne</span><span style=\"color:var(--shiki-foreground)\">(path </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">error</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    f, err </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> os.</span><span style=\"color:var(--shiki-token-function)\">Open</span><span style=\"color:var(--shiki-foreground)\">(path)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-foreground)\"> err </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> nil</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> err }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    defer</span><span style=\"color:var(--shiki-foreground)\"> f.</span><span style=\"color:var(--shiki-token-function)\">Close</span><span style=\"color:var(--shiki-foreground)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    // 用 f</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-constant)\"> nil</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>\n<p>或者把释放逻辑写成显式调用（<code>f.Close()</code>）而不是 <code>defer</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/array-iterate",
+      "tags": [
+        "资源",
+        "循环"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-err-shadowed",
+      "title": "用 := 遮蔽了外层的 err，检查的是旧的",
+      "symptomHtml": "<p><code>if</code> 里用 <code>:=</code> 重新声明了 <code>err</code>，检查结果永远是通过 ——\n真正的错误被丢在 <code>if</code> 作用域里，外面那个 <code>err</code> 还是 nil。</p>\n",
+      "causeHtml": "<p>Go 的 <code>:=</code> 在<strong>至少有一个新变量</strong>时会声明新变量，其余的是赋值。\n写在 <code>if</code> / <code>for</code> 的初始化位置时，新变量只在该语句块内可见 ——\n于是 <code>err</code> 被遮蔽，后续的 <code>if err != nil</code> 查的是外层那个。</p>\n",
+      "fixHtml": "<p>在 <code>if</code> 里赋值但不声明新变量时用 <code>=</code>（前提是变量已存在）。\n开启 <code>go vet -shadow</code> 或 golangci-lint 的 <code>shadow</code> 检查能自动发现它 ——\n这类错误读代码时很难看出来。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/var-scope",
+      "tags": [
+        "作用域",
+        "错误处理"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
       "id": "pitfall-js2go-goroutine-loop-var",
       "title": "循环里起的 goroutine 全部用了同一个变量",
       "symptomHtml": "<p><code>for _, v := range xs { go func() { use(v) }() }</code> 里所有 goroutine 都拿到最后一个值。</p>\n",
@@ -77,6 +177,66 @@
       "tags": [
         "并发",
         "闭包"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-integer-division",
+      "title": "除法静默变成了整数除法",
+      "symptomHtml": "<p>JS 里 <code>7 / 2</code> 得 3.5，Go 里得 3。算平均值、比例、单价时不报错，\n只是结果悄悄少了一截。</p>\n",
+      "causeHtml": "<p>JS 只有一种数字，除法都在浮点里发生；Go 的 <code>/</code> 在两个操作数都是整数时做整数除法。\n而且 Go <strong>不做隐式数值转换</strong>，所以 <code>float64(n) / m</code> 里的转换必须显式写出来 ——\n忘了写就悄无声息地走了整数除法。</p>\n",
+      "fixHtml": "<p>迁移每一处除法时确认意图，要浮点就写 <code>float64(a) / float64(b)</code>。\n好消息是&quot;忘了转换&quot;本身不会静默：<code>int / float64</code> 直接编译错误，\n只有&quot;两边都是整数&quot;这种情况才静默截断 —— 所以重点是检查那些\n&quot;本来两边就都是整数&quot;的表达式。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/number-precision",
+      "tags": [
+        "数值",
+        "运算"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-json-unexported-fields",
+      "title": "小写字段名，JSON 序列化出来是空对象",
+      "symptomHtml": "<p><code>json.Marshal(u)</code> 得到 <code>{}</code> —— 结构体里明明有值，序列化出来什么都没有。\n反过来 <code>json.Unmarshal</code> 也填不进任何字段，而且<strong>不报错</strong>。</p>\n",
+      "causeHtml": "<p><code>encoding/json</code> 只处理<strong>导出字段</strong>（首字母大写）。\n小写字段既不进输出也不被填充，而且这个失败完全静默。\nJS 里字段名随意，<code>JSON.stringify</code> 一律处理 —— 所以那边没有这层约束，\n迁过来时很容易按 JS 的习惯写小写字段名。</p>\n",
+      "fixHtml": "<p>参与序列化的字段必须首字母大写；想要 JSON 里是小写键名，\n用标签显式指定：<code>Name string \\</code>json:&quot;name&quot;`<code>。 排查这类问题时先确认字段是不是导出的 —— 空 </code>{}` 是最典型的信号。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/object-json",
+      "tags": [
+        "JSON",
+        "可见性"
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-js2go-map-iteration-order",
+      "title": "依赖 map 的遍历顺序，结果每次跑都不一样",
+      "symptomHtml": "<p>本地测试稳定通过，CI 上偶发失败；日志两次跑的顺序完全不同。</p>\n",
+      "causeHtml": "<p>Go <strong>刻意</strong>把 map 的遍历顺序随机化（防止代码依赖它）。\nJS 的 <code>Map</code> 保证插入顺序，对象也有确定的顺序规则 ——\n所以从那边过来时会自然地以为&quot;顺序是稳定的&quot;。</p>\n",
+      "fixHtml": "<p>需要有序遍历就把键收集出来排序：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">keys </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> make</span><span style=\"color:var(--shiki-foreground)\">([]</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-foreground)\">(m))</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> k </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-foreground)\"> m { keys </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> append</span><span style=\"color:var(--shiki-foreground)\">(keys, k) }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">sort.</span><span style=\"color:var(--shiki-token-function)\">Strings</span><span style=\"color:var(--shiki-foreground)\">(keys)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> _, k </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> range</span><span style=\"color:var(--shiki-foreground)\"> keys { </span><span style=\"color:var(--shiki-token-comment)\">/* 用 m[k] */</span><span style=\"color:var(--shiki-foreground)\"> }</span></span></code></pre>\n<p>需要固定的插入顺序就额外维护一个键的切片。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/object-iterate",
+      "tags": [
+        "容器",
+        "顺序"
       ],
       "baseline": "javascript",
       "target": "go"
@@ -141,27 +301,124 @@
       "note": "Go 里「赋值到底是拷贝还是共享」要按类型逐个判断，比 JS 的二分法复杂。",
       "baseline": "javascript",
       "target": "go"
+    },
+    {
+      "term": "切片",
+      "aliases": [
+        "slice",
+        "array",
+        "append",
+        "capacity"
+      ],
+      "perLanguage": {
+        "javascript": "Array 是引用的、长度可变的，`slice()` 永远返回新数组",
+        "go": "切片是底层数组的**视图**（指针 + 长度 + 容量）；`append` 容量够时会写回原数组"
+      },
+      "note": "JS 里\"取一段\"永远是安全的拷贝；Go 里它是共享，而且共享范围取决于容量 —— 最隐蔽的一处。",
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "term": "结构体",
+      "aliases": [
+        "struct",
+        "class",
+        "record"
+      ],
+      "perLanguage": {
+        "javascript": "对象字面量，字段随时可加、类型随意",
+        "go": "字段必须提前声明且类型固定；方法是挂在类型外面的；首字母大小写决定可见性"
+      },
+      "note": "Go 没有类与继承，方法挂在类型上、组合代替继承、接口靠隐式满足 —— 三处都与 JS 的类不同。",
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "term": "零值",
+      "aliases": [
+        "zero value",
+        "default",
+        "nil"
+      ],
+      "perLanguage": {
+        "javascript": "变量不初始化就是 undefined，对象字段缺失也是 undefined",
+        "go": "每个类型都有零值（int 是 0、string 是 \"\"、指针/切片/map 是 nil），声明即初始化"
+      },
+      "note": "Go 里没有\"未赋值\"这个状态 —— 好处是不会忘初始化，代价是没有\"这里根本不该为空\"的表达手段。",
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "term": "defer",
+      "aliases": [
+        "defer",
+        "finally",
+        "cleanup"
+      ],
+      "perLanguage": {
+        "javascript": "try/finally 里手写释放，位置集中在末尾",
+        "go": "`defer` 紧跟在申请之后写，**函数返回时**执行；多个 defer 按后进先出"
+      },
+      "note": "位置不同带来一个坑：写在循环里时，所有 defer 会堆到函数返回才执行 —— JS 的 finally 是每次迭代各跑一次。",
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "term": "通道",
+      "aliases": [
+        "channel",
+        "chan",
+        "goroutine",
+        "select"
+      ],
+      "perLanguage": {
+        "javascript": "没有对应概念 —— 协作靠 Promise 与回调，数据靠共享引用传递",
+        "go": "`chan T` 是带类型的消息管道；goroutine 之间靠收发数据协作，官方推荐用它代替共享内存"
+      },
+      "note": "JS 里并发单元之间天然隔离（Worker 不共享内存）；Go 里它们共享内存，但被建议用通道来避免共享。",
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "term": "包",
+      "aliases": [
+        "package",
+        "module",
+        "import",
+        "export"
+      ],
+      "perLanguage": {
+        "javascript": "一个文件即一个模块，相对路径导入，定义的东西默认可导出",
+        "go": "一个**目录**是一个包，完整模块路径导入，**首字母大写**才是导出的；循环导入是编译错误"
+      },
+      "note": "最反直觉的一处是导出规则：JS 要显式 export，Go 要显式\"大写\" —— 而\"什么都不做\"在两边的结果正好相反。",
+      "baseline": "javascript",
+      "target": "go"
     }
   ],
   "roadmaps": [
     {
-      "id": "js2go-1-mental-model",
+      "id": "js2go-1-anchor",
       "order": 1,
       "title": "先接受「没有异常、没有类继承」",
       "durationHint": "2-3 小时",
       "todo": [
-        "通读「心智模型」板块，把两边在这些根本差异上的映射建起来",
+        "通读本工具「心智模型」板块的 JavaScript 视角，把 GC/GC、Promise/goroutine 这类映射建起来",
         "只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
-        "明确写下「哪些 JS 直觉必须丢掉」——try/catch 兜底、原型继承、对象即字典"
+        "明确写下「哪些 JS 直觉必须丢掉」——一切皆对象、异常即控制流、数组是唯一序列、Map 保证顺序"
       ],
       "acceptance": [
-        "能说清 `(T, error)` 与 throw 在控制流上的区别",
-        "知道 Go 的接口是隐式满足的，不需要 implements"
+        "能说清 `error` 是值而不是异常，以及为什么代码里到处是 `if err != nil`",
+        "知道 Go 没有类与继承，组合与接口各替代了哪部分"
       ],
       "resources": [
         {
-          "label": "Go 官方教程（Tour of Go）",
-          "url": "https://go.dev/tour/"
+          "label": "Go 官方教程（中文）",
+          "url": "https://go.dev/tour/welcome/1"
+        },
+        {
+          "label": "Effective Go",
+          "url": "https://go.dev/doc/effective_go"
         }
       ],
       "baseline": "javascript",
@@ -173,41 +430,108 @@
       "title": "基础语法逐条对照",
       "durationHint": "3-5 天",
       "todo": [
-        "按基础语法板块的章节逐格对比，每看一格手写一遍两边的代码（不要复制）",
-        "把踩到的坑记进本方向的迁移陷阱清单并打上自己的严重度",
-        "练习把一段 JS 的数组链式调用改写成 Go 的循环（Go 没有 map/filter）"
+        "按本工具「基础语法」板块的 8 个章节逐格对比，每看一格手写一遍两边的代码（不要复制）",
+        "特别留意三处与 JS 直接冲突的：整数除法、切片共享底层数组、字符串按字节索引",
+        "练习把一段 JS 的 `Array.map/filter/reduce` 链改写成 Go 的 `for` 循环",
+        "把踩到的坑记进「迁移陷阱」板块并打上自己的严重度"
       ],
       "acceptance": [
-        "能独立写出变量、切片、map、控制流、函数，无编译错误",
-        "能解释 slice 与数组的区别，以及 append 为什么常常要重新赋值"
+        "能独立写出变量、切片、map、控制流、函数定义，无编译错误",
+        "能说清切片与数组的区别，以及 `append` 为什么会改到别人",
+        "能解释「首字母大写才是导出的」这条规则影响哪些声明"
       ],
       "resources": [
         {
-          "label": "Effective Go",
-          "url": "https://go.dev/doc/effective_go"
+          "label": "Go 语言规范",
+          "url": "https://go.dev/ref/spec"
         }
       ],
       "baseline": "javascript",
       "target": "go"
     },
     {
-      "id": "js2go-3-tooling",
+      "id": "js2go-3-practice",
       "order": 3,
-      "title": "接上工具链与工程习惯",
-      "durationHint": "1 周",
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "1-2 周",
       "todo": [
-        "建一个 module（go mod init）并跑通 build / test / vet 三步",
-        "把 npm 的心智映射到 Go modules 与 go get",
-        "用 gofmt 固定格式，体会「格式没有争论」带来的协作收益"
+        "做 Exercism 的 Go track，接受 mentor 评审",
+        "把一个写过的小 JS 工具（100-300 行）用 Go 重写一遍",
+        "重写时不要查 JS 原文件——凭记忆写，写完再对照",
+        "刻意改写那些 JS 里靠链式方法完成的逻辑，体会 `for` 循环 + 早返回的写法"
       ],
       "acceptance": [
-        "能独立新建一个 module 并产出可执行文件",
-        "能读懂编译错误与 `go vet` 的提示定位问题"
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法",
+        "写完能顺手跑 `gofmt` 与 `go vet` 且无告警"
+      ],
+      "resources": [
+        {
+          "label": "Exercism Go Track",
+          "url": "https://exercism.org/tracks/go"
+        },
+        {
+          "label": "TheAlgorithms Go",
+          "url": "https://github.com/TheAlgorithms/Go"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "js2go-4-deep",
+      "order": 4,
+      "title": "补齐语义层（并发与内存）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "真正理解「通过通信共享内存」：先用通道写一遍生产者-消费者，再用 Mutex 写一遍",
+        "用 `select` + `time.After` 给一个并发任务加超时，对比 JS 里怎么实现",
+        "理解 `context.Context` 为什么是每个可能阻塞的函数的第一个参数",
+        "跑一次 `go test -race`，看它抓到什么、也看它抓不到什么",
+        "理解切片与 map 的扩容行为，以及为什么并发写 map 会直接 panic"
+      ],
+      "acceptance": [
+        "能解释为什么 goroutine 里的 panic 会让整个程序挂掉，以及怎么防",
+        "能说清 channel 与 Mutex 各自适合什么场景",
+        "能写出带超时与取消的并发代码"
+      ],
+      "resources": [
+        {
+          "label": "Go 官方博客 · 通过通信共享内存",
+          "url": "https://go.dev/blog/codelab-share"
+        },
+        {
+          "label": "Go 并发模式（中文）",
+          "url": "https://github.com/goinaction/code"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "go"
+    },
+    {
+      "id": "js2go-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 go mod 建一个真实项目，跑通「写代码 → test → vet → build」",
+        "把 npm 的心智映射到 go.mod / go.sum，理解 go mod tidy 为什么既增又删",
+        "用标准库的 testing 写表驱动测试，对比 Jest 的写法差异",
+        "配好 gofmt 与 golangci-lint（注意其中的 shadow 检查，它能抓出 err 遮蔽）"
+      ],
+      "acceptance": [
+        "能独立搭起一个带测试、lint、格式化的 Go 工程",
+        "能说清 package / module / import 路径各自解决什么问题",
+        "能解释为什么 Go 社区没有\"格式化风格之争\""
       ],
       "resources": [
         {
           "label": "Go Modules 参考",
           "url": "https://go.dev/ref/mod"
+        },
+        {
+          "label": "golangci-lint",
+          "url": "https://golangci-lint.run/"
         }
       ],
       "baseline": "javascript",

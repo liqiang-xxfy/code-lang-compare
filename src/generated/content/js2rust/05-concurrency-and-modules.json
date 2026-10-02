@@ -1,0 +1,282 @@
+{
+  "id": "js2rust/05-concurrency-and-modules",
+  "topicId": "js2rust",
+  "title": "5. 并发与模块化",
+  "order": 5,
+  "section": "migration",
+  "baseline": "javascript",
+  "features": [
+    {
+      "id": "js2rust/concurrency-intro",
+      "chapterId": "js2rust/05-concurrency-and-modules",
+      "title": "本章要解决什么",
+      "kind": "concept",
+      "summary": "共享内存回来了，但编译器站在你这边",
+      "bodyHtml": "<p>JS 的单线程模型让&quot;并发 bug&quot;整整一类都不存在。Rust 有真线程、真共享内存，\n按理说那一类问题该回来了 —— <strong>但它被编译器拦住了</strong>。</p>\n<p>机制是 <code>Send</code> / <code>Sync</code> 两个标记 trait：</p>\n<ul>\n<li>一个类型能不能被<strong>移到</strong>另一个线程，由 <code>Send</code> 决定</li>\n<li>一个类型的<strong>共享引用</strong>能不能跨线程，由 <code>Sync</code> 决定</li>\n</ul>\n<p>编译器自动推导它们，绝大多数类型都满足。真正值钱的是<strong>不满足的那一类</strong> ——\n<code>Rc&lt;T&gt;</code>（非原子引用计数）不是 <code>Send</code>，所以把 <code>Rc</code> 拿到另一个线程\n会<strong>编译错误</strong>，而不是静默的数据竞争。</p>\n<p>共享可变状态因此需要显式声明意图：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Arc</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">new</span><span style=\"color:var(--shiki-foreground)\">(Mutex</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">new</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">));        </span><span style=\"color:var(--shiki-token-comment)\">// 原子引用计数 + 互斥锁</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Arc</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">clone</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\">counter);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">thread</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">spawn</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">move</span><span style=\"color:var(--shiki-token-keyword)\"> ||</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\">c</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">lock</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">unwrap</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; });</span></span></code></pre>\n<p><code>Arc</code> 解决&quot;多个线程都要拥有它&quot;，<code>Mutex</code> 解决&quot;同时只能一个人改&quot;——\n两者都要写出来，编译器会检查你有没有漏掉哪一层。</p>\n<p><strong>与 JS 对比</strong>：那边不存在这些问题，所以也没有对应的直觉要丢；\n与 Java 对比：那边同样有共享内存，但 <code>synchronized</code> 是可选的自律，\n而这里<strong>忘了加锁是编译不过的</strong>。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "let counter = 0;\nasync function bump() { counter += 1; }    // ⚠ 主线程只有一个，不会真的并发写\n\nnew Worker(\"worker.js\");                   // 真并行只能靠 Worker，且不共享内存\nnew SharedArrayBuffer(1024);               // 想共享内存得专门用它\n\n// ⚠ \"共享可变状态\"这一整类问题在这里不存在，也就没有对应的直觉\n// Rust 里它回来了，但编译器会拦住 —— 忘了加锁是编译不过的",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> bump</span><span style=\"color:var(--shiki-foreground)\">() { counter </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; }    </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 主线程只有一个，不会真的并发写</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Worker</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"worker.js\"</span><span style=\"color:var(--shiki-foreground)\">);                   </span><span style=\"color:var(--shiki-token-comment)\">// 真并行只能靠 Worker，且不共享内存</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> SharedArrayBuffer</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1024</span><span style=\"color:var(--shiki-foreground)\">);               </span><span style=\"color:var(--shiki-token-comment)\">// 想共享内存得专门用它</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ \"共享可变状态\"这一整类问题在这里不存在，也就没有对应的直觉</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 里它回来了，但编译器会拦住 —— 忘了加锁是编译不过的</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 2,
+              "text": "主线程只有一个，不会真的并发写",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "\"共享可变状态\"这一整类问题在这里不存在，也就没有对应的直觉",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "use std::sync::{Arc, Mutex};\n\nlet counter = Arc::new(Mutex::new(0));       // ⚠ 原子引用计数 + 互斥锁，两层都要写\nlet c = Arc::clone(&counter);\nstd::thread::spawn(move || { *c.lock().unwrap() += 1; });\n\n// ⚠ 忘了加锁是**编译不过**的 —— Send / Sync 由编译器自动推导并检查\n// Rc<T>（非原子引用计数）不是 Send，拿到别的线程会编译错误，\n// 而不是静默的数据竞争 —— 这正是 Rust 相对 Java 最大的不同",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">sync</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">{</span><span style=\"color:var(--shiki-token-function)\">Arc</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">Mutex</span><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Arc</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">new</span><span style=\"color:var(--shiki-foreground)\">(Mutex</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">new</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">));       </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 原子引用计数 + 互斥锁，两层都要写</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Arc</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">clone</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\">counter);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">thread</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">spawn</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">move</span><span style=\"color:var(--shiki-token-keyword)\"> ||</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\">c</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">lock</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">unwrap</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; });</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 忘了加锁是**编译不过**的 —— Send / Sync 由编译器自动推导并检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rc&#x3C;T>（非原子引用计数）不是 Send，拿到别的线程会编译错误，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 而不是静默的数据竞争 —— 这正是 Rust 相对 Java 最大的不同</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 3,
+              "text": "原子引用计数 + 互斥锁，两层都要写",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "忘了加锁是**编译不过**的 —— Send / Sync 由编译器自动推导并检查",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2rust/async-model",
+      "chapterId": "js2rust/05-concurrency-and-modules",
+      "title": "异步：async/await 形似，但没有内置运行时",
+      "kind": "behavior",
+      "summary": "语法很像，但事件循环要自己选一个",
+      "bodyHtml": "<p>语法上与 JS 几乎一样：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> fetch_all</span><span style=\"color:var(--shiki-foreground)\">(urls</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">]) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> Vec</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    let</span><span style=\"color:var(--shiki-foreground)\"> futures</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Vec</span><span style=\"color:var(--shiki-foreground)\">&#x3C;_> </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> urls</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">iter</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">map</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-foreground)\">u</span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(u))</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">collect</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    futures</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">future</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">join_all</span><span style=\"color:var(--shiki-foreground)\">(futures)</span><span style=\"color:var(--shiki-token-keyword)\">.await</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>\n<p><code>Promise.all</code> ↔ <code>join_all</code>，<code>async</code>/<code>await</code> 关键字都对得上 ——\n这是整个迁移路线里最省力的一块。</p>\n<p><strong>最大的区别是&quot;没有内置运行时&quot;</strong>：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[tokio</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">main]                   </span><span style=\"color:var(--shiki-token-comment)\">// 或者 async-std / smol</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> main</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">...</span><span style=\"color:var(--shiki-foreground)\"> }</span></span></code></pre>\n<p>JS 的事件循环由运行时托管，你从不选择它；Rust 的 <code>async</code> 只是\n&quot;编译成一个状态机&quot;，<strong>谁来驱动它</strong>是另一件事。所以要显式挑一个运行时\n（<code>tokio</code> 是主流），并把它写进依赖。</p>\n<p>三处由此派生的差异：</p>\n<ol>\n<li><strong>执行器是库、不是语言</strong>。换运行时要改代码；JS 里没这个概念。</li>\n<li><strong>任务是协作式的，且不保证被调度</strong>。<code>.await</code> 是唯一的让出点，\n所以&quot;同步阻塞调用&quot;会卡住整个执行器线程 —— 与 JS 里阻塞主线程同理，\n但这里可以换多线程运行时而缓解。</li>\n<li><strong><code>Send</code> 约束会渗进异步代码</strong>。跨 <code>.await</code> 持有的类型必须 <code>Send</code>，\n否则编译错误 —— 这是 JS 里完全没有的一类问题，也是新手最常见的\n异步编译错误来源。</li>\n</ol>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "const rs = await Promise.all(urls.map((u) => fetch(u)));\nconst settled = await Promise.allSettled(tasks);\n\nasync function main() { }\nmain();                                    // ⚠ 事件循环由运行时托管，从不自己选\n\n// ⚠ 没有\"挑一个执行器\"这回事 —— 浏览器或 Node 就是那个运行时\n// Rust 里 async 只是编译成状态机，谁来驱动它要显式选（tokio 等）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> rs</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-constant)\"> Promise</span><span style=\"color:var(--shiki-token-function)\">.all</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">urls</span><span style=\"color:var(--shiki-token-function)\">.map</span><span style=\"color:var(--shiki-foreground)\">((u) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(u)));</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> settled</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-constant)\"> Promise</span><span style=\"color:var(--shiki-token-function)\">.allSettled</span><span style=\"color:var(--shiki-foreground)\">(tasks);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> main</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">main</span><span style=\"color:var(--shiki-foreground)\">();                                    </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 事件循环由运行时托管，从不自己选</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有\"挑一个执行器\"这回事 —— 浏览器或 Node 就是那个运行时</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 里 async 只是编译成状态机，谁来驱动它要显式选（tokio 等）</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 5,
+              "text": "事件循环由运行时托管，从不自己选",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "没有\"挑一个执行器\"这回事 —— 浏览器或 Node 就是那个运行时",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "async fn fetch_all(urls: &[String]) -> Vec<String> {\n    let futures: Vec<_> = urls.iter().map(|u| fetch(u)).collect();\n    futures::future::join_all(futures).await   // 对应 Promise.all\n}\n\n#[tokio::main]                               // ⚠ 运行时是库，要自己选\nasync fn main() { }\n\n// ⚠ async 只是把函数编译成状态机，\"谁来驱动它\"是另一件事 ——\n// JS 里事件循环由运行时托管，从不选择\n// ⚠ 跨 .await 持有的类型必须 Send，否则编译错误 ——\n// 这是 JS 里完全没有的一类问题，也是新手最常见的异步编译错误",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> fetch_all</span><span style=\"color:var(--shiki-foreground)\">(urls</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">]) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> Vec</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    let</span><span style=\"color:var(--shiki-foreground)\"> futures</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Vec</span><span style=\"color:var(--shiki-foreground)\">&#x3C;_> </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> urls</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">iter</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">map</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-foreground)\">u</span><span style=\"color:var(--shiki-token-keyword)\">|</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(u))</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">collect</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    futures</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">future</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">join_all</span><span style=\"color:var(--shiki-foreground)\">(futures)</span><span style=\"color:var(--shiki-token-keyword)\">.await</span><span style=\"color:var(--shiki-token-comment)\">   // 对应 Promise.all</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[tokio</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">main]                               </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 运行时是库，要自己选</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> main</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ async 只是把函数编译成状态机，\"谁来驱动它\"是另一件事 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// JS 里事件循环由运行时托管，从不选择</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 跨 .await 持有的类型必须 Send，否则编译错误 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这是 JS 里完全没有的一类问题，也是新手最常见的异步编译错误</span></span></code></pre>",
+          "lineCount": 12,
+          "notes": [
+            {
+              "line": 6,
+              "text": "运行时是库，要自己选",
+              "tone": "warn"
+            },
+            {
+              "line": 9,
+              "text": "async 只是把函数编译成状态机，\"谁来驱动它\"是另一件事 ——",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "跨 .await 持有的类型必须 Send，否则编译错误 ——",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2rust/module-system",
+      "chapterId": "js2rust/05-concurrency-and-modules",
+      "title": "模块系统：mod 与 crate",
+      "kind": "behavior",
+      "summary": "两个层级：文件内 mod 与包级 crate",
+      "bodyHtml": "<p>Rust 的模块系统有<strong>两个层级</strong>，JS 只有一个：</p>\n<table>\n<thead>\n<tr>\n<th>层级</th>\n<th>Rust</th>\n<th>JS</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>文件内分组</td>\n<td><code>mod</code> 块或 <code>mod name;</code> 指向文件</td>\n<td>无（只有文件即模块）</td>\n</tr>\n<tr>\n<td>包</td>\n<td>crate（<code>Cargo.toml</code> 一个包）</td>\n<td>package（<code>package.json</code>）</td>\n</tr>\n</tbody>\n</table>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">mod</span><span style=\"color:var(--shiki-foreground)\"> utils;                  </span><span style=\"color:var(--shiki-token-comment)\">// 引入 src/utils.rs</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> utils</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">helper;          </span><span style=\"color:var(--shiki-token-comment)\">// 把名字带进当前作用域</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> helper</span><span style=\"color:var(--shiki-foreground)\">() { }         </span><span style=\"color:var(--shiki-token-comment)\">// 默认私有，pub 才对 crate 外可见</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">crate</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> internal</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span></code></pre>\n<p>三处与 JS 不同：</p>\n<ol>\n<li><strong>默认私有</strong>。JS 里模块内定义的东西默认都可导出；\n这里不加 <code>pub</code> 就只在本模块可见 —— 方向正好相反。</li>\n<li><strong>路径用 <code>::</code></strong>，而且有 <code>crate::</code> / <code>super::</code> / <code>self::</code> 三种起点。\nJS 的相对路径（<code>./utils</code>）在这里对应 <code>super::</code> 或 <code>crate::</code>。</li>\n<li><strong>没有 <code>default export</code></strong>，也没有&quot;一个文件导出多个东西&quot;的写法差异 ——\n模块就是一个命名空间，<code>pub</code> 什么就导出什么。</li>\n</ol>\n<p><code>use</code> 只是<strong>把名字带进作用域</strong>，不执行任何代码（与 Python 的 <code>import</code>\n不同）。这一点与 JS 的 ESM 一致。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "import { helper } from \"./utils.js\";       // 模块即文件\nexport function helper() { }\nexport default function def() { }\n\n// ⚠ 有 ESM / CJS 两套，还要配 \"type\": \"module\"\n// 模块里定义的东西默认**可以**从外面导入；Rust 里默认私有，要写 pub\n// 没有文件内的\"子模块\"分组，一个文件就是一个模块",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { helper } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> \"./utils.js\"</span><span style=\"color:var(--shiki-foreground)\">;       </span><span style=\"color:var(--shiki-token-comment)\">// 模块即文件</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> helper</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> default</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> def</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 有 ESM / CJS 两套，还要配 \"type\": \"module\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 模块里定义的东西默认**可以**从外面导入；Rust 里默认私有，要写 pub</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有文件内的\"子模块\"分组，一个文件就是一个模块</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 5,
+              "text": "有 ESM / CJS 两套，还要配 \"type\": \"module\"",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "mod utils;                     // 两个层级：文件内 mod + 包级 crate\nuse utils::helper;             // use 只把名字带进作用域，不执行代码\n\npub fn helper() { }            // ⚠ 默认私有，加 pub 才对模块外可见\npub(crate) fn internal() { }\n\n// ⚠ 与 JS 相反：JS 里模块内定义的东西默认可导出\n// 路径用 :: ，起点有 crate:: / super:: / self:: 三种；\n// JS 的 ./utils 对应 super:: 或 crate::\n// 没有 default export",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">mod</span><span style=\"color:var(--shiki-foreground)\"> utils;                     </span><span style=\"color:var(--shiki-token-comment)\">// 两个层级：文件内 mod + 包级 crate</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> utils</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">helper;             </span><span style=\"color:var(--shiki-token-comment)\">// use 只把名字带进作用域，不执行代码</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> helper</span><span style=\"color:var(--shiki-foreground)\">() { }            </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 默认私有，加 pub 才对模块外可见</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">crate</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> internal</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 与 JS 相反：JS 里模块内定义的东西默认可导出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 路径用 :: ，起点有 crate:: / super:: / self:: 三种；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// JS 的 ./utils 对应 super:: 或 crate::</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有 default export</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 4,
+              "text": "默认私有，加 pub 才对模块外可见",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "与 JS 相反：JS 里模块内定义的东西默认可导出",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2rust/package-manager",
+      "chapterId": "js2rust/05-concurrency-and-modules",
+      "title": "包管理与构建：cargo 一家全包",
+      "kind": "behavior",
+      "summary": "比 npm 更统一 —— 构建、测试、依赖、发布全在一条命令下",
+      "bodyHtml": "<p>这是所有目标语言里<strong>与 npm 最像</strong>的一个：</p>\n<table>\n<thead>\n<tr>\n<th>事情</th>\n<th>JS</th>\n<th>Rust</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>声明依赖</td>\n<td><code>package.json</code></td>\n<td><code>Cargo.toml</code></td>\n</tr>\n<tr>\n<td>锁定版本</td>\n<td><code>package-lock.json</code></td>\n<td><code>Cargo.lock</code></td>\n</tr>\n<tr>\n<td>装依赖</td>\n<td><code>npm install</code></td>\n<td><code>cargo build</code>（自动拉）</td>\n</tr>\n<tr>\n<td>跑脚本</td>\n<td><code>npm run x</code></td>\n<td><code>cargo x</code>（子命令）</td>\n</tr>\n<tr>\n<td>测试</td>\n<td><code>npm test</code></td>\n<td><code>cargo test</code></td>\n</tr>\n<tr>\n<td>格式/检查</td>\n<td>Prettier + ESLint</td>\n<td><code>cargo fmt</code> / <code>cargo clippy</code>（官方）</td>\n</tr>\n<tr>\n<td>发布</td>\n<td><code>npm publish</code></td>\n<td><code>cargo publish</code></td>\n</tr>\n<tr>\n<td>文档</td>\n<td>JSDoc + 工具</td>\n<td><code>cargo doc</code>（官方）</td>\n</tr>\n</tbody>\n</table>\n<p><strong>不需要&quot;选工具链&quot;</strong>：格式化、lint、测试、文档都是 cargo 的子命令，\n由官方维护。JS 那边每个环节都有若干竞争者，这边是&quot;一个答案&quot;。</p>\n<p>依赖写进 <code>Cargo.toml</code>：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span>[dependencies]</span></span>\n<span class=\"line\"><span>serde = { version = \"1\", features = [\"derive\"] }</span></span>\n<span class=\"line\"><span>tokio = { version = \"1\", features = [\"full\"] }</span></span></code></pre>\n<p>两处与 npm 不同的概念：</p>\n<ol>\n<li><strong>feature 开关</strong>。依赖可以按需开启功能子集（<code>features = [...]</code>），\n用来减小编译产物或引入可选能力。JS 那边通常靠多个包或 tree-shaking。</li>\n<li><strong>没有&quot;开发依赖装到项目里&quot;的隔离问题</strong> —— 依赖编译进产物，\n不存在 <code>node_modules</code> 那种运行时解析。</li>\n</ol>\n<p><code>cargo clippy</code> 值得单独提一句：它的建议质量很高，而且能查出\n&quot;能编译但写法不地道&quot;的代码 —— 这对刚从 JS 过来的人尤其有用。</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "// package.json\n// {\n//   \"dependencies\": { \"express\": \"^4.18.0\" },\n//   \"devDependencies\": { \"vitest\": \"^1.0.0\" },\n//   \"scripts\": { \"test\": \"vitest\", \"lint\": \"eslint .\" }\n// }\n\nnpm install; npm run test; npm run lint; npm publish;\n\n// ⚠ 每一环都有若干竞争者：打包器、测试框架、lint、格式化各选各的\n// Rust 那边 cargo 一家全包 —— 这是两者最像也最不像的地方",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// package.json</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"dependencies\": { \"express\": \"^4.18.0\" },</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"devDependencies\": { \"vitest\": \"^1.0.0\" },</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"scripts\": { \"test\": \"vitest\", \"lint\": \"eslint .\" }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">npm install; npm run test; npm run lint; npm publish;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 每一环都有若干竞争者：打包器、测试框架、lint、格式化各选各的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 那边 cargo 一家全包 —— 这是两者最像也最不像的地方</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 10,
+              "text": "每一环都有若干竞争者：打包器、测试框架、lint、格式化各选各的",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "// Cargo.toml\n// [dependencies]\n// serde = { version = \"1\", features = [\"derive\"] }\n// tokio = { version = \"1\", features = [\"full\"] }\n\ncargo build;      // 会自动拉依赖\ncargo test;\ncargo fmt;        // ⚠ 格式化、lint、文档都是官方子命令\ncargo clippy;\ncargo doc;\ncargo publish;\n\n// ⚠ 不需要\"选工具链\"：每个环节都是 cargo 的子命令，一个答案\n// feature 开关是这边的特色：依赖可以按需开启功能子集\n// clippy 能查出\"能编译但写法不地道\"的代码，对刚迁过来的人尤其有用",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Cargo.toml</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// [dependencies]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// serde = { version = \"1\", features = [\"derive\"] }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// tokio = { version = \"1\", features = [\"full\"] }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo build;      </span><span style=\"color:var(--shiki-token-comment)\">// 会自动拉依赖</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo test;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo fmt;        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 格式化、lint、文档都是官方子命令</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo clippy;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo doc;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo publish;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不需要\"选工具链\"：每个环节都是 cargo 的子命令，一个答案</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// feature 开关是这边的特色：依赖可以按需开启功能子集</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// clippy 能查出\"能编译但写法不地道\"的代码，对刚迁过来的人尤其有用</span></span></code></pre>",
+          "lineCount": 15,
+          "notes": [
+            {
+              "line": 8,
+              "text": "格式化、lint、文档都是官方子命令",
+              "tone": "warn"
+            },
+            {
+              "line": 13,
+              "text": "不需要\"选工具链\"：每个环节都是 cargo 的子命令，一个答案",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    },
+    {
+      "id": "js2rust/concurrency-exercise",
+      "chapterId": "js2rust/05-concurrency-and-modules",
+      "title": "练习：判断哪些代码需要同步",
+      "kind": "exercise",
+      "summary": "编译器会告诉你，但先自己想一遍",
+      "bodyHtml": "<p>下面这段 JS 用一个模块级 Map 做缓存，两个异步任务并发读写它。</p>\n<p>请把它迁到 Rust 的多线程版本，要求<strong>行为正确</strong>，然后回答三个问题：</p>\n<ol>\n<li>原版里 <code>if (!cache.has(k)) cache.set(k, compute(k))</code> 这一段，\n在 Rust 里需要加锁吗？编译器会拦你吗？</li>\n<li>如果只用 <code>Arc&lt;HashMap&lt;...&gt;&gt;</code> 不加 <code>Mutex</code>，会怎样？</li>\n<li><code>Arc&lt;Mutex&lt;T&gt;&gt;</code> 与 <code>Arc&lt;RwLock&lt;T&gt;&gt;</code> 该选哪个？</li>\n</ol>\n<p>对照参考实现时，重点看两处：<strong><code>Arc</code> 与 <code>Mutex</code> 各自解决什么</strong>，\n以及<strong>锁的作用域</strong>（<code>.lock()</code> 返回的 guard 什么时候释放）。</p>\n<p>（提示：第 1 问的答案是&quot;需要，而且不加就编译不过&quot;——\n这是 Rust 相对 Java 最大的不同。第 3 问与读写比例有关。\n注意 <code>MutexGuard</code> 是 RAII 的，作用域结束自动解锁 ——\n与前面「资源释放」那一章是同一套机制。）</p>\n",
+      "snippets": {
+        "javascript": {
+          "lang": "javascript",
+          "equivalence": "identical",
+          "flags": [],
+          "code": "const cache = new Map();\n\nasync function compute(k) { return k * 2; }\n\nasync function get(k) {\n  if (!cache.has(k)) {                       // \"检查后写入\"这个复合动作\n    cache.set(k, await compute(k));          // 有 await，这里真的会被切走\n  }\n  return cache.get(k);\n}\n\nawait Promise.all([get(1), get(1)]);\n// ⚠ 最坏是 compute(1) 被算两次 —— cache 不会损坏（单线程，没有并发写）\n// ⚠ Rust 里同样这段代码不加锁**编译不过** —— 这是最大的不同",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> cache</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Map</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">(k) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> k </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> get</span><span style=\"color:var(--shiki-foreground)\">(k) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">!</span><span style=\"color:var(--shiki-token-constant)\">cache</span><span style=\"color:var(--shiki-token-function)\">.has</span><span style=\"color:var(--shiki-foreground)\">(k)) {                       </span><span style=\"color:var(--shiki-token-comment)\">// \"检查后写入\"这个复合动作</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    cache</span><span style=\"color:var(--shiki-token-function)\">.set</span><span style=\"color:var(--shiki-foreground)\">(k</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">(k));          </span><span style=\"color:var(--shiki-token-comment)\">// 有 await，这里真的会被切走</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-constant)\"> cache</span><span style=\"color:var(--shiki-token-function)\">.get</span><span style=\"color:var(--shiki-foreground)\">(k);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-constant)\"> Promise</span><span style=\"color:var(--shiki-token-function)\">.all</span><span style=\"color:var(--shiki-foreground)\">([</span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> get</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">)]);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 最坏是 compute(1) 被算两次 —— cache 不会损坏（单线程，没有并发写）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Rust 里同样这段代码不加锁**编译不过** —— 这是最大的不同</span></span></code></pre>",
+          "lineCount": 14,
+          "notes": [
+            {
+              "line": 13,
+              "text": "最坏是 compute(1) 被算两次 —— cache 不会损坏（单线程，没有并发写）",
+              "tone": "warn"
+            },
+            {
+              "line": 14,
+              "text": "Rust 里同样这段代码不加锁**编译不过** —— 这是最大的不同",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        },
+        "rust": {
+          "lang": "rust",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "use std::collections::HashMap;\nuse std::sync::{Arc, Mutex};\n\nfn get(cache: &Arc<Mutex<HashMap<i32, i32>>>, k: i32) -> i32 {\n    let mut guard = cache.lock().unwrap();   // ⚠ 不加锁根本不编译\n    *guard.entry(k).or_insert_with(|| compute(k))\n    // ⚠ 三问的答案：\n    // 1. 需要，而且**编译器会拦你** —— 这是与 Java 最大的不同：\n    //    那边 synchronized 是可选的自律，这边是强制的\n    // 2. 只用 Arc<HashMap> 不加 Mutex：编译错误（HashMap 不是 Sync），\n    //    不是运行时出错 —— 问题在编译期就没了\n    // 3. 读多写少用 RwLock（多个读者可并发），读写相当用 Mutex（更简单、开销更小）\n}\n\nfn compute(k: i32) -> i32 { k * 2 }\n\n// ⚠ MutexGuard 是 RAII 的：作用域结束自动解锁 ——\n// 与「资源释放」那一章是同一套机制，不需要手写 unlock\n// 注意 compute(k) 在持有锁时被调用：锁的作用域越短越好，\n// 计算耗时长的话应该先算好再进临界区",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">collections</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">HashMap</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">sync</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">{</span><span style=\"color:var(--shiki-token-function)\">Arc</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">Mutex</span><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> get</span><span style=\"color:var(--shiki-foreground)\">(cache</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-function)\">Arc</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">Mutex</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">HashMap</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-foreground)\">>>>, k</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> i32</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> i32</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    let</span><span style=\"color:var(--shiki-token-keyword)\"> mut</span><span style=\"color:var(--shiki-foreground)\"> guard </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> cache</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">lock</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">unwrap</span><span style=\"color:var(--shiki-foreground)\">();   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不加锁根本不编译</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    *</span><span style=\"color:var(--shiki-foreground)\">guard</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">entry</span><span style=\"color:var(--shiki-foreground)\">(k)</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">or_insert_with</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">||</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">(k))</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    // ⚠ 三问的答案：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    // 1. 需要，而且**编译器会拦你** —— 这是与 Java 最大的不同：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    //    那边 synchronized 是可选的自律，这边是强制的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    // 2. 只用 Arc&#x3C;HashMap> 不加 Mutex：编译错误（HashMap 不是 Sync），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    //    不是运行时出错 —— 问题在编译期就没了</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    // 3. 读多写少用 RwLock（多个读者可并发），读写相当用 Mutex（更简单、开销更小）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-foreground)\">(k</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> i32</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> i32</span><span style=\"color:var(--shiki-foreground)\"> { k </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ MutexGuard 是 RAII 的：作用域结束自动解锁 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与「资源释放」那一章是同一套机制，不需要手写 unlock</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 注意 compute(k) 在持有锁时被调用：锁的作用域越短越好，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 计算耗时长的话应该先算好再进临界区</span></span></code></pre>",
+          "lineCount": 20,
+          "notes": [
+            {
+              "line": 5,
+              "text": "不加锁根本不编译",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "三问的答案：",
+              "tone": "warn"
+            },
+            {
+              "line": 17,
+              "text": "MutexGuard 是 RAII 的：作用域结束自动解锁 ——",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm"
+        }
+      }
+    }
+  ],
+  "summary": "从 JavaScript 到 Rust：并行是真的，但数据竞争在编译期就被拦住",
+  "target": "rust"
+}

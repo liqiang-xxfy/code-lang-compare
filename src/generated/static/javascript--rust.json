@@ -43,6 +43,86 @@
       "target": "rust"
     },
     {
+      "id": "pitfall-js2rust-overflow-modes",
+      "title": "同一份代码，开发时崩溃、上线后静默算错",
+      "symptomHtml": "<p>本地跑测试时 <code>x + 1</code> 在边界上 panic，改了两行让测试过；\n上线后同样的输入不再崩，但结果变成了一个莫名其妙的数。</p>\n",
+      "causeHtml": "<p>Rust 的整数溢出行为<strong>取决于构建模式</strong>：debug 下 panic，\nrelease 下回绕。这不是 bug，是刻意的设计（开发时暴露问题、发布时保证性能）。\n而 JS 里整数是浮点，&quot;溢出&quot;表现为丢精度 —— 三种行为都不一样。</p>\n",
+      "fixHtml": "<p>想要确定的语义就用显式方法：<code>wrapping_add</code>（回绕）、\n<code>checked_add</code>（返回 <code>Option</code>）、<code>saturating_add</code>（饱和到边界）。\n名字就是文档，读代码的人不必猜当前是什么构建模式。\n开发阶段的溢出 panic 要当成信号去改类型（比如换 <code>i64</code>），而不是绕过它。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/number-precision",
+      "tags": [
+        "数值",
+        "类型"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-string-byte-index",
+      "title": "按字节切字符串，遇到中文就崩",
+      "symptomHtml": "<p><code>&amp;s[0..1]</code> 在英文上跑得好好的，换成 <code>&quot;你好&quot;</code> 就 panic：\n<code>byte index 1 is not a char boundary</code>。</p>\n",
+      "causeHtml": "<p>Rust 的字符串是 UTF-8 字节序列，下标是<strong>字节</strong>偏移。\nJS 用 UTF-16 码元索引，中文恰好占一个码元，所以那边很少撞上这个问题；\n而 UTF-8 里一个汉字占 3 个字节，取 <code>0..1</code> 就落在字符中间。</p>\n",
+      "fixHtml": "<p>要按字符操作就用 <code>s.chars().nth(i)</code> 或 <code>s.char_indices()</code>；\n确实要按字节切时，先确认那是个字符边界（<code>s.is_char_boundary(i)</code>）。\n截断字符串这类需求应该用 <code>s.chars().take(n).collect::&lt;String&gt;()</code>。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/string-index-slice",
+      "tags": [
+        "字符串",
+        "编码"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-borrow-while-iterate",
+      "title": "遍历时改集合 —— 这次直接编译不过",
+      "symptomHtml": "<p><code>for x in &amp;xs { xs.push(*x); }</code> 编译报错\n<code>cannot borrow xs as mutable because it is also borrowed as immutable</code>。</p>\n",
+      "causeHtml": "<p>JS 里遍历时改数组是&quot;行为未定义&quot;（可能死循环、可能跳过元素），但不报错；\nRust 的借用规则不允许&quot;同时存在不可变借用与可变借用&quot;，\n所以这类代码<strong>编译期就被拦住</strong>。</p>\n",
+      "fixHtml": "<p>三种解法，按场景选：\n先克隆再遍历（<code>for x in xs.clone()</code>）、\n收集到新容器再整体替换（<code>let out: Vec&lt;_&gt; = xs.iter().map(...).collect(); xs = out;</code>）、\n或者用下标循环（<code>for i in 0..xs.len()</code>）。\n这是<strong>唯一一个在编译期拦住这类错误的语言</strong> —— 遇到时该庆幸，不是抱怨。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/array-iterate",
+      "tags": [
+        "借用",
+        "容器"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-clone-to-silence",
+      "title": "一被借用检查拦住就 clone，性能悄悄没了",
+      "symptomHtml": "<p>编译过了，但代码里到处是 <code>.clone()</code>；压测时发现 CPU 大头都在\n无意义的内存复制上，而逻辑本身并没有需要复制的地方。</p>\n",
+      "causeHtml": "<p><code>clone()</code> 能解决大部分借用错误 —— 因为它把&quot;共享&quot;变成了&quot;各有一份&quot;，\n借用冲突自然消失。但代价是每次调用都真的复制一份数据，\n在热路径上会累积成可观的成本。</p>\n",
+      "fixHtml": "<p>先把 <code>clone()</code> 当<strong>调试手段</strong>用：加上让它编译过，然后回头问\n&quot;这里真的需要复制吗&quot;。常见的正解是传引用（<code>&amp;T</code>）、\n调整作用域让借用早点结束、或者用 <code>Rc</code> / <code>Arc</code> 共享所有权。\n关键是<strong>别让它留在提交里</strong> —— 借用检查是设计反馈，不是障碍。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-javascript/value-semantics",
+      "tags": [
+        "所有权",
+        "性能"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
       "id": "pitfall-js2rust-lifetimes",
       "title": "借用检查器盯着的其实是「引用活得比数据久」",
       "symptomHtml": "<p>函数想返回内部数据的一个引用，编译器报 <code>missing lifetime specifier</code>；\n给结构体加一个引用字段，整个类型突然需要生命周期参数；\n改一处标注，报错转移到另一个函数。</p>\n",
@@ -58,6 +138,86 @@
       "tags": [
         "所有权",
         "内存"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-slice-is-borrow",
+      "title": "以为取出来的是副本，结果原数据被锁住了",
+      "symptomHtml": "<p><code>let sub = &amp;xs[1..3];</code> 之后想改 <code>xs</code>，编译报错；\n或者把 <code>sub</code> 存进结构体时被生命周期标注难住。</p>\n",
+      "causeHtml": "<p>JS 的 <code>slice()</code> <strong>总是</strong>返回新数组；Rust 的切片 <code>&amp;xs[1..3]</code> 是<strong>借用</strong>，\n是原数据的一个视图。借出期间原数据不能被可变借用 —— 这是借用规则的一部分。</p>\n",
+      "fixHtml": "<p>要副本就显式 <code>to_vec()</code>（<code>let owned = xs[1..3].to_vec();</code>）。\n不想复制就用借用，但要接受&quot;借出期间不能改原数据&quot;这个约束 ——\n这通常正是你想要的（读的时候别人不该改）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/array-slice",
+      "tags": [
+        "借用",
+        "容器"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-unwrap-overuse",
+      "title": "到处 unwrap，把空值问题换了个形式搬过来",
+      "symptomHtml": "<p>代码里几十个 <code>.unwrap()</code>，跑起来照样在某个边界输入上 panic ——\n只不过这次崩的位置和真正的原因还是隔得很远。</p>\n",
+      "causeHtml": "<p><code>unwrap()</code> 是断言&quot;这里我确定有值&quot;。它把&quot;可能没有&quot;重新变成了运行时崩溃，\n这正是 <code>Option</code> 想解决的问题 —— 写多了等于没享受到类型系统的保护。</p>\n",
+      "fixHtml": "<p>分场景选出口：能给默认值用 <code>unwrap_or</code> / <code>unwrap_or_else</code>；\n能向上传播用 <code>?</code>；确实是程序不变量（比如刚 <code>is_some()</code> 过）才用\n<code>expect(&quot;说明为什么不可能&quot;)</code> —— 带消息的 panic 至少留下线索。\n原型期可以随意 unwrap，进生产路径前过一遍。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/optional-chaining",
+      "tags": [
+        "错误处理",
+        "空值"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-default-private",
+      "title": "写好的函数从别的模块调不到",
+      "symptomHtml": "<p><code>mod utils;</code> 引入了文件，但 <code>utils::helper()</code> 编译报错\n<code>function is private</code>。</p>\n",
+      "causeHtml": "<p>JS 的模块里，定义的东西默认<strong>可以</strong>从外面导入（要隐藏才加 <code>export</code> 的反面）；\nRust 正好相反 —— <strong>默认私有</strong>，要暴露必须显式写 <code>pub</code>。\n方向是反的，所以从 JS 过来时最容易漏。</p>\n",
+      "fixHtml": "<p>把 <code>pub</code> 当成&quot;这一层是给外面用的&quot;的声明来写，而不是编译报错后补上去。\n可见性还有粒度：<code>pub(crate)</code> 只对同一个 crate 可见，\n<code>pub(super)</code> 只对父模块可见 —— 按真实意图选，不要一律 <code>pub</code>。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/function-declare",
+      "tags": [
+        "模块",
+        "可见性"
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-js2rust-entry-api",
+      "title": "先查再插写了两遍查找，还容易撞上借用检查",
+      "symptomHtml": "<p><code>if !m.contains_key(&amp;k) { m.insert(k, Vec::new()); } m.get_mut(&amp;k).unwrap().push(v);</code>\n—— 能编译，但做了两次查找，而且 <code>unwrap()</code> 是多余的。</p>\n",
+      "causeHtml": "<p>JS 里 <code>(m.get(k) ?? m.set(k, []).get(k)).push(v)</code> 也是这个形状，\n所以从那边过来时会自然地照搬。但 Rust 提供了 <code>entry</code> API 把\n&quot;查不到就插默认值、然后拿到可写入口&quot;做成了一个原子操作。</p>\n",
+      "fixHtml": "<p>用 <code>m.entry(k).or_insert_with(Vec::new).push(v)</code>。\n<code>or_insert_with</code> 传的是闭包，<strong>只在真的需要插入时才构造默认值</strong> ——\n默认值构造成本高时（比如要分配容器）用它比 <code>or_insert</code> 划算。\n这是 Rust 最有辨识度的惯用法之一，值得练到不假思索。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "basics-javascript/object-default",
+      "tags": [
+        "容器",
+        "惯用法"
       ],
       "baseline": "javascript",
       "target": "rust"
@@ -143,47 +303,124 @@
       "note": "从 JS 迁过来时，「字符串怎么会有两种」和「为什么不能 s[0]」是两个连着的惊讶。",
       "baseline": "javascript",
       "target": "rust"
-    }
-  ],
-  "roadmaps": [
+    },
     {
-      "id": "js2rust-1-mental-model",
-      "order": 1,
-      "title": "先接受「编译器会一直拦你」",
-      "durationHint": "3-4 小时",
-      "todo": [
-        "通读「心智模型」板块，把两边在这些根本差异上的映射建起来",
-        "只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
-        "明确写下「哪些 JS 直觉必须丢掉」——对象随处共享、null 表达缺失、异常兜底"
+      "term": "借用",
+      "aliases": [
+        "borrow",
+        "reference",
+        "&",
+        "&mut"
       ],
-      "acceptance": [
-        "能说清移动、借用、克隆三者的区别，并知道什么时候该用哪个",
-        "知道 Rust 没有 null，缺失用 Option 表达"
-      ],
-      "resources": [
-        {
-          "label": "Rust 程序设计语言（中文版）",
-          "url": "https://kaisery.github.io/trpl-zh-cn/"
-        }
-      ],
+      "perLanguage": {
+        "javascript": "没有对应概念 —— 所有引用都是共享的，谁都能改，也没有\"借出期间不能动\"这回事",
+        "rust": "`&T` 是不可变借用（可同时存在多个），`&mut T` 是可变借用（同时只能有一个）；借用期间原值不能动"
+      },
+      "note": "JS 里\"传个引用过去\"不必想什么；Rust 里借出与借入是一对需要同时满足的约束。",
       "baseline": "javascript",
       "target": "rust"
     },
     {
-      "id": "js2rust-2-basics",
-      "order": 2,
-      "title": "基础语法逐条对照",
-      "durationHint": "1 周",
+      "term": "生命周期",
+      "aliases": [
+        "lifetime",
+        "'a",
+        "scope"
+      ],
+      "perLanguage": {
+        "javascript": "GC 保证引用永远有效，所以\"这个引用还能活多久\"不是需要回答的问题",
+        "rust": "编译器跟踪每个引用活多久，并验证它不会比被引用的数据更长寿；多数情况能自动推断"
+      },
+      "note": "生命周期标注看起来在描述\"活多久\"，其实是在描述**引用之间的关系** —— 它不改变实际生命周期。",
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "term": "智能指针",
+      "aliases": [
+        "smart pointer",
+        "Box",
+        "Rc",
+        "Arc",
+        "RefCell"
+      ],
+      "perLanguage": {
+        "javascript": "只有一种引用，GC 负责回收，没有\"共享所有权\"与\"独占所有权\"之分",
+        "rust": "`Box<T>`（独占堆分配）、`Rc<T>`（单线程共享）、`Arc<T>`（跨线程共享）、`RefCell<T>`（运行期借用检查）各管一件事"
+      },
+      "note": "JS 里一个引用走天下，Rust 里选哪种指针取决于\"几个所有者、跨不跨线程、要不要运行期检查\"。",
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "term": "特征",
+      "aliases": [
+        "trait",
+        "interface",
+        "protocol",
+        "impl"
+      ],
+      "perLanguage": {
+        "javascript": "没有语言级概念 —— 靠鸭子类型隐式满足，TypeScript 的 interface 只在编译期存在",
+        "rust": "`trait` 定义行为契约，可以给任何类型 `impl`（包括你不拥有的类型）；也可以是泛型约束或 `dyn Trait`"
+      },
+      "note": "与 JS 相比多了一层：Rust 的 trait 既能当接口用，也能当泛型约束用，还能为已有类型补实现。",
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "term": "迭代器",
+      "aliases": [
+        "iterator",
+        "iter",
+        "collect",
+        "lazy"
+      ],
+      "perLanguage": {
+        "javascript": "数组方法（map/filter）立刻求值并返回新数组；生成器函数可以惰性求值",
+        "rust": "`iter()` 产出的是惰性迭代器，链式操作零成本；必须用 `collect()` / `sum()` 这类终结操作消费"
+      },
+      "note": "两边都有\"惰性\"的概念，但 Rust 是**默认**惰性且编译期优化，JS 是默认立刻求值、要惰性得显式用生成器。",
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "term": "宏",
+      "aliases": [
+        "macro",
+        "format",
+        "vec",
+        "println"
+      ],
+      "perLanguage": {
+        "javascript": "没有宏 —— 只有函数；要生成代码得靠构建期工具（babel 插件、代码生成器）",
+        "rust": "`macro_rules!` 与过程宏在**编译期**展开成代码；`println!` / `format!` / `vec!` 都是宏"
+      },
+      "note": "名字后面那个 `!` 是在提醒\"这不是函数调用\" —— 它的参数在编译期被改写，所以能做函数做不到的事（比如编译期检查格式串）。",
+      "baseline": "javascript",
+      "target": "rust"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "js2rust-1-anchor",
+      "order": 1,
+      "title": "先接受「编译器会一直拦你」",
+      "durationHint": "2-3 小时",
       "todo": [
-        "按基础语法板块的章节逐格对比，每看一格手写一遍两边的代码（不要复制）",
-        "把踩到的坑记进本方向的迁移陷阱清单并打上自己的严重度",
-        "练习把一段 JS 的对象处理改写成 struct + impl，体会类型定义与行为放在一起的写法"
+        "通读本工具「心智模型」板块的 JavaScript 视角，把 GC/所有权、单线程/Send Sync 这类映射建起来",
+        "只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
+        "明确写下「哪些 JS 直觉必须丢掉」——共享可变、到处传引用、异常即控制流、字符串只有一种"
       ],
       "acceptance": [
-        "能独立写出变量、集合、控制流、函数与结构体，无编译错误",
-        "能让一段涉及所有权的代码通过借用检查器，并解释为什么这样写是对的"
+        "能说清所有权、借用、生命周期三者各自解决什么问题",
+        "知道 `Option` 不是\"加强版 null\"，而是把缺失写进了类型"
       ],
       "resources": [
+        {
+          "label": "The Rust Book（中文）",
+          "url": "https://kaisery.github.io/trpl-zh-cn/"
+        },
         {
           "label": "Rust by Example",
           "url": "https://doc.rust-lang.org/rust-by-example/"
@@ -193,23 +430,112 @@
       "target": "rust"
     },
     {
-      "id": "js2rust-3-tooling",
-      "order": 3,
-      "title": "接上工具链与工程习惯",
-      "durationHint": "1 周",
+      "id": "js2rust-2-basics",
+      "order": 2,
+      "title": "基础语法逐条对照",
+      "durationHint": "5-7 天",
       "todo": [
-        "用 cargo 新建项目，跑通 build / test / clippy / fmt 四步",
-        "把 npm 的心智映射到 crates.io 与 Cargo.toml",
-        "认真读一次 borrow checker 的报错全文 —— 它的建议通常就是修法"
+        "按本工具「基础语法」板块的 8 个章节逐格对比，每看一格手写一遍两边的代码（不要复制）",
+        "特别留意三处与 JS 直接冲突的：整数除法、字符串按字节索引、空值必须用 Option 处理",
+        "把踩到的坑记进「迁移陷阱」板块并打上自己的严重度",
+        "刻意练习\"先想所有权再写代码\"，而不是写完等编译器报错"
       ],
       "acceptance": [
-        "能独立新建 crate 并发布一个可执行程序",
-        "遇到借用冲突时能读懂 E0502 / E0499 这类错误码并自行修复"
+        "能独立写出变量、集合、控制流、函数定义，无编译错误",
+        "能解释 `String` 与 `&str` 各自该在什么场合用",
+        "遇到借用错误时，第一反应是调整作用域而不是加 `clone()`"
       ],
       "resources": [
         {
-          "label": "Cargo 手册",
+          "label": "The Rust Book · 所有权",
+          "url": "https://kaisery.github.io/trpl-zh-cn/ch04-00-understanding-ownership.html"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "js2rust-3-practice",
+      "order": 3,
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "2-3 周",
+      "todo": [
+        "做 Exercism 的 Rust track，接受 mentor 评审",
+        "把一个写过的小 JS 工具（100-300 行）用 Rust 重写一遍",
+        "重写时不要查 JS 原文件——凭记忆写，写完再对照",
+        "每次被借用检查拦住时，先想清楚\"数据归谁\"，再看编译器建议"
+      ],
+      "acceptance": [
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法",
+        "能在不看文档的情况下写出带 `Result` 返回与 `?` 传播的函数"
+      ],
+      "resources": [
+        {
+          "label": "Exercism Rust Track",
+          "url": "https://exercism.org/tracks/rust"
+        },
+        {
+          "label": "TheAlgorithms Rust",
+          "url": "https://github.com/TheAlgorithms/Rust"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "js2rust-4-deep",
+      "order": 4,
+      "title": "补齐语义层（并发与内存）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "真正理解 Send / Sync：为什么 `Rc` 不能跨线程，而 `Arc` 可以",
+        "用 `Arc<Mutex<T>>` 写一个共享计数器，体会\"忘加锁编译不过\"意味着什么",
+        "理解 RAII：为什么不需要 try/finally，以及 `MutexGuard` 是怎么自动解锁的",
+        "试着解释一次生命周期标注为什么写不出来 —— 多数时候答案是\"想共享但数据活不够久\""
+      ],
+      "acceptance": [
+        "能解释为什么 Rust 里\"数据竞争\"是一类编译期错误",
+        "能说清 `Box` / `Rc` / `Arc` / `RefCell` 各自的适用场景",
+        "能用 tokio 写一个并发的抓取程序，并知道跨 `.await` 的 `Send` 约束从哪来"
+      ],
+      "resources": [
+        {
+          "label": "The Rust Book · 无畏并发",
+          "url": "https://kaisery.github.io/trpl-zh-cn/ch16-00-fearless-concurrency.html"
+        },
+        {
+          "label": "tokio 官方教程",
+          "url": "https://tokio.rs/tokio/tutorial"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "rust"
+    },
+    {
+      "id": "js2rust-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 cargo 建一个真实项目，跑通「写代码 → test → clippy → fmt → doc → build」",
+        "把 npm 的心智映射到 Cargo.toml 与 feature 开关，理解为什么要按需开启功能子集",
+        "用 thiserror（库）/ anyhow（应用）整理一遍错误类型",
+        "读一遍 clippy 的全部警告并逐条处理 —— 它对刚迁过来的人尤其有用"
+      ],
+      "acceptance": [
+        "能独立搭起一个带测试、lint、文档的 Rust 工程",
+        "能说清 crate / mod / use / pub 各自解决什么问题",
+        "能读懂借用检查的报错并说出它想保护什么"
+      ],
+      "resources": [
+        {
+          "label": "Cargo 官方文档",
           "url": "https://doc.rust-lang.org/cargo/"
+        },
+        {
+          "label": "Clippy 警告清单",
+          "url": "https://rust-lang.github.io/rust-clippy/master/index.html"
         }
       ],
       "baseline": "javascript",
