@@ -1,0 +1,79 @@
+# javascript —— js2python/03-collections-and-data 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2python/collections-intro
+    equivalence: identical
+    code: |
+      const xs = [1, 2, 3];
+      xs.filter((x) => x > 0).map((x) => x * 2);   // @note 链式调用，逐步构建
+
+      const o = { a: 1 };
+      const m = new Map();                          // @note 要用对象当键才上 Map
+      const s = new Set([1, 2]);
+
+      xs.reduce((acc, x) => acc + x, 0);            // @note 聚合靠 reduce
+      // @note 每一步都建一个中间数组；Python 的推导式一步到位
+  - featureId: js2python/list-model
+    equivalence: identical
+    code: |
+      const xs = [1, 2, 3, 4, 5];
+      xs.slice(1, 3);              // @note [2, 3] —— 浅拷贝，与 Python 切片一致
+      xs.slice(-2);                // @note [4, 5] —— slice 支持负索引
+
+      xs.at(-1);                   // @note! 5 —— 取末尾要显式用 at()
+      xs[-1];                      // @note! undefined —— 下标访问不支持负索引
+
+      xs[99];                      // @note! undefined —— 越界静默
+      xs[99].toString();           // @note! 于是这里才崩，报错位置离原因很远
+      xs.slice(2, 999);            // @note [3, 4, 5] —— 切片越界也是静默
+
+      // @note! 完全没有步长：xs[::2] 要写 xs.filter((_, i) => i % 2 === 0)
+  - featureId: js2python/map-model
+    equivalence: identical
+    code: |
+      const d = { a: 1 };
+      d.a;                         // @note 1 —— 点号与方括号完全等价
+      d["a"];                      // 同样 1
+      d.z;                         // @note! undefined —— 缺失静默，不抛
+
+      "a" in d;                    // true —— 判存在要用 in 或 hasOwnProperty
+      d.z ?? 0;                    // @note 兜默认值用 ??
+      d.z ??= 0;                   // 不存在就写入
+
+      // @note 危险处：分不出"键不存在"与"值是 undefined"
+  - featureId: js2python/data-modeling
+    equivalence: identical
+    code: |
+      const user = { id: 1, name: "Ada", active: true };
+      user.name;                   // @note 随手就能建一条记录，不用先建类型
+
+      user.nmae;                   // @note! undefined —— 拼错静默，不报错
+
+      // @note 想有类型只能上 TypeScript 或手写 class；
+      // 这边的运行时对字段名完全没有约束
+  - featureId: js2python/collections-exercise
+    equivalence: identical
+    code: |
+      function groupByDept(employees) {
+        return employees.reduce((groups, e) => {
+          (groups[e.dept] ??= []).push(e.name);
+          return groups;
+        }, {});
+      }
+
+      function avgAge(employees) {
+        if (employees.length === 0) return 0;
+        const sum = employees.reduce((acc, e) => acc + e.age, 0);
+        return sum / employees.length;        // @note 除以零由上面的守卫挡住
+      }
+
+      // @note 空输入自然返回 {}，不需要特判

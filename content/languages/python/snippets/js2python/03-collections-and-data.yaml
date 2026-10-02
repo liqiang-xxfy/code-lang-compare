@@ -1,0 +1,98 @@
+# python —— js2python/03-collections-and-data 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），Python 是被对照的那一门。
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2python/collections-intro
+    equivalence: analogous
+    code: |
+      [x * 2 for x in xs if x > 0]          # @note! 推导式：一行完成"先过滤后映射"
+      # @note 读起来的顺序与链式相反（先写结果表达式，条件在末尾），但少建了中间数组
+
+      xs = [1, 2, 3]
+      d = {"a": 1}                          # @note 字面量形态与对象字面量很像
+      s = {1, 2}
+
+      sum(xs)                               # @note 聚合用内置函数，不必 reduce
+      any(x > 0 for x in xs)
+      # @note 聚合有内置函数是这边的强项：sum / min / max / any / all 都是现成的
+  - featureId: js2python/list-model
+    equivalence: analogous
+    code: |
+      xs = [1, 2, 3, 4, 5]
+      xs[1:3]                      # @note [2, 3] —— 同样是浅拷贝，这条两边一致
+      xs[-1]                       # @note! 5 —— 负索引原生支持，不必 at()
+      xs[::2]                      # @note! 步长 —— JS 完全没有
+      xs[::-1]                     # @note 一行反转
+
+      xs[99]                       # @note! IndexError —— 越界**抛异常**，不像 JS 给 undefined
+      xs[99:]                      # @note [] —— 切片越界反而静默
+      # @note! 同一个列表上两种行为并存：索引抛、切片静默。
+      # JS 里两者都静默，所以迁过来时容易以为切片也会抛
+
+      xs.append(4)                 # @note push
+      xs.pop()
+      del xs[1:3]                  # @note splice 要拆成 del 切片或 insert + pop
+  - featureId: js2python/map-model
+    equivalence: divergent
+    code: |
+      d = {"a": 1}
+      d["a"]                       # 1
+      d["z"]                       # @note! KeyError —— 缺失当场抛，不像 JS 给 undefined
+      d.get("z")                   # None —— 想容忍缺失才用 get
+      d.get("z", 0)                # 0
+
+      d.a                          # @note! AttributeError —— 点号找的是属性，不是键
+      # @note 从 JS 迁过来时 d.key 是肌肉记忆，在这里一定报错（好消息是不会静默）
+
+      "z" in d                     # False —— 判存在
+      # @note 这条变化是好事：JS 那个 undefined 会带着问题漂到下游
+  - featureId: js2python/data-modeling
+    equivalence: analogous
+    code: |
+      from dataclasses import dataclass
+
+      @dataclass(frozen=True)      # @note! 字段固定时用它，比 dict 更值
+      class User:
+          id: int
+          name: str
+          active: bool
+
+      u = User(1, "Ada", True)
+      u.name                       # @note 属性访问，不用下标
+      u.nmae                       # @note! AttributeError（工具也能提前查出来，不像 JS 静默给 undefined）
+      hash(u)                      # @note frozen=True 顺带给了 __hash__：能放进 set、能当键
+
+      # @note dict 只留给"键由数据决定"的场景：计数器、分组结果
+  - featureId: js2python/collections-exercise
+    equivalence: analogous
+    code: |
+      from collections import defaultdict
+      from dataclasses import dataclass
+
+      @dataclass(frozen=True)
+      class Employee:
+          name: str
+          dept: str
+          age: int
+
+      def group_by_dept(employees):
+          groups = defaultdict(list)
+          for e in employees:
+              groups[e.dept].append(e.name)     # @note! 对应 JS 的 (groups[k] ??= []).push(...)
+          return dict(groups)                   # @note! 不转会留下"读一次就多一个空组"的痕迹
+
+      def avg_age(employees):
+          if not employees:
+              return 0
+          total = sum(e.age for e in employees)
+          return total / len(employees)         # @note / 天然是浮点，不需要额外转换
+
+      # @note 空输入自然返回 {}；sum 是内置的，不必自己 reduce

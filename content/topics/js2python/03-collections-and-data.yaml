@@ -1,0 +1,163 @@
+id: js2python/03-collections-and-data
+topicId: js2python
+title: 3. 容器与数据建模
+order: 3
+summary: 从 JavaScript 到 Python：链式方法换成推导式，切片越界不再静默，字典缺失会抛
+
+features:
+  - id: js2python/collections-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 链式调用换成推导式，对象字面量该不该换 dataclass
+    body: |
+      两边的容器形态大体对应：数组↔`list`、对象字面量↔`dict`、`Set`↔`set`。
+      真正要重建的是**表达方式**。
+
+      JS 靠**链式方法**：
+
+      ```js
+      xs.filter(x => x > 0).map(x => x * 2)
+      ```
+
+      Python 更常用**推导式**：
+
+      ```python
+      [x * 2 for x in xs if x > 0]
+      ```
+
+      一行里"先过滤后映射"的顺序读起来与链式相反，但少建了中间数组。
+
+      另一处需要先想清楚的是**数据建模**：JS 里随手 `{ id: 1, name: "Ada" }`
+      描述一条记录，Python 里同样能写 `dict`，但字段固定时
+      `@dataclass` 更值 —— 它让"字段名写错"这类问题能被工具查出来。
+
+      本章按「序列 → 映射 → 建模」排。
+
+  - id: js2python/list-model
+    title: 列表：切片是新列表，越界行为分成两种
+    kind: behavior
+    refFeatureId: basics-javascript/array-slice
+    summary: 切片支持步长与负索引，但索引越界会抛
+    body: |
+      表达力上 Python 更强：
+
+      ```python
+      xs[1:3]      # 左闭右开
+      xs[-1]       # 负索引原生支持，不必 at()
+      xs[::2]      # 步长 —— JS 完全没有
+      xs[::-1]     # 一行反转
+      ```
+
+      **切片总是浅拷贝**（返回新列表），这一点与 JS 的 `slice()` 一致，
+      不会踩坑。要留意的是它与 `subList` 那种"视图"语义完全相反（如果同时接触 Java）。
+
+      **越界行为在这里分成了两种，而 JS 只有一种**：
+
+      | 表达式 | JS | Python |
+      | --- | --- | --- |
+      | `xs[99]` | `undefined` | **抛 `IndexError`** |
+      | `xs[99:]` | `[]` | `[]` |
+
+      索引越界抛异常是好事 —— JS 里那个 `undefined` 会一路传到下游才发作。
+      但切片越界静默这一点要记住：同一个列表上两种行为并存，
+      是从 JS 迁过来时容易误判的地方（在 JS 里两者都静默）。
+
+      增删的对应关系：`push`→`append`、`pop`→`pop`、`splice` 没有直接对应物
+      （要拆成 `del` 切片或 `insert` + `pop`）。
+
+  - id: js2python/map-model
+    title: 字典：缺失键从静默变成抛异常
+    kind: behavior
+    refFeatureId: basics-javascript/object-access
+    summary: obj.missing 给 undefined，d["missing"] 抛 KeyError
+    body: |
+      **这是本章行为反转最大的一处**：
+
+      ```js
+      const d = { a: 1 };
+      d.z;              // undefined —— 静默
+      ```
+
+      ```python
+      d = {"a": 1}
+      d["z"]            # KeyError —— 当场抛
+      d.get("z")        # None —— 想容忍缺失才用 get
+      ```
+
+      这条变化是**好事**：JS 里那个 `undefined` 会带着问题一路漂下去，
+      Python 在第一次访问就停下来。所以原本"要判空"的地方，
+      很多可以直接写 `d["z"]`，让异常替你把关。
+
+      另有一条必须重建的直觉：**点号不是取键**。
+
+      ```js
+      obj.key           // JS：点号与方括号完全等价
+      ```
+
+      ```python
+      d["key"]          # 取键只有方括号或 get
+      d.key             # AttributeError —— 点号找的是对象的属性
+      ```
+
+      从 JS 迁过来时 `d.key` 是肌肉记忆，而在 Python 里它一定报错 ——
+      好消息是报错很明确，不会静默。
+
+  - id: js2python/data-modeling
+    title: 数据建模：对象字面量还是 dataclass
+    kind: behavior
+    refFeatureId: basics-javascript/object-create
+    summary: 字段固定时，dataclass 比 dict 更值
+    body: |
+      JS 里描述一条记录随手用对象字面量，Python 里同样能写 `dict`：
+
+      ```python
+      user = {"id": 1, "name": "Ada", "active": True}
+      user["name"]
+      ```
+
+      但字段固定时，`@dataclass` 更值：
+
+      ```python
+      from dataclasses import dataclass
+
+      @dataclass(frozen=True)
+      class User:
+          id: int
+          name: str
+          active: bool
+
+      u = User(1, "Ada", True)
+      u.name                   # 属性访问，不用下标
+      ```
+
+      **判据**：这组字段是固定的吗？
+
+      - 固定 → `dataclass`。它让类型检查工具能查出"字段名写错"
+        （`u.nmae` 会被工具标出来），而 `dict` 里的拼错要到运行时才炸。
+      - 确实动态（键由数据决定，例如计数器、分组结果）→ `dict`。
+
+      JS 那边这一层的代价更高（没有 dataclass 这种语法糖，要手写类），
+      所以直觉上会一直用对象字面量。Python 里定义成本只有一行，
+      值得改掉这个习惯。
+
+      `frozen=True` 还顺带给了不可变性与 `__hash__` —— 可以直接放进 `set`
+      或当字典的键。
+
+  - id: js2python/collections-exercise
+    title: 练习：把分组统计迁到 Python
+    kind: exercise
+    summary: 三个改动点，其中一个是数据建模的选择
+    body: |
+      下面这段 JS 按部门把员工分组，统计每个部门的人数与平均年龄。
+
+      请把它迁到 Python，要求**行为完全一致**，包括：
+
+      1. 分组结果的组织方式（想想 `reduce` 那一段该怎么写）
+      2. "员工"这个结构用什么承载，并说明理由
+      3. 输入为空时返回空结果而不是 `None`
+
+      对照参考实现时，重点看两处：**分组累加**用了哪个类型，
+      以及**平均年龄**那一行有没有踩到整数除法。
+
+      （提示：Python 里有一个类型专门为"分组累加"设计，
+      它的副作用是"读一次就会写入一个空组"——不做处理的话输出里会多出东西。）
