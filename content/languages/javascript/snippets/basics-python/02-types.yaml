@@ -1,0 +1,97 @@
+# javascript —— basics-python/02-types 的实现
+#
+# 本 topic 以 **Python 为基准**，JavaScript 是被对照的那一门，
+# 所以 equivalence 描述的是「相对 Python 基准」的差异。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/primitive-types
+    equivalence: analogous
+    code: |
+      const n = 10 ** 30;      // @note 1e+30 —— 整数也是浮点，超过 2^53 就丢精度
+      const big = 10n ** 30n;  // 要大整数必须显式用 BigInt
+      const f = 3.14;
+      const ok = true;
+      // Python 那边整数没有宽度上限，也不需要 BigInt 这个额外类型
+  - featureId: basics-python/type-inference
+    equivalence: identical
+    code: |
+      let x = 1;
+      x = "一";                 // @note 同样合法：名字不携带类型
+      // 两边一致。差别在 const/let 还额外约束"能不能重新赋值"，Python 没有
+  - featureId: basics-python/type-checking
+    equivalence: divergent
+    code: |
+      typeof 1;            // 'number'
+      typeof null;         // @note! 'object' —— 历史遗留，无法修正
+      typeof [];           // @note! 'object' —— 认不出数组，要用 Array.isArray
+      Array.isArray([]);   // true
+
+      // 没有 Python 的 isinstance 那种"认继承链"的通用判定
+      [] instanceof Array; // 仅对原型链有效，跨 iframe 会失效
+  - featureId: basics-python/null-undefined
+    equivalence: divergent
+    code: |
+      let a;               // @note undefined —— 未赋值
+      let b = null;        // @note null —— 有意的空
+      // Python 只有一个 None，没有这个二分，也就没有"到底该判哪个"的噪音
+
+      a == null;           // @note! true：宽松相等同时匹配 null 与 undefined
+      // 这一处是全语言里唯一推荐用 == 的场景；其余一律 ===
+  - featureId: basics-python/number-precision
+    equivalence: divergent
+    code: |
+      6 / 3;               // 2 —— 除法没有整数/浮点之分
+      Math.floor(7 / 2);   // 3 —— 向下取整得自己调用
+      -7 % 3;              // @note! -1 —— 取余跟着被除数的符号走，Python 那边是 2
+
+      1 / 0;               // @note! Infinity —— 不报错，会一路传下去
+      0.1 + 0.2;           // 0.30000000000000004 —— 这条两边一致
+  - featureId: basics-python/type-casting
+    equivalence: analogous
+    code: |
+      Number("3.7");       // @note 3.7 —— 能直接解析小数，Python 的 int() 会抛错
+      parseInt("3.7");     // 3
+      parseInt("12px");    // @note! 12 —— 解析到非法字符就停，不报错
+      Number("12px");      // NaN
+
+      String(255);         // '255'
+      (255).toString(16);  // 'ff' —— 进制在这里给，Python 是给在 int() 上
+  - featureId: basics-python/boolean-conversion
+    equivalence: divergent
+    code: |
+      Boolean([]);         // @note! true —— 空数组是真值
+      Boolean({});         // @note! true —— 空对象也是真值
+      Boolean("");         // false
+      Boolean("0");        // true
+
+      // 所以判断"列表空不空"必须写长度，不能靠真值：
+      const items = [];
+      if (!items) {}       // @note! 永远不成立
+      if (items.length === 0) {}   // 正确写法
+  - featureId: basics-python/type-names
+    equivalence: analogous
+    code: |
+      typeof 1;            // @note 'number' —— 给的是小写字符串，不是类对象
+      typeof null;         // 'object'
+      typeof {};           // 'object' —— 自定义类一律归为 object
+
+      class Point {}
+      typeof new Point();        // 'object'
+      new Point().constructor.name;   // 'Point' —— 想要类名得绕这一道
+  - featureId: basics-python/immutable-primitives
+    equivalence: identical
+    code: |
+      let s = "abc";
+      s.toUpperCase();     // @note 返回新字符串，s 不变
+      s = s.toUpperCase();
+
+      // 两边一致：字符串与数字不可变。差别在容器 —— 数组同样是原地改：
+      const items = [2, 1];
+      items.sort();        // 原地改并返回自身（Python 的 list.sort() 返回 None）

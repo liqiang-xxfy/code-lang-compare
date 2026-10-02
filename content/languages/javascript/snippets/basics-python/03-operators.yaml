@@ -1,0 +1,99 @@
+# javascript —— basics-python/03-operators 的实现
+#
+# 本 topic 以 **Python 为基准**，JavaScript 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/equality
+    equivalence: divergent
+    code: |
+      1 == "1";              // @note! true —— 宽松相等会隐式转换
+      1 === "1";             // false —— 工程规范一律用 ===
+      [] == false;           // @note! true —— 空数组会被转成 ""
+      NaN === NaN;           // @note! false —— 唯一不等于自己的值
+
+      // Python 的 == 不做转换，也不存在两套相等；但那边没有 is 的等价物
+      Object.is(NaN, NaN);   // true —— 精确相等，且把 -0 与 0 区分开
+  - featureId: basics-python/arithmetic
+    equivalence: divergent
+    code: |
+      7 / 2;                 // 3.5 —— 这条两边一致
+      Math.trunc(7 / 2);     // 3 —— 没有整除运算符，要自己调用
+      Math.floor(-7 / 2);    // -4 —— 想模拟"向下取整"得用 floor 而不是 trunc
+
+      -7 % 3;                // @note! -1 —— 取余符号跟着被除数，Python 那边是 2
+      (a / b) | 0;           // @note 常见的"取整"偏方，但只对 32 位内的数有效
+
+      (7).toString(2);       // 进制转换只能走字符串，没有 divmod 这种返回两个值的写法
+  - featureId: basics-python/logical-short-circuit
+    equivalence: analogous
+    code: |
+      "" || "默认";           // @note '默认' —— 同样返回操作数本身，这条一致
+      "a" && "b";            // 'b'
+
+      const x = 0;
+      x ?? 5;                // @note 5，但 ?? 只对 null / undefined 兜底
+      0 ?? 5;                // @note 0 —— 这个才是"只对空值兜底"
+      // Python 没有 ?? 运算符，要同样的语义得写条件表达式
+  - featureId: basics-python/truthiness
+    equivalence: divergent
+    code: |
+      Boolean([]);           // @note! true —— 空数组是真值
+      Boolean({});           // @note! true —— 空对象也是真值
+      Boolean("");           // false
+      Boolean(NaN);          // @note false —— 假值里唯一"不是零也不是空"的一个
+
+      const items = [];
+      if (!items) {}         // @note! 永远不成立，判空必须写 items.length === 0
+  - featureId: basics-python/optional-chaining
+    equivalence: divergent
+    code: |
+      const host = cfg?.db?.host;        // @note 语言级的空值安全导航
+      const port = cfg?.db?.port ?? 5432;   // @note ?. 与 ?? 常常成对出现
+
+      obj?.method?.();                   // @note! 方法调用也能安全短路
+      // Python 没有这个语法，对应写法是 (cfg or {}).get("db", {}).get("host")
+  - featureId: basics-python/bitwise
+    equivalence: divergent
+    code: |
+      2 ** 31 | 0;           // @note! -2147483648 —— 位运算先把操作数截成 32 位有符号
+      1 << 100;              // @note! 0 —— 超出了 32 位能表示的范围，直接丢光
+
+      ~5;                    // -6 —— 这条与 Python 一致
+      -1 >>> 0;              // @note 4294967295 —— 有无符号右移，Python 没有
+  - featureId: basics-python/comparison-operators
+    equivalence: divergent
+    code: |
+      "2" < 10;              // @note! true —— 这里会隐式转成数字再比
+      "a" < "B";             // @note false —— 按 UTF-16 码元逐位比较
+
+      [10, 9, 1].sort();     // @note! [1, 10, 9] —— 默认按字符串排，数值要传比较器
+      [10, 9, 1].sort((a, b) => a - b);   // Python 的 sorted 有 key=，这边要写比较器
+  - featureId: basics-python/increment-decrement
+    equivalence: analogous
+    code: |
+      let i = 0;
+      i++;                   // @note 有自增自减，且前缀后缀影响表达式值
+      ++i;
+
+      const arr = [1, 2];
+      let idx = 0;
+      arr[idx++];            // @note! 取值并前进：Python 里必须拆成两行
+
+      let a = [1];
+      a += [2];              // @note! '12' —— 数组没有 +=，这里退化成字符串拼接
+  - featureId: basics-python/chained-comparison
+    equivalence: divergent
+    code: |
+      const x = 5;
+      0 < x < 10;            // @note! true —— 但它是 (0 < x) < 10，恒为 true
+
+      0 < x && x < 10;       // @note 必须这样拆开写才是区间判断
+
+      // 更糟糕的是它不报错：x = 999 时上面那行依然是 true

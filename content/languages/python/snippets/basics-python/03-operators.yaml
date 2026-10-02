@@ -1,0 +1,97 @@
+# python —— basics-python/03-operators 的实现
+#
+# 本 topic 以 **Python 为基准**，基准列全部标 identical；
+# 且注记里不点名别的语言（R12：基础语法是多选列，基准列讲某一门具体的"别处"
+# 就成了幽灵语言）。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/equality
+    equivalence: identical
+    code: |
+      [1, 2] == [1, 2]       # @note True —— 值相等，两个不同的对象
+      [1, 2] is [1, 2]       # @note False —— is 判的是身份
+      1 == "1"               # @note! False —— 不做任何隐式转换
+
+      a, b = 256, 256
+      a is b                 # @note! True —— 小整数被缓存，别拿 is 比数值
+  - featureId: basics-python/arithmetic
+    equivalence: identical
+    code: |
+      7 / 2                  # @note 3.5 —— / 永远返回浮点
+      7 // 2                 # 3
+      -7 // 2                # @note! -4 —— 是"向下取整"，不是向零截断
+      -7 % 3                 # @note 2 —— 取余的符号跟着除数走
+
+      divmod(7, 2)           # (3, 1) —— 一次拿商和余数
+  - featureId: basics-python/logical-short-circuit
+    equivalence: identical
+    code: |
+      "" or "默认"            # @note '默认' —— 返回操作数本身，不是 True/False
+      "a" and "b"            # 'b'
+      0 or 42                # 42
+
+      x = 0
+      x or 5                 # @note! 5 —— 0 是合法值，也被兜底掉了
+      x if x is not None else 5   # 只对 None 兜底要显式写条件表达式
+  - featureId: basics-python/truthiness
+    equivalence: identical
+    code: |
+      bool([])               # @note! False —— 空容器一律是假值
+      bool({})               # False
+      bool("")               # False
+
+      if items:              # @note 惯用法：这里问的其实是"非空"
+          pass
+
+      class Bag:
+          pass
+      bool(Bag())            # @note! True —— 没定义 __bool__ / __len__ 就永远是真值
+  - featureId: basics-python/optional-chaining
+    equivalence: identical
+    code: |
+      # @note 没有安全导航语法，链式取值只能逐层兜底
+      value = (cfg or {}).get("db", {}).get("host")
+      value = getattr(getattr(obj, "db", None), "host", None)
+
+      # @note! (cfg or {}) 的前提是 cfg 只可能是 None 或空字典；
+      # 如果它是 0 / "" 这类合法的假值，会被悄悄换成 {}
+  - featureId: basics-python/bitwise
+    equivalence: identical
+    code: |
+      2 ** 31 | 0            # @note 2147483648 —— 整数任意精度，不会被截断
+      1 << 100               # 照常算得出来
+
+      ~5                     # @note! -6 —— 按公式 ~x == -x-1，不是"取反成正数"
+      (x & 0xFFFFFFFF) >> 1  # @note 没有无符号右移，要定长语义得自己掩码
+  - featureId: basics-python/comparison-operators
+    equivalence: identical
+    code: |
+      "2" < 10               # @note! TypeError —— 跨类型比较直接抛，不隐式转换
+      "a" < "B"              # @note False —— 按 Unicode 码点，不是字典序
+
+      sorted(users, key=lambda u: (u.age, u.name))
+      # @note 多字段排序用元组 key 就够，不需要传比较器函数
+  - featureId: basics-python/increment-decrement
+    equivalence: identical
+    code: |
+      i += 1                 # @note 没有 ++ / --，一律写复合赋值
+
+      a = b = [1]
+      a += [2]               # @note! 原地 extend：b 也变成 [1, 2]
+      a = a + [2]            # @note 这个是重新绑定：b 不变
+      # 同一个符号两种语义，取决于左边是不是可变对象
+  - featureId: basics-python/chained-comparison
+    equivalence: identical
+    code: |
+      0 < x < 10             # @note 数学区间，等价于 0 < x and x < 10
+      a == b == c            # 等价于 a == b and b == c
+
+      if 0 < len(items) < 100:
+          pass               # @note 中间的操作数只求值一次

@@ -1,0 +1,108 @@
+# javascript —— basics-python/04-strings 的实现
+#
+# 本 topic 以 **Python 为基准**，JavaScript 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/string-literal
+    equivalence: analogous
+    code: |
+      const s1 = 'he said "hi"';   // @note 单双引号同样完全等价
+      const s2 = "it's fine";
+      const s3 = `多行
+      字符串`;                       // @note 反引号天然支持换行，不需要三引号
+
+      s1[0];                       // @note 'h' —— 同样是长度为 1 的字符串，没有 char 类型
+  - featureId: basics-python/template-string
+    equivalence: analogous
+    code: |
+      const name = "Ada";
+      `你好，${name}！`;             // @note 插值用 ${}，且反引号内换行也合法
+      `${price * 1.1}`;
+      `${items.length} 项`;
+
+      // @note 花括号里能写反斜杠（Python 的 f-string 不行），但表达式里不能有换行
+
+      `换行符：\n`;                  // 转义照常生效
+  - featureId: basics-python/string-methods
+    equivalence: analogous
+    code: |
+      "  x  ".trim();              // @note Python 叫 strip
+      "abc".toUpperCase();         // @note Python 叫 upper，方法名是驼峰
+      "abc".includes("b");         // @note! 返回布尔 —— Python 那边是 in 运算符
+      "abc".indexOf("z");          // -1
+      "7".padStart(3, "0");        // @note '007' —— Python 是 zfill(3)
+      "a,b".split(",");            // ['a', 'b']
+  - featureId: basics-python/multiline-string
+    equivalence: analogous
+    code: |
+      const text = `第一行
+      第二行`;                       // @note 反引号直接换行，与三引号对应
+
+      ["a", "b"].join("\n");       // @note! 数组当主语调用 join，
+                                   // Python 那边是 "\n".join(lines)，主宾语相反
+      [1, 2].join(",");            // @note '1,2' —— 这边会自动转字符串，不必先 map(str, ...)
+  - featureId: basics-python/fstring-format
+    equivalence: divergent
+    code: |
+      const n = 3.14159;
+      n.toFixed(2);                // @note '3.14' —— 只有小数位，没有总宽度
+      n.toFixed(2).padStart(8, "0");        // @note 想要 Python 的 08.2f 得手动补两段
+      (1234567).toLocaleString("en-US");    // '1,234,567'
+
+      new Intl.NumberFormat("zh-CN", { style: "percent", maximumFractionDigits: 1 }).format(0.123);
+      (255).toString(16);          // 'ff' —— 进制走 toString 的参数
+
+      // @note 没有把"宽度 / 精度 / 对齐 / 进制"统一在一处的格式说明符
+  - featureId: basics-python/string-index-slice
+    equivalence: divergent
+    code: |
+      const s = "abcdef";
+      s.charAt(0);                 // 'a'
+      s[-1];                       // @note! undefined —— 不支持负索引
+      s.at(-1);                    // @note 'f' —— 要负索引得用 at()
+
+      s.slice(1, 4);               // 'bcd'
+      s.substring(1, 4);           // 'bcd'
+      s.slice(2, 999);             // @note 'cdef' —— 越界静默截断，与切片一致
+      // @note! 完全没有步长：Python 的 s[::-1] 要写成 [...s].reverse().join("")
+  - featureId: basics-python/string-regex
+    equivalence: analogous
+    code: |
+      const re = /\d+/;            // @note 有正则字面量，不必先编译，反斜杠只写一遍
+      re.test("a1");               // true
+      "a1".match(/\d+/);           // @note! 返回数组或 null —— 不是 Match 对象
+      "2026".match(/(?<y>\d{4})/).groups.y;   // @note 命名分组是 (?<name>...)
+
+      new RegExp("\\d+", "g");     // @note 用字符串构造时反斜杠仍要写两遍
+      "a1".replace(/(\w)(\d)/, "$2$1");       // @note 替换用 $1 而不是 \1
+      // @note 想只在开头匹配要显式写 /^.../，没有 match/search 的分工
+  - featureId: basics-python/string-concat
+    equivalence: divergent
+    code: |
+      "a" + 1;                     // @note! 'a1' —— 静默把数字转成字符串
+      "a" + null;                  // @note! 'anull'
+      "a" + { };                   // @note! 'a[object Object]'
+
+      ["a", "b"].join("");         // @note 数组 join 对应 Python 的 "".join(...)
+
+      let s = "";
+      for (const p of parts) s += p;
+      // @note! 这边引擎普遍做了 rope 优化，循环里 += 不像 Python 那样必然 O(n²)，
+      // 但片段极多时仍然推荐先收集再 join
+  - featureId: basics-python/string-raw-escape
+    equivalence: divergent
+    code: |
+      "C:\\new\\test";             // @note! 反斜杠必须双写
+      String.raw`C:\new\test`;     // @note 标签模板是这边最接近原始字符串的写法
+
+      "\\d+\\.\\d+";               // @note 正则串里的反斜杠也要双写（字面量形式可豁免）
+      /\d+\.\d+/;                  // 字面量形式只写一遍
+
+      "\u{1F600}";                 // @note Unicode 转义用 \u{...}，位数可变

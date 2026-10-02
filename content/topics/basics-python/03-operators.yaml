@@ -1,0 +1,217 @@
+id: basics-python/03-operators
+topicId: basics-python
+title: 运算符与真值判断
+order: 3
+summary: 相等不做隐式转换、真值把空容器算作假、链式比较是数学区间——从 Python 出发看这一层
+
+features:
+  - id: basics-python/equality
+    title: 相等与身份
+    kind: behavior
+    summary: == 判值，is 判身份，两者不可互换
+    body: |
+      Python 把"相等"和"是同一个对象"分成了两个运算符，这是别处常常只有一种的地方：
+
+      ```python
+      [1, 2] == [1, 2]    # True —— 值相等，两个不同对象
+      [1, 2] is [1, 2]    # False —— 不是同一个对象
+      ```
+
+      `==` **不做任何隐式类型转换**：`1 == "1"` 直接是 `False`，不会去猜你想比什么。
+
+      但 `is` 有一个会咬人的副作用：CPython 会缓存小整数（-5 到 256）和部分字符串，
+      于是 `a = 256; b = 256; a is b` 是 `True`，而换成 `257` 就变成 `False`。
+      所以 `is` 只应该用在三个地方：`None`、`True` / `False`、以及真的想判身份的时候。
+      用它比较数字或字符串，是在依赖一个实现细节。
+
+  - id: basics-python/arithmetic
+    title: 算术运算
+    kind: syntax
+    summary: 两种除法、取模跟着除数走、还有 divmod
+    body: |
+      `/` 永远返回浮点，`//` 是向下取整除法（**向下**，不是向零）：
+
+      ```python
+      7 / 2      # 3.5
+      7 // 2     # 3
+      -7 // 2    # -4   不是 -3
+      ```
+
+      取余 `%` 的符号**跟着除数走**，与 `//` 是自洽的一对：
+
+      ```python
+      -7 % 3     # 2
+      7 % -3     # -2
+      ```
+
+      这条规则让 `x % n` 永远落在一个完整的循环区间里 —— 算"绕圈"（星期几、环状索引）
+      时不必再补一次 `+ n`，这比"符号跟着被除数"的规则省事得多。
+
+      另外有 `divmod(a, b)` 一次拿到商和余数，以及 `**` 求幂、`//=` `**=` 这些复合赋值。
+      Python 没有 `++` / `--`。
+
+  - id: basics-python/logical-short-circuit
+    title: 逻辑运算与短路
+    kind: behavior
+    summary: and / or 返回操作数本身，不是布尔值
+    body: |
+      `and` / `or` 返回的是**操作数本身**，不是 `True` / `False`：
+
+      ```python
+      "" or "默认"      # '默认'
+      0 or 42           # 42
+      "a" and "b"       # 'b'
+      ```
+
+      这让 `value = user_input or default` 成为一个很顺手的惯用法，
+      但也是**静默 bug 的高发地**：因为 `0`、`""`、`[]` 都是假值，
+      当"合法的空值"要被保留时，`or` 会把它换成默认值。
+
+      想只对 `None` 兜底，必须写成显式的条件表达式：
+
+      ```python
+      value = x if x is not None else default
+      ```
+
+      对应地，`not` 永远返回真正的布尔值。三元表达式是 `a if cond else b`（顺序与别处相反）。
+
+  - id: basics-python/truthiness
+    title: 真值判断
+    kind: behavior
+    summary: 空容器是假值，这一条决定了大量惯用法
+    body: |
+      Python 的假值：`None`、`False`、数值零、空字符串，以及**所有空容器**
+      （`list` / `tuple` / `dict` / `set` / `range(0)`）。
+
+      于是"有没有内容"和"真不真"被合并成了一个判断：
+
+      ```python
+      if items:        # 非空
+      if not items:    # 空
+      ```
+
+      这很简洁，但读代码的人必须先知道 `items` 的类型，才能确定 `if items` 到底在问什么。
+      更危险的是它与"判 None"混在一起 —— 一个空列表会走进 `if x is None` 之外的同一个分支。
+
+      自定义类可以决定自己的真值：实现了 `__bool__` 就用它，否则退回 `__len__`。
+      所以一个数据类如果没定义 `__len__` 或 `__bool__`，它**永远是真值**，哪怕内容为空。
+
+  - id: basics-python/optional-chaining
+    title: 空值安全取值
+    kind: behavior
+    summary: 没有安全导航运算符，只能逐层兜底
+    body: |
+      Python **没有** `?.` 这种安全导航语法，链式取值必须自己写兜底：
+
+      ```python
+      # 字典链
+      value = (cfg or {}).get("db", {}).get("host")
+      # 对象链
+      value = getattr(getattr(obj, "db", None), "host", None)
+      ```
+
+      `(cfg or {})` 这个写法有一个前提：`cfg` 为 `None` 或空字典时都能兜住 ——
+      但如果它是 `0` 或 `""` 这类**合法的假值**，就会悄悄换成 `{}`。
+
+      字典更地道的写法是 `d.get(k, default)` 或 `collections.defaultdict`；
+      对象则是 `getattr` 三参数形式。想同时"可能没有"和"类型安全"，
+      可以用 `typing.Optional` 加类型检查工具，但那是静态检查层面的事，运行时没有保障。
+
+  - id: basics-python/bitwise
+    title: 位运算
+    kind: behavior
+    summary: 整数任意精度，于是 ~ 和无符号右移都不太一样
+    body: |
+      运算符本身齐全：`&` `|` `^` `~` `<<` `>>`。
+
+      差异来自**整数没有宽度**：
+
+      ```python
+      2 ** 31 | 0        # 2147483648，不会被截成负数
+      1 << 100           # 照常算得出来
+      ~5                 # -6 —— 按公式 ~x == -x-1，不是"按位取反成一个正数"
+      ```
+
+      因为不存在"32 位有符号"这个前提，也就**没有无符号右移**（`>>>`）。
+      要做定长掩码得自己写，比如模拟 32 位：
+
+      ```python
+      (x & 0xFFFFFFFF) >> 1
+      ```
+
+      取反那条尤其容易误读：`~5` 得 `-6` 在数学上是对的，
+      但如果你的心智模型是"把每一位取反"，看到负数就会以为算错了。
+
+  - id: basics-python/comparison-operators
+    title: 大小比较
+    kind: behavior
+    summary: 跨类型比较直接抛异常，字符串按码点
+    body: |
+      数值比较与别处一致。两处不同：
+
+      1. **跨类型比较抛异常**。`"2" < 10` 会抛
+         `TypeError: '<' not supported between instances of 'str' and 'int'`。
+         这是好事 —— 隐式转换产生的"看起来能跑"的比较在这里会当场暴露。
+      2. **字符串按 Unicode 码点比较**，不是按本地语言顺序，也不是按 UTF-16 码元。
+         所以 `"a" < "B"` 是 `False`（小写字母的码点更大），
+         而 `"é" < "z"` 是 `False`（非 ASCII 码点普遍靠后）。
+         要按人读的顺序排序，得用 `locale.strcoll` 或 `key=` 自己定义。
+
+      `sorted()` 接受 `key=` 参数，这是排序时最常用的出口 ——
+      多字段排序用元组 key（`key=lambda u: (u.age, u.name)`）即可，不需要比较器。
+
+  - id: basics-python/increment-decrement
+    title: 自增与复合赋值
+    kind: syntax
+    summary: 没有 ++ 和 --，而且 += 在容器上是原地改
+    body: |
+      Python 完全没有 `++` / `--`，一律写复合赋值：
+
+      ```python
+      i += 1
+      i -= 1
+      ```
+
+      因为没有"表达式求值副作用"，`arr[i++]` 这种"取值并前进"的写法
+      必须拆成两行：
+
+      ```python
+      value = arr[i]
+      i += 1
+      ```
+
+      更值得记的是 `+=` 的**双重身份**：对不可变对象（`int`、`str`、`tuple`）
+      它是 `x = x + y`，重新绑定；对可变对象（`list` 等实现了 `__iadd__` 的类型）
+      它是**原地修改**。
+
+      ```python
+      a = b = [1]
+      a += [2]        # 原地 extend：b 也变成 [1, 2]
+      a = a + [2]     # 重新绑定：b 不变
+      ```
+
+      同一个符号，两种语义 —— 这是排查"改了一个变量另一个也变了"时的第一嫌疑。
+
+  - id: basics-python/chained-comparison
+    title: 链式比较
+    kind: behavior
+    summary: 0 < x < 10 是数学区间，中间的表达式只求值一次
+    body: |
+      Python 允许把一个区间写成数学的样子：
+
+      ```python
+      0 < x < 10          # 等价于 0 < x and x < 10
+      a == b == c         # 等价于 a == b and b == c
+      ```
+
+      不只是语法糖：中间的操作数**只求值一次**。所以下面这种写法既短又安全：
+
+      ```python
+      if 0 < len(items) < 100:
+      if lo <= f(x) < hi:      # f(x) 只调用一次
+      ```
+
+      如果按照"先算左边得到一个布尔值、再和右边比"的规则去理解，
+      就会以为 `0 < x < 10` 是 `(0 < x) < 10` —— 那在别的语言里恒为真且不报错。
+      在 Python 里它不是那个意思，但**换成别的语言时必须拆开写**，
+      否则会静默得到一个恒真的条件。

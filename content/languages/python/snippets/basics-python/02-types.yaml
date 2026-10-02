@@ -1,0 +1,104 @@
+# python —— basics-python/02-types 的实现
+#
+# 本 topic 以 **Python 为基准**，所以基准列（这里）全部标 identical：
+# 「相对 Python 基准」时，Python 自己的写法就是参照系。
+#
+# 基准列还有个额外约束（R12）：注记里**不能点名别的语言**。基础语法是多选列，
+# 被勾选的语言都在屏幕上，基准列去讲某一门具体的"别处"就成了幽灵语言。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/primitive-types
+    equivalence: identical
+    code: |
+      n = 10 ** 30             # @note 整数任意精度，不会溢出也不会回绕
+      f = 3.14                 # 浮点固定是双精度，没有单精度可选
+      ok = True                # @note! bool 是 int 的子类
+      True + True              # 2
+      isinstance(True, int)    # True
+  - featureId: basics-python/type-inference
+    equivalence: identical
+    code: |
+      x = 1
+      x = "一"                 # @note 名字不携带类型，类型跟着对象走
+      count: int = 0           # @note 注解只是注解：解释器不检查、不强制
+      count = "text"           # 合法，运行时没有任何约束
+  - featureId: basics-python/type-checking
+    equivalence: identical
+    code: |
+      isinstance(True, int)    # @note True —— 认继承关系
+      type(True) is int        # @note! False —— 精确匹配，子类不算
+
+      # 多数场景根本不必判类型：直接操作，失败就抛（EAFP）
+      try:
+          total = sum(values)
+      except TypeError:
+          total = 0
+  - featureId: basics-python/null-undefined
+    equivalence: identical
+    code: |
+      x = None
+      x is None                # @note 单例，判等一律用 is
+      x == None                # @note! 能跑但不该用：对象自定义了 __eq__ 就可能反直觉
+      None == False            # False —— 空值不等于假值
+
+      if not x:                # @note! 把 None / 0 / "" / [] / {} 全部归为假
+          pass
+  - featureId: basics-python/number-precision
+    equivalence: identical
+    code: |
+      6 / 3                    # @note 2.0 —— / 永远返回浮点
+      6 // 3                   # 2 —— 向下取整除法
+      -7 // 2                  # -4 —— 是"向下"不是"向零"
+      -7 % 3                   # 2 —— 取余跟着 // 走
+
+      1 / 0                    # @note! ZeroDivisionError，当场抛，不会静默变 Infinity
+      0.1 + 0.2                # 0.30000000000000004 —— 浮点仍是双精度
+  - featureId: basics-python/type-casting
+    equivalence: identical
+    code: |
+      int("3.7")               # @note! ValueError —— 要先 float 再 int
+      int(3.9)                 # 3 —— 直接截断，不是四舍五入
+      int("ff", 16)            # 255 —— 可以指定进制
+      float("nan")             # nan —— 这个字符串反而合法
+
+      str(255)                 # '255' —— str() 不接受进制参数
+      bool([])                 # False
+  - featureId: basics-python/boolean-conversion
+    equivalence: identical
+    code: |
+      bool([])                 # @note False —— 所有空容器都是假值
+      bool({})                 # False
+      bool("")                 # False
+      bool("0")                # @note! True —— 非空字符串一律是真值
+      bool(0.0)                # False
+
+      if not items:            # @note 惯用法：这里问的是"空不空"
+          pass
+  - featureId: basics-python/type-names
+    equivalence: identical
+    code: |
+      type(1)                  # @note <class 'int'> —— 返回类对象，不是字符串
+      type(1).__name__         # 'int' —— 要字符串名字就取 __name__
+      type(1) is int           # True
+
+      # @note! 别用 type(x).__name__ == 'int' 判类型：既慢又认不出子类
+  - featureId: basics-python/immutable-primitives
+    equivalence: identical
+    code: |
+      s = "abc"
+      s.upper()                # @note 返回新字符串，s 一点没变
+      s = s.upper()            # 要接住返回值
+
+      items = [2, 1]
+      items.sort()             # @note 原地改，返回 None
+      items = items.sort()     # @note! 经典错误：items 现在成了 None
+
+      t = (1, [2])
+      t[1].append(3)           # @note 元组的不可变是浅的：里面的列表照样能改

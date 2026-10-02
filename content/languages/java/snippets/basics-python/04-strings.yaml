@@ -1,0 +1,137 @@
+# java —— basics-python/04-strings 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/string-literal
+    equivalence: divergent
+    code: |
+      String s = "he said \"hi\"";   // @note! 只有双引号是字符串，单引号是 char
+      char c = 'a';                  // @note 有独立的字符类型，与长度为 1 的字符串不同
+      // char c2 = 'ab';             // 编译错误
+
+      String multi = """
+              多行
+              字符串""";               // @note 文本块（Java 15+），与三引号对应
+  - featureId: basics-python/template-string
+    equivalence: absent
+    code: |
+      // @note! 没有字符串插值，字符串里写不出变量
+      String name = "Ada";
+      String msg = "你好，" + name + "！";              // 只能拼
+      String msg2 = String.format("你好，%s！", name);   // 或者用格式化
+      String msg3 = "你好，%s！".formatted(name);        // Java 15+
+
+      // 复杂表达式要先用变量接住，再拼进去 —— 无法在串内直接求值
+    body: |
+      Java 没有字符串插值。字符串字面量里的一切都是字面量，
+      想把变量放进去只能拼接或走 `String.format`。
+
+      代价不只是写起来啰嗦：**拼接顺序即求值顺序**，
+      一个长表达式串里混着多个方法调用时，读的人必须自己在脑内标出
+      每一段的边界。对应到 Python，f-string 的花括号同时承担了
+      "这里是个表达式"和"边界在哪"两个作用，这正是它读起来更省力的原因。
+
+      Java 15+ 的文本块（`"""`）只解决换行与缩进，不提供插值。
+  - featureId: basics-python/string-methods
+    equivalence: analogous
+    code: |
+      "  x  ".strip();             // @note 与 Python 同名（Java 11+；旧的叫 trim，只去 ASCII 空白）
+      "abc".toUpperCase();         // @note 方法名驼峰，Python 叫 upper
+      "abc".contains("b");         // @note! 这是个方法调用，对应 Python 的 in 运算符
+      "abc".indexOf("z");          // -1 —— 与 find 一致
+      "a,b".split(",");            // String[] {"a", "b"}
+      String.join("\n", list);     // @note 静态方法，主语是分隔符 —— 这个顺序反而与 Python 一致
+  - featureId: basics-python/multiline-string
+    equivalence: divergent
+    code: |
+      String text = """
+              第一行
+              第二行""";           // @note 文本块会剥掉公共缩进，比三引号的"缩进原样带入"更省心
+
+      String joined = String.join("\n", List.of("a", "b"));
+      // @note 主语是分隔符，与 Python 的 "\n".join(...) 同序；
+      // 但列表元素必须是 CharSequence，数字要先转换
+
+      "行尾延续\
+      接在下一行";                  // @note 文本块里的 \ 可以抑制换行
+  - featureId: basics-python/fstring-format
+    equivalence: analogous
+    code: |
+      String.format("%.2f", 3.14159);      // @note "3.14" —— printf 风格
+      String.format("%08.2f", 3.14159);    // @note "00003.14" —— 同样有总宽度概念
+      String.format("%,d", 1234567);       // @note "1,234,567"（依赖默认区域）
+      String.format("%x", 255);            // "ff"
+      String.format("%.1f%%", 12.3);       // @note 百分号要自己写进格式串
+
+      // @note 规格串是运行时字符串，可以动态拼 —— 这点比 Python 的 f-string 灵活；
+      // 但参数顺序靠位置，参数一多就容易错位
+  - featureId: basics-python/string-index-slice
+    equivalence: divergent
+    code: |
+      String s = "abcdef";
+      s.charAt(0);                 // 'a'
+      s.substring(1, 4);           // @note "bcd" —— 同样左闭右开
+      // s.charAt(-1);             // @note! StringIndexOutOfBoundsException，没有负索引
+      // s.charAt(999);            // @note! 同样抛，不像切片那样静默截断
+
+      s.substring(2, s.length());  // @note 想取到末尾必须自己算 length()
+      s.substring(2);              // 单参数的才是"到末尾"
+
+      // @note! 完全没有步长：反转要显式 new StringBuilder(s).reverse().toString()
+  - featureId: basics-python/string-regex
+    equivalence: analogous
+    code: |
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile("\\d+");
+      java.util.regex.Matcher m = p.matcher("a1");
+
+      m.matches();                 // @note! false —— matches() 是**整串**匹配，不是从开头
+      m.find();                    // @note true —— 任意位置查找，对应 re.search
+      m.lookingAt();               // @note true —— 从开头匹配，才对应 re.match
+      m.group();                   // "1"
+
+      java.util.regex.Pattern.compile("(?<y>\\d{4})").matcher("2026").group("y");
+      "a@b".replaceAll("(\\w+)@(\\w+)", "$2@$1");   // @note! 替换引用用 $1，不是 \1
+      // @note 反斜杠一律双写：没有原始字符串可用
+  - featureId: basics-python/string-concat
+    equivalence: divergent
+    code: |
+      "a" + 1;                     // @note! "a1" —— 静默转换，与 Python 的 TypeError 相反
+      "a" + null;                  // @note! "anull" —— 不抛 NPE
+      // "a" + obj;                // @note 调用 obj.toString()，没重写就是类名加哈希
+
+      // @note 循环里反复 + 会退化成 O(n²)（编译器只优化单条表达式内的拼接）
+      StringBuilder sb = new StringBuilder();
+      for (String p : parts) sb.append(p);
+      String s = sb.toString();
+  - featureId: basics-python/string-raw-escape
+    equivalence: absent
+    code: |
+      // @note! 没有原始字符串：反斜杠一律双写
+      String path = "C:\\new\\test";
+      java.util.regex.Pattern.compile("\\d+\\.\\d+");
+
+      // 文本块也不关闭转义（只是额外加了 \ 续行与 \s 空格），所以帮不上忙
+      String p2 = """
+              C:\\new\\test""";
+
+      // Unicode 转义用 \uXXXX，且是**编译期**处理，固定 4 位
+      String emoji = "\uD83D\uDE00";   // @note 代理对要写两段
+    body: |
+      Java 没有原始字符串字面量。正则和 Windows 路径这类"反斜杠密集"的场景，
+      只能把每个反斜杠双写 —— 这也是 Java 里 `Pattern.compile("\\d+")`
+      遍地都是的原因。
+
+      文本块（Java 15+）解决的是换行与缩进，**不关闭转义处理**：
+      `\n` 在文本块里依然是换行，`\t` 依然是制表符。它新增的 `\` 续行与 `\s`
+      是用来控制空白的小工具，与"原样保留"是两回事。
+
+      所以从有 `r""` 的语言迁过来时，最该建立的反射是：
+      **看到反斜杠先想"这里要不要写两遍"**，而不是先想正则对不对。

@@ -1,0 +1,127 @@
+# java —— basics-python/01-variables 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门，
+# 所以 equivalence 描述的是「相对 Python 基准」的差异。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/var-declaration
+    equivalence: divergent
+    code: |
+      int count = 0;            // @note! 类型必须写在声明处，没有"光赋值就完事"的形式
+      final String name = "Ada";
+      var legacy = 1;           // @note var 只是省略类型名，不是动态类型
+      // Python 那边 count = 0 一句话同时完成引入名字和绑定值
+  - featureId: basics-python/var-scope
+    equivalence: divergent
+    code: |
+      {
+          int inside = 1;
+      }
+      // inside -> 编译错误 —— 局部变量是块级作用域
+
+      for (int i = 0; i < 3; i++) { }
+      // i -> 编译错误（Python 里循环变量出了循环还在）
+
+      // @note! 这是从 Python 迁过来最容易踩的一处：同一段缩进结构，
+      // 在这边出了花括号就不存在了
+  - featureId: basics-python/hoisting
+    equivalence: divergent
+    code: |
+      class C {
+          int field;              // @note 字段自动填默认值 0，不报错
+          boolean flag;           // false
+          String name;            // null
+
+          void m() {
+              int local;
+              // System.out.println(local);   // @note! 编译错误：局部变量必须明确赋值
+              local = 1;
+              System.out.println(local);
+          }
+      }
+      // Python 两种情况都是 NameError，没有"字段悄悄是 0"这回事
+  - featureId: basics-python/const-immutability
+    equivalence: analogous
+    code: |
+      final int MAX_RETRY = 3;
+      // MAX_RETRY = 5;                 // @note 编译错误 —— 这边是语言强制的
+
+      final java.util.List<String> COLORS = new java.util.ArrayList<>();
+      COLORS.add("red");                // @note! final 冻结的是绑定不是内容，照样能改
+      // 想要内容也不可变得用 List.of(...)，它返回的才是真正不可变的
+
+      static final int CONSTANT = 3;    // 常量惯例：static final + SCREAMING_SNAKE_CASE
+  - featureId: basics-python/naming-convention
+    equivalence: analogous
+    code: |
+      int maxRetryCount = 3;        // @note 变量 camelCase
+      class HttpClient { }          // 类 PascalCase（与 Python 一致）
+      static final int MAX_RETRY_COUNT = 3;   // 常量 SCREAMING_SNAKE_CASE
+
+      private int internal;         // @note 访问控制靠关键字，不靠命名下划线
+      // Python 的 _internal 是"约定 + 一点点语义"，这里是编译器强制的
+  - featureId: basics-python/var-destructuring
+    equivalence: absent
+    code: |
+      // @note! Java 完全没有解构赋值，取数组/对象里的值只能逐项写
+      int[] pair = {1, 2};
+      int a = pair[0];
+      int b = pair[1];
+
+      record Point(int x, int y) { }
+      Point p = new Point(1, 2);
+      int x = p.x();                // @note record 的访问器是方法调用，不是解构
+
+      // 没有星号收集、没有按键解构，也没有"剩余项"的概念
+    body: |
+      Java 没有解构语法，任何一种形式都没有。要从聚合里取值，
+      只能显式写下标或调用访问器 —— 这也是为什么 Java 代码里
+      「临时变量」比 Python 多得多。
+
+      惯用替代写法是 `record`（Java 16+）：它把"一组字段"变成一个类型，
+      取值仍要调方法，但至少不必先建类再写 getter。
+  - featureId: basics-python/var-multiple-assign
+    equivalence: divergent
+    code: |
+      int a = 1, b = 2;
+      int tmp = a;                  // @note! 交换必须借临时变量，没有元组赋值
+      a = b;
+      b = tmp;
+
+      int x, y;
+      x = y = 0;                    // @note 链式赋值合法，但同样共享右侧的值
+      int[] p = new int[1];
+      int[] q = p;                  // @note! 这里是引用共享：改 q[0] 会同时改到 p[0]
+  - featureId: basics-python/var-global-declaration
+    equivalence: divergent
+    code: |
+      class Counter {
+          static int counter = 0;   // @note 没有模块级变量，只有类的静态字段
+
+          static void bump() {
+              counter += 1;         // @note! 直接就能改，不需要任何声明
+          }
+      }
+      // Python 里同样的写法会静默创建局部变量，外面不变，且不报错
+  - featureId: basics-python/var-shadowing
+    equivalence: analogous
+    code: |
+      class C {
+          int value = 1;
+
+          void m() {
+              int value = 2;        // @note! 遮蔽字段：方法里再写 value 就是局部那个
+              System.out.println(value);        // 2
+              System.out.println(this.value);   // 1 —— 要拿字段得加 this
+          }
+      }
+
+      // @note! 与 Python 的差别在影响范围：这里出了方法就恢复，
+      // Python 遮蔽内置名会污染整个模块

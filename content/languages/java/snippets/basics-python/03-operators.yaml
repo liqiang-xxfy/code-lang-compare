@@ -1,0 +1,141 @@
+# java —— basics-python/03-operators 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/equality
+    equivalence: divergent
+    code: |
+      String a = new String("x");
+      String b = new String("x");
+      a == b;                // @note! false —— == 比的是引用身份，不是内容
+      a.equals(b);           // true —— 值相等必须显式调 equals
+
+      Integer i1 = 127, i2 = 127;
+      Integer j1 = 128, j2 = 128;
+      i1 == j1;              // @note! true —— 装箱缓存 -128..127
+      i2 == j2;              // @note! false —— 出了缓存区就变成引用比较
+
+      // Python 的 == 永远比内容，没有这个"看值还是看身份"的选择题
+  - featureId: basics-python/arithmetic
+    equivalence: divergent
+    code: |
+      7 / 2;                 // 3 —— 整数除法
+      -7 / 2;                // @note -3 —— 向零截断，Python 那边是 -4（向下取整）
+      -7 % 3;                // @note! -1 —— 取余符号跟着被除数
+
+      1 / 0;                 // @note! ArithmeticException
+      Integer.MAX_VALUE + 1; // @note! -2147483648 —— 溢出静默回绕，不报错
+
+      Math.floorDiv(-7, 2);  // @note -4 —— 想要 Python 那种向下取整得调这个
+      Math.floorMod(-7, 3);  // 2 —— 与 floorDiv 配套
+  - featureId: basics-python/logical-short-circuit
+    equivalence: analogous
+    code: |
+      // @note! 短路求值一样，但只返回 boolean —— Java 没有"返回操作数本身"这回事
+      String s = null;
+      // String r = s || "默认";        // 编译错误
+      String r = (s != null) ? s : "默认";   // 只能写三元
+
+      boolean ok = flag && check();   // @note 短路有效：flag 为 false 时 check() 不执行
+      boolean any = flag || check();
+  - featureId: basics-python/truthiness
+    equivalence: absent
+    code: |
+      // @note! Java 完全没有真值转换，条件位置只接受 boolean
+      java.util.List<String> items = java.util.List.of();
+      // if (items) { }                    // 编译错误
+      // if (!items) { }                   // 编译错误
+      if (items.isEmpty()) { }             // 必须显式写出"空不空"
+      if (items.size() == 0) { }
+
+      // 也没有"或就取默认值"的写法：?? 与 or 的语义在这里都不存在
+    body: |
+      Java 没有真值转换：`if`、`while`、`&&` 的条件位置**只接受 `boolean`**，
+      传别的类型是编译错误，不是运行时错误。
+
+      所以 Python 里那些依赖真值的惯用法（`if items:`、`x or default`）
+      在 Java 里没有对应形态，一律要显式写出来：`items.isEmpty()`、
+      `x != null ? x : default`。
+
+      代价是代码更长，好处是**读代码不再需要先知道变量类型**才能确定
+      `if (x)` 在问什么 —— 这也正是 Python 那套惯用法最难读的地方。
+  - featureId: basics-python/optional-chaining
+    equivalence: absent
+    code: |
+      // @note! 没有 ?. 这种安全导航语法
+      String host = null;
+      if (cfg != null && cfg.db != null) {
+          host = cfg.db.host;              // 只能逐层判空
+      }
+
+      // Java 8+ 的惯用替代是把"可能没有"编码进类型：
+      java.util.Optional<Db> db = java.util.Optional.ofNullable(cfg).map(Cfg::db);
+      String h = db.map(Db::host).orElse("localhost");
+
+      // @note 但它只包引用类型，且 .get() 忘了判空一样抛 NoSuchElementException
+    body: |
+      Java 没有安全导航运算符，链式取值只能逐层判空 —— 这正是
+      `Optional` 被引入的原因：把"可能没有"从"某个字段碰巧是 null"
+      变成一个类型上的事实。
+
+      实践中的分工是：**内部字段判空仍用 `!= null`**（`Optional` 用在字段上
+      反而被认为是不良实践），**返回值边界**才用 `Optional` 表达"这次调用
+      可能什么也没算出来"。
+  - featureId: basics-python/bitwise
+    equivalence: divergent
+    code: |
+      2 << 30;               // @note 2147483648 会溢出成 -2147483648
+      1 << 100;              // @note! 移位量对 int 取模 32 —— 等价于 1 << 4，不是 0
+
+      ~5;                    // -6 —— 这条与 Python 一致
+      -1 >>> 28;             // @note 15 —— >>> 是无符号右移，Python 因为没有定长整数而没有它
+
+      // @note 要"任意精度"只能用 BigInteger，运算符全部失效，得调方法
+  - featureId: basics-python/comparison-operators
+    equivalence: analogous
+    code: |
+      "2".compareTo("10") < 0;    // @note true —— 字符串按字典序比，不是数值
+      Integer.parseInt("2") < 10; // 要数值比较必须先转换
+
+      // 对象比较靠 Comparable / Comparator，没有运算符重载
+      list.sort(java.util.Comparator.comparing(User::age).thenComparing(User::name));
+      // @note 多字段排序要显式串起比较器；Python 那边写元组 key 就够了
+
+      // 跨类型比较在 Java 里是编译错误，这点比 Python 的运行时 TypeError 更早拦
+  - featureId: basics-python/increment-decrement
+    equivalence: analogous
+    code: |
+      int i = 0;
+      i++;                   // @note 有自增自减，语义与 Python 的 i += 1 对应
+      ++i;
+
+      int[] arr = {1, 2};
+      int idx = 0;
+      arr[idx++];            // @note! 取值并前进：Python 里必须拆成两行
+
+      // @note 但 Java 没有元组赋值，交换仍要临时变量
+  - featureId: basics-python/chained-comparison
+    equivalence: absent
+    code: |
+      int x = 5;
+      // 0 < x < 10;                    // @note! 编译错误：boolean 不能参与 < 比较
+
+      0 < x && x < 10;                  // 必须这样拆开写
+
+      // @note 这里 Java 反而是"安全"的：Python 的 0 < x < 10 直译过来编译不过，
+      // 而不是静默变成一个恒真的条件
+    body: |
+      Java 没有链式比较，`0 < x < 10` 直接是编译错误 —— 因为
+      `(0 < x)` 得到 `boolean`，而 `boolean` 不能参与 `<` 运算。
+
+      这一点在迁移时反而省心：Python 里那个漂亮的数学写法在 Java 里
+      **不可能被悄悄写错**，写错就编译不过。真正危险的是那些
+      "能编译、语义不同、结果恒真"的写法，这里是编译期就拦住的一类。

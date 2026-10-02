@@ -1,0 +1,108 @@
+# java —— basics-python/02-types 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门，
+# 所以 equivalence 描述的是「相对 Python 基准」的差异。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/primitive-types
+    equivalence: divergent
+    code: |
+      int n = 10;              // @note 32 位，有宽度就有上限
+      long big = 10L;
+      double f = 3.14;
+      boolean ok = true;
+      char c = 'A';            // @note 单字符是独立的基本类型，不是长度为 1 的字符串
+
+      // big 还是装不下 10**30 —— 要用 BigInteger，且它不能参与运算符
+      java.math.BigInteger b = new java.math.BigInteger("1000000000000000000000000000000");
+      b.add(java.math.BigInteger.ONE);   // @note 只能调方法，没有 + 号
+  - featureId: basics-python/type-inference
+    equivalence: divergent
+    code: |
+      int x = 1;               // @note! 变量**有**类型，且写死在声明处
+      x = "一";                // 编译不过 —— 这不是运行时错误，是编译错误
+
+      var y = 1;               // @note var 只是省略类型名，y 依然是 int
+      // 类型检查全部发生在编译期，运行时拿不到"这个名字现在是什么类型"这回事
+  - featureId: basics-python/type-checking
+    equivalence: analogous
+    code: |
+      Object v = 1;
+      v instanceof Integer;         // @note true —— 认继承关系，与 isinstance 对应
+      Integer.class.isInstance(v);  // 等价写法
+
+      // 注意装箱：instanceof 判的是包装类型，不是 int
+      v instanceof Number;          // true —— 这是编译期就确定的静态判定，不是运行时查表
+  - featureId: basics-python/null-undefined
+    equivalence: divergent
+    code: |
+      String a;                // @note 引用类型默认 null；int 这类基本类型默认 0
+      String b = null;
+
+      a.length();              // @note! NullPointerException —— 编译期完全不拦
+
+      // 没有"未赋值"这个独立状态，只有一个 null；
+      // 想表达"可能没有"的惯用法是 Optional，但它不能装基本类型
+      java.util.Optional<String> maybe = java.util.Optional.empty();
+      maybe.orElse("default");
+  - featureId: basics-python/number-precision
+    equivalence: divergent
+    code: |
+      7 / 2;                   // @note 3 —— 整数除法，向零截断
+      -7 / 2;                  // -3 —— 与 Python 的 -4（向下取整）不同
+      -7 % 3;                  // @note! -1 —— 取余跟着被除数符号走，Python 那边是 2
+
+      1 / 0;                   // @note! ArithmeticException（整数除零才抛）
+      1.0 / 0;                 // @note! Infinity —— 浮点除零不抛，会一路传下去
+
+      Integer.MAX_VALUE + 1;   // @note! -2147483648 —— 溢出静默回绕，不报错
+  - featureId: basics-python/type-casting
+    equivalence: analogous
+    code: |
+      Integer.parseInt("3.7");     // @note! NumberFormatException —— 与 int() 一样不接受小数
+      Integer.parseInt("ff", 16);  // 255 —— 进制也给在这里
+
+      (int) 3.9;                   // 3 —— 截断，不是四舍五入
+      String.valueOf(255);         // "255"
+      Integer.toHexString(255);    // "ff"
+
+      // 转换失败一律抛异常（没有返回 NaN 的那种"尽力而为"），这点与 Python 一致
+  - featureId: basics-python/boolean-conversion
+    equivalence: divergent
+    code: |
+      // @note! Java 根本没有真值转换：条件位置只接受 boolean
+      java.util.List<String> items = java.util.List.of();
+      // if (items) {}                 // 编译错误
+      if (items.isEmpty()) {}          // 必须显式写出"空不空"
+      if (items.size() == 0) {}
+
+      // 想用"有值就真"的语义，只能自己包装：可选类型不是 boolean
+      java.util.Optional.of("x").isPresent();
+  - featureId: basics-python/type-names
+    equivalence: analogous
+    code: |
+      1.getClass();                 // @note 编译错误：基本类型没有方法，得先装箱
+      Integer.valueOf(1).getClass();        // class java.lang.Integer
+      Integer.valueOf(1).getClass().getName();      // "java.lang.Integer"
+      Integer.valueOf(1).getClass().getSimpleName();// "Integer"
+
+      // @note 给的是全限定名，且数组会得到 "[I" 这样的编码名 —— 与 type(x).__name__ 不同
+  - featureId: basics-python/immutable-primitives
+    equivalence: analogous
+    code: |
+      String s = "abc";
+      s.toUpperCase();             // @note 返回新字符串，s 不变（与 Python 一致）
+      s = s.toUpperCase();
+
+      StringBuilder sb = new StringBuilder("abc");
+      sb.append("d");              // @note! 这个是原地改的，与 Python 的 str 直觉相反
+
+      int[] nums = {2, 1};
+      java.util.Arrays.sort(nums); // @note 数组原地排序；而 String 是不可变的 —— 同一门语言里两种都有

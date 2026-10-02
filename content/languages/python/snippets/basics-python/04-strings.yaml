@@ -1,0 +1,113 @@
+# python —— basics-python/04-strings 的实现
+#
+# 本 topic 以 **Python 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-python/string-literal
+    equivalence: identical
+    code: |
+      s1 = 'he said "hi"'      # @note 单双引号完全等价，只影响要转义哪一边
+      s2 = "it's fine"
+      s3 = """多行
+      字符串"""
+
+      s1[0]                    # @note 'h' —— 长度为 1 的字符串，没有独立的字符类型
+  - featureId: basics-python/template-string
+    equivalence: identical
+    code: |
+      name = "Ada"
+      f"你好，{name}！"          # @note 花括号里可以放任意表达式
+      f"{price * 1.1:.2f}"      # 格式规格跟在冒号后面
+      f"{len(items)} 项"
+
+      # f"{'\n'.join(xs)}"      # @note! 语法错误：花括号里不能有反斜杠
+      joined = "\n".join(xs)
+      f"{joined}"               # 先接住再插值
+
+      f"{value=}"               # @note 调试简写，输出 value=42
+  - featureId: basics-python/string-methods
+    equivalence: identical
+    code: |
+      "  x  ".strip()            # @note 'x' —— 不带参数去掉所有空白，含 \n 和 \t
+      "abc".upper()              # 'ABC' —— 方法名全小写
+
+      "err" in line              # @note! 判断包含用 in 运算符，不是方法调用
+      "abc".find("z")            # -1 —— 找下标才用 find，找不到给 -1
+      "7".zfill(3)               # '007'
+      "a,b".split(",")           # ['a', 'b']
+  - featureId: basics-python/multiline-string
+    equivalence: identical
+    code: |
+      text = """第一行
+      第二行"""
+
+      lines = ["a", "b"]
+      "\n".join(lines)           # @note! 分隔符是主语 —— 与"数组调用 join"正好相反
+      ", ".join(map(str, nums))  # @note join 只收字符串，数字要先转
+      "".join(chunks)            # 不带分隔符
+  - featureId: basics-python/fstring-format
+    equivalence: identical
+    code: |
+      n = 3.14159
+      f"{n:.2f}"                 # @note '3.14'
+      f"{n:08.2f}"               # '00003.14' —— 08 是**总宽度**，不是整数位数
+      f"{1234567:,}"             # '1,234,567'
+      f"{0.123:.1%}"             # '12.3%'
+      f"{255:x}"                 # 'ff'
+
+      format(255, "x")           # @note 同一套规格串，用于动态拼格式时
+  - featureId: basics-python/string-index-slice
+    equivalence: identical
+    code: |
+      s = "abcdef"
+      s[-1]                      # @note 'f' —— 负索引从末尾数
+      s[1:4]                     # 'bcd' —— 左闭右开
+      s[::2]                     # 'ace' —— 步长
+      s[::-1]                    # 'fedcba' —— 一行反转
+
+      s[2:999]                   # @note 'cdef' —— 切片越界不报错，有多少给多少
+      s[999]                     # @note! IndexError —— 索引越界是会抛的
+  - featureId: basics-python/string-regex
+    equivalence: identical
+    code: |
+      import re
+      re.match(r"\d+", "a1")     # @note! None —— match 只从开头匹配
+      re.search(r"\d+", "a1")    # 匹配到 1 —— 想任意位置匹配要用 search
+
+      m = re.search(r"(?P<y>\d{4})", "2026")
+      m.group("y")               # '2026' —— 命名分组是 (?P<name>...)
+
+      re.sub(r"(\w+)@(\w+)", r"\2@\1", "a@b")   # @note 'b@a' —— 替换串也用原始字符串
+      # @note 正则串一律加 r 前缀：不加的话 "\b" 会变成退格字符
+  - featureId: basics-python/string-concat
+    equivalence: identical
+    code: |
+      "a" + 1                    # @note! TypeError —— 不做任何隐式转换
+      f"a{1}"                    # 'a1'
+      "a" + str(1)               # 'a1'
+
+      ",".join(map(str, [1, 2])) # '1,2'
+
+      s = ""
+      for p in parts:
+          s += p                 # @note! 循环里 += 会退化成 O(n²)：每次都要新建并复制
+      # 片段多时先收集到列表，最后一次性 join
+  - featureId: basics-python/string-raw-escape
+    equivalence: identical
+    code: |
+      path = r"C:\new\test"      # @note 没有 r 的话 \n 与 \t 会被当成转义
+      pattern = r"\d+\.\d+"
+
+      len(r"\n")                 # @note! 2 —— r 只影响字面量解析，值就是反斜杠 + n
+      # r"\"                     # @note! 语法错误：不能以奇数个反斜杠结尾
+
+      "\U0001F600"               # @note 8 位 Unicode 转义要补足前导零
+      "\N{GREEK SMALL LETTER ALPHA}"
