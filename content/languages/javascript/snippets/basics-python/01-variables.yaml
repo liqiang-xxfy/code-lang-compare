@@ -18,6 +18,13 @@ snippets:
       let count = 0;        // @note Python 里只需 count = 0，没有声明关键字
       const name = "Ada";   // @note const 冻结绑定，Python 没有对应语法
       var legacy = 1;       // @note! var 是函数作用域且会提升，Python 里没有类比物
+    body: |
+      这里需要**声明关键字**：`let`（可重新绑定）、`const`（绑定不可变）、
+      `var`（函数作用域，历史遗留）。绑定、可见范围是分开表达的，
+      而 Python 里 `count = 0` 一句话同时完成引入名字与绑定值。
+
+      `var` 尤其没有类比物：它既提升又无视块级作用域，是唯一还留着旧语义的形式。
+
   - featureId: basics-python/var-scope
     equivalence: divergent
     code: |
@@ -28,6 +35,12 @@ snippets:
 
       for (let i = 0; i < 3; i++) {}
       // i -> ReferenceError（Python 里循环变量出了循环还在）
+    body: |
+      `let` / `const` 是**块级**的：出了 `{}` 就 `ReferenceError`，循环变量也一样。
+
+      而 Python 的块不产生作用域 —— 同一段缩进结构，可见范围完全不同，
+      这是从那边过来最容易踩的一处。只有 `var` 例外，它是函数作用域的历史遗留。
+
   - featureId: basics-python/hoisting
     equivalence: divergent
     code: |
@@ -37,6 +50,13 @@ snippets:
       console.log(c);   // @note! ReferenceError：let/const 有暂时性死区
       let c = 2;
       // Python 没有提升，两种情况都是 NameError
+    body: |
+      这里**有提升**这回事：`var` 的声明被提到作用域顶部并初始化为 `undefined`，
+      所以提前读它不报错、只拿到 `undefined`；`let` / `const` 则进入**暂时性死区**，
+      提前访问抛 `ReferenceError`。
+
+      Python 那边两条路都没有，任何未绑定的名字一律 `NameError`。
+
   - featureId: basics-python/const-immutability
     equivalence: analogous
     code: |
@@ -44,6 +64,12 @@ snippets:
       config.retry = 5;            // @note! const 拦不住这个：冻结的是绑定不是内容
       Object.freeze(config);       // 真正冻结内容要显式调用
       // Python 只有全大写命名约定，没有等价的语法
+    body: |
+      `const` 冻结的是**绑定**而不是内容：`config.retry = 5` 照样合法，
+      要真正冻结内容得显式 `Object.freeze` —— 而它是浅的、是运行时行为。
+
+      Python 那边连这一层语法都没有，只有全大写命名约定。
+
   - featureId: basics-python/naming-convention
     equivalence: analogous
     code: |
@@ -51,12 +77,24 @@ snippets:
       class HttpClient {}           // @note 类 PascalCase
       const MAX_RETRY_COUNT = 3;    // @note 常量 SCREAMING_SNAKE_CASE
       let _internal = 1;            // @note! 下划线在 JS 里完全没有语义，纯约定
+    body: |
+      变量 camelCase、类 PascalCase、常量 SCREAMING_SNAKE_CASE —— 类与常量与 Python 一致，
+      **变量这一栏不同**（那边是 `snake_case`）。
+
+      下划线则完全没有语义：`_internal` 在 JS 里纯属约定，
+      Python 那种「`from x import *` 会跳过非公开名字」的机制也不存在。
+
   - featureId: basics-python/var-destructuring
     equivalence: analogous
     code: |
       const [first, ...rest] = [1, 2, 3];   // 数组解构：与 Python 的 first, *rest 对应
       const { name, age = 0 } = user;       // @note! 按键解构：Python 没有这个语法
       // Python 侧只能写 user["name"] / user.get("age", 0)
+    body: |
+      数组解构与 Python 的 `first, *rest` 对应；多出来的是**按键解构**，
+      而且可以直接在解构处写默认值 —— Python 侧只能写 `user["name"]` 或
+      `user.get("age", 0)`，按名字取值这件事得显式查字典。
+
   - featureId: basics-python/var-multiple-assign
     equivalence: divergent
     code: |
@@ -67,6 +105,12 @@ snippets:
 
       let x, y;
       x = y = 0;   // @note 链式赋值：两边共享同一个右侧值
+    body: |
+      交换必须写成 `[a, b] = [b, a]`（数组解构），不能像 Python 那样直接
+      `a, b = b, a`。
+
+      链式赋值两边都合法，共享语义也一致：右侧是对象时，两个名字指向同一个对象。
+
   - featureId: basics-python/var-global-declaration
     equivalence: divergent
     code: |
@@ -76,6 +120,12 @@ snippets:
         counter += 1;   // @note! 直接就能改外层变量，Python 必须写 global
       }
       // 反向的坑：Python 里同样的写法会静默创建一个局部变量，外面不变
+    body: |
+      函数里**直接就能改外层变量**，不需要任何声明 —— 这是从 Python 过来最先感受到的差别：
+      那边必须写 `global`，这里什么都不用写。
+
+      反向的坑同样成立：Python 里同样的写法会静默创建局部变量，外面不变、也不报错。
+
   - featureId: basics-python/var-shadowing
     equivalence: analogous
     code: |
@@ -84,3 +134,10 @@ snippets:
       {
         let list = [];        // @note 块级遮蔽：只在块内生效
       }
+    body: |
+      `list` 在这里不是内置名，随便用没事；Python 里 `list = [1, 2]` 会盖掉内置函数，
+      之后同一模块里所有 `list(...)` 全部报错。
+
+      遮蔽的影响范围也不同：这里用 `let` 做的块级遮蔽只在块内生效，
+      Python 那边一改就是整个模块，报错位置还会离出错原因很远。
+

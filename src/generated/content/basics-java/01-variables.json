@@ -29,7 +29,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Java 的声明是<strong>类型先行</strong>的：<code>int count = 0;</code> 先写类型再写名字，\n而且可以只声明不赋值（<code>int count;</code>），赋值留到后面。</p>\n<p>Java 10 起有了 <code>var count = 0;</code>，但它<strong>只是局部变量的类型推断</strong>，\n不是动态类型 —— 编译器仍然在编译期把类型定死，之后不能换。</p>\n<p>从 Java 出发看 Python，最容易低估的是「没有声明」这件事：\n<code>count = 0</code> 既是引入名字也是绑定对象，而且这个名字之后可以绑到完全不同类型的对象上。</p>\n"
+          "bodyHtml": "<p>Java 的声明是<strong>类型先行</strong>的：<code>int count = 0;</code> 先写类型再写名字，\n而且可以只声明不赋值（<code>int count;</code>），赋值留到后面。</p>\n<p>Java 10 起有了 <code>var count = 0;</code>，但它<strong>只是局部变量的类型推断</strong>，\n不是动态类型 —— 编译器仍然在编译期把类型定死，之后不能换。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
@@ -63,7 +63,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p>这里<strong>没有「声明」这个动作</strong>：<code>count = 0</code> 既是引入名字也是绑定对象，\n而且这个名字之后可以绑到完全不同类型的对象上。</p>\n<p>没有 <code>let</code> / <code>const</code> / <code>var</code>，也没有「先声明后赋值」的两步；\n类型注解只是给工具看的，解释器不检查。从 Java 过来最容易低估的就是这一点。</p>\n"
         }
       }
     },
@@ -84,7 +85,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Java 的<strong>局部变量是块级</strong>的：<code>for (int i = 0; ...)</code> 里的 <code>i</code> 出了循环就不可见，\n连&quot;循环结束后读 i&quot;都编译不过。</p>\n<p>字段则完全不同：它属于对象（或类），生命周期跟随实例，和代码块无关。</p>\n<p>这条差异在做迁移时要分两层看：JS 的 <code>let</code> 也是块级（与 Java 一致），\n而 Python 的块<strong>根本不产生作用域</strong> —— 同一段缩进结构，\nJava / JS 里出块即失效，Python 里出了块还在。</p>\n"
+          "bodyHtml": "<p>Java 的<strong>局部变量是块级</strong>的：<code>for (int i = 0; ...)</code> 里的 <code>i</code> 出了循环就不可见，\n连&quot;循环结束后读 i&quot;都编译不过。</p>\n<p>字段则完全不同：它属于对象（或类），生命周期跟随实例，和代码块无关。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
@@ -101,7 +102,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><code>let</code> 与 Java 的局部变量一样是<strong>块级</strong>的：<code>for (let i ...)</code> 里的 <code>i</code> 出了循环就\n<code>ReferenceError</code>。</p>\n<p>但 <code>var</code> 不认块（它是函数作用域的历史遗留），<code>if (true) { var leaked = 1; }</code> 之后\n<code>leaked</code> 仍然可见 —— Java 里没有对应的东西。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -123,7 +125,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>块根本不产生作用域</strong>：<code>for</code> 的循环变量出了循环还在，<code>if</code> 块里定义的变量也是。\nJava 那边这两处都是编译错误，「出块即失效」这条直觉在这里完全不成立。</p>\n<p>只有函数、类与模块才划定作用域。</p>\n"
         }
       }
     },
@@ -150,7 +153,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Java 没有 JS 那种&quot;提升&quot;机制，但有一组容易与它混淆的规则：</p>\n<ul>\n<li><strong>字段</strong>会被自动填默认值（<code>0</code> / <code>0.0</code> / <code>false</code> / <code>null</code>），声明后立刻可读</li>\n<li><strong>局部变量</strong>没有默认值，读一个未初始化的局部变量是<strong>编译错误</strong>，不是运行时异常</li>\n</ul>\n<p>所以 Java 的&quot;未初始化&quot;问题在编译期就被挡掉了，而 JS 的 <code>var</code> 会静默给出\n<code>undefined</code>，Python 要等到运行时才抛 <code>NameError</code>。\n三门语言的失败时机分别是：编译期 / 静默 / 运行时。</p>\n"
+          "bodyHtml": "<p>Java 没有&quot;提升&quot;机制，但有一组容易被当成提升的规则：</p>\n<ul>\n<li><strong>字段</strong>会被自动填默认值（<code>0</code> / <code>0.0</code> / <code>false</code> / <code>null</code>），声明后立刻可读</li>\n<li><strong>局部变量</strong>没有默认值，读一个未初始化的局部变量是<strong>编译错误</strong>，不是运行时异常</li>\n</ul>\n<p>所以「未初始化」在 Java 里是被编译期直接挡掉的 —— 不需要靠约定或运行时报错兜底。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
@@ -161,7 +164,8 @@
           "lineCount": 5,
           "notes": [],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>没有编译期兜底</strong>：<code>var</code> 声明会被提升并初始化为 <code>undefined</code>，所以提前读它\n得到 <code>undefined</code> 而不是报错；<code>let</code> / <code>const</code> 则进入「暂时性死区」，\n提前访问抛 <code>ReferenceError</code>。</p>\n<p>Java 那边字段有默认值、局部变量未初始化是编译错误 —— 两种失败都能在运行前发现，\n这里要等跑到那一行才知道。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -183,7 +187,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>没有提升，也没有默认值</strong>：读一个还没赋值的名字直接抛 <code>NameError</code> ——\n不像 Java 那样在编译期就被拦住，也不是静默的空值。</p>\n<p>函数体内还多一层规则：只要函数里某处对某名字赋值，整个函数范围内它都算局部的，\n于是在赋值之前读它会是 <code>UnboundLocalError</code>。三门语言里最绕的一种失败。</p>\n"
         }
       }
     },
@@ -210,7 +215,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><code>final</code> 限制的是<strong>引用不能再指向别的对象</strong>，不是对象内容不可变：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-token-keyword)\"> List</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\">> xs </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-keyword)\"> ArrayList</span><span style=\"color:var(--shiki-foreground)\">&#x3C;>();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">xs</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-foreground)\">);          </span><span style=\"color:var(--shiki-token-comment)\">// 合法 —— final 拦不住这个</span></span></code></pre>\n<p>想让内容真正不可变，靠的是<strong>类型本身不可变</strong>：\n<code>String</code> 不可变，<code>List.of(...)</code> 返回不可变列表，<code>record</code> 的字段是 final 的。</p>\n<p>三条语言在这里的分工正好可以对照：Java 用 <code>final</code> 关键字 + 不可变类型，\nJS 用 <code>const</code> + <code>Object.freeze</code>，Python 两者都没有，只有全大写命名约定。</p>\n"
+          "bodyHtml": "<p><code>final</code> 限制的是<strong>引用不能再指向别的对象</strong>，不是对象内容不可变：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-token-keyword)\"> List</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\">> xs </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-keyword)\"> ArrayList</span><span style=\"color:var(--shiki-foreground)\">&#x3C;>();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">xs</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-foreground)\">);          </span><span style=\"color:var(--shiki-token-comment)\">// 合法 —— final 拦不住这个</span></span></code></pre>\n<p>想让内容真正不可变，靠的是<strong>类型本身不可变</strong>：\n<code>String</code> 不可变，<code>List.of(...)</code> 返回不可变列表，<code>record</code> 的字段天然是 final 的。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
@@ -227,7 +232,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><code>const</code> 与 Java 的 <code>final</code> <strong>完全一致</strong>：冻结的是绑定，拦不住内容修改\n（<code>const xs = []; xs.push(&quot;a&quot;)</code> 合法）。</p>\n<p>想真不可变得显式 <code>Object.freeze</code>，而它是浅的、是运行时行为、也不进入类型签名；\nJava 那边靠不可变类型（<code>List.of</code>、<code>record</code>）在类型层面保证。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -244,7 +250,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>没有 <code>final</code> 这样的关键字</strong>：<code>MAX_RETRY = 3</code> 的全大写只是约定，\n解释器不会阻止你重新赋值，也不会报警。</p>\n<p>要真不可变只能<strong>选一个不可变类型</strong>：<code>tuple</code> / <code>frozenset</code> / <code>str</code>。\n用 <code>list</code> 装常量，谁都能 <code>append</code>。</p>\n"
         }
       }
     },
@@ -265,7 +272,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>唯一一处「纯风格、无语义」的差异，但迁移时满屏的命名不一致会显著增加阅读阻力。\nJava 与 JS 都用 <code>camelCase</code>（方法/变量）、<code>PascalCase</code>（类）、\n<code>SCREAMING_SNAKE_CASE</code>（<code>static final</code> 常量）；Python 用 <code>snake_case</code>。</p>\n<p>唯一带语义的一条：Python 用前导下划线表示「非公开」，\nJava 用 <code>private</code> / 包可见性在语言层面表达同一件事。</p>\n"
+          "bodyHtml": "<p>这是唯一一处「纯风格、无语义」的差异，但迁移时满屏的命名不一致会显著增加阅读阻力。\n变量与方法用 <code>camelCase</code>、类用 <code>PascalCase</code>、<code>static final</code> 常量用\n<code>SCREAMING_SNAKE_CASE</code>。</p>\n<p>唯一带语义的一条是可见性：<code>private</code> / 包可见性在<strong>语言层面</strong>表达「谁能碰这个成员」，\n而不是一条命名约定。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
@@ -276,7 +283,8 @@
           "lineCount": 3,
           "notes": [],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p>变量与方法 <code>camelCase</code>、类 <code>PascalCase</code>、常量 <code>SCREAMING_SNAKE_CASE</code> ——\n命名风格与 Java <strong>完全一致</strong>，这一格不用改习惯。</p>\n<p>差别只在「怎么表达非公开」：Java 用 <code>private</code> 在语言层面限制可见性，\n这里用 <code>#name</code>（真正的语言级私有）。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -293,7 +301,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p>变量与函数用 <code>snake_case</code>（PEP 8），类仍是 <code>PascalCase</code>，常量是\n<code>SCREAMING_SNAKE_CASE</code> —— 只有变量这一栏与 Java 不同，但它在代码里出现频率最高，\n所以迁移时最扎眼。</p>\n<p>还有一条 Java 没有的机制：<strong>前导下划线表示「非公开」</strong>（<code>_internal</code>），\n但那是约定，没有语言强制；Java 用 <code>private</code> 在语言层面表达同一件事。</p>\n"
         }
       }
     },
@@ -320,7 +329,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Java <strong>没有解构赋值</strong>：<code>a, b = pair</code> 与 <code>const { name } = user</code> 都没有对应写法。\n取多个值只能逐个访问（<code>p.x()</code> / <code>p.y()</code>，或 <code>map.get(&quot;k&quot;)</code>）。</p>\n<p>Java 21 的 record pattern（<code>if (p instanceof Point(int x, int y))</code>）看起来接近，\n但它是<strong>模式匹配</strong>的一部分，只能出现在 <code>instanceof</code> / <code>switch</code> 的判断位置，\n不能当作赋值语句用。</p>\n<p>JS 的数组/对象解构与 Python 的可迭代解包都远比它灵活 ——\n从 Java 出发时，这一层是最需要重新适应的地方。</p>\n"
+          "bodyHtml": "<p>Java <strong>没有解构赋值</strong>：<code>a, b = pair</code> 与 <code>const { name } = user</code> 都没有对应写法。\n取多个值只能逐个访问（<code>p.x()</code> / <code>p.y()</code>，或 <code>map.get(&quot;k&quot;)</code>）。</p>\n<p>Java 21 的 record pattern（<code>if (p instanceof Point(int x, int y))</code>）看起来接近，\n但它是<strong>模式匹配</strong>的一部分，只能出现在 <code>instanceof</code> / <code>switch</code> 的判断位置，\n不能当作赋值语句用。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
@@ -342,7 +351,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p>数组解构、对象解构、剩余项收集都有：<code>const [x, y] = point</code>、\n<code>const { name, age = 0 } = user</code>、<code>const [first, ...rest] = list</code>。\nJava 那边只能逐个 <code>x()</code> / <code>getName()</code> 地取，这一层是最需要重新适应的地方。</p>\n<p>顺带一处便利：对象解构可以直接写默认值，Java 要在取值之后自己判空补默认。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -359,7 +369,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><code>a, b = pair</code> 能解包<strong>任意可迭代对象</strong>，还支持星号收集剩余项\n（<code>first, *rest = [1, 2, 3]</code>）—— 这一半比 Java 强得多。</p>\n<p>但没有按键解构：<code>d[&quot;name&quot;]</code> 得显式取值，等价于 Java 的 <code>map.get(&quot;k&quot;)</code>。</p>\n"
         }
       }
     },
@@ -386,7 +397,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Java 没有多重赋值语句，<code>a, b = b, a</code> 与 <code>[a, b] = [b, a]</code> 都不成立。\n交换两个变量必须写临时变量：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> t </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> a; a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> b; b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> t;</span></span></code></pre>\n<p>链式赋值 <code>a = b = 0</code> 倒是合法（赋值表达式的值是赋进去的值），\n但它要求 <code>a</code> 与 <code>b</code> 类型兼容，而且和 Python / JS 一样——\n右侧是可变对象时会共享同一个对象。</p>\n"
+          "bodyHtml": "<p>Java 没有多重赋值语句，<code>a, b = b, a</code> 与 <code>[a, b] = [b, a]</code> 都不成立。\n交换两个变量必须写临时变量：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> t </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> a; a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> b; b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> t;</span></span></code></pre>\n<p>链式赋值 <code>a = b = 0</code> 倒是合法（赋值表达式的值是赋进去的值），\n但它要求 <code>a</code> 与 <code>b</code> 类型兼容，而且右侧是可变对象时两个名字会指向同一个对象。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
@@ -403,7 +414,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><code>[a, b] = [b, a]</code> 一行交换，不需要临时变量 —— Java 那边必须写\n<code>t = a; a = b; b = t;</code>。</p>\n<p>链式赋值两边都合法（<code>x = y = 0</code>）。同样要注意共享语义：右侧是对象时，\n两个名字指向同一个对象。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -420,7 +432,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><code>a, b = b, a</code> 一行交换：右侧先构造元组再解包，不需要临时变量 ——\nJava 那边必须写 <code>t = a; a = b; b = t;</code>。</p>\n<p>链式赋值同样合法（<code>x = y = []</code>），而且共享语义与 Java 一致：两个名字指向同一个对象。</p>\n"
         }
       }
     },
@@ -447,7 +460,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Java 没有模块级全局变量，最接近的是 <code>static</code> 字段 —— 它属于类而不是实例，\n并且要显式通过类名访问（<code>Config.RETRY</code>）。</p>\n<p>更值得记住的是<strong>闭包捕获规则</strong>：lambda 与匿名内部类只能捕获\n<code>final</code> 或<strong>事实不变</strong>（effectively final，即赋值后从未再改）的局部变量。\n这不是限制而是设计：捕获的是<strong>值</strong>，不是变量本身。</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> base </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Function</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">Integer</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> Integer</span><span style=\"color:var(--shiki-foreground)\">> f </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-foreground)\"> base;   </span><span style=\"color:var(--shiki-token-comment)\">// 合法：base 之后没再改</span></span></code></pre>\n<p>对照来看，JS 与 Python 的闭包捕获的是<strong>变量绑定</strong>（所以循环变量共享那一类坑才存在），\nJava 捕获值，因此没有这个问题，代价是循环里想捕获变化的量必须自己造一个 final 副本。</p>\n"
+          "bodyHtml": "<p>Java 没有模块级全局变量，最接近的是 <code>static</code> 字段 —— 它属于类而不是实例，\n并且要显式通过类名访问（<code>Config.RETRY</code>）。</p>\n<p>更值得记住的是<strong>闭包捕获规则</strong>：lambda 与匿名内部类只能捕获\n<code>final</code> 或<strong>事实不变</strong>（effectively final，即赋值后从未再改）的局部变量。\n这不是限制而是设计：捕获的是<strong>值</strong>，不是变量本身。</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> base </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Function</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">Integer</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> Integer</span><span style=\"color:var(--shiki-foreground)\">> f </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-foreground)\"> base;   </span><span style=\"color:var(--shiki-token-comment)\">// 合法：base 之后没再改</span></span></code></pre>\n<p>代价是循环里想捕获变化的量，必须自己造一个 final 副本。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
@@ -464,7 +477,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p>没有 <code>global</code> 那一层声明：函数里直接给一个未声明的名字赋值，在非严格模式下会创建\n<strong>真正的全局变量</strong>（严格模式下抛错）。</p>\n<p>与 Java 的根本差别在闭包：这里捕获的是<strong>变量绑定</strong>而不是值，所以改 <code>base</code> 会影响\n已经创建的函数；Java 捕获值（要求 effectively final），不受影响。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -486,7 +500,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p>模块级赋值就是「全局变量」，函数内要改它必须写 <code>global</code> 声明 ——\n不写的话那个赋值只会创建一个局部变量，外面不变，而且<strong>不报错</strong>。\n改外层函数的变量则用 <code>nonlocal</code>。</p>\n<p>与 Java 的根本差别在闭包：这里捕获的是<strong>变量绑定</strong>而不是值，\n所以「循环里创建的闭包共享同一个变量」那类坑在这里存在，Java 那边没有。</p>\n"
         }
       }
     },
@@ -513,15 +528,15 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Java 允许局部变量遮蔽同名的<strong>字段</strong>，而且这是很常见的写法：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    private</span><span style=\"color:var(--shiki-token-keyword)\"> final</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-foreground)\"> name;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    User</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> name) { </span><span style=\"color:var(--shiki-token-constant)\">this</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">name</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> name; }   </span><span style=\"color:var(--shiki-token-comment)\">// 参数遮蔽了字段</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>\n<p>用法上靠 <code>this.</code> 区分。需要注意的是局部变量之间<strong>不允许</strong>嵌套遮蔽 ——\nJava 禁止在内层块里声明与外层块同名的局部变量（编译错误），\n这一点比 JS 和 Python 都严格，能挡掉一整类&quot;看错变量&quot;的 bug。</p>\n<p>Python 则相反：它能遮蔽<strong>内置名</strong>（<code>list = []</code>），影响范围是整个模块，\n是三者中最容易造成远处报错的一种遮蔽。</p>\n"
+          "bodyHtml": "<p>Java 允许局部变量遮蔽同名的<strong>字段</strong>，而且这是很常见的写法：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    private</span><span style=\"color:var(--shiki-token-keyword)\"> final</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-foreground)\"> name;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    User</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> name) { </span><span style=\"color:var(--shiki-token-constant)\">this</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">name</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> name; }   </span><span style=\"color:var(--shiki-token-comment)\">// 参数遮蔽了字段</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>\n<p>用法上靠 <code>this.</code> 区分。需要注意的是局部变量之间<strong>不允许</strong>嵌套遮蔽 ——\n在内层块里声明与外层块同名的局部变量是编译错误。\n这条限制能挡掉一整类「看错变量」的 bug。</p>\n"
         },
         "javascript": {
           "lang": "javascript",
           "equivalence": "analogous",
           "flags": [],
-          "code": "class User {\n  constructor(name) {\n    this.name = name;   // JS 必须写 this.name，否则会给参数本身赋值\n  }\n}\n{\n  let name = \"a\";\n  { let name = \"b\"; }   // ⚠ JS 允许内层块重复声明同名 let；Java 直接编译错误\n}",
-          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  constructor</span><span style=\"color:var(--shiki-foreground)\">(name) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    this</span><span style=\"color:var(--shiki-foreground)\">.name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> name;   </span><span style=\"color:var(--shiki-token-comment)\">// JS 必须写 this.name，否则会给参数本身赋值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">{</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"a\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  { </span><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"b\"</span><span style=\"color:var(--shiki-foreground)\">; }   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ JS 允许内层块重复声明同名 let；Java 直接编译错误</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
-          "lineCount": 9,
+          "code": "class User {\n  constructor(name) {\n    this.name = name;   // JS 必须写 this.name，否则会给参数本身赋值\n  }\n}\n{\n  let name = \"a\";\n  { let name = \"b\"; }   // ⚠ JS 允许内层块重复声明同名 let；Java 直接编译错误",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  constructor</span><span style=\"color:var(--shiki-foreground)\">(name) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    this</span><span style=\"color:var(--shiki-foreground)\">.name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> name;   </span><span style=\"color:var(--shiki-token-comment)\">// JS 必须写 this.name，否则会给参数本身赋值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">{</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"a\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  { </span><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"b\"</span><span style=\"color:var(--shiki-foreground)\">; }   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ JS 允许内层块重复声明同名 let；Java 直接编译错误</span></span></code></pre>",
+          "lineCount": 8,
           "notes": [
             {
               "line": 8,
@@ -530,7 +545,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p>类方法里必须写 <code>this.name</code>，否则只是给参数本身赋值 —— 与 Java 的 <code>this.name</code>\n是同一个道理。</p>\n<p>但<strong>块级遮蔽比 Java 宽松</strong>：内层块里重复声明同名的 <code>let</code> 是允许的，\nJava 那边直接编译错误。这让「这个 name 到底指哪一个」变得不那么显然。</p>\n<p>}</p>\n"
         },
         "python": {
           "lang": "python",
@@ -552,7 +568,8 @@
             }
           ],
           "reviewState": "draft",
-          "provenanceOrigin": "llm"
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><code>if</code> / <code>for</code> 块<strong>不产生作用域</strong>，块里赋值改的就是同一个名字，不是遮蔽。</p>\n<p>真正危险的是遮蔽<strong>内置名</strong>：<code>list = [1, 2]</code> 会盖掉整个模块里的 <code>list()</code>，\n之后任何 <code>list(...)</code> 调用都报 <code>TypeError</code>，而且报错位置离出错原因很远。\nJava 禁止内层块遮蔽外层局部变量，这边完全不禁。</p>\n"
         }
       }
     }

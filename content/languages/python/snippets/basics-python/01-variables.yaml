@@ -20,11 +20,9 @@ snippets:
     body: |
       Python 里**不存在"声明"这个动作**：`count = 0` 既是把名字 `count` 绑定到一个新对象上，
       也是这个词法的全部形式。没有类型标注语句（`x: int = 0` 是注解，解释器不强制），
-      没有 `let` / `const` / `var`，也没有 Java 那种「先声明后赋值」的两步。
+      没有 `let` / `const` / `var`，也没有「先声明后赋值」的两步。
 
-      从 Python 出发看别的语言，最容易低估的就是这一点：JS 与 Java 的
-      「声明」同时在做两件事 —— 引入名字、并限制这个名字能不能被重新赋值和在哪里可见。
-      Python 只有前者。
+      名字的引入、重新绑定、可见范围，这三件事在这里从不分开表达。
   - featureId: basics-python/var-scope
     equivalence: identical
     code: |
@@ -45,8 +43,7 @@ snippets:
       print(i)   # 2 —— 循环变量在循环结束后依然存在
       ```
 
-      这是从 Python 出发最容易「反向踩坑」的地方：JS 的 `let` 是块级的，
-      Java 的局部变量也是块级的。同一段缩进结构在三门语言里的可见范围完全不同。
+      「出块即失效」这条在别处通用的直觉，在这里完全不成立。
   - featureId: basics-python/hoisting
     equivalence: identical
     code: |
@@ -58,12 +55,11 @@ snippets:
           total = 1
     body: |
       Python 在执行函数体之前会先扫一遍**局部名字**（这让 `global` / `nonlocal` 有确定语义），
-      但不会像 JS 的 `var` 那样把名字提前初始化为 `undefined`，
-      也不会像 Java 那样给字段填默认值。访问一个还没绑定的名字一律是 `NameError`。
+      但不会把名字提前初始化：访问一个还没绑定的名字一律是 `NameError`。
 
       值得记住的副作用：因为名字在**整个函数体内**都算局部，
-      在函数末尾才赋值的名字，在函数开头读它是 `UnboundLocalError` 而不是读到外层的同名变量。
-      这条规则是 Python 独有的，迁移时最容易被误诊成"作用域没生效"。
+      在函数末尾才赋值的名字，在函数开头读它是 `UnboundLocalError`，而不是读到外层的同名变量。
+      这条规则最容易在迁移时被误诊成「作用域没生效」。
   - featureId: basics-python/const-immutability
     equivalence: identical
     code: |
@@ -76,11 +72,8 @@ snippets:
       Python **没有 `const`**。全大写命名（`MAX_RETRY`）只是社区约定，解释器不会阻止重新赋值。
 
       真正不可变的是**对象本身**：`int` / `str` / `tuple` / `frozenset` 不可变，
-      `list` / `dict` / `set` 可变。所以 Python 的"常量"策略是：
-      选一个不可变类型放进去（比如用 `tuple` 而不是 `list`），而不是给名字加一个修饰符。
-
-      对照来看，JS 的 `const` 冻结的是**绑定**而不是对象（想冻结对象要 `Object.freeze`），
-      Java 的 `final` 冻结绑定、字段内容仍可变 —— 三者都容易被误读成"内容不可变"。
+      `list` / `dict` / `set` 可变。所以「常量」策略是**选一个不可变类型**放进去
+      （比如用 `tuple` 而不是 `list`），而不是给名字加一个修饰符。
   - featureId: basics-python/naming-convention
     equivalence: identical
     code: |
@@ -90,11 +83,11 @@ snippets:
       _internal = 1           # @note 前导下划线表示非公开，且有实际语义（from x import * 会跳过）
     body: |
       唯一一处「纯风格、无语义」的差异，但迁移时满屏的命名不一致会显著增加阅读阻力。
-      Python 用 `snake_case`（PEP 8），JS / Java 用 `camelCase`；
-      类名三者都是 `PascalCase`，常量三者都习惯 `SCREAMING_SNAKE_CASE`。
+      变量与函数用 `snake_case`（PEP 8），类仍是 `PascalCase`，
+      常量习惯 `SCREAMING_SNAKE_CASE`。
 
-      唯一带语义的一条：Python 用前导下划线表示「非公开」（`_internal`），
-      而 JS / Java 没有对应的语言级约定，只能靠文档。
+      唯一带语义的一条：**前导下划线表示「非公开」**（`_internal`），
+      而且它不只是约定 —— `from x import *` 会跳过这些名字。
   - featureId: basics-python/var-destructuring
     equivalence: identical
     code: |
@@ -109,11 +102,7 @@ snippets:
       first, *rest = [1, 2, 3]      # first=1, rest=[2, 3]
       ```
 
-      这一层 Python 比 JS 强 —— JS 的数组解构必须显式标注剩余项 `[first, ...rest]`，
-      而且只能作用在可迭代对象上（不能作用于普通对象）。
-
-      反过来，Python **没有按键解构**：JS 的 `const { name } = user` 在 Python 里
-      只能写 `user["name"]` 或 `user.get("name")`。想按名字取值就得显式查字典。
+      但没有按键解构：想按名字取值就得显式查字典（`user["name"]` 或 `user.get("name")`）。
   - featureId: basics-python/var-multiple-assign
     equivalence: identical
     code: |
@@ -122,14 +111,10 @@ snippets:
 
       x = y = []           # @note! 两个名字指向同一个列表，改一个另一个也变
     body: |
-      Python 的 `a, b = b, a` 一行交换，语义是**先构造右侧元组、再逐项绑定**，
-      因此不会出现中间态。JS 要用数组解构 `[a, b] = [b, a]` 才能达到同样效果，
-      Java 则必须借助临时变量。
+      `a, b = b, a` 一行交换，语义是**先构造右侧元组、再逐项绑定**，因此不会出现中间态。
 
-      另一个容易混淆的点是链式赋值：`a = b = 0` 在 Python 与 JS 里都合法，
-      但都是「先把 0 绑定给 b，再把 b 的值绑定给 a」——
-      当右侧是**可变对象**时（`a = b = []`），两个名字指向同一个对象，
-      改其中一个另一个也会变。
+      容易混淆的是链式赋值：`a = b = 0` 合法，但那是「先把 0 绑定给 b，再把 b 的值绑定给 a」——
+      当右侧是**可变对象**时（`a = b = []`），两个名字指向同一个对象，改一个另一个也变。
   - featureId: basics-python/var-global-declaration
     equivalence: identical
     code: |
@@ -157,9 +142,8 @@ snippets:
           counter += 1
       ```
 
-      这条「必须声明意图」的设计能挡掉大量意外覆盖，但也意味着逐行翻译 JS 代码时，
-      原本能跑的代码在 Python 里会静默变成「改了个局部变量，外面没变」——
-      不报错，只是没生效。
+      这条「必须声明意图」的设计能挡掉大量意外覆盖，但也意味着逐行翻译别处的代码时，
+      原本能跑的写法在这里会静默变成「改了个局部变量，外面没变」—— 不报错，只是没生效。
   - featureId: basics-python/var-shadowing
     equivalence: identical
     code: |
@@ -176,6 +160,3 @@ snippets:
       真正的坑是**遮蔽内置名**：`list = [1, 2]`、`id = 1`、`str = "x"`
       会把内置函数盖掉，之后同一模块里所有 `list(...)` 都会报
       `TypeError: 'list' object is not callable`，而且报错位置和出错原因隔得很远。
-
-      JS / Java 里同样能遮蔽，但影响范围通常限于当前块，
-      不会像 Python 这样污染整个模块。

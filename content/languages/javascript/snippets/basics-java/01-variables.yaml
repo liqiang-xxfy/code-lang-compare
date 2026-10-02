@@ -25,6 +25,13 @@ snippets:
 
       if (true) { var leaked = 1; }
       // @note! leaked === 1：var 不认块，Java 里没有对应的东西
+    body: |
+      `let` 与 Java 的局部变量一样是**块级**的：`for (let i ...)` 里的 `i` 出了循环就
+      `ReferenceError`。
+
+      但 `var` 不认块（它是函数作用域的历史遗留），`if (true) { var leaked = 1; }` 之后
+      `leaked` 仍然可见 —— Java 里没有对应的东西。
+
   - featureId: basics-java/hoisting
     equivalence: divergent
     code: |
@@ -33,24 +40,53 @@ snippets:
 
       // Java 里字段会被自动填默认值（0 / false / null），局部变量则是编译错误；
       // JS 没有"编译期"兜底，错误要等到运行时才以 ReferenceError 暴露
+    body: |
+      **没有编译期兜底**：`var` 声明会被提升并初始化为 `undefined`，所以提前读它
+      得到 `undefined` 而不是报错；`let` / `const` 则进入「暂时性死区」，
+      提前访问抛 `ReferenceError`。
+
+      Java 那边字段有默认值、局部变量未初始化是编译错误 —— 两种失败都能在运行前发现，
+      这里要等跑到那一行才知道。
+
   - featureId: basics-java/const-immutability
     equivalence: analogous
     code: |
       const xs = [];
       xs.push("a");          // @note! const 拦不住内容修改，与 Java 的 final 完全一致
       Object.freeze(xs);     // @note 想真不可变得显式冻结；Java 靠不可变类型（List.of）
+    body: |
+      `const` 与 Java 的 `final` **完全一致**：冻结的是绑定，拦不住内容修改
+      （`const xs = []; xs.push("a")` 合法）。
+
+      想真不可变得显式 `Object.freeze`，而它是浅的、是运行时行为、也不进入类型签名；
+      Java 那边靠不可变类型（`List.of`、`record`）在类型层面保证。
+
   - featureId: basics-java/naming-convention
     equivalence: identical
     code: |
       const maxRetryCount = 3;      // 变量 camelCase —— 与 Java 一致
       class HttpClient {}           // 类 PascalCase —— 与 Java 一致
       const MAX_RETRY_COUNT = 3;    // 常量 SCREAMING_SNAKE_CASE —— 与 Java 一致
+    body: |
+      变量与方法 `camelCase`、类 `PascalCase`、常量 `SCREAMING_SNAKE_CASE` ——
+      命名风格与 Java **完全一致**，这一格不用改习惯。
+
+      差别只在「怎么表达非公开」：Java 用 `private` 在语言层面限制可见性，
+      这里用 `#name`（真正的语言级私有）。
+
   - featureId: basics-java/var-destructuring
     equivalence: divergent
     code: |
       const [x, y] = point;              // @note! Java 没有解构赋值，只能逐个 x() / y()
       const { name, age = 0 } = user;    // @note! 按名字取值在 Java 里是 user.getName()
       const [first, ...rest] = list;     // 剩余项收集，Java 里要自己开子列表
+    body: |
+      数组解构、对象解构、剩余项收集都有：`const [x, y] = point`、
+      `const { name, age = 0 } = user`、`const [first, ...rest] = list`。
+      Java 那边只能逐个 `x()` / `getName()` 地取，这一层是最需要重新适应的地方。
+
+      顺带一处便利：对象解构可以直接写默认值，Java 要在取值之后自己判空补默认。
+
   - featureId: basics-java/var-multiple-assign
     equivalence: divergent
     code: |
@@ -59,6 +95,13 @@ snippets:
 
       let x, y;
       x = y = 0;         // 链式赋值两种语言都合法（Java 要求类型兼容）
+    body: |
+      `[a, b] = [b, a]` 一行交换，不需要临时变量 —— Java 那边必须写
+      `t = a; a = b; b = t;`。
+
+      链式赋值两边都合法（`x = y = 0`）。同样要注意共享语义：右侧是对象时，
+      两个名字指向同一个对象。
+
   - featureId: basics-java/var-global-declaration
     equivalence: divergent
     code: |
@@ -67,6 +110,13 @@ snippets:
       const base = 10;
       const add = (x) => x + base;   // @note 闭包捕获的是**变量绑定**而非值：
                                      //         改 base 会影响已创建的函数；Java 捕获值，不受影响
+    body: |
+      没有 `global` 那一层声明：函数里直接给一个未声明的名字赋值，在非严格模式下会创建
+      **真正的全局变量**（严格模式下抛错）。
+
+      与 Java 的根本差别在闭包：这里捕获的是**变量绑定**而不是值，所以改 `base` 会影响
+      已经创建的函数；Java 捕获值（要求 effectively final），不受影响。
+
   - featureId: basics-java/var-shadowing
     equivalence: analogous
     code: |
@@ -78,4 +128,11 @@ snippets:
       {
         let name = "a";
         { let name = "b"; }   // @note! JS 允许内层块重复声明同名 let；Java 直接编译错误
+    body: |
+      类方法里必须写 `this.name`，否则只是给参数本身赋值 —— 与 Java 的 `this.name`
+      是同一个道理。
+
+      但**块级遮蔽比 Java 宽松**：内层块里重复声明同名的 `let` 是允许的，
+      Java 那边直接编译错误。这让「这个 name 到底指哪一个」变得不那么显然。
+
       }

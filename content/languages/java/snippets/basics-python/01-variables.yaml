@@ -18,6 +18,13 @@ snippets:
       final String name = "Ada";
       var legacy = 1;           // @note var 只是省略类型名，不是动态类型
       // Python 那边 count = 0 一句话同时完成引入名字和绑定值
+    body: |
+      **类型必须写在声明处**：`int count = 0;`。没有「光赋值就完事」的形式，
+      也没有「一句话同时完成引入名字和绑定值」的写法。
+
+      `final String name` 是绑定不可变，`var legacy = 1` 只是**省略类型名** ——
+      编译器仍在编译期把类型定死，它不是动态类型。
+
   - featureId: basics-python/var-scope
     equivalence: divergent
     code: |
@@ -31,6 +38,12 @@ snippets:
 
       // @note! 这是从 Python 迁过来最容易踩的一处：同一段缩进结构，
       // 在这边出了花括号就不存在了
+    body: |
+      **局部变量是块级作用域**：出了花括号就不存在，循环变量也一样 ——
+      同一段缩进结构，在这边出了 `{}` 就没了。
+
+      字段则不受块的约束：它属于对象，生命周期跟随实例。
+
   - featureId: basics-python/hoisting
     equivalence: divergent
     code: |
@@ -47,6 +60,13 @@ snippets:
           }
       }
       // Python 两种情况都是 NameError，没有"字段悄悄是 0"这回事
+    body: |
+      **字段会自动填默认值**（`0` / `false` / `null`），声明后立刻可读，不会报错；
+      而**局部变量必须明确赋值**，读一个未初始化的局部变量是编译错误。
+
+      Python 那边两种情况都是 `NameError`：既没有「字段悄悄是 0」这件事，
+      也没有「编译期就拦住」这层保障。
+
   - featureId: basics-python/const-immutability
     equivalence: analogous
     code: |
@@ -58,6 +78,14 @@ snippets:
       // 想要内容也不可变得用 List.of(...)，它返回的才是真正不可变的
 
       static final int CONSTANT = 3;    // 常量惯例：static final + SCREAMING_SNAKE_CASE
+    body: |
+      `final` 是**语言强制**的：`MAX_RETRY = 5` 直接编译错误 ——
+      比 Python 的全大写约定硬得多。
+
+      但它冻结的仍然只是**绑定**：`final List<String> COLORS` 照样能 `add`。
+      想让内容也不可变得用 `List.of(...)`，它返回的才是真正不可变的。
+      常量惯例是 `static final` + `SCREAMING_SNAKE_CASE`。
+
   - featureId: basics-python/naming-convention
     equivalence: analogous
     code: |
@@ -67,6 +95,13 @@ snippets:
 
       private int internal;         // @note 访问控制靠关键字，不靠命名下划线
       // Python 的 _internal 是"约定 + 一点点语义"，这里是编译器强制的
+    body: |
+      变量 `camelCase`、类 `PascalCase`、常量 `SCREAMING_SNAKE_CASE` ——
+      类与常量与 Python 一致，**变量这一栏不同**（那边是 `snake_case`）。
+
+      访问控制靠关键字：Python 的 `_internal` 是「约定 + 一点点语义」，
+      这里的 `private` 是编译器强制的。
+
   - featureId: basics-python/var-destructuring
     equivalence: absent
     code: |
@@ -99,6 +134,12 @@ snippets:
       x = y = 0;                    // @note 链式赋值合法，但同样共享右侧的值
       int[] p = new int[1];
       int[] q = p;                  // @note! 这里是引用共享：改 q[0] 会同时改到 p[0]
+    body: |
+      **没有元组赋值**，交换必须借临时变量 —— Python 一行 `a, b = b, a`
+      在这里没有任何对应写法。
+
+      链式赋值合法，共享语义与 Python 一致：引用类型赋值后两个名字指向同一个对象。
+
   - featureId: basics-python/var-global-declaration
     equivalence: divergent
     code: |
@@ -125,3 +166,10 @@ snippets:
 
       // @note! 与 Python 的差别在影响范围：这里出了方法就恢复，
       // Python 遮蔽内置名会污染整个模块
+    body: |
+      可以**遮蔽字段**：方法里再声明一个同名的 `int value`，方法内看到的就是局部那个，
+      要拿字段得写 `this.value`。
+
+      与 Python 的差别在影响范围：这里出了方法就恢复原样，
+      而 Python 遮蔽内置名会污染整个模块。
+

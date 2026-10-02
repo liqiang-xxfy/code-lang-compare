@@ -19,6 +19,13 @@ snippets:
       # 从 Java 过来时最需要重建的直觉：这里没有类型先行
 
       value: int = 0            # @note 注解不强制，解释器不检查
+    body: |
+      这里**没有「声明」这个动作**：`count = 0` 既是引入名字也是绑定对象，
+      而且这个名字之后可以绑到完全不同类型的对象上。
+
+      没有 `let` / `const` / `var`，也没有「先声明后赋值」的两步；
+      类型注解只是给工具看的，解释器不检查。从 Java 过来最容易低估的就是这一点。
+
   - featureId: basics-java/var-scope
     equivalence: divergent
     code: |
@@ -31,6 +38,12 @@ snippets:
       print(inside)             # @note! 1
 
       # Java 那边这两处都是编译错误；这里"出块即失效"这条直觉完全不成立
+    body: |
+      **块根本不产生作用域**：`for` 的循环变量出了循环还在，`if` 块里定义的变量也是。
+      Java 那边这两处都是编译错误，「出块即失效」这条直觉在这里完全不成立。
+
+      只有函数、类与模块才划定作用域。
+
   - featureId: basics-java/hoisting
     equivalence: divergent
     code: |
@@ -42,6 +55,13 @@ snippets:
           total = 1
 
       # @note 三门语言的失败时机：Java 编译期 / JS 静默给 undefined / 这里运行时抛异常
+    body: |
+      **没有提升，也没有默认值**：读一个还没赋值的名字直接抛 `NameError` ——
+      不像 Java 那样在编译期就被拦住，也不是静默的空值。
+
+      函数体内还多一层规则：只要函数里某处对某名字赋值，整个函数范围内它都算局部的，
+      于是在赋值之前读它会是 `UnboundLocalError`。三门语言里最绕的一种失败。
+
   - featureId: basics-java/const-immutability
     equivalence: divergent
     code: |
@@ -51,6 +71,13 @@ snippets:
       POINT = (1, 2)            # @note 真正不可变靠类型：tuple / frozenset / str
       COLORS = ["red"]          # 可变，谁都能 append
       # Java 用 final + 不可变类型；这里没有关键字，只有"选一个不可变类型"
+    body: |
+      **没有 `final` 这样的关键字**：`MAX_RETRY = 3` 的全大写只是约定，
+      解释器不会阻止你重新赋值，也不会报警。
+
+      要真不可变只能**选一个不可变类型**：`tuple` / `frozenset` / `str`。
+      用 `list` 装常量，谁都能 `append`。
+
   - featureId: basics-java/naming-convention
     equivalence: analogous
     code: |
@@ -60,6 +87,14 @@ snippets:
 
       _internal = 1             # @note 前导下划线表示非公开 —— 只是约定，没有语言强制
       # Java 用 private 在语言层面表达同一件事
+    body: |
+      变量与函数用 `snake_case`（PEP 8），类仍是 `PascalCase`，常量是
+      `SCREAMING_SNAKE_CASE` —— 只有变量这一栏与 Java 不同，但它在代码里出现频率最高，
+      所以迁移时最扎眼。
+
+      还有一条 Java 没有的机制：**前导下划线表示「非公开」**（`_internal`），
+      但那是约定，没有语言强制；Java 用 `private` 在语言层面表达同一件事。
+
   - featureId: basics-java/var-destructuring
     equivalence: analogous
     code: |
@@ -70,6 +105,12 @@ snippets:
       d["name"]                 # @note! 没有按键解构，只能显式取值
 
       # Java 两边都没有；这边至少拿回了序列解包这一半
+    body: |
+      `a, b = pair` 能解包**任意可迭代对象**，还支持星号收集剩余项
+      （`first, *rest = [1, 2, 3]`）—— 这一半比 Java 强得多。
+
+      但没有按键解构：`d["name"]` 得显式取值，等价于 Java 的 `map.get("k")`。
+
   - featureId: basics-java/var-multiple-assign
     equivalence: analogous
     code: |
@@ -78,6 +119,12 @@ snippets:
 
       x = y = []                # @note! 两个名字指向同一个列表，改一个另一个也变
       # 链式赋值这条两边一致：共享的是同一个对象
+    body: |
+      `a, b = b, a` 一行交换：右侧先构造元组再解包，不需要临时变量 ——
+      Java 那边必须写 `t = a; a = b; b = t;`。
+
+      链式赋值同样合法（`x = y = []`），而且共享语义与 Java 一致：两个名字指向同一个对象。
+
   - featureId: basics-java/var-global-declaration
     equivalence: divergent
     code: |
@@ -95,6 +142,14 @@ snippets:
 
       # @note! 闭包捕获的是**变量绑定**不是值 ——
       # Java 那边捕获值（要求 effectively final），所以循环变量共享这类坑在这边存在
+    body: |
+      模块级赋值就是「全局变量」，函数内要改它必须写 `global` 声明 ——
+      不写的话那个赋值只会创建一个局部变量，外面不变，而且**不报错**。
+      改外层函数的变量则用 `nonlocal`。
+
+      与 Java 的根本差别在闭包：这里捕获的是**变量绑定**而不是值，
+      所以「循环里创建的闭包共享同一个变量」那类坑在这里存在，Java 那边没有。
+
   - featureId: basics-java/var-shadowing
     equivalence: divergent
     code: |
@@ -106,3 +161,10 @@ snippets:
       id = 1                    # @note! 同理，而且报错位置离出错原因很远
 
       # Java 禁止内层块遮蔽外层局部变量（编译错误），这边完全不禁
+    body: |
+      `if` / `for` 块**不产生作用域**，块里赋值改的就是同一个名字，不是遮蔽。
+
+      真正危险的是遮蔽**内置名**：`list = [1, 2]` 会盖掉整个模块里的 `list()`，
+      之后任何 `list(...)` 调用都报 `TypeError`，而且报错位置离出错原因很远。
+      Java 禁止内层块遮蔽外层局部变量，这边完全不禁。
+
