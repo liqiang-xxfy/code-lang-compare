@@ -20,6 +20,24 @@ export const useUiStore = defineStore('ui', () => {
     allowed: ['matrix', 'side-by-side', 'baseline-diff'] as const,
   })
   const onlyDifferent = usePersistedState<boolean>('ui:onlyDifferent', false)
+  /**
+   * 左侧内容导航是否展开。
+   *
+   * 是**用户偏好**（持久化），不是路由状态：同一个读法跨页面成立，切一次页面
+   * 就把菜单弹回来会很烦。
+   *
+   * 首访默认值分宽窄两种，因为侧栏在两种宽度下是两种东西（见 base.css 的
+   * ≤900px 媒体查询，那里的断点必须与这里一致）：
+   *   · 宽屏 —— 左侧一栏，不占正文的位置，**展开**才是该有的初态
+   *   · 窄屏 —— 顶栏下面的一整块，展开会把正文推下去半屏，该由用户主动点开，
+   *             进来第一眼就压着内容并不是他想要的
+   *
+   * 这里读 matchMedia 不会造成「服务端与客户端不一致」：客户端不做 hydration
+   * 而是全新挂载（见 main.ts），没有逐节点比对这回事。
+   */
+  const defaultSideNavOpen = (): boolean =>
+    typeof window === 'undefined' || !window.matchMedia('(max-width: 900px)').matches
+  const sideNavOpen = usePersistedState<boolean>('ui:sideNav', defaultSideNavOpen())
 
   const prefersDark = usePreferredDark()
   const resolvedTheme = computed<'light' | 'dark'>(() =>
@@ -46,13 +64,19 @@ export const useUiStore = defineStore('ui', () => {
     themePreference.value = order[(i + 1) % order.length]!
   }
 
+  function toggleSideNav(): void {
+    sideNavOpen.value = !sideNavOpen.value
+  }
+
   return {
     themePreference,
     resolvedTheme,
     density,
     viewMode,
     onlyDifferent,
+    sideNavOpen,
     applyToDocument,
     cycleTheme,
+    toggleSideNav,
   }
 })

@@ -14,6 +14,38 @@ body {
   padding: 0;
 }
 
+/*
+ * 滚动条。scrollbar-width / scrollbar-color 都是**继承属性**，写在根元素上一次
+ * 即可覆盖页面滚动条与所有内部滚动容器（侧栏、矩阵、代码块），不必逐个类去改。
+ * 滑块取半透明的 --pc-text-mute，明暗两套主题都不用单独调色；亮色下它同样成立，
+ * 所以没有只写在 [data-theme='dark'] 里。
+ * 顶栏那两条横向滑动区自己声明了 scrollbar-width: none，就近覆盖，不受影响。
+ */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pc-scroll-thumb) transparent;
+}
+
+/*
+ * 兜底：Safari 18.2 之前不认上面两个标准属性。用 @supports 反向判定，
+ * 支持的浏览器直接跳过这整块，不会与标准属性重复生效（重复会互相覆盖出怪样式）。
+ */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--pc-scroll-thumb);
+    background-clip: content-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+  }
+}
+
 body {
   font-family: var(--pc-font);
   font-size: var(--pc-fs-base);
@@ -96,6 +128,12 @@ input {
   flex-direction: column;
 }
 
+/*
+ * 定高、单行（不换行）的 flex。里面的 .pc-nav 用 flex:1 + overflow-x 吸收宽度，
+ * 所以挤窄了只会让导航横向滚动，不会把顶栏撑成两行。
+ * 这一点是硬约束：.pc-side 与矩阵表头都按 --pc-header-h 算吸附位置，
+ * 顶栏一旦真的变成两行，它们会一起偏。
+ */
 .pc-header {
   position: sticky;
   top: 0;
@@ -104,7 +142,7 @@ input {
   align-items: center;
   gap: 16px;
   padding: 0 var(--pc-pad-lg);
-  height: 52px;
+  height: var(--pc-header-h);
   background: var(--pc-bg-elev);
   border-bottom: 1px solid var(--pc-border);
 }
@@ -168,9 +206,9 @@ input {
   border-right: 1px solid var(--pc-border);
   padding: var(--pc-pad-lg) 0;
   overflow-y: auto;
-  max-height: calc(100vh - 52px);
+  max-height: calc(100vh - var(--pc-header-h));
   position: sticky;
-  top: 52px;
+  top: var(--pc-header-h);
 }
 
 .pc-main {
@@ -180,9 +218,26 @@ input {
   max-width: 1600px;
 }
 
+/*
+ * 窄屏（≤900px）：侧栏从「左侧一栏」变成「顶栏下面的一整块」。
+ *
+ * 它在这里不再是 position: sticky —— 那会让它变成一个占满视口高度的滚动区，
+ * 把页面主体压在下面。改成普通文档流后，展开只是把内容往下推一点，
+ * 不遮住任何东西，于是也不需要遮罩层与焦点陷阱那一套。
+ *
+ * 开合仍然只看 ui.sideNavOpen（顶栏那个 ☰ 按钮），这里只改形态：
+ * 窄屏用户终于**有**菜单可用了 —— 改版前是整条 display:none，小屏根本没法导航。
+ */
 @media (max-width: 900px) {
+  .pc-body {
+    flex-direction: column;
+  }
   .pc-side {
-    display: none;
+    width: auto;
+    max-height: none;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--pc-border);
   }
 }
 
@@ -205,11 +260,21 @@ input {
   color: var(--pc-text);
 }
 .pc-btn[aria-pressed='true'],
+.pc-btn[aria-checked='true'],
 .pc-btn.is-active {
   background: var(--pc-accent-soft);
   border-color: var(--pc-accent);
   color: var(--pc-accent);
   font-weight: 600;
+}
+/* 置灰 = 本板块还没有这个方向的内容（CompareLanguageBar） */
+.pc-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pc-btn:disabled:hover {
+  background: var(--pc-bg-soft);
+  color: var(--pc-text-soft);
 }
 
 .pc-seg {
@@ -231,6 +296,44 @@ input {
   border-right: 0;
 }
 .pc-seg button[aria-pressed='true'] {
+  background: var(--pc-accent);
+  color: #fff;
+  font-weight: 600;
+}
+/*
+ * 基准语言分段控件（BaselineTabs，挂在对比语言选择条上）。
+ *
+ * 与旁边的对比语言 .pc-btn chip **刻意用两种语法**：
+ *   · 分段控件 = 同一个字段的几个取值，连成一体，选中段实心填充（"整页换掉"）
+ *   · chip      = 各自独立的开关，彼此分开，选中态只上浅色（"多勾一列"）
+ * 形态本身在说明「谁是页面、谁是页内的列」，不靠一句说明去解释。
+ * 因此这里不复用 .pc-seg —— 那个是顶栏密度开关用的、选中态也是实心的，
+ * 两者混用会让"实心"这个信号失去意义。
+ */
+.pc-baseline-seg {
+  display: inline-flex;
+  border: 1px solid var(--pc-border-strong);
+  border-radius: var(--pc-radius);
+  overflow: hidden;
+  background: var(--pc-bg-soft);
+}
+.pc-baseline-seg button {
+  padding: 5px 12px;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--pc-border);
+  cursor: pointer;
+  font-size: var(--pc-fs-xs);
+  color: var(--pc-text-soft);
+}
+.pc-baseline-seg button:last-child {
+  border-right: 0;
+}
+.pc-baseline-seg button:hover {
+  background: var(--pc-bg-hover);
+  color: var(--pc-text);
+}
+.pc-baseline-seg button[aria-checked='true'] {
   background: var(--pc-accent);
   color: #fff;
   font-weight: 600;
@@ -266,6 +369,25 @@ input {
   line-height: 1;
 }
 
+/*
+ * 一串徽章里的语言标识（`[JS =] [Go ≠] [Py ≈]`）。
+ *
+ * 单个徽章长在它所属语言的那一列里，位置本身就是标识；排成一串就不一样了 ——
+ * 没有名字时，连着三个「语义不同」看起来就是同一个标签刷了三遍。
+ */
+.pc-eq-lang {
+  font-weight: 700;
+}
+
+/* 特性标题下那一排「语言 + 等价性」：列多时换行，不撑破容器 */
+.pc-eq-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0;
+}
+
 /* ── 代码块 ───────────────────────────────────────────────── */
 .pc-code {
   border: 1px solid var(--pc-border);
@@ -283,6 +405,26 @@ input {
   background: var(--pc-bg-elev);
   font-size: var(--pc-fs-xs);
   color: var(--pc-text-mute);
+}
+
+/*
+ * 多段对照（如「错误写法 / 正确写法」）：每段一个代码块，段间用细线分隔。
+ * 段标签是并排视图里唯一能说明「第 2 段在跟哪一段比」的东西，不能省。
+ */
+.pc-blocks {
+  display: flex;
+  flex-direction: column;
+}
+.pc-code-block + .pc-code-block {
+  border-top: 1px solid var(--pc-border);
+}
+.pc-block-label {
+  padding: 3px 8px;
+  background: var(--pc-bg-elev);
+  border-bottom: 1px solid var(--pc-border);
+  font-size: var(--pc-fs-xs);
+  font-weight: 600;
+  color: var(--pc-text-soft);
 }
 
 .pc-code-body {
@@ -303,11 +445,14 @@ input {
   font-family: inherit;
 }
 
-/* Shiki 的 css-variables 主题只输出颜色，丢失字重/字形。
-   用属性选择器把字体样式补回来（ADR-04 的已知限制与补偿）。 */
-.pc-code pre.shiki span[style*='--shiki-token-comment'] {
-  font-style: italic;
-}
+/*
+ * Shiki 的 css-variables 主题只输出颜色，丢失字重/字形。
+ * 用属性选择器把字体样式补回来（ADR-04 的已知限制与补偿）。
+ *
+ * 这里**刻意不给注释加斜体**（曾经是 italic）。本项目的代码注释绝大多数是中文，
+ * 而中文字体没有真斜体 —— 浏览器只能做合成倾斜，在 12px（紧凑密度）下笔画会
+ * 糊成一团，正是「注释看不清」的主因。注释与代码的区分交给颜色就够了。
+ */
 .pc-code pre.shiki span[style*='--shiki-token-keyword'] {
   font-weight: 600;
 }
@@ -330,24 +475,60 @@ input {
   display: block;
 }
 
-/* 行号：Shiki 输出的每个行是 <span class="line"> */
+/*
+ * 行号：Shiki 输出的每个行是 <span class="line">。
+ *
+ * 它不是装饰 —— 代码块下方的「差异说明」是按行号引用的（`L3 块级作用域…`），
+ * 不显示行号时那些编号就没有可对照的东西。
+ *
+ * 三个要点：
+ *
+ *  · `code` 用 grid 布局，**不是** block。Shiki 在每个 `.line` 之间输出了一个
+ *    换行符（为了直接复制 HTML 时还能换行），而代码块是 `white-space: pre` ——
+ *    换行符不会被折叠。`.line` 一旦变成块级，那些换行符就会各自生成一个匿名
+ *    空行，行距直接翻倍（实测 18px → 36px）。grid/flex 容器会丢弃只含空白的
+ *    匿名项，正好治这个；同时每个 `.line` 仍是撑满一列的块。
+ *
+ *  · 宽度给到 `code` 而不是 `.line`：取 max-content（最宽那行的宽度），
+ *    `.line` 撑满它，于是**每一行都一样宽**，行号才有横向 sticky 的余地。
+ *    反过来只给 `.line` 设 max-content 是不行的 —— 那样每行宽度等于**它自己**
+ *    的长度，短行的行号压根没有可移动的空间，长行一滚编号就跟着跑。
+ *
+ *  · min-width 保证短代码块仍然铺满，否则 diff 色块只会涂一半。
+ *
+ * 行号因此要自带底色：滚动时它浮在代码上面，没有底色就会被文字穿透。
+ * 底色取代码块自身的背景，diff 行上的轻微色差是可接受的代价。
+ */
 .pc-code.with-lines pre.shiki code {
+  display: grid;
+  width: max-content;
+  min-width: 100%;
   counter-reset: pc-line;
 }
 .pc-code.with-lines pre.shiki code > .line {
-  display: block;
   counter-increment: pc-line;
-  padding-left: 3.2em;
-  position: relative;
+  padding-left: 2.4em;
 }
 .pc-code.with-lines pre.shiki code > .line::before {
   content: counter(pc-line);
-  position: absolute;
+  position: sticky;
   left: 0;
+  display: inline-block;
+  box-sizing: border-box;
   width: 2.4em;
+  /* 负外边距把它拉回上面留出的 padding 区，代码文字正好从它右边接上 */
+  margin-left: -2.4em;
+  padding-right: 0.9em;
   text-align: right;
-  color: var(--pc-text-mute);
-  opacity: 0.65;
+  /* 等宽数字：两位数行号不会让代码起点左右跳 */
+  font-variant-numeric: tabular-nums;
+  /*
+   * 取 --pc-text-soft 而不是更浅的 --pc-text-mute：后者在代码块底色上只有
+   * 约 2.9:1，空行的编号几乎看不见 —— 而下方「差异说明」正要靠这些编号定位。
+   * 它仍然比代码正文浅一档，不会跟代码抢注意力。
+   */
+  color: var(--pc-text-soft);
+  background: var(--pc-bg-soft);
   user-select: none;
 }
 .pc-code details > summary {
@@ -390,29 +571,6 @@ input {
   color: var(--pc-text-mute);
 }
 
-.pc-notes {
-  list-style: none;
-  margin: 0;
-  padding: 6px 8px 6px 26px;
-  border-top: 1px solid var(--pc-border);
-  font-size: var(--pc-fs-xs);
-  color: var(--pc-text-soft);
-}
-.pc-notes li {
-  position: relative;
-  padding: 2px 0;
-}
-.pc-notes li::before {
-  content: '←';
-  position: absolute;
-  left: -16px;
-  color: var(--pc-text-mute);
-}
-.pc-notes li[data-tone='warn'] {
-  color: var(--pc-eq-divergent);
-  font-weight: 600;
-}
-
 .pc-output {
   margin: 0;
   padding: 6px 8px;
@@ -426,8 +584,16 @@ input {
 
 /* ── 矩阵 ─────────────────────────────────────────────────── */
 .pc-tablewrap {
-  overflow: auto;
-  max-height: calc(100vh - 190px);
+  /*
+   * 纵向滚动交给页面。原先这里是 `overflow: auto` + `max-height: calc(100vh - 250px)`，
+   * 矩阵成了一个"框内翻页"的小滚动区：滚到底之后还得再把整个页面往下滚才能看到
+   * 章节导航，同一页里两条滚动条也容易互相打架。
+   *
+   * 这里**不能**写 overflow: auto / hidden —— 两者都会把这个框变成滚动容器，表头的
+   * sticky 会被困在框内（页面滚动时它纹丝不动，等于白设），纵向滚动条也一并回来。
+   * `clip` 只裁剪、不产生滚动容器：圆角照旧裁掉表头背景的直角，sticky 仍以视口为准。
+   */
+  overflow: clip;
   border: 1px solid var(--pc-border);
   border-radius: var(--pc-radius-lg);
   background: var(--pc-bg-elev);
@@ -451,7 +617,13 @@ table.pc-matrix td {
 
 table.pc-matrix thead th {
   position: sticky;
-  top: 0;
+  /*
+   * 吸附在顶栏下沿 + 页内语言选择条之下。选择条自己也是 sticky 的、z-index 更高
+   * （20 > 5），表头不躲开它就会被整条盖住 —— 长表格往下翻就再也看不到列名。
+   * 选择条会随窗口变窄折行，高度不固定，所以由 CompareLanguageBar 实测写入
+   * --pc-lang-bar-h，这里不做估算。
+   */
+  top: calc(var(--pc-header-h) + var(--pc-lang-bar-h, 0px));
   z-index: 3;
   background: var(--pc-bg-soft);
   padding: 6px 10px;
@@ -602,6 +774,18 @@ table.pc-matrix tbody tr:hover th.pc-col-feature {
   margin-bottom: 6px;
 }
 
+/*
+ * 页内目录的跳转落点（对照点的锚）。
+ *
+ * 少了 `scroll-margin-top`，跳过去时标题会被**吸附的语言条与矩阵表头盖住** ——
+ * 而那两条正是这两页最占空间的固定元素。偏移量必须与它们同源：
+ * 顶栏高度是常量，语言条高度由 CompareLanguageBar 实测写入 `--pc-lang-bar-h`
+ * （它会换行，不是常数，所以不能在 CSS 里估一个值）。
+ */
+.pc-anchored {
+  scroll-margin-top: calc(var(--pc-header-h) + var(--pc-lang-bar-h, 0px) + 12px);
+}
+
 .pc-tag {
   display: inline-block;
   padding: 1px 7px;
@@ -655,13 +839,8 @@ table.pc-matrix tbody tr:hover th.pc-col-feature {
   margin: 0;
   padding: 0;
 }
-.pc-tree-group {
-  padding: 6px 14px;
-  font-size: var(--pc-fs-xs);
-  font-weight: 700;
-  color: var(--pc-text-mute);
-  text-transform: none;
-}
+/* 面板里的链接清单（首页板块入口 / 语言页的章节入口）。
+   左侧菜单不用这套 —— 它有层级，样式在 SideNav.vue 里自己管。 */
 .pc-tree a {
   display: block;
   padding: 4px 14px 4px 22px;

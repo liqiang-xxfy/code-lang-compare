@@ -2,9 +2,23 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import MarkdownContent from '@/components/content/MarkdownContent.vue'
+import { useI18n } from '@/composables/useI18n'
 import type { RenderedPitfall } from '@/schemas'
 
-const props = defineProps<{ pitfall: RenderedPitfall; featureTitle?: string }>()
+const props = defineProps<{
+  pitfall: RenderedPitfall
+  featureTitle?: string
+  /**
+   * 本页基准语言的**显示名**（`meta.name`，如 JavaScript / Python / Java）。
+   *
+   * 必填且由调用方传入：这枚徽章写的是「{基准} 开发者必踩」，基准可以是三门中的任何一门
+   * （`java2python` 页上就是「Java 开发者必踩」）。这里曾经硬编码成「JS 开发者必踩」，
+   * 于是在 Java / Python 基准的页面上也照写 JS —— 语言名一律从 meta 取，不许写死。
+   */
+  baselineName: string
+}>()
+
+const { t } = useI18n()
 
 const stars = computed(
   () => '★'.repeat(props.pitfall.severity) + '☆'.repeat(3 - props.pitfall.severity),
@@ -24,7 +38,7 @@ const stars = computed(
 
     <div class="pc-feature-meta" style="margin-bottom: 8px">
       <span v-if="pitfall.fromBaseline" class="pc-tag" style="color: var(--pc-eq-divergent)">
-        JS 开发者必踩
+        {{ t('pitfalls.fromBaselineBadge', { baseline: baselineName }) }}
       </span>
       <span v-for="lang in pitfall.languages" :key="lang" class="pc-tag">{{ lang }}</span>
       <span v-for="tag in pitfall.tags" :key="tag" class="pc-tag">#{{ tag }}</span>

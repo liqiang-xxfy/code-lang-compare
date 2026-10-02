@@ -5,6 +5,11 @@
  * 的全部 src 源码，断言里面**没有任何地方提及这门语言的 id**。
  * 如果扫描到，说明「加语言」需要改组件/类型/路由代码 —— 承诺不成立，构建失败。
  *
+ * 三条断言，层层加严：
+ *   ① fixture 语言的 id 不出现在 src（「加语言只加数据」）
+ *   ② 任何**已启用**语言的 id 字面量不出现在 src（带引号才算，防 `go` 撞普通词）
+ *   ③ 面向用户的**文案**里不写死语言显示名（i18n 的值 + .vue 的 <template>）
+ *
  * ── 关于临时目录用 `_` 前缀 ──────────────────────────────────
  * 这门临时语言命名为 `_fixturelang`，走「私有目录」约定：
  * 默认构建与校验都会跳过 `_` 开头的语言目录。
@@ -16,8 +21,9 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { LANGUAGES_DIR, ROOT, writeText } from './lib/core'
+import { LANGUAGES_DIR, ROOT, loadI18n, writeText } from './lib/core'
 import { generateRegistry } from './build/generate-registry'
+import { findLanguageWords } from './lib/lang-mention'
 
 const FIXTURE_ID = '_fixturelang'
 const fixtureDir = path.join(LANGUAGES_DIR, FIXTURE_ID)
@@ -41,6 +47,17 @@ baseline: false
 
 function cleanup(): void {
   if (fs.existsSync(fixtureDir)) fs.rmSync(fixtureDir, { recursive: true, force: true })
+}
+
+/** 把 i18n 的嵌套对象摊平成「键路径 → 字符串值」（只保留字符串，数字/布尔跳过） */
+function flattenStrings(node: unknown, prefix = ''): Array<[string, string]> {
+  if (typeof node === 'string') return [[prefix, node]]
+  if (node && typeof node === 'object' && !Array.isArray(node)) {
+    return Object.entries(node as Record<string, unknown>).flatMap(([k, v]) =>
+      flattenStrings(v, prefix ? `${prefix}.${k}` : k),
+    )
+  }
+  return []
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -142,6 +159,64 @@ try {
     console.log(
       `[verify:ext] ✓ src/ 下（不含 generated）没有硬编码任何启用语言 id` +
         `（已检查 ${publicOnly.enabledLanguageIds.join(', ')}）`,
+    )
+  }
+  /*
+   * 第三道断言：**面向用户的文案不得写死语言名**。
+   *
+   * 为什么需要：上面两条只认 id，而缺陷恰恰长在**显示名**上 —— PitfallCard 的徽章
+   * 曾经硬编码「JS 开发者必踩」（无引号、非 id，两条断言都看不见它），于是
+   * java2python / python2java 的页面也在讲 JS。JS / Python / Java 三门基准权重相同，
+   * 写死任何一门都会让另外两门的页面说谎。
+   *
+   * 扫描范围是**刻意的、不是全量 src**：只查「会被用户读到」的两处
+   *   · content/i18n/*.yaml 的**值** —— 文案的正规住处。只扫值不扫原文，
+   *     因为文件里的注释拿语言名举例是给维护者看的
+   *   · src 下 .vue 的 <template> 段 —— 组件里的可见文案。先摘掉 <script> 与
+   *     HTML 注释，代码注释里写「从 JS 出发…」是正常的，不该报
+   * 匹配复用 R12 的检测器（大小写敏感 + 显式 ASCII 边界），所以 `Go` 不撞英文动词、
+   * `Java` 不会被 `JavaScript` 前缀命中。
+   */
+  const copyLangs = publicOnly.meta.filter((m) => publicOnly.enabledLanguageIds.includes(m.id))
+  const copyOffenders: string[] = []
+
+  for (const [key, value] of flattenStrings(loadI18n())) {
+    const hits = findLanguageWords(value, copyLangs)
+    if (hits.length) {
+      copyOffenders.push(
+        `content/i18n/zh-CN.yaml  ${key} = 「${value}」  →  ${hits.map((h) => h.word).join(', ')}`,
+      )
+    }
+  }
+
+  for (const file of walk(path.join(ROOT, 'src'))) {
+    if (!file.endsWith('.vue')) continue
+    if (file.includes(`${path.sep}generated${path.sep}`)) continue
+    const source = fs.readFileSync(file, 'utf8')
+    const template =
+      source
+        .replace(/<script[\s\S]*?<\/script>/g, '')
+        .match(/<template[\s\S]*<\/template>/)?.[0]
+        ?.replace(/<!--[\s\S]*?-->/g, '') ?? ''
+    const hits = findLanguageWords(template, copyLangs)
+    if (hits.length) {
+      const words = [...new Set(hits.map((h) => h.word))]
+      copyOffenders.push(`${path.relative(ROOT, file)}  <template>  →  ${words.join(', ')}`)
+    }
+  }
+
+  if (copyOffenders.length) {
+    console.error(
+      '[verify:ext] ✗ 面向用户的文案里写死了语言名 —— 基准有 JS / Python / Java 三个且权重相同，' +
+        '写死任何一门都会让另外两门的页面说谎：',
+    )
+    for (const line of copyOffenders) console.error(`           - ${line}`)
+    console.error('           （i18n 用 {baseline} 之类的占位符，组件里由调用方以 prop 传入）')
+    exitCode = 1
+  } else {
+    console.log(
+      '[verify:ext] ✓ 文案里没有写死语言名（i18n 的值 + .vue 的 <template>，' +
+        `已检查 ${copyLangs.map((m) => m.name).join(', ')}）`,
     )
   }
 } finally {

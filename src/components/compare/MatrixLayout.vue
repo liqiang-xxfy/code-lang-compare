@@ -4,7 +4,9 @@ import { RouterLink } from 'vue-router'
 import CodeBlock from '@/components/code/CodeBlock.vue'
 import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
 import { useI18n } from '@/composables/useI18n'
-import { getCachedDiff, type LineDiff } from '@/content/diff'
+import { pickColumns } from '@/composables/useVisibleColumns'
+import { getCachedBlockDiffs, getCachedDiff, type LineDiff } from '@/content/diff'
+import { featureAnchor } from '@/content/repository'
 import type { RenderedChapter, RenderedFeature } from '@/schemas'
 import { useLanguageStore } from '@/stores/language'
 import { useUiStore } from '@/stores/ui'
@@ -14,8 +16,6 @@ const props = defineProps<{ chapter: RenderedChapter; diffMode?: boolean }>()
 const ui = useUiStore()
 const languages = useLanguageStore()
 const { t } = useI18n()
-
-const columns = computed(() => languages.orderedMeta)
 
 const rows = computed(() =>
   props.chapter.features.filter((feature) => {
@@ -40,13 +40,49 @@ const coveredLangs = computed(() => {
 const emptyText = (langId: string): string =>
   coveredLangs.value.has(langId) ? t('emptyCell') : t('emptyCellOutOfScope')
 
-/** 基准列永远不画 diff（它是参照系本身）；diff 在运行时算，按 (feature,baseline,target) 缓存 */
-function diffFor(feature: RenderedFeature, langId: string): LineDiff | null {
+/** 列裁到「本章真有实现」的语言，避免整列都是「本模块不涉及该语言」的噪音 */
+const columns = computed(() => pickColumns(languages.orderedMeta, languages.baseline, coveredLangs.value))
+
+/**
+ * 徽章行用的列：**去掉基准语言**。
+ * 基准相对它自己恒为「同构」，列进去只会给每一行都挂一个 `[JS =]` 的废话。
+ */
+const comparedColumns = computed(() =>
+  columns.value.filter((lang) => lang.id !== languages.baseline),
+)
+
+/**
+ * 基准列永远不画 diff（它是参照系本身）；diff 在运行时算，按 (feature,baseline,target) 缓存。
+ *
+ * 返回值与 `snippet.blocks` 按下标对齐，单段内容恒为长度 1。
+ * 多段**必须逐段算** —— 每段各有自己的行号空间。
+ */
+function diffsFor(feature: RenderedFeature, langId: string): Array<LineDiff | null> | null {
   if (!props.diffMode || langId === languages.baseline) return null
   const base = feature.snippets[languages.baseline]
   const target = feature.snippets[langId]
-  if (!base?.code || !target?.code) return null
-  return getCachedDiff(`${feature.id}|${languages.baseline}|${langId}`, base.code, target.code)
+  if (!base || !target) return null
+  const key = `${feature.id}|${languages.baseline}|${langId}`
+
+  const baseBlocks = base.blocks?.map((b) => b.code)
+  const targetBlocks = target.blocks?.map((b) => b.code)
+  if (baseBlocks?.length && targetBlocks?.length) {
+    // 段数不同时返回 null —— 调用方据此显示「未做逐行对照」，而不是给一份错位的着色
+    return getCachedBlockDiffs(key, baseBlocks, targetBlocks)
+  }
+
+  if (!base.code || !target.code) return null
+  return [getCachedDiff(key, base.code, target.code)]
+}
+
+/** 两侧都是多段、但段数不同 —— 无法逐段对齐 */
+function blocksMismatch(feature: RenderedFeature, langId: string): boolean {
+  if (!props.diffMode || langId === languages.baseline) return false
+  const base = feature.snippets[languages.baseline]
+  const target = feature.snippets[langId]
+  return Boolean(
+    base?.blocks?.length && target?.blocks?.length && base.blocks.length !== target.blocks.length,
+  )
 }
 </script>
 
@@ -72,7 +108,7 @@ function diffFor(feature: RenderedFeature, langId: string): LineDiff | null {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="feature in rows" :key="feature.id">
+        <tr v-for="feature in rows" :id="featureAnchor(feature.id)" :key="feature.id" class="pc-anchored">
           <th class="pc-col-feature" scope="row">
             <div class="pc-feature-cell">
               <RouterLink class="pc-feature-title" :to="`/feature/${feature.id}`">
@@ -80,12 +116,15 @@ function diffFor(feature: RenderedFeature, langId: string): LineDiff | null {
               </RouterLink>
               <div class="pc-feature-meta">
                 <span class="pc-tag">{{ feature.kind }}</span>
-                <EquivalenceBadge
-                  v-for="s in Object.values(feature.snippets)"
-                  :key="s.lang"
-                  :value="s.equivalence"
-                  :compact="true"
-                />
+                <!-- 同 SideBySideLayout：跟着当前可见的列走、标出语言名，基准列由 comparedColumns 排除 -->
+                <template v-for="lang in comparedColumns" :key="lang.id">
+                  <EquivalenceBadge
+                    v-if="feature.snippets[lang.id]"
+                    :value="feature.snippets[lang.id]!.equivalence"
+                    :lang-name="lang.shortName"
+                    :compact="true"
+                  />
+                </template>
               </div>
               <p v-if="feature.summary" class="pc-hint" style="margin: 0">
                 {{ feature.summary }}
@@ -102,7 +141,9 @@ function diffFor(feature: RenderedFeature, langId: string): LineDiff | null {
               <CodeBlock
                 :snippet="feature.snippets[lang.id]!"
                 :lang-meta="lang"
-                :diff="diffFor(feature, lang.id)"
+                :diffs="diffsFor(feature, lang.id)"
+                :blocks-mismatch="blocksMismatch(feature, lang.id)"
+                :is-baseline="lang.id === languages.baseline"
               />
             </div>
             <div v-else class="pc-cell-empty">{{ emptyText(lang.id) }}</div>
