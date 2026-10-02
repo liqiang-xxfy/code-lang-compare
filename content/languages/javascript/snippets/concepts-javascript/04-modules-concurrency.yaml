@@ -16,14 +16,8 @@ snippets:
       JS 的 ESM `import` 是**静态提升**的：声明位置不影响执行顺序，
       且导入是绑定（活的引用），循环依赖能被处理。
 
-      Python 的 `import` 是一句**会在那一刻真的执行**的语句：
-      被导入模块的顶层代码立刻跑一遍，且默认只跑一次（缓存在 `sys.modules`）。
-      因此「在模块顶层做了耗时或带副作用的事」在 Python 里后果更直接 ——
-      它会拖慢第一次导入它的任何人。
-
-      还有一个结构性差异：JS 里一个文件即一个模块，导出什么由 `export` 决定；
-      Python 里一个 `.py` 是 module、含 `__init__.py` 的目录是 package，
-      **没有显式导出这回事 —— 所有顶层名字都可被导入**（`_` 开头是约定私有）。
+      一个文件即一个模块，导出什么完全由 `export` 决定 —— 没有 module / package
+      两级结构，也没有「所有顶层名字都可被导入」这回事。
 
   - featureId: concepts-javascript/memory
     equivalence: identical
@@ -35,13 +29,7 @@ snippets:
       JS 用标记清除式的 GC：从根出发找不到的对象被回收，循环引用不是问题。
       主要泄漏源是**闭包持有**与忘记解绑的事件监听。
 
-      Python 是引用计数 + 循环 GC 的混合：对象引用数归零立刻释放，
-      循环引用靠周期性 GC 兜底。所以 `del x` 只是**减一次引用**，
-      对象不一定立刻消失 —— 还有别人引用着它就还在。
-
-      迁移时的实际后果：Python 里可以用 `with` 语句把「释放」写成确定性的
-      （文件、锁、连接），这比 JS 里依赖 GC 时机更可控；
-      反过来，从 Python 到 JS 会失去这种确定性。
+      释放时机不可控：资源是跟着 GC 走的，没有「作用域结束就释放」这回事。
 
   - featureId: concepts-javascript/concurrency-unit
     equivalence: identical
@@ -50,16 +38,7 @@ snippets:
       new Worker("worker.js");     // CPU 密集只能靠 Worker 隔离
     body: |
       JS 的并发模型是**事件循环 + 单线程**：所有回调在同一个线程上跑，
-      没有数据竞争，CPU 密集任务只能丢给 Worker 隔离。
-
-      Python 三种都有：线程、进程、协程。但有个关键约束 ——
-      **GIL** 让多线程无法并行执行 CPU 密集任务，所以
-      「想快就用多线程」在 Python 里只在 I/O 密集场景成立；
-      CPU 密集必须用 `multiprocessing`（进程各有独立解释器与内存）。
-
-      迁移视角：从 JS 过来会觉得「有线程了，终于能并行」，然后发现加了线程
-      反而更慢 —— 这正是 GIL 那一课。反过来，JS 的「永远不用担心锁」
-      是 Python 多线程里必须自己扛的事。
+      没有数据竞争，也不用担心锁；CPU 密集任务只能丢给 Worker 隔离。
 
   - featureId: concepts-javascript/async-model
     equivalence: identical
@@ -70,12 +49,5 @@ snippets:
       JS 的异步是**运行时自动驱动**的：事件循环一直在跑，`await` 之后
       不需要谁去「启动」它，写个 `async` 函数调用即可。
 
-      Python 的 `asyncio` 需要一个**显式启动的事件循环**：
-      协程函数调用后返回的是协程对象，不 `await` 或不用
-      `asyncio.run()` / `create_task()` 驱动，它就**一行都不会执行**，
-      而且通常**不报错**（只会有一条 RuntimeWarning）。
-
-      这是从 JS 迁移过来最经典的静默失败：代码看起来对、跑起来什么都不发生。
-      另外一边的事件循环阻塞会拖垮全部并发，两边同理 ——
-      在协程里调用同步阻塞函数（如 `time.sleep`、同步的 HTTP 库），
-      整个循环就被卡住了。
+      代价是事件循环被阻塞会拖垮全部并发：只要在回调或 `await` 的路径上
+      跑了同步的重活，整个循环就卡住了。

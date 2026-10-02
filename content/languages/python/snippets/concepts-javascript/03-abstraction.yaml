@@ -16,7 +16,13 @@ snippets:
       a = A()
       a.__dict__                          # @note 没有真私有：_x 只是约定，__x 只是改名
     body: |
-      **class + 多继承** —— 支持多继承与 MRO；私有靠约定，没有语言级私有。
+      **class + 多继承** —— 支持多继承，方法解析顺序由 MRO 决定
+      （`super()` 走的是 MRO 链，不是「父类」这一个）。
+
+      私有这一格是空的：`_name` 是约定、`__name` 只是名称改写（name mangling），
+      外部依然够得着 —— 「这个属性不该被外面碰」只能靠约定与文档。
+      实例方法的第一个参数 `self` 也是显式的，单独取出方法会丢绑定，
+      这是从 JS 过来最常见的报错。
 
   - featureId: concepts-javascript/interface
     equivalence: divergent
@@ -39,8 +45,9 @@ snippets:
       T = TypeVar("T")
       def first(items: list[T]) -> T: ...   # @note 标注在运行时被擦除，只是给检查器看的
     body: |
-      **typing.TypeVar** —— 标注层面存在，运行时同样擦除。
-      但 Python 是**渐进类型**：解释器不检查，要靠 mypy。
+      **typing.TypeVar** —— 标注层面存在，运行时同样擦除，两边都别想拿它做运行时判断。
+      但 Python 是**渐进类型**：标注自愿、可以只标一部分，检查交给 mypy 这类外部工具，
+      解释器自己不检查 —— 所以标注写错了不会阻止程序运行，只会让检查器报错。
 
   - featureId: concepts-javascript/error-handling
     equivalence: divergent

@@ -23,7 +23,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的 <code>class</code> 是原型链的语法糖：单继承，<code>super</code> 沿原型向上找，\n私有字段用 <code>#name</code>（真正的语言级私有）。</p>\n<p>Python 的 <code>class</code> 是一等公民：支持<strong>多继承</strong>，方法解析顺序由 MRO\n决定（<code>super()</code> 走的是 MRO 链，不是「父类」这一个）。</p>\n<p>但迁移时真正的绊脚石是<strong>私有</strong>：Python 没有真私有 ——\n<code>_name</code> 是约定、<code>__name</code> 只是名称改写（name mangling），\n外部依然够得着。于是「这个属性不该被外面碰」在 Python 里\n只能靠约定与文档，不能靠语言保证。</p>\n<p>另外 Python 的实例方法第一个参数是显式的 <code>self</code>，没有隐式 <code>this</code>；\n「把这个方法单独取出来用」时会丢掉绑定，这是从 JS 过来最常见的报错。</p>\n"
+          "bodyHtml": "<p>JS 的 <code>class</code> 是原型链的语法糖：单继承，<code>super</code> 沿原型向上找，\n私有字段用 <code>#name</code>（真正的语言级私有）。<code>this</code> 由调用方式决定，\n方法被单独取出或作为回调传入时会丢。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -41,7 +41,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>class + 多继承</strong> —— 支持多继承与 MRO；私有靠约定，没有语言级私有。</p>\n"
+          "bodyHtml": "<p><strong>class + 多继承</strong> —— 支持多继承，方法解析顺序由 MRO 决定\n（<code>super()</code> 走的是 MRO 链，不是「父类」这一个）。</p>\n<p>私有这一格是空的：<code>_name</code> 是约定、<code>__name</code> 只是名称改写（name mangling），\n外部依然够得着 —— 「这个属性不该被外面碰」只能靠约定与文档。\n实例方法的第一个参数 <code>self</code> 也是显式的，单独取出方法会丢绑定，\n这是从 JS 过来最常见的报错。</p>\n"
         }
       }
     },
@@ -62,7 +62,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 在语言层面<strong>没有接口</strong>这一概念 —— 一个对象能不能当作某物使用，\n完全看它有没有对应的方法（鸭子类型），<code>interface</code> 只是 TypeScript\n的编译期概念，运行时不留下任何痕迹。</p>\n<p>Python 两种都有：<code>Protocol</code>（结构化 —— 「长得像就算」）与\n<code>ABC</code>（名义式 —— 「必须显式继承」）。选哪个是设计决策：\nProtocol 更灵活且不侵入，ABC 能在实例化时就拦住不完整的实现。</p>\n<p>迁移视角：在 JS 里「这个参数应该实现哪些方法」只能写在注释或 TS 类型里，\n到 Python 里<strong>它可以被运行时或类型检查器强制</strong>。意识到这一点，\n你才会去用它，而不是继续用注释。</p>\n"
+          "bodyHtml": "<p>JS 在语言层面<strong>没有接口</strong>这一概念 —— 一个对象能不能当作某物使用，\n完全看它有没有对应的方法（鸭子类型），<code>interface</code> 只是 TypeScript\n的编译期概念，运行时不留下任何痕迹。</p>\n<p>「这个参数应该实现哪些方法」在这里只能写进注释、文档或 TS 类型，\n运行时没有任何机制拦住一个不满足协议的对象 —— 直到某个方法被调用时\n才发现它不存在。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -95,7 +95,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 本身没有泛型（靠 TypeScript 的编译期标注），Python 有\n<code>typing.TypeVar</code> 等标注工具。</p>\n<p>共同点很重要：<strong>两边的类型参数在运行时都不存在</strong>。\n所以「用泛型来做运行时判断」在任何一边都行不通。</p>\n<p>差别在强度：TypeScript 是「标注了就在编译期强约束」，\nPython 是<strong>渐进类型</strong> —— 标注是自愿的、可以只标一部分，\n检查交给 mypy 这类外部工具，解释器自己不检查。\n于是 Python 里「标注写错了」不会阻止程序运行，只会让类型检查器报错。</p>\n"
+          "bodyHtml": "<p>JS 本身没有泛型 —— 想要类型参数只能靠 TypeScript 的编译期标注，\n而<strong>标注在运行时不存在</strong>，别指望用它做运行时判断。\n真要用，是「标注了就在编译期强约束」那一路。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -107,7 +107,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>typing.TypeVar</strong> —— 标注层面存在，运行时同样擦除。\n但 Python 是<strong>渐进类型</strong>：解释器不检查，要靠 mypy。</p>\n"
+          "bodyHtml": "<p><strong>typing.TypeVar</strong> —— 标注层面存在，运行时同样擦除，两边都别想拿它做运行时判断。\n但 Python 是<strong>渐进类型</strong>：标注自愿、可以只标一部分，检查交给 mypy 这类外部工具，\n解释器自己不检查 —— 所以标注写错了不会阻止程序运行，只会让检查器报错。</p>\n"
         }
       }
     },
@@ -128,7 +128,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 可以 <code>throw</code> 任意值 —— 字符串、对象、数字都行，所以 <code>catch</code> 到的东西\n<strong>不一定是 <code>Error</code></strong>，取 <code>e.message</code> 可能得到 <code>undefined</code>。</p>\n<p>Python 只能抛 <code>BaseException</code> 的子类，<code>except</code> 必须写明类型\n（裸 <code>except:</code> 会连 <code>KeyboardInterrupt</code> 一起吞掉，是明确的反模式）。</p>\n<p>更根本的差异是<strong>受检异常</strong>：Java 把「必须处理」写进类型系统，\nJS 与 Python 都没有 —— 任何函数都可能抛，签名上看不出来。\n所以从 JS 到 Python 这一条是平滑的，但从 Java 到 Python\n会突然失去「编译器替我盯着」这层保障。</p>\n<p>另外 Python 的 <code>try/except/else/finally</code> 比 JS 多一个 <code>else</code>\n（没出错时执行），把「成功路径」从 <code>try</code> 里挪出来，\n避免误捕获成功路径中的异常。</p>\n"
+          "bodyHtml": "<p>JS 可以 <code>throw</code> 任意值 —— 字符串、对象、数字都行，所以 <code>catch</code> 到的东西\n<strong>不一定是 <code>Error</code></strong>，取 <code>e.message</code> 可能得到 <code>undefined</code>。</p>\n<p>也没有受检异常：任何函数都可能抛，签名上看不出来，错误处理只能靠纪律与文档。</p>\n"
         },
         "python": {
           "lang": "python",

@@ -47,7 +47,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>Array / Object / Map / Set</strong> —— 对象字面量只支持字符串键，\n真正的任意键映射要显式用 <code>Map</code>。</p>\n"
+          "bodyHtml": "<p><strong>Array / Object / Map / Set</strong> —— 对象字面量只支持字符串键，\n真正的任意键映射要显式用 <code>Map</code>；用对象表达映射时得先判断键的类型，\n否则会静默串键（<code>1</code> 与 <code>&quot;1&quot;</code> 撞在一起）。</p>\n<p>对象字面量的字符串键同样有插入顺序，但没有 <code>tuple</code> 那种不可变有序容器，\n「这个序列不该被改」只能靠约定。<code>Array(3).fill([0, 0, 0])</code> 会共享同一个\n内层数组，与 Python 的 <code>[[0] * 3] * 3</code> 是同一个坑。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -59,7 +59,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Python 的容器分工清晰：<code>list</code> 有序可重复、<code>dict</code> 任意可哈希键、<code>set</code> 去重、\n<code>tuple</code> 不可变。</p>\n<p>JS 里最像 <code>dict</code> 的是对象字面量，但<strong>它的键只能是字符串或 Symbol</strong>，数字键会被\n转成字符串（<code>{1: &quot;a&quot;}[1]</code> 与 <code>{1: &quot;a&quot;}[&quot;1&quot;]</code> 是同一格）。真正的任意键映射要显式用 <code>Map</code>。</p>\n<p>从 Python 出发要改的习惯是「用字典表达映射」：在 JS 里得先判断键的类型 ——\n键都是字符串就用对象字面量，键可能是数字 / 对象 / 任何值就必须用 <code>Map</code>，\n否则会静默串键（<code>1</code> 与 <code>&quot;1&quot;</code> 撞在一起）。</p>\n<p>另一处：<code>dict</code> 在 3.7+ 有插入顺序保证，对象字面量的字符串键也有；至于 <code>tuple</code>，\nJS 里没有对应物，「这个序列不该被改」只能靠约定。列表复制那条经典坑同理还在\n（<code>[[0] * 3] * 3</code> 共享内层，到 JS 里是 <code>Array(3).fill([0, 0, 0])</code>）。</p>\n"
+          "bodyHtml": "<p>Python 的容器分工清晰：<code>list</code> 有序可重复、<code>dict</code> 任意可哈希键、<code>set</code> 去重、\n<code>tuple</code> 不可变；<code>dict</code> 在 3.7+ 有插入顺序保证。</p>\n<p>有一条经典坑就出在 list 上：<code>[[0] * 3] * 3</code> 得到的三行是同一个内层列表，\n改一行全变 —— 要独立副本得用 <code>[[0] * 3 for _ in range(3)]</code>。</p>\n"
         }
       }
     },
@@ -104,7 +104,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>Object.freeze（浅）</strong> —— 冻结是运行时行为，不是类型属性；\n没有 tuple 那种「改不了又能当键」的类型。</p>\n"
+          "bodyHtml": "<p><strong>Object.freeze（浅）</strong> —— 没有「不可变类型」这个概念。冻结是运行时行为、\n且是浅的（嵌套对象照样能改），不影响任何类型签名；复制用 <code>structuredClone</code>\n（深）或展开运算符（浅）。</p>\n<p>实质损失是「用类型表达不可变」的能力：没有 tuple 那种「改不了、还能当键」的\n类型，要用元组当键只能自己序列化成字符串；想共享一份配置得靠 <code>freeze</code> 加纪律，\n犯规时没有任何机制提醒。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -116,7 +116,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Python 的不可变是<strong>类型属性</strong>：<code>tuple</code>、<code>frozenset</code>、<code>str</code> 天生不可变，\n改不了就是改不了，而且正因为不可变，它们<strong>可以作为字典的键</strong>（<code>{(1, 2): &quot;值&quot;}</code>）。</p>\n<p>JS 里没有「不可变类型」这个概念。想让一个对象不可变要用 <code>Object.freeze</code>，\n而它是<strong>浅的</strong>（嵌套对象照样能改）、是运行时行为，且不影响任何类型签名。\n复制用 <code>structuredClone</code>（深）或展开运算符（浅）。</p>\n<p>从 Python 迁移的实质损失：你会失去「用类型表达不可变」的能力 ——\n没有 tuple 那种「改不了、还能当键」的类型。要用元组当键得自己序列化成字符串，\n想共享一份配置得靠 <code>freeze</code> 加纪律，没有任何机制在你犯规时提醒。</p>\n"
+          "bodyHtml": "<p>Python 的不可变是<strong>类型属性</strong>：<code>tuple</code>、<code>frozenset</code>、<code>str</code> 天生不可变，\n改不了就是改不了，而且正因为不可变，它们<strong>可以作为字典的键</strong>（<code>{(1, 2): &quot;值&quot;}</code>）。</p>\n"
         }
       }
     },
@@ -155,7 +155,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>模板字符串 + toFixed</strong> —— 没有 printf 风格的语言级格式化，\n小数、千分位、对齐、日期各要一个方法或库。</p>\n"
+          "bodyHtml": "<p><strong>模板字符串 + toFixed</strong> —— 模板字符串只负责求值插入，<strong>格式化全靠方法</strong>：\n小数用 <code>toFixed</code>、千分位用 <code>toLocaleString</code>、对齐用 <code>padStart</code>、日期用\n<code>Intl.DateTimeFormat</code>。没有语言级的 printf 风格格式串（<code>console.log</code> 里的\n<code>%s</code> 只作用于日志，不是字符串 API），知道每个需求对应哪个方法能省掉大量\n手写补零与对齐的代码。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -167,7 +167,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Python 的 f-string 不只是拼接：<code>f&quot;{n:.2f}&quot;</code>（两位小数）、<code>f&quot;{n:&gt;10}&quot;</code>（右对齐）、\n<code>f&quot;{n:,}&quot;</code>（千分位）、<code>f&quot;{d:%Y-%m-%d}&quot;</code>（日期格式化）—— 内嵌了一整套格式说明符语言。</p>\n<p>JS 的主力是模板字符串 <code>`${x}`</code>，它只负责求值插入，<strong>格式化全靠方法</strong>：\n小数用 <code>toFixed</code>、千分位用 <code>toLocaleString</code>、对齐用 <code>padStart</code>、日期用\n<code>Intl.DateTimeFormat</code>。没有语言级的 printf 风格格式串（<code>console.log</code> 里的 <code>%s</code>\n只作用于日志，不是字符串 API）。</p>\n<p>迁移时容易低估：Python 里一行 <code>f&quot;{...}&quot;</code> 能表达的，到 JS 里要串几个方法调用。\n知道每个格式化需求对应哪个方法，能省掉大量手写补零与对齐的代码。</p>\n"
+          "bodyHtml": "<p>Python 的 f-string 不只是拼接：<code>f&quot;{n:.2f}&quot;</code>（两位小数）、<code>f&quot;{n:&gt;10}&quot;</code>（右对齐）、\n<code>f&quot;{n:,}&quot;</code>（千分位）、<code>f&quot;{d:%Y-%m-%d}&quot;</code>（日期格式化）—— 内嵌了一整套格式说明符语言。\n一行 f-string 能表达的，往往要写好几行手工拼接才等价。</p>\n"
         }
       }
     },
@@ -212,7 +212,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>/pattern/flags 字面量</strong> —— <code>match</code> 与 <code>test</code> 都是任意位置匹配，\nPython 的 <code>re.match</code> 直觉在这里会反向失效。</p>\n"
+          "bodyHtml": "<p><strong>/pattern/flags 字面量</strong> —— <code>str.match(re)</code> 与 <code>re.test(str)</code> 都是<strong>任意位置</strong>\n匹配，没有「只匹配开头」的同名函数（要自己加 <code>^</code> 锚点），Python 的 <code>re.match</code>\n直觉在这里会反向失效。命名分组是 <code>(?&lt;name&gt;...)</code>。</p>\n<p>也没有原始字符串这回事：正则字面量 <code>/\\d+/</code> 本来就不经过字符串转义，不需要前缀。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -224,7 +224,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Python 的 <code>re.match()</code> <strong>只从开头匹配</strong>，要找任意位置必须用 <code>re.search()</code> ——\n这是最容易记反的一对。</p>\n<p>到 JS 里，<code>str.match(re)</code> 与 <code>re.test(str)</code> 都是<strong>任意位置</strong>匹配，没有「只匹配开头」\n的同名函数（要自己加 <code>^</code> 锚点）。所以你的 <code>re.match</code> 直觉会反向失效：\n你以为在找开头，其实在找任意位置。</p>\n<p>命名分组写法不同：Python 是 <code>(?P&lt;name&gt;...)</code>，JS 是 <code>(?&lt;name&gt;...)</code>。</p>\n<p>还有一条 Python 特有的坑在 JS 里不存在：Python 里 <code>&quot;\\d&quot;</code> 会被解释器先转义一次，\n所以一律写原始字符串 <code>r&quot;\\d+&quot;</code>；JS 的正则字面量 <code>/\\d+/</code> 本来就不经过字符串转义，\n不需要 <code>r</code> 前缀。</p>\n"
+          "bodyHtml": "<p>Python 的 <code>re.match()</code> <strong>只从开头匹配</strong>，要找任意位置必须用 <code>re.search()</code> ——\n这是最容易记反的一对。命名分组写成 <code>(?P&lt;name&gt;...)</code>。</p>\n<p>还有一条 Python 特有的坑：<code>&quot;\\d&quot;</code> 会被解释器先转义一次，所以一律写原始字符串\n<code>r&quot;\\d+&quot;</code>。</p>\n"
         }
       }
     },
@@ -269,7 +269,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>JSON.stringify / parse</strong> —— 语言内置、宽松：函数与 <code>undefined</code> 被静默丢弃，\n只有循环引用才抛错。</p>\n"
+          "bodyHtml": "<p><strong>JSON.stringify / parse</strong> —— 语言内置、宽松：函数、<code>undefined</code>、Symbol 被\n<strong>静默丢弃</strong>，只有循环引用才抛错；<code>JSON.parse</code> 拿到什么是什么，也不验证形状。\n先觉得「宽松真好」，然后在某个「字段莫名消失」的 bug 上花掉半天，是常见的路径。</p>\n<p>也没有 <code>default=</code> 那种钩子，自定义类型要自己先转成普通对象。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -281,7 +281,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Python 的 <code>json.dumps</code> 遇到 <code>datetime</code>、<code>set</code> 这类非 JSON 类型会<strong>直接抛\n<code>TypeError</code></strong>，逼你显式处理；另外中文默认转义成 <code>\\uXXXX</code>，要可读得写\n<code>ensure_ascii=False</code>。</p>\n<p>JS 的 <code>JSON.stringify</code> 相反：函数、<code>undefined</code>、Symbol 会被<strong>静默丢弃</strong>，\n只有循环引用才抛错；<code>JSON.parse</code> 拿到什么是什么，也不验证形状。</p>\n<p>从 Python 过来会先觉得 JS「宽松真好」，然后在某个「字段莫名消失」的 bug 上\n花掉半天 —— 那种「丢了一点也不告诉你」的行为，正是 Python 的吵闹替你挡住的那一类问题。\n另外 JS 没有 Python 的 <code>default=</code> 钩子那种等价物，自定义类型要自己先转成普通对象。</p>\n"
+          "bodyHtml": "<p>Python 的 <code>json.dumps</code> 遇到 <code>datetime</code>、<code>set</code> 这类非 JSON 类型会<strong>直接抛\n<code>TypeError</code></strong>，逼你显式处理；另外中文默认转义成 <code>\\uXXXX</code>，要可读得写\n<code>ensure_ascii=False</code>。吵一点，但换来的是「字段不会莫名消失」。</p>\n"
         }
       }
     },
@@ -326,7 +326,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>Date（可变、月从 0 起）</strong> —— 建议改用 Temporal 或 dayjs。\n月份基准差 1 与「就地修改」叠在一起，是这段迁移最容易踩的一格。</p>\n"
+          "bodyHtml": "<p><strong>Date（可变、月从 0 起）</strong> —— 建议改用 Temporal 或 dayjs。\n月份基准差 1 与「就地修改」叠在一起，是这段迁移最容易踩的一格：\n按 Python 直觉写 <code>new Date(2026, 1, 5)</code> 以为是一月五号，实际是二月五号；\n习惯 <code>d = d.replace(...)</code> 之后写 <code>d.setMonth(1)</code>，会<strong>就地改掉 d</strong>，\n别处还引用着同一个 <code>Date</code> 时就会看到意外变化。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -338,7 +338,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>Python 的 <code>datetime</code> 是<strong>不可变的</strong>（运算返回新对象），月份从 1 开始；时区要显式带\n<code>tzinfo</code>，不带就是 naive 时间，naive 与 aware 不能直接相减（抛 <code>TypeError</code>）。</p>\n<p>JS 的 <code>Date</code> 是<strong>可变的</strong>（<code>setMonth</code> 改自己），月份从 0 开始。两个差异叠在一起，\n典型错误是：按 Python 直觉写 <code>new Date(2026, 1, 5)</code>，以为是一月五号，\n实际得到的是二月五号 —— 月份基准差 1，每次传月份都要重新确认。</p>\n<p>第二处：Python 里 <code>d = d.replace(month=2)</code> 必须接返回值，习惯之后到 JS 写\n<code>d.setMonth(1)</code> 会<strong>就地改了 d</strong>；若别处还引用着同一个 <code>Date</code>，就会看到意外的变化。</p>\n"
+          "bodyHtml": "<p>Python 的 <code>datetime</code> 是<strong>不可变的</strong>（运算返回新对象），月份从 1 开始；时区要显式带\n<code>tzinfo</code>，不带就是 naive 时间，naive 与 aware 不能直接相减（抛 <code>TypeError</code>）。\n运算一律返回新对象，<code>d = d.replace(month=2)</code> 这种接返回值是必须的动作。</p>\n"
         }
       }
     }

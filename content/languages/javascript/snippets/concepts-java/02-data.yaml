@@ -25,6 +25,10 @@ snippets:
       **Object.freeze（浅）** —— 没有「不可变类型」这个概念，
       用类型表达不变性这一整套手段在 JS 里都不存在。
 
+      `freeze` 是浅的（嵌套照样能改）、且是运行时行为，不影响类型签名；
+      复制用 `structuredClone`（深）或展开运算符（浅）。共享常量对象只能靠
+      `freeze` 加约定，犯规时没有任何机制提醒你。
+
   - featureId: concepts-java/string-format
     equivalence: divergent
     code: |
@@ -34,6 +38,9 @@ snippets:
       **模板字符串 + 方法** —— 没有 printf 风格格式串，也没有 `StringBuilder`；
       每个格式化需求都要找一个方法。
 
+      最想找的对应物是 `String.format` —— 确实没有（`console.log` 的 `%s` 只作用于日志）。
+      把每个格式化需求映射到一个方法，是这段迁移里很快能建立的手感。
+
   - featureId: concepts-java/regex
     equivalence: divergent
     code: |
@@ -41,7 +48,9 @@ snippets:
       "a12".match(/\d+/)             // @note 命名分组这次两边都是 (?<name>...)
     body: |
       **/pattern/flags 字面量** —— `test` / `match` 都是任意位置匹配；
-      Java 里 `matches` 的「整串」直觉在这里要反过来。
+      Java 里 `matches` 的「整串」直觉在这里要反过来，要整串得自己补 `^...$`。
+
+      书写上也松一层：Java 代码里 `"\\d"` 要双反斜杠，这里写 `/\d/` 即可。
 
   - featureId: concepts-java/serialization
     equivalence: divergent
@@ -59,4 +68,7 @@ snippets:
       d.setMonth(1);                    // @note 就地修改 —— 像被淘汰的 java.util.Date
     body: |
       **Date（可变、月从 0 起）** —— 更像旧的 `java.util.Date` / `Calendar`；
-      `java.time` 的不可变与时区模型在这里没有对等物。
+      `java.time` 的不可变与时区模型在这里没有对等物，时区要靠 `Intl` 补。
+
+      踩坑点集中在月份基准差 1，以及 `setXxx` 就地修改 —— 别处还引用同一个 Date 时，
+      会跟着一起变。

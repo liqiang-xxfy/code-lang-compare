@@ -18,15 +18,7 @@ snippets:
       对象字面量**看起来像**字典，但它的键只能是字符串或 Symbol，
       数字键会被转成字符串（`{1: 'a'}[1]` 与 `{1: 'a'}['1']` 是同一格）。
 
-      Python 的容器分工更直白：`list` 有序可重复、`dict` 任意可哈希键、
-      `set` 去重、`tuple` 不可变。
-
-      迁移时最容易绊住的是「用对象当字典」这个 JS 习惯：到 Python 里要改用
-      `dict`，键可以是元组、可以是任意可哈希对象，而且**有插入顺序保证**
-      （3.7+）。反过来，Python 的 `tuple` 在 JS 里没有对应物 ——
-      「这个列表不该被改」这件事在 JS 里只能靠约定。
-      另外 `list` 的 `+` 是拼接、`*` 是重复，与 JS 的 `concat` 形似，
-      但 `[[0] * 3] * 3` 这类写法会共享同一份内层列表。
+      也没有**不可变的有序容器**：「这个列表不该被改」在 JS 里只能靠约定与文档。
 
   - featureId: concepts-javascript/immutable-data
     equivalence: identical
@@ -39,13 +31,8 @@ snippets:
       深冻结要递归，且冻结是运行时行为，不影响任何类型签名。
       复制用 `structuredClone`（或展开运算符，但那是浅拷贝）。
 
-      Python 里不可变是**类型属性**：`tuple`、`frozenset`、`str` 天生不可变，
-      改不了就是改不了，而且正因为不可变，它们**可以作为字典的键**。
-
-      迁移时的关键结论：JS 迁移者会习惯性把「不可变」当成一种纪律，
-      到 Python 里它是一种**可被类型系统利用的性质** ——
-      「这个键该用元组还是列表」不是风格问题，用列表当键会直接抛
-      `TypeError: unhashable type`。
+      没有内置的「不可变类型」，于是「不可变」在 JS 里只能是一种**纪律** ——
+      靠人和评审维持，而不是靠语言拦住。
 
   - featureId: concepts-javascript/string-format
     equivalence: identical
@@ -55,15 +42,10 @@ snippets:
       n.toFixed(2)           // "3.14" —— 格式化靠方法调用，不是格式串
     body: |
       JS 的主力是模板字符串 `` `${x}` ``，数字格式化要另外调 `toFixed`
-      / `toLocaleString`，没有语言级的 printf 风格格式串。
+      / `toLocaleString`，没有语言级的 printf 风格格式串 —— 「格式化」在这里
+      就是拼字符串加几个方法调用。
 
-      Python 有 f-string，并且**内嵌一整套格式说明符**：
-      `f"{n:.2f}"`（两位小数）、`f"{n:>10}"`（右对齐）、`f"{n:,}"`（千分位）、
-      `f"{d:%Y-%m-%d}"`（日期格式化）。
-
-      迁移时容易低估这一点：在 JS 里「格式化」是拼字符串加几个方法调用，
-      在 Python 里它是一门小小的声明式语言。**知道它存在**能省掉大量手工拼接，
-      不知道就会写出十几行的补零与对齐代码。
+      于是补零、对齐、千分位这些需求都得自己写，尤其在要拼表格或日志时。
 
   - featureId: concepts-javascript/regex
     equivalence: identical
@@ -71,15 +53,8 @@ snippets:
       "a1b".match(/\d/)      // ["1"] —— 匹配任意位置
       /(?<num>\d+)/.exec("a12")?.groups?.num   // "12"
     body: |
-      两边语法接近，但入口函数的语义不同，这是迁移时的经典静默错误：
-
-      · JS 的 `str.match(re)` 返回**任意位置**的匹配；`re.test(str)` 同理
-      · Python 的 `re.match()` **只从开头匹配**，要找任意位置必须用 `re.search()`
-
-      命名分组写法也不同：JS 是 `(?<name>...)`，Python 是 `(?P<name>...)`。
-
-      还有一条 Python 特有的坑：正则里的 `\d`、`\w` 在普通字符串里会被
-      Python 自己先解释一遍，所以**一律写原始字符串** `r"\d+"`。
+      JS 的正则用字面量写，入口函数一律**匹配任意位置**：`str.match(re)` 与
+      `re.test(str)` 都不锚定开头。命名分组是 `(?<name>...)`。
 
   - featureId: concepts-javascript/serialization
     equivalence: identical
@@ -91,13 +66,6 @@ snippets:
       循环引用直接抛错；`JSON.parse` 拿到什么就是什么。
       这类「丢了一点也不告诉你」的行为在调试时非常难查。
 
-      Python 的 `json.dumps` 相反：遇到 `datetime`、`set` 这类非 JSON 类型
-      会直接抛 `TypeError`，逼你显式处理。另外中文默认被转义成 `\uXXXX`，
-      要可读需要 `ensure_ascii=False`。
-
-      迁移视角：从 JS 过来会觉得 Python「太吵」，但那种吵正是它在替你
-      挡住「字段莫名消失」这类问题。
-
   - featureId: concepts-javascript/date-time
     equivalence: identical
     code: |
@@ -107,10 +75,5 @@ snippets:
       JS 的 `Date` 是**可变的**（`setMonth` 会改自己），月份从 0 开始，
       时区处理长期靠 `Intl` 与第三方库补足。
 
-      Python 的 `datetime` 是**不可变的**（运算返回新对象），月份从 1 开始。
-      时区要显式带 `tzinfo`，不带就是 naive 时间 —— 而 naive 与 aware
-      不能直接相减，会抛 `TypeError`。
-
-      迁移时最容易踩的两处：① 月份基准差 1，`new Date(2026, 0, 5)` 与
-      `datetime(2026, 1, 5)` 是同一天；② 在 JS 里「就地改一个 Date」
-      的习惯到 Python 里会写出「改了但没接返回值」的代码，且不报错。
+      两个容易踩到自己的设计：月份从 0 起，以及 `setXxx` 会就地修改 ——
+      别处还引用同一个 `Date` 时会跟着一起变。

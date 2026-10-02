@@ -17,6 +17,11 @@ snippets:
       **动态 + 弱类型** —— 编译期检查这一层完全消失；
       想找回它要引入 TypeScript，且那是额外加的一层。
 
+      类型还是**结构化**的：一个对象能不能当某物用只看形状，不看声明的名字。
+      两处叠加的结果是「编译器站在你这边」这件事没了，改错类型多数时候不报错，
+      只在跑到某条路径时给出一个「结果不对」，于是会短暂地依赖测试与运行时断言
+      来补回那层保障。
+
   - featureId: concepts-java/numeric-type
     equivalence: divergent
     code: |
@@ -26,6 +31,9 @@ snippets:
     body: |
       **number（统一 float64）+ BigInt** —— 整数也是浮点；
       按位运算是 32 位的，与 Java 对 `long` 也成立不同。
+
+      这里没有宽度可选，「用哪个类型」的问题换成了「会不会过 2^53 那条线」。
+      容易低估的是两边都不报错：整数运算悄悄变成浮点误差，大整数悄悄丢精度。
 
   - featureId: concepts-java/null-value
     equivalence: divergent
@@ -37,6 +45,10 @@ snippets:
       **null + undefined** —— 两个空值，且任何变量都可能是它们；
       Java 的 `Optional` 那层「可能没有」的类型表达也没有对应物。
 
+      判空因此从「一次 null 检查」变成「两种空值 + 随时可能缺失的属性」：
+      `x === null` 只挡住 `null`，会漏掉大量 `undefined`；惯用宽松相等 `x == null`
+      一次匹配两者，取属性再靠可选链 `?.` 兜底。
+
   - featureId: concepts-java/value-semantics
     equivalence: analogous
     code: |
@@ -45,4 +57,7 @@ snippets:
       let s = "x";              // @note string 是不可变原始值，不是对象
     body: |
       **原始值按值、对象按引用** —— 说法能直接搬；
-      但 JS 的 string 是原始值（不是对象），也没有装箱与 int / Integer 之分。
+      但 JS 的 string 是原始值（不是对象，虽然它有方法），也没有装箱与 int / Integer 之分。
+
+      更容易踩的是比较的边界挪了位置：`==` / `===` 对原始值比的是值，
+      只有对对象才比引用 —— Java 里「`==` 比引用」那条惯性到这里会直接给出错误答案。

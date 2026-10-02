@@ -13,8 +13,12 @@ snippets:
       import { helper } from "./util.js";   // @note 静态提升：声明位置不影响执行顺序
       export function run() {}              // @note 没被 export 的名字外部拿不到
     body: |
-      **ESM import/export** —— 导入是活的绑定，循环依赖可处理；
-      导出什么由 `export` 明确决定，没有「所有顶层名字都可导入」这回事。
+      **ESM import/export** —— 导入是**静态提升**的：声明位置不影响执行顺序，
+      导入是活的绑定、循环依赖可处理，导出什么由 `export` 明确决定，
+      没有被 `export` 的名字外部拿不到。
+
+      模块顶层的副作用（注册、连接、初始化）执行时机因此不同 ——
+      它被提升到模块图求值阶段就跑，而不是「import 语句所在的那一行」。
 
   - featureId: concepts-python/memory
     equivalence: divergent
@@ -23,8 +27,11 @@ snippets:
       big = null;                  // @note 标记清除：没有引用指向它，GC 会回收
       // @note 没有引用计数，也没有 with —— 清理要写在 finally 里
     body: |
-      **垃圾回收** —— 标记清除；循环引用不是问题，
-      但失去了 `with` 那种「出了这个块就一定释放」的确定性。
+      **垃圾回收** —— 标记清除；循环引用不是问题，但「什么时候回收」完全不透明，
+      也没有引用计数可查。主要泄漏源是**闭包持有**与忘记解绑的事件监听。
+
+      实质损失是「确定性」：`with` 那种「出了这个块就一定释放」的保证没有直接对应，
+      得在 `finally` 里手动清理。反过来，为循环引用操心的那些事在这里不用管。
 
   - featureId: concepts-python/concurrency-unit
     equivalence: divergent
@@ -32,8 +39,12 @@ snippets:
       setTimeout(() => {}, 0);     // @note! 所有回调在同一个线程上，没有数据竞争
       new Worker("worker.js");     // @note CPU 密集只能靠 Worker 隔离，靠消息通信
     body: |
-      **事件循环 + Worker** —— 主线程单线程；没有共享内存这回事，
-      你原先靠共享变量协调的写法要改成消息传递。
+      **事件循环 + Worker** —— 所有回调在同一个线程上跑，没有数据竞争、没有锁；
+      CPU 密集只能丢给 `Worker` 隔离 —— Worker 有独立执行环境，靠 `postMessage`
+      通信、不共享内存。
+
+      代价是失去「多线程共享一块内存」这回事：原先靠共享变量协调的写法要改成
+      消息传递；换来的是那些锁 / 可见性 / 死锁的坑一个都不存在。
 
   - featureId: concepts-python/async-model
     equivalence: divergent
@@ -42,5 +53,8 @@ snippets:
       load();                      // @note! 调用即开始跑 —— 事件循环一直在驱动
       // @note 不需要 asyncio.run 那样的显式启动
     body: |
-      **Promise / async-await** —— 事件循环自动驱动，`await` 之后自动继续；
-      从 Python 过去要重新建立「调用即执行」这条直觉。
+      **Promise / async-await** —— 事件循环一直在跑，`async` 函数调用即开始执行，
+      `await` 之后自动继续，不需要谁去「启动」。从 Python 过去，最需要重新建立的
+      就是「调用即执行」这条直觉 —— Promise 一创建就开始跑了。
+
+      **阻塞事件循环会拖垮全部并发**这一条两边共通。

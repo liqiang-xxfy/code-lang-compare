@@ -17,15 +17,6 @@ snippets:
       Python 用 `pyproject.toml`（或 `requirements.txt`）声明依赖，装进**环境**而不是
       项目目录，锁文件传统上不是标配（要另配 `pip-compile` / `uv lock`）。
 
-      JS 用 `package.json` 声明 + `node_modules` 落地，`package-lock.json` /
-      `pnpm-lock.yaml` 是标配，**默认就锁版本**。
-
-      日常命令的对应：`pip install` ↔ `npm install`、dev 依赖组 ↔ `npm install -D`、
-      `uvx` / `python -m` ↔ `npx`。
-
-      从 Python 过去会觉得「锁文件天生就有」省心不少；要留意的是 JS 的依赖解析更复杂
-      （peerDependencies、多版本共存），装出来的树与 `package.json` 不总是一一对应。
-
   - featureId: concepts-python/dependency-isolation
     equivalence: identical
     code: |
@@ -34,14 +25,7 @@ snippets:
       # 冲突时正确动作是建第二个 venv，不是升降级
     body: |
       Python 的环境是**全局一套**：同一个虚拟环境里，同名包只能有一个版本，
-      所以「A 要 requests 2.x、B 要 3.x」的解法是**拆成两个虚拟环境**。
-
-      JS 的 `node_modules` **就近查找**：不同的包可以各自依赖同一库的不同版本，
-      互不干扰（代价是体积与「到底装了哪个版本」的困惑）。
-
-      从 Python 过去，这一条反而更宽松 —— 不再有「装 A 的依赖把 B 弄坏」的问题。
-      但也要知道 JS 为此付出的代价：同一库多版本并存会让「我改的到底是哪一份」
-      变得更难查。
+      所以「A 要 requests 2.x、B 要 3.x」的解法是**拆成两个虚拟环境**，而不是各装各的。
 
   - featureId: concepts-python/runner
     equivalence: identical
@@ -52,14 +36,6 @@ snippets:
       Python 的运行时就是 CPython 解释器（另有 PyPy 等实现），没有「环境 API 不一致」
       这层问题，代价是**没有浏览器那套东西** —— 想做界面必须借助其他体系。
 
-      JS 的运行时是分裂的：浏览器引擎与 Node 各有各的 API（`fetch`、`fs`、DOM），
-      「这段代码在哪跑」是一个必须时刻意识到的问题，并由此衍生出打包、转译、polyfill
-      一整套工具。
-
-      从 Python 过去，先接受「同一门语言、两套平台」这件事：你写的模块能否复用，
-      取决于它依赖的是语言本身还是平台 API。好处反过来也有 —— 同一份逻辑能在前后端共享，
-      这是 Python 没有的能力。
-
   - featureId: concepts-python/build-tool
     equivalence: identical
     code: |
@@ -67,14 +43,7 @@ snippets:
       # 开发时不需要构建 —— 改完直接跑
     body: |
       Python 是解释执行，**开发时不需要构建**；只有发布时才打包（`python -m build`
-      出 wheel / sdist）。
-
-      JS 的构建是**标配**：打包、转译、压缩、tree-shaking，因为浏览器不能直接跑
-      `node_modules` 与最新的语法。
-
-      从 Python 过去最大的认知变化：改完代码要等一次构建（或热更新），
-      「构建」从发布流程的一步变成了日常开发的一部分。别把 Python 那套「只为发布配一条
-      构建管线」的习惯带过去 —— 在 JS 里构建管线是项目的骨架，得从一开始就想清楚。
+      出 wheel / sdist）。「构建」在这里只是发布流程的一步。
 
   - featureId: concepts-python/test-framework
     equivalence: identical
@@ -87,14 +56,6 @@ snippets:
       失败信息由 pytest 重写断言生成；测试发现靠**命名约定**（文件 `test_*.py`、
       函数 `test_*`，不符合就静默不跑）。
 
-      JS 的测试是「描述 + 回调」风格：`test('名', () => { expect(x).toBe(y) })`，
-      框架提供 `describe` / `it` / `expect` 一整套词汇，断言链上 `toBe` / `toEqual` /
-      `toStrictEqual` 语义还各不相同。
-
-      从 Python 过去要记两件事：① `assert` 换成 `expect(...).toBe(...)`，
-      先查清楚该用哪个匹配器；② 测试发现不再靠命名约定，而是靠框架配置的收集规则 ——
-      这反而少了「跑了 0 个测试却显示通过」那类静默失败。
-
   - featureId: concepts-python/testing-mock
     equivalence: identical
     code: |
@@ -106,13 +67,6 @@ snippets:
       属性，作用域由 fixture 管，用完自动还原。因为方法查找是运行时的、鸭子类型是常态，
       替换一个依赖通常就是换掉一个属性。
 
-      JS 里对**对象属性**的替换同样是直接赋值，但对**模块级依赖**（import 进来的函数）
-      不能这样 —— ESM 的绑定是只读的，得用 `vi.mock` / `jest.mock`，而且调用需要
-      **提升到 import 之前**，写法偏魔法，对 ESM 的支持一直有坑。
-
-      从 Python 过去的落差正在这里：你习惯了「换掉一个属性就行」，
-      到 JS 里发现模块导入的依赖换不动，必须提前声明 mock。
-
   - featureId: concepts-python/lint-format
     equivalence: identical
     code: |
@@ -123,12 +77,6 @@ snippets:
       Python 的 Ruff / Black 走的是**收敛**路线：格式化几乎没有可选项，
       官方倾向就是唯一答案，直接用生态默认值即可。
 
-      JS 的 ESLint 是**规则可插拔**的：检查什么、报什么级别都能配，风格交给 Prettier，
-      两者刻意分离，于是社区里每个项目一套配置。
-
-      从 Python 过去会突然多出「先跟团队吵一轮规则」这件事 —— 不必把 Python
-      「默认即共识」的心态带过去，得接受 JS 项目里 lint 配置是工程决策的一部分。
-
   - featureId: concepts-python/repl
     equivalence: identical
     code: |
@@ -137,10 +85,4 @@ snippets:
       [2, 4, 6]
     body: |
       Python 直接敲 `python` 就是 REPL，另有 `ipython` 提供更好的补全与历史。
-
-      JS 用 `node` 进 REPL，或在浏览器控制台里试。注意 JS 的 REPL 里 `const` 不能重复
-      声明，重跑同一段代码比 Python 要多一步。
-
-      REPL 在语言迁移期被低估：它让你**在不建项目、不写文件的前提下**验证一条语法或
-      一个类型行为。核对本手册里任何一条差异，最快的办法就是两边各开一个 REPL 敲一遍 ——
-      这也是「实跑校对」的形态。
+      不建项目、不写文件就能验证一条语法或一个类型行为。

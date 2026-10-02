@@ -23,8 +23,11 @@ snippets:
       // @note! 语言层面没有 interface，只要求「有这个方法」
       function render(x) { return x.toText(); }   // @note 运行时不强制任何协议
     body: |
-      **无语言级概念** —— `Protocol` 的静态检查与 `ABC` 的运行时强制
-      在 JS 里都没有等价物，只能写注释或上 TS。
+      **无语言级概念** —— 一个对象能不能当某物使用，完全看它有没有对应的方法
+      （鸭子类型），`interface` 只是 TypeScript 的编译期概念，运行时不留下痕迹。
+
+      `Protocol` 的静态检查与 `ABC` 的运行时强制都没有等价物：约束只能写进
+      注释或文档，或者引入 TS 才拿回编译期那一半 —— **运行时强制**没有替代品。
 
   - featureId: concepts-python/generics
     equivalence: divergent
@@ -32,7 +35,11 @@ snippets:
       function first(list) { return list[0]; }    // @note! JS 没有类型标注，更没有泛型
       // @note 要泛型得用 TS，且同样运行时擦除
     body: |
-      **无（靠 TS）** —— 语言本身连标注语法都没有，泛型完全依赖 TypeScript。
+      **无（靠 TS）** —— 语言本身连类型标注语法都没有，泛型完全依赖 TypeScript，
+      而 TS 的泛型同样在运行时不保留。
+
+      差别在「标注错了会怎样」：TS 是编译期就过不去，不像 Python 那边
+      只是让检查器报错、程序照跑。
 
   - featureId: concepts-python/error-handling
     equivalence: divergent
@@ -42,5 +49,8 @@ snippets:
         e.message                   // @note undefined —— e 不一定是 Error
       }
     body: |
-      **try/catch + Error 子类** —— 可以 `throw` 任意值，
-      所以「异常一定是个有类型的对象」这个假设会失效。
+      **try/catch + Error 子类** —— 可以 `throw` **任意值**：字符串、对象、数字都行。
+      所以 `catch` 到的东西**不一定是 `Error`**，取 `e.message` 可能得到 `undefined` ——
+      「异常一定是个有类型的对象」这个假设会失效。
+
+      两边都没有受检异常，签名上看不出「谁可能抛」，这一条是平滑的。

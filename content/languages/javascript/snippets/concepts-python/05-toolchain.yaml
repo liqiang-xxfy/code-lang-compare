@@ -15,7 +15,11 @@ snippets:
       npx vitest                    // @note 对标 uvx，临时跑一个工具
     body: |
       **npm / pnpm** —— `package.json` 声明 + `node_modules` 落地，
-      锁文件是标配，默认就锁版本。
+      锁文件是标配，**默认就锁版本**；命令对应关系是 `npm install` ↔ `pip install`、
+      `npm install -D` ↔ dev 依赖组、`npx` ↔ `uvx` / `python -m`。
+
+      要留意的是这里的依赖解析更复杂（peerDependencies、多版本共存），
+      装出来的树与 `package.json` 不总是一一对应。
 
   - featureId: concepts-python/dependency-isolation
     equivalence: divergent
@@ -24,8 +28,10 @@ snippets:
       node_modules/a/node_modules/lodash   // @note! 没有「一个环境一个版本」这回事
       // @note 代价是体积与「到底装了哪一版」的困惑
     body: |
-      **node_modules（就近查找）** —— 同一依赖可能有多个版本共存；
-      从 Python 过去反而更宽松，不用为版本冲突建第二个环境。
+      **node_modules（就近查找）** —— 不同的包可以各自依赖同一库的不同版本，
+      互不干扰，不再有「装 A 的依赖把 B 弄坏」的问题，也不用为版本冲突建第二个环境。
+
+      代价是体积，以及同一库多版本并存会让「我改的到底是哪一份」变得更难查。
 
   - featureId: concepts-python/runner
     equivalence: divergent
@@ -33,8 +39,12 @@ snippets:
       fetch("/api");               // @note 浏览器与 Node 都有，但 fs / DOM 各只有一边有
       // @note! 运行时分裂：要时刻意识到「这段代码在哪跑」
     body: |
-      **Node.js / 浏览器引擎** —— 事件循环驱动，单线程 + 异步 I/O；
-      代价是多出打包 / 转译一整套工具，好处是同一份逻辑能前后端共享。
+      **Node.js / 浏览器引擎** —— 同一门语言、两套平台：两边各有各的 API
+      （`fetch`、`fs`、DOM），「这段代码在哪跑」是必须时刻意识到的问题，
+      并由此衍生出打包、转译、polyfill 一整套工具。
+
+      模块能否复用取决于它依赖的是语言本身还是平台 API；好处是同一份逻辑能在
+      前后端共享，这是 Python 没有的能力。
 
   - featureId: concepts-python/build-tool
     equivalence: divergent
@@ -42,8 +52,12 @@ snippets:
       npm run build                // @note! 打包 + 转译 + 压缩，浏览器不能直接跑源码
       // @note 开发时也一直在跑，构建是日常的一部分
     body: |
-      **Vite / webpack** —— 打包 + 转换，产物面向浏览器；
-      从 Python 过去，构建从「发布的一步」变成「日常的一环」。
+      **Vite / webpack** —— 构建是**标配**：打包、转译、压缩、tree-shaking，
+      因为浏览器不能直接跑 `node_modules` 与最新的语法。
+
+      最大的认知变化是改完代码要等一次构建（或热更新），「构建」从发布流程的一步
+      变成日常开发的一部分 —— 构建管线是项目的骨架，得从一开始就想清楚，
+      不是「只为发布配一条」。
 
   - featureId: concepts-python/test-framework
     equivalence: divergent
@@ -52,8 +66,12 @@ snippets:
       test("加法", () => { expect(1 + 1).toBe(2); });   // @note 断言链代替裸 assert
       // @note 发现靠框架配置的 glob，不靠命名约定
     body: |
-      **Vitest / Jest** —— `test('名', () => {})` 风格，
-      断言靠 `expect` 链（`toBe` / `toEqual` 语义不同）。
+      **Vitest / Jest** —— `test('名', () => {})` 风格，框架提供
+      `describe` / `it` / `expect` 一整套词汇，断言链上 `toBe` / `toEqual` /
+      `toStrictEqual` 语义还各不相同，得先查清楚该用哪个匹配器。
+
+      测试发现不靠命名约定，而是靠框架配置的收集规则 —— 反而少了「跑了 0 个测试
+      却显示通过」那类静默失败。
 
   - featureId: concepts-python/testing-mock
     equivalence: divergent
@@ -61,8 +79,11 @@ snippets:
       vi.mock("./api", () => ({ fetchUser: vi.fn() }));   // @note! 必须提升到 import 之前
       const spy = vi.fn().mockReturnValue(1);              // @note 模块绑定换不动
     body: |
-      **vi.fn / jest.mock** —— 对象属性可以直接替换，但模块级依赖不能，
-      必须提前声明 mock。
+      **vi.fn / jest.mock** —— **对象属性**可以直接赋值替换，但**模块级依赖**
+      （import 进来的函数）不能 —— ESM 的绑定是只读的，得用 `vi.mock` / `jest.mock`，
+      而且调用需要**提升到 import 之前**，写法偏魔法，对 ESM 的支持一直有坑。
+
+      落差正在这里：习惯「换掉一个属性就行」之后，会发现模块导入的依赖换不动。
 
   - featureId: concepts-python/lint-format
     equivalence: divergent
@@ -70,8 +91,11 @@ snippets:
       npx eslint .                 // @note! 规则可插拔，每个项目一套配置
       npx prettier --write .       // @note 风格与检查分离，不是「唯一答案」
     body: |
-      **ESLint + Prettier** —— 规则可插拔、风格与检查分离；
-      从 Python 过去会多出「先跟团队吵一轮规则」这件事。
+      **ESLint + Prettier** —— **规则可插拔**：检查什么、报什么级别都能配，
+      风格交给 Prettier，两者刻意分离，于是社区里每个项目一套配置。
+
+      会突然多出「先跟团队吵一轮规则」这件事 —— lint 配置是工程决策的一部分，
+      不是可以直接继承的共识。
 
   - featureId: concepts-python/repl
     equivalence: identical
@@ -80,5 +104,8 @@ snippets:
       > [1, 2, 3].map((x) => x * 2)
       [ 2, 4, 6 ]
     body: |
-      **node / 浏览器控制台** —— `node` 直接进 REPL。
-      核对本手册里任意一条差异，最快的办法就是两边各敲一遍。
+      **node / 浏览器控制台** —— `node` 直接进 REPL，或在浏览器控制台里试。
+      重跑同一段代码比 Python 要多一步：这里 `const` 不能重复声明。
+
+      REPL 在语言迁移期被低估 —— 核对本手册里任何一条差异，最快的办法就是两边各开
+      一个 REPL 敲一遍，这也是「实跑校对」的形态。

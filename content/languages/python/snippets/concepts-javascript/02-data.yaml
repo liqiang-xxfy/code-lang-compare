@@ -17,6 +17,9 @@ snippets:
       **list / dict / set / tuple** —— `tuple` 不可变且可作字典键；
       `dict` 有插入顺序保证（3.7+）。
 
+      从 JS 过来第一个要改的习惯是「用对象当字典」：这里直接用 `dict`，
+      键可以是元组或任意可哈希对象，不会被转成字符串。
+
   - featureId: concepts-javascript/immutable-data
     equivalence: divergent
     code: |
@@ -26,6 +29,9 @@ snippets:
     body: |
       **tuple / frozenset** —— 不可变是「类型属性」而非运行时开关，
       因此可以被类型系统利用（当键、当集合元素）。
+
+      「这个键该用元组还是列表」不是风格问题：用列表当键会直接抛
+      `TypeError: unhashable type`，运行时就拦住，不必靠纪律。
 
   - featureId: concepts-javascript/string-format
     equivalence: divergent
@@ -45,7 +51,11 @@ snippets:
       re.search(r"\d", "a1")     # @note 要找任意位置得用 search
       re.match(r"(?P<num>\d+)", "12")   # @note 命名分组是 (?P<name>...)
     body: |
-      **re 模块 + r 字符串** —— `match` 只匹配开头；`\d` 这类转义必须用原始字符串。
+      **re 模块 + r 字符串** —— `match` **只从开头匹配**，要找任意位置得用 `search`；
+      命名分组写成 `(?P<name>...)`。
+
+      原始字符串是必需的：普通字符串里的 `"\d"` 会先经过 Python 自己的一遍转义
+      （新版还会给出 SyntaxWarning），`r"\d"` 才算原样交给正则引擎。
 
   - featureId: concepts-javascript/serialization
     equivalence: divergent

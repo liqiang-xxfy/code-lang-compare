@@ -14,7 +14,10 @@ snippets:
       export function run() {}              // @note 没有 classpath，包由 npm 树负责
     body: |
       **ESM import/export** —— 文件即模块；`import` 是会求值的绑定，
-      不再只是「引用一个名字」。
+      不再只是「引用一个名字」，模块顶层代码在求值阶段执行。没有 classpath 那种
+      「这个类从哪来」的问题，包由 npm 树负责。
+
+      也不再要求「一个公开类一个文件」：一个文件可以导出任意多个东西。
 
   - featureId: concepts-java/memory
     equivalence: analogous
@@ -25,6 +28,8 @@ snippets:
       **垃圾回收** —— 同样是可达性 + 自动回收，循环引用不是问题；
       差别在可控性：JS 几乎不给你 GC 调优与堆监控的旋钮。
 
+      主要泄漏源是**闭包持有**与忘记解绑的事件监听。
+
   - featureId: concepts-java/concurrency-unit
     equivalence: divergent
     code: |
@@ -34,6 +39,9 @@ snippets:
       **事件循环 + Worker** —— 失去「加线程就能并行」；
       但 `synchronized` / 可见性 / 死锁那一类坑也随之消失。
 
+      代价是原本靠共享状态的并行逻辑要用消息传递重写；CPU 密集只能丢给 `Worker`
+      隔离 —— 那是独立执行环境，靠 `postMessage` 通信、不共享内存。
+
   - featureId: concepts-java/async-model
     equivalence: divergent
     code: |
@@ -42,4 +50,6 @@ snippets:
       // @note 没有线程池；阻塞事件循环会拖垮全部并发
     body: |
       **Promise / async-await** —— 事件循环自动驱动，`await` 不阻塞线程；
-      与 `Thread.sleep` 的直觉要区分开。
+      与 `Thread.sleep` 的直觉要区分开。Promise 是一等公民，`async` 函数调用即开始执行。
+
+      没有「线程池」这层，异步任务全在同一个事件循环上，所以**阻塞它会拖垮全部并发**。

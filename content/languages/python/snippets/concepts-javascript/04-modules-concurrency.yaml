@@ -14,7 +14,10 @@ snippets:
       from util import helper      # @note 没有显式导出 —— 所有顶层名字都可被导入
     body: |
       **import / from ... import** —— 一个 `.py` 是 module，
-      含 `__init__.py` 的目录是 package。顶层副作用会影响所有导入方。
+      含 `__init__.py` 的目录是 package。`import` 是会在那一刻**真的执行**的语句：
+      被导入模块的顶层代码立刻跑一遍，默认只跑一次（缓存在 `sys.modules`）。
+      所以在模块顶层做耗时或带副作用的事，后果比 JS 直接 —— 它会拖慢
+      第一次导入它的任何人。
 
   - featureId: concepts-javascript/memory
     equivalence: divergent
@@ -47,5 +50,10 @@ snippets:
       load()                  # @note! 返回协程对象，一行都不执行，且通常不报错
       asyncio.run(load())     # @note 必须显式启动事件循环才会跑
     body: |
-      **asyncio / 协程** —— 需要显式进入事件循环。
-      从 JS 过来最经典的静默失败：代码看着对，跑起来什么都不发生。
+      **asyncio / 协程** —— 协程函数调用后返回的是协程对象，不 `await` 或不用
+      `asyncio.run()` / `create_task()` 驱动，它就**一行都不会执行**，而且通常
+      **不报错**（只有一条 RuntimeWarning）。从 JS 过来最经典的静默失败：
+      代码看着对，跑起来什么都不发生。
+
+      事件循环被阻塞会拖垮全部并发这一点两边同理 —— 在协程里调用同步阻塞函数
+      （`time.sleep`、同步的 HTTP 库），整个循环就被卡住了。

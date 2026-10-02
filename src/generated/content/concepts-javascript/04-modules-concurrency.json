@@ -23,7 +23,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的 ESM <code>import</code> 是<strong>静态提升</strong>的：声明位置不影响执行顺序，\n且导入是绑定（活的引用），循环依赖能被处理。</p>\n<p>Python 的 <code>import</code> 是一句<strong>会在那一刻真的执行</strong>的语句：\n被导入模块的顶层代码立刻跑一遍，且默认只跑一次（缓存在 <code>sys.modules</code>）。\n因此「在模块顶层做了耗时或带副作用的事」在 Python 里后果更直接 ——\n它会拖慢第一次导入它的任何人。</p>\n<p>还有一个结构性差异：JS 里一个文件即一个模块，导出什么由 <code>export</code> 决定；\nPython 里一个 <code>.py</code> 是 module、含 <code>__init__.py</code> 的目录是 package，\n<strong>没有显式导出这回事 —— 所有顶层名字都可被导入</strong>（<code>_</code> 开头是约定私有）。</p>\n"
+          "bodyHtml": "<p>JS 的 ESM <code>import</code> 是<strong>静态提升</strong>的：声明位置不影响执行顺序，\n且导入是绑定（活的引用），循环依赖能被处理。</p>\n<p>一个文件即一个模块，导出什么完全由 <code>export</code> 决定 —— 没有 module / package\n两级结构，也没有「所有顶层名字都可被导入」这回事。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -41,7 +41,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>import / from ... import</strong> —— 一个 <code>.py</code> 是 module，\n含 <code>__init__.py</code> 的目录是 package。顶层副作用会影响所有导入方。</p>\n"
+          "bodyHtml": "<p><strong>import / from ... import</strong> —— 一个 <code>.py</code> 是 module，\n含 <code>__init__.py</code> 的目录是 package。<code>import</code> 是会在那一刻<strong>真的执行</strong>的语句：\n被导入模块的顶层代码立刻跑一遍，默认只跑一次（缓存在 <code>sys.modules</code>）。\n所以在模块顶层做耗时或带副作用的事，后果比 JS 直接 —— 它会拖慢\n第一次导入它的任何人。</p>\n"
         }
       }
     },
@@ -62,7 +62,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 用标记清除式的 GC：从根出发找不到的对象被回收，循环引用不是问题。\n主要泄漏源是<strong>闭包持有</strong>与忘记解绑的事件监听。</p>\n<p>Python 是引用计数 + 循环 GC 的混合：对象引用数归零立刻释放，\n循环引用靠周期性 GC 兜底。所以 <code>del x</code> 只是<strong>减一次引用</strong>，\n对象不一定立刻消失 —— 还有别人引用着它就还在。</p>\n<p>迁移时的实际后果：Python 里可以用 <code>with</code> 语句把「释放」写成确定性的\n（文件、锁、连接），这比 JS 里依赖 GC 时机更可控；\n反过来，从 Python 到 JS 会失去这种确定性。</p>\n"
+          "bodyHtml": "<p>JS 用标记清除式的 GC：从根出发找不到的对象被回收，循环引用不是问题。\n主要泄漏源是<strong>闭包持有</strong>与忘记解绑的事件监听。</p>\n<p>释放时机不可控：资源是跟着 GC 走的，没有「作用域结束就释放」这回事。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -101,7 +101,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的并发模型是<strong>事件循环 + 单线程</strong>：所有回调在同一个线程上跑，\n没有数据竞争，CPU 密集任务只能丢给 Worker 隔离。</p>\n<p>Python 三种都有：线程、进程、协程。但有个关键约束 ——\n<strong>GIL</strong> 让多线程无法并行执行 CPU 密集任务，所以\n「想快就用多线程」在 Python 里只在 I/O 密集场景成立；\nCPU 密集必须用 <code>multiprocessing</code>（进程各有独立解释器与内存）。</p>\n<p>迁移视角：从 JS 过来会觉得「有线程了，终于能并行」，然后发现加了线程\n反而更慢 —— 这正是 GIL 那一课。反过来，JS 的「永远不用担心锁」\n是 Python 多线程里必须自己扛的事。</p>\n"
+          "bodyHtml": "<p>JS 的并发模型是<strong>事件循环 + 单线程</strong>：所有回调在同一个线程上跑，\n没有数据竞争，也不用担心锁；CPU 密集任务只能丢给 Worker 隔离。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -140,7 +140,7 @@
           "notes": [],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p>JS 的异步是<strong>运行时自动驱动</strong>的：事件循环一直在跑，<code>await</code> 之后\n不需要谁去「启动」它，写个 <code>async</code> 函数调用即可。</p>\n<p>Python 的 <code>asyncio</code> 需要一个<strong>显式启动的事件循环</strong>：\n协程函数调用后返回的是协程对象，不 <code>await</code> 或不用\n<code>asyncio.run()</code> / <code>create_task()</code> 驱动，它就<strong>一行都不会执行</strong>，\n而且通常<strong>不报错</strong>（只会有一条 RuntimeWarning）。</p>\n<p>这是从 JS 迁移过来最经典的静默失败：代码看起来对、跑起来什么都不发生。\n另外一边的事件循环阻塞会拖垮全部并发，两边同理 ——\n在协程里调用同步阻塞函数（如 <code>time.sleep</code>、同步的 HTTP 库），\n整个循环就被卡住了。</p>\n"
+          "bodyHtml": "<p>JS 的异步是<strong>运行时自动驱动</strong>的：事件循环一直在跑，<code>await</code> 之后\n不需要谁去「启动」它，写个 <code>async</code> 函数调用即可。</p>\n<p>代价是事件循环被阻塞会拖垮全部并发：只要在回调或 <code>await</code> 的路径上\n跑了同步的重活，整个循环就卡住了。</p>\n"
         },
         "python": {
           "lang": "python",
@@ -158,7 +158,7 @@
           ],
           "reviewState": "draft",
           "provenanceOrigin": "llm",
-          "bodyHtml": "<p><strong>asyncio / 协程</strong> —— 需要显式进入事件循环。\n从 JS 过来最经典的静默失败：代码看着对，跑起来什么都不发生。</p>\n"
+          "bodyHtml": "<p><strong>asyncio / 协程</strong> —— 协程函数调用后返回的是协程对象，不 <code>await</code> 或不用\n<code>asyncio.run()</code> / <code>create_task()</code> 驱动，它就<strong>一行都不会执行</strong>，而且通常\n<strong>不报错</strong>（只有一条 RuntimeWarning）。从 JS 过来最经典的静默失败：\n代码看着对，跑起来什么都不发生。</p>\n<p>事件循环被阻塞会拖垮全部并发这一点两边同理 —— 在协程里调用同步阻塞函数\n（<code>time.sleep</code>、同步的 HTTP 库），整个循环就被卡住了。</p>\n"
         }
       }
     }
