@@ -1,5 +1,5 @@
 # 迁移陷阱 —— 带着 JavaScript 的习惯写 Rust 会踩的坑
-# 骨架期样板：先各列两条，后续按同形态补全
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
 
 - id: pitfall-js2rust-move-after-use
   featureId: concepts-javascript/value-semantics
@@ -62,3 +62,159 @@
   languages: [javascript, rust]
   fromBaseline: true
   tags: [所有权, 内存]
+
+- id: pitfall-js2rust-overflow-modes
+  featureId: basics-javascript/number-precision
+  title: 同一份代码，开发时崩溃、上线后静默算错
+  symptom: |
+    本地跑测试时 `x + 1` 在边界上 panic，改了两行让测试过；
+    上线后同样的输入不再崩，但结果变成了一个莫名其妙的数。
+  cause: |
+    Rust 的整数溢出行为**取决于构建模式**：debug 下 panic，
+    release 下回绕。这不是 bug，是刻意的设计（开发时暴露问题、发布时保证性能）。
+    而 JS 里整数是浮点，"溢出"表现为丢精度 —— 三种行为都不一样。
+  fix: |
+    想要确定的语义就用显式方法：`wrapping_add`（回绕）、
+    `checked_add`（返回 `Option`）、`saturating_add`（饱和到边界）。
+    名字就是文档，读代码的人不必猜当前是什么构建模式。
+    开发阶段的溢出 panic 要当成信号去改类型（比如换 `i64`），而不是绕过它。
+  severity: 3
+  languages: [javascript, rust]
+  fromBaseline: true
+  tags: [数值, 类型]
+
+- id: pitfall-js2rust-string-byte-index
+  featureId: basics-javascript/string-index-slice
+  title: 按字节切字符串，遇到中文就崩
+  symptom: |
+    `&s[0..1]` 在英文上跑得好好的，换成 `"你好"` 就 panic：
+    `byte index 1 is not a char boundary`。
+  cause: |
+    Rust 的字符串是 UTF-8 字节序列，下标是**字节**偏移。
+    JS 用 UTF-16 码元索引，中文恰好占一个码元，所以那边很少撞上这个问题；
+    而 UTF-8 里一个汉字占 3 个字节，取 `0..1` 就落在字符中间。
+  fix: |
+    要按字符操作就用 `s.chars().nth(i)` 或 `s.char_indices()`；
+    确实要按字节切时，先确认那是个字符边界（`s.is_char_boundary(i)`）。
+    截断字符串这类需求应该用 `s.chars().take(n).collect::<String>()`。
+  severity: 3
+  languages: [javascript, rust]
+  fromBaseline: true
+  tags: [字符串, 编码]
+
+- id: pitfall-js2rust-borrow-while-iterate
+  featureId: basics-javascript/array-iterate
+  title: 遍历时改集合 —— 这次直接编译不过
+  symptom: |
+    `for x in &xs { xs.push(*x); }` 编译报错
+    `cannot borrow xs as mutable because it is also borrowed as immutable`。
+  cause: |
+    JS 里遍历时改数组是"行为未定义"（可能死循环、可能跳过元素），但不报错；
+    Rust 的借用规则不允许"同时存在不可变借用与可变借用"，
+    所以这类代码**编译期就被拦住**。
+  fix: |
+    三种解法，按场景选：
+    先克隆再遍历（`for x in xs.clone()`）、
+    收集到新容器再整体替换（`let out: Vec<_> = xs.iter().map(...).collect(); xs = out;`）、
+    或者用下标循环（`for i in 0..xs.len()`）。
+    这是**唯一一个在编译期拦住这类错误的语言** —— 遇到时该庆幸，不是抱怨。
+  severity: 2
+  languages: [javascript, rust]
+  fromBaseline: true
+  tags: [借用, 容器]
+
+- id: pitfall-js2rust-slice-is-borrow
+  featureId: basics-javascript/array-slice
+  title: 以为取出来的是副本，结果原数据被锁住了
+  symptom: |
+    `let sub = &xs[1..3];` 之后想改 `xs`，编译报错；
+    或者把 `sub` 存进结构体时被生命周期标注难住。
+  cause: |
+    JS 的 `slice()` **总是**返回新数组；Rust 的切片 `&xs[1..3]` 是**借用**，
+    是原数据的一个视图。借出期间原数据不能被可变借用 —— 这是借用规则的一部分。
+  fix: |
+    要副本就显式 `to_vec()`（`let owned = xs[1..3].to_vec();`）。
+    不想复制就用借用，但要接受"借出期间不能改原数据"这个约束 ——
+    这通常正是你想要的（读的时候别人不该改）。
+  severity: 2
+  languages: [javascript, rust]
+  fromBaseline: true
+  tags: [借用, 容器]
+
+- id: pitfall-js2rust-unwrap-overuse
+  featureId: basics-javascript/optional-chaining
+  title: 到处 unwrap，把空值问题换了个形式搬过来
+  symptom: |
+    代码里几十个 `.unwrap()`，跑起来照样在某个边界输入上 panic ——
+    只不过这次崩的位置和真正的原因还是隔得很远。
+  cause: |
+    `unwrap()` 是断言"这里我确定有值"。它把"可能没有"重新变成了运行时崩溃，
+    这正是 `Option` 想解决的问题 —— 写多了等于没享受到类型系统的保护。
+  fix: |
+    分场景选出口：能给默认值用 `unwrap_or` / `unwrap_or_else`；
+    能向上传播用 `?`；确实是程序不变量（比如刚 `is_some()` 过）才用
+    `expect("说明为什么不可能")` —— 带消息的 panic 至少留下线索。
+    原型期可以随意 unwrap，进生产路径前过一遍。
+  severity: 2
+  languages: [javascript, rust]
+  fromBaseline: true
+  tags: [错误处理, 空值]
+
+- id: pitfall-js2rust-clone-to-silence
+  featureId: concepts-javascript/value-semantics
+  title: 一被借用检查拦住就 clone，性能悄悄没了
+  symptom: |
+    编译过了，但代码里到处是 `.clone()`；压测时发现 CPU 大头都在
+    无意义的内存复制上，而逻辑本身并没有需要复制的地方。
+  cause: |
+    `clone()` 能解决大部分借用错误 —— 因为它把"共享"变成了"各有一份"，
+    借用冲突自然消失。但代价是每次调用都真的复制一份数据，
+    在热路径上会累积成可观的成本。
+  fix: |
+    先把 `clone()` 当**调试手段**用：加上让它编译过，然后回头问
+    "这里真的需要复制吗"。常见的正解是传引用（`&T`）、
+    调整作用域让借用早点结束、或者用 `Rc` / `Arc` 共享所有权。
+    关键是**别让它留在提交里** —— 借用检查是设计反馈，不是障碍。
+  severity: 2
+  languages: [javascript, rust]
+  fromBaseline: true
+  tags: [所有权, 性能]
+
+- id: pitfall-js2rust-default-private
+  featureId: basics-javascript/function-declare
+  title: 写好的函数从别的模块调不到
+  symptom: |
+    `mod utils;` 引入了文件，但 `utils::helper()` 编译报错
+    `function is private`。
+  cause: |
+    JS 的模块里，定义的东西默认**可以**从外面导入（要隐藏才加 `export` 的反面）；
+    Rust 正好相反 —— **默认私有**，要暴露必须显式写 `pub`。
+    方向是反的，所以从 JS 过来时最容易漏。
+  fix: |
+    把 `pub` 当成"这一层是给外面用的"的声明来写，而不是编译报错后补上去。
+    可见性还有粒度：`pub(crate)` 只对同一个 crate 可见，
+    `pub(super)` 只对父模块可见 —— 按真实意图选，不要一律 `pub`。
+  severity: 1
+  languages: [javascript, rust]
+  fromBaseline: true
+  tags: [模块, 可见性]
+
+- id: pitfall-js2rust-entry-api
+  featureId: basics-javascript/object-default
+  title: 先查再插写了两遍查找，还容易撞上借用检查
+  symptom: |
+    `if !m.contains_key(&k) { m.insert(k, Vec::new()); } m.get_mut(&k).unwrap().push(v);`
+    —— 能编译，但做了两次查找，而且 `unwrap()` 是多余的。
+  cause: |
+    JS 里 `(m.get(k) ?? m.set(k, []).get(k)).push(v)` 也是这个形状，
+    所以从那边过来时会自然地照搬。但 Rust 提供了 `entry` API 把
+    "查不到就插默认值、然后拿到可写入口"做成了一个原子操作。
+  fix: |
+    用 `m.entry(k).or_insert_with(Vec::new).push(v)`。
+    `or_insert_with` 传的是闭包，**只在真的需要插入时才构造默认值** ——
+    默认值构造成本高时（比如要分配容器）用它比 `or_insert` 划算。
+    这是 Rust 最有辨识度的惯用法之一，值得练到不假思索。
+  severity: 1
+  languages: [javascript, rust]
+  fromBaseline: true
+  tags: [容器, 惯用法]
