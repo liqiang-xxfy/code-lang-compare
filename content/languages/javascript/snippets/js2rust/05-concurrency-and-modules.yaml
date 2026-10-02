@@ -1,0 +1,75 @@
+# javascript —— js2rust/05-concurrency-and-modules 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2rust
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2rust/concurrency-intro
+    equivalence: identical
+    code: |
+      let counter = 0;
+      async function bump() { counter += 1; }    // @note! 主线程只有一个，不会真的并发写
+
+      new Worker("worker.js");                   // @note 真并行只能靠 Worker，且不共享内存
+      new SharedArrayBuffer(1024);               // @note 想共享内存得专门用它
+
+      // @note! "共享可变状态"这一整类问题在这里不存在，也就没有对应的直觉
+      // @note Rust 里它回来了，但编译器会拦住 —— 忘了加锁是编译不过的
+  - featureId: js2rust/async-model
+    equivalence: identical
+    code: |
+      const rs = await Promise.all(urls.map((u) => fetch(u)));
+      const settled = await Promise.allSettled(tasks);
+
+      async function main() { }
+      main();                                    // @note! 事件循环由运行时托管，从不自己选
+
+      // @note! 没有"挑一个执行器"这回事 —— 浏览器或 Node 就是那个运行时
+      // @note Rust 里 async 只是编译成状态机，谁来驱动它要显式选（tokio 等）
+  - featureId: js2rust/module-system
+    equivalence: identical
+    code: |
+      import { helper } from "./utils.js";       // @note 模块即文件
+      export function helper() { }
+      export default function def() { }
+
+      // @note! 有 ESM / CJS 两套，还要配 "type": "module"
+      // @note 模块里定义的东西默认**可以**从外面导入；Rust 里默认私有，要写 pub
+      // @note 没有文件内的"子模块"分组，一个文件就是一个模块
+  - featureId: js2rust/package-manager
+    equivalence: identical
+    code: |
+      // package.json
+      // {
+      //   "dependencies": { "express": "^4.18.0" },
+      //   "devDependencies": { "vitest": "^1.0.0" },
+      //   "scripts": { "test": "vitest", "lint": "eslint ." }
+      // }
+
+      npm install; npm run test; npm run lint; npm publish;
+
+      // @note! 每一环都有若干竞争者：打包器、测试框架、lint、格式化各选各的
+      // @note Rust 那边 cargo 一家全包 —— 这是两者最像也最不像的地方
+  - featureId: js2rust/concurrency-exercise
+    equivalence: identical
+    code: |
+      const cache = new Map();
+
+      async function compute(k) { return k * 2; }
+
+      async function get(k) {
+        if (!cache.has(k)) {                       // @note "检查后写入"这个复合动作
+          cache.set(k, await compute(k));          // @note 有 await，这里真的会被切走
+        }
+        return cache.get(k);
+      }
+
+      await Promise.all([get(1), get(1)]);
+      // @note! 最坏是 compute(1) 被算两次 —— cache 不会损坏（单线程，没有并发写）
+      // @note! Rust 里同样这段代码不加锁**编译不过** —— 这是最大的不同

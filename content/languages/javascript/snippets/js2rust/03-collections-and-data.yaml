@@ -1,0 +1,85 @@
+# javascript —— js2rust/03-collections-and-data 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2rust
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2rust/collections-intro
+    equivalence: identical
+    code: |
+      const xs = [1, 2, "a"];      // @note! 一个数组里混装数字与字符串完全合法
+      const m = new Map();
+      const s = new Set([1, 2]);
+
+      for (const x of xs) {
+        xs.push(x);                // @note! 遍历时改数组：行为未定义，可能死循环，但不报错
+      }
+      // @note Rust 里这一行直接编译不过 —— 借用检查会拦住
+  - featureId: js2rust/list-model
+    equivalence: identical
+    code: |
+      const xs = [1, 2, 3];
+      xs.push(4);
+      xs.pop();                    // @note 返回被弹出的元素
+      xs.length;
+      xs[0];
+      xs[99];                      // @note! undefined —— 越界静默，不抛
+
+      xs.slice(1, 3);              // @note 切片是**拷贝**，新数组
+      const sub = xs.slice(1, 3);
+      sub[0] = 9;                  // @note! xs 不受影响
+
+      // @note Rust 的 &xs[1..3] 是借用（视图），原数组在借出期间不能改 —— 正好相反
+  - featureId: js2rust/map-model
+    equivalence: identical
+    code: |
+      const m = new Map();
+      m.set("a", 1);
+      m.get("z");                  // @note! undefined —— 缺失静默
+      m.get("z") ?? 0;             // 兜默认值
+      m.has("z");                  // 判存在
+
+      (m.get("k") ?? m.set("k", []).get("k")).push("v");
+      // @note! 写默认值要绕这么一圈；Rust 的 entry API 把这件事做成了一个链式入口
+
+      const o = {};
+      o[{ id: 1 }] = "x";          // @note! 键被转成 "[object Object]" —— 对象不能当键
+      // @note Rust 的 HashMap 键只要实现 Hash + Eq，自定义类型也能当键
+  - featureId: js2rust/data-modeling
+    equivalence: identical
+    code: |
+      const user = { id: 1, name: "Ada", active: true };
+
+      // @note! "或"只能靠约定表达，编译器不检查有没有处理全：
+      const event = { type: "click", x: 1, y: 2 };
+      switch (event.type) {
+        case "click": handleClick(event.x, event.y); break;
+        case "key": handleKey(event.key); break;
+        // @note! 少写一个分支不会报错，运行时静默什么都不做
+      }
+
+      // @note Rust 用 enum 表达"或"，match 必须穷尽 —— 少写一个分支编译不过
+  - featureId: js2rust/collections-exercise
+    equivalence: identical
+    code: |
+      function groupByDept(employees) {
+        const groups = new Map();
+        for (const e of employees) {
+          (groups.get(e.dept) ?? groups.set(e.dept, []).get(e.dept)).push(e.name);
+        }
+        return groups;
+      }
+
+      function avgAge(employees) {
+        if (employees.length === 0) return null;     // @note! null 表示"没有结果"
+        const total = employees.reduce((acc, e) => acc + e.age, 0);
+        return total / employees.length;             // @note 天然浮点除法
+      }
+
+      // @note! null 与数字是同一个类型的两种取值，调用方很容易忘记判空

@@ -1,0 +1,158 @@
+id: js2rust/02-types-and-values
+topicId: js2rust
+title: 2. 类型、数值与字符串
+order: 2
+summary: 从 JavaScript 到 Rust：一个 number 变成十几种、空值变成 Option、字符串分成两种
+
+features:
+  - id: js2rust/types-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 类型不只是"写在声明上"，还决定了值能不能被移动
+    body: |
+      从 JS 到 Rust，类型这一层的变化比其他方向深 —— 因为它不只是
+      "编译期检查"，还牵涉到**所有权**。
+
+      在 JS 里 `let b = a` 是"两个名字指向同一个对象"；
+      在 Rust 里，如果 `a` 是 `String`，`let b = a` 会**把 a 移走**，
+      之后再用 `a` 就编译不过。这一层在讲「函数与参数传递」时已经见过，
+      它在这里会以更细的粒度重现：每一种类型都有自己的移动/复制行为。
+
+      本章按「类型 → 数值 → 字符串 → 空值」排，三处需要专门记：
+
+      - **数值有十几种**，而且分有符号/无符号、还分位宽；
+        溢出在 debug 下 panic、在 release 下回绕（**同一份代码两种行为**）
+      - **字符串分成 `String` 与 `&str` 两种**，而哪一种能用取决于所有权
+      - **没有 null**，"可能没有"由 `Option<T>` 表达，编译器逼你处理
+
+  - id: js2rust/numeric-types
+    title: 数值：一个 number 变成一整个类型表
+    kind: behavior
+    refFeatureId: basics-javascript/number-precision
+    summary: 按位宽与符号分档，溢出行为还跟构建模式有关
+    body: |
+      JS 的 `number` 是一个双精度浮点，整数也是它。
+      Rust 把它拆成了 `i8`/`i16`/`i32`/`i64`/`i128`/`isize` 与对应的 `u*` 无符号版本，
+      外加 `f32` / `f64`。
+
+      ```rust
+      let n: i32 = 10;
+      let big: i64 = 9007199254740993;      // 装得下，JS 里这个数会丢精度
+      let u: u8 = 255;
+      ```
+
+      **最反直觉的一条是溢出行为取决于构建模式**：
+
+      ```rust
+      let x: u8 = 255;
+      let y = x + 1;      // debug: panic!；release: 回绕成 0
+      ```
+
+      同一份代码在开发时崩溃、上线后静默算出错误结果 —— 这是最需要警惕的一处。
+      要明确语义就用 `wrapping_add` / `checked_add` / `saturating_add`，
+      它们把意图写在方法名上。
+
+      **整数除法**同样是截断：`7 / 2` 得 `3`（与 JS 的 `3.5` 不同），
+      而且**除以零在两边都 panic**（浮点除零得 `inf`）。
+
+      取余的符号跟着被除数走（`-7 % 3` 得 `-1`），这一点与 JS 一致。
+
+      类型推断能省掉大部分标注，但**推断不出来时必须写** ——
+      报错信息通常直接指出该写在哪里。
+
+  - id: js2rust/strings
+    title: 字符串：一个类型变成两个
+    kind: behavior
+    refFeatureId: basics-javascript/string-methods
+    summary: String 拥有内容，&str 是借用；插值用 format!
+    body: |
+      Rust 有两种字符串，这一层是 JS 里完全没有的：
+
+      ```rust
+      let owned: String = String::from("你好");     // 拥有内容，可以改、可以转移
+      let borrowed: &str = "你好";                  // 借用，指向别人的内容
+      ```
+
+      怎么选取决于**这个值归谁**：
+
+      - 函数参数用 `&str`（接受任何字符串，不夺走所有权）
+      - 需要构造或修改时用 `String`
+      - 结构体字段要么用 `String`（自己拥有），要么带生命周期标注借用
+
+      **没有模板字符串**，插值靠 `format!` 宏：
+
+      ```rust
+      let msg = format!("你好，{name}！");
+      format!("{:.2}", 3.14159);        // "3.14"
+      ```
+
+      它的限制比 JS 的模板字符串少：花括号里是**标识符或字面量**，
+      复杂表达式要先算好放进变量。好处是它在编译期就检查格式串与参数是否匹配。
+
+      拼接与切片：
+
+      ```rust
+      let mut s = String::from("a");
+      s.push_str("b");                  // 原地追加
+      &s[0..1]                          // 按**字节**切片 —— 非 ASCII 会 panic！
+      s.chars().nth(0)                  // 想按字符取用这个
+      ```
+
+      **按字节索引字符串是 panic 的常见来源**：`"你好"[0..1]` 会在运行时崩溃，
+      因为那个下标落在字符中间。这与 JS 的 UTF-16 码元索引完全不同。
+
+  - id: js2rust/nullability
+    title: 空值：没有 null，只有 Option
+    kind: behavior
+    refFeatureId: basics-javascript/null-undefined
+    summary: 两种空一起消失，编译器逼你处理"可能没有"
+    body: |
+      Rust **没有 `null`**，"可能没有值"由 `Option<T>` 表达：
+
+      ```rust
+      let x: Option<i32> = None;
+      let y = Some(5);
+
+      match y {
+          Some(v) => println!("{v}"),
+          None => println!("没有"),
+      }
+      ```
+
+      JS 里那句"我明明判过空了怎么还崩"在这里编译不过 ——
+      因为 `Option<T>` 不能直接当 `T` 用，必须先取出里面的值。
+
+      三种常用出口：
+
+      ```rust
+      y.unwrap_or(0)              // 给默认值
+      y.unwrap()                  // 没有就 panic —— 相当于把 null 问题推迟到运行时
+      y?                          // 在返回 Option/Result 的函数里向上传播
+      ```
+
+      **`unwrap()` 要克制**：它是"我知道这里一定有值"的断言，
+      写多了等于把 JS 的空值问题换了个形式搬过来。原型阶段可以，
+      生产路径上应该用 `unwrap_or` / `?` / `match` 把分支写出来。
+
+      还有一层 JS 里没有的：`Option<&T>` 与 `Option<T>` 在内存布局上
+      可能没有额外开销（`None` 用空指针表示），所以它不会像包装类那样
+      带来额外的堆分配 —— 但这是实现细节，不影响怎么写。
+
+  - id: js2rust/types-exercise
+    title: 练习：迁移一个金额统计函数
+    kind: exercise
+    summary: 三个改动点，其中一个是类型选择
+    body: |
+      下面这段 JS 统计一组订单的总金额与平均单价。
+
+      请把它迁到 Rust，要求**行为完全一致**：
+
+      1. 总金额用哪个数值类型（想想 JS 里为什么这里要小心）
+      2. 平均单价保留两位小数
+      3. 订单为空时返回 `None` 而不是 0
+
+      对照参考实现时，重点看三处：**数值类型的选择**、
+      **除法有没有踩到整数截断**，以及**格式化用的是哪个宏**。
+
+      （提示：第 3 问里 `Option` 与非空值是两种不同的返回，
+      这是 JS 的 `null` 给不了的区分。第 2 问注意 `format!` 的语法与 JS 不同。）

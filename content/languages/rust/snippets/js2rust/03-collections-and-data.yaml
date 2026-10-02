@@ -1,0 +1,106 @@
+# rust —— js2rust 迁移教程的实现
+# 上下文：片段默认可放在模块顶层（Rust 有顶层函数）。⚠️ 本机无 Rust 工具链，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2rust
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2rust/collections-intro
+    equivalence: divergent
+    code: |
+      let xs = vec![1, 2, 3];      // @note! 元素类型固定：不能混装数字与字符串
+      let mut m = std::collections::HashMap::new();
+      let s: std::collections::HashSet<i32> = [1, 2].into_iter().collect();
+
+      let mut xs = vec![1, 2, 3];
+      for x in &xs {
+          xs.push(*x);             // @note! 编译错误：不能在借用期间可变借用 ——
+      }                            // JS 里这是"行为未定义"，这里是编译期就拦住
+      for x in xs.clone() { }      // @note 要改就先克隆一份再遍历
+  - featureId: js2rust/list-model
+    equivalence: divergent
+    code: |
+      let mut xs = vec![1, 2, 3];
+      xs.push(4);
+      xs.pop();                    // @note 返回 Option<T>
+      xs.len();
+      xs[0];
+      // xs[99];                   // @note! panic —— 下标越界直接崩
+
+      xs.get(99);                  // @note! 返回 Option<&T>，越界给 None
+      // @note [] 与 get 的区别：前者崩、后者给 Option —— 必须显式选择要哪种
+
+      let sub = &xs[1..3];         // @note! 切片是**借用**（视图），不是拷贝
+      // xs.push(9);               // 编译错误：借出期间不能改原 Vec
+      let owned = xs[1..3].to_vec();   // 要拷贝得显式 to_vec()
+      // @note JS 的 slice() 永远返回新数组，带着那个直觉用切片会撞上借用检查
+  - featureId: js2rust/map-model
+    equivalence: divergent
+    code: |
+      use std::collections::HashMap;
+      let mut m = HashMap::new();
+      m.insert("a", 1);
+
+      m.get("a");                  // @note Some(&1) —— 返回借用，不是值
+      m.get("z");                  // @note None —— 缺失由 Option 表达，不是 undefined
+      m.get("z").copied().unwrap_or(0);
+      m.contains_key("z");
+
+      // @note! 写默认值不要"先查再插"，用 entry API 一次搞定：
+      let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+      groups.entry("k".to_string()).or_insert_with(Vec::new).push("v".to_string());
+      // @note 对应 JS 的 ??=、Java 的 computeIfAbsent、Python 的 defaultdict
+
+      #[derive(Hash, PartialEq, Eq)]   // @note! 自定义类型当键必须 derive 这两个
+      struct Key { id: u32 }
+  - featureId: js2rust/data-modeling
+    equivalence: divergent
+    code: |
+      struct User { id: u32, name: String, active: bool }    // @note "与"
+
+      enum Event {                                            // @note! "或" —— 每个分支能带自己的数据
+          Click { x: i32, y: i32 },
+          KeyPress(char),
+          Close,
+      }
+
+      match event {
+          Event::Click { x, y } => handle_click(x, y),
+          Event::KeyPress(c) => handle_key(c),
+          Event::Close => shutdown(),        // @note! 少写一个分支就编译不过
+      }
+      // @note JS 里用 type 字段区分、靠自觉处理；新增分支时编译器什么都不会说
+
+      #[derive(Debug, Clone, PartialEq)]     // @note! 自动生成常用实现
+      struct Config { retry: u32 }           // 对应 JS 里要手写的 toString / 比较
+  - featureId: js2rust/collections-exercise
+    equivalence: analogous
+    code: |
+      #[derive(Clone)]
+      struct Employee { name: String, dept: String, age: u32 }
+
+      // @note! 参数用 &[Employee]（借用切片）而不是 Vec<Employee> —— 不夺走调用方的所有权
+      fn group_by_dept(employees: &[Employee]) -> std::collections::HashMap<String, Vec<String>> {
+          let mut groups: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+          for e in employees {
+              groups.entry(e.dept.clone())              // @note! entry API 一次查找
+                    .or_insert_with(Vec::new)
+                    .push(e.name.clone());
+          }
+          groups
+      }
+
+      fn avg_age(employees: &[Employee]) -> Option<f64> {
+          if employees.is_empty() { return None; }      // @note! Option 而不是 null
+          let total: u32 = employees.iter().map(|e| e.age).sum();
+          Some(f64::from(total) / employees.len() as f64)   // @note! 不转 f64 就是整数除法
+      }
+
+      // @note or_insert_with 与 or_insert 的差别：前者传闭包，只在需要时才构造默认值；
+      // 默认值构造成本高时（比如要分配 Vec）用它更划算
+      // @note name 用 String 是因为结构体要拥有这些数据；如果结构体带生命周期，也可以用 &str

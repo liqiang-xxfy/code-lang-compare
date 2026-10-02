@@ -1,0 +1,82 @@
+# javascript —— js2rust/04-errors-and-resources 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2rust
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2rust/errors-intro
+    equivalence: identical
+    code: |
+      try {
+        risky();
+      } catch (e) { }              // @note! 一个函数会不会抛，签名上看不出来
+
+      // @note! 忘写 try/catch 也能跑，直到线上才炸 —— 编译器一句话都不说
+      // @note 异常是**控制流**：throw 会跳过后面所有代码，一路向上找 catch
+  - featureId: js2rust/exception-model
+    equivalence: identical
+    code: |
+      try {
+        const n = parseInt(s, 10);
+        return n * 2;
+      } catch (e) {
+        return defaultValue;       // @note 出错就跳到 catch，后面的代码不执行
+      }
+
+      // @note! 没有"必须处理"这回事；也没有像 ? 那样"出错就提前返回"的简写
+      // @note 捕获是控制流跳转，所以"路径"要靠读代码推出来
+  - featureId: js2rust/error-propagation
+    equivalence: identical
+    code: |
+      throw new Error("出错了");
+      throw "出错了";                            // @note! 合法 —— 抛任何值都行
+
+      class ConfigError extends Error { }
+      throw new ConfigError("找不到配置");
+
+      try {
+        load();
+      } catch (e) {
+        if (e instanceof ConfigError) { }        // @note! 靠 instanceof 猜类型
+        else throw e;
+      }
+
+      // @note 错误类型不是签名的一部分，调用方无法穷尽处理
+  - featureId: js2rust/resource-cleanup
+    equivalence: identical
+    code: |
+      const f = open(path);
+      try {
+        use(f);
+      } finally {
+        f.close();                               // @note! 手写：每条出口都要想到
+      }
+
+      // @note! 忘了写 finally 就是泄漏；提前 return 时更容易漏
+      // @note GC 只回收内存，不保证及时关闭文件句柄这类资源
+  - featureId: js2rust/errors-exercise
+    equivalence: identical
+    code: |
+      async function loadConfig(path, retries = 3) {
+        let lastErr;
+        for (let i = 0; i < retries; i++) {
+          try {
+            const f = await open(path);
+            try { return JSON.parse(await f.read()); }
+            finally { await f.close(); }
+          } catch (e) {
+            if (e.code === "ENOENT") throw e;    // @note 不可重试：直接抛
+            lastErr = e;
+            await sleep(100 * 2 ** i);
+          }
+        }
+        throw lastErr;
+      }
+
+      // @note! 两种失败靠 e.code 区分，编译器不检查这个字段存不存在

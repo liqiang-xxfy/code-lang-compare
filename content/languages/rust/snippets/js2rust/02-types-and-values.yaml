@@ -1,0 +1,86 @@
+# rust —— js2rust 迁移教程的实现
+# 上下文：片段默认可放在模块顶层（Rust 有顶层函数）。⚠️ 本机无 Rust 工具链，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2rust
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2rust/types-intro
+    equivalence: divergent
+    code: |
+      let x: i32 = 1;              // @note! 类型写在声明上，之后不能改绑成别的类型
+      // x = "一";                 // 编译错误
+
+      let a = String::from("v");
+      let b = a;                   // @note! 这里 a 被**移走**了
+      // println!("{a}");          // 编译错误：value borrowed here after move
+      // @note JS 里 const b = a 只是多一个名字；这边是所有权转移 —— 本章的核心差异
+  - featureId: js2rust/numeric-types
+    equivalence: divergent
+    code: |
+      7 / 2;                       // @note! 3 —— 整数除法，JS 里是 3.5
+      7.0 / 2.0;                   // 3.5
+      -7 % 3;                      // -1 —— 这条与 JS 一致
+
+      let big: i64 = 9007199254740993;    // @note 装得下，JS 里这个数会丢精度
+      let n: i32 = 10;             // @note 类型按位宽与符号分档：i8/i16/i32/i64/u8/u16/...
+
+      let x: u8 = 255;
+      let y = x + 1;               // @note! debug 下 panic，release 下回绕成 0 —— 同一份代码两种行为
+      x.wrapping_add(1);           // @note 要明确语义就用这些：wrapping / checked / saturating
+
+      1 / 0;                       // @note! panic（整数）；1.0 / 0.0 得 inf
+      // @note 与 JS 的"整数也是浮点、除零给 Infinity"完全不同
+  - featureId: js2rust/strings
+    equivalence: divergent
+    code: |
+      let owned: String = String::from("你好");    // @note! 两种字符串
+      let borrowed: &str = "你好";                 // 借用的，指向别人的内容
+
+      let name = "Ada";
+      let msg = format!("你好，{name}！");          // @note! 没有模板字符串，用 format! 宏
+      format!("{:.2}", 3.14159);                   // "3.14"
+      // @note 花括号里只能是标识符或字面量，复杂表达式要先算好放进变量
+
+      let mut s = String::from("abc");
+      s.push_str("d");                             // 原地追加，需要 mut
+      &s[0..1];                                    // @note! 按**字节**切片
+      // "你好"[0..1]                              // @note! panic —— 下标落在字符中间
+      s.chars().nth(0);                            // @note 想按字符取用这个
+  - featureId: js2rust/nullability
+    equivalence: divergent
+    code: |
+      let x: Option<i32> = None;                   // @note! 没有 null，只有 Option
+      let y = Some(5);
+
+      match y {                                    // @note 编译器逼你处理两个分支
+          Some(v) => println!("{v}"),
+          None => println!("没有"),
+      }
+
+      y.unwrap_or(0);                              // @note 给默认值
+      // y.unwrap();                               // @note! 没有就 panic —— 相当于把 null 问题推迟到运行时
+      // @note 在返回 Option / Result 的函数里可以用 y? 向上传播
+
+      // @note! Option<T> 不能直接当 T 用：JS 里"忘了判空"在这边根本编译不过
+  - featureId: js2rust/types-exercise
+    equivalence: analogous
+    code: |
+      struct Order { price: f64, qty: u32 }
+
+      fn summarize(orders: &[Order]) -> Option<f64> {
+          if orders.is_empty() {
+              return None;                          // @note! 用 Option 表达"没有结果"，与 null 的区别在类型上
+          }
+          let total: f64 = orders.iter().map(|o| o.price * o.qty as f64).sum();
+          let avg = total / orders.len() as f64;    // @note! 不转 f64 就是整数除法
+          Some((avg * 100.0).round() / 100.0)
+      }
+
+      // @note 调用方必须处理 None 分支 —— 这正是 JS 的 null 给不了的
+      // @note f64 仍是二进制浮点，金额精度问题两边一样，要精确得换定点方案

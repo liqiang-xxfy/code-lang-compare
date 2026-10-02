@@ -1,0 +1,184 @@
+id: js2rust/04-errors-and-resources
+topicId: js2rust
+title: 4. 错误处理与资源管理
+order: 4
+summary: 从 JavaScript 到 Rust：异常变成返回值，"会失败"写进类型，资源不需要手动释放
+
+features:
+  - id: js2rust/errors-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 失败成了类型的一部分，编译器逼你面对
+    body: |
+      JS 的异常是**控制流**：`throw` 打断当前执行路径，一路向上找 `catch`。
+
+      Rust 把它拆成了两条完全不同的路：
+
+      - **可恢复的失败**用 `Result<T, E>` 表达 —— 它是一个返回值，
+        不是控制流。调用方**必须**处理它（至少显式忽略）。
+      - **不可恢复的错误**用 `panic!` —— 它会展开栈并终止当前线程。
+        用于"程序有 bug"这类情况，不是正常的错误处理手段。
+
+      ```rust
+      fn parse(s: &str) -> Result<i32, ParseIntError> { s.parse() }
+
+      match parse("42") {
+          Ok(n) => println!("{n}"),
+          Err(e) => println!("出错了：{e}"),
+      }
+      ```
+
+      **这一层的变化比"换个写法"深**：在 JS 里，一个函数会不会抛异常
+      完全看不出来（除非读文档），忘写 `try/catch` 也能跑，直到线上才炸。
+      在这里，"会失败"写在返回类型上，忘了处理就编译不过。
+
+      本章按「表达 → 传播 → 资源」排。整体上这章是**净收益**：
+      迁移过来之后不会踩太多坑，更多是"原来的写法可以更明确了"。
+
+  - id: js2rust/exception-model
+    title: 捕获：从 catch 变成 match 与 ?
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 没有 try/catch，只有 match 与 ? 运算符
+    body: |
+      ```js
+      try {
+        const n = parseInt(s);
+        return n * 2;
+      } catch (e) {
+        return defaultValue;
+      }
+      ```
+
+      ```rust
+      match s.parse::<i32>() {
+          Ok(n) => Ok(n * 2),
+          Err(_) => Ok(default_value),
+      }
+      ```
+
+      两层结构**是返回值而不是控制流** —— 它没有"跳过后面所有代码"的能力，
+      所以每一步都要显式接住。这正是它的价值：路径是读得出来的。
+
+      **`?` 运算符**是传播的简写：
+
+      ```rust
+      fn double(s: &str) -> Result<i32, ParseIntError> {
+          let n = s.parse::<i32>()?;      // 出错就提前 return Err(...)
+          Ok(n * 2)
+      }
+      ```
+
+      `?` 等价于"出错就 return `Err`，否则取出 `Ok` 里的值"。
+      它**只能用在返回 `Result` / `Option` 的函数里** —— 所以函数签名
+      会诚实地跟着改，这也是"错误传播"在这一层是显式的原因。
+
+      `Result` 上的常用出口与 `Option` 类似：
+
+      ```rust
+      r.unwrap_or(0)              // 给默认值
+      r.expect("必须有值")         // 出错就 panic，带消息
+      r.unwrap()                  // 出错就 panic —— 克制使用
+      r.ok()                      // 变成 Option，丢掉错误
+      ```
+
+      **`unwrap()` 在原型期可以，生产路径上要克制**：它等于把
+      "这里我确定不会失败"写成断言，写多了就把 Rust 的错误检查
+      退回到 JS 那种"等它崩"的状态。
+
+  - id: js2rust/error-propagation
+    title: 抛出与自定义错误
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 传播靠 ?，多种错误要能合流
+    body: |
+      没有"抛出"这个动作，只有"返回 `Err`"。传播靠 `?`：
+
+      ```rust
+      fn load(path: &str) -> Result<Config, ConfigError> {
+          let text = std::fs::read_to_string(path)?;    // 出错就提前返回
+          let cfg: Config = toml::from_str(&text)?;
+          Ok(cfg)
+      }
+      ```
+
+      麻烦的地方在于**调用链上每层可能返回不同的错误类型**，
+      而 `?` 要求 `Err` 的类型能转换过去。三种解法，按复杂度排：
+
+      1. **函数返回 `Box<dyn Error>`** —— 原型期最快，代价是丢类型信息。
+      2. **用 `enum` 定义自己的错误类型**，给每种来源一个分支，
+         并为它实现 `From`（`?` 会自动调用）：
+
+         ```rust
+         enum ConfigError { Io(std::io::Error), Parse(toml::Error) }
+         impl From<std::io::Error> for ConfigError { ... }
+         ```
+
+      3. **用 `thiserror` / `anyhow` 这类库** —— 前者给库作者
+         （保留类型、生成样板），后者给应用（一个通用错误类型、带上下文）。
+
+      实践里第 3 条最常见：库用 `thiserror`、应用用 `anyhow`。
+      手写第 2 种能理解机制，但真实项目里样板太多。
+
+      **与 JS 的对照**：JS 的 `throw` 可以扔任何东西，
+      调用方靠 `instanceof` 猜；这里的错误类型是签名的一部分，
+      调用方 `match` 就能穷尽处理。代价是**每加一种错误都要改签名**，
+      而这正是"错误处理是显式的"的另一面。
+
+  - id: js2rust/resource-cleanup
+    title: 资源释放：不需要写释放代码
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: Drop 自动执行，作用域结束就释放
+    body: |
+      JS 里释放资源要手写 `try/finally`；Rust 里**大部分时候什么都不用写**：
+
+      ```rust
+      {
+          let f = std::fs::File::open(path)?;
+          // 用 f
+      }   // 作用域结束，f 自动关闭 —— 无论中间有没有提前 return
+      ```
+
+      机制是 `Drop` trait：值离开作用域时，编译器自动插入析构调用。
+      这与 JS 里"必须记得写 finally"是根本区别 —— **没有"忘记释放"这个失败模式**。
+
+      三个连带的好处：
+
+      1. **提前 return / `?` 传播都不会漏掉释放** —— 不需要为每条出口都写清理代码。
+      2. **释放顺序是确定的**（与创建顺序相反），不像 GC 那样不确定。
+      3. **不需要 finally 里那套"关闭自己抛异常怎么办"的处理** ——
+         如果 `Drop` 里 panic，行为是明确定义的（通常是中止）。
+
+      需要手写清理逻辑时，实现 `Drop` 即可：
+
+      ```rust
+      impl Drop for MyGuard {
+          fn drop(&mut self) { /* 清理 */ }
+      }
+      ```
+
+      **注意 `Drop` 不能被显式调用** —— 想提前释放用 `drop(value)`
+      （它把值移走，然后在函数结束时触发析构）。
+
+  - id: js2rust/errors-exercise
+    title: 练习：迁移一个带重试的读取函数
+    kind: exercise
+    summary: 三处改动，其中一处是错误类型的设计
+    body: |
+      下面这段 JS 读取并解析一个配置文件，失败时重试。
+
+      请把它迁到 Rust，要求**行为完全一致**：
+
+      1. 文件不存在与解析失败要能区分（调用方要据此决定是否重试）
+      2. 失败最多重试 3 次，每次间隔递增
+      3. 资源（文件句柄）不需要显式释放 —— 说明为什么
+
+      对照参考实现时，重点看三处：
+
+      - **返回类型怎么表达"两种失败"**（提示：`enum`）
+      - **`?` 用在哪一步**，以及它为什么不能用在重试循环里
+      - **第 3 问**：文件句柄是在哪一刻被关闭的
+
+      （提示：`?` 会**提前返回**，所以循环里不能用 —— 那是 JS 里
+      `try/catch` 与"抛出"最容易混淆的一点。）

@@ -1,0 +1,169 @@
+id: js2rust/05-concurrency-and-modules
+topicId: js2rust
+title: 5. 并发与模块化
+order: 5
+summary: 从 JavaScript 到 Rust：并行是真的，但数据竞争在编译期就被拦住
+
+features:
+  - id: js2rust/concurrency-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 共享内存回来了，但编译器站在你这边
+    body: |
+      JS 的单线程模型让"并发 bug"整整一类都不存在。Rust 有真线程、真共享内存，
+      按理说那一类问题该回来了 —— **但它被编译器拦住了**。
+
+      机制是 `Send` / `Sync` 两个标记 trait：
+
+      - 一个类型能不能被**移到**另一个线程，由 `Send` 决定
+      - 一个类型的**共享引用**能不能跨线程，由 `Sync` 决定
+
+      编译器自动推导它们，绝大多数类型都满足。真正值钱的是**不满足的那一类** ——
+      `Rc<T>`（非原子引用计数）不是 `Send`，所以把 `Rc` 拿到另一个线程
+      会**编译错误**，而不是静默的数据竞争。
+
+      共享可变状态因此需要显式声明意图：
+
+      ```rust
+      let counter = Arc::new(Mutex::new(0));        // 原子引用计数 + 互斥锁
+      let c = Arc::clone(&counter);
+      std::thread::spawn(move || { *c.lock().unwrap() += 1; });
+      ```
+
+      `Arc` 解决"多个线程都要拥有它"，`Mutex` 解决"同时只能一个人改"——
+      两者都要写出来，编译器会检查你有没有漏掉哪一层。
+
+      **与 JS 对比**：那边不存在这些问题，所以也没有对应的直觉要丢；
+      与 Java 对比：那边同样有共享内存，但 `synchronized` 是可选的自律，
+      而这里**忘了加锁是编译不过的**。
+
+  - id: js2rust/async-model
+    title: 异步：async/await 形似，但没有内置运行时
+    kind: behavior
+    summary: 语法很像，但事件循环要自己选一个
+    body: |
+      语法上与 JS 几乎一样：
+
+      ```rust
+      async fn fetch_all(urls: &[String]) -> Vec<String> {
+          let futures: Vec<_> = urls.iter().map(|u| fetch(u)).collect();
+          futures::future::join_all(futures).await
+      }
+      ```
+
+      `Promise.all` ↔ `join_all`，`async`/`await` 关键字都对得上 ——
+      这是整个迁移路线里最省力的一块。
+
+      **最大的区别是"没有内置运行时"**：
+
+      ```rust
+      #[tokio::main]                   // 或者 async-std / smol
+      async fn main() { ... }
+      ```
+
+      JS 的事件循环由运行时托管，你从不选择它；Rust 的 `async` 只是
+      "编译成一个状态机"，**谁来驱动它**是另一件事。所以要显式挑一个运行时
+      （`tokio` 是主流），并把它写进依赖。
+
+      三处由此派生的差异：
+
+      1. **执行器是库、不是语言**。换运行时要改代码；JS 里没这个概念。
+      2. **任务是协作式的，且不保证被调度**。`.await` 是唯一的让出点，
+         所以"同步阻塞调用"会卡住整个执行器线程 —— 与 JS 里阻塞主线程同理，
+         但这里可以换多线程运行时而缓解。
+      3. **`Send` 约束会渗进异步代码**。跨 `.await` 持有的类型必须 `Send`，
+      否则编译错误 —— 这是 JS 里完全没有的一类问题，也是新手最常见的
+      异步编译错误来源。
+
+  - id: js2rust/module-system
+    title: 模块系统：mod 与 crate
+    kind: behavior
+    summary: 两个层级：文件内 mod 与包级 crate
+    body: |
+      Rust 的模块系统有**两个层级**，JS 只有一个：
+
+      | 层级 | Rust | JS |
+      | --- | --- | --- |
+      | 文件内分组 | `mod` 块或 `mod name;` 指向文件 | 无（只有文件即模块） |
+      | 包 | crate（`Cargo.toml` 一个包） | package（`package.json`） |
+
+      ```rust
+      mod utils;                  // 引入 src/utils.rs
+      use utils::helper;          // 把名字带进当前作用域
+
+      pub fn helper() { }         // 默认私有，pub 才对 crate 外可见
+      pub(crate) fn internal() { }
+      ```
+
+      三处与 JS 不同：
+
+      1. **默认私有**。JS 里模块内定义的东西默认都可导出；
+         这里不加 `pub` 就只在本模块可见 —— 方向正好相反。
+      2. **路径用 `::`**，而且有 `crate::` / `super::` / `self::` 三种起点。
+         JS 的相对路径（`./utils`）在这里对应 `super::` 或 `crate::`。
+      3. **没有 `default export`**，也没有"一个文件导出多个东西"的写法差异 ——
+         模块就是一个命名空间，`pub` 什么就导出什么。
+
+      `use` 只是**把名字带进作用域**，不执行任何代码（与 Python 的 `import`
+      不同）。这一点与 JS 的 ESM 一致。
+
+  - id: js2rust/package-manager
+    title: 包管理与构建：cargo 一家全包
+    kind: behavior
+    summary: 比 npm 更统一 —— 构建、测试、依赖、发布全在一条命令下
+    body: |
+      这是所有目标语言里**与 npm 最像**的一个：
+
+      | 事情 | JS | Rust |
+      | --- | --- | --- |
+      | 声明依赖 | `package.json` | `Cargo.toml` |
+      | 锁定版本 | `package-lock.json` | `Cargo.lock` |
+      | 装依赖 | `npm install` | `cargo build`（自动拉） |
+      | 跑脚本 | `npm run x` | `cargo x`（子命令） |
+      | 测试 | `npm test` | `cargo test` |
+      | 格式/检查 | Prettier + ESLint | `cargo fmt` / `cargo clippy`（官方） |
+      | 发布 | `npm publish` | `cargo publish` |
+      | 文档 | JSDoc + 工具 | `cargo doc`（官方） |
+
+      **不需要"选工具链"**：格式化、lint、测试、文档都是 cargo 的子命令，
+      由官方维护。JS 那边每个环节都有若干竞争者，这边是"一个答案"。
+
+      依赖写进 `Cargo.toml`：
+
+      ```toml
+      [dependencies]
+      serde = { version = "1", features = ["derive"] }
+      tokio = { version = "1", features = ["full"] }
+      ```
+
+      两处与 npm 不同的概念：
+
+      1. **feature 开关**。依赖可以按需开启功能子集（`features = [...]`），
+         用来减小编译产物或引入可选能力。JS 那边通常靠多个包或 tree-shaking。
+      2. **没有"开发依赖装到项目里"的隔离问题** —— 依赖编译进产物，
+         不存在 `node_modules` 那种运行时解析。
+
+      `cargo clippy` 值得单独提一句：它的建议质量很高，而且能查出
+      "能编译但写法不地道"的代码 —— 这对刚从 JS 过来的人尤其有用。
+
+  - id: js2rust/concurrency-exercise
+    title: 练习：判断哪些代码需要同步
+    kind: exercise
+    summary: 编译器会告诉你，但先自己想一遍
+    body: |
+      下面这段 JS 用一个模块级 Map 做缓存，两个异步任务并发读写它。
+
+      请把它迁到 Rust 的多线程版本，要求**行为正确**，然后回答三个问题：
+
+      1. 原版里 `if (!cache.has(k)) cache.set(k, compute(k))` 这一段，
+         在 Rust 里需要加锁吗？编译器会拦你吗？
+      2. 如果只用 `Arc<HashMap<...>>` 不加 `Mutex`，会怎样？
+      3. `Arc<Mutex<T>>` 与 `Arc<RwLock<T>>` 该选哪个？
+
+      对照参考实现时，重点看两处：**`Arc` 与 `Mutex` 各自解决什么**，
+      以及**锁的作用域**（`.lock()` 返回的 guard 什么时候释放）。
+
+      （提示：第 1 问的答案是"需要，而且不加就编译不过"——
+      这是 Rust 相对 Java 最大的不同。第 3 问与读写比例有关。
+      注意 `MutexGuard` 是 RAII 的，作用域结束自动解锁 ——
+      与前面「资源释放」那一章是同一套机制。）

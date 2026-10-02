@@ -1,0 +1,168 @@
+id: js2rust/03-collections-and-data
+topicId: js2rust
+title: 3. 容器与数据建模
+order: 3
+summary: 从 JavaScript 到 Rust：容器有了所有权、对象变成 struct 与 enum、借用检查会拦住你
+
+features:
+  - id: js2rust/collections-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 容器的用法不难，难的是"谁能改它"
+    body: |
+      Rust 的容器用法本身很直白：`Vec<T>` 对应数组、`HashMap<K, V>` 对应 `Map`、
+      `HashSet<T>` 对应 `Set`。`vec![]` 宏、`push`、`get`、`insert` 这些
+      与 JS 的对应关系基本能猜出来。
+
+      真正需要重建的是**所有权与借用**：容器里的每个元素归它所有，
+      而"同时读"和"同时写"被编译器严格区分。
+
+      ```rust
+      let mut xs = vec![1, 2, 3];
+      for x in &xs {          // 不可变借用
+          xs.push(*x);        // 编译错误：不能在借用期间可变借用
+      }
+      ```
+
+      这类错误在 JS 里不存在（那边遍历时改数组只是"行为未定义"），
+      在 Python 里是运行时抛异常，在这里是**编译不过** ——
+      最早、最安全的失败点。
+
+      另一处显著不同是**数据建模**：JS 用对象字面量描述一切，
+      Rust 用 `struct` 描述"与"（这个记录有这些字段），用 `enum` 描述"或"
+      （这个值可能是这几种之一）。`enum` 带数据的能力是 JS 里没有对应物的，
+      也是 `Option` / `Result` 这些核心类型的基础。
+
+  - id: js2rust/list-model
+    title: 列表：Vec 的用法直白，借用规则不直白
+    kind: behavior
+    refFeatureId: basics-javascript/array-slice
+    summary: 索引越界可以抛也可以不抛，遍历时改会被拦住
+    body: |
+      基础操作与 JS 一一对应：
+
+      ```rust
+      let mut xs = vec![1, 2, 3];
+      xs.push(4);                  // push
+      xs.pop();                    // pop，返回 Option<T>
+      xs.len();                    // length
+      xs[0];                       // 索引 —— **越界会 panic**
+      xs.get(0);                   // 返回 Option<&T>，越界给 None
+      &xs[1..3];                   // 切片，是**借用**不是拷贝
+      ```
+
+      **`[]` 与 `get` 的区别值得记住**：前者越界 panic，后者返回 `Option`。
+      这与 JS 的"越界静默给 undefined"不同 —— 这里你必须显式选择
+      "崩掉"还是"处理缺失"，没有"忘了处理"这个选项。
+
+      **切片是借用**，这一点与 JS 的 `slice()`（拷贝）相反：
+      `&xs[1..3]` 是原 `Vec` 的一个视图，原 `Vec` 在借出期间不能被改。
+
+      最容易撞上的编译错误是**遍历时修改**：
+
+      ```rust
+      for x in &xs { xs.push(*x); }        // 编译错误
+      for x in xs.clone() { xs.push(x); }  // 先克隆一份再遍历
+      ```
+
+      JS 里这么写只是"行为未定义"（可能死循环），这里直接编译不过 ——
+      这是三个方向里唯一在**编译期**拦住它的。
+
+      另外 `Vec<T>` 的 `T` 是固定类型：不能像 JS 数组那样混装数字与字符串。
+      要装不同的类型得用 `enum` 把它们包起来 —— 这也是 Rust 里 `enum` 常见的原因。
+
+  - id: js2rust/map-model
+    title: 映射：HashMap 与 entry API
+    kind: behavior
+    refFeatureId: basics-javascript/object-access
+    summary: get 返回 Option，累积用 entry 而不是三次查找
+    body: |
+      ```rust
+      use std::collections::HashMap;
+
+      let mut m = HashMap::new();
+      m.insert("a", 1);
+      m.get("a");                  // Some(&1)
+      m.get("z");                  // None —— 缺失由 Option 表达，不是 undefined
+      m.get("z").copied().unwrap_or(0);
+      m.contains_key("z");
+      ```
+
+      **`get` 返回 `Option<&V>`** —— 它是借用，所以拿到的是引用而不是值。
+      要拿值用 `.copied()` 或 `.cloned()`。
+
+      写默认值时，**不要写"先查再插"**：
+
+      ```rust
+      // 不地道：查找两次，而且借用检查可能拦你
+      if !m.contains_key(&k) { m.insert(k, Vec::new()); }
+      m.get_mut(&k).unwrap().push(v);
+
+      // 正解：entry API，一次查找，并且返回一个可写的入口
+      m.entry(k).or_insert_with(Vec::new).push(v);
+      ```
+
+      `entry` 是 Rust 里最有辨识度的惯用法之一，对应 JS 的 `??=`、
+      Java 的 `computeIfAbsent`、Python 的 `defaultdict` —— 但只有这里
+      把它做成了一个显式的、能链式接下去的入口。
+
+      **键必须实现 `Hash` + `Eq`**，自定义类型要 `#[derive(Hash, PartialEq, Eq)]`。
+      这与 JS 里"键只能是字符串"相比自由度大，但也多了一步要记得做的事。
+
+  - id: js2rust/data-modeling
+    title: 数据建模：struct 描述"与"，enum 描述"或"
+    kind: behavior
+    refFeatureId: basics-javascript/object-create
+    summary: enum 能带数据，这是 JS 里没有的能力
+    body: |
+      JS 里对象字面量同时承担了两种角色 —— 记录与联合类型，
+      后者靠约定（某个字段存在与否）表达。Rust 把它们分开了：
+
+      ```rust
+      struct User { id: u32, name: String, active: bool }     // "与"
+
+      enum Event {                                            // "或"
+          Click { x: i32, y: i32 },
+          KeyPress(char),
+          Close,
+      }
+      ```
+
+      **`enum` 的每个分支都能带自己的数据**，这是 JS 里没有对应物的能力。
+      配合 `match` 使用时，编译器会检查你有没有处理完所有分支：
+
+      ```rust
+      match event {
+          Event::Click { x, y } => handle_click(x, y),
+          Event::KeyPress(c) => handle_key(c),
+          Event::Close => shutdown(),          // 少写一个分支就编译不过
+      }
+      ```
+
+      这与 JS 里"用 `type: "click"` 字段区分、靠自觉处理"完全不同 ——
+      新增一个分支时，所有 `match` 的地方都会编译报错，编译器把
+      "哪里需要跟着改"直接列了出来。
+
+      `struct` 那边还有一处便利：`#[derive(Debug, Clone, PartialEq)]`
+      能自动生成常用实现，相当于 JS 里那些要手写的 `toString` / 深拷贝 / 比较。
+      `#[derive(Clone)]` 是浅拷贝，要深拷贝得所有字段都可 `Clone`（通常是自动成立）。
+
+  - id: js2rust/collections-exercise
+    title: 练习：把分组统计迁到 Rust
+    kind: exercise
+    summary: 重点在 entry API 与所有权
+    body: |
+      下面这段 JS 按部门把员工分组，并算出每个部门的平均年龄。
+
+      请把它迁到 Rust，要求**行为完全一致**：
+
+      1. 分组累加怎么写（想想 `entry` 在这里怎么用）
+      2. "员工"用什么类型承载
+      3. 输入为空时返回 `None`
+
+      对照参考实现时，重点看两处：**`entry(k).or_insert_with(...)` 的写法**，
+      以及**函数签名用的是 `&[Employee]` 还是 `Vec<Employee>`**。
+
+      （提示：第 2 问里 `name` 字段该用 `String` 还是 `&str` ——
+      这取决于结构体是否拥有这些数据。第 1 问的 `or_insert_with` 与
+      `or_insert` 有一处差别，想想在什么情况下它更重要。）

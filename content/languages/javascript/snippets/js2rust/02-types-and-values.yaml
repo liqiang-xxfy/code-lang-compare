@@ -1,0 +1,69 @@
+# javascript —— js2rust/02-types-and-values 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2rust
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2rust/types-intro
+    equivalence: identical
+    code: |
+      let x = 1;               // @note 名字不携带类型
+      x = "一";                // 合法 —— 编译期那道网不存在
+
+      const a = { v: 1 };
+      const b = a;             // @note 两个名字指向同一个对象，改 b 就是改 a
+      // @note Rust 里同样的写法会把 a 移走（move），之后 a 不能再用
+  - featureId: js2rust/numeric-types
+    equivalence: identical
+    code: |
+      7 / 2;                   // @note 3.5 —— 除法永远给小数
+      Math.trunc(7 / 2);       // 3 —— 要整数得自己调用
+      -7 % 3;                  // -1 —— 取余符号跟着被除数走
+
+      9007199254740993;        // @note! 变成 ...992 —— 整数也是浮点，超范围静默丢精度
+      10n ** 30n;              // 要大整数必须显式用 BigInt
+
+      1 / 0;                   // @note! Infinity —— 浮点除零不报错
+      Number.MAX_SAFE_INTEGER; // 2^53-1 —— "安全整数"的边界要自己记
+  - featureId: js2rust/strings
+    equivalence: identical
+    code: |
+      const name = "Ada";
+      `你好，${name}！`;         // @note 模板字符串：花括号里能放任意表达式
+      `${(3.14159).toFixed(2)}`;
+
+      let s = "abc";
+      s + "d";                 // @note 加号拼接，返回新字符串
+      s[0];                    // @note! 'a' —— 按 UTF-16 码元索引
+      "你好"[0];               // @note! '你' —— 恰好是一个码元，不崩
+
+      // @note! JS 里没有"拥有 vs 借用"这一层，字符串就是字符串
+  - featureId: js2rust/nullability
+    equivalence: identical
+    code: |
+      let a;                   // @note undefined
+      let b = null;            // @note null
+
+      a == null;               // @note! true：宽松相等同时匹配两种空
+      const z = obj.missing?.deep;    // @note 可选链：一路 null 也不崩
+
+      // @note! 运行时才知道是不是空，编译器一句话都不说
+      // @note 这是 Rust 的 Option 要解决的问题：把"可能没有"写进类型
+  - featureId: js2rust/types-exercise
+    equivalence: identical
+    code: |
+      function summarize(orders) {
+        if (orders.length === 0) return null;        // @note! 用 null 表示"没有结果"
+        const total = orders.reduce((acc, o) => acc + o.price * o.qty, 0);
+        const avg = total / orders.length;           // @note 天然浮点除法
+        return Number(avg.toFixed(2));
+      }
+
+      // @note! 回到 null 与返回数字是同一个类型的两种取值，调用方很容易忘记判空
+      // @note 大额订单超过 2^53 时会静默丢精度

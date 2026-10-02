@@ -1,0 +1,107 @@
+# rust —— js2rust 迁移教程的实现
+# 上下文：片段默认可放在模块顶层（Rust 有顶层函数）。⚠️ 本机无 Rust 工具链，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2rust
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2rust/errors-intro
+    equivalence: divergent
+    code: |
+      fn parse(s: &str) -> Result<i32, std::num::ParseIntError> { s.parse() }
+      // @note! "会失败"写在返回类型上 —— 调用方忘了处理就编译不过
+
+      match parse("42") {
+          Ok(n) => println!("{n}"),
+          Err(e) => println!("出错了：{e}"),
+      }
+
+      // @note! 两条路：可恢复的失败用 Result（是返回值，不是控制流）；
+      // 不可恢复的用 panic!（用于"程序有 bug"，不是正常错误处理）
+  - featureId: js2rust/exception-model
+    equivalence: divergent
+    code: |
+      match s.parse::<i32>() {
+          Ok(n) => Ok(n * 2),
+          Err(_) => Ok(default_value),
+      }
+      // @note! Result 是返回值，没有"跳过后面所有代码"的能力 —— 每一步都要显式接住
+
+      fn double(s: &str) -> Result<i32, std::num::ParseIntError> {
+          let n = s.parse::<i32>()?;             // @note! ? 等价于"出错就提前 return Err"
+          Ok(n * 2)
+      }
+      // @note! ? 只能用在返回 Result / Option 的函数里 —— 所以函数签名会诚实地跟着改
+
+      // r.unwrap_or(0) / r.expect("必须有值") / r.ok()
+      // @note! unwrap() 是断言"我确定不会失败"，生产路径上要克制
+  - featureId: js2rust/error-propagation
+    equivalence: divergent
+    code: |
+      fn load(path: &str) -> Result<Config, ConfigError> {
+          let text = std::fs::read_to_string(path)?;   // @note! 出错就提前返回
+          let cfg: Config = toml::from_str(&text)?;
+          Ok(cfg)
+      }
+
+      // @note! 调用链上每层可能返回不同的错误类型，? 要求 Err 能转换过去。三种解法：
+      // 1. Box<dyn Error> —— 原型最快，丢类型信息
+      enum ConfigError { Io(std::io::Error), Parse(toml::Error) }   // 2. 自定义 enum + From
+      impl From<std::io::Error> for ConfigError {
+          fn from(e: std::io::Error) -> Self { ConfigError::Io(e) }
+      }
+      // 3. thiserror（库）/ anyhow（应用）—— 实践里最常见
+
+      // @note! 没有 throw：只有"返回 Err"。错误类型是签名的一部分，调用方 match 就能穷尽处理
+      // @note 代价是每加一种错误都要改签名 —— 这正是"显式"的另一面
+  - featureId: js2rust/resource-cleanup
+    equivalence: divergent
+    code: |
+      {
+          let f = std::fs::File::open(path)?;
+          // 用 f
+      }   // @note! 作用域结束，f 自动关闭 —— try/finally 整块消失
+
+      // @note 机制是 Drop：值离开作用域时编译器自动插入析构调用。
+      // 提前 return、? 传播都不会漏掉释放 —— **没有"忘记释放"这个失败模式**
+
+      impl Drop for MyGuard {                  // @note 需要手写清理逻辑时实现它
+          fn drop(&mut self) { /* 清理 */ }
+      }
+      drop(value);                             // @note! Drop 不能被显式调用，用 drop() 提前释放
+  - featureId: js2rust/errors-exercise
+    equivalence: analogous
+    code: |
+      enum ConfigError {
+          NotFound,                            // @note! 两种失败用 enum 区分，不是靠 e.code
+          Parse(String),
+          Io(std::io::Error),
+      }
+
+      fn load_config(path: &str, retries: u32) -> Result<Config, ConfigError> {
+          let mut last = None;
+          for i in 0..retries {
+              match std::fs::read_to_string(path) {
+                  Ok(text) => return toml::from_str(&text).map_err(|e| ConfigError::Parse(e.to_string())),
+                  Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                      return Err(ConfigError::NotFound);      // @note 不可重试：直接返回
+                  }
+                  Err(e) => {
+                      last = Some(ConfigError::Io(e));
+                      std::thread::sleep(std::time::Duration::from_millis(100 << i));
+                  }
+              }
+          }
+          Err(last.unwrap_or(ConfigError::Parse("重试耗尽".into())))
+      }
+
+      // @note! 这里不能用 ? —— 它会**提前返回**，而循环需要继续重试。
+      // 这是 JS 的 try/catch 与 Rust 的 ? 最容易混淆的一点：
+      // catch 拦下来还能继续执行，? 一旦出错函数就结束了
+      // @note 第 3 问：文件句柄在 read_to_string 内部就打开了、在同一次调用里就关闭了 ——
+      // 作用域结束即释放，不需要任何显式代码

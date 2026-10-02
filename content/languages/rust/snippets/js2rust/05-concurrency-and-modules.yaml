@@ -1,0 +1,93 @@
+# rust —— js2rust 迁移教程的实现
+# 上下文：片段默认可放在模块顶层（Rust 有顶层函数）。⚠️ 本机无 Rust 工具链，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2rust
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2rust/concurrency-intro
+    equivalence: divergent
+    code: |
+      use std::sync::{Arc, Mutex};
+
+      let counter = Arc::new(Mutex::new(0));       // @note! 原子引用计数 + 互斥锁，两层都要写
+      let c = Arc::clone(&counter);
+      std::thread::spawn(move || { *c.lock().unwrap() += 1; });
+
+      // @note! 忘了加锁是**编译不过**的 —— Send / Sync 由编译器自动推导并检查
+      // @note Rc<T>（非原子引用计数）不是 Send，拿到别的线程会编译错误，
+      // 而不是静默的数据竞争 —— 这正是 Rust 相对 Java 最大的不同
+  - featureId: js2rust/async-model
+    equivalence: divergent
+    code: |
+      async fn fetch_all(urls: &[String]) -> Vec<String> {
+          let futures: Vec<_> = urls.iter().map(|u| fetch(u)).collect();
+          futures::future::join_all(futures).await   // @note 对应 Promise.all
+      }
+
+      #[tokio::main]                               // @note! 运行时是库，要自己选
+      async fn main() { }
+
+      // @note! async 只是把函数编译成状态机，"谁来驱动它"是另一件事 ——
+      // JS 里事件循环由运行时托管，从不选择
+      // @note! 跨 .await 持有的类型必须 Send，否则编译错误 ——
+      // 这是 JS 里完全没有的一类问题，也是新手最常见的异步编译错误
+  - featureId: js2rust/module-system
+    equivalence: divergent
+    code: |
+      mod utils;                     // @note 两个层级：文件内 mod + 包级 crate
+      use utils::helper;             // @note use 只把名字带进作用域，不执行代码
+
+      pub fn helper() { }            // @note! 默认私有，加 pub 才对模块外可见
+      pub(crate) fn internal() { }
+
+      // @note! 与 JS 相反：JS 里模块内定义的东西默认可导出
+      // @note 路径用 :: ，起点有 crate:: / super:: / self:: 三种；
+      // JS 的 ./utils 对应 super:: 或 crate::
+      // @note 没有 default export
+  - featureId: js2rust/package-manager
+    equivalence: analogous
+    code: |
+      // Cargo.toml
+      // [dependencies]
+      // serde = { version = "1", features = ["derive"] }
+      // tokio = { version = "1", features = ["full"] }
+
+      cargo build;      // @note 会自动拉依赖
+      cargo test;
+      cargo fmt;        // @note! 格式化、lint、文档都是官方子命令
+      cargo clippy;
+      cargo doc;
+      cargo publish;
+
+      // @note! 不需要"选工具链"：每个环节都是 cargo 的子命令，一个答案
+      // @note feature 开关是这边的特色：依赖可以按需开启功能子集
+      // @note clippy 能查出"能编译但写法不地道"的代码，对刚迁过来的人尤其有用
+  - featureId: js2rust/concurrency-exercise
+    equivalence: analogous
+    code: |
+      use std::collections::HashMap;
+      use std::sync::{Arc, Mutex};
+
+      fn get(cache: &Arc<Mutex<HashMap<i32, i32>>>, k: i32) -> i32 {
+          let mut guard = cache.lock().unwrap();   // @note! 不加锁根本不编译
+          *guard.entry(k).or_insert_with(|| compute(k))
+          // @note! 三问的答案：
+          // 1. 需要，而且**编译器会拦你** —— 这是与 Java 最大的不同：
+          //    那边 synchronized 是可选的自律，这边是强制的
+          // 2. 只用 Arc<HashMap> 不加 Mutex：编译错误（HashMap 不是 Sync），
+          //    不是运行时出错 —— 问题在编译期就没了
+          // 3. 读多写少用 RwLock（多个读者可并发），读写相当用 Mutex（更简单、开销更小）
+      }
+
+      fn compute(k: i32) -> i32 { k * 2 }
+
+      // @note! MutexGuard 是 RAII 的：作用域结束自动解锁 ——
+      // 与「资源释放」那一章是同一套机制，不需要手写 unlock
+      // @note 注意 compute(k) 在持有锁时被调用：锁的作用域越短越好，
+      // 计算耗时长的话应该先算好再进临界区
