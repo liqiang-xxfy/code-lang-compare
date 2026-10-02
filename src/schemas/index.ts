@@ -933,8 +933,13 @@ export const languageContentFileSchema = z
  *
  * ```
  * 说明 = (lang === 当前基准) ? baselineHtml : vsHtml?.[当前基准]
- * 徽章 = (lang === 当前基准) ? 不渲染        : (equivalence?.[当前基准] ?? 'identical')
+ * 徽章 = absent                              → ∅（整格「本语言无此概念」）
+ *      : (lang === 当前基准)                  → 不渲染（自指、零信息量）
+ *      : (equivalence?.[当前基准] ?? 'identical')
  * ```
+ *
+ * `absent` 必须**短路**掉 `equivalence` 的缺省值：缺 key 默认 `identical`，
+ * 于是「本语言无此概念」的格子会顶着一枚 `=` —— 那是错的。
  *
  * 切基准时是同一份数据的**重新取用**，不是重新加载。
  */

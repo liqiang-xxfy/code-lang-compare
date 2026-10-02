@@ -9,7 +9,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import yaml from 'js-yaml'
 import {
+  catalogSchema,
   chapterSchema,
+  languageContentFileSchema,
   languageMetaSchema,
   registrySchema,
   scopedGlossarySchema,
@@ -17,6 +19,8 @@ import {
   scopedRoadmapStageSchema,
   snippetFileSchema,
   type Annotation,
+  type BoxSource,
+  type Catalog,
   type Chapter,
   type LanguageMeta,
   type Registry,
@@ -363,4 +367,220 @@ export function isSafeUrl(u: string): boolean {
   } catch {
     return false
   }
+}
+
+/* ────────────────────────── v2 内容装载（只新增） ──────────────────────────
+ *
+ * 目标形态见 docs/对比内容架构.md。下面这些函数只服务 v2 管线（S4 起接入），
+ * 上面的 loadChapters / loadSnippetFiles / loadPairLists 原样保留 —— 增量期
+ * 两条管线并存，互不影响。
+ *
+ * 「增量期可构建」成立的前提：旧 loader 只读 content/registry.yaml、
+ * languages/<id>/meta.yaml、languages/<id>/snippets{,.yaml}/**、topics/<topicId>/*.yaml、
+ * i18n/zh-CN.yaml，**没有任何对 content/ 的递归扫描**。因此下面这三个新目录
+ * （catalog/、pairs/、languages/<id>/<板块>/）对旧管线完全不可见。
+ */
+
+export const CATALOG_DIR = path.join(CONTENT_DIR, 'catalog')
+export const PAIRS_DIR = path.join(CONTENT_DIR, 'pairs')
+
+/** 装载期发现的问题。是 error 还是 warn 由分析期判，这里只如实上报。 */
+export interface LoadIssue {
+  /** 相对仓库根的路径，用于错误定位 */
+  where: string
+  message: string
+}
+
+/** 清单：`content/catalog/<板块>.yaml` */
+export function loadCatalog(): { catalogs: Catalog[]; issues: LoadIssue[] } {
+  const catalogs: Catalog[] = []
+  const issues: LoadIssue[] = []
+  for (const file of listFiles(CATALOG_DIR)) {
+    const rel = path.relative(ROOT, file)
+    const parsed = catalogSchema.safeParse(readYaml(file))
+    if (!parsed.success) {
+      throw new Error(
+        `清单解析失败：${rel}\n${parsed.error.issues
+          .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+          .join('\n')}`,
+      )
+    }
+    // 文件名即板块 id。与 section 字段不一致时上报而不抛 —— 交给 R20 判级
+    const fileSection = path.basename(file, '.yaml')
+    if (fileSection !== parsed.data.section) {
+      issues.push({
+        where: rel,
+        message: `文件名「${fileSection}」与 section 字段「${parsed.data.section}」不一致`,
+      })
+    }
+    catalogs.push(parsed.data)
+  }
+  return { catalogs, issues }
+}
+
+/** 一门语言在一个章节下的内容文件 */
+export interface LanguageChapterContent {
+  /** 相对仓库根的路径，用于错误定位 */
+  file: string
+  lang: string
+  section: string
+  /** 章节 id = 文件名（去扩展名） */
+  chapter: string
+  /** key = 清单里该章的 feature id，`review` 已补齐为必填 */
+  boxes: Record<string, BoxSource>
+}
+
+function readLanguageChapterFile(
+  langId: string,
+  section: string,
+  chapterId: string,
+  file: string,
+): LanguageChapterContent {
+  const rel = path.relative(ROOT, file)
+  const parsed = languageContentFileSchema.safeParse(readYaml(file))
+  if (!parsed.success) {
+    throw new Error(
+      `语言内容解析失败：${rel}\n${parsed.error.issues
+        .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+        .join('\n')}`,
+    )
+  }
+  const boxes: Record<string, BoxSource> = {}
+  for (const [featureId, entry] of Object.entries(parsed.data.boxes)) {
+    // 条目级 review 覆盖文件级默认 —— 与旧 snippetFileSchema 同一手法
+    const review = entry.review ?? parsed.data.review
+    if (!review) {
+      throw new Error(`${rel}：「${featureId}」既没有条目级 review，文件级也没有默认 review`)
+    }
+    boxes[featureId] = { ...entry, review }
+  }
+  return { file: rel, lang: langId, section, chapter: chapterId, boxes }
+}
+
+/**
+ * 装载一门语言的内容。
+ *
+ * **由清单驱动**：遍历 catalog 里声明的每个 (板块, 章节) 去找对应文件，而不是扫目录。
+ * 两个好处：语言文件不会自己长出清单里没有的章节；也保证不会误扫到旧的
+ * `snippets/` 布局。
+ *
+ * 文件不存在就跳过 —— 「清单里有、内容缺失」由分析期判（迁移期是 warn：
+ * 补完前把构建变红，会把「还没写完」和「写错了」混成同一个信号）。
+ */
+export function loadLanguageContent(
+  langId: string,
+  catalogs: readonly Catalog[],
+  options: { includePrivate?: boolean } = {},
+): LanguageChapterContent[] {
+  if (!options.includePrivate && isPrivateLanguageDir(langId)) return []
+  const out: LanguageChapterContent[] = []
+  for (const catalog of catalogs) {
+    for (const chapter of catalog.chapters) {
+      const file = path.join(LANGUAGES_DIR, langId, catalog.section, `${chapter.id}.yaml`)
+      if (!exists(file)) continue
+      out.push(readLanguageChapterFile(langId, catalog.section, chapter.id, file))
+    }
+  }
+  return out
+}
+
+/**
+ * 列出语言目录里**实际存在**的内容文件，不做清单驱动。
+ *
+ * 用途单一：供分析期检测「有文件但没在清单里登记」（拼错的板块目录 / 章节名）。
+ * 必须显式跳过旧的 `snippets/` 布局与 `_` 前缀目录 —— 否则会把旧内容整批报成孤儿。
+ */
+export function listLanguageContentFiles(
+  langId: string,
+): Array<{ file: string; section: string; chapter: string }> {
+  const dir = path.join(LANGUAGES_DIR, langId)
+  const out: Array<{ file: string; section: string; chapter: string }> = []
+  for (const section of listDirs(dir)) {
+    if (isPrivateLanguageDir(section) || section === 'snippets') continue
+    for (const file of listFiles(path.join(dir, section))) {
+      out.push({
+        file: path.relative(ROOT, file),
+        section,
+        chapter: path.basename(file, '.yaml'),
+      })
+    }
+  }
+  return out
+}
+
+/** 一个方向（`content/pairs/<基准>2<目标>/`）下的三份列表资源 */
+export interface PairListsV2 {
+  /** 相对仓库根的路径 */
+  dir: string
+  baseline: string
+  target: string
+  pitfalls: ScopedPitfall[]
+  glossary: ScopedGlossary[]
+  roadmaps: ScopedRoadmapStage[]
+}
+
+/**
+ * 把一个 `pairs/` 下的目录名拆成 (基准, 目标)。
+ *
+ * **不能简单 split('2')** —— 语言 id 允许含数字，出现含 `2` 的 id 时，
+ * 简单切分会把内容静默挂到错误的方向上。做法是在每个 `2` 位置各试切一次，
+ * 只保留「前后两半都是已知语言 id」的那种；不是恰好一种就判为无法解析。
+ */
+function parsePairDirName(
+  name: string,
+  knownLanguageIds: readonly string[],
+): { baseline: string; target: string } | null {
+  const known = new Set(knownLanguageIds)
+  const hits: Array<{ baseline: string; target: string }> = []
+  for (let i = 1; i < name.length - 1; i++) {
+    if (name[i] !== '2') continue
+    const baseline = name.slice(0, i)
+    const target = name.slice(i + 1)
+    if (known.has(baseline) && known.has(target)) hits.push({ baseline, target })
+  }
+  return hits.length === 1 ? hits[0] : null
+}
+
+/**
+ * 装载全部方向性内容（`content/pairs/`）—— 速查三兄弟是唯一保留方向性的内容，
+ * 它们的主语本就是方向，塞不进任何单个语言目录。
+ *
+ * 归属**由目录名反查得到**，不写进每条 YAML（沿用旧决策）：同一条陷阱可能在多个
+ * 方向上成立，逐条写 pair 字段会立刻产生多份各自漂移的副本。
+ *
+ * 结构沿用旧契约（顶层数组），因此三个 scoped schema 直接复用。
+ */
+export function loadPairListsV2(
+  knownLanguageIds: readonly string[] = listLanguageIds(),
+): { pairs: PairListsV2[]; issues: LoadIssue[] } {
+  const pairs: PairListsV2[] = []
+  const issues: LoadIssue[] = []
+  for (const name of listDirs(PAIRS_DIR)) {
+    if (isPrivateLanguageDir(name)) continue
+    const dir = path.join(PAIRS_DIR, name)
+    const rel = path.relative(ROOT, dir)
+    const parsed = parsePairDirName(name, knownLanguageIds)
+    if (!parsed) {
+      issues.push({
+        where: rel,
+        message: '目录名无法拆成「基准 2 目标」—— 要求前后两半都是已知语言 id，且只有一种拆法',
+      })
+      continue
+    }
+    const ctx = { baseline: parsed.baseline, target: parsed.target }
+    pairs.push({
+      dir: rel,
+      ...ctx,
+      pitfalls: loadArray(path.join(dir, 'pitfalls.yaml')).map((x) =>
+        scopedPitfallSchema.parse({ ...(x as object), ...ctx }),
+      ),
+      glossary: loadArray(path.join(dir, 'glossary.yaml')).map((x) =>
+        scopedGlossarySchema.parse({ ...(x as object), ...ctx }),
+      ),
+      roadmaps: loadArray(path.join(dir, 'roadmap.yaml'))
+        .map((x) => scopedRoadmapStageSchema.parse({ ...(x as object), ...ctx }))
+        .sort((a, b) => a.order - b.order),
+    })
+  }
+  return { pairs: pairs.sort((a, b) => a.dir.localeCompare(b.dir)), issues }
 }
