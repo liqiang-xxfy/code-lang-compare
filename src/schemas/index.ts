@@ -761,3 +761,246 @@ export interface Issue {
   where: string
   message: string
 }
+
+/* ────────────────────────── v2 内容架构契约（只追加） ──────────────────────────
+ *
+ * 目标形态见 docs/对比内容架构.md。以下**全部是新增定义**，不改动上方任何旧
+ * schema / 接口 —— 迁移的增量期里旧管线与旧测试必须继续跑绿。
+ *
+ * 与旧模型的三处根本差别：
+ *   1. 内容是「一门语言相对于当前基准的差异」，所以第 ③ 槽（说明）按角色分成两套：
+ *      `baseline`（这门语言作基准列时）与 `vs.<基准 id>`（作对比列时）
+ *   2. 清单与内容分离：顺序与标题在 catalog，写法在语言文件
+ *   3. 组织单位是语言，不是 (基准, 目标) 方向
+ */
+
+/**
+ * 全局 feature id —— `<section>/<chapter>/<feature>` 三段。
+ *
+ * catalog 里的 feature id 只保证**章内唯一**，但四处需要全局唯一键：
+ * `featureIndex`、`refFeatureId` 软引用、搜索文档的 id / url、详情页的路由参数。
+ * 这四处必须拼同一套，否则详情页 404 或锚点错位，而且**不报错**。
+ */
+export const globalFeatureIdSchema = z
+  .string()
+  .regex(
+    /^[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+$/,
+    '全局 feature id 形如 <section>/<chapter>/<feature>',
+  )
+
+/** kebab-case 标识 —— 章节 id 与章内 feature id 共用 */
+export const kebabIdSchema = z
+  .string()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, '必须是小写 kebab-case 标识')
+
+/* ── 清单（catalog/<板块>.yaml） ── */
+
+export const catalogFeatureSchema = z
+  .object({
+    /** 章内唯一。全局 id 由 `<section>/<chapter>/<feature>` 拼出 */
+    id: kebabIdSchema,
+    title: z.string().min(1),
+    kind: featureKindSchema,
+    /** 一句话说明（纯文本，用于列表与 SEO description） */
+    summary: z.string().optional(),
+    /** 软引用：写**全局** id，可跨章（其存在性由分析期校验） */
+    refFeatureId: globalFeatureIdSchema.optional(),
+    tags: z.array(z.string()).default([]),
+  })
+  .strict()
+
+export const catalogChapterSchema = z
+  .object({
+    /** 章节 id = `languages/<语言>/<板块>/<章节>.yaml` 的文件名（去扩展名） */
+    id: kebabIdSchema,
+    title: z.string().min(1),
+    summary: z.string().optional(),
+    /** 数组顺序即行顺序 —— 没有 order 字段，顺序的唯一真源在这里 */
+    features: z.array(catalogFeatureSchema).min(1),
+  })
+  .strict()
+
+/**
+ * 一个板块的清单 —— 回答「我们要对比哪些点」，不回答「某门语言怎么讲」。
+ * 因此它与语言无关，也不含 target 之类的方向概念。
+ */
+export const catalogSchema = z
+  .object({
+    section: sectionSchema,
+    title: z.string().min(1),
+    /** 数组顺序即章节顺序 */
+    chapters: z.array(catalogChapterSchema).min(1),
+  })
+  .strict()
+
+/* ── 内容（languages/<语言>/<板块>/<章节>.yaml） ── */
+
+/**
+ * 一个「对比框」—— 一个 feature × 一门语言 = 矩阵里的一格（docs/对比内容架构.md §2.1）。
+ *
+ * 三个槽位：
+ *   ① 代码    `code` / `blocks` 二选一，外加 `output`
+ *   ② 注释    代码内联的 `@note` —— 不是字段，它就在 `code` 里
+ *   ③ 说明    **按角色分两套**：`baseline`（作基准列）/ `vs.<基准 id>`（作对比列）
+ *
+ * 三槽全空是合法的，但必须 `absent: true` —— 否则与「忘了写」无法区分。
+ * 反向的规则（基准候选必须有 `baseline`、每个基准都要有 `vs`）由分析期管，
+ * 且迁移期是 warn：内容补齐前把构建变红，会把「还没写完」和「写错了」混成一个信号。
+ */
+const boxBase = z
+  .object({
+    /** 单段代码。与 `blocks` 二选一，可含内联 @note 标记 */
+    code: z.string().default(''),
+    /** 多段对照代码（多段是增量，不是替换 —— 单段继续写 `code`） */
+    blocks: z.array(snippetBlockSchema).optional(),
+    /** 手写运行结果（无 runner，需与代码同等校对） */
+    output: z.string().optional(),
+    /** ③-a 本语言作**基准列**时的基础描述：这门语言自己是什么 */
+    baseline: z.string().optional(),
+    /** ③-b 本语言作**对比列**时的差异解释，key = 当前基准 id */
+    vs: z.record(z.string(), z.string()).default({}),
+    /** 等价性，key = 当前基准 id；缺 key = identical。基准列不渲染徽章 */
+    equivalence: z.record(z.string(), equivalenceSchema).default({}),
+    /**
+     * 「本语言无此概念」的**结构性**声明，区别于「还没写」。
+     *
+     * 与 `equivalence` 里语义性的 `absent` 不是一回事：可以同时有 `code`
+     * （表示「没有等价语法，这是惯用替代写法」），此时必须有说明。
+     */
+    absent: z.boolean().default(false),
+  })
+  .strict()
+
+/**
+ * 对比框的校验。
+ *
+ * 旧 R16 有两条断言 —— `code` 与 `blocks` **至多一个**、**至少一个**。
+ * 「至多一个」原样保留；「至少一个」**必须删除**：`absent: true` 的格子天然
+ * 可以没有代码（「本语言没有变量提升」），强制「至少一个」会让最典型的
+ * absent 形态解析失败。它的职责改由分析期的「疑似漏写 / absent 需说明」承担。
+ */
+function refineBox(v: { code: string; blocks?: Array<{ label: string }> }, ctx: z.RefinementCtx): void {
+  if (v.code.trim().length > 0 && (v.blocks?.length ?? 0) > 0) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['blocks'],
+      message: 'code 与 blocks 不能并存 —— 单段写 code、多段写 blocks，二选一',
+    })
+  }
+  for (const [i, b] of (v.blocks ?? []).entries()) {
+    if (!b.label.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['blocks', i, 'label'],
+        message: '多段的每一段都必须有非空 label —— 否则并排视图无法逐段对齐',
+      })
+    }
+  }
+}
+
+/** 对比框（`review` 必填）—— 下游消费的形态 */
+export const boxSchema = boxBase.extend({ review: reviewRecordSchema }).superRefine(refineBox)
+
+/** 对比框条目（`review` 可省略，继承文件级默认）—— 语言内容文件里写的是它 */
+export const boxEntrySchema = boxBase
+  .extend({ review: reviewRecordSchema.optional() })
+  .superRefine(refineBox)
+
+/**
+ * 一门语言在一个板块下的一章内容。
+ *
+ * 顶层**不写** language / section / chapter —— 全部由路径派生
+ * （docs/对比内容架构.md §3 约定 2）。`.strict()` 让「重复声明」直接报错，
+ * 而不是被静默忽略。
+ */
+export const languageContentFileSchema = z
+  .object({
+    /** 文件级默认 review，box 级可用自己的覆盖 */
+    review: reviewRecordSchema.optional(),
+    /** key = catalog 里该章的 feature id */
+    boxes: z.record(z.string(), boxEntrySchema),
+  })
+  .strict()
+
+/* ── v2 构建产物形态（S5 起产出、S6 起消费；此处只定死形状） ── */
+
+/**
+ * 一格（一个 feature × 一门语言）的构建期产物。
+ *
+ * **关键**：第 ① 槽（`code` / `html` / `blocks` / `notes`）是这门语言自己的写法，
+ * 与读者当前的基准无关；只有第 ③ 槽随基准变。构建期不知道用户会选哪个基准，
+ * 所以两套说明**都预渲染出来**，运行期按当前基准取用：
+ *
+ * ```
+ * 说明 = (lang === 当前基准) ? baselineHtml : vsHtml?.[当前基准]
+ * 徽章 = (lang === 当前基准) ? 不渲染        : (equivalence?.[当前基准] ?? 'identical')
+ * ```
+ *
+ * 切基准时是同一份数据的**重新取用**，不是重新加载。
+ */
+export interface RenderedBox {
+  lang: string
+  /** 原始代码（已剥离 @note / @note! 标记），供复制。高危注记带 `⚠` 前缀，会一并复制 */
+  code: string
+  /**
+   * 多段对照代码；单段内容没有这个字段。
+   * 有它时顶层的 code / html / lineCount 是**各段拼接**的结果。
+   */
+  blocks?: RenderedBlock[]
+  /** Shiki 预高亮 HTML。css-variables 主题下明暗共用一份 */
+  html: string
+  /** 仅当 css-variables 主题不可用时才存在（ADR-04 降级路径） */
+  htmlDark?: string
+  lineCount: number
+  /** 注记的结构化副本 —— 说明已内联在 `code` 里，页面不单独渲染它 */
+  notes: Annotation[]
+  output?: string
+  /** ③-a 本语言作**基准列**时显示的说明 */
+  baselineHtml?: string
+  /** ③-b 本语言作**对比列**、当前基准为 key 时显示的说明 */
+  vsHtml?: Record<string, string>
+  /** 按基准的等价性；缺 key = identical。基准列不渲染徽章（自指、零信息量） */
+  equivalence: Record<string, Equivalence>
+  /** 「本语言无此概念」的显式声明 */
+  absent: boolean
+  reviewState: ReviewRecord['state']
+  provenanceOrigin: Provenance['origin']
+}
+
+/**
+ * 一个 (语言, 板块, 章节) 分片 —— 分片键 `<语言>/<板块>/<章节>`，
+ * 与 `languages/<语言>/<板块>/<章节>.yaml` 一一对应。
+ *
+ * **它只装一门语言** —— 取代了旧 `RenderedChapter` 的「一章装所有语言」形态。
+ * 一个章节页要渲染 N 列，就按可见语言各加载一份分片。
+ */
+export interface RenderedBoxChapter {
+  lang: string
+  section: Section
+  chapter: string
+  /** key = catalog 里该章的 feature id */
+  boxes: Record<string, RenderedBox>
+}
+
+/** 清单产物 `src/generated/catalog.json` —— 与语言无关、小、可 eager import */
+export interface RenderedCatalog {
+  generatedAt: string
+  catalogs: Catalog[]
+  /** key = 全局 feature id `<section>/<chapter>/<feature>` */
+  featureIndex: Record<
+    string,
+    { title: string; section: Section; chapter: string; kind: FeatureKind }
+  >
+}
+
+/* ── v2 派生类型 ── */
+
+export type GlobalFeatureId = z.infer<typeof globalFeatureIdSchema>
+export type CatalogFeature = z.infer<typeof catalogFeatureSchema>
+export type CatalogChapter = z.infer<typeof catalogChapterSchema>
+export type Catalog = z.infer<typeof catalogSchema>
+/** 对比框，`review` 已必填（下游消费用） */
+export type BoxSource = z.infer<typeof boxSchema>
+/** 对比框条目，`review` 可省略（语言内容文件里写的形态） */
+export type BoxEntry = z.infer<typeof boxEntrySchema>
+export type LanguageContentFile = z.infer<typeof languageContentFileSchema>
