@@ -1,0 +1,92 @@
+# java —— js2java/04-errors-and-resources 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），Java 是被对照的那一门。
+topic: js2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2java/errors-intro
+    equivalence: divergent
+    code: |
+      void load() throws java.io.IOException {     // @note! 受检异常：必须声明，或当场捕获
+          java.nio.file.Files.readString(java.nio.file.Path.of("a.txt"));
+      }
+
+      void parse(String s) {
+          if (s.isEmpty()) throw new IllegalArgumentException("空输入");   // @note 非受检：不用声明
+      }
+
+      // @note! 一得一失：catch 能按类型分支了，但"会抛什么"要写进签名并传染调用方
+      // @note 常见处置是在边界转成非受检：catch (IOException e) { throw new UncheckedIOException(e); }
+  - featureId: js2java/exception-model
+    equivalence: divergent
+    code: |
+      try {
+          risky();
+      } catch (java.text.ParseException | java.lang.IllegalStateException e) {   // @note! 多重捕获
+          fallback();
+      } catch (RuntimeException e) {
+          throw e;                                 // 重新抛出
+      } finally {
+          cleanup();
+      }
+
+      // @note! catch 必须写类型，不能写 catch (e)；分类从函数体移到了子句上
+      // @note! 没有 else 子句：要"只捕获可能抛的那一句"，只能缩小 try 块的范围
+      // @note catch (Exception e) 会同时接住受检与非受检；Error 那一系不该捕获
+      // @note! finally 里 return 会吞掉异常 —— 这一点与 JS 一致
+  - featureId: js2java/error-propagation
+    equivalence: divergent
+    code: |
+      // throw "出错了";                          // @note! 编译错误：只能抛 Throwable 的子类
+      throw new IllegalArgumentException("坏参数");
+
+      class ConfigError extends RuntimeException {          // @note 非受检：签名干净
+          ConfigError(String msg, Throwable cause) { super(msg, cause); }   // @note 因果链
+      }
+      class TransientError extends Exception { }            // @note 受检：逼调用方处理
+
+      // @note 判据是"调用方有没有可能恢复"：
+      //   能重试/换路径 → 受检；只能改代码 → 非受检；底层异常穿过自己的 API → 包装成非受检
+      // @note! 自定义异常从 RuntimeException 继承更省事 —— 受检类型会一路污染签名
+  - featureId: js2java/resource-cleanup
+    equivalence: divergent
+    code: |
+      try (var in = java.nio.file.Files.newInputStream(path)) {   // @note! try/finally 换成了这个
+          in.readAllBytes();
+      }
+
+      try (var a = openA(); var b = openB()) { }   // @note 多个资源一行搞定，倒序关闭
+
+      // @note 与手写 finally 一样，都解决了"close 抛异常会吞掉原始异常"的问题
+      // @note! 只对实现了 AutoCloseable 的类型有效；第三方类没实现就只能退回手写
+  - featureId: js2java/errors-exercise
+    equivalence: analogous
+    code: |
+      class ConfigError extends RuntimeException {          // @note! 选非受检，避免污染调用方签名
+          ConfigError(String msg, Throwable cause) { super(msg, cause); }
+      }
+
+      static String loadConfig(String path, int retries) {
+          RuntimeException last = null;
+          for (int i = 0; i < retries; i++) {
+              try (var in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(path))) {
+                  return parseJson(new String(in.readAllBytes(),
+                          java.nio.charset.StandardCharsets.UTF_8));
+              } catch (java.nio.file.NoSuchFileException e) {
+                  throw new ConfigError("找不到配置：" + path, e);   // @note 不可重试：直接抛
+              } catch (java.io.IOException | RuntimeException e) {
+                  last = new ConfigError("读失败", e);
+                  sleep(100L << i);                                  // @note 退避
+              }
+          }
+          throw new ConfigError("重试 " + retries + " 次仍失败", last);
+      }
+
+      // @note! 签名上没有 throws —— 这正是选非受检的理由；
+      // 代价是编译器不再提醒调用方这里可能失败

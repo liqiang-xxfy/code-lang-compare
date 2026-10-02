@@ -1,0 +1,168 @@
+id: js2java/04-errors-and-resources
+topicId: js2java
+title: 4. 错误处理与资源管理
+order: 4
+summary: 从 JavaScript 到 Java：catch 能分类了，但多出来一层"必须声明"的负担
+
+features:
+  - id: js2java/errors-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 一得一失：捕获更清楚，但受检异常会污染签名
+    body: |
+      从 JS 到 Java，异常这一层是**一得一失**。
+
+      **得的**：`catch` 可以按类型分支，不必在体内 `instanceof`：
+      JS 里"一个 catch 接住所有东西、然后自己分类"的写法，
+      到这里变成 `catch (IOException e)` / `catch (ParseException e)` 两个子句。
+
+      **失的**：**受检异常**。JS 里"一个函数会不会抛"完全是运行时的事，
+      这里却写进了类型系统 —— 可能抛受检异常的方法必须在签名里 `throws` 声明，
+      调用方不处理就编译不过。
+
+      第一次遇到会觉得很安全（编译器逼你面对失败），
+      改到第三次就会发现负担：**一个小改动会沿着调用链一路污染签名**。
+
+      实践里的常见处置是在边界处把它转成非受检异常：
+
+      ```java
+      try { ... } catch (IOException e) { throw new UncheckedIOException(e); }
+      ```
+
+      本章按「捕获 → 抛出 → 资源」排。整体上这章是**负担多于收益**的一章 ——
+      但受检异常是好是坏在 Java 社区里本身就有争论，先按现状适应。
+
+  - id: js2java/exception-model
+    title: 捕获结构：能按类型分支，但没有 else
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 一个 catch 接多种类型，且必须写出异常类型
+    body: |
+      ```js
+      try { risky() }
+      catch (e) {
+        if (e instanceof RangeError) { fallback() }
+        else throw e
+      }
+      finally { cleanup() }
+      ```
+
+      ```java
+      try {
+          risky();
+      } catch (RangeException | ParseException e) {   // 一个子句接多种类型
+          fallback();
+      } finally {
+          cleanup();
+      }
+      ```
+
+      **分类从函数体移到了子句上** —— 这是净收益：读的人一眼能看出
+      这个 try 打算处理哪几类失败。
+
+      两处与 JS 不同：
+
+      1. **`catch` 必须写类型**，不能像 JS 那样写 `catch (e)`。
+         想兜底就写 `catch (Exception e)` —— 注意它会**同时接住受检与非受检**。
+         顶层还有 `Error`（`OutOfMemoryError` 之类）不该捕获。
+      2. **没有 `else` 子句**。JS 也没有，所以这一条不算变化；
+         要"只捕获可能抛的那一句、其余逻辑放外面"，靠缩小 try 块的范围。
+
+      另有一条 JS 里没有的坑：**`finally` 里 `return` 会吞掉异常**。
+      JS 里同样如此，但那边较少在 finally 里写 return；
+      这里如果写了，异常会被静默丢弃，只返回 finally 的值。
+
+  - id: js2java/error-propagation
+    title: 抛出与受检异常
+    kind: behavior
+    refFeatureId: basics-javascript/error-propagation
+    summary: 只能抛 Throwable，而且"要声明"这件事会传染
+    body: |
+      **只能抛 `Throwable` 的子类**：
+
+      ```java
+      throw "出错了";              // 编译错误 —— JS 里这是合法的
+      throw new IllegalArgumentException("坏参数");
+      ```
+
+      这条收紧是净收益：`catch (Exception e)` 之后拿到的一定是异常对象，
+      不必先判 `e instanceof Error`。
+
+      真正需要适应的是**受检异常**：
+
+      ```java
+      void load() throws IOException {
+          Files.readString(Path.of("a.txt"));     // 不声明就编译不过
+      }
+      ```
+
+      **关于它的实践判据**是"调用方有没有可能恢复"：
+
+      | 情形 | 选哪种 |
+      | --- | --- |
+      | 文件不存在、网络超时，调用方能重试或换路径 | 受检（`Exception` 系） |
+      | 参数非法、状态错误，调用方只能改代码 | 非受检（`RuntimeException` 系） |
+      | 底层库的异常要穿过自己的 API | 通常包装成非受检 |
+
+      **迁移要点**：自己定义异常时，从 `RuntimeException` 继承是更省事的选择 ——
+      除非你确实想让编译器逼调用方处理。JS 里"抛出去就完事"的习惯，
+      在这里会遇到"所有调用方都得跟着改签名"的现实。
+
+      因果链用 `new XxxException("消息", cause)` 传第二个参数，
+      对应 JS 的 `new Error(msg, { cause })`。
+
+  - id: js2java/resource-cleanup
+    title: 资源释放：try/finally 换成 try-with-resources
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 结构对应，但对方必须实现 AutoCloseable
+    body: |
+      JS 里释放资源要手写：
+
+      ```js
+      const f = open(path);
+      try { use(f) } finally { f.close() }
+      ```
+
+      Java 有专门的语法：
+
+      ```java
+      try (var in = Files.newInputStream(path)) {
+          in.readAllBytes();
+      }
+      ```
+
+      两者都保证"无论是否抛异常都会释放"，而且都解决了
+      **"关闭本身抛异常会吞掉原始异常"**这个问题 —— 手写的 `finally` 版本
+      两边都有这个毛病。
+
+      **迁移要点**：
+
+      1. 把 JS 里所有 `try/finally` 找出来，能在 Java 里改成
+         `try-with-resources` 的就改。
+      2. 但它**只对实现了 `AutoCloseable` 的类型有效**。
+         第三方资源类没实现就只能退回手写 `finally`。
+      3. JS 近年的 `using` 声明（显式资源管理提案）语义与它一致，
+         如果目标运行环境支持，那边的写法其实可以一比一搬过来。
+
+  - id: js2java/errors-exercise
+    title: 练习：迁移一个带资源与重试的读取函数
+    kind: exercise
+    summary: 三处改动，其中一处要决定异常的类型
+    body: |
+      下面这段 JS 读取并解析一个配置文件，失败时重试，并保证输入流被关闭。
+
+      请把它迁到 Java，要求**行为完全一致**：
+
+      1. 文件不存在与解析失败要能区分（调用方要据此决定是否重试）
+      2. 失败最多重试 3 次，每次间隔递增
+      3. 无论成功失败，资源都要释放
+
+      对照参考实现时，重点看三处：
+
+      - **方法签名上要不要写 `throws`**，以及你选的异常是受检还是非受检
+      - **资源释放**用的是哪种结构
+      - **重试那一层**：JS 的 `for` 循环 + 最后 `throw lastErr` 在这里怎么写
+
+      （提示：如果你把所有异常都声明成受检的，会发现调用这个方法的地方
+      也得跟着改 —— 这就是签名污染的起点。这也是为什么参考实现选了非受检。）

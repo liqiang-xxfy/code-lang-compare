@@ -1,0 +1,91 @@
+# java —— js2java/05-concurrency-and-modules 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），Java 是被对照的那一门。
+topic: js2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2java/concurrency-intro
+    equivalence: divergent
+    code: |
+      static int counter = 0;
+      static void bump() { counter += 1; }        // @note! 真并行下会丢更新 —— 读、加、写三步不原子
+
+      Thread t = new Thread(() -> work());        // @note! 有真线程，而且共享内存
+      t.start(); t.join();
+
+      try (var pool = java.util.concurrent.Executors.newFixedThreadPool(4)) {   // @note 池化是常规做法
+          for (int i = 0; i < 10; i++) pool.submit(() -> work());
+      }
+
+      // @note! "这段代码在 JS 里跑得好好的"是**无效证据** —— 那边根本没有真并行
+      // @note 三样 JS 里不存在的问题：丢更新、ConcurrentModificationException、可见性
+  - featureId: js2java/async-model
+    equivalence: divergent
+    code: |
+      var r = java.util.concurrent.CompletableFuture
+              .supplyAsync(() -> fetch(url))
+              .thenApply(String::trim)
+              .exceptionally(e -> "默认");
+      r.join();                                   // @note! 阻塞取结果
+
+      var all = java.util.concurrent.CompletableFuture.allOf(f1, f2, f3);
+
+      // @note! 没有 await 语法糖：多步组合之后很难一眼看出执行顺序
+      // @note! thenApply 里抛的异常不会当场抛出，而是变成"完成异常"，到 join 时才浮出来 ——
+      // 与 JS 的 await 把 rejection 抛在那一行相比，定位难度差很多
+      // @note 底层是真实线程池（默认 ForkJoinPool.commonPool），不是同一个事件循环
+  - featureId: js2java/module-system
+    equivalence: divergent
+    code: |
+      package com.example.app;                    // @note! 包名必须与目录结构严格对应
+      import com.example.app.utils.Helper;        // @note! 没有相对导入，一律全限定包路径
+
+      public class Main { }                       // @note! 一个文件一个 public 类，文件名要一致
+
+      // @note! 没有 export 关键字：可见性由 public / private 决定
+      // @note! classpath 是平铺的一条链，同名类只能有一个版本 ——
+      // 冲突表现为"编译期正常、运行时 NoSuchMethodError"
+  - featureId: js2java/package-manager
+    equivalence: divergent
+    code: |
+      // pom.xml 里声明三段坐标：
+      // <dependency>
+      //   <groupId>com.google.guava</groupId>
+      //   <artifactId>guava</artifactId>
+      //   <version>33.0.0-jre</version>
+      // </dependency>
+
+      // mvn test / mvn package / mvn deploy
+      // 或 ./gradlew build
+
+      // @note! 构建工具是**必需项**：编译、测试、打包、发布都在它手里
+      // @note! 没有 node_modules 那种项目内隔离；版本冲突由构建工具按"最近者胜"裁决，
+      // 要查清楚得跑 mvn dependency:tree
+  - featureId: js2java/concurrency-exercise
+    equivalence: analogous
+    code: |
+      static final java.util.concurrent.ConcurrentHashMap<Integer, Integer> cache =
+              new java.util.concurrent.ConcurrentHashMap<>();
+
+      static int get(int k) {
+          return cache.computeIfAbsent(k, key -> compute(key));
+          // @note! 这三问的答案：
+          // 1. 需要 —— "检查后写入"是两个操作，中间可能被别的线程插进来
+          // 2. 只给那一段加 synchronized 不够 ——
+          //    保护范围必须覆盖"读 + 写"整段，而且锁对象要所有线程共用同一个
+          // 3. ConcurrentHashMap 解决"单个方法原子"这一部分；
+          //    但 if (!has) put 仍是两步 —— 所以它专门提供了 computeIfAbsent
+          //    把两步合成一步，这才是正解
+      }
+
+      static int compute(int k) { return k * 2; }
+
+      // @note! 用 HashMap + synchronized 也能对，但那会串行化所有读写；
+      // computeIfAbsent 只锁住同一个键的计算
+      // @note! 注意 compute 里不要再回头改同一个 map —— 会死锁或抛异常

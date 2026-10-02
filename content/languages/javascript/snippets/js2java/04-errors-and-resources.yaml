@@ -1,0 +1,79 @@
+# javascript —— js2java/04-errors-and-resources 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2java/errors-intro
+    equivalence: identical
+    code: |
+      try {
+        risky();
+      } catch (e) {              // @note! 什么都接，分类只能自己在里面判
+        if (e instanceof RangeError) { } else throw e;
+      } finally {
+        cleanup();
+      }
+
+      // @note! 一个函数会不会抛，签名上看不出来，编译器也不管
+  - featureId: js2java/exception-model
+    equivalence: identical
+    code: |
+      try {
+        risky();
+      } catch (e) {
+        if (e instanceof RangeError) { fallback(); }
+        else throw e;                            // 重新抛出
+      } finally {
+        cleanup();
+      }
+
+      // @note 只有一种 catch，没有"按类型分支"的子句，也没有多重捕获
+      // @note! finally 里 return 会吞掉异常 —— 这一点两边一致
+  - featureId: js2java/error-propagation
+    equivalence: identical
+    code: |
+      throw new Error("出错了");
+      throw "出错了";                            // @note! 合法，但拿到的不是 Error 实例
+
+      class ConfigError extends Error {
+        constructor(msg, options) { super(msg, options); }   // @note cause 挂在 e.cause 上
+      }
+      throw new ConfigError("找不到配置", { cause: e });
+
+      // @note! 没有"必须声明"这回事：抛什么都行，调用方处理不处理也不管
+  - featureId: js2java/resource-cleanup
+    equivalence: identical
+    code: |
+      const f = open(path);
+      try {
+        use(f);
+      } finally {
+        f.close();                               // @note! 手写：close 自己抛异常会吞掉原始异常
+      }
+
+      // @note! 没有 try-with-resources 那种语法
+      // @note using 声明是较新的提案，支持的话语义与它一致
+  - featureId: js2java/errors-exercise
+    equivalence: identical
+    code: |
+      async function loadConfig(path, retries = 3) {
+        let lastErr;
+        for (let i = 0; i < retries; i++) {
+          try {
+            const f = await open(path);
+            try { return JSON.parse(await f.read()); }
+            finally { await f.close(); }
+          } catch (e) {
+            lastErr = e;
+            await sleep(100 * 2 ** i);
+          }
+        }
+        throw lastErr;                             // @note 跑完了都没成功
+      }

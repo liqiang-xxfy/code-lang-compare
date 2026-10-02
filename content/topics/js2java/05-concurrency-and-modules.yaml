@@ -1,0 +1,154 @@
+id: js2java/05-concurrency-and-modules
+topicId: js2java
+title: 5. 并发与模块化
+order: 5
+summary: 从 JavaScript 到 Java：并行变成真的、Promise 变成链式、包管理换成构建工具
+
+features:
+  - id: js2java/concurrency-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 共享内存回来了，于是"线程安全"第一次成为必答题
+    body: |
+      JS 的并发模型有一个很强的前提：**主线程只有一个，而且不共享内存**。
+      所以"两个任务同时改一个变量"这类问题在 JS 里根本不会出现 ——
+      你不必考虑它，也从来没写过锁。
+
+      到了 Java，这层保护整个消失：
+
+      - **并行是真的**，与核数相当
+      - **内存是共享的**，没有任何东西替你挡住并发写
+      - 于是 `counter++` 会丢更新、集合遍历时被改会抛异常、
+        主线程可能看不到子线程写的新值（可见性）
+
+      **迁移要点**：把"这段代码在 JS 里跑得好好的"当作**无效证据**。
+      凡是跨线程共享的可变状态，都要重新问一遍是否需要同步。
+
+      **好消息**是 JS 里本来就没有那套心智负担，所以不存在"要丢掉旧习惯"的问题 ——
+      是从零建立。坏消息是这一步没有捷径：`synchronized` / `AtomicInteger` /
+      `java.util.concurrent` 的容器各解决什么，需要真的理解一遍。
+
+      本章另外三节（异步、模块、包管理）都是**负担更轻**的迁移，
+      只有这一节是风险最高的。
+
+  - id: js2java/async-model
+    title: 异步：Promise 变成 CompletableFuture
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 语义对应得上，但写法重得多
+    body: |
+      概念上能一一对上：
+
+      ```js
+      const r = await fetch(url);
+      const all = await Promise.all(tasks);
+      ```
+
+      ```java
+      var r = CompletableFuture.supplyAsync(() -> fetch(url)).join();
+      var all = CompletableFuture.allOf(t1, t2, t3).join();
+      ```
+
+      但**写法重得多**，三处差异：
+
+      1. **没有 `await` 语法糖**。异步组合靠链式方法
+         （`thenApply` / `thenCompose` / `exceptionally`），
+         多步之后很难一眼看出执行顺序。JS 的 `async/await` 把这条链
+         摊平成了顺序代码，可读性差距明显。
+      2. **异常语义不同**。`thenApply` 里抛的异常不会当场抛出，
+         而是变成"完成异常"，到最后 `join()` / `get()` 时才浮出来。
+         JS 的 `await` 会把 rejection 当异常抛在那一行 —— 定位容易得多。
+      3. **底层是真实线程池**。`supplyAsync` 默认用 `ForkJoinPool.commonPool()`，
+         而 JS 的 Promise 跑在同一个事件循环上。
+         这意味着需要关心池的大小，也意味着**阻塞一个任务不一定会卡住别人**
+         （JS 里同步阻塞会卡住整个循环）。
+
+      **迁移要点**：把 `Promise.all` 的写法逐条对照过来时，
+      先确认**错误处理的时机**有没有变 —— 这是最容易出错的地方。
+      `handle` / `exceptionally` / `whenComplete` 各自在链的哪个位置生效，
+      与 `try/catch` 的位置感完全不同。
+
+  - id: js2java/module-system
+    title: 模块系统：import 变成 package + classpath
+    kind: behavior
+    refFeatureId: basics-javascript/module-system
+    summary: 目录结构即命名空间，而且没有"导出"这回事
+    body: |
+      JS 的模块系统建立在**文件路径**上：
+
+      ```js
+      import { helper } from "./utils.js";
+      export function helper() { }
+      ```
+
+      Java 建立在**包名 + 目录结构**上，而且两者必须严格对应：
+
+      ```java
+      package com.example.app;              // 目录必须是 com/example/app/
+      import com.example.app.utils.Helper;
+      public class Main { }
+      ```
+
+      三处需要重建的直觉：
+
+      1. **没有相对导入**。JS 里 `./utils` 是常态，这里一律是全限定的包路径。
+      2. **"导出"由访问修饰符决定**，不是显式声明。`public` 的类与方法
+         才能从包外访问；没有 `export` 这个关键字，也没有 `default export`。
+      3. **一个文件一个 public 类，而且文件名必须与类名一致**。
+         JS 里一个文件可以导出任意多个东西，这里不行。
+
+      另有一层 JS 里完全没有的东西：**classpath**。运行时所有依赖被平铺放在
+      一条链上，同一个全限定类名只能有一个版本 —— 这就是"classpath 地狱"，
+      表现为**编译期完全正常、运行时 `NoSuchMethodError`**。
+      JS 的 `node_modules` 允许同名包多版本共存，所以这个问题在那边轻微得多。
+
+  - id: js2java/package-manager
+    title: 包管理与构建
+    kind: behavior
+    refFeatureId: basics-javascript/package-manager
+    summary: npm 一个工具，这里拆成"依赖声明 + 构建生命周期"
+    body: |
+      npm 的强大在于**一件事全包**：装依赖、锁版本、跑脚本、打包、发布。
+      Java 这边有两层：**依赖声明**与**构建生命周期**，而且
+      **构建工具是必需项，不是可选项**。
+
+      | 事情 | JS | Java |
+      | --- | --- | --- |
+      | 声明依赖 | `package.json` 的 `dependencies` | `pom.xml` / `build.gradle` 里的三段坐标 |
+      | 锁定版本 | `package-lock.json` | 构建工具生成（或 `dependencyManagement`） |
+      | 隔离 | `node_modules`，项目内自动隔离 | **没有隔离**，classpath 是全局一条 |
+      | 跑脚本 | `npm run x` | 生命周期阶段（`mvn test` / `mvn package`） |
+      | 发布 | `npm publish` | `mvn deploy`（通常发到私服） |
+
+      **最需要改的两处习惯**：
+
+      1. **依赖写成三段坐标**：`groupId:artifactId:version`，
+         而不是一个包名加版本范围。传递依赖会被自动解析，
+         版本冲突也由构建工具按规则裁决（"最近者胜"）——
+         所以"为什么运行时是这个版本"经常要跑 `dependency:tree` 才看得清。
+      2. **构建工具定义了整个生命周期**：编译到哪、测试怎么跑、
+         产物打成什么。约定优先的代价是项目结构被绑死
+         （`src/main/java` 那一套），偏离要改配置。
+
+  - id: js2java/concurrency-exercise
+    title: 练习：判断哪些代码需要同步
+    kind: exercise
+    summary: 重点不是改写，是分辨
+    body: |
+      下面这段 JS 用一个模块级 Map 做缓存，两个异步任务并发读写它。
+
+      请把它迁到 Java 的并发版本，要求**行为正确**，然后回答三个问题：
+
+      1. 原版里 `if (!cache.has(k)) cache.set(k, compute(k))` 这一段，
+         在 Java 里需要加锁吗？为什么？
+      2. 如果只给这一段加 `synchronized`，够了吗？
+      3. 用 `ConcurrentHashMap` 能不能解决？它解决的是哪一部分问题？
+
+      对照参考实现时，重点看**哪些操作被包在了一起** ——
+      这道题的立意是：JS 里"单线程所以不用锁"的直觉，
+      在这里要换成"复合操作不原子，必须整体保护"。
+
+      （提示：第 3 问的答案是"能解决一部分"——
+      `ConcurrentHashMap` 保证单个方法原子，但
+      "检查后写入"是**两个**方法。它提供的 `computeIfAbsent` 才是把这两步
+      合成一步的入口 —— 想想为什么要专门提供它。）
