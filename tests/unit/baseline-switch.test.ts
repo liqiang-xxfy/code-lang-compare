@@ -193,12 +193,16 @@ describe('全局选择：切换基准时的回落', () => {
     expect(resolveSwitchPath('javascript', { section: 'basics', key: '01-variables' })).toBe(
       '/compare/javascript/basics/01-variables',
     )
+    // python 基准补齐到 8 章之后，同名章节也该保留 —— 而不是一律回落到首章
+    expect(resolveSwitchPath('python', { section: 'basics', key: '06-objects' })).toBe(
+      '/compare/python/basics/06-objects',
+    )
   })
 
   it('基础语法：目标基准没有那一章就落到它的首章', () => {
-    // 骨架期 python 基准只有 01-variables
-    expect(resolveSwitchPath('python', { section: 'basics', key: '06-objects' })).toBe(
-      '/compare/python/basics/01-variables',
+    // java 基准目前只有 01-variables（python 基准已补齐 8 章，见上一条）
+    expect(resolveSwitchPath('java', { section: 'basics', key: '06-objects' })).toBe(
+      '/compare/java/basics/01-variables',
     )
   })
 

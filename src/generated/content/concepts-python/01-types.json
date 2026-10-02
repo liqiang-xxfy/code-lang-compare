@@ -14,6 +14,29 @@
       "summary": "你习惯「类型不对就报错」，到 JS 里会变成「默默算出一个别的结果」",
       "bodyHtml": "<p>Python 是<strong>动态 + 强类型</strong>：类型属于运行时的值，但类型不符就抛异常 ——\n<code>1 + &quot;1&quot;</code> 直接 <code>TypeError</code>，不做任何猜测。</p>\n<p>JS 是<strong>动态 + 弱类型</strong>：<code>==</code>、<code>+</code>、<code>if</code> 都会隐式转换，于是 <code>1 == &quot;1&quot;</code> 为真、\n<code>1 + &quot;1&quot;</code> 得 <code>&quot;11&quot;</code>、<code>&quot;3&quot; * &quot;2&quot;</code> 得 6。</p>\n<p>从 Python 出发，最大的变化不是写法，而是<strong>错误的形态</strong>：在 Python 里问题以异常\n出现，调用栈直接指到出错那一行；在 JS 里同样的问题常常是「结果不对但全程不报错」，\n于是你得回头找是哪一步悄悄转换了类型。你「看异常猜位置」的调试直觉会先失效一段时间。</p>\n<p>工程上把这一半收回来的手段是 <code>===</code>（不做隐式转换）—— 语言不会拦你，靠规范约定。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// int x = \"1\";              // —— ⚠ 编译错误：类型不匹配在编译期就被拦住\n\"1\" + 1;                     // ⚠ 得 \"11\" —— 字符串拼接，不是算术\n// String s = 1;            // 同样编译不过\n\nObject o = 1;                // 想装任何东西只能用 Object，取回时要强转\nint v = (int) o;",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// int x = \"1\";              // —— ⚠ 编译错误：类型不匹配在编译期就被拦住</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"1\"</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;                     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 得 \"11\" —— 字符串拼接，不是算术</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// String s = 1;            // 同样编译不过</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Object</span><span style=\"color:var(--shiki-foreground)\"> o </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;                </span><span style=\"color:var(--shiki-token-comment)\">// 想装任何东西只能用 Object，取回时要强转</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> v </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">) o;</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 1,
+              "text": "编译错误：类型不匹配在编译期就被拦住",
+              "tone": "warn"
+            },
+            {
+              "line": 2,
+              "text": "得 \"11\" —— 字符串拼接，不是算术",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>静态 + 强类型</strong> —— 类型在编译期确定，写错直接编译不过。\nPython 里&quot;跑到那一行才炸&quot;的问题，在这里提前到编译期；\n代价是每个变量声明都要写类型（或用 <code>var</code> 让编译器推断）。</p>\n<p>与 Python 的&quot;动态 + 强类型&quot;相比，相同的是都不做隐式转换，\n不同的是<strong>错误出现的时刻</strong>：这边是编译期，那边是运行时。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -59,6 +82,29 @@
       "summary": "int 不会溢出是你默认的前提，JS 里整数也是浮点，超范围静默丢精度",
       "bodyHtml": "<p>Python 的 <code>int</code> 是<strong>任意精度</strong>（不溢出、不丢精度），<code>float</code> 是双精度，\n需要精确小数时另有 <code>Decimal</code>。</p>\n<p>JS 只有一种数字：IEEE 754 双精度浮点，外加 <code>BigInt</code> 用于大整数。\n<strong>整数也是浮点</strong>，所以 <code>0.1 + 0.2 !== 0.3</code>，超过 2^53 的整数静默丢精度。</p>\n<p>从 Python 出去最先绊住的两处：① <code>9007199254740993</code> 会变成 <code>9007199254740992</code>，\n而且不报错；② Python 的 <code>//</code>（向下取整）在 JS 里没有运算符，要写成\n<code>Math.floor(a / b)</code>。除法本身两边都是真除法（<code>7 / 2</code> 得 3.5），这一格反倒通用。</p>\n<p>大整数与精确十进制在 JS 里也存在（<code>BigInt</code>、第三方 decimal 库），只是<strong>都不是默认</strong> ——\n而默认行为才是迁移时最常踩的地方。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "9007199254740993L;             // 原样保留 —— long 装得下\nInteger.MAX_VALUE + 1;         // ⚠ -2147483648 —— int 溢出静默回绕，不报错\nnew java.math.BigInteger(\"9007199254740993\");   // 要任意精度得换类型\n\n7 / 2;                         // 3 —— 整数除法，对应 Python 的 7 // 2\n-7 / 2;                        // ⚠ -3 —— 向零截断，Python 那边是 -4",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">9007199254740993L</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// 原样保留 —— long 装得下</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Integer</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">MAX_VALUE</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ -2147483648 —— int 溢出静默回绕，不报错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-foreground)\"> java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">math</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">BigInteger</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"9007199254740993\"</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// 要任意精度得换类型</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;                         </span><span style=\"color:var(--shiki-token-comment)\">// 3 —— 整数除法，对应 Python 的 7 // 2</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;                        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ -3 —— 向零截断，Python 那边是 -4</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [
+            {
+              "line": 2,
+              "text": "-2147483648 —— int 溢出静默回绕，不报错",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "-3 —— 向零截断，Python 那边是 -4",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>int / long / double 按宽度分档 + BigInteger</strong> —— 每种整数有明确位宽，\n溢出时<strong>静默回绕</strong>（不是抛异常，也不是提升成更大类型）；\n想要&quot;任意精度&quot;必须换成 <code>BigInteger</code>，而运算符随之全部失效，只能调方法。</p>\n<p>Python 只有一档 int 且不溢出，所以&quot;溢出&quot;这个概念在那边根本不存在 ——\n迁过来时最需要建立的反射是：<strong>看到算钱、算 ID 就要想位宽够不够</strong>。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -99,6 +145,29 @@
       "summary": "你只有一个 None，JS 有两个空值，判空写法不能直接照搬",
       "bodyHtml": "<p>Python 只有一种「没有」：<code>None</code>，而且惯例用 <code>is None</code> 判断（<code>is</code> 比对象身份，\n<code>==</code> 可以被重载，所以不用它）。</p>\n<p>JS 有两个：<code>null</code>（人为置空）与 <code>undefined</code>（未赋值 / 属性不存在 / 函数无返回）。\n绝大多数判空其实两者都要挡，于是 JS 有一整套专门写法 —— <code>== null</code> 同时匹配两者、\n可选链 <code>?.</code>、空值合并 <code>??</code>。</p>\n<p>从 Python 迁移最容易写错的一格，是把 <code>x is None</code> 直译成 <code>x === null</code>：\n它会漏掉所有 <code>undefined</code>，而 <code>undefined</code> 出现的频率比 <code>null</code> 高得多\n（没传参、没赋值的变量、访问不存在的属性都是它）。</p>\n<p>顺带一条共通的坑：Python 的 <code>value or default</code> 会把合法的 <code>0</code>、<code>&quot;&quot;</code>、<code>[]</code>\n当缺失，JS 的 <code>||</code> 是同一个问题；两边都该显式判空。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "String x = null;\nx == null;                    // 判空只有这一种写法\n\nint n;                        // ⚠ 基本类型不能为 null：字段默认 0，局部必须赋值\nInteger boxed = null;\n// int y = boxed;             // —— ⚠ NullPointerException —— 拆箱时才炸\n\njava.util.Optional.ofNullable(x).orElse(\"默认\");",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;                    </span><span style=\"color:var(--shiki-token-comment)\">// 判空只有这一种写法</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> n;                        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 基本类型不能为 null：字段默认 0，局部必须赋值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Integer</span><span style=\"color:var(--shiki-foreground)\"> boxed </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// int y = boxed;             // —— ⚠ NullPointerException —— 拆箱时才炸</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">util</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">Optional</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">ofNullable</span><span style=\"color:var(--shiki-foreground)\">(x)</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">orElse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"默认\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 4,
+              "text": "基本类型不能为 null：字段默认 0，局部必须赋值",
+              "tone": "warn"
+            },
+            {
+              "line": 6,
+              "text": "NullPointerException —— 拆箱时才炸",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>null，但基本类型与包装类型不一致</strong> —— <code>int</code> 永远有值（默认 0），\n<code>Integer</code> 可以是 null，而 null 的包装类型一旦参与算术就 NPE。</p>\n<p>所以&quot;这个字段到底有没有值&quot;这件事，在这门语言里取决于它是基本类型还是包装类型 ——\n比 Python 的&quot;所有东西都可能是 None&quot;多了一层需要记住的规则。\n<code>Optional</code> 是官方推荐的&quot;显式表达可能没有&quot;，但它只能装引用类型。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -139,6 +208,29 @@
       "summary": "你熟悉「一切皆引用」，但真正决定共享与否的是「这个类型可变吗」",
       "bodyHtml": "<p>Python 里说「一切皆引用」，实际结论要看可变性：<code>list</code> / <code>dict</code> / <code>set</code> 可变，\n赋值、传参、放进容器都是共享；<code>int</code> / <code>str</code> / <code>tuple</code> 不可变，怎么传都安全。</p>\n<p>JS 用另一套说法描述同一件事：「原始值按值、对象按引用」。对应关系是 ——\nJS 的<strong>对象</strong> = Python 的可变对象，JS 的<strong>原始值</strong>（number / string / boolean /\nnull / undefined / symbol）= Python 的不可变对象。也就是说「传值还是传引用」\n这个问法两边都容易带偏，真问题是「这个值能不能被改」。</p>\n<p>差异在补集：Python 有 <code>tuple</code> / <code>frozenset</code> 这种「不可变又复合」的类型，\n可以安全共享、还能当字典键；JS <strong>没有对应物</strong> —— <code>Object.freeze</code> 只是浅的\n运行时冻结，也不是类型属性。从 Python 到 JS 会失去「我需要一个能安全共享的集合类型」\n这个表达。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "int a = 1;\nint b = a;\nb = 2;                        // a 还是 1 —— 基本类型是值复制\n\nint[] arr = {1, 2};\nint[] c = arr;\nc[0] = 9;                     // ⚠ arr[0] 也变成 9 —— 数组是引用\nString s = \"x\";               // String 不可变，与 Python 的 str 一致\n\nInteger i1 = 1000, i2 = 1000;\ni1 == i2;                     // ⚠ false —— 包装类型 == 比引用，值比较要用 equals",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> a;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;                        </span><span style=\"color:var(--shiki-token-comment)\">// a 还是 1 —— 基本类型是值复制</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">[] arr </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> {</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">[] c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> arr;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">c[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 9</span><span style=\"color:var(--shiki-foreground)\">;                     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ arr[0] 也变成 9 —— 数组是引用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"x\"</span><span style=\"color:var(--shiki-foreground)\">;               </span><span style=\"color:var(--shiki-token-comment)\">// String 不可变，与 Python 的 str 一致</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Integer</span><span style=\"color:var(--shiki-foreground)\"> i1 </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1000</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> i2 </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1000</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i1 </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> i2;                     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ false —— 包装类型 == 比引用，值比较要用 equals</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 7,
+              "text": "arr[0] 也变成 9 —— 数组是引用",
+              "tone": "warn"
+            },
+            {
+              "line": 11,
+              "text": "false —— 包装类型 == 比引用，值比较要用 equals",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>基本类型按值、对象按引用</strong> —— 比 Python 多了一层&quot;值类型&quot;，\n所以「赋值即共享」这条规律只对对象成立，对 <code>int</code> / <code>double</code> / <code>boolean</code> 不成立。</p>\n<p>更麻烦的是<strong>包装类型</strong>：同一门语言里 <code>==</code> 有时比数值（基本类型）、\n有时比引用（包装类型），而自动装箱会在两者之间悄悄转换 ——\n这层歧义在 Python 里完全不存在（<code>==</code> 永远比内容）。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "analogous",

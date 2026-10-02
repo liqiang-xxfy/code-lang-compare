@@ -14,6 +14,24 @@
       "summary": "声明文件与落地位置都换了，JS 默认就锁版本",
       "bodyHtml": "<p>Python 用 <code>pyproject.toml</code>（或 <code>requirements.txt</code>）声明依赖，装进<strong>环境</strong>而不是\n项目目录，锁文件传统上不是标配（要另配 <code>pip-compile</code> / <code>uv lock</code>）。</p>\n<p>JS 用 <code>package.json</code> 声明 + <code>node_modules</code> 落地，<code>package-lock.json</code> /\n<code>pnpm-lock.yaml</code> 是标配，<strong>默认就锁版本</strong>。</p>\n<p>日常命令的对应：<code>pip install</code> ↔ <code>npm install</code>、dev 依赖组 ↔ <code>npm install -D</code>、\n<code>uvx</code> / <code>python -m</code> ↔ <code>npx</code>。</p>\n<p>从 Python 过去会觉得「锁文件天生就有」省心不少；要留意的是 JS 的依赖解析更复杂\n（peerDependencies、多版本共存），装出来的树与 <code>package.json</code> 不总是一一对应。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// ⚠ 依赖不是\"装到环境里\"，而是写进构建文件的三段坐标：\n// <dependency>\n//   <groupId>com.google.guava</groupId>\n//   <artifactId>guava</artifactId>\n//   <version>33.0.0-jre</version>\n// </dependency>\n\n// Gradle 里是简写：implementation(\"com.google.guava:guava:33.0.0-jre\")\n\n// 传递依赖会被自动解析，版本冲突也由构建工具按规则裁决",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 依赖不是\"装到环境里\"，而是写进构建文件的三段坐标：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// &#x3C;dependency></span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   &#x3C;groupId>com.google.guava&#x3C;/groupId></span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   &#x3C;artifactId>guava&#x3C;/artifactId></span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   &#x3C;version>33.0.0-jre&#x3C;/version></span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// &#x3C;/dependency></span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Gradle 里是简写：implementation(\"com.google.guava:guava:33.0.0-jre\")</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 传递依赖会被自动解析，版本冲突也由构建工具按规则裁决</span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 1,
+              "text": "依赖不是\"装到环境里\"，而是写进构建文件的三段坐标：",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>依赖写坐标、由构建工具解析</strong> —— <code>groupId:artifactId:version</code> 三段，\n传递依赖自动拉取。</p>\n<p>与 Python 的 <code>pyproject.toml</code> 相比，粒度细得多：这边能区分\n&quot;编译需要 / 运行需要 / 测试需要&quot;，也能排除某条传递依赖；\n那边是一张平铺的名字加版本范围。</p>\n<p>代价是<strong>版本冲突由构建工具裁决</strong>（&quot;最近者胜&quot;），\n于是&quot;为什么运行时是这个版本&quot;经常要跑 <code>dependency:tree</code> 才看得清。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "analogous",
@@ -48,6 +66,24 @@
       "summary": "你的环境全局一套、同名包只能一个版本；JS 就近查找、多版本共存",
       "bodyHtml": "<p>Python 的环境是<strong>全局一套</strong>：同一个虚拟环境里，同名包只能有一个版本，\n所以「A 要 requests 2.x、B 要 3.x」的解法是<strong>拆成两个虚拟环境</strong>。</p>\n<p>JS 的 <code>node_modules</code> <strong>就近查找</strong>：不同的包可以各自依赖同一库的不同版本，\n互不干扰（代价是体积与「到底装了哪个版本」的困惑）。</p>\n<p>从 Python 过去，这一条反而更宽松 —— 不再有「装 A 的依赖把 B 弄坏」的问题。\n但也要知道 JS 为此付出的代价：同一库多版本并存会让「我改的到底是哪一份」\n变得更难查。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// ⚠ 没有虚拟环境：所有依赖铺在**一条 classpath** 上，\n// 同一个全限定类名只能有一个版本存在\n\n// 两个库各自依赖 guava 的不同版本时，classpath 上谁在前面用谁 ——\n// 这就是\"classpath 地狱\"：编译过、运行时报 NoSuchMethodError\n\n// 三条出路：构建工具里强制版本、shading（把依赖重命名后打进自己的 jar）、\n// 或 Java 9+ 的模块系统（JPMS）做显式边界",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有虚拟环境：所有依赖铺在**一条 classpath** 上，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 同一个全限定类名只能有一个版本存在</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两个库各自依赖 guava 的不同版本时，classpath 上谁在前面用谁 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这就是\"classpath 地狱\"：编译过、运行时报 NoSuchMethodError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 三条出路：构建工具里强制版本、shading（把依赖重命名后打进自己的 jar）、</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 或 Java 9+ 的模块系统（JPMS）做显式边界</span></span></code></pre>",
+          "lineCount": 8,
+          "notes": [
+            {
+              "line": 1,
+              "text": "没有虚拟环境：所有依赖铺在**一条 classpath** 上，",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>没有虚拟环境，只有一条 classpath</strong> —— 依赖是平铺的，同名类冲突时\n&quot;先出现者赢&quot;。</p>\n<p>Python 的 <code>venv</code> 是每个项目一套环境，项目之间天然隔离；\n这里的隔离单元是 JVM 实例，所以同一个进程里只能有一份同名类。\n冲突的表现形式也很特别：<strong>编译期完全正常，运行时才 <code>NoSuchMethodError</code></strong> ——\n因为编译用的是 A 版本的签名，运行时加载到的是 B 版本。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -88,6 +124,18 @@
       "summary": "一个解释器就是全部 vs 同一份代码要跑在浏览器与 Node 两套 API 上",
       "bodyHtml": "<p>Python 的运行时就是 CPython 解释器（另有 PyPy 等实现），没有「环境 API 不一致」\n这层问题，代价是<strong>没有浏览器那套东西</strong> —— 想做界面必须借助其他体系。</p>\n<p>JS 的运行时是分裂的：浏览器引擎与 Node 各有各的 API（<code>fetch</code>、<code>fs</code>、DOM），\n「这段代码在哪跑」是一个必须时刻意识到的问题，并由此衍生出打包、转译、polyfill\n一整套工具。</p>\n<p>从 Python 过去，先接受「同一门语言、两套平台」这件事：你写的模块能否复用，\n取决于它依赖的是语言本身还是平台 API。好处反过来也有 —— 同一份逻辑能在前后端共享，\n这是 Python 没有的能力。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// 两步走：先编译再运行\n// javac Main.java      → Main.class\n// java Main\n\n// 打包成可执行 jar：\n// java -jar app.jar\n\n// 单文件源码模式（Java 11+）可以一步跑：\n// java Main.java\n\n// \"改了没生效\"最常见的原因就是忘了重新编译",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两步走：先编译再运行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// javac Main.java      → Main.class</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// java Main</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 打包成可执行 jar：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// java -jar app.jar</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 单文件源码模式（Java 11+）可以一步跑：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// java Main.java</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// \"改了没生效\"最常见的原因就是忘了重新编译</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>先编译再运行</strong> —— 源码不是直接执行的对象，中间产物是 <code>.class</code>。</p>\n<p>与&quot;解释执行、改完即生效&quot;相比，多了一层心智负担：\n<strong>改了源码但没重新编译</strong>时，跑的还是旧逻辑，而且不会有任何提示。\n单文件源码模式（Java 11+）缓解了一部分，但它不是日常开发路径。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -128,6 +176,18 @@
       "summary": "解释执行、开发不用构建；JS 的打包转译是每次都要跑的环节",
       "bodyHtml": "<p>Python 是解释执行，<strong>开发时不需要构建</strong>；只有发布时才打包（<code>python -m build</code>\n出 wheel / sdist）。</p>\n<p>JS 的构建是<strong>标配</strong>：打包、转译、压缩、tree-shaking，因为浏览器不能直接跑\n<code>node_modules</code> 与最新的语法。</p>\n<p>从 Python 过去最大的认知变化：改完代码要等一次构建（或热更新），\n「构建」从发布流程的一步变成了日常开发的一部分。别把 Python 那套「只为发布配一条\n构建管线」的习惯带过去 —— 在 JS 里构建管线是项目的骨架，得从一开始就想清楚。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// 构建工具是必需项，不是可选项 —— 编译、测试、打包、发依赖都在它手里\n// Maven：pom.xml 声明式生命周期（compile → test → package → install）\n//       约定优先，目录结构固定，想偏离要改配置\n// Gradle：build.gradle 脚本式，增量构建，灵活但要自己维护正确性\n\n// mvn test / mvn package / ./gradlew build",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 构建工具是必需项，不是可选项 —— 编译、测试、打包、发依赖都在它手里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Maven：pom.xml 声明式生命周期（compile → test → package → install）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//       约定优先，目录结构固定，想偏离要改配置</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Gradle：build.gradle 脚本式，增量构建，灵活但要自己维护正确性</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// mvn test / mvn package / ./gradlew build</span></span></code></pre>",
+          "lineCount": 6,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>构建工具是标配</strong> —— 它不只是&quot;装依赖&quot;，而是定义了整个生命周期：\n编译到哪、测试怎么跑、产物打成什么、怎么发布。</p>\n<p>与 Python 那边 <code>pip</code> 装包 + 另找构建工具相比，这里的边界更清楚，\n代价是<strong>项目结构被约定绑死</strong>（Maven 的 <code>src/main/java</code> 那一套），\n以及构建脚本本身成了一份要维护的代码。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -168,6 +228,18 @@
       "summary": "普通函数加裸 assert vs 框架词汇加 expect 链",
       "bodyHtml": "<p>Python 的主流是 <strong>pytest</strong>：测试就是普通函数加裸 <code>assert</code>，<code>assert x == y</code> 直接写，\n失败信息由 pytest 重写断言生成；测试发现靠<strong>命名约定</strong>（文件 <code>test_*.py</code>、\n函数 <code>test_*</code>，不符合就静默不跑）。</p>\n<p>JS 的测试是「描述 + 回调」风格：<code>test('名', () =&gt; { expect(x).toBe(y) })</code>，\n框架提供 <code>describe</code> / <code>it</code> / <code>expect</code> 一整套词汇，断言链上 <code>toBe</code> / <code>toEqual</code> /\n<code>toStrictEqual</code> 语义还各不相同。</p>\n<p>从 Python 过去要记两件事：① <code>assert</code> 换成 <code>expect(...).toBe(...)</code>，\n先查清楚该用哪个匹配器；② 测试发现不再靠命名约定，而是靠框架配置的收集规则 ——\n这反而少了「跑了 0 个测试却显示通过」那类静默失败。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "// import org.junit.jupiter.api.Test;\n// import static org.junit.jupiter.api.Assertions.assertEquals;\n//\n// class CalcTest {\n//     @Test void adds() { assertEquals(3, add(1, 2)); }\n//\n//     @BeforeEach void setUp() { }\n//     @ParameterizedTest @ValueSource(ints = {1, 2}) void p(int n) { }\n// }\n\n// 测试发现靠注解（@Test），断言是静态方法，测试类与方法默认包可见",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// import org.junit.jupiter.api.Test;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// import static org.junit.jupiter.api.Assertions.assertEquals;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// class CalcTest {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     @Test void adds() { assertEquals(3, add(1, 2)); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     @BeforeEach void setUp() { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     @ParameterizedTest @ValueSource(ints = {1, 2}) void p(int n) { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 测试发现靠注解（@Test），断言是静态方法，测试类与方法默认包可见</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>JUnit 5，注解驱动</strong> —— 测试发现靠 <code>@Test</code>，断言是 <code>Assertions</code> 的静态方法，\n生命周期靠 <code>@BeforeEach</code> / <code>@AfterEach</code>。</p>\n<p>与 pytest 相比：那边靠<strong>命名约定</strong>发现测试、靠 fixture 参数名做依赖注入，\n这边全部显式声明。显式的好处是&quot;这个测试依赖什么&quot;一眼可见，\n代价是样板变多，参数化测试尤其啰嗦。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -202,6 +274,24 @@
       "summary": "猴补丁直接换属性 vs 模块级 mock 需要提升",
       "bodyHtml": "<p>Python 靠<strong>猴补丁</strong>：<code>monkeypatch.setattr(obj, 'name', fake)</code>，直接替换某个对象上的\n属性，作用域由 fixture 管，用完自动还原。因为方法查找是运行时的、鸭子类型是常态，\n替换一个依赖通常就是换掉一个属性。</p>\n<p>JS 里对<strong>对象属性</strong>的替换同样是直接赋值，但对<strong>模块级依赖</strong>（import 进来的函数）\n不能这样 —— ESM 的绑定是只读的，得用 <code>vi.mock</code> / <code>jest.mock</code>，而且调用需要\n<strong>提升到 import 之前</strong>，写法偏魔法，对 ESM 的支持一直有坑。</p>\n<p>从 Python 过去的落差正在这里：你习惯了「换掉一个属性就行」，\n到 JS 里发现模块导入的依赖换不动，必须提前声明 mock。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "// var repo = org.mockito.Mockito.mock(Repo.class);\n// org.mockito.Mockito.when(repo.find(1)).thenReturn(user);\n// org.mockito.Mockito.verify(repo).find(1);\n\n// ⚠ 替身是**接口实现**（动态代理），所以：\n//   · 接口、非 final 类、非 final 方法才能被替身\n//   · 静态方法、构造器、final 类默认换不掉（要换得上 mockito-inline）",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// var repo = org.mockito.Mockito.mock(Repo.class);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// org.mockito.Mockito.when(repo.find(1)).thenReturn(user);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// org.mockito.Mockito.verify(repo).find(1);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 替身是**接口实现**（动态代理），所以：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   · 接口、非 final 类、非 final 方法才能被替身</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   · 静态方法、构造器、final 类默认换不掉（要换得上 mockito-inline）</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [
+            {
+              "line": 5,
+              "text": "替身是**接口实现**（动态代理），所以：",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>Mockito 动态代理</strong> —— 替身是运行时代理出来的接口/子类实现。</p>\n<p>所以它能替换的范围由<strong>类型系统</strong>决定：<code>final</code> 类、静态方法、\n构造器默认都换不掉。Python 的 <code>unittest.mock</code> 相反 ——\n它替换的是模块里的<strong>名字</strong>，想换什么换什么，代价是\n补丁打在哪、什么时候失效全靠自己盯着。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -242,6 +332,18 @@
       "summary": "生态收敛到唯一答案 vs 规则可插拔、每个项目一套配置",
       "bodyHtml": "<p>Python 的 Ruff / Black 走的是<strong>收敛</strong>路线：格式化几乎没有可选项，\n官方倾向就是唯一答案，直接用生态默认值即可。</p>\n<p>JS 的 ESLint 是<strong>规则可插拔</strong>的：检查什么、报什么级别都能配，风格交给 Prettier，\n两者刻意分离，于是社区里每个项目一套配置。</p>\n<p>从 Python 过去会突然多出「先跟团队吵一轮规则」这件事 —— 不必把 Python\n「默认即共识」的心态带过去，得接受 JS 项目里 lint 配置是工程决策的一部分。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "analogous",
+          "flags": [],
+          "code": "// 静态分析是独立进程，不在编译器里，各管一摊：\n//   Checkstyle / PMD   → 风格与常见缺陷\n//   SpotBugs           → 字节码层面的 bug 模式\n//   google-java-format → 格式化\n\n// 稍特别的一条：编译器的警告本身也能当闸门用\n// javac -Xlint:all -Werror",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 静态分析是独立进程，不在编译器里，各管一摊：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   Checkstyle / PMD   → 风格与常见缺陷</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   SpotBugs           → 字节码层面的 bug 模式</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   google-java-format → 格式化</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 稍特别的一条：编译器的警告本身也能当闸门用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// javac -Xlint:all -Werror</span></span></code></pre>",
+          "lineCount": 7,
+          "notes": [],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>工具分散，各自为政</strong> —— 格式、风格、缺陷由不同工具负责，\n要自己选一套并配进构建。</p>\n<p>与 Python 那边 Ruff 一把抓（lint + format）的体验差别明显。\n另一个反向差异是：<strong>编译期已经拦掉了大量错误</strong>，\n所以静态分析能额外捡到的东西比 Python 那边少 ——\n类型错误、拼写错误、未使用变量这类问题，编译器早替你做完了。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -282,6 +384,24 @@
       "summary": "两边都有 REPL，迁移期用它在不建项目的前提下验证差异",
       "bodyHtml": "<p>Python 直接敲 <code>python</code> 就是 REPL，另有 <code>ipython</code> 提供更好的补全与历史。</p>\n<p>JS 用 <code>node</code> 进 REPL，或在浏览器控制台里试。注意 JS 的 REPL 里 <code>const</code> 不能重复\n声明，重跑同一段代码比 Python 要多一步。</p>\n<p>REPL 在语言迁移期被低估：它让你<strong>在不建项目、不写文件的前提下</strong>验证一条语法或\n一个类型行为。核对本手册里任何一条差异，最快的办法就是两边各开一个 REPL 敲一遍 ——\n这也是「实跑校对」的形态。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "// jshell（Java 9+）是唯一的官方 REPL：\n// jshell> int x = 1\n// jshell> x + 2\n// $2 ==> 3\n\n// ⚠ 只支持\"语句与表达式\"，不能直接贴一个带 package 声明的类；\n// 也没有 __doc__ 那种对象级文档，没有 help()\n\n// 日常的反馈循环在 IDE 里：改一行 → 编译 → 跑测试",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// jshell（Java 9+）是唯一的官方 REPL：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// jshell> int x = 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// jshell> x + 2</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// $2 ==> 3</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 只支持\"语句与表达式\"，不能直接贴一个带 package 声明的类；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 也没有 __doc__ 那种对象级文档，没有 help()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 日常的反馈循环在 IDE 里：改一行 → 编译 → 跑测试</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 6,
+              "text": "只支持\"语句与表达式\"，不能直接贴一个带 package 声明的类；",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>jshell 是补充，不是主路径</strong> —— 这门语言的反馈循环在 IDE 与测试里，\n不在 REPL 里。</p>\n<p>与 Python&quot;把 REPL 当日常工具&quot;的用法相比，差的不是有没有，\n而是<strong>能问的东西不同</strong>：这里没有 <code>__doc__</code>、没有 <code>help(obj)</code>，\n想知道一个方法怎么用只能翻 javadoc 或靠 IDE 补全。\n编译期检查把一部分探索需求转移到了编辑器里。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "identical",

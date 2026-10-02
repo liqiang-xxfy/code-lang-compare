@@ -14,6 +14,24 @@
       "summary": "你有 MRO 与多继承、没有真私有；JS 单继承但有语言级私有",
       "bodyHtml": "<p>Python 的 <code>class</code> 是一等公民：支持<strong>多继承</strong>，方法解析顺序由 MRO 决定\n（<code>super()</code> 走的是 MRO 链，不是「父类」这一个）；实例方法第一个参数是显式的 <code>self</code>。</p>\n<p>JS 的 <code>class</code> 是原型链的语法糖：<strong>单继承</strong>，<code>super</code> 沿原型向上找，\n<code>this</code> 是隐式的、取决于调用方式。</p>\n<p>但迁移时最该注意的差别在<strong>私有</strong>：Python 没有真私有 —— <code>_name</code> 是约定、\n<code>__name</code> 只是名称改写（name mangling），外部依然够得着；JS 用 <code>#name</code>，\n是<strong>真正的语言级私有</strong>，运行时外部拿不到。也就是「这个属性不该被外面碰」\n在 JS 里可以是语言保证，在 Python 里只能靠约定。</p>\n<p>另一处：Python 的实例方法取出来是<strong>绑定的</strong>（<code>obj.method</code> 自带 self），\nJS 的方法取出来会丢掉 <code>this</code>（除非用箭头函数或显式 <code>bind</code>）——\n从 Python 过来会觉得「方法怎么还要关心它怎么被调用」。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "class Animal { void speak() { } }\n\nclass Dog extends Animal {          // ⚠ 只能 extends 一个父类\n    @Override void speak() { }      // 重写要标注：写错签名时编译器会提醒\n    void fetch() { super.speak(); } // 调父类实现用 super\n}\n\n// 所有类都隐式继承 Object；没有多继承，也就不存在 MRO 与菱形问题\n// 方法默认是虚方法（和 Python 一样），除非标 final",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Animal</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> speak</span><span style=\"color:var(--shiki-foreground)\">() { } }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Dog</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> Animal</span><span style=\"color:var(--shiki-foreground)\"> {          </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 只能 extends 一个父类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    @</span><span style=\"color:var(--shiki-token-keyword)\">Override</span><span style=\"color:var(--shiki-token-keyword)\"> void</span><span style=\"color:var(--shiki-token-function)\"> speak</span><span style=\"color:var(--shiki-foreground)\">() { }      </span><span style=\"color:var(--shiki-token-comment)\">// 重写要标注：写错签名时编译器会提醒</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    void</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">() { super</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">speak</span><span style=\"color:var(--shiki-foreground)\">(); } </span><span style=\"color:var(--shiki-token-comment)\">// 调父类实现用 super</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所有类都隐式继承 Object；没有多继承，也就不存在 MRO 与菱形问题</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 方法默认是虚方法（和 Python 一样），除非标 final</span></span></code></pre>",
+          "lineCount": 9,
+          "notes": [
+            {
+              "line": 3,
+              "text": "只能 extends 一个父类",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>单继承 + 接口多实现</strong> —— 一个类只能继承一个父类，想复用多个来源的行为\n只能靠接口加组合。</p>\n<p>所以 Python 里&quot;MRO 决定 super() 往哪走&quot;那一整类问题在这边不存在，\n多继承的协作复杂度换成了&quot;接口要多写一层&quot;。\n代价是<strong>代码复用变难</strong>：想给几个已有类加同一段行为，\n在 Python 里用 mixin 就行，这里要么提公共父类，要么用组合包一层。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -54,6 +72,24 @@
       "summary": "你有 Protocol 与 ABC 两种强制手段，JS 在语言层面一种都没有",
       "bodyHtml": "<p>Python 两种都有：<code>Protocol</code>（结构化 —— 「长得像就算」）与 <code>ABC</code>（名义式 ——\n「必须显式继承才能实例化」）。静态检查交给 mypy，运行时 ABC 还能在实例化时拦住\n不完整的实现。</p>\n<p>JS 在语言层面<strong>没有接口这一概念</strong>：一个对象能不能当某物使用，完全看它有没有\n对应的方法（鸭子类型），<code>interface</code> 只是 TypeScript 的编译期概念，运行时不留下痕迹。</p>\n<p>从 Python 过来，你会失去「把一项约束写下来并能被强制」的两种手段 ——\n在 JS 里只能写在注释或文档里，或者引入 TS 才拿回编译期约束；\n<strong>运行时强制</strong>（ABC 那种，实例化时就拦）在 JS 里没有等价物。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "interface Greeter {\n    String greet();                 // 隐式 public abstract\n    default String greetLoud() { return greet().toUpperCase(); }   // Java 8+ 可以有默认实现\n}\n\nclass En implements Greeter {\n    public String greet() { return \"hi\"; }\n}\n\n// ⚠ 必须显式 implements：类不会\"碰巧\"满足接口\n// class Zh { public String greet() { return \"你好\"; } }   // 不 implements 就不是 Greeter",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">interface</span><span style=\"color:var(--shiki-token-function)\"> Greeter</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    String</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">();                 </span><span style=\"color:var(--shiki-token-comment)\">// 隐式 public abstract</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    default</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> greetLoud</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-function)\"> greet()</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">toUpperCase</span><span style=\"color:var(--shiki-foreground)\">(); }   </span><span style=\"color:var(--shiki-token-comment)\">// Java 8+ 可以有默认实现</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> En</span><span style=\"color:var(--shiki-token-keyword)\"> implements</span><span style=\"color:var(--shiki-token-function)\"> Greeter</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    public</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-string-expression)\"> \"hi\"</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 必须显式 implements：类不会\"碰巧\"满足接口</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// class Zh { public String greet() { return \"你好\"; } }   // 不 implements 就不是 Greeter</span></span></code></pre>",
+          "lineCount": 11,
+          "notes": [
+            {
+              "line": 10,
+              "text": "必须显式 implements：类不会\"碰巧\"满足接口",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>必须显式 implements</strong> —— 不存在 Python 那种&quot;有同名方法就算满足协议&quot;的隐式符合。</p>\n<p>好处是编译器能查&quot;这个类到底有没有实现全&quot;，代价是<strong>适配已有类要包一层</strong>：\n第三方库的类想当你的接口用，得写个适配器，而不能像 Python 那样\n直接传进去靠鸭子类型。</p>\n<p>Java 8 之后接口可以有默认方法，这让&quot;接口 + 默认实现&quot;部分承担了 mixin 的角色。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -94,6 +130,34 @@
       "summary": "TypeVar 是渐进的可选标注，JS 连标注语法都没有，泛型全靠 TS",
       "bodyHtml": "<p>Python 有 <code>typing.TypeVar</code> 等标注工具，但它是<strong>渐进类型</strong>：标注自愿、可以只标一部分，\n解释器自己不检查，检查交给 mypy 这类外部工具；类型参数在运行时被擦除。</p>\n<p>JS 比 Python 更彻底 —— <strong>语言本身连类型标注语法都没有</strong>，泛型完全依赖 TypeScript，\n而 TS 的泛型同样在运行时不保留。</p>\n<p>共同点很重要：<strong>两边的类型参数在运行时都不存在</strong>，所以「用泛型来做运行时判断」\n在任何一边都行不通，这条心智可以从 Python 直接搬过去。差别在「标注错了会怎样」：\nPython 是 mypy 报错、程序照跑；JS 到 TS 是编译期就过不去。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "java.util.List<String> xs = new java.util.ArrayList<>();\n// xs.add(1);                      // —— ⚠ 编译错误：类型参数在编译期就检查\n\n// ⚠ 擦除：运行时拿不到 String 这个信息，\n// List<String> 与 List<Integer> 是同一个类，getClass() 结果一样\n\n// java.util.List<int> bad;        // —— ⚠ 泛型不能用基本类型，只能 Integer\njava.util.List<Integer> boxed = new java.util.ArrayList<>();\n\n// 也因此不能 new T()、不能 instanceof List<String>",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">util</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">List</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\">> xs </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-keyword)\"> java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">util</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">ArrayList</span><span style=\"color:var(--shiki-foreground)\">&#x3C;>();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// xs.add(1);                      // —— ⚠ 编译错误：类型参数在编译期就检查</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 擦除：运行时拿不到 String 这个信息，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// List&#x3C;String> 与 List&#x3C;Integer> 是同一个类，getClass() 结果一样</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// java.util.List&#x3C;int> bad;        // —— ⚠ 泛型不能用基本类型，只能 Integer</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">util</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">List</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">Integer</span><span style=\"color:var(--shiki-foreground)\">> boxed </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-keyword)\"> java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">util</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-keyword)\">ArrayList</span><span style=\"color:var(--shiki-foreground)\">&#x3C;>();</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 也因此不能 new T()、不能 instanceof List&#x3C;String></span></span></code></pre>",
+          "lineCount": 10,
+          "notes": [
+            {
+              "line": 2,
+              "text": "编译错误：类型参数在编译期就检查",
+              "tone": "warn"
+            },
+            {
+              "line": 4,
+              "text": "擦除：运行时拿不到 String 这个信息，",
+              "tone": "warn"
+            },
+            {
+              "line": 7,
+              "text": "泛型不能用基本类型，只能 Integer",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>编译期泛型 + 类型擦除</strong> —— 类型参数只在编译期存在，运行时被擦掉。</p>\n<p>两个连锁后果：<strong>不能装基本类型</strong>（逼出一整层 <code>Integer</code> / <code>Double</code> 装箱，\n以及随之而来的 <code>==</code> 语义歧义），以及<strong>运行时拿不到类型参数</strong>\n（不能 <code>new T()</code>、不能对 <code>List&lt;String&gt;</code> 做 <code>instanceof</code>）。</p>\n<p>与 Python 的类型标注相比，相同的是都写在代码里、都靠工具检查；\n不同的是这里<strong>编译器强制执行</strong>，那边只是注解、运行时一点约束都没有。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
@@ -134,6 +198,24 @@
       "summary": "except 必须写类型，而 JS 能 throw 任何东西，catch 到的不一定是 Error",
       "bodyHtml": "<p>Python 只能抛 <code>BaseException</code> 的子类，<code>except</code> 必须写明类型（裸 <code>except:</code> 会连\n<code>KeyboardInterrupt</code> 一起吞掉，是明确的反模式）；<code>try/except/else/finally</code> 比 JS\n还多一个 <code>else</code>（没出错时执行，把成功路径从 <code>try</code> 里挪出来）。</p>\n<p>JS 可以 <code>throw</code> <strong>任意值</strong>：字符串、对象、数字都行。所以 <code>catch</code> 到的东西\n<strong>不一定是 <code>Error</code></strong>，取 <code>e.message</code> 可能得到 <code>undefined</code> ——\n你在 Python 里「异常一定是个有类型的对象」的假设会失效。</p>\n<p>两边的一个共同点：<strong>都没有受检异常</strong>，签名上看不出「这个函数可能抛什么」。\n从 Python 到 JS 这一条是平滑的，但从 Java 过来会突然失去编译器替你把关。</p>\n",
       "snippets": {
+        "java": {
+          "lang": "java",
+          "equivalence": "divergent",
+          "flags": [],
+          "code": "void load() throws java.io.IOException {            // ⚠ 受检异常：必须声明\n    java.nio.file.Files.readString(java.nio.file.Path.of(\"a.txt\"));\n}\n\ntry (var in = java.nio.file.Files.newInputStream(p)) {   // try-with-resources\n    in.read();\n} catch (java.io.IOException e) {\n    throw new IllegalStateException(e);              // 转成非受检异常\n}\n\n// 除 Exception 外还有 Error（JVM 层面，不该捕获）；\n// Python 那边对应的分界大致是 Exception 与 BaseException",
+          "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> load()</span><span style=\"color:var(--shiki-foreground)\"> throws </span><span style=\"color:var(--shiki-token-constant)\">java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">io</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">IOException</span><span style=\"color:var(--shiki-foreground)\"> {            </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 受检异常：必须声明</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">nio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">file</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">Files</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">readString</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">nio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">file</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">Path</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">of</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"a.txt\"</span><span style=\"color:var(--shiki-foreground)\">));</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> in </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> java</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">nio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">file</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">Files</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">newInputStream</span><span style=\"color:var(--shiki-foreground)\">(p)) {   </span><span style=\"color:var(--shiki-token-comment)\">// try-with-resources</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    in</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">read</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">java.io.IOException</span><span style=\"color:var(--shiki-foreground)\"> e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> IllegalStateException(e)</span><span style=\"color:var(--shiki-foreground)\">;              </span><span style=\"color:var(--shiki-token-comment)\">// 转成非受检异常</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 除 Exception 外还有 Error（JVM 层面，不该捕获）；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Python 那边对应的分界大致是 Exception 与 BaseException</span></span></code></pre>",
+          "lineCount": 12,
+          "notes": [
+            {
+              "line": 1,
+              "text": "受检异常：必须声明",
+              "tone": "warn"
+            }
+          ],
+          "reviewState": "draft",
+          "provenanceOrigin": "llm",
+          "bodyHtml": "<p><strong>受检异常</strong> —— &quot;这个方法可能抛出什么&quot;写进签名，编译器强制调用方处理。</p>\n<p>它把&quot;我知道这里会失败&quot;从注释变成了类型信息，代价是\n小改动会沿着调用链一路污染签名，所以实践里常见两种规避：\n在边界处转成非受检异常，或者干脆用 <code>RuntimeException</code> 系。</p>\n<p>资源关闭由 <code>try-with-resources</code> 保证，比 Python 的 <code>with</code> 更贴近语法结构 ——\n但它只对实现了 <code>AutoCloseable</code> 的类型有效。</p>\n"
+        },
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",

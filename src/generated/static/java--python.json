@@ -42,6 +42,26 @@
       "target": "python"
     },
     {
+      "id": "pitfall-java2py-division-semantics",
+      "title": "'/' 不再截断，算整数的地方悄悄变成了小数",
+      "symptomHtml": "<p>Java 里 <code>7 / 2</code> 得 3，搬到 Python 得 3.5。\n算分页偏移、数组下标、整数比例时会得到浮点数，然后在下标位置上抛\n<code>TypeError: list indices must be integers</code>，或者更糟 —— 一路算出一个错误的小数结果。</p>\n",
+      "causeHtml": "<p>Java 的 <code>/</code> 在两边都是整数时做整数除法，要浮点得显式转 <code>double</code>；\nPython 的 <code>/</code> <strong>永远</strong>返回浮点，要整除必须写 <code>//</code>。\n两边的默认行为正好相反，而两边都不会对结果类型提出异议。</p>\n",
+      "fixHtml": "<p>迁移算下标、算分页、算余数的代码时逐处确认：要整除就写 <code>//</code>。\n注意 <code>//</code> 是<strong>向下取整</strong>，与 Java 的<strong>向零截断</strong>在负数上仍然不同 ——\n要完全对齐 Java 用 <code>int(a / b)</code>。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "java2python/numeric-types",
+      "tags": [
+        "数值",
+        "运算"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
       "id": "pitfall-java2py-kwargs-swallow",
       "title": "拼错的具名参数被静默吞掉",
       "symptomHtml": "<p>调用 <code>configure(rettry=5)</code>，本意是 <code>retry</code>，程序不报错，只是配置没生效，直到线上才发现。</p>\n",
@@ -82,6 +102,26 @@
       "target": "python"
     },
     {
+      "id": "pitfall-java2py-no-compile-check",
+      "title": "拼错的名字不会在编译期被拦住",
+      "symptomHtml": "<p><code>user.nmae</code>、<code>obj.lenght()</code>、<code>configure(rettry=5)</code> 这些在 Java 里\n都是编译错误，迁到 Python 后要么在运行时抛 AttributeError，\n要么<strong>根本不报错</strong>（拼错的键进了 <code>**kwargs</code>），直到线上才暴露。</p>\n",
+      "causeHtml": "<p>Java 有编译器替你把名字解析、类型匹配、参数个数全部查一遍；\nPython 把这些检查全部推到了运行时，而且有一部分<strong>根本没有检查</strong> ——\n动态属性、可变的 <code>__dict__</code>、<code>**kwargs</code> 都会让拼写错误合法化。</p>\n",
+      "fixHtml": "<p>这层保障得自己补回来，三条按性价比排：\n① 开类型检查工具（mypy / pyright）并让它在 CI 里跑；\n② 写测试覆盖主要路径 —— 这是最可靠的一条；\n③ 少用裸 <code>**kwargs</code>，对外 API 显式写出参数名。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "java2python/intro",
+      "tags": [
+        "类型",
+        "工具链"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
       "id": "pitfall-checked-exception-absent",
       "title": "没有受检异常，没人再逼你处理它",
       "symptomHtml": "<p>Java 里一个方法声明了 <code>throws IOException</code>，调用方不 try/catch 就编译不过。\n迁到 Python 后同样的调用能直接跑过去，直到某天线上抛出来才第一次发现。</p>\n",
@@ -117,6 +157,86 @@
       "tags": [
         "相等",
         "对象"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-java2py-lazy-iterator-once",
+      "title": "迭代器/生成器只能遍历一次，第二次拿到空",
+      "symptomHtml": "<p>把一个 <code>map(...)</code> 的结果存进变量，第一次 <code>list(...)</code> 拿到数据，\n第二次遍历得到空列表；或者 <code>for</code> 循环跑了两遍，第二遍什么都没做。</p>\n",
+      "causeHtml": "<p>Java 的 <code>List</code> 可以反复遍历，<code>Stream</code> 是一次性的 —— 而这两者在类型上就分开了。\nPython 里 <code>map</code> / <code>filter</code> / 生成器表达式返回的都是<strong>迭代器</strong>，\n但它们的类型看起来跟列表没什么区别，用起来要自己记着&quot;这个已经耗尽了&quot;。</p>\n",
+      "fixHtml": "<p>需要反复遍历时先固化：<code>xs = list(map(str, raw))</code>。\n或者干脆用列表推导式替代 <code>map</code> / <code>filter</code> —— 它直接产出列表，\n没有&quot;一次性&quot;这个属性。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "java2python/collections-intro",
+      "tags": [
+        "容器",
+        "迭代"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-java2py-slice-is-copy",
+      "title": "改了切片却指望原列表跟着变",
+      "symptomHtml": "<p>Java 里 <code>xs.subList(1, 3).set(0, 9)</code> 会写回原列表，于是迁到 Python 后\n写 <code>xs[1:3][0] = 9</code>，原列表纹丝不动，而错误要很久之后才被发现。</p>\n",
+      "causeHtml": "<p>Java 的 <code>subList</code> 返回的是<strong>视图</strong>，改它等于改原列表；\nPython 的切片返回的是<strong>新列表</strong>（浅拷贝），改它对原列表毫无影响。\n两边语法都像是&quot;取一段&quot;，行为却相反。</p>\n",
+      "fixHtml": "<p>把 Python 的切片理解成&quot;复制一份&quot;，要改原列表就直接改原列表的下标。\n反向迁移（Python → Java）时则要小心 <code>subList</code> 的写回 ——\n想只要一份拷贝必须 <code>new ArrayList&lt;&gt;(xs.subList(a, b))</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "java2python/list-model",
+      "tags": [
+        "容器",
+        "切片"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-java2py-truthiness-empty-container",
+      "title": "`if not x` 把 0 和空字符串也当成了\"没有\"",
+      "symptomHtml": "<p>从 <code>if (x == null)</code> 直译成 <code>if not x</code>，于是 <code>x = 0</code>、<code>x = &quot;&quot;</code>、<code>x = []</code>\n都走进了&quot;没有值&quot;的分支 —— 而这三种在 Java 里都是<strong>合法的有值</strong>。</p>\n",
+      "causeHtml": "<p>Java 的判空只有一个含义（是不是 null）；\nPython 的 <code>if not x</code> 走的是真值规则，把 <code>None</code>、<code>0</code>、<code>&quot;&quot;</code>、<code>[]</code>、<code>{}</code> 全部归为假。\n一个是&quot;空不空&quot;，一个是&quot;真不真&quot;，含义不同却长得几乎一样。</p>\n",
+      "fixHtml": "<p>要判&quot;是不是空值&quot;就写 <code>x is None</code>，别用 <code>not x</code>。\n确实想用真值语义时，在注释里写明&quot;这里 0 和空串也算没有&quot;，让后来的人知道是故意的。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "concepts-python/null-value",
+      "tags": [
+        "真值",
+        "空值"
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "pitfall-java2py-string-format-spec",
+      "title": "`%08.2f` 迁成 `:08.2f` 时宽度含义理解错",
+      "symptomHtml": "<p>Java 的 <code>String.format(&quot;%08.2f&quot;, n)</code> 与 Python 的 <code>f&quot;{n:08.2f}&quot;</code> 结果虽然一样，\n但迁移时容易漏掉前导的 <code>0</code>（那是填充字符），写成 <code>f&quot;{n:8.2f}&quot;</code> 得到空格填充，\n在需要定宽对齐（生成表格、拼报文）时会静默错位。</p>\n",
+      "causeHtml": "<p>两边的格式规格语法相似但<strong>不是逐字对应</strong>：Java 是 <code>%[flags][width][.precision]converter</code>，\nPython 是 <code>[[fill]align][sign][#][0][width][,][.precision][type]</code>，\n<code>%s</code> 在 Python 里没有直接对应物（直接插值即可），\n而 Python 多出来的对齐符（<code>&gt;10</code>、<code>^10</code>）在 Java 里要另想办法。</p>\n",
+      "fixHtml": "<p>迁移时不要逐字替换，而是<strong>重新表达意图</strong>：是要&quot;定宽补零&quot;还是&quot;保留两位小数&quot;。\n宽度相关的格式化，迁完拿几组边界值（0、负数、超宽的数）对一遍输出。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "python"
+      ],
+      "fromBaseline": true,
+      "featureId": "java2python/strings",
+      "tags": [
+        "字符串",
+        "格式"
       ],
       "baseline": "java",
       "target": "python"
@@ -194,18 +314,95 @@
       "note": "两边都容易被误读成\"内容不可变\"，实际都只管绑定。",
       "baseline": "java",
       "target": "python"
+    },
+    {
+      "term": "真值",
+      "aliases": [
+        "truthiness",
+        "boolean conversion",
+        "falsy"
+      ],
+      "perLanguage": {
+        "java": "不存在这个概念 —— 条件位置只接受 boolean，空集合要显式写 isEmpty()",
+        "python": "`None`、`0`、`\"\"`、`[]`、`{}` 全是假值；自定义类可以用 `__bool__` / `__len__` 决定"
+      },
+      "note": "从 Java 到 Python，\"判空\"与\"判真\"合并成了一个写法，读代码的人必须先知道类型才能确定含义。",
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "term": "切片",
+      "aliases": [
+        "slice",
+        "subList",
+        "subarray"
+      ],
+      "perLanguage": {
+        "java": "只有 subList —— 返回的是**视图**，改它会写回原列表；数组另有 copyOfRange（是真拷贝）",
+        "python": "`xs[a:b]` 是语法，返回**新列表**（浅拷贝）；支持负索引、步长、切片赋值"
+      },
+      "note": "「取一段」这件事，一边给视图一边给拷贝，是迁移时最容易静默出错的地方之一。",
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "term": "迭代器",
+      "aliases": [
+        "iterator",
+        "iterable",
+        "generator",
+        "stream"
+      ],
+      "perLanguage": {
+        "java": "Iterable 可反复遍历，Stream 是一次性的 —— 两者是不同的类型，编译器分得清",
+        "python": "列表可反复遍历，map / filter / 生成器返回迭代器只能遍历一次 —— 类型上不区分，靠人记"
+      },
+      "note": "Java 用类型把\"可重复\"与\"一次性\"分开了，Python 把两者都叫迭代器。",
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "cast",
+        "boxing",
+        "unboxing",
+        "widening"
+      ],
+      "perLanguage": {
+        "java": "基本类型之间有自动宽化与显式窄化；对象强转靠 (T)，错了运行时抛 ClassCastException",
+        "python": "转换就是调用类型本身（int(x) / str(x)），没有隐式窄化；失败一律抛异常"
+      },
+      "note": "Java 那套\"自动宽化、窄化才要写括号\"的规则在 Python 里完全不存在，每个转换都要显式写出来。",
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "term": "注解",
+      "aliases": [
+        "annotation",
+        "decorator",
+        "aspect"
+      ],
+      "perLanguage": {
+        "java": "元数据，自己不做事；要有注解处理器或 AOP 框架读到它才会产生行为",
+        "python": "装饰器是可执行代码 —— `@dec` 就是 `f = dec(f)`，运行时真的包了一层"
+      },
+      "note": "名字相近、机制相反。把装饰器当注解迁过去，最常见的后果是\"写了却没生效\"。",
+      "baseline": "java",
+      "target": "python"
     }
   ],
   "roadmaps": [
     {
-      "id": "java2py-1-mental-model",
+      "id": "java2py-1-anchor",
       "order": 1,
       "title": "先接受「编译器不再兜底」",
       "durationHint": "2-3 小时",
       "todo": [
         "列出 Java 编译期能拦住、Python 只能在运行时发现的四类错误：类型不匹配、拼错参数名、返回类型不符、未初始化",
-        "通读基础语法板块里变量那一章，把「块级作用域」这条直觉标记为必须丢掉",
-        "明确写下哪些 Java 直觉要重写：== 与 equals、块作用域、final 的含义"
+        "通读本工具「心智模型」板块的 Java 视角，把 Maven/pip、真并行/GIL、受检异常/无这四组映射建起来",
+        "明确写下哪些 Java 直觉要重写：== 与 equals、块作用域、final 的含义、真值转换"
       ],
       "acceptance": [
         "能说出 Python 里 `is` 与 `==` 的分工，以及为什么不能拿 `is` 比值",
@@ -215,24 +412,30 @@
         {
           "label": "Python 官方教程（中文）",
           "url": "https://docs.python.org/zh-cn/3/tutorial/"
+        },
+        {
+          "label": "Python for Java developers",
+          "url": "https://docs.python.org/3/howto/"
         }
       ],
       "baseline": "java",
       "target": "python"
     },
     {
-      "id": "java2py-2-functions",
+      "id": "java2py-2-basics",
       "order": 2,
-      "title": "重写函数与参数这一层",
-      "durationHint": "1-2 天",
+      "title": "基础语法逐条对照",
+      "durationHint": "3-5 天",
       "todo": [
-        "读《函数与参数传递》一章，把重载改写成默认参数、把具名构造改写成关键字参数",
-        "亲手写一次可变默认参数的坑，确认自己记住了要拿 None 当哨兵",
-        "练习用 `*args` / `**kwargs` 写一个转发函数"
+        "按本工具「基础语法」板块的 8 个章节逐格对比，重点看标为「语义不同」的格子",
+        "每看一格，手写一遍两边的代码（不要复制）——特别注意 `/`、`%`、`==` 这三处的语义差异",
+        "读《函数与参数》一章，把重载改写成默认参数、把具名构造改写成关键字参数",
+        "亲手写一次可变默认参数的坑，确认自己记住了要拿 None 当哨兵"
       ],
       "acceptance": [
         "能一眼看出签名里 `def f(x=[])` 的问题",
-        "能解释为什么拼错的关键字参数在 Python 里不报错"
+        "能解释为什么拼错的关键字参数在 Python 里不报错",
+        "能说清切片是拷贝而 subList 是视图"
       ],
       "resources": [
         {
@@ -244,23 +447,86 @@
       "target": "python"
     },
     {
-      "id": "java2py-3-tooling",
+      "id": "java2py-3-practice",
       "order": 3,
-      "title": "换一套工具链",
-      "durationHint": "1 周",
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "1-2 周",
       "todo": [
-        "用 venv + pip 建好隔离环境，把 Maven 的依赖声明映射到 requirements 或 pyproject",
-        "挑一个 Maven 项目改写成 Python，体会「没有编译步骤」带来的反馈速度变化",
-        "把常用的静态检查（ruff / mypy）接进编辑器，用工具补回一部分编译期检查"
+        "做 Exercism 的 Python track，接受 mentor 评审",
+        "挑一个自己写过的 Maven 项目（或其中 100-300 行的部分）用 Python 重写一遍",
+        "重写时不要查 Java 原文件——凭记忆写，写完再对照",
+        "刻意不用 IDE 的编译错误当拐杖：靠测试而不是编译来发现问题"
       ],
       "acceptance": [
-        "能独立创建虚拟环境并锁定依赖版本",
-        "能配置 mypy 并让它拦住一处类型错误"
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法",
+        "写完之后能指出哪几处是\"翻译腔\"（把 Java 写法直译过来的）"
       ],
       "resources": [
         {
-          "label": "Python 打包用户指南",
-          "url": "https://packaging.python.org/"
+          "label": "Exercism Python Track",
+          "url": "https://exercism.org/tracks/python"
+        },
+        {
+          "label": "TheAlgorithms Python",
+          "url": "https://github.com/TheAlgorithms/Python"
+        }
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "java2py-4-deep",
+      "order": 4,
+      "title": "补齐语义层（并发与内存）",
+      "durationHint": "3-5 天",
+      "todo": [
+        "真正理解 GIL：把一段依赖多线程加速的 CPU 密集任务迁过来，测量它为什么没有变快",
+        "分辨哪些 synchronized 可以删（防丢更新）、哪些必须换成 Lock（防\"检查后写入\"被插队）",
+        "理解引用计数 + 循环 GC：为什么 del 不等于立刻释放，with 为什么仍然是必需的",
+        "对比 CompletableFuture 链与 asyncio 的错误语义差别"
+      ],
+      "acceptance": [
+        "能解释为什么 Python 要用 multiprocessing 而不是 threading 做 CPU 密集任务",
+        "能写出正确的 asyncio 并发代码，并知道 asyncio.gather 与 CompletableFuture.allOf 的差别"
+      ],
+      "resources": [
+        {
+          "label": "asyncio 官方文档",
+          "url": "https://docs.python.org/3/library/asyncio.html"
+        },
+        {
+          "label": "Fluent Python（深入理解语言语义）",
+          "url": "https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/"
+        }
+      ],
+      "baseline": "java",
+      "target": "python"
+    },
+    {
+      "id": "java2py-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 venv + pyproject.toml（或 uv）管理一个真实项目，把 Maven 的依赖声明映射过去",
+        "配置 Ruff（= Checkstyle + SpotBugs + 格式化 的合体），体会工具链\"独裁\"带来的省心",
+        "用 pytest 写测试，注意 fixture 的隐式注入与 JUnit 的显式注解差别",
+        "用 mypy 加类型标注，理解「gradual typing」的边界：哪些地方它能替你找回编译期检查"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖管理、lint、测试、类型检查的 Python 工程",
+        "能说清 pyproject.toml / venv / pip / uv 各自解决什么问题",
+        "能说清 mypy 能补回多少原本由 javac 承担的检查，哪些补不回来"
+      ],
+      "resources": [
+        {
+          "label": "pytest 官方文档",
+          "url": "https://docs.pytest.org/"
+        },
+        {
+          "label": "Ruff",
+          "url": "https://docs.astral.sh/ruff/"
         }
       ],
       "baseline": "java",
