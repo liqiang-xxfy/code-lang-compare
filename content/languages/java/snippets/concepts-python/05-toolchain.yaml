@@ -1,0 +1,166 @@
+# java —— concepts-python/05-toolchain 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/package-manager
+    equivalence: divergent
+    code: |
+      // @note! 依赖不是"装到环境里"，而是写进构建文件的三段坐标：
+      // <dependency>
+      //   <groupId>com.google.guava</groupId>
+      //   <artifactId>guava</artifactId>
+      //   <version>33.0.0-jre</version>
+      // </dependency>
+
+      // Gradle 里是简写：implementation("com.google.guava:guava:33.0.0-jre")
+
+      // @note 传递依赖会被自动解析，版本冲突也由构建工具按规则裁决
+    body: |
+      **依赖写坐标、由构建工具解析** —— `groupId:artifactId:version` 三段，
+      传递依赖自动拉取。
+
+      与 Python 的 `pyproject.toml` 相比，粒度细得多：这边能区分
+      "编译需要 / 运行需要 / 测试需要"，也能排除某条传递依赖；
+      那边是一张平铺的名字加版本范围。
+
+      代价是**版本冲突由构建工具裁决**（"最近者胜"），
+      于是"为什么运行时是这个版本"经常要跑 `dependency:tree` 才看得清。
+  - featureId: concepts-python/dependency-isolation
+    equivalence: divergent
+    code: |
+      // @note! 没有虚拟环境：所有依赖铺在**一条 classpath** 上，
+      // 同一个全限定类名只能有一个版本存在
+
+      // 两个库各自依赖 guava 的不同版本时，classpath 上谁在前面用谁 ——
+      // 这就是"classpath 地狱"：编译过、运行时报 NoSuchMethodError
+
+      // 三条出路：构建工具里强制版本、shading（把依赖重命名后打进自己的 jar）、
+      // 或 Java 9+ 的模块系统（JPMS）做显式边界
+    body: |
+      **没有虚拟环境，只有一条 classpath** —— 依赖是平铺的，同名类冲突时
+      "先出现者赢"。
+
+      Python 的 `venv` 是每个项目一套环境，项目之间天然隔离；
+      这里的隔离单元是 JVM 实例，所以同一个进程里只能有一份同名类。
+      冲突的表现形式也很特别：**编译期完全正常，运行时才 `NoSuchMethodError`** ——
+      因为编译用的是 A 版本的签名，运行时加载到的是 B 版本。
+  - featureId: concepts-python/runner
+    equivalence: divergent
+    code: |
+      // @note 两步走：先编译再运行
+      // javac Main.java      → Main.class
+      // java Main
+
+      // 打包成可执行 jar：
+      // java -jar app.jar
+
+      // 单文件源码模式（Java 11+）可以一步跑：
+      // java Main.java
+
+      // @note "改了没生效"最常见的原因就是忘了重新编译
+    body: |
+      **先编译再运行** —— 源码不是直接执行的对象，中间产物是 `.class`。
+
+      与"解释执行、改完即生效"相比，多了一层心智负担：
+      **改了源码但没重新编译**时，跑的还是旧逻辑，而且不会有任何提示。
+      单文件源码模式（Java 11+）缓解了一部分，但它不是日常开发路径。
+  - featureId: concepts-python/build-tool
+    equivalence: divergent
+    code: |
+      // @note 构建工具是必需项，不是可选项 —— 编译、测试、打包、发依赖都在它手里
+      // Maven：pom.xml 声明式生命周期（compile → test → package → install）
+      //       约定优先，目录结构固定，想偏离要改配置
+      // Gradle：build.gradle 脚本式，增量构建，灵活但要自己维护正确性
+
+      // mvn test / mvn package / ./gradlew build
+    body: |
+      **构建工具是标配** —— 它不只是"装依赖"，而是定义了整个生命周期：
+      编译到哪、测试怎么跑、产物打成什么、怎么发布。
+
+      与 Python 那边 `pip` 装包 + 另找构建工具相比，这里的边界更清楚，
+      代价是**项目结构被约定绑死**（Maven 的 `src/main/java` 那一套），
+      以及构建脚本本身成了一份要维护的代码。
+  - featureId: concepts-python/test-framework
+    equivalence: analogous
+    code: |
+      // import org.junit.jupiter.api.Test;
+      // import static org.junit.jupiter.api.Assertions.assertEquals;
+      //
+      // class CalcTest {
+      //     @Test void adds() { assertEquals(3, add(1, 2)); }
+      //
+      //     @BeforeEach void setUp() { }
+      //     @ParameterizedTest @ValueSource(ints = {1, 2}) void p(int n) { }
+      // }
+
+      // @note 测试发现靠注解（@Test），断言是静态方法，测试类与方法默认包可见
+    body: |
+      **JUnit 5，注解驱动** —— 测试发现靠 `@Test`，断言是 `Assertions` 的静态方法，
+      生命周期靠 `@BeforeEach` / `@AfterEach`。
+
+      与 pytest 相比：那边靠**命名约定**发现测试、靠 fixture 参数名做依赖注入，
+      这边全部显式声明。显式的好处是"这个测试依赖什么"一眼可见，
+      代价是样板变多，参数化测试尤其啰嗦。
+  - featureId: concepts-python/testing-mock
+    equivalence: analogous
+    code: |
+      // var repo = org.mockito.Mockito.mock(Repo.class);
+      // org.mockito.Mockito.when(repo.find(1)).thenReturn(user);
+      // org.mockito.Mockito.verify(repo).find(1);
+
+      // @note! 替身是**接口实现**（动态代理），所以：
+      //   · 接口、非 final 类、非 final 方法才能被替身
+      //   · 静态方法、构造器、final 类默认换不掉（要换得上 mockito-inline）
+    body: |
+      **Mockito 动态代理** —— 替身是运行时代理出来的接口/子类实现。
+
+      所以它能替换的范围由**类型系统**决定：`final` 类、静态方法、
+      构造器默认都换不掉。Python 的 `unittest.mock` 相反 ——
+      它替换的是模块里的**名字**，想换什么换什么，代价是
+      补丁打在哪、什么时候失效全靠自己盯着。
+  - featureId: concepts-python/lint-format
+    equivalence: analogous
+    code: |
+      // @note 静态分析是独立进程，不在编译器里，各管一摊：
+      //   Checkstyle / PMD   → 风格与常见缺陷
+      //   SpotBugs           → 字节码层面的 bug 模式
+      //   google-java-format → 格式化
+
+      // @note 稍特别的一条：编译器的警告本身也能当闸门用
+      // javac -Xlint:all -Werror
+    body: |
+      **工具分散，各自为政** —— 格式、风格、缺陷由不同工具负责，
+      要自己选一套并配进构建。
+
+      与 Python 那边 Ruff 一把抓（lint + format）的体验差别明显。
+      另一个反向差异是：**编译期已经拦掉了大量错误**，
+      所以静态分析能额外捡到的东西比 Python 那边少 ——
+      类型错误、拼写错误、未使用变量这类问题，编译器早替你做完了。
+  - featureId: concepts-python/repl
+    equivalence: divergent
+    code: |
+      // @note jshell（Java 9+）是唯一的官方 REPL：
+      // jshell> int x = 1
+      // jshell> x + 2
+      // $2 ==> 3
+
+      // @note! 只支持"语句与表达式"，不能直接贴一个带 package 声明的类；
+      // 也没有 __doc__ 那种对象级文档，没有 help()
+
+      // 日常的反馈循环在 IDE 里：改一行 → 编译 → 跑测试
+    body: |
+      **jshell 是补充，不是主路径** —— 这门语言的反馈循环在 IDE 与测试里，
+      不在 REPL 里。
+
+      与 Python"把 REPL 当日常工具"的用法相比，差的不是有没有，
+      而是**能问的东西不同**：这里没有 `__doc__`、没有 `help(obj)`，
+      想知道一个方法怎么用只能翻 javadoc 或靠 IDE 补全。
+      编译期检查把一部分探索需求转移到了编辑器里。

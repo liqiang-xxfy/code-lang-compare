@@ -1,0 +1,120 @@
+# java —— concepts-python/02-data 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/collections
+    equivalence: divergent
+    code: |
+      java.util.List<String> xs = new java.util.ArrayList<>();    // @note 接口在前、实现在后
+      java.util.Set<String> s = new java.util.HashSet<>();
+      java.util.Map<String, Integer> m = new java.util.HashMap<>();
+
+      java.util.Map.of("a", 1, "b", 2);        // @note 不可变字面量，最多 10 对
+      java.util.List.of(1, 2, 3);              // 同样不可变
+
+      // @note! Map 的键靠 equals/hashCode：不重写这两个方法的类当键会"找不到"
+    body: |
+      **接口与实现分离** —— `List` / `Set` / `Map` 是接口，`ArrayList` / `HashSet` /
+      `HashMap` 是实现，声明时用接口、构造时选实现。
+
+      Python 只有具体类型（`list` / `dict` / `set`），不存在"换一个实现"这件事。
+      这里多出来的那层自由度，也带来一个新的失败模式：
+      **自定义类不重写 `equals` / `hashCode` 就当不好 Map 的键**（默认比引用）。
+  - featureId: concepts-python/immutable-data
+    equivalence: analogous
+    code: |
+      java.util.List.of(1, 2, 3);                    // @note 真正不可变，add 会抛异常
+      java.util.Map.copyOf(m);
+      java.util.Set.of("a");
+
+      java.util.Collections.unmodifiableList(xs);
+      // @note! 这只是**视图**：原列表一改，它跟着变，并不能真正保护数据
+
+      // @note 元素本身如果是可变的，集合的"不可变"照样拦不住改内容
+    body: |
+      **List.of / Map.of 是真正不可变的** —— 与 Python 的 `tuple` / `frozenset` 定位相近，
+      但这边是"任何集合同名工厂都能造不可变版本"，Python 是"用不可变类型"。
+
+      容易混的是 `Collections.unmodifiable*`：它只包了一层只读视图，
+      底层集合照样能被别处的引用改掉。想真正冻结数据，要用 `List.copyOf` 或 `List.of`。
+  - featureId: concepts-python/string-format
+    equivalence: analogous
+    code: |
+      String.format("%.2f", 3.14159);        // @note "3.14" —— printf 风格
+      String.format("%08.2f", 3.14159);      // @note "00003.14" —— 也有总宽度概念
+      String.format("%,d", 1234567);         // "1,234,567"
+      "值：%s".formatted(v);                  // Java 15+
+
+      // @note! 格式串与参数是分开的两个部分，参数一多顺序就容易错位
+    body: |
+      **String.format（printf 风格）** —— 表达力与 Python 的格式说明符相当
+      （宽度、精度、千分位、进制都有），但**格式串是运行时字符串、参数按位置对应**。
+
+      与 f-string 相比，差的不只是写法：f-string 的表达式就写在占位符里，
+      读的人一眼能对上；这里是 `format(spec, a, b, c)`，必须自己数第几个 `%` 对应哪个参数。
+      好处是规格串可以动态拼出来，那边做不到。
+  - featureId: concepts-python/regex
+    equivalence: analogous
+    code: |
+      var p = java.util.regex.Pattern.compile("\\d+");   // @note 反斜杠一律双写
+      var m = p.matcher("a1");
+
+      m.find();                      // @note true —— 任意位置查找，对应 re.search
+      m.matches();                   // @note! false —— matches() 是**整串**匹配
+      m.lookingAt();                 // @note true —— 从开头匹配，才对应 re.match
+      m.group();
+
+      "a@b".replaceAll("(\\w+)@(\\w+)", "$2@$1");   // @note 替换引用用 $1，不是 \1
+    body: |
+      **Pattern + Matcher 两个对象，且三种匹配语义各有一个方法** ——
+      `matches()` 是整串匹配、`lookingAt()` 是从开头、`find()` 是任意位置。
+
+      这套命名比 Python 的 `match` / `search` 更容易弄反：直觉上会以为
+      `matches` 对应 `match`，实际它对 Python 的 `fullmatch`。
+      另外正则串里的反斜杠要双写（没有原始字符串），所以模式本身也更难读。
+  - featureId: concepts-python/serialization
+    equivalence: absent
+    code: |
+      // @note! JDK 里没有任何 JSON API，序列化一律依赖第三方
+      // Jackson 的典型用法：
+      // var om = new ObjectMapper();
+      // String json = om.writeValueAsString(obj);
+      // MyClass o = om.readValue(json, MyClass.class);
+
+      // 内置的 Java 序列化（implements Serializable）是另一套东西：
+      // 二进制、跨语言不可读、且反序列化本身有安全问题
+    body: |
+      **标准库不含 JSON，必须引第三方** —— 这不是"藏在某个包里"，是真的没有。
+
+      连锁差异有两条：字段映射要靠注解写在类上（而不是在调用处传参数），
+      以及反序列化需要目标类型可构造（无参构造器，或 `record` / `@JsonCreator`）。
+
+      从"标准库自带 JSON"的环境迁过来时，最先卡住的往往不是写序列化代码，
+      而是配依赖和补注解。
+  - featureId: concepts-python/date-time
+    equivalence: analogous
+    code: |
+      var d = java.time.LocalDate.of(2026, 10, 2);
+      d.plusDays(1);                     // @note 返回新对象，d 不变 —— 与 Python 的 date 一致
+
+      java.time.Instant.now();           // 时间戳
+      java.time.Duration.between(a, b);  // 时长
+      var z = java.time.ZonedDateTime.now();
+
+      // @note! 库里同时留着可变的 java.util.Date / Calendar，
+      // 新代码一律用 java.time，选错就是"改了它却以为没改"
+    body: |
+      **java.time 是不可变值对象** —— 这一点与 Python 的 `datetime` 一致，
+      所有"修改"都返回新对象。
+
+      不同的是这里有**两代 API 并存**：`java.time`（不可变、清晰）与
+      `java.util.Date` / `Calendar`（可变、月份从 0 开始、设计混乱）。
+      老代码里到处都是后者，而两者的互转又是一层额外工作。

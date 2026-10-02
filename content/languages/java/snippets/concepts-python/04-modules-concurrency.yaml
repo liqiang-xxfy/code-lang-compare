@@ -1,0 +1,91 @@
+# java —— concepts-python/04-modules-concurrency 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/module-system
+    equivalence: divergent
+    code: |
+      package com.example.app;              // @note 包名必须与目录结构对应
+      import java.util.List;
+
+      public class Main { }                 // @note 一个文件一个 public 类，文件名要一致
+
+      // @note! 没有"模块级变量"：一切都在类里，顶层只有 package 与 import
+      // @note 构建坐标（groupId/artifactId）再叠一层命名空间，与包名是两件事
+    body: |
+      **包名与文件路径强绑定** —— 目录结构就是命名空间，不能像 Python 那样
+      随手写 `import` 就指到任意文件。
+
+      由此带来两个连锁差异：**没有模块级代码**（一切都要包在类里，
+      所以"模块级变量"这个概念不存在），以及**构建坐标与包名分离** ——
+      `com.example.app` 是语言层的，`com.example:app:1.0` 是构建层的，两者要各自维护。
+  - featureId: concepts-python/memory
+    equivalence: divergent
+    code: |
+      var list = new java.util.ArrayList<byte[]>();
+      list.add(new byte[1024 * 1024]);     // @note 大对象可能直接进老年代
+
+      list = null;                          // @note! 只是断开引用，回收时机由 GC 决定
+      System.gc();                          // @note 只是"建议"，不保证执行
+
+      // @note 没有引用计数，也就没有 __del__ 那种确定的析构时机
+      // @note JIT 会在运行时把热点方法编译成机器码，所以"哪一行慢"不能只靠读源码判断
+    body: |
+      **分代 GC + JIT** —— 回收完全交给垃圾收集器，没有引用计数那种即时性；
+      而且热点代码会在运行时被重新编译成机器码。
+
+      两条实践后果：**不要依赖析构做资源清理**（用 `try-with-resources`），
+      以及**性能特征不能只靠静态读代码推断** —— 同一段代码在解释执行与
+      JIT 编译后的表现可能差一个数量级，必须实测。
+  - featureId: concepts-python/concurrency-unit
+    equivalence: divergent
+    code: |
+      Thread t = new Thread(() -> work());     // @note 真并行，且**共享内存**
+      t.start();
+      t.join();
+
+      var pool = java.util.concurrent.Executors.newFixedThreadPool(4);
+      pool.submit(() -> work());
+
+      // Java 21 虚拟线程：数量可以开到百万级，但仍是共享内存模型
+      try (var exec = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+          exec.submit(() -> work());
+      }
+    body: |
+      **共享内存的真线程** —— 并行是真的，代价是共享可变状态必须自己同步
+      （`synchronized`、`java.util.concurrent`、`volatile`）。
+
+      这与 Python 的处境正好相反：那边有 GIL 挡着，很多竞态根本不会出现，
+      所以"这段代码是不是线程安全的"在那边可以不问，在这里必须问。
+      虚拟线程降低了线程的成本，但**没有改变共享内存这个模型** ——
+      竞态该有还是有。
+  - featureId: concepts-python/async-model
+    equivalence: divergent
+    code: |
+      var f = java.util.concurrent.CompletableFuture
+              .supplyAsync(() -> fetch())
+              .thenApply(String::trim)
+              .exceptionally(e -> "默认");
+
+      f.join();                              // @note 阻塞取结果
+
+      var all = java.util.concurrent.CompletableFuture
+              .allOf(f1, f2, f3);            // 等待全部完成
+
+      // @note! 没有 async / await 语法糖，异步组合全靠链式方法
+    body: |
+      **CompletableFuture 链式组合，没有 async / await** —— 异步不是语法层的事，
+      而是一个库类型。
+
+      与 Python 的 `async def` / `await` 相比，差的是可读性：
+      多步异步在这里会变成一条长链，出错时的异常语义也更容易搞混
+      （`thenApply` 里抛异常会变成"完成异常"，而不是当场抛出去）。
+      好处是**线程池是显式的**，不会像 Python 那样所有协程抢同一个事件循环。

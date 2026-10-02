@@ -1,0 +1,100 @@
+# java —— concepts-python/03-abstraction 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门。
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/class-inheritance
+    equivalence: divergent
+    code: |
+      class Animal { void speak() { } }
+
+      class Dog extends Animal {          // @note! 只能 extends 一个父类
+          @Override void speak() { }      // @note 重写要标注：写错签名时编译器会提醒
+          void fetch() { super.speak(); } // 调父类实现用 super
+      }
+
+      // @note 所有类都隐式继承 Object；没有多继承，也就不存在 MRO 与菱形问题
+      // @note 方法默认是虚方法（和 Python 一样），除非标 final
+    body: |
+      **单继承 + 接口多实现** —— 一个类只能继承一个父类，想复用多个来源的行为
+      只能靠接口加组合。
+
+      所以 Python 里"MRO 决定 super() 往哪走"那一整类问题在这边不存在，
+      多继承的协作复杂度换成了"接口要多写一层"。
+      代价是**代码复用变难**：想给几个已有类加同一段行为，
+      在 Python 里用 mixin 就行，这里要么提公共父类，要么用组合包一层。
+  - featureId: concepts-python/interface
+    equivalence: divergent
+    code: |
+      interface Greeter {
+          String greet();                 // @note 隐式 public abstract
+          default String greetLoud() { return greet().toUpperCase(); }   // Java 8+ 可以有默认实现
+      }
+
+      class En implements Greeter {
+          public String greet() { return "hi"; }
+      }
+
+      // @note! 必须显式 implements：类不会"碰巧"满足接口
+      // class Zh { public String greet() { return "你好"; } }   // 不 implements 就不是 Greeter
+    body: |
+      **必须显式 implements** —— 不存在 Python 那种"有同名方法就算满足协议"的隐式符合。
+
+      好处是编译器能查"这个类到底有没有实现全"，代价是**适配已有类要包一层**：
+      第三方库的类想当你的接口用，得写个适配器，而不能像 Python 那样
+      直接传进去靠鸭子类型。
+
+      Java 8 之后接口可以有默认方法，这让"接口 + 默认实现"部分承担了 mixin 的角色。
+  - featureId: concepts-python/generics
+    equivalence: divergent
+    code: |
+      java.util.List<String> xs = new java.util.ArrayList<>();
+      // xs.add(1);                      // @note! 编译错误：类型参数在编译期就检查
+
+      // @note! 擦除：运行时拿不到 String 这个信息，
+      // List<String> 与 List<Integer> 是同一个类，getClass() 结果一样
+
+      // java.util.List<int> bad;        // @note! 泛型不能用基本类型，只能 Integer
+      java.util.List<Integer> boxed = new java.util.ArrayList<>();
+
+      // @note 也因此不能 new T()、不能 instanceof List<String>
+    body: |
+      **编译期泛型 + 类型擦除** —— 类型参数只在编译期存在，运行时被擦掉。
+
+      两个连锁后果：**不能装基本类型**（逼出一整层 `Integer` / `Double` 装箱，
+      以及随之而来的 `==` 语义歧义），以及**运行时拿不到类型参数**
+      （不能 `new T()`、不能对 `List<String>` 做 `instanceof`）。
+
+      与 Python 的类型标注相比，相同的是都写在代码里、都靠工具检查；
+      不同的是这里**编译器强制执行**，那边只是注解、运行时一点约束都没有。
+  - featureId: concepts-python/error-handling
+    equivalence: divergent
+    code: |
+      void load() throws java.io.IOException {            // @note! 受检异常：必须声明
+          java.nio.file.Files.readString(java.nio.file.Path.of("a.txt"));
+      }
+
+      try (var in = java.nio.file.Files.newInputStream(p)) {   // @note try-with-resources
+          in.read();
+      } catch (java.io.IOException e) {
+          throw new IllegalStateException(e);              // @note 转成非受检异常
+      }
+
+      // @note 除 Exception 外还有 Error（JVM 层面，不该捕获）；
+      // Python 那边对应的分界大致是 Exception 与 BaseException
+    body: |
+      **受检异常** —— "这个方法可能抛出什么"写进签名，编译器强制调用方处理。
+
+      它把"我知道这里会失败"从注释变成了类型信息，代价是
+      小改动会沿着调用链一路污染签名，所以实践里常见两种规避：
+      在边界处转成非受检异常，或者干脆用 `RuntimeException` 系。
+
+      资源关闭由 `try-with-resources` 保证，比 Python 的 `with` 更贴近语法结构 ——
+      但它只对实现了 `AutoCloseable` 的类型有效。

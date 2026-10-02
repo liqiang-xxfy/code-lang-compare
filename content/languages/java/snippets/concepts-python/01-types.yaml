@@ -1,0 +1,84 @@
+# java —— concepts-python/01-types 的实现
+#
+# 本 topic 以 **Python 为基准**，Java 是被对照的那一门，
+# equivalence 描述的是「相对 Python 基准」的差异。
+topic: concepts-python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-python/type-system
+    equivalence: divergent
+    code: |
+      // int x = "1";              // @note! 编译错误：类型不匹配在编译期就被拦住
+      "1" + 1;                     // @note! 得 "11" —— 字符串拼接，不是算术
+      // String s = 1;            // 同样编译不过
+
+      Object o = 1;                // @note 想装任何东西只能用 Object，取回时要强转
+      int v = (int) o;
+    body: |
+      **静态 + 强类型** —— 类型在编译期确定，写错直接编译不过。
+      Python 里"跑到那一行才炸"的问题，在这里提前到编译期；
+      代价是每个变量声明都要写类型（或用 `var` 让编译器推断）。
+
+      与 Python 的"动态 + 强类型"相比，相同的是都不做隐式转换，
+      不同的是**错误出现的时刻**：这边是编译期，那边是运行时。
+  - featureId: concepts-python/numeric-type
+    equivalence: divergent
+    code: |
+      9007199254740993L;             // @note 原样保留 —— long 装得下
+      Integer.MAX_VALUE + 1;         // @note! -2147483648 —— int 溢出静默回绕，不报错
+      new java.math.BigInteger("9007199254740993");   // 要任意精度得换类型
+
+      7 / 2;                         // @note 3 —— 整数除法，对应 Python 的 7 // 2
+      -7 / 2;                        // @note! -3 —— 向零截断，Python 那边是 -4
+    body: |
+      **int / long / double 按宽度分档 + BigInteger** —— 每种整数有明确位宽，
+      溢出时**静默回绕**（不是抛异常，也不是提升成更大类型）；
+      想要"任意精度"必须换成 `BigInteger`，而运算符随之全部失效，只能调方法。
+
+      Python 只有一档 int 且不溢出，所以"溢出"这个概念在那边根本不存在 ——
+      迁过来时最需要建立的反射是：**看到算钱、算 ID 就要想位宽够不够**。
+  - featureId: concepts-python/null-value
+    equivalence: divergent
+    code: |
+      String x = null;
+      x == null;                    // @note 判空只有这一种写法
+
+      int n;                        // @note! 基本类型不能为 null：字段默认 0，局部必须赋值
+      Integer boxed = null;
+      // int y = boxed;             // @note! NullPointerException —— 拆箱时才炸
+
+      java.util.Optional.ofNullable(x).orElse("默认");
+    body: |
+      **null，但基本类型与包装类型不一致** —— `int` 永远有值（默认 0），
+      `Integer` 可以是 null，而 null 的包装类型一旦参与算术就 NPE。
+
+      所以"这个字段到底有没有值"这件事，在这门语言里取决于它是基本类型还是包装类型 ——
+      比 Python 的"所有东西都可能是 None"多了一层需要记住的规则。
+      `Optional` 是官方推荐的"显式表达可能没有"，但它只能装引用类型。
+  - featureId: concepts-python/value-semantics
+    equivalence: divergent
+    code: |
+      int a = 1;
+      int b = a;
+      b = 2;                        // @note a 还是 1 —— 基本类型是值复制
+
+      int[] arr = {1, 2};
+      int[] c = arr;
+      c[0] = 9;                     // @note! arr[0] 也变成 9 —— 数组是引用
+      String s = "x";               // @note String 不可变，与 Python 的 str 一致
+
+      Integer i1 = 1000, i2 = 1000;
+      i1 == i2;                     // @note! false —— 包装类型 == 比引用，值比较要用 equals
+    body: |
+      **基本类型按值、对象按引用** —— 比 Python 多了一层"值类型"，
+      所以「赋值即共享」这条规律只对对象成立，对 `int` / `double` / `boolean` 不成立。
+
+      更麻烦的是**包装类型**：同一门语言里 `==` 有时比数值（基本类型）、
+      有时比引用（包装类型），而自动装箱会在两者之间悄悄转换 ——
+      这层歧义在 Python 里完全不存在（`==` 永远比内容）。
