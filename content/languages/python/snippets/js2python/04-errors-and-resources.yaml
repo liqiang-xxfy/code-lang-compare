@@ -1,0 +1,110 @@
+# python —— js2python/04-errors-and-resources 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），Python 是被对照的那一门。
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2python/errors-intro
+    equivalence: divergent
+    code: |
+      try:
+          risky()
+      except ValueError as e:        # @note! 按类型分支，不必在体内 instanceof
+          fallback()
+      except Exception as e:         # @note! 兜底写 Exception，不要写空的 except:
+          log(e)
+          raise                      # 重新抛出，保留原始栈
+
+      raise ValueError("出错了")      # @note! 只能抛异常对象：raise "出错了" 是 TypeError
+      # @note 于是 except Exception as e 之后可以放心用 e.args、str(e)
+
+      # @note! 不要写 except:（空类型）—— 它会连 KeyboardInterrupt 一起吞掉
+  - featureId: js2python/exception-model
+    equivalence: divergent
+    code: |
+      try:
+          risky()
+      except (KeyError, IndexError):   # @note 一个分支接多种类型
+          fallback()
+      except Exception as e:
+          log(e)
+          raise                        # @note! 单独一句 raise 就是重新抛出，不必写 raise e
+      else:
+          succeeded()                  # @note! 多了 else：没抛异常时执行
+      finally:
+          cleanup()
+
+      # @note else 的价值：把"可能抛的那一句"圈在 try 里，其余逻辑放外面，
+      # 避免误捕自己后续代码抛出的异常 —— JS 只能靠缩小 try 块范围来近似
+  - featureId: js2python/error-propagation
+    equivalence: divergent
+    code: |
+      class ConfigError(Exception):    # @note 自定义异常只要继承 Exception
+          pass
+
+      raise ConfigError("找不到配置") from e    # @note! from 显式关联因果链，报错时打出完整链条
+
+      # @note! 别为了"看起来正式"给每个异常都造一个类：
+      # ValueError / TypeError / KeyError / RuntimeError 在这里是常规用法
+
+      # @note EAFP：先做、出错再处理，比先检查更地道，也没有竞态
+      try:
+          return d[k]
+      except KeyError:
+          return default
+  - featureId: js2python/resource-cleanup
+    equivalence: divergent
+    code: |
+      with open(path) as f:            # @note! try/finally 整块消失
+          data = f.read()
+
+      with open(a) as f, open(b) as g: # @note 多个资源一行搞定
+          pass
+
+      # @note! 手写 finally 里 close 会吞掉原始异常，with 能正确处理这一点
+      # @note 自定义成本很低：只要 __enter__ / __exit__，或者用 contextlib 包一个函数
+
+      import contextlib
+      @contextlib.contextmanager
+      def timer():
+          start = time.perf_counter()
+          try:
+              yield
+          finally:
+              print(time.perf_counter() - start)
+
+      with timer():
+          do_work()
+  - featureId: js2python/errors-exercise
+    equivalence: analogous
+    code: |
+      import json, time
+      from pathlib import Path
+
+      class ConfigError(Exception):
+          pass
+
+      def load_config(path, retries=3):
+          last = None
+          for i in range(retries):
+              try:
+                  with open(path) as f:        # @note! finally 那一整块没了
+                      return json.load(f)
+              except FileNotFoundError as e:
+                  raise ConfigError(f"找不到配置：{path}") from e   # @note 不可重试：直接抛
+              except (OSError, json.JSONDecodeError) as e:
+                  last = e
+                  time.sleep(0.1 * 2 ** i)
+          else:
+              raise ConfigError(f"重试 {retries} 次仍失败") from last
+          # @note! for-else：循环跑完都没 break/return 才执行 ——
+          # "没成功"这个出口不必再维护标志位
+
+      # @note! 也可以写成 for 里 raise、循环外 raise last；
+      # for-else 的写法把"没成功"与"某次成功了"分得更清楚

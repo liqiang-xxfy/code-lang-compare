@@ -1,0 +1,93 @@
+# javascript —— js2python/04-errors-and-resources 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2python/errors-intro
+    equivalence: identical
+    code: |
+      try {
+        risky();
+      } catch (e) {              // @note! 什么都接：分类只能自己在里面判
+        if (e instanceof RangeError) { }
+        else throw e;
+      } finally {
+        cleanup();
+      }
+
+      throw "出错了";             // @note! 合法 —— 可以 throw 任何值，字符串、数字都行
+      // @note 于是 catch 里的 e 可能是任何东西，用它之前得先判类型
+  - featureId: js2python/exception-model
+    equivalence: identical
+    code: |
+      try {
+        risky();
+      } catch (e) {
+        if (e instanceof RangeError) { fallback(); }
+        else throw e;                          // 重新抛出
+      } finally {
+        cleanup();
+      }
+
+      // @note 没有 else 子句：要"只捕获可能抛的那一句"，
+      // 只能手动把其余语句移出 try 块
+      // @note! 没有"重新抛出当前异常"的简写，只能 throw e（会改掉栈的起点）
+  - featureId: js2python/error-propagation
+    equivalence: identical
+    code: |
+      throw new Error("出错了");
+      throw "出错了";                            // @note! 合法，但拿到的不是 Error 实例
+
+      class ConfigError extends Error {
+        constructor(msg, options) { super(msg, options); }   // @note cause 挂在 e.cause 上
+      }
+      throw new ConfigError("找不到配置", { cause: e });
+
+      // @note 没有内置异常分类可用：RangeError / TypeError 那套是给引擎错误准备的，
+      // 业务错误习惯上统一用 Error 或自定义子类
+      // @note 也没有 EAFP 那种风格压力，先检查再操作（LBYL）在这边同样常见
+  - featureId: js2python/resource-cleanup
+    equivalence: identical
+    code: |
+      const f = open(path);
+      try {
+        use(f);
+      } finally {
+        f.close();                               // @note! 手写：f.close() 自己抛异常会吞掉原始异常
+      }
+
+      // @note! 没有 with 那种语法，成对操作只能靠 try/finally 或引入库
+
+      let n = 0;
+      function withTimer(fn) {                     // 想抽象成"进入-退出"只能写高阶函数
+        const start = Date.now();
+        try { return fn(); }
+        finally { n += Date.now() - start; }
+      }
+      // @note 与 Python 的 contextmanager 相比，这个写法对控制流的支持弱得多
+  - featureId: js2python/errors-exercise
+    equivalence: identical
+    code: |
+      async function loadConfig(path, retries = 3) {
+        let lastErr;
+        for (let i = 0; i < retries; i++) {
+          let f;
+          try {
+            f = await open(path);
+            return JSON.parse(await f.read());
+          } catch (e) {
+            lastErr = e;
+            await sleep(100 * 2 ** i);             // 退避
+          } finally {
+            if (f) await f.close();                // @note 无论成功失败都要关
+          }
+        }
+        throw lastErr;                             // @note 跑完了都没成功，抛最后一次的错
+      }

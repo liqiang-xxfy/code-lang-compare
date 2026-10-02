@@ -1,0 +1,161 @@
+id: js2python/04-errors-and-resources
+topicId: js2python
+title: 4. 错误处理与资源管理
+order: 4
+summary: 从 JavaScript 到 Python：catch 要分类了、throw 只能抛异常对象、资源有了 with
+
+features:
+  - id: js2python/errors-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 三处「JS 更宽松、Python 更严格」的收紧
+    body: |
+      异常这一层，Python 在三个地方比 JS **更严格**，而且每一处都是好事：
+
+      1. **`except` 必须点名类型**。JS 的 `catch (e)` 是"什么都接"，
+         要靠 `instanceof` 在分支里自己分类；Python 的 `except ValueError:`
+         直接按类型匹配，不写类型（`except:`）反而要特意避免。
+      2. **只能抛异常对象**。JS 里 `throw "出错了"` 合法，于是
+         `catch (e)` 里的 `e` 可能是任何东西；Python 的 `raise "出错了"`
+         直接是 `TypeError`，所以 `except Exception as e` 之后可以放心用 `e.args`。
+      3. **多了 `with` 与 `else`**。前者管资源释放，后者管"没出错时做什么" ——
+         这两个在 JS 里都得手写。
+
+      本章按「捕获 → 抛出 → 资源」排。整体上这章是**净收益**：
+      迁移不会踩太多坑，更多是"原来的写法可以简化了"。
+
+  - id: js2python/exception-model
+    title: 捕获结构：多了 else，少了"什么都接"
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: except 按类型匹配，还有 else 子句
+    body: |
+      结构大体对应：
+
+      ```js
+      try { risky() } catch (e) { fallback() } finally { cleanup() }
+      ```
+
+      ```python
+      try:
+          risky()
+      except (KeyError, IndexError):     # 一个分支接多种类型
+          fallback()
+      except Exception as e:
+          log(e)
+          raise                          # 重新抛出，保留原始栈
+      else:
+          succeeded()                    # 没抛异常时执行
+      finally:
+          cleanup()
+      ```
+
+      三处不同：
+
+      1. **按类型分支**，而不是"一个 catch 里自己 instanceof"。
+         这让分类逻辑从函数体移到了子句上，读起来更清楚。
+      2. **有 `else`**。它的作用是让你把"可能抛的那一句"圈在 `try` 里，
+         其余逻辑放到 `else` —— 从而避免误捕自己后续代码抛出的异常。
+         JS 里只能靠缩小 try 块的范围来近似。
+      3. **`except:` 不要写**（空类型）。它会连 `KeyboardInterrupt` 一起吞掉，
+         按 Ctrl-C 都停不下来。要兜底写 `except Exception:`。
+
+      还有一个从 JS 过来要改的习惯：**`raise` 单独一句 = 重新抛出当前异常**，
+      不必写 `raise e` —— 后者会把栈改成当前行，丢掉原始位置。
+
+  - id: js2python/error-propagation
+    title: 抛出与自定义异常
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 只能抛异常对象，而且内置异常就够用
+    body: |
+      **只能抛 `BaseException` 的子类**：
+
+      ```python
+      raise "出错了"          # TypeError —— 与 JS 的 throw 任何值不同
+      raise ValueError("坏数据")
+      ```
+
+      这条收紧是净收益：`except Exception as e` 之后拿到的一定是异常对象，
+      `e.args`、`str(e)` 都能放心用；JS 那边得先判 `e instanceof Error`。
+
+      自定义异常只要继承 `Exception`：
+
+      ```python
+      class ConfigError(Exception):
+          pass
+
+      raise ConfigError("找不到配置") from e     # from 显式关联因果链
+      ```
+
+      `raise ... from ...` 会把原始异常挂在 `__cause__` 上，
+      报错时打出完整的因果链 —— JS 的 `new Error(msg, { cause })` 是近几年的对应物，
+      但 Python 这个写法更早也更常用。不想显示原始异常用 `raise X() from None`。
+
+      **不要为了"看起来正式"给每个异常都造一个类**：
+      `ValueError` / `TypeError` / `KeyError` / `RuntimeError` 这些内置异常
+      在这门语言里是常规用法，只有确实要给调用方一个**可捕获的类别**时才自定义。
+
+      风格上这门语言偏好 **EAFP**（先做，出错再处理）而不是先检查再操作 ——
+      `try: d[k] except KeyError:` 比 `if k in d:` 更地道，且没有竞态。
+
+  - id: js2python/resource-cleanup
+    title: 资源释放：有了 with
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: with 替代 try/finally，而且自定义成本很低
+    body: |
+      JS 里释放资源要手写：
+
+      ```js
+      const f = open(path);
+      try { use(f) } finally { f.close() }
+      ```
+
+      Python 有专门的语法：
+
+      ```python
+      with open(path) as f:
+          use(f)
+      ```
+
+      它保证无论是否抛异常都会释放，而且能正确处理"释放本身抛异常"的情况 ——
+      手写的 `finally` 版本会把原始异常吞掉。
+
+      这个 `finally` 的问题在 JS 里同样存在，所以从 JS 迁过来时
+      **第一件该做的事就是把所有 `try/finally` 找出来改成 `with`**。
+
+      另一处是自定义成本：Python 只要对象有 `__enter__` / `__exit__` 就行，
+      而且 `contextlib.contextmanager` 能把任意"进入-退出"逻辑包装成上下文管理器：
+
+      ```python
+      @contextlib.contextmanager
+      def timer():
+          start = time.perf_counter()
+          try:
+              yield
+          finally:
+              print(time.perf_counter() - start)
+      ```
+
+      JS 里没有对应语法，只能手写 try/finally 或引入库 ——
+      所以那边"成对操作"通常不会被抽象出来，迁过来时可以顺手补上。
+
+  - id: js2python/errors-exercise
+    title: 练习：迁移一个带资源与重试的读取函数
+    kind: exercise
+    summary: 三处简化，其中一处是 JS 那边做不到的
+    body: |
+      下面这段 JS 读取并解析一个配置文件，失败时重试，并保证文件句柄被关闭。
+
+      请把它迁到 Python，要求**行为完全一致**：
+
+      1. 文件不存在与解析失败要能区分（调用方要据此决定是否重试）
+      2. 失败最多重试 3 次，每次间隔递增
+      3. 无论成功失败，文件句柄都要关闭
+
+      对照参考实现时，重点看两处：**`try/finally` 变成了什么**，
+      以及**重试那一层是怎么写的**（提示：`for ... else` 在这里正好用得上 ——
+      "循环跑完都没成功"与"某次成功了"是两个不同的出口）。
+
+      （提示：第 3 点里 `finally` 那一整块可以整个消失。）
