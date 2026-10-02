@@ -1,0 +1,109 @@
+# go —— js2go 迁移教程的实现
+# 上下文：片段默认位于包内（Go 有顶层函数）。⚠️ 本机无 Go 工具链，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2go
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2go/types-intro
+    equivalence: divergent
+    code: |
+      var x int = 1                // @note! 类型写在声明上
+      // x = "一"                 // 编译错误
+      y := 1                       // @note := 是声明并推断，只能在函数内用
+
+      var n int                    // @note! 0 —— 每个类型都有零值，声明即初始化
+      var s string                 // ""（空串，不是 nil）
+      var p *User                  // nil
+      var xs []int                 // nil（不是空切片）
+      var m map[string]int         // @note! nil —— 读可以，写会 panic
+
+      // @note! 没有"未赋值"这个状态，也就没有 undefined；但也没有"这里根本不该为空"的表达手段
+  - featureId: js2go/numeric-types
+    equivalence: divergent
+    code: |
+      7 / 2;                       // @note! 3 —— 整数除法，JS 里是 3.5
+      float64(7) / 2;              // 3.5 —— 要浮点必须显式转换
+      -7 % 3;                      // -1 —— 这条与 JS 一致
+
+      var big int64 = 9007199254740993    // @note 装得下，JS 里这个数会丢精度
+      var u uint8 = 255
+      u++                          // @note! 0 —— 运行期溢出静默回绕
+      // 常量溢出反而是编译错误，只有运行期计算才回绕
+
+      var i int = 10
+      var f float64 = 1.5
+      // i + f                    // @note! 编译错误：整数与浮点不能混算，必须显式转换
+      float64(i) + f
+
+      1 / 0;                       // @note! panic（整数除零）；浮点除零得 +Inf
+  - featureId: js2go/strings
+    equivalence: divergent
+    code: |
+      s := "abc"
+      s[0]                         // @note! 97 —— 拿到的是 byte，不是字符
+      string(s[0])                 // "a" —— 要转一下才是字符串
+      len(s)                       // @note 3 —— 字节数，不是字符数
+
+      len("你好")                   // @note! 6 —— 两个汉字各 3 字节
+      utf8.RuneCountInString("你好") // 2 —— 想数字符用这个
+      for i, r := range "你好" { }  // @note! range 给的是 rune（字符），s[i] 给的是 byte
+
+      name := "Ada"
+      fmt.Sprintf("你好，%s！", name)   // @note! 没有模板字符串，用 fmt
+      fmt.Sprintf("%.2f", 3.14159)      // "3.14"
+      // @note 格式串与参数分离，顺序写反了不会报错
+
+      // "a" + 1                   // @note! 编译错误：字符串与数字没有隐式转换
+      "a" + strconv.Itoa(1)
+      var b strings.Builder        // @note 循环里拼接用它
+      b.WriteString("a")
+      b.String()
+  - featureId: js2go/nullability
+    equivalence: divergent
+    code: |
+      var p *User                  // @note! 只有 nil 一个空值，没有 undefined
+      if p == nil { }
+
+      var xs []int
+      len(xs)                      // @note 0 —— nil 切片可以 len / range / append
+      xs = append(xs, 1)           // 与空切片几乎无差别
+
+      var m map[string]int
+      m["k"]                       // @note 0 —— 读没问题
+      // m["k"] = 1                // @note! panic: assignment to entry in nil map
+      m = make(map[string]int)     // 必须先 make
+
+      // @note! 最著名的坑：非空接口里装着 nil 指针时，接口本身**不是 nil**
+      var e error = (*MyErr)(nil)
+      e == nil                     // false —— 判空失效
+
+      // @note 判空分类型：切片用 len(xs) == 0，指针用 p == nil，字符串用 s == ""
+  - featureId: js2go/types-exercise
+    equivalence: analogous
+    code: |
+      type Order struct {
+          Price float64
+          Qty   int
+      }
+
+      // @note! Go 没有 null 也没有 Option，惯用写法是 (值, ok) 两个返回值
+      func summarize(orders []Order) (float64, bool) {
+          if len(orders) == 0 {
+              return 0, false          // @note ok=false 表示"没有结果"
+          }
+          var total float64
+          for _, o := range orders {
+              total += o.Price * float64(o.Qty)   // @note! 不转 float64 就是整数乘法
+          }
+          avg := total / float64(len(orders))     // @note! 不转就是整数除法
+          return math.Round(avg*100) / 100, true
+      }
+
+      // @note 调用方必须显式处理 ok，不像 JS 的 null 那样容易忘记
+      // @note float64 仍是二进制浮点，金额精度问题两边一样，要精确得用定点方案

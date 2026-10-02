@@ -1,0 +1,163 @@
+id: js2go/02-types-and-values
+topicId: js2go
+title: 2. 类型、数值与字符串
+order: 2
+summary: 从 JavaScript 到 Go：类型写在声明上、变量有零值、字符串是只读字节序列
+
+features:
+  - id: js2go/types-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 类型变静态了，但"零值"让空值问题换了个形式
+    body: |
+      从 JS 到 Go，类型这一层的变化比其他方向温和：没有所有权、
+      没有泛型擦除、没有受检异常 —— 主要就是**类型写出来了**。
+
+      真正需要重建的是**零值**这个概念：
+
+      ```go
+      var n int        // 0
+      var s string     // ""（空串，不是 nil）
+      var p *User      // nil
+      var xs []int     // nil（不是空切片）
+      var m map[string]int   // nil —— 读可以，写会 panic
+      ```
+
+      每个类型都有零值，而且**声明即初始化**，不像 JS 那样有个 `undefined` 的
+      "未赋值"状态。这带来两个连锁后果：
+
+      - 没有"忘了初始化"这个失败模式 —— 但也没有"这里根本不该为空"的表达手段
+      - **`nil` 分类型**：`nil` 切片可以 `len()` 与 `range`，
+        `nil` map 读返回零值、写却 panic。同一个 `nil`，行为不同
+
+      本章按「类型 → 数值 → 字符串 → 空值」排。整体上这章比 Rust 温和得多，
+      但 `nil` 那几条细节要专门记。
+
+  - id: js2go/numeric-types
+    title: 数值：整数有了位宽与符号
+    kind: behavior
+    refFeatureId: basics-javascript/number-precision
+    summary: 分有符号与无符号，溢出静默回绕
+    body: |
+      JS 只有一种数字。Go 把它拆成 `int8`/`int16`/`int32`/`int64`、
+      对应的 `uint*`，加上 `float32`/`float64`，以及**平台相关的 `int` 与 `uint`**
+      （在 64 位平台上是 64 位）。另有两个别名：`byte` = `uint8`、`rune` = `int32`。
+
+      ```go
+      var a int = 10
+      var b int64 = 9007199254740993      // 装得下，JS 里这个数会丢精度
+      var c uint8 = 255
+      ```
+
+      **溢出是静默回绕**（与 Rust 的 debug panic 不同，与 JS 的丢精度也不同）：
+
+      ```go
+      var x uint8 = 255
+      x + 1               // 编译错误：常量溢出，编译期就拦住
+      x++                 // 0 —— 运行期回绕，不报错
+      ```
+
+      常量溢出在编译期就被抓住，运行期计算才会回绕 —— 这条例外值得记住。
+
+      **整数除法截断**：`7 / 2` 得 `3`（JS 里是 `3.5`）。
+      要浮点必须两边都是浮点类型，而且**Go 不做隐式数值转换**：
+      `int` 与 `float64` 混算直接编译错误，必须显式 `float64(n)`。
+      这一条比 JS 严格得多，好处是"忘了转换"这类问题编译期就暴露。
+
+      取余的符号跟着被除数（`-7 % 3` 得 `-1`），与 JS 一致。
+      除零：整数除零是**运行期 panic**（不是编译错误，因为除数可能是变量），
+      浮点除零得 `+Inf`。
+
+  - id: js2go/strings
+    title: 字符串：只读字节序列，没有模板字符串
+    kind: behavior
+    refFeatureId: basics-javascript/string-methods
+    summary: 字符串不可变、按字节索引，插值靠 fmt
+    body: |
+      Go 的 `string` 是**只读的字节序列**（UTF-8 编码），不可变这一点与 JS 一致：
+
+      ```go
+      s := "abc"
+      s[0]            // 97 —— 是 byte，不是字符！
+      string(s[0])    // "a" —— 要转一下才是字符串
+      len(s)          // 3 —— 字节数，不是字符数
+      ```
+
+      **索引拿到的是字节**，这与 JS 的"拿到一个字符"不同。
+      且 `len` 数的是字节：
+
+      ```go
+      len("你好")              // 6 —— 两个汉字各 3 字节
+      utf8.RuneCountInString("你好")   // 2 —— 想数字符用这个
+      for i, r := range "你好" { }     // range 给的是 rune（字符），不是字节
+      ```
+
+      `range` 遍历字符串时给的是 `rune`，而 `s[i]` 给的是 `byte` ——
+      同一个字符串两种遍历方式，拿到的东西不一样，这是最容易混的一处。
+
+      **没有模板字符串**，插值靠 `fmt`：
+
+      ```go
+      msg := fmt.Sprintf("你好，%s！", name)
+      fmt.Sprintf("%.2f", 3.14159)      // "3.14"
+      ```
+
+      格式化用的是 printf 风格，与 JS 的 `toFixed` 表达力相当，
+      但格式串与参数分离，参数顺序写反了不会报错。
+
+      拼接用 `+` 或 `strings.Builder`（循环里用后者）。
+      字符串与数字之间**没有隐式转换**：`"a" + 1` 是编译错误，
+      必须 `strconv.Itoa(1)` 或 `fmt.Sprintf` —— 这一点比 JS 严格得多。
+
+  - id: js2go/nullability
+    title: 空值：没有 undefined，nil 分类型
+    kind: behavior
+    refFeatureId: basics-javascript/null-undefined
+    summary: 两种空合成一种，但 nil 在不同类型上行为不同
+    body: |
+      Go 只有 `nil` 一个空值（与 JS 的 `null` 相当，`undefined` 不存在）：
+      因为变量声明即初始化，不存在"未赋值"这个状态。
+
+      **但 `nil` 的行为取决于它是什么类型** —— 这是最需要专门记的一节：
+
+      | 类型 | `nil` 的行为 |
+      | --- | --- |
+      | 切片 `[]T` | 可以 `len()`、`range`、`append` —— 与空切片几乎无差别 |
+      | map | **读返回零值，写会 panic** |
+      | 指针 / 接口 / 通道 / 函数 | 调用或解引用会 panic |
+      | 结构体 | 结构体没有 nil，它的字段各有零值 |
+
+      ```go
+      var m map[string]int
+      m["k"]              // 0 —— 读没问题
+      m["k"] = 1          // panic: assignment to entry in nil map
+      m = make(map[string]int)   // 必须先 make
+      ```
+
+      **判空也分类型**：切片用 `len(xs) == 0`（它同时覆盖 nil 与空切片），
+      指针用 `p == nil`，字符串用 `s == ""`。
+
+      还有一处 JS 里没有的：**非空接口里装着 nil 指针**。
+      一个接口变量只有在"类型与值都为 nil"时才是 nil，
+      装了一个 nil 指针进去之后它就不是 nil 了 —— 这是 Go 里最著名的坑之一，
+      判空会失效。
+
+  - id: js2go/types-exercise
+    title: 练习：迁移一个金额统计函数
+    kind: exercise
+    summary: 三个改动点，其中一个是类型选择
+    body: |
+      下面这段 JS 统计一组订单的总金额与平均单价。
+
+      请把它迁到 Go，要求**行为完全一致**：
+
+      1. 总金额用哪个数值类型（想想 JS 里为什么这里要小心）
+      2. 平均单价保留两位小数
+      3. 订单为空时返回什么（Go 没有 `null`，想想 `(值, ok)` 或指针两种写法）
+
+      对照参考实现时，重点看三处：**数值类型的选择**、
+      **除法有没有踩到整数截断**，以及**格式化用的是哪个函数**。
+
+      （提示：第 2 问注意 Go 不做隐式数值转换，`int` 与 `float64` 混算编译不过。
+      第 3 问是这个方向特有的一处设计选择 —— Go 既没有 `null`，
+      也不像 Rust 那样有 `Option`。）

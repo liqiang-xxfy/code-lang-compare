@@ -1,0 +1,181 @@
+id: js2go/03-collections-and-data
+topicId: js2go
+title: 3. 容器与数据建模
+order: 3
+summary: 从 JavaScript 到 Go：切片会共享底层数组、map 没有默认值语法、结构体取代了对象字面量
+
+features:
+  - id: js2go/collections-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 三种容器各有一种陷阱
+    body: |
+      Go 的容器只有三样：数组（定长）、切片（变长）、map。
+      用法本身不复杂，但**每一样都有自己的一处陷阱**：
+
+      - **切片**：`append` 可能改到别人 —— 多个切片可以共享同一段底层数组
+      - **map**：没有 `??=` 那样的默认值语法，累积要写 `if` 判断
+      - **数组**：是**值类型**，赋值会整体复制（与 JS 的数组完全不同）
+
+      ```go
+      a := [3]int{1, 2, 3}
+      b := a              // 整个复制一份，改 b 不影响 a
+      s := []int{1, 2, 3}
+      t := s              // 共享底层数组，改 t 会影响 s
+      ```
+
+      数组与切片长得像，行为却是"值复制"与"共享底层"两种 ——
+      而 JS 里数组只有一种（引用），所以这一层需要重新建立。
+
+      另一处需要新建的是**数据建模**：JS 用对象字面量描述一切，
+      Go 用 `struct`。这一点反而更好学 —— 结构体与对象长得像，
+      只是字段必须提前声明、类型固定。
+
+      本章按「切片 → map → 结构体」排。
+
+  - id: js2go/list-model
+    title: 切片：append 会改到别人
+    kind: behavior
+    refFeatureId: basics-javascript/array-slice
+    summary: 切片共享底层数组，append 与切片的组合最容易出错
+    body: |
+      基础操作与 JS 大体对得上：
+
+      ```go
+      xs := []int{1, 2, 3}
+      xs = append(xs, 4)      // 追加 —— 必须接住返回值
+      xs[0]                   // 索引 —— 越界 panic
+      len(xs)                 // 长度
+      xs[1:3]                 // 切片 —— 是**视图**，共享底层数组
+      ```
+
+      **两个与 JS 直接冲突的地方**：
+
+      **1. `append` 的返回值必须接住。**
+
+      ```go
+      append(xs, 4)           // 编译错误：返回值被丢弃
+      xs = append(xs, 4)      // 必须这样
+      ```
+
+      因为容量不够时 `append` 会分配新数组，原变量还指向旧的。
+
+      **2. 切片是视图，而且 `append` 可能改到共享的底层数组。**
+
+      ```go
+      a := []int{1, 2, 3, 4, 5}
+      b := a[1:3]             // 与 a 共享底层数组
+      b[0] = 9                // a[1] 也变成 9
+      b = append(b, 99)       // 如果容量够，会写进 a[3]！
+      ```
+
+      最后一行是 Go 里最著名的坑之一：`append` 在**容量足够时**直接写原数组，
+      于是改到了 `a` 里本来看起来无关的位置。容量不够时才是安全的（分配新数组）。
+
+      要完全隔离就用三索引切片 `a[1:3:3]`（限制容量）或显式复制
+      （`append([]int(nil), b...)`）。
+
+      与 JS 的对照：`slice()` **总是**拷贝，所以那边没有这个问题；
+      而 `a.slice()` 的语义在这里要写成 `append([]int(nil), a...)` 或 `slices.Clone(a)`。
+
+  - id: js2go/map-model
+    title: 映射：comma-ok 与零值的区分
+    kind: behavior
+    refFeatureId: basics-javascript/object-access
+    summary: 缺失键返回零值，要靠 comma-ok 区分"没有"与"值是零"
+    body: |
+      ```go
+      m := map[string]int{"a": 1}
+      m["a"]              // 1
+      m["z"]              // 0 —— 缺失返回**零值**，不抛也不给 undefined
+      delete(m, "a")      // 删除
+      ```
+
+      **缺失返回零值**带来一个 JS 里没有的问题：
+      `m["z"]` 得 `0`，而 `m["x"]`（值为 0）也得不出来 —— 两者无法区分。
+
+      解法是 comma-ok：
+
+      ```go
+      v, ok := m["z"]
+      if ok { /* 键存在 */ }
+      ```
+
+      这与 JS 的 `"z" in m` 对应，但它是**同一个操作的一部分**，
+      而不是另一次查找 —— 既省一次哈希，也不会在两次查找之间出现状态变化。
+
+      **`nil` map 的写会 panic**（读不会）：
+
+      ```go
+      var m map[string]int
+      m["k"] = 1          // panic: assignment to entry in nil map
+      m = make(map[string]int)
+      ```
+
+      JS 里 `const m = {}` 之后随时能写，所以从那边过来时容易忘记 `make`。
+
+      **遍历顺序是随机的**（Go 刻意打乱），这一点与 JS 的 `Map`（保证插入顺序）
+      相反：需要有序遍历时得自己收集键再排序。
+
+      累积值没有 `??=` 那样的语法，要写 `m[k] += 1`（零值恰好是 0，可以直接加），
+      或者 `if _, ok := m[k]; !ok { ... }`。
+
+  - id: js2go/data-modeling
+    title: 数据建模：结构体取代对象字面量
+    kind: behavior
+    refFeatureId: basics-javascript/object-create
+    summary: 字段要提前声明，方法挂在类型上
+    body: |
+      JS 的对象字面量在这里对应 `struct`：
+
+      ```go
+      type User struct {
+          ID     int
+          Name   string
+          Active bool
+      }
+
+      u := User{ID: 1, Name: "Ada", Active: true}    // 具名字段（推荐）
+      v := User{1, "Ada", true}                      // 按位置 —— 字段一改就崩，少用
+      ```
+
+      三处与 JS 不同：
+
+      1. **字段必须提前声明**，不能随手加。`u.Email = "..."` 编译错误 ——
+         这正是想要的：拼错的字段编译期就暴露，而 JS 里是静默 `undefined`。
+      2. **零值可以用**：`var u User` 得到 `{0, "", false}`，
+         不需要构造函数。这与"字段必须显式初始化"的语言不同。
+      3. **方法挂在类型上**，写在外面：
+
+         ```go
+         func (u User) Display() string { return u.Name }        // 值接收者
+         func (u *User) Rename(n string) { u.Name = n }          // 指针接收者
+         ```
+
+      **接收者用值还是指针**是 Go 里一个必答的问题：
+      要改原对象、或结构体较大（避免复制）时用指针接收者；
+      小的不可变值用值接收者。同一个类型的方法最好**保持一致**，
+      混着用容易搞出"改了没生效"这类问题。
+
+      导出规则与 JS 相反：**首字母大写才是导出的**（`Name` 可导出、`name` 不可），
+      这既是命名约定也是可见性控制 —— 而且它作用于字段、方法、类型、函数全部。
+
+  - id: js2go/collections-exercise
+    title: 练习：把分组统计迁到 Go
+    kind: exercise
+    summary: 重点在切片共享与 map 的初始化
+    body: |
+      下面这段 JS 按部门把员工分组，并算出每个部门的平均年龄。
+
+      请把它迁到 Go，要求**行为完全一致**：
+
+      1. 分组累加怎么写（Go 没有 `??=`，也没有 `defaultdict`）
+      2. "员工"用什么类型承载
+      3. 输入为空时怎么表达"没有结果"
+
+      对照参考实现时，重点看两处：**map 有没有先 `make`**，
+      以及**分组时 append 到 map 里的切片**有没有踩到共享底层数组。
+
+      （提示：第 1 问的惯用写法是 `m[k] = append(m[k], v)` ——
+      它能直接工作是因为读一个不存在的键会得到零值 `nil` 切片，
+      而 `append` 到 nil 切片是合法的。第 3 问与上一章同一处设计选择。）

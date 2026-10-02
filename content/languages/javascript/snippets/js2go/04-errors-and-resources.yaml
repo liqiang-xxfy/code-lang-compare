@@ -1,0 +1,81 @@
+# javascript —— js2go/04-errors-and-resources 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2go
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2go/errors-intro
+    equivalence: identical
+    code: |
+      try {
+        risky();
+      } catch (e) { }              // @note! 一个函数会不会抛，签名上看不出来
+
+      // @note! 忘写 try/catch 也能跑，直到线上才炸
+      // @note 异常是控制流：throw 会跳过后面所有代码；Go 里错误是普通的返回值
+  - featureId: js2go/exception-model
+    equivalence: identical
+    code: |
+      try {
+        const f = openSync(path);
+        const data = f.read();
+        return parse(data);        // @note 三步失败由一个 catch 统一兜底
+      } catch (e) {
+        return fallback;
+      }
+
+      // @note! 没有"每一步单独处理"的结构 —— 要么统一兜底，要么在里面 instanceof 分类
+      // @note throw 与 catch 对应 Go 的 panic / recover，但那边不建议拿它做常规错误处理
+  - featureId: js2go/resource-cleanup
+    equivalence: identical
+    code: |
+      const f = open(path);
+      try {
+        use(f);
+      } finally {
+        f.close();                 // @note! 手写，集中在末尾；每条出口都要想到
+      }
+
+      // @note! Go 的 defer 写在申请之后立刻写，出栈时执行 —— 位置不同，语义相近
+      // @note 多个资源时，JS 要按逆序手写 close，Go 的 defer 自动后进先出
+  - featureId: js2go/error-propagation
+    equivalence: identical
+    code: |
+      throw new Error("读取配置失败", { cause: e });   // @note 包装并保留因果链
+
+      try {
+        load();
+      } catch (e) {
+        if (e instanceof ConfigError) { }            // @note! 靠 instanceof 分类
+        else throw e;
+      }
+
+      // @note! 错误类型不是签名的一部分，调用方无法穷尽处理
+      // @note Go 用 %w 包装、用 errors.Is / As 判定 —— 同样是"保留因果链"的思路
+  - featureId: js2go/errors-exercise
+    equivalence: identical
+    code: |
+      async function loadConfig(path, retries = 3) {
+        let lastErr;
+        for (let i = 0; i < retries; i++) {
+          try {
+            const f = await open(path);
+            try { return JSON.parse(await f.read()); }
+            finally { await f.close(); }              // @note 这一轮结束就关
+          } catch (e) {
+            if (e.code === "ENOENT") throw e;         // @note 不可重试：直接抛
+            lastErr = e;
+            await sleep(100 * 2 ** i);
+          }
+        }
+        throw lastErr;
+      }
+
+      // @note! Go 里 "defer 写在循环里" 会把所有句柄堆到函数返回才关 ——
+      // 所以要把"一次尝试"抽成一个函数，defer 才会每轮都生效

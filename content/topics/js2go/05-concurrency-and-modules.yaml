@@ -1,0 +1,194 @@
+id: js2go/05-concurrency-and-modules
+topicId: js2go
+title: 5. 并发与模块化
+order: 5
+summary: 从 JavaScript 到 Go：并行是真的，但官方让你用通道而不是共享内存
+
+features:
+  - id: js2go/concurrency-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 并发变得极便宜，而且有一句官方格言要记住
+    body: |
+      JS 的并发模型是"单线程 + 事件循环"：所有任务在一个线程上轮流跑，
+      同步阻塞会卡住所有人。
+
+      Go 的模型完全不同 —— **goroutine 极便宜**（初始栈只有几 KB，
+      可以开几十万个），而且**并行是真的**（跑在多核上）。
+
+      ```go
+      go doWork()             // 加一个 go 关键字就并发执行了
+      ```
+
+      代价是共享内存的问题回来了：`counter++` 在并发下会丢更新。
+      但 Go 给了一条不同的路线：
+
+      > 不要通过共享内存来通信，而要通过通信来共享内存。
+
+      意思是**优先用通道传数据**，而不是用锁保护共享变量：
+
+      ```go
+      ch := make(chan int)
+      go func() { ch <- compute() }()
+      result := <-ch
+      ```
+
+      数据从 goroutine A 传给 B 之后，**A 就不再持有它** ——
+      所有权在传递中转移，于是不需要锁。这与 Rust 的所有权思路相似，
+      但 Go 靠**约定与工具**（race detector）而不是编译器强制。
+
+      **迁移要点**：JS 里没有"共享内存 + 锁"的直觉要丢，
+      但也没有"通道"的直觉要建。推荐先学通道风格，
+      只在通道不合适时（比如高频读写的缓存）才用 `sync.Mutex`。
+
+  - id: js2go/async-model
+    title: 异步：Promise 变成通道
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 没有 async/await，组合靠 select
+    body: |
+      Go **没有 `async/await`**，也没有 Promise。并发任务之间的协作靠通道：
+
+      ```go
+      ch := make(chan string)
+      for _, u := range urls {
+          go func(u string) { ch <- fetch(u) }(u)
+      }
+      for range urls {
+          results = append(results, <-ch)      // 收够 N 个
+      }
+      ```
+
+      `Promise.all` 的对应物是 `sync.WaitGroup`：
+
+      ```go
+      var wg sync.WaitGroup
+      for _, u := range urls {
+          wg.Add(1)
+          go func(u string) { defer wg.Done(); fetch(u) }(u)
+      }
+      wg.Wait()
+      ```
+
+      `Promise.race` 对应 `select`：
+
+      ```go
+      select {
+      case r := <-ch1:
+      case r := <-ch2:
+      case <-time.After(time.Second):      // 超时分支
+      }
+      ```
+
+      **三处与 JS 的实质差别**：
+
+      1. **没有返回值可以 await**。goroutine 的结果要通过通道或共享变量传出来，
+         而且**goroutine 里 panic 会让整个程序崩**（不像 Promise 那样变成 rejection）。
+      2. **错误也要自己传**。惯用法是把结果与错误一起放进结构体走通道，
+         或者用 `errgroup`（`golang.org/x/sync`）—— 后者接近"会返回错误的 Promise.all"。
+      3. **没有事件循环**。goroutine 由 Go 运行时调度到多个系统线程上，
+         所以一个 goroutine 阻塞**不会**卡住别的 —— 这与 JS 正相反。
+
+      `context.Context` 是这边特有的一层：取消、超时、跨调用链传递请求级数据
+      都靠它。JS 的 `AbortController` 定位相近，但在这边它是**每个
+      可能阻塞的函数都要带上的第一个参数**。
+
+  - id: js2go/module-system
+    title: 模块系统：package 与导出规则
+    kind: behavior
+    refFeatureId: basics-javascript/function-declare
+    summary: 目录即包，首字母大写才是导出的
+    body: |
+      Go 的包就是**一个目录**，目录里的所有文件共享同一个包名：
+
+      ```go
+      package utils               // 目录内所有文件都写这个
+
+      func Helper() { }           // 大写开头 = 导出
+      func helper() { }           // 小写开头 = 包内私有
+      ```
+
+      三处与 JS 不同：
+
+      1. **没有 `export` 关键字**：可见性由**首字母大小写**决定。
+         这既是命名约定也是访问控制 —— 而 JS 的模块内定义默认可导出，
+         方向正好相反（要隐藏才需要额外处理）。
+      2. **同一个目录里所有文件必须同属一个包**（测试文件 `_test.go` 除外）。
+         JS 里一个文件就是一个模块，这里一个目录才是一个包。
+      3. **导入路径是完整的模块路径**，不是相对路径：
+
+         ```go
+         import "github.com/user/project/utils"
+         import "fmt"
+         ```
+
+         没有 `./utils` 这种写法 —— 相对导入在 Go 里是被刻意排除的。
+
+      包名与目录名**不要求一致**（但强烈建议一致），
+      而导入时的**标识符取自包名而不是路径的最后一段**，这一处常让人意外。
+
+      另有一条与 JS 根本不同的：**没有循环导入**。
+      两个包互相 import 会直接编译错误 —— 这逼着你把共享的部分抽成第三个包，
+      结构反而更清楚。
+
+  - id: js2go/package-manager
+    title: 包管理与构建：go mod 与内置工具
+    kind: behavior
+    refFeatureId: basics-javascript/function-declare
+    summary: 依赖、构建、测试、格式化全在 go 一条命令下
+    body: |
+      | 事情 | JS | Go |
+      | --- | --- | --- |
+      | 声明依赖 | `package.json` | `go.mod` |
+      | 锁定版本 | `package-lock.json` | `go.sum` |
+      | 装依赖 | `npm install` | `go mod tidy`（自动拉） |
+      | 构建 | 打包器（选一个） | `go build`（标准） |
+      | 测试 | 测试框架（选一个） | `go test`（标准，`_test.go`） |
+      | 格式化 | Prettier（选一个） | `gofmt`（唯一答案） |
+      | 静态检查 | ESLint（选一个） | `go vet`（标准） |
+
+      **与 Rust 的 cargo 很像，但更"官方包办"**：
+      连测试框架都是标准库自带的（`testing` 包），没有 Jest/Vitest 之争。
+      格式化更是只有一个答案 —— `gofmt` 不接受配置，
+      所以 Go 社区的代码风格是**真正统一**的，这一条 JS 生态很难做到。
+
+      依赖写进 `go.mod`：
+
+      ```
+      module github.com/user/project
+
+      go 1.22
+
+      require github.com/stretchr/testify v1.9.0
+      ```
+
+      **两个值得注意的地方**：
+
+      1. **`go mod tidy` 会自动增删依赖**，不像 `npm install` 那样只增不减。
+      2. **没有 `node_modules` 那种项目内目录** —— 依赖下载到全局缓存
+         （`GOPATH/pkg/mod`），构建时按 `go.sum` 校验。
+         所以也没有"删了重装"这个常规操作。
+
+      `go vet` 与 race detector（`go test -race`）值得单独提：
+      后者能在运行时抓出数据竞争 —— 因为 Go 的并发安全靠约定，
+      这个工具就是那层补充的保障。
+
+  - id: js2go/concurrency-exercise
+    title: 练习：把回调式的并发改写成通道
+    kind: exercise
+    summary: 重点是从"共享状态"改到"传消息"
+    body: |
+      下面这段 JS 用一个模块级 Map 做缓存，两个异步任务并发读写它。
+
+      请把它迁到 Go，要求**行为正确**，并回答三个问题：
+
+      1. 同样的缓存，用 `sync.Mutex` 保护怎么写？用通道又怎么写？
+      2. 两种写法各自适合什么场景？
+      3. `go test -race` 能帮你发现什么？它不能发现什么？
+
+      对照参考实现时，重点看两处：**锁的作用域**（`defer mu.Unlock()` 的位置），
+      以及**哪些地方其实可以不共享**。
+
+      （提示：第 2 问的分界大致是"高频短临界区用锁、有明确的数据流转用通道"。
+      第 3 问：race detector 只报**实际发生过**的竞争 ——
+      没跑到的路径它看不出来，所以它不能替代设计上的正确性。）

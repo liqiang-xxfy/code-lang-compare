@@ -1,0 +1,76 @@
+# javascript —— js2go/05-concurrency-and-modules 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2go
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2go/concurrency-intro
+    equivalence: identical
+    code: |
+      let counter = 0;
+      async function bump() { counter += 1; }    // @note! 主线程只有一个，不会真的并发写
+
+      new Worker("worker.js");                   // @note 真并行只能靠 Worker，且不共享内存
+
+      // @note! "共享可变状态"这一整类问题在这里不存在，也没有"通道"这个概念
+      // @note Go 用 go 关键字就能开并发，而且官方推荐用通道传数据而不是共享内存
+  - featureId: js2go/async-model
+    equivalence: identical
+    code: |
+      const ch = null;                           // @note! 没有通道这个概念
+      const rs = await Promise.all(urls.map((u) => fetch(u)));    // @note Promise.all
+      const first = await Promise.race(tasks);                    // @note Promise.race
+
+      // @note! 有 async/await 语法糖，可以把异步写成顺序代码
+      // @note Go 没有 async/await：组合靠 WaitGroup 与 select，结果通过通道传出来
+      // @note 关键差异：Promise 的 rejection 只在那一处生效；
+      // goroutine 里 panic 会让**整个程序**崩
+  - featureId: js2go/module-system
+    equivalence: identical
+    code: |
+      import { helper } from "./utils.js";       // @note 文件即模块，支持相对路径
+      export function helper() { }
+      export default function def() { }
+
+      // @note! 模块内定义的东西默认**可以**从外面导入
+      // @note Go 里目录才是包，且**首字母大写才是导出的** —— 方向正好相反
+      // @note Go 没有相对导入，也没有 default export，也**不允许循环导入**
+  - featureId: js2go/package-manager
+    equivalence: identical
+    code: |
+      // package.json
+      // {
+      //   "dependencies": { "express": "^4.18.0" },
+      //   "devDependencies": { "vitest": "^1.0.0" },
+      //   "scripts": { "test": "vitest", "lint": "eslint ." }
+      // }
+
+      npm install; npm run test; npm run lint; npm publish;
+
+      // @note! 每一环都有若干竞争者：打包器、测试框架、lint、格式化各选各的
+      // @note Go 那边 go build / go test / go vet / gofmt 都是官方标准 ——
+      // 尤其 gofmt 不接受配置，所以社区风格是真正统一的
+  - featureId: js2go/concurrency-exercise
+    equivalence: identical
+    code: |
+      const cache = new Map();
+
+      async function compute(k) { return k * 2; }
+
+      async function get(k) {
+        if (!cache.has(k)) {                       // @note "检查后写入"这个复合动作
+          cache.set(k, await compute(k));          // @note 有 await，这里真的会被切走
+        }
+        return cache.get(k);
+      }
+
+      await Promise.all([get(1), get(1)]);
+      // @note! 最坏是 compute(1) 被算两次 —— cache 不会损坏（单线程，没有并发写）
+      // @note! Go 里是真的并发写同一个 map，会直接 panic（concurrent map writes）——
+      // 而且这个 panic 是运行时才出现的，编译器不会提醒

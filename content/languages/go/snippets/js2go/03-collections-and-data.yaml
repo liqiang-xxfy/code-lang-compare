@@ -1,0 +1,113 @@
+# go —— js2go 迁移教程的实现
+# 上下文：片段默认位于包内（Go 有顶层函数）。⚠️ 本机无 Go 工具链，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2go
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2go/collections-intro
+    equivalence: divergent
+    code: |
+      a := [3]int{1, 2, 3}         // @note! 数组是**值类型**，长度是类型的一部分
+      b := a
+      b[0] = 9                     // @note! a 不受影响 —— 整体复制了一份
+
+      s := []int{1, 2, 3}          // @note 切片才是变长的
+      t := s
+      t[0] = 9                     // @note! s 也变了 —— 共享底层数组
+
+      m := map[string]int{"a": 1}
+      type User struct{ Name string }
+
+      // @note! 数组与切片长得像，行为却是"值复制"与"共享底层"两种 ——
+      // JS 里数组只有一种（引用），这一层要重新建立
+  - featureId: js2go/list-model
+    equivalence: divergent
+    code: |
+      xs := []int{1, 2, 3}
+      append(xs, 4)                // @note! 编译错误：返回值被丢弃
+      xs = append(xs, 4)           // @note 必须接住 —— 容量不够时会分配新数组
+
+      xs[0]                        // @note 越界 panic（不是 undefined）
+      len(xs)
+      xs[1:3]                      // @note! 这是**视图**，共享底层数组
+
+      a := []int{1, 2, 3, 4, 5}
+      b := a[1:3]
+      b[0] = 9                     // @note! a[1] 也变成 9
+      b = append(b, 99)            // @note! 容量够时会写进 a[3] —— Go 最著名的坑之一
+      c := a[1:3:3]                // @note 三索引切片：限制容量，append 就会分配新数组
+      d := append([]int(nil), a...)   // @note 或者显式复制（slices.Clone(a) 也行）
+  - featureId: js2go/map-model
+    equivalence: divergent
+    code: |
+      m := map[string]int{"a": 1}
+      m["a"]                       // 1
+      m["z"]                       // @note! 0 —— 缺失返回**零值**，与"值是 0"分不出来
+      v, ok := m["z"]              // @note! comma-ok：一次操作同时拿到值与存在性
+      if ok { }
+
+      delete(m, "a")
+
+      var nilMap map[string]int
+      nilMap["k"]                  // @note 读没问题，返回 0
+      // nilMap["k"] = 1           // @note! panic: assignment to entry in nil map
+      nilMap = make(map[string]int)
+
+      m["k"] += 1                  // @note 累积：零值恰好是 0，可以直接加
+      // @note! 遍历顺序是**刻意打乱的** —— 需要有序得自己收集键再排序
+  - featureId: js2go/data-modeling
+    equivalence: analogous
+    code: |
+      type User struct {
+          ID     int
+          Name   string
+          Active bool
+      }
+
+      u := User{ID: 1, Name: "Ada", Active: true}   // @note 具名字段，推荐
+      var z User                                    // @note! 零值可用：{0, "", false}
+      // u.Email = "..."                            // @note! 编译错误：字段必须提前声明
+      // u.Nmae                                     // @note! 编译错误 —— 不像 JS 静默给 undefined
+
+      func (u User) Display() string { return u.Name }     // @note 值接收者
+      func (u *User) Rename(n string) { u.Name = n }       // @note 指针接收者：要改原对象
+
+      // @note! 首字母大写才是导出的（Name 可导出、name 不可）——
+      // 这既是命名约定也是可见性控制，与 JS 的 export 完全不同
+  - featureId: js2go/collections-exercise
+    equivalence: analogous
+    code: |
+      type Employee struct {
+          Name string
+          Dept string
+          Age  int
+      }
+
+      func groupByDept(employees []Employee) map[string][]string {
+          groups := make(map[string][]string)       // @note! 必须先 make
+          for _, e := range employees {
+              groups[e.Dept] = append(groups[e.Dept], e.Name)
+              // @note! 读不存在的键得到 nil 切片，append 到 nil 切片是合法的 ——
+              // 所以这一行直接就能工作，不需要判存在
+          }
+          return groups
+      }
+
+      func avgAge(employees []Employee) (float64, bool) {
+          if len(employees) == 0 {
+              return 0, false                       // @note! ok=false 表示"没有结果"
+          }
+          total := 0
+          for _, e := range employees {
+              total += e.Age
+          }
+          return float64(total) / float64(len(employees)), true   // @note! 不转就是整数除法
+      }
+
+      // @note 空输入返回空 map（不是 nil map），调用方可以直接 range

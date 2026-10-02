@@ -1,0 +1,107 @@
+# go —— js2go 迁移教程的实现
+# 上下文：片段默认位于包内（Go 有顶层函数）。⚠️ 本机无 Go 工具链，未做执行验证。
+# 约定：@note 标注行为差异（@note! 表示高危陷阱）；equivalence 四态见 src/schemas
+topic: js2go
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2go/concurrency-intro
+    equivalence: divergent
+    code: |
+      go doWork()                  // @note! 加一个 go 关键字就并发执行 —— 极便宜
+
+      // @note! goroutine 初始栈只有几 KB，可以开几十万个；而且并行是真的（跑在多核上）
+      // @note 官方格言：不要通过共享内存来通信，而要通过通信来共享内存
+      ch := make(chan int)
+      go func() { ch <- compute() }()
+      result := <-ch               // @note 数据传过来之后，发送方就不再持有它
+
+      // @note Go 的并发安全靠约定 + race detector，不是编译器强制（与 Rust 不同）
+  - featureId: js2go/async-model
+    equivalence: divergent
+    code: |
+      // @note! 没有 async/await，也没有 Promise
+      ch := make(chan string)
+      for _, u := range urls {
+          go func(u string) { ch <- fetch(u) }(u)
+      }
+      for range urls {
+          results = append(results, <-ch)      // 收够 N 个
+      }
+
+      var wg sync.WaitGroup                    // @note 对应 Promise.all
+      wg.Add(1)
+      go func() { defer wg.Done(); fetch() }()
+      wg.Wait()
+
+      select {                                 // @note 对应 Promise.race
+      case r := <-ch1:
+      case r := <-ch2:
+      case <-time.After(time.Second):          // @note 超时分支，JS 里要另外包一层
+      }
+
+      // @note! goroutine 里 panic 会让**整个程序**崩，不像 Promise 那样变成 rejection
+      // @note context.Context 是每个可能阻塞的函数都要带的第一个参数（对应 AbortController）
+  - featureId: js2go/module-system
+    equivalence: divergent
+    code: |
+      package utils                // @note! 目录才是包，目录内所有文件同属一个包
+
+      func Helper() { }            // @note! 首字母大写 = 导出
+      func helper() { }            // 小写 = 包内私有
+
+      import "github.com/user/project/utils"   // @note 完整模块路径，没有相对导入
+      import "fmt"
+
+      // @note! 没有 export 关键字：可见性由大小写决定 —— 与 JS 的"默认导出"正好相反
+      // @note! 循环导入是编译错误 —— 逼你把共享部分抽成第三个包
+      // @note 导入时用的标识符取自**包名**，不是路径最后一段（这一处常让人意外）
+  - featureId: js2go/package-manager
+    equivalence: analogous
+    code: |
+      // go.mod
+      // module github.com/user/project
+      // go 1.22
+      // require github.com/stretchr/testify v1.9.0
+
+      go mod tidy;      // @note! 会自动增删依赖（npm install 只增不减）
+      go build;         // @note 构建
+      go test;          // @note 测试框架是标准库自带的 testing 包，没有 Jest/Vitest 之争
+      go vet;           // @note 官方静态检查
+      gofmt -w .;       // @note! 唯一答案，不接受配置 —— 所以 Go 社区代码风格真正统一
+      go test -race;    // @note! 运行时抓数据竞争 —— Go 并发安全靠约定，这是补充保障
+
+      // @note 依赖下载到全局缓存，没有 node_modules 那种项目内目录
+  - featureId: js2go/concurrency-exercise
+    equivalence: analogous
+    code: |
+      type cache struct {
+          mu sync.Mutex
+          m  map[int]int
+      }
+
+      func (c *cache) get(k int) int {
+          c.mu.Lock()
+          defer c.mu.Unlock()                  // @note! 紧跟 Lock 写，作用域一眼可见
+          if v, ok := c.m[k]; ok {
+              return v
+          }
+          v := compute(k)
+          c.m[k] = v
+          return v
+      }
+
+      // @note! 三问的答案：
+      // 1. 锁的写法就是上面这样；通道的写法是把缓存本身做成一个 goroutine，
+      //    通过请求/响应通道访问它（"用一个 owner goroutine 串行化所有访问"）
+      // 2. 分界大致是：高频短临界区用锁（开销小、直观）；
+      //    有明确的数据流转、或者要表达"所有权转移"时用通道
+      // 3. race detector 只报**实际发生过**的竞争 —— 没跑到的路径它看不出来，
+      //    所以它不能替代设计上的正确性
+      // @note! 不加锁直接并发写同一个 map 会 panic（concurrent map writes），
+      // 而且编译器一句话都不说 —— JS 里同样这段代码不会坏，因为那边没有真并行

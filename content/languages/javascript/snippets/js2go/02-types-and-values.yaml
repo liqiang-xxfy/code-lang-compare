@@ -1,0 +1,72 @@
+# javascript —— js2go/02-types-and-values 的实现
+#
+# 本 topic 以 **JavaScript 为基准**（from 侧），所以基准列标 identical。
+topic: js2go
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: js2go/types-intro
+    equivalence: identical
+    code: |
+      let x = 1;               // @note 名字不携带类型
+      x = "一";                // 合法 —— 编译期那道网不存在
+
+      let a;                   // @note! undefined —— "已声明但未赋值"是一个独立状态
+      // @note Go 里没有这个状态：每个类型都有零值，声明即初始化
+  - featureId: js2go/numeric-types
+    equivalence: identical
+    code: |
+      7 / 2;                   // @note 3.5 —— 除法永远给小数
+      Math.trunc(7 / 2);       // 3
+      -7 % 3;                  // -1 —— 取余符号跟着被除数走
+
+      9007199254740993;        // @note! 变成 ...992 —— 整数也是浮点，超范围静默丢精度
+      10n ** 30n;              // 要大整数必须显式用 BigInt
+
+      0.1 + 0.2;               // 0.30000000000000004
+      1 / 0;                   // @note! Infinity —— 除零静默
+      "6" / "2";               // @note! 3 —— 字符串被隐式转成数字
+  - featureId: js2go/strings
+    equivalence: identical
+    code: |
+      const name = "Ada";
+      `你好，${name}！`;         // @note 模板字符串：花括号里能放任意表达式
+
+      const s = "abc";
+      s[0];                    // @note! 'a' —— 拿到的是一个字符（UTF-16 码元）
+      s.length;                // 3 —— 码元数
+      "你好".length;           // @note! 2 —— 恰好等于字符数，中文用 UTF-16 只占一个码元
+
+      "a" + 1;                 // @note! 'a1' —— 静默把数字转成字符串
+      let out = "";
+      for (const p of parts) out += p;   // @note 引擎有 rope 优化
+  - featureId: js2go/nullability
+    equivalence: identical
+    code: |
+      let a;                   // @note undefined
+      let b = null;            // @note null
+
+      a == null;               // @note! true：宽松相等同时匹配两种空
+      obj?.a?.b;               // @note 可选链：一路 null 也不崩
+
+      const m = new Map();
+      m.get("z");              // @note undefined —— 读缺失的键不报错
+      m.set("z", 1);           // @note! 任何时候都能写，不需要先初始化
+      // @note Go 的 nil map 读可以、写会 panic —— 这是最容易踩的一处差异
+  - featureId: js2go/types-exercise
+    equivalence: identical
+    code: |
+      function summarize(orders) {
+        if (orders.length === 0) return null;        // @note! 用 null 表示"没有结果"
+        const total = orders.reduce((acc, o) => acc + o.price * o.qty, 0);
+        const avg = total / orders.length;           // @note 天然浮点除法
+        return Number(avg.toFixed(2));
+      }
+
+      // @note! 大额订单超过 2^53 时会静默丢精度
+      // @note null 与数字是同一个类型的两种取值，调用方很容易忘记判空

@@ -1,0 +1,182 @@
+id: js2go/04-errors-and-resources
+topicId: js2go
+title: 4. 错误处理与资源管理
+order: 4
+summary: 从 JavaScript 到 Go：异常变成返回值、defer 接管了 finally、错误要一层层往上带
+
+features:
+  - id: js2go/errors-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 错误是普通值，于是"处理失败"成了每几行就要写一次的事
+    body: |
+      JS 的异常是**控制流**：`throw` 打断执行，一路向上找 `catch`。
+
+      Go 把它变成了**返回值**：
+
+      ```go
+      f, err := os.Open(path)
+      if err != nil {
+          return err
+      }
+      ```
+
+      这一层变化的直接后果是**代码里到处是 `if err != nil`**。
+      刚从 JS 过来时这看起来很像噪音 —— 但它换来的是两条明确的性质：
+
+      - **哪一步会失败，读代码就能看出来**（它写在返回类型里）
+      - **没有"漏写 try/catch 就静默崩掉"这回事**（不处理 `err` 编译器会拦，
+        或者至少要显式 `_ =` 忽略）
+
+      另一条要一起记住的是：**Go 没有异常层次结构**。
+      `error` 是一个接口，自带实现只需一个 `Error() string` 方法。
+      想知道"是哪一类错误"靠 `errors.Is` / `errors.As`，而不是 `instanceof`。
+
+      **`panic` 不是异常**：它用于"程序有 bug"这类不可恢复的情况，
+      正常错误处理一律走 `error`。这与 JS 里 `throw` 承担两种角色不同。
+
+  - id: js2go/exception-model
+    title: 捕获：if err != nil 取代 try/catch
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 没有 try/catch，每一步都要显式检查
+    body: |
+      ```js
+      try {
+        const f = fs.openSync(path);
+        const data = f.read();
+        return parse(data);
+      } catch (e) {
+        return fallback;
+      }
+      ```
+
+      ```go
+      f, err := os.Open(path)
+      if err != nil {
+          return fallback, nil
+      }
+      defer f.Close()
+
+      data, err := io.ReadAll(f)
+      if err != nil {
+          return fallback, nil
+      }
+      return parse(data)
+      ```
+
+      **结构差别很大**：JS 把"可能失败的三步"包在一段里统一兜底；
+      Go 在每一步后面就地检查。写过的人会觉得啰嗦，
+      但它带来一个 JS 里做不到的好处：**每一步的失败可以有不同的处理**，
+      而且处理位置紧挨着发生位置。
+
+      `panic` / `recover` 是另一套机制，对应 JS 的 `throw` / `catch`：
+
+      ```go
+      defer func() {
+          if r := recover(); r != nil {
+              log.Printf("崩了：%v", r)
+          }
+      }()
+      panic("出错了")
+      ```
+
+      但**不要用它做常规错误处理** —— 它应该只用在"程序状态已经不对了"
+      这类场景，而 `recover` 通常只在库的边界或 HTTP 中间件里出现一次。
+
+  - id: js2go/resource-cleanup
+    title: 资源释放：defer 取代 finally
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: defer 紧跟申请写，出栈时执行
+    body: |
+      JS 里释放资源要手写 `try/finally`；Go 用 `defer`：
+
+      ```go
+      f, err := os.Open(path)
+      if err != nil { return err }
+      defer f.Close()             // 函数返回时执行 —— 紧跟在申请之后写
+
+      // 用 f
+      ```
+
+      三处与 `finally` 不同的地方：
+
+      1. **`defer` 写在申请之后立刻写**，而出栈时执行。
+         这与 `finally` 集中在末尾不同 —— 读代码时"谁负责释放"紧挨着"谁申请"。
+      2. **多个 `defer` 按后进先出执行**（栈序）。
+         `defer a(); defer b()` 的执行顺序是 `b` 然后 `a` ——
+         正好对应"申请顺序的逆序"。
+      3. **`defer` 的参数在注册时求值**，函数体在返回时执行：
+
+         ```go
+         for i := 0; i < 3; i++ {
+             defer fmt.Println(i)     // 输出 2 1 0 —— i 在 defer 那一刻就被取值
+         }
+         ```
+
+         这条容易搞错，尤其在循环里 `defer` 时。
+
+      **它同样解决了"关闭本身出错会吞掉原始异常"**这个问题吗？
+      不完全 —— `defer f.Close()` 的返回值被丢弃了。
+      要处理关闭错误得写 `defer func() { err = f.Close() }()`，
+      在命名返回值上做文章。多数场景下忽略关闭错误是可以接受的。
+
+  - id: js2go/error-propagation
+    title: 传播与判定：error 是值，要一层层带上去
+    kind: behavior
+    refFeatureId: basics-javascript/exception-flow
+    summary: 包装用 %w，判定用 errors.Is / As
+    body: |
+      传播就是 `return err`，但**光返回会丢上下文** ——
+      最终打印出来只有"file not found"，不知道是哪个操作、哪个文件。
+
+      包装用 `fmt.Errorf` 加 `%w`：
+
+      ```go
+      data, err := os.ReadFile(path)
+      if err != nil {
+          return fmt.Errorf("读取配置 %s: %w", path, err)
+      }
+      ```
+
+      `%w` 会**保留原始错误**，所以上层还能反查它是什么 ——
+      这就是 Go 里"带上下文又保留因果链"的方式，对应 JS 的 `new Error(msg, { cause })`。
+
+      判定用两个函数，不要用字符串比较：
+
+      ```go
+      if errors.Is(err, os.ErrNotExist) { }        // 是这一类错误吗（按值比）
+      var pe *os.PathError
+      if errors.As(err, &pe) { }                   // 能取成这个类型吗
+      ```
+
+      **`errors.Is` 会沿着包装链一路往里找**，所以包装过的错误照样能判定 ——
+      这是 `%w` 的价值所在。用 `==` 比较则会在包装后失效。
+
+      自定义错误类型只要有 `Error() string` 就满足 `error` 接口；
+      需要携带字段时定义 `struct`，再加个 `Unwrap()` 就能参与 `Is` / `As`。
+      这与 JS 的 `class X extends Error` 不同 —— 那边靠继承，这边靠接口。
+
+  - id: js2go/errors-exercise
+    title: 练习：迁移一个带资源与重试的读取函数
+    kind: exercise
+    summary: 三处改动，其中一处是错误包装
+    body: |
+      下面这段 JS 读取并解析一个配置文件，失败时重试。
+
+      请把它迁到 Go，要求**行为完全一致**：
+
+      1. 文件不存在与解析失败要能区分（调用方要据此决定是否重试）
+      2. 失败最多重试 3 次，每次间隔递增
+      3. 资源（文件句柄）要在每次尝试结束时关闭
+
+      对照参考实现时，重点看三处：
+
+      - **错误怎么包装**，以及调用方怎么判定"是文件不存在"
+      - **`defer` 在循环里怎么用**（提示：这一处有坑）
+      - **重试逻辑**：Go 没有异常，所以"最后一次失败"要自己记
+
+      （提示：第 2 问的坑是 `defer` 在函数返回时才执行，不是每轮循环结束时 ——
+      把 `defer` 写在循环体里会导致所有句柄都堆到函数返回才关。
+      正确做法是把"一次尝试"抽成一个函数。）
