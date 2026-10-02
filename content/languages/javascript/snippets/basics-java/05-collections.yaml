@@ -1,0 +1,121 @@
+# javascript —— basics-java/05-collections 的实现
+#
+# 本 topic 以 **Java 为基准**，JavaScript 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/array-create
+    equivalence: analogous
+    code: |
+      const a = [1, 2, 3];                 // @note! 没有定长数组，数组本身就是可变长的
+      const b = new Array(3).fill(0);
+      const c = Array.from({ length: 3 }, (_, i) => i);
+
+      const m = new Map();                 // @note Map / Set 是独立的类型，不是接口
+      m.set("a", 1);
+      const o = { a: 1 };                  // @note 普通对象也常当映射用
+
+      // @note! 没有"选实现"这一步：数组就是数组，Map 就是 Map
+      // @note 也没有 List<int> 那种"只能装对象"的限制，装箱那一层不存在
+  - featureId: basics-java/array-index
+    equivalence: divergent
+    code: |
+      const a = [10, 20, 30];
+      a[0];                        // 10
+      a[a.length - 1];             // @note 取末尾同样要自己算
+      a.at(-1);                    // @note! 支持负索引 —— 但要显式用 at()
+
+      a[99];                       // @note! undefined —— 越界静默返回空值，不抛
+      a[99].toString();            // @note! 于是这里才崩，报错位置离原因很远
+      // @note Java 的越界是当场抛，这边把错误推到了下游
+  - featureId: basics-java/array-mutate
+    equivalence: analogous
+    code: |
+      const a = [1, 2, 3];
+      a.push(4);                   // @note 尾部追加
+      a.pop();
+      a.unshift(0);                // @note! 头部插入 O(n)
+      a.shift();                   // @note! 头部弹出 O(n)
+
+      a.splice(1, 2);              // @note 按下标删两个并返回被删项
+      a.splice(1, 0, 9);           // 在 1 处插入 9
+      // @note! 没有"按值删"：要删某个值得先 indexOf 再 splice，或 filter 重建
+
+      // @note 好处是没有 Java 那个 remove(下标) 与 remove(值) 的歧义
+  - featureId: basics-java/array-slice
+    equivalence: divergent
+    code: |
+      const a = [1, 2, 3, 4, 5];
+      const sub = a.slice(1, 3);
+      sub[0] = 9;                  // @note! a 不受影响 —— slice 是**拷贝**不是视图
+
+      a.slice(-2);                 // @note [4, 5] —— slice 支持负索引
+      a.slice();                   // 浅拷贝一份
+
+      // @note! 与 subList 的行为正好相反：那边改视图会写回原列表
+      // @note 同样没有步长，反转要 [...a].reverse()
+  - featureId: basics-java/array-iterate
+    equivalence: analogous
+    code: |
+      for (const x of a) { }              // @note 直接给值
+      for (const i in a) { }              // @note! for...in 给的是下标（字符串形式！）
+
+      a.forEach((x, i) => { });           // @note 下标是第二个参数，比 Java 省事
+      for (const [i, x] of a.entries()) { }   // @note entries() 直接给 [下标, 值]
+
+      // @note 同样没有 zip，但至少"值 + 下标"有现成写法，Java 要手写循环
+      // @note 遍历时增删有未定义行为，但不像 Java 那样抛异常
+  - featureId: basics-java/array-map-filter
+    equivalence: analogous
+    code: |
+      a.map((x) => x * 2);                        // @note 链式方法
+      a.filter((x) => x > 0);
+      a.map((x) => x * 2).filter((x) => x > 0);
+
+      a.some((x) => x > 0);                       // @note 对应 anyMatch
+      a.every((x) => x > 0);                      // 对应 allMatch
+      a.reduce((acc, x) => acc + x, 0);
+
+      // @note! 每个方法都立刻求值并新建数组，不像 Stream 那样惰性；
+      // 好处是结果可以反复用，没有"流只能消费一次"的限制
+      // @note 也不需要 mapToInt：数字就是 number，求和不必转类型
+  - featureId: basics-java/array-sort
+    equivalence: divergent
+    code: |
+      const a = [10, 9, 1];
+      a.sort();                    // @note! [1, 10, 9] —— 默认按字符串比较
+      a.sort((x, y) => x - y);     // [1, 9, 10] —— 数值排序必须传比较器
+
+      const sorted = [...a].sort((x, y) => x - y);   // @note 要副本先复制
+
+      // @note! 出错方式与 Java 相反：这边是"静默排错"，
+      // Java 是"不可比较就编译不过"
+      // @note 没有 Comparator 链，多字段排序要在一个比较函数里手写
+  - featureId: basics-java/array-search
+    equivalence: analogous
+    code: |
+      a.includes(20);              // @note boolean，对应 contains
+      a.indexOf(20);               // @note 找不到返回 -1，与 Java 一致
+      a.find((x) => x > 15);       // @note! 元素；找不到返回 undefined
+
+      // @note! 三处的"找不到"同样是三种：false / -1 / undefined
+      // @note 判包含同样是 O(n)；要频繁查也得先转成 Set
+      const s = new Set(a);
+      s.has(x);                    // @note O(1)
+  - featureId: basics-java/array-unpack
+    equivalence: divergent
+    code: |
+      const merged = [...a, ...b];       // @note! 有展开运算符，一行搞定
+      Math.max(...a);                    // 调用时展开
+      const [first, ...rest] = a;        // @note 解包成多个变量也可以
+
+      const o = { ...defaults, ...overrides };   // @note 对象也是 ... 同一个符号
+
+      // @note Java 那边要 new ArrayList<>(a) 再 addAll(b)，两行；
+      // 而且 List 不能直接传给可变参数，得先 toArray

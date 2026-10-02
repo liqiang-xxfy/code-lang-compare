@@ -1,0 +1,125 @@
+# python —— basics-java/05-collections 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/array-create
+    equivalence: divergent
+    code: |
+      xs = [1, 2, 3]                    # @note! 一种列表类型，既不是定长也没有实现可选
+      xs = list(range(10))
+      xs = [i * i for i in range(10)]   # @note 推导式：建列表的默认写法
+
+      d = {}                            # @note dict 既是"接口"也是"实现"，不分子类
+      s = set()
+
+      # @note! Java 的"接口声明 + 实现构造"两步、以及"基本类型要装箱"那一层，
+      # 在这里都不存在 —— 列表里装什么都行
+  - featureId: basics-java/array-index
+    equivalence: divergent
+    code: |
+      xs = [10, 20, 30]
+      xs[0]                        # 10
+      xs[-1]                       # @note! 30 —— 负索引原生支持，不用 at()
+      xs[99]                       # @note! IndexError —— 越界当场抛，与 Java 一致
+
+      # @note 但切片越界反而静默：xs[99:] 得 [] —— 同一个列表上两种行为
+  - featureId: basics-java/array-mutate
+    equivalence: divergent
+    code: |
+      xs.append(4)                 # @note 尾部追加
+      xs.pop()                     # 弹尾部并返回
+      xs.pop(0)                    # @note! 弹头部 O(n)
+      xs.insert(0, 4)              # @note! 头部插入 O(n)
+      xs.remove(20)                # @note! 按**值**删第一个匹配项，找不到抛 ValueError
+      del xs[1:3]                  # 按切片删一段
+
+      # @note! 没有 Java 那个 remove(下标) / remove(值) 的重载歧义：
+      # 按下标删叫 pop，按值删叫 remove，名字不同
+  - featureId: basics-java/array-slice
+    equivalence: analogous
+    code: |
+      xs[1:3]                      # @note [2, 3] —— 切片是**新列表**，与 subList 的视图相反
+      sub = xs[1:3]
+      sub[0] = 9                   # @note! xs 不受影响，这一点比 Java 安全
+
+      xs[::2]                      # @note 步长 —— Java 完全没有
+      xs[::-1]                     # 一行反转
+      xs[:]                        # 浅拷贝
+
+      xs[1:3] = [9]                # @note 切片还能赋值，用来原地增删
+      # @note 代价是没有视图语义：想"原地替换一段"要用切片赋值，不是同一个 API
+  - featureId: basics-java/array-iterate
+    equivalence: divergent
+    code: |
+      for x in xs:                 # @note 直接拿到值
+          pass
+      for i, x in enumerate(xs):   # @note! 值 + 下标有现成写法，Java 要手写循环
+          pass
+      for a, b in zip(xs, ys):     # @note! zip 也是内置的，Java 完全没有
+          pass
+
+      for x in xs:
+          xs.remove(x)             # @note! 边遍历边删会跳元素 ——
+                                   # 比 Java 的 ConcurrentModificationException 更隐蔽
+      xs = [x for x in xs if ok(x)]   # 正确写法：重建
+  - featureId: basics-java/array-map-filter
+    equivalence: analogous
+    code: |
+      [x * 2 for x in xs]              # @note 推导式优先，比 stream 链短得多
+      [x * 2 for x in xs if x > 0]
+
+      any(x > 0 for x in xs)           # @note 对应 anyMatch
+      all(x > 0 for x in xs)
+      sum(xs)                          # @note 求和不用转类型
+
+      m = map(str, [1, 2])
+      list(m)                          # @note ['1', '2']
+      list(m)                          # @note! [] —— 迭代器只能遍历一次，与流同类
+
+      # @note 惰性与"一次性"这一点与 Stream 相似，但只有 map / filter 是惰性的，
+      # 推导式与 sum 都立刻求值
+  - featureId: basics-java/array-sort
+    equivalence: divergent
+    code: |
+      ys = sorted(xs)                  # @note 新列表，xs 不变
+      xs.sort()                        # @note 原地改，返回 None
+      xs = xs.sort()                   # @note! 经典错误：xs 现在成了 None
+
+      xs.sort(key=lambda u: (u.age, u.name))   # @note! 元组 key 代替 thenComparing
+      xs.sort(reverse=True)
+      # @note 混合类型排序抛 TypeError，不会静默排出错误顺序
+
+      # @note Java 的"自定义类要 Comparable / Comparator 才能排"在这里不存在：
+      # 只要有 key 就行，连类都不用改
+  - featureId: basics-java/array-search
+    equivalence: analogous
+    code: |
+      if x in xs:                      # @note 布尔，O(n)，对应 contains
+          pass
+      xs.index(x)                      # @note! 找不到抛 ValueError —— 不是返回 -1
+      next((x for x in xs if x > 15), None)   # @note 按条件找元素，带默认值
+
+      allowed = set(big_list)          # @note 循环里反复 in 要先转 set，与 Set.copyOf 同理
+      if x in allowed:
+          pass
+
+      # @note! 与 Java 相反：这边的 index 找不到会抛，那边的 indexOf 返回 -1
+  - featureId: basics-java/array-unpack
+    equivalence: divergent
+    code: |
+      merged = [*xs, *ys]              # @note! 有星号解包，一行搞定
+      f(*args)                         # 调用时展开
+      a, *rest = xs                    # @note 解包成多个变量也可以
+
+      merged_dict = {**defaults, **overrides}   # @note 字典用双星号
+
+      # @note Java 那边要 new ArrayList<>(a) 再 addAll(b)，两行；
+      # 而且 List 不能直接传给可变参数，得先 toArray

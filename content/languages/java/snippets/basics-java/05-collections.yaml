@@ -1,0 +1,143 @@
+# java —— basics-java/05-collections 的实现
+#
+# 本 topic 以 **Java 为基准**，基准列全部标 identical；
+# 注记里不点名别的语言（R12）。
+topic: basics-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: basics-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: basics-java/array-create
+    equivalence: identical
+    code: |
+      int[] a = {1, 2, 3};                    // @note 数组：定长
+      int[] zeros = new int[10];              // 自动填 0
+
+      List<Integer> xs = new ArrayList<>();   // @note 集合：接口声明、实现构造
+      List<Integer> fixed = List.of(1, 2, 3); // 不可变字面量
+
+      Map<String, Integer> m = new HashMap<>();          // 无序
+      Map<String, Integer> ordered = new LinkedHashMap<>();  // 按插入顺序
+      Map<String, Integer> sorted = new TreeMap<>();         // 按键排序
+
+      // @note! List<int> 非法：集合只能装对象，基本类型要装箱成 Integer
+      // @note 自定义类当 Map 的键，必须重写 equals 与 hashCode
+  - featureId: basics-java/array-index
+    equivalence: identical
+    code: |
+      int[] a = {10, 20, 30};
+      a[0];                        // 10
+      a[a.length - 1];             // @note 取末尾要自己算下标
+      // a[-1];                    // @note! 没有负索引，会抛
+      // a[99];                    // @note! ArrayIndexOutOfBoundsException
+
+      List<Integer> xs = List.of(10, 20, 30);
+      xs.get(0);
+      // xs.get(99);               // @note! IndexOutOfBoundsException
+
+      // @note 越界一律抛 —— 比"静默返回空值"安全得多
+      // @note Set 无序不能按下标取，Map 用 get(key)
+  - featureId: basics-java/array-mutate
+    equivalence: identical
+    code: |
+      int[] a = {1, 2, 3};
+      a[0] = 9;                    // @note 数组只能改，长度固定不能增删
+
+      List<Integer> xs = new ArrayList<>(List.of(1, 2, 3));
+      xs.add(4);                   // @note 尾部追加，均摊 O(1)
+      xs.add(0, 4);                // @note! 头部插入 O(n)
+      xs.set(0, 9);                // 按下标改
+      xs.remove(1);                // @note! 按下标删 —— 参数是 int 就走下标
+      xs.remove(Integer.valueOf(1));  // @note! 按值删 —— 参数是对象就走值比较
+      xs.removeAll(List.of(2, 3));    // 按值批量删
+
+      // @note remove 的这个歧义是最容易静默删错东西的地方
+  - featureId: basics-java/array-slice
+    equivalence: identical
+    code: |
+      List<Integer> xs = List.of(1, 2, 3, 4, 5);
+
+      var view = xs.subList(1, 3);
+      view.set(0, 9);              // @note! 这是**视图**：xs 也跟着变了
+      new ArrayList<>(xs.subList(1, 3));   // @note 要拷贝必须这样包一层
+
+      java.util.Arrays.copyOfRange(new int[]{1, 2, 3, 4, 5}, 1, 3);
+      // @note 数组走 copyOfRange，它返回的才是真拷贝
+
+      // @note! 没有步长、没有负索引；数组与集合的 API 还各不相同
+  - featureId: basics-java/array-iterate
+    equivalence: identical
+    code: |
+      for (String x : xs) { }                  // @note 增强 for，直接给值
+      for (int i = 0; i < xs.size(); i++) { }  // @note 需要下标只能显式写循环
+      xs.forEach(x -> { });
+      map.forEach((k, v) -> { });              // @note Map 的 forEach 一次给键值
+
+      // @note! 没有"值 + 下标"的现成组合，也没有 zip —— 都要自己维护下标
+      java.util.stream.IntStream.range(0, xs.size()).forEach(i -> { });
+
+      for (String x : xs) {
+          xs.remove(x);            // @note! ConcurrentModificationException，当场就报
+      }
+      xs.removeIf(x -> x.isEmpty());   // @note 要删走这条
+  - featureId: basics-java/array-map-filter
+    equivalence: identical
+    code: |
+      xs.stream().map(x -> x * 2).filter(x -> x > 0).toList();   // @note 惰性，到 toList 才跑
+      xs.stream().anyMatch(x -> x > 0);
+      xs.stream().mapToInt(Integer::intValue).sum();   // @note! 求和要转原始类型流
+
+      xs.stream().collect(java.util.stream.Collectors.groupingBy(User::dept));
+      xs.stream().reduce(0, Integer::sum);
+
+      var s = xs.stream();
+      s.toList();
+      // s.toList();                  // @note! IllegalStateException：流只能消费一次
+  - featureId: basics-java/array-sort
+    equivalence: identical
+    code: |
+      int[] a = {10, 9, 1};
+      java.util.Arrays.sort(a);                  // @note! 原地改，返回 void
+
+      List<Integer> xs = new ArrayList<>(List.of(10, 9, 1));
+      java.util.Collections.sort(xs);            // @note 同样原地改
+      xs.sort(java.util.Comparator.comparingInt(u -> u));
+
+      xs.stream().sorted().toList();             // @note 要副本就走流
+
+      users.sort(java.util.Comparator.comparing(User::getName)
+              .thenComparingInt(User::getAge));  // @note! 多字段要显式串比较器
+      // @note 没有自然顺序又没有传 Comparator 时是**编译错误**，不会静默排错
+  - featureId: basics-java/array-search
+    equivalence: identical
+    code: |
+      List<Integer> xs = List.of(10, 20, 30);
+      xs.contains(20);                           // @note boolean，O(n)
+      xs.indexOf(20);                            // @note! 找不到返回 -1，不抛
+
+      xs.stream().filter(x -> x > 15).findFirst();                 // Optional
+      xs.stream().filter(x -> x > 15).findFirst().orElse(null);    // @note 带默认值
+
+      java.util.Set<String> allowed = java.util.Set.copyOf(bigList);
+      allowed.contains(x);                       // @note 循环里反复判包含要先转 Set
+
+      // @note! 三处的"找不到"各不相同：false / -1 / 空 Optional
+  - featureId: basics-java/array-unpack
+    equivalence: identical
+    code: |
+      List<Integer> merged = new ArrayList<>(a);   // @note! 没有展开运算符
+      merged.addAll(b);
+
+      static int sum(int... nums) { return java.util.Arrays.stream(nums).sum(); }
+      sum(1, 2, 3);
+      sum(new int[]{1, 2, 3});     // @note 数组可以直接传
+      // sum(list);                // @note! List 不行，得先 toArray
+
+      // @note! 可变参数编译成数组，所以 f((int[]) null) 拿到的是 null 而不是空数组
+
+      int x = p.x();               // @note 解包成多个变量也不存在，只能逐项取值
+      int y = p.y();
