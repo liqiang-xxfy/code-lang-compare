@@ -1,0 +1,99 @@
+# python —— java2python/04-errors-and-resources 的实现
+#
+# 以 Java 为基准看 Python 的异常与资源管理。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: java2python/errors-intro
+    equivalence: divergent
+    code: |
+      def load():
+          return Path("a.txt").read_text()     # @note! 签名里什么也不用写
+
+      def parse(s):
+          if not s:
+              raise ValueError("空输入")
+
+      # @note 异常体系是扁平的：能捕获的都继承自 Exception，没有受检/非受检之分
+      # @note! 代价是"这里会抛什么"不再由编译器提醒 —— 只能在 docstring 里写，
+      # 或者等它运行时炸出来
+  - featureId: java2python/exception-model
+    equivalence: divergent
+    code: |
+      try:
+          risky()
+      except (OSError, ValueError):    # @note 元组代替 | 做多重捕获
+          fallback()
+      except Exception as e:
+          log(e)
+          raise                          # 重新抛出，保留原始栈
+      else:
+          succeeded()                    # @note! 多了 else：没抛异常时执行
+      finally:
+          cleanup()
+
+      # @note! 不要写空的 except: —— 它会连 KeyboardInterrupt 一起吞掉
+      # @note else 的价值：把可能抛的那一句圈在 try 里，其余逻辑放外面，
+      # 避免误捕自己后续代码抛出的异常
+  - featureId: java2python/resource-cleanup
+    equivalence: analogous
+    code: |
+      with open(path) as f:              # @note 离开块必定关闭
+          data = f.read()
+
+      with open(a) as f, open(b) as g:   # @note 多个资源一行搞定
+          pass
+
+      # @note! 不要求实现特定接口，只要对象有 __enter__ / __exit__；
+      # contextlib 能把任意"进入-退出"逻辑包出来，代价比 AutoCloseable 低得多
+      import contextlib
+
+      @contextlib.contextmanager
+      def timer():
+          start = time.perf_counter()
+          try:
+              yield
+          finally:
+              print(time.perf_counter() - start)
+  - featureId: java2python/checked-vs-unchecked
+    equivalence: divergent
+    code: |
+      class ConfigError(Exception):       # @note 统一继承 Exception，没有那个选择
+          pass
+
+      class TransientError(Exception):    # @note 判据仍在，只是不再由类型系统承载
+          pass
+
+      # @note! 别为了"像 Java"而给每个异常都造一个类：
+      # ValueError / KeyError / TypeError 这些内置异常在这里是常规用法，
+      # 只有确实要给调用方一个可捕获的类别时才自定义
+  - featureId: java2python/errors-exercise
+    equivalence: analogous
+    code: |
+      import json
+      from pathlib import Path
+
+      class ConfigError(Exception):
+          pass
+
+      def load_config(path):
+          try:
+              raw = Path(path).read_text(encoding="utf-8")     # @note 自动关闭，不用 with
+          except FileNotFoundError as e:
+              raise ConfigError(f"找不到配置：{path}") from e    # @note from 关联因果链
+          except OSError as e:
+              raise ConfigError(f"读不了配置：{path}") from e
+
+          try:
+              return json.loads(raw)
+          except json.JSONDecodeError as e:
+              raise ConfigError("配置不是合法 JSON") from e
+
+      # @note! Java 版里那串 throws 替调用方做的提醒，这里没有对应物 ——
+      # 要补上只能写进 docstring，或者让类型检查工具去发现

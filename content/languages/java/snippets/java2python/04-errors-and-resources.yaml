@@ -1,0 +1,86 @@
+# java —— java2python/04-errors-and-resources 的实现
+#
+# 本 topic 以 **Java 为基准**（from 侧），所以基准列标 identical。
+topic: java2python
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: java2python/errors-intro
+    equivalence: identical
+    code: |
+      void load() throws java.io.IOException {     // @note 受检：签名上必须写
+          java.nio.file.Files.readString(java.nio.file.Path.of("a.txt"));
+      }
+
+      void parse(String s) {
+          if (s.isEmpty()) throw new IllegalArgumentException("空输入");   // @note 非受检
+      }
+
+      // @note! "这个方法可能失败"写在签名上，编译器逼调用方处理 ——
+      // 这层提醒在 Python 里没有对应物
+  - featureId: java2python/exception-model
+    equivalence: identical
+    code: |
+      try {
+          risky();
+      } catch (java.io.IOException | java.text.ParseException e) {   // @note 多重捕获
+          fallback();
+      } finally {
+          cleanup();
+      }
+
+      // @note! 没有 else 子句：要"只捕获可能抛的那一句"，
+      // 只能手动把其余语句移出 try 块
+      // @note catch (Exception e) 会同时接住受检与非受检
+  - featureId: java2python/resource-cleanup
+    equivalence: identical
+    code: |
+      try (var in = java.nio.file.Files.newInputStream(path)) {   // @note 出块必定关闭
+          byte[] data = in.readAllBytes();
+      }
+
+      try (var a = openA(); var b = openB()) { }   // @note 多个资源，倒序关闭
+
+      // @note! 只对实现了 AutoCloseable 的类型有效；
+      // 没实现就只能手写 finally —— 而手写版在 close 抛异常时会吞掉原始异常
+  - featureId: java2python/checked-vs-unchecked
+    equivalence: identical
+    code: |
+      class ConfigError extends RuntimeException {          // @note 非受检：不用声明
+          ConfigError(String msg, Throwable cause) { super(msg, cause); }
+      }
+
+      class TransientError extends Exception { }            // @note 受检：逼调用方处理
+
+      // @note 判据是"调用方有没有可能恢复"：
+      //   能重试/换路径 → 受检；只能改代码 → 非受检；
+      //   底层异常穿过自己的 API → 通常包装成非受检
+  - featureId: java2python/errors-exercise
+    equivalence: identical
+    code: |
+      class ConfigError extends RuntimeException {
+          ConfigError(String msg, Throwable cause) { super(msg, cause); }
+      }
+
+      static String loadConfig(String path) {
+          String raw;
+          try (var in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(path))) {
+              raw = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+          } catch (java.nio.file.NoSuchFileException e) {
+              throw new ConfigError("找不到配置：" + path, e);
+          } catch (java.io.IOException e) {
+              throw new ConfigError("读不了配置：" + path, e);
+          }
+
+          try {
+              return parseJson(raw);
+          } catch (RuntimeException e) {
+              throw new ConfigError("配置不是合法 JSON", e);
+          }
+      }
+      // @note! 签名上没有 throws：受检异常在边界被转成了非受检

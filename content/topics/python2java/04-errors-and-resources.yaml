@@ -1,0 +1,132 @@
+id: python2java/04-errors-and-resources
+topicId: python2java
+title: 4. 错误处理与资源管理
+order: 4
+summary: 从 Python 到 Java：异常从一个体系裂成两个，多出来的那一半要写进方法签名
+
+features:
+  - id: python2java/errors-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 受检异常是这里独有的一层负担
+    body: |
+      Python 的异常体系很扁平：一切可捕获的都继承自 `Exception`，
+      抛什么、捕什么，编译器一概不管。
+
+      Java 把它劈成了两半：
+
+      - **非受检**（`RuntimeException` 系）：和 Python 一样，不用声明
+      - **受检**（其余 `Exception` 系）：**必须**在方法签名里 `throws` 声明，
+        或者在调用处当场捕获
+
+      **迁移要点**：受检异常是这里独有的一层负担。
+      它把"我知道这里会失败"从注释变成了类型信息，
+      代价是一次小改动会沿着调用链一路污染签名。
+      实践中的常见处置是在边界处把它转成非受检异常：
+
+      ```java
+      try { ... } catch (IOException e) { throw new UncheckedIOException(e); }
+      ```
+
+      另外 `Error`（`OutOfMemoryError` 之类）是 JVM 层面的，不应捕获 ——
+      大致对应 Python 里 `BaseException` 与 `Exception` 的那条分界。
+
+  - id: python2java/exception-model
+    title: 捕获结构：少了 else，多了多重捕获
+    kind: behavior
+    summary: 没有 else 子句，但一个 catch 能接多种类型
+    body: |
+      结构大体对应，两处不同：
+
+      ```python
+      try:
+          risky()
+      except (KeyError, IndexError):     # 合并多个类型
+          fallback()
+      else:
+          succeeded()                    # 没抛异常时执行
+      finally:
+          cleanup()
+      ```
+
+      ```java
+      try {
+          risky();
+      } catch (KeyError | IndexError e) {  // 多重捕获，同一个变量
+          fallback();
+      } finally {
+          cleanup();
+      }
+      ```
+
+      **Java 没有 `else` 子句**。Python 里 `else` 的作用是"把可能抛的那一句
+      圈在 try 里，其余逻辑放到外面"，在 Java 里只能靠**缩小 try 块的范围**来达到
+      同样的效果 —— 把不该被捕获的语句移出 `try`。
+
+      **迁移要点**：`except Exception:` 在 Java 里对应 `catch (Exception e)`，
+      但注意 Java 的 `catch (Exception e)` 会**同时接住受检与非受检**，
+      而 Python 的 `except Exception` 不接 `KeyboardInterrupt`
+      —— 两边的"兜底"范围并不完全一样。
+
+  - id: python2java/resource-cleanup
+    title: 资源释放：with 变成 try-with-resources
+    kind: behavior
+    summary: 结构对应，但对方必须实现 AutoCloseable
+    body: |
+      这是对应得最整齐的一处：
+
+      ```python
+      with open(path) as f:
+          data = f.read()
+      ```
+
+      ```java
+      try (var in = Files.newInputStream(path)) {
+          byte[] data = in.readAllBytes();
+      }
+      ```
+
+      两者都保证**无论是否抛异常都会关闭**，而且都比手写 `finally` 里 close 更安全
+      （手写的版本在 close 本身抛异常时会吞掉原始异常）。
+
+      **迁移要点**：Java 的 `try-with-resources` 只对实现了 `AutoCloseable`
+      的类型有效 —— 第三方资源类如果没有实现它，就只能退回手写 `finally`。
+      Python 的 `with` 则只要对象有 `__enter__` / `__exit__` 即可，
+      而且 `contextlib` 能把任意"进入-退出"逻辑包成上下文管理器，
+      自定义成本更低。
+
+  - id: python2java/checked-vs-unchecked
+    title: 受检与不受检：怎么选
+    kind: behavior
+    summary: 只有"调用方有办法恢复"的才该用受检
+    body: |
+      Python 里根本不存在这个选择，所以从 Python 迁过来时
+      最容易把所有异常都声明成受检的 —— 结果是签名污染一路扩散。
+
+      实践中的判据是**调用方有没有可能恢复**：
+
+      | 情形 | 选哪种 |
+      | --- | --- |
+      | 文件不存在、网络超时，调用方能重试或换路径 | 受检 |
+      | 参数非法、状态错误，调用方只能改代码 | 非受检 |
+      | 底层库的异常要穿过自己的 API | 通常转成非受检 |
+
+      **迁移要点**：自定义异常时从 `RuntimeException` 继承是更省事的选择，
+      除非你确实想让编译器逼调用方处理。
+
+  - id: python2java/errors-exercise
+    title: 练习：迁移一个带资源清理的读文件函数
+    kind: exercise
+    summary: 三处改动，其中一处是签名污染
+    body: |
+      下面这段 Python 读取配置文件并解析，保证文件一定被关闭。
+
+      请把它迁到 Java，要求**行为完全一致**：
+
+      1. 文件不存在时要给出可读的错误（想想该用受检还是非受检）
+      2. 资源必须保证释放，即使解析抛异常
+      3. 解析失败与文件不存在要能区分
+
+      对照参考实现时，重点看两处：**方法签名上要不要写 `throws`**，
+      以及资源释放用的是哪种结构。如果你把所有异常都声明成受检的，
+      会发现调用这个方法的地方也得跟着改 —— 这就是签名污染的起点。

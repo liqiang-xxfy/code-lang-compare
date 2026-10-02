@@ -1,0 +1,86 @@
+# python —— python2java/04-errors-and-resources 的实现
+#
+# 本 topic 以 **Python 为基准**（from 侧），所以基准列标 identical。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-baseline-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: python2java/errors-intro
+    equivalence: identical
+    code: |
+      # @note 异常体系是扁平的：能捕获的都继承自 Exception
+      try:
+          risky()
+      except Exception as e:
+          handle(e)
+
+      # @note! 不要写空的 except: —— 它会连 KeyboardInterrupt 一起吞掉
+      # @note 抛什么、捕什么，编译器一概不管：没有"必须声明"这回事
+      def load():
+          raise ValueError("坏数据")     # 签名里什么也不用写
+  - featureId: python2java/exception-model
+    equivalence: identical
+    code: |
+      try:
+          risky()
+      except (KeyError, IndexError):    # @note 一个分支接多种类型
+          fallback()
+      except ValueError as e:
+          handle(e)
+      except Exception as e:
+          log(e)
+          raise                          # 重新抛出，保留原始栈
+      else:
+          succeeded()                    # @note else：没抛异常时执行
+      finally:
+          cleanup()                      # 无论如何都执行
+
+      raise NewError() from e            # @note 显式关联因果链
+  - featureId: python2java/resource-cleanup
+    equivalence: identical
+    code: |
+      with open(path) as f:              # @note 离开块一定关闭，即使抛异常
+          data = f.read()
+
+      # @note 多个资源可以一起管：with open(a) as f, open(b) as g:
+      # @note 自定义上下文管理器只要实现 __enter__ / __exit__；
+      # contextlib 能把任意"进入-退出"逻辑包出来，成本很低
+  - featureId: python2java/checked-vs-unchecked
+    equivalence: identical
+    code: |
+      # @note! 没有受检异常这个概念 —— 这个选择在 Python 里不存在
+      def parse(text):
+          if not text:
+              raise ValueError("空输入")   # 抛什么都行，签名不用改
+
+      # @note 自定义异常继承 Exception（别继承 BaseException，那是给系统退出用的）
+      class ConfigError(Exception):
+          pass
+
+      # @note! 代价是"这里会抛什么"只写在文档里，编译器不会提醒调用方
+  - featureId: python2java/errors-exercise
+    equivalence: identical
+    code: |
+      import json
+
+      class ConfigError(Exception):
+          pass
+
+      def load_config(path):
+          try:
+              with open(path) as f:          # @note 无论成功失败都会关闭
+                  raw = f.read()
+          except FileNotFoundError as e:     # @note 与解析失败区分开
+              raise ConfigError(f"找不到配置：{path}") from e
+          except OSError as e:
+              raise ConfigError(f"读不了配置：{path}") from e
+
+          try:
+              return json.loads(raw)
+          except json.JSONDecodeError as e:
+              raise ConfigError("配置不是合法 JSON") from e

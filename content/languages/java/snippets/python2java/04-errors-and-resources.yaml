@@ -1,0 +1,92 @@
+# java —— python2java/04-errors-and-resources 的实现
+#
+# 以 Python 为基准看 Java 的异常与资源管理。
+topic: python2java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: migration-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: python2java/errors-intro
+    equivalence: divergent
+    code: |
+      // @note! 异常体系裂成两半：受检（除 RuntimeException 外）与非受检
+      void load() throws java.io.IOException {     // @note 受检：必须声明，或当场捕获
+          java.nio.file.Files.readString(java.nio.file.Path.of("a.txt"));
+      }
+
+      void parse(String s) {
+          if (s.isEmpty()) throw new IllegalArgumentException("空输入");   // @note 非受检：不用声明
+      }
+
+      // @note Error（OutOfMemoryError 等）是 JVM 层面的，不该捕获 ——
+      // 大致对应 Python 里 BaseException 与 Exception 的那条分界
+  - featureId: python2java/exception-model
+    equivalence: divergent
+    code: |
+      try {
+          risky();
+      } catch (java.io.IOException | java.nio.file.NoSuchFileException e) {   // @note 多重捕获
+          fallback();
+      } catch (RuntimeException e) {
+          log(e);
+          throw e;                       // 重新抛出，保留原始栈
+      } finally {
+          cleanup();                     // 一定会执行
+      }
+
+      // @note! 没有 else 子句：要"只捕获可能抛的那一句"，
+      // 只能手动把其余语句移出 try 块 —— 用块的范围代替 else 的作用
+  - featureId: python2java/resource-cleanup
+    equivalence: analogous
+    code: |
+      try (var in = java.nio.file.Files.newInputStream(path)) {   // @note 出块必定关闭
+          byte[] data = in.readAllBytes();
+      }
+
+      try (var a = openA(); var b = openB()) { }   // @note 多个资源也能一起管，倒序关闭
+
+      // @note! 只对实现了 AutoCloseable 的类型有效 ——
+      // 第三方类没实现就只能退回手写 finally，而手写版在 close 抛异常时会吞掉原始异常
+  - featureId: python2java/checked-vs-unchecked
+    equivalence: divergent
+    code: |
+      // @note! 这个选择在 Java 里是必须做的，Python 里根本不存在
+      class ConfigError extends RuntimeException {        // @note 非受检：签名干净
+          ConfigError(String msg, Throwable cause) { super(msg, cause); }
+      }
+
+      class TransientError extends Exception { }          // @note 受检：逼调用方处理
+
+      // 判据是"调用方有没有可能恢复"：
+      //   文件不存在、网络超时 → 受检，调用方能重试或换路径
+      //   参数非法、状态错误   → 非受检，调用方只能改代码
+      //   底层异常穿过自己的 API → 通常包装成非受检
+  - featureId: python2java/errors-exercise
+    equivalence: analogous
+    code: |
+      class ConfigError extends RuntimeException {
+          ConfigError(String msg, Throwable cause) { super(msg, cause); }
+      }
+
+      static String loadConfig(String path) {
+          String raw;
+          try (var in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(path))) {
+              raw = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+          } catch (java.nio.file.NoSuchFileException e) {
+              throw new ConfigError("找不到配置：" + path, e);        // @note 与解析失败区分开
+          } catch (java.io.IOException e) {
+              throw new ConfigError("读不了配置：" + path, e);
+          }
+
+          try {
+              return parseJson(raw);
+          } catch (RuntimeException e) {
+              throw new ConfigError("配置不是合法 JSON", e);
+          }
+      }
+      // @note! 签名上没有 throws —— 把受检异常在边界转成非受检，
+      // 调用方才不会被一路污染。代价是编译器不再提醒调用方这里可能失败

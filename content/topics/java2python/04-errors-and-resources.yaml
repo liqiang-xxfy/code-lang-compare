@@ -1,0 +1,127 @@
+id: java2python/04-errors-and-resources
+topicId: java2python
+title: 4. 错误处理与资源管理
+order: 4
+summary: 从 Java 到 Python：签名上那串 throws 消失了，编译器也不再提醒你哪里会失败
+
+features:
+  - id: java2python/errors-intro
+    title: 本章要解决什么
+    kind: concept
+    summary: 少写了一行，也少了一层提醒
+    body: |
+      从 Java 到 Python，异常这一层是**净减负**：受检异常没有了，
+      `throws` 不用写了，`catch` 也不必分类。
+
+      但减掉的这层不是纯收益。「这个方法可能失败」原本写在签名上、
+      编译器逼着调用方处理；现在它只写在文档里（如果写了的话）。
+      这类信息丢了之后，靠的是**测试**和**异常本身在运行时炸出来**。
+
+      **迁移要点**：Java 里"因为我得声明，所以我知道这里会抛"的那些地方，
+      在 Python 里要主动确认一遍。写库代码时把可能抛的异常写进 docstring ——
+      那是唯一还能承载这层信息的地方。
+
+      资源管理则是纯收益：`with` 比 `try-with-resources` 更通用
+      （不要求实现特定接口），自定义成本也低得多。
+
+  - id: java2python/exception-model
+    title: 捕获结构：有了 else，多重捕获换成类型元组
+    kind: behavior
+    summary: 结构大体对应，多了一个 else 子句
+    body: |
+      ```java
+      try { risky(); }
+      catch (IOException | ParseException e) { fallback(); }
+      finally { cleanup(); }
+      ```
+
+      ```python
+      try:
+          risky()
+      except (IOError, ValueError):     # 元组代替 |
+          fallback()
+      finally:
+          cleanup()
+      ```
+
+      两处不同：
+
+      1. **多了 `else` 子句** —— 没抛异常时执行。它的价值是让你把
+         "可能抛的那一句"圈在 `try` 里，其余逻辑放在 `else`，
+         从而避免误捕自己后续代码抛出的异常。Java 里只能靠缩小 try 块范围来近似。
+      2. **`except` 按类型匹配，可以有多个分支**，每个分支单独处理，
+         比 Java 的多重捕获更灵活（那边一个 catch 只能给一套处理逻辑）。
+
+      **迁移要点**：Java 里 `catch (Exception e)` 那个"什么都接"的兜底写法，
+      在 Python 里对应 `except Exception:` —— 不要写成空的 `except:`
+      （那会连 Ctrl-C 一起吞掉）。
+
+  - id: java2python/resource-cleanup
+    title: 资源释放：try-with-resources 变成 with
+    kind: behavior
+    summary: 更通用，但"自动关闭"要自己实现
+    body: |
+      ```java
+      try (var in = Files.newInputStream(path)) { ... }
+      ```
+
+      ```python
+      with open(path) as f:
+          ...
+      ```
+
+      结构对应，语义一致（都保证无论是否抛异常都会释放，
+      而且都能正确处理"关闭本身抛异常"的情况）。
+
+      **两处差别**：
+
+      1. `with` **不要求实现特定接口**，只要对象有 `__enter__` / `__exit__`；
+         而且 `contextlib` 能把任意"进入-退出"逻辑包成上下文管理器 ——
+         自定义一个可 `with` 的类型只要几行。
+      2. 多个资源用一行即可：`with open(a) as f, open(b) as g:`。
+
+      **迁移要点**：Java 里"这个类没实现 AutoCloseable，只能手写 finally"的困境
+      在这里不存在；反过来要注意，`with` 不会自动关闭你**在里面另外打开**的资源。
+
+  - id: java2python/checked-vs-unchecked
+    title: 异常分类：这个选择没有了
+    kind: behavior
+    summary: 自定义异常统统继承 Exception
+    body: |
+      Java 里必须做的那个选择 —— 继承 `Exception`（受检）还是
+      `RuntimeException`（非受检）—— 在 Python 里不存在，统一继承 `Exception` 即可。
+
+      ```python
+      class ConfigError(Exception):
+          pass
+      ```
+
+      **但要保留判据**：Java 里"受检 vs 非受检"背后的那个问题仍然存在 ——
+      **调用方能不能恢复？** 只不过现在它不再是类型上的区分，
+      而要靠文档和命名来表达：
+
+      | 情形 | 建议 |
+      | --- | --- |
+      | 调用方能重试/换路径 | 名字里体现可恢复（`TransientError`），docstring 写明 |
+      | 调用方只能改代码 | 直接用 `ValueError` / `TypeError` 这类内置异常 |
+
+      **迁移要点**：不要为了"看起来像 Java"而给每个异常都加一堆自定义类 ——
+      内置异常（`ValueError`、`KeyError`、`TypeError`）在这里是常规用法，
+      只有确实要给调用方一个可捕获的类别时才自定义。
+
+  - id: java2python/errors-exercise
+    title: 练习：把读配置的方法迁到 Python
+    kind: exercise
+    summary: 重点是那串 throws 消失之后，谁来提醒调用方
+    body: |
+      下面这段 Java 读取配置文件并解析。
+
+      请把它迁到 Python，要求**行为完全一致**：
+
+      1. 文件不存在与解析失败要能区分
+      2. 资源必须保证释放
+      3. 错误信息里要带上是哪个文件
+
+      迁完之后回答一个问题：Java 版里 `throws` 那串声明替调用方做的提醒，
+      在 Python 版里由什么承担？如果答案是"什么都没有"，
+      你会怎么补上？
