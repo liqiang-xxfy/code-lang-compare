@@ -27,7 +27,7 @@ npm run build            # content:build + vite-ssg build + finalize-dist（含�
 npm run registry         # 重新生成 registry.gen.ts 与 sections.gen.ts
 ```
 
-CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）依次跑 `content:validate → typecheck → test → verify:ext → verify:sections → content:build`，这就是"能不能进主干"的判据。注意**它不跑 `npm run build`** —— `dirStyle`、预渲染验收、`404.html` 这些只在 `finalize-dist` 里暴露的问题，本地不完整跑一次 `npm run build` 是发现不了的（线上那条链在 [deploy.yml](.github/workflows/deploy.yml)）。
+CI（[.github/workflows/ci.yml](.github/workflows/ci.yml)）依次跑 `content:validate → typecheck → test → verify:ext → verify:sections → content:build → build`，这就是"能不能进主干"的判据。末尾那次完整的 `npm run build` 是刻意加的：`dirStyle`、预渲染验收（空壳预渲染在这里失败）、`404.html` 只在 [finalize-dist](scripts/build/finalize-dist.ts) 里暴露，少了它，本地不完整跑一次就发现不了。CI 里不设 `PC_SITE_URL`，因此跳过 sitemap —— 它已不入库，只在部署时产出（线上那条链在 [deploy.yml](.github/workflows/deploy.yml)）。
 
 部署构建需两个环境变量，`PC_BASE_PATH` **不带前导斜杠**：
 
@@ -195,7 +195,8 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 ## 环境陷阱
 
 - **`PC_BASE_PATH` 不带前导斜杠**：Git Bash / MSYS 会把以 `/` 开头的环境变量改写成 Windows 绝对路径，导致 Vite 报 `"base" option should start with a slash`。解析逻辑与提示在 [scripts/lib/env-paths.ts](scripts/lib/env-paths.ts)。不配 `PC_SITE_URL` 就不生成 sitemap（刻意的，错误的 `loc` 会污染索引）。
-- **两个 workflow 监听 `main`，而本仓库当前只有 `master` 分支、也没有配置 remote**（[ci.yml](.github/workflows/ci.yml) / [deploy.yml](.github/workflows/deploy.yml) 的 `branches: [main]`）。按现状 push 不会触发 CI 与部署 —— 要么把分支名对齐成 `main`，要么改 workflow 里的 `branches`。别误以为"绿了"。
+- **`public/sitemap.xml` 与 `public/robots.txt` 是构建产物，已 `.gitignore`**：它们由 [04-build.ts](scripts/pipeline/04-build.ts) 写进 `public/`（再由 Vite 的 publicDir 机制拷进 `dist/`），内容取决于构建时的 `PC_SITE_URL`。`robots.txt` 是**无条件重写**，所以哪怕不配 `PC_SITE_URL` 也照样会在跑构建时重新生成。`public/` 下只保留手工维护的 `favicon.svg`。
+- **仓库没有配置 remote**（[ci.yml](.github/workflows/ci.yml) / [deploy.yml](.github/workflows/deploy.yml) 监听 `main`，本地分支名已于 2026-10-02 由 `master` 重命名为 `main` 对齐）。加 remote 并 push 之前，CI 与部署都不会跑 —— 别误以为"绿了"。
 - **esbuild / rollup 原生二进制丢失**：npm 已知 bug（[#4828](https://github.com/npm/cli/issues/4828)）会静默跳过平台专用可选依赖，报错信息与真实原因完全无关。两个包已写进 `package.json` 的 `optionalDependencies`；仍复发则 `rm -rf node_modules package-lock.json && npm install`。
 - `dist/`、`node_modules/` 见 `.gitignore`。
 
