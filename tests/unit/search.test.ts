@@ -171,13 +171,16 @@ describe('文档构造', () => {
     }
   })
 
-  it('每个分片只收本基准 + 全局共享的文档', () => {
+  it('每个分片只收本基准的文档', () => {
     const analysis = analyzeContent()
     const docs = buildSearchDocs(analysis)
     const payloads = buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z')
 
+    // 没有「与基准无关」的文档了（见上面那条断言）—— 每条文档恰属于一个基准，
+    // 因此分片文档数就是该基准的文档数，不存在跨片共享的余量。
+    expect(docs.every((d) => d.baseline !== '')).toBe(true)
     for (const [baseline, payload] of Object.entries(payloads)) {
-      const expected = docs.filter((d) => d.baseline === baseline || d.baseline === '').length
+      const expected = docs.filter((d) => d.baseline === baseline).length
       expect(payload.docCount, `${baseline} 分片文档数`).toBe(expected)
     }
     // 三套内容确实不同 —— 否则分片就只是徒增文件
@@ -186,7 +189,7 @@ describe('文档构造', () => {
     expect(payloads.javascript!.docCount).toBeGreaterThan(payloads.python!.docCount)
   })
 
-  it('查询过滤生效：拿着 A 基准的选项查 B 基准的分片，只能捞到全局共享项', () => {
+  it('查询过滤生效：拿着 A 基准的选项查 B 基准的分片，什么都捞不到', () => {
     const analysis = analyzeContent()
     const docs = buildSearchDocs(analysis)
     const pythonOnly = docs.find(
@@ -194,7 +197,6 @@ describe('文档构造', () => {
     )
     expect(pythonOnly, '需要一条 python 基准独有的词典条目来验证过滤').toBeTruthy()
 
-    // python 分片里既有 python 基准的文档，也有全局共享的心智模型
     const engine = loadSearchIndex(
       buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z').python!.index,
     )
@@ -204,11 +206,11 @@ describe('文档构造', () => {
       queryOptions('javascript'),
     ) as unknown as Array<Record<string, unknown>>
 
-    // 不过滤时能命中（文档确实在索引里）；带上 javascript 的过滤条件后，
-    // python 基准的文档必须全部消失，只剩全局共享的心智模型（baseline 为空）。
+    // 不过滤时能命中（文档确实在索引里）；带上 javascript 的过滤条件后必须**一条都不剩** ——
+    // 过滤是「只留 baseline 相等的」，而 python 分片里没有 javascript 基准的文档。
+    // （曾经这里有 `|| baseline === ''` 的兜底，那些全局共享文档已随 ADR-31 消失。）
     expect(raw.length).toBeGreaterThan(0)
     expect(raw.some((r) => r.baseline === 'python')).toBe(true)
-    expect(filtered.every((r) => r.baseline === '')).toBe(true)
-    expect(filtered.length).toBeLessThan(raw.length)
+    expect(filtered.length).toBe(0)
   })
 })

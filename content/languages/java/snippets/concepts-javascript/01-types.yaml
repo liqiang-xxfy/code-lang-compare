@@ -1,0 +1,77 @@
+# java —— concepts-javascript/01-types 的实现
+#
+# 本 topic 以 **JavaScript 为基准**，Java 是被对照的那一门，
+# equivalence 描述的是「相对 JavaScript 基准」的差异。
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/type-system
+    equivalence: divergent
+    code: |
+      // int x = "1";              // @note! 编译错误：类型不匹配在编译期就被拦住
+      "1" + 1;                     // @note! 得 "11" —— 拼接而不是算术，这一点与 JS 一样
+      Object o = 1;                // @note 想装任何东西只能用 Object，取回时要强转
+      int v = (int) o;
+    body: |
+      **静态 + 强类型** —— 类型在编译期确定，写错直接编译不过。
+      JS 里「跑到那一行才炸」的问题在这里提前到编译期；代价是每个声明都要写类型
+      （局部变量可以用 `var` 让编译器推断）。
+
+      弱类型那一半两边其实都有：`+` 对字符串同样是拼接，`"1" + 1` 得 `"11"`。
+      真正被换掉的不是隐式转换本身，而是**错误出现的时刻**。
+  - featureId: concepts-javascript/numeric-type
+    equivalence: divergent
+    code: |
+      Integer.MAX_VALUE + 1;       // @note! -2147483648 —— 溢出静默回绕，不报错
+      9007199254740993L;           // @note long 装得下；JS 的 number 会丢成 ...992
+      7 / 2;                       // @note 3 —— 整数除法，JS 的 7 / 2 得 3.5
+      -7 / 2;                      // @note! -3 —— 向零截断，不是向下取整
+      new java.math.BigInteger("9007199254740993");   // 任意精度要换类型
+    body: |
+      **整数按宽度分档 + 浮点另算** —— `int` / `long` 是精确的二进制整数，
+      `double` 是 IEEE 754 双精度；JS 只有后者（外加 BigInt）。
+
+      两条要重建的直觉：① 整数溢出**静默回绕**，既不抛异常也不提升成大类型 ——
+      JS 那边是「超过 2^53 丢精度」，这边是「超过 2^31 变负数」，同样不告诉你；
+      ② 除法的含义随操作数类型变：`7 / 2` 得 3，想要小数必须写 `7 / 2.0`。
+  - featureId: concepts-javascript/null-value
+    equivalence: divergent
+    code: |
+      String s = null;
+      s == null;                   // @note 判空只有这一种写法，没有 null / undefined 之分
+      int n;                       // @note! 基本类型不能为 null：字段默认 0，局部必须赋值
+      Integer boxed = null;
+      // int y = boxed;            // @note! NullPointerException —— 拆箱那一刻才炸
+      java.util.Optional.ofNullable(s).orElse("默认");
+    body: |
+      **只有一个 null，但基本类型不能是它** —— 比 JS 少的是一整套 `?.` / `??`
+      （压根不存在「可能是 undefined」这种状态），多的是一条要记住的规则：
+      字段是 `int` 还是 `Integer`，决定了它能不能为 null。
+
+      包装类型一旦参与算术就会**自动拆箱**，null 在这一刻才炸成 NPE ——
+      爆炸点在表达式里，而不是在你拿到值的地方。
+  - featureId: concepts-javascript/value-semantics
+    equivalence: divergent
+    code: |
+      int a = 1;
+      int b = a;
+      b = 2;                       // @note a 还是 1 —— 基本类型赋值即复制
+      int[] arr = {1, 2};
+      int[] c = arr;
+      c[0] = 9;                    // @note! arr[0] 也变成 9 —— 数组是对象，按引用
+      String t = "x";              // @note String 不可变，与 JS 的字符串一致
+      Integer i1 = 1000, i2 = 1000;
+      i1 == i2;                    // @note! false —— 包装类型的 == 比引用，不是比值
+    body: |
+      **基本类型按值、对象按引用** —— 一半与 JS 相同（对象共享同一份数据），
+      另一半是这里多出来的：`int` / `double` / `boolean` 赋值即复制，
+      它们没有「引用」这回事。
+
+      麻烦在于同一个数值有两副面孔：`int == int` 比数值，`Integer == Integer`
+      比引用，而自动装箱在两者之间悄悄转换 —— JS 的 `===` 从头到尾只有一种含义。

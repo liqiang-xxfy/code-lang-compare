@@ -1,0 +1,75 @@
+# python —— concepts-java/03-abstraction 的实现
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/class-inheritance
+    equivalence: divergent
+    code: |
+      class Base:
+          def __init__(self): self._secret = 1   # @note 没有 private，下划线只是约定
+      class Sub(Base):
+          def greet(self): return "hi"
+      class Both(Base, Other):                   # @note! 真的多继承，按 MRO 解析
+          pass
+    body: |
+      **多继承 + MRO，但没有访问修饰符** —— 一个类可以有多个父类，方法解析顺序
+      由 MRO 决定（`Both.__mro__` 能直接打印出来），Java 那套「单继承 + 多接口」
+      的限制在这里不存在；代价是「这个方法到底从哪来」得主动去查。
+
+      访问控制整个换成了约定：`_name` 表示「别碰」、`__name` 会被改写名字，
+      但**没有任何东西真的拦住你** —— Java 的 `private` 那条编译期保证在这里没有对应物。
+      另外 `self` 是显式的第一个参数，与 Java 隐式的 `this` 不同，
+      方法被取出也不会自动绑定。
+  - featureId: concepts-java/interface
+    equivalence: divergent
+    code: |
+      from typing import Protocol
+      class Greeter(Protocol):        # @note 结构化：不继承也能满足
+          def greet(self, name: str) -> str: ...
+      class En:
+          def greet(self, name): return "Hi " + name   # @note 没有 implements，形状对上就行
+    body: |
+      **没有语言级接口，只有两种近似物** —— `Protocol` 是**结构化**的
+      （形状对上就算实现，不必继承），`ABC` 是**名义式**的（必须显式继承）。
+      Java 那种「声明成接口类型、由编译器检查实现」的中心地位在这里不存在，
+      因为编译期那一层本身就没有。
+
+      实际影响：标注里写 `Greeter` 只是给静态检查器看的，
+      运行时传进来一个没有 `greet` 的对象不会当场报错 —— 直到真的调用它。
+      这是「结构化」的代价：约束更松，但必须靠测试而非编译器来兜底。
+  - featureId: concepts-java/generics
+    equivalence: divergent
+    code: |
+      from typing import TypeVar
+      T = TypeVar("T")
+      def first(xs: list[T]) -> T: return xs[0]   # @note 只是标注，运行时不检查
+      first([1, 2])                               # @note 传错类型不会有任何反应
+    body: |
+      **泛型是标注，不是约束** —— 写 `list[int]` 或 `TypeVar` 只对静态检查器
+      （`mypy` 之类）有意义，解释器完全不看，传什么进去都不会拦。
+
+      Java 是「编译期强约束 + 运行期擦除」，这里是「编译期可选 + 运行期同样没有」——
+      **擦除那一半相同，强约束那一半整个缺省**。换来的是渐进性：
+      可以先不写标注，需要时一处一处补上，而不必一次改完整个代码库。
+  - featureId: concepts-java/error-handling
+    equivalence: divergent
+    code: |
+      try:
+          open("f.txt").read()
+      except OSError as e:            # @note 没有受检异常，不处理也没人管
+          print(e)
+      raise ValueError("出错了")       # @note 惯例继承 Exception，但语法上不强制
+    body: |
+      **没有受检异常这层契约** —— 任何函数都可能抛，签名上看不出来，
+      Java 里「`throws IOException` 必须被处理」那条**由编译器执行的保障**
+      在这里整个消失，错误处理只能靠纪律和文档。
+
+      能抛什么也不受限制（`raise "字符串"` 语法上合法，只是惯例不允许），
+      所以接住异常时最好按具体类型接，`except Exception` 之外还要有心理准备
+      遇到裸字符串这种历史写法 —— 统一继承 `Exception` 是社区约定，不是语言规则。

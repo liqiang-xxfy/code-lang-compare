@@ -179,7 +179,10 @@ MAX_RETRY = 3        # @note! 全大写只是约定，解释器不会阻止你�
 | `include-draft-with-badge`（**当前**） | draft 参与构建与索引，但页面上必须显示「未经人工校对」 |
 | `reviewed-only` | 严格模式：draft 会**阻断构建** |
 
-**当前是 `include-draft-with-badge`**：「基础语法」的 8 章 144 条实现已于 2026-10-01 完成首轮校对（JS/Python 标 `reviewed`），但 Java / Rust / Go 的实现以及三轴重构新增的骨架内容由 AI 生成且**本机没有这些语言的工具链**，无法逐条实跑验证 —— 因此全部标为 `draft`，让页面上的标记如实承载这个事实。能实跑验证后再切回 `reviewed-only`。
+**当前是 `include-draft-with-badge`**：全站 1326 条实现里 `reviewed` 只有 **120** 条
+（`python` 列 81、`javascript` 列 39，都集中在基础语法前几章），其余 1206 条是 `draft`。
+Java / Rust / Go 的实现也由 AI 生成，且**本机没有这三门语言的工具链**，无法逐条实跑验证 ——
+因此如实标为 `draft`，让页面上的标记承载这个事实。逐门跑完整理后再切回 `reviewed-only`。
 
 > 首轮校对不是走形式：**7 条 LLM 产出里查出 1 处断言完全写反**（原称 Python 的 `json.loads`
 > 会丢大整数精度 —— 实测恰恰相反，Python 的 `int` 是任意精度，丢精度的是 JS 的 `JSON.parse`），
@@ -252,10 +255,10 @@ rm -rf node_modules package-lock.json && npm install
 content/                  # 【唯一人工编辑入口】
   registry.yaml           #   语言启用开关 + 基准/对比语言默认值 + 发布策略 + topics 三轴声明
   topics/<topicId>/       #   章节（NN-*.yaml）+ 对级列表资源（pitfalls/glossary/roadmap.yaml）
-  concepts/concepts.yaml  #   心智模型对照表（与基准无关，全局一份）
+                          #   心智模型也是板块：topics/concepts-<基准>/（ADR-31）
   languages/<id>/         #   语言覆盖层
     meta.yaml             #   语言元信息（注释符驱动 @note 解析、shikiLang 驱动高亮、baseline 候选资格）
-    snippets/<NN>-*.yaml  #   按章拆分的实现（一章一文件）
+    snippets/<topicId>/<NN>-<chapter>.yaml   # 按 topic 分目录的实现（一章一文件）
   languages/_template/    #   新增语言时复制的脚手架（`_` 前缀 = 私有目录）
   i18n/zh-CN.yaml         #   界面文案（内容本身不做多语言）
 scripts/
@@ -265,7 +268,6 @@ scripts/
 src/
   generated/              #   【构建产物，禁止手改】
     content/<topicId>/<chapter>.json   # 内容分片：一章一个文件
-    static/concepts.json               # 全局静态资源
     static/<基准>--<目标>.json          # 对级：陷阱 / 词典 / 路线
     search-index/<基准>.json            # 搜索倒排索引，按基准分片
   schemas/                #   内容契约（Zod，唯一真源）

@@ -120,7 +120,6 @@ watch(
       <strong>{{ langMeta?.name ?? snippet.lang }}</strong>
       <span v-if="langMeta" class="pc-hint">{{ langMeta.fileExtension }}</span>
       <EquivalenceBadge v-if="!isBaseline" :value="snippet.equivalence" />
-      <span v-for="flag in snippet.flags" :key="flag" class="pc-tag">{{ t(`flags.${flag}`) }}</span>
       <span
         v-if="snippet.reviewState === 'draft'"
         class="pc-badge-draft"

@@ -1,0 +1,67 @@
+# java —— concepts-javascript/04-modules-concurrency 的实现
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/module-system
+    equivalence: divergent
+    code: |
+      package com.example.app;              // @note 包声明在文件首行，决定类的全名
+      import java.util.List;                // @note import 只给全名起短名，不执行任何代码
+      public class User { }                 // @note 一个文件最多一个 public 类，且必须与文件名一致
+    body: |
+      **包 + 类两级，文件按类命名** —— `public` 类的名字必须与文件名一致，
+      编译产物是 `.class`，运行时按全名去 classpath 上找，不是「加载这个文件」。
+
+      `import` 只起别名作用，**不会执行任何代码** —— 没有 JS 那种「import 会真的
+      把这个模块跑一遍」的副作用，因此也没有「循环依赖导致某个绑定还是 undefined」
+      这种形式的问题，取而代之的是编译期的「找不到符号」。
+  - featureId: concepts-javascript/memory
+    equivalence: divergent
+    code: |
+      byte[] buf = new byte[1 << 20];
+      buf = null;                           // @note 失去引用即可回收，与 JS 一致
+      java.lang.ref.WeakReference<Object> w =
+          new java.lang.ref.WeakReference<>(new Object());   // @note 少数能干预回收的入口
+      try (var in = java.nio.file.Files.newInputStream(java.nio.file.Path.of("f"))) { }
+      // @note! 文件、连接、锁都要显式关，不能等 GC
+    body: |
+      **同样是自动回收，但多了旋钮** —— 堆分代、回收器可选、启动参数一长串，
+      「调 GC」在这里是一门正经的活；JS 那边几乎只有 `--max-old-space-size`。
+
+      要改的习惯是**别把资源托付给 GC**：文件、连接、锁都有语言级的关闭契约，
+      `try-with-resources` 让「打开」与「关闭」必须成对出现 ——
+      不能像 JS 那样指望「没人引用它了，应该会好吧」。
+  - featureId: concepts-javascript/concurrency-unit
+    equivalence: divergent
+    code: |
+      Thread t = new Thread(() -> System.out.println("并发跑"));
+      t.start();                            // @note! 真的在另一个核上跑，与 JS 的单线程事件循环相反
+      java.util.concurrent.Executors.newFixedThreadPool(4);   // @note 生产代码用线程池，不裸建线程
+      // 共享可变状态要自己保证可见性与原子性：synchronized / volatile / 原子类
+    body: |
+      **线程是真并行的** —— 与 JS 把所有回调排进同一个事件循环完全不同：
+      两个线程可能同时读写同一块内存，所以**数据竞争是这里的一等问题**，
+      `synchronized` / `volatile` / `Atomic*` 都是为它而存在的。
+
+      换个方向看，JS 里「根本不用担心锁」这件事在这里会消失；
+      而「阻塞就真的占住一个线程」这条代价 JS 那边也没有 —— 那里阻塞的是唯一的主线程。
+  - featureId: concepts-javascript/async-model
+    equivalence: divergent
+    code: |
+      java.util.concurrent.CompletableFuture
+          .supplyAsync(() -> 阻塞调用())      // @note 默认丢到 ForkJoinPool 上跑
+          .thenApply(x -> x + 1);
+      Thread.ofVirtual().start(() -> 阻塞调用());   // @note Java 21+ 虚拟线程：阻塞不再贵
+    body: |
+      **没有一直在跑的事件循环** —— 异步靠线程池调度，`CompletableFuture`
+      把回调串起来；「等一会儿」在这门语言里的默认含义就是**占住一个线程**。
+
+      所以 JS 那条「`await` 不阻塞线程、只是把回调排进队列」的直觉搬不过来。
+      Java 21 的**虚拟线程**提供了相近的手感（阻塞变便宜了），但那是新增的 API 层，
+      不是语言本身的模型 —— 写 `Thread.sleep` 时仍然要意识到自己占着什么。

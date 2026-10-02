@@ -1,0 +1,118 @@
+# python —— concepts-java/05-toolchain 的实现
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/package-manager
+    equivalence: analogous
+    code: |
+      pip install requests         # @note 独立的包管理命令，与构建无关
+      pip freeze > requirements.txt
+      # 或 pyproject.toml + poetry / uv
+    body: |
+      **包管理与构建是两件事** —— `pip` 只管装包，打包另找工具
+      （`build` / `poetry` / `uv`）；装的是源码或 wheel，不是 Java 那种
+      编译好的 JAR，有时还要现场编译。
+
+      版本声明比 Maven 坐标简单（只有包名，没有 groupId / artifactId 两段），
+      但**锁定的强度弱**：`requirements.txt` 默认只钉直接依赖，
+      要完整锁定得靠 `pip freeze` 或换用带 lock 文件的工具 ——
+      Java 那边构建工具会把整棵依赖树解析出来，这里默认没有。
+  - featureId: concepts-java/dependency-isolation
+    equivalence: analogous
+    code: |
+      python -m venv .venv         # @note 隔离靠虚拟环境，一个环境一套版本
+      # 同一个环境里 requests 只能有一个版本
+      # 不同项目各建各的 venv，互不干扰
+    body: |
+      **一个环境只能有一个版本，隔离靠环境** —— 与 Java 的 classpath 扁平
+      是同一种约束（同名包只能一个版本胜出），只是把「整台机器一条 classpath」
+      换成了「一个虚拟环境一套」。
+
+      相比 Java，换环境的成本低得多，所以「每个项目一个 venv」是标准动作；
+      但两边的共同点是：**同一个环境内不存在多版本共存**，
+      依赖冲突照样要在安装时裁决，而不是像 npm 那样各装各的。
+  - featureId: concepts-java/runner
+    equivalence: divergent
+    code: |
+      python main.py            # @note 没有编译步骤，源码直接跑
+      # 分发的是源码，运行时依赖目标机器上的解释器与依赖环境
+    body: |
+      **没有编译产物** —— 解释器直接执行源码，启动快（没有 JIT 预热那一段），
+      但长跑的吞吐明显低于 JVM 的热点编译。
+
+      另一处差别是「同一份产物」这件事不成立：Java 至少有 `.class`
+      这个与平台无关的中间产物，这里分发的是源码，跑起来什么样取决于
+      目标机器上装了什么版本的解释器和依赖 —— 环境因此成了部署的一部分。
+  - featureId: concepts-java/build-tool
+    equivalence: divergent
+    code: |
+      # 日常开发没有构建步骤：写完直接 python main.py
+      python -m build           # @note 只在要发布时打包，产出 wheel / sdist
+    body: |
+      **日常没有构建这一步** —— 源码直接运行、改完即生效；构建只出现在
+      「要发布给别人装」的时候，产物是 wheel / sdist。
+
+      与 Java 的对照很直接：那边构建就是**编译**（不编译跑不了），
+      这边构建是**打包**（不打包照样跑）。项目骨架也不是构建工具规定的，
+      目录怎么摆基本自由 —— 少了约束，也少了「换个项目不用重新摸路」的便利。
+  - featureId: concepts-java/test-framework
+    equivalence: divergent
+    code: |
+      def test_adds():
+          assert 1 + 1 == 2       # @note 裸 assert，没有断言类
+      # 文件名 test_*.py、函数名 test_*，pytest 自动发现
+    body: |
+      **裸 `assert` + 函数即测试** —— 没有断言类，也没有 `@Test` 注解；
+      发现规则是文件名 `test_*.py` 与函数名 `test_*`，写个普通函数就算一个用例。
+
+      与 JUnit 相比少了两样东西：断言的调用层级（`assertEquals(期望, 实际)`
+      那套参数顺序问题在这里不存在，直接写 Python 表达式即可），
+      以及 classpath 扫描式的发现机制。代价是没有 `@BeforeEach` 这类注解，
+      准备与清理改用 fixture 函数注入 —— 表达力更强，但读起来要先理解 fixture 的规则。
+  - featureId: concepts-java/testing-mock
+    equivalence: analogous
+    code: |
+      from unittest.mock import patch
+      with patch("myapp.api.fetch") as m:    # @note 直接替换模块属性，不必提升
+          m.return_value = {}
+      # 也可以照常构造注入，写法与 Java 一致
+    body: |
+      **两条路都通** —— 可以像 Java 那样构造注入（最干净），
+      也可以 `patch` 直接替换模块里的属性，因为模块属性本来就是可写的。
+
+      比 JS 省事：不需要 `vi.mock` 提升到 import 之前那套机制，也没有
+      ESM 绑定只读的问题 —— `patch` 就是在运行时改一个属性，用完再改回来。
+      代价是**替换得不明显**：读测试时要知道「这个函数此刻被换掉了」，
+      得盯着 `patch` 的作用范围看。
+  - featureId: concepts-java/lint-format
+    equivalence: analogous
+    code: |
+      ruff check .        # @note 检查（flake8 的现代替代）
+      black .             # @note 格式化，几乎不给配置
+    body: |
+      **检查与格式化也是分开的**，这一点与 Java 一致；不同在于生态有个
+      事实上的中心：`black` 以「几乎不可配置」著称（风格没有争论空间），
+      `ruff` 把检查与部分格式化能力合到一起，正在成为默认答案。
+
+      与 Java 相比还多一层官方文本：PEP 8 是语言级的风格规范，
+      「该长什么样」有权威答案可引，不必每个项目自己定一套 ——
+      这比 Java 那边「各工具各管一摊」更收敛一些。
+  - featureId: concepts-java/repl
+    equivalence: identical
+    code: |
+      python
+      >>> [x * 2 for x in [1, 2, 3]]
+      [2, 4, 6]
+    body: |
+      **REPL 是日常工具** —— 不带参数运行 `python` 就进交互模式，
+      试一个表达式、看一个库怎么用都在这里完成，与 Java 的 `jshell`
+      是同一个定位。
+
+      差别在于使用密度：文档里的示例基本都能直接粘进去跑，
+      「随手开一个试试」是默认动作，而不是需要特意想起的功能。

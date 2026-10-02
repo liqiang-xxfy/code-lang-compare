@@ -1,0 +1,74 @@
+# python —— concepts-java/01-types 的实现
+#
+# 本 topic 以 **Java 为基准**，Python 是被对照的那一门，
+# equivalence 描述的是「相对 Java 基准」的差异。
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/type-system
+    equivalence: divergent
+    code: |
+      n = 1                     # @note 类型属于值，不属于变量名
+      n = "x"                   # @note 改类型不报错，这里根本没有编译期
+      1 == "1"                  # @note! False —— 不做隐式转换，类型不同就是不等
+    body: |
+      **动态 + 强类型** —— 编译期检查这一层整个消失，类型在运行时跟着值走；
+      但「强」这一点与 Java 一致：`1 == "1"` 直接得 `False`，不做隐式转换。
+
+      于是 Java 里「编译不过」的那类错误在这里有两种下场：要么运行时抛
+      `TypeError`，要么安静地给出一个不对的结果。想找回编译期那层保障
+      得额外引入类型标注与 `mypy`，而且它是可选的、可以一处一处补。
+  - featureId: concepts-java/numeric-type
+    equivalence: divergent
+    code: |
+      9007199254740993          # @note 原样保留 —— int 任意精度，没有宽度可选
+      2 ** 100                  # @note 也没有溢出这回事情
+      7 / 2                     # @note 3.5 —— / 是真除法
+      7 // 2                    # @note 3 —— 整除是另一个运算符
+      -7 // 2                   # @note! -4 —— 向下取整；Java 的 -7 / 2 得 -3
+    body: |
+      **只有一档 `int`，而且不溢出** —— 整数是任意精度的，「位宽够不够」
+      这个问题在这门语言里不存在，`int` / `long` / `BigInteger` 那套选型
+      也随之消失。
+
+      两条要重建的直觉：① 没有溢出回绕，只有内存够不够；② `//` 是**向下取整**，
+      Java 的 `/` 是向零截断 —— 负数上两者结果不同（`-7 // 2` 得 `-4`，Java 得 `-3`）。
+  - featureId: concepts-java/null-value
+    equivalence: divergent
+    code: |
+      x = None
+      x is None                 # @note 判空统一写 is None，没有 == 的歧义
+      None + 1                  # @note! TypeError —— 立刻报错，不会延后到表达式中间
+      0 or "默认"                # @note! 得 "默认" —— or 兜底会吃掉合法的 0 与空串
+    body: |
+      **只有一个 `None`，且任何值都可能是它** —— 没有基本类型与包装类型之分，
+      「这个字段到底能不能为 null、什么时候会拆箱」这套心防整个可以丢掉。
+
+      与 Java 的两处差别：① 没有 `Optional` 那种「可能没有」的类型，
+      `typing.Optional` 只是标注、运行时不强制；② `None` 参与运算会**立刻**
+      抛 `TypeError`，而不是像拆箱那样延后到表达式中间才炸。
+  - featureId: concepts-java/value-semantics
+    equivalence: analogous
+    code: |
+      a = 1
+      b = a
+      b = 2                     # @note a 还是 1 —— 但这不是值复制，是 int 不可变
+      xs = [1, 2]
+      ys = xs
+      ys[0] = 9                 # @note! xs[0] 也变成 9 —— 可变对象共享
+      i1, i2 = 1000, 1000
+      i1 is i2                  # @note! 身份比较，不要拿它比数值
+    body: |
+      **没有「基本类型」这一层** —— 一切值都是对象、都按引用传递，
+      Java 那条「原始类型按值、对象按引用」的二分法在这里没有对应物。
+
+      替代它的是另一个判据：**这个类型可变吗**。不可变（`int` / `str` / `tuple`）
+      怎么传都安全，可变（`list` / `dict` / `set`）共享同一份数据。
+      好处是比较没有歧义：`==` 永远比内容，比身份要用 `is` ——
+      Java 里 `==` 有时比数值、有时比引用的那层困惑在这里不存在。

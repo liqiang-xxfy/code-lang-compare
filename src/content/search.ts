@@ -27,7 +27,9 @@ export interface SearchDoc {
    *
    * 内容按 (基准, 目标) 对拆成多套后，同一个概念会在 3 个基准下各有一条文档。
    * 查询时按当前基准过滤，否则搜「闭包」会返回三条几乎一样的结果。
-   * 空字符串表示**所有基准共享**（心智模型对照表这类与基准无关的内容）。
+   *
+   * 每条文档都归属且只归属一个基准 —— 曾经有一批 `baseline: ''` 的「与基准无关」
+   * 文档（全局心智模型对照表），ADR-31 把心智模型改成基准级板块后就再没有产出者了。
    */
   baseline: string
   /** 所属板块，用于结果分组与将来的域内检索 */
@@ -77,11 +79,8 @@ export function queryOptions(baseline?: string): SearchOptions {
     /*
      * 按基准过滤 —— 三套内容全在索引里，但一个用户一次只在看一套。
      * 不过滤的话搜「闭包」会同时返回 js 基准与 python 基准下的同名条目。
-     * 空 baseline 的文档是两个基准共享的（心智模型对照表），始终可见。
      */
-    ...(baseline
-      ? { filter: (r: Record<string, unknown>) => r.baseline === baseline || r.baseline === '' }
-      : {}),
+    ...(baseline ? { filter: (r: Record<string, unknown>) => r.baseline === baseline } : {}),
   }
 }
 

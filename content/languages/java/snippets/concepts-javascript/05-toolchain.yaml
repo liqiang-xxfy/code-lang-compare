@@ -1,0 +1,116 @@
+# java —— concepts-javascript/05-toolchain 的实现
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/package-manager
+    equivalence: divergent
+    code: |
+      // 依赖声明在构建工具的配置里（pom.xml / build.gradle），没有独立的包管理器命令
+      // <dependency>
+      //   <groupId>com.google.guava</groupId>
+      //   <artifactId>guava</artifactId>
+      //   <version>33.0.0-jre</version>
+      // </dependency>
+    body: |
+      **构建工具兼管依赖** —— `mvn` / `gradle` 既编译又拉包，没有 `npm install`
+      那样一条只管装依赖的命令；拉下来的是编译好的 **JAR**，不是源码包。
+
+      坐标是三段式的 `groupId:artifactId:version`，比 npm 的包名多两段，
+      版本冲突交给构建工具按规则裁决 —— JS 那边靠锁文件唯一确定的答案，
+      在这里是构建工具的一条解析策略。
+  - featureId: concepts-javascript/dependency-isolation
+    equivalence: divergent
+    code: |
+      // classpath 是一张扁平的表：同一个全限定类名只能有一个版本胜出
+      // com.google.common.collect.ImmutableList —— 整个进程里只有这一份
+      // 真要隔离得靠模块系统（JPMS）或自定义类加载器，日常开发基本不碰
+    body: |
+      **classpath 是扁平的** —— 一个类名在整条 classpath 上只能有一个版本胜出，
+      所以「两个库各要不同版本的同一个依赖」在这里是**冲突**，必须显式排除或统一版本。
+
+      JS 的 `node_modules` 就近查找让多版本可以并存（代价是体积与「到底装了哪个版本」
+      的困惑），那条「各自装各自的就行」的直觉搬过来会失效 —— 这里得在构建配置里裁决。
+  - featureId: concepts-javascript/runner
+    equivalence: divergent
+    code: |
+      javac Main.java && java Main     // @note 先编译成字节码，再由 JVM 执行
+      // 同一个 .class 在 Windows / Linux / macOS 上跑的是同一份产物
+    body: |
+      **只有一个运行时，没有「两端」这回事** —— 编译成字节码后由 JVM 执行，
+      「这段代码在哪跑」不再是需要时刻意识到的问题，于是打包、转译、polyfill
+      那一整套动机也随之消失。
+
+      代价在启动：JIT 要先把热点方法编译成本地码，所以短命程序往往比 JS 还慢，
+      长跑服务才会反过来赢 —— 「预热」在这门语言里是个正经话题，在 JS 里不是。
+  - featureId: concepts-javascript/build-tool
+    equivalence: divergent
+    code: |
+      mvn package      // @note 编译 + 测试 + 打包成 JAR，一条命令走完
+      // 构建工具同时是项目骨架：源码放哪、测试放哪由约定规定
+    body: |
+      **构建就是编译** —— 产物是 JAR / WAR，不是给浏览器跑的 bundle，
+      所以 tree-shaking、代码分割这些概念在这里不存在，那些需求本身也不存在。
+
+      工具还兼任**项目骨架**：目录布局（`src/main/java`、`src/test/java`）
+      由约定规定，换一个项目不用先摸清它的目录习惯 —— 这与 JS 每个项目
+      自己定一套构建配置的常态正好相反。
+  - featureId: concepts-javascript/test-framework
+    equivalence: divergent
+    code: |
+      @org.junit.jupiter.api.Test
+      void adds() {
+        org.junit.jupiter.api.Assertions.assertEquals(2, 1 + 1);   // @note 参数顺序是 (期望, 实际)
+      }
+    body: |
+      **注解标记 + 静态断言** —— 测试方法是普通方法，靠 `@Test` 被发现；
+      断言是 `Assertions.assertEquals(期望, 实际)` 这样的静态调用。
+
+      两个容易磕到的地方：参数顺序是**期望在前**，与 JS 的
+      `expect(实际).toBe(期望)` 正好倒过来，写反了报错信息会反着读；
+      发现方式是扫描 classpath 上的类，不是 JS 那样按文件名 glob 找 `*.test.js`。
+  - featureId: concepts-javascript/testing-mock
+    equivalence: divergent
+    code: |
+      class Service {
+        private final Repo repo;
+        Service(Repo repo) { this.repo = repo; }    // @note 构造注入：可替换是设计出来的
+      }
+      // 需要动态替身时用 Mockito：Mockito.mock(Repo.class)
+    body: |
+      **替换依赖靠注入，不靠改模块** —— 依赖从构造函数（或 setter）传进来，
+      测试里给一个假实现即可，语言和框架都不需要「改写模块绑定」这种魔法。
+
+      JS 那边正因为依赖是 `import` 进来的静态绑定，才需要 `vi.mock` 提升到
+      import 之前那套机制，而且 ESM 绑定只读、替换一直有坑 ——
+      这些麻烦在这里不存在，代价是**代码必须写成可注入的**。
+  - featureId: concepts-javascript/lint-format
+    equivalence: divergent
+    code: |
+      // 格式化：google-java-format 或 IDE 内置风格
+      // 静态检查：SpotBugs / Error Prone / IDE 检查
+      // 没有 ESLint 那种「规则可插拔 + 社区共享配置」的中心
+    body: |
+      **工具各自独立，没有事实上的中心** —— 格式化常用 google-java-format
+      或 IDE 自带风格，静态检查由 SpotBugs / Error Prone 这类工具各管一摊，
+      不像 JS 那样 ESLint 一家把「检查」吃下、再挂一堆可插拔规则与共享配置。
+
+      实际影响是两面的：换项目时不用先读一遍它的 lint 配置，
+      但也少了「把团队约定写成规则」的那份灵活。
+  - featureId: concepts-javascript/repl
+    equivalence: analogous
+    code: |
+      jshell
+      jshell> 1 + 1
+      $1 ==> 2
+    body: |
+      **`jshell` 是官方 REPL**，交互方式与 `node` 的交互模式接近，
+      但生态里用得少 —— 多数人还是靠 IDE 里的 `main` 方法或单元测试来试一小段代码。
+
+      差别主要在习惯而非能力：JS 随手开个控制台试一句是日常动作，
+      这里更常见的是先写下测试再跑。

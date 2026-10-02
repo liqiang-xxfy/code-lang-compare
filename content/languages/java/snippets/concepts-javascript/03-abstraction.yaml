@@ -1,0 +1,74 @@
+# java —— concepts-javascript/03-abstraction 的实现
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/class-inheritance
+    equivalence: divergent
+    code: |
+      class Base { private int secret = 1; }      // @note private 是语言级私有，与 JS 的 # 对应
+      class Sub extends Base { }
+      interface Runner2 { void run(); }
+      class Both extends Base implements Runner2 {   // @note 多接口补上单继承的限制
+        public void run() {}
+      }
+    body: |
+      **单继承 + 多接口** —— 父类那一半与 JS 一样只能有一个，但接口可以任意多个，
+      「想要多继承」的需求改由接口承担（见下一条）。
+
+      真正的差别在 `this`：这里的 `this` **恒等于当前实例**，方法被单独取出、
+      当回调传出去也不会变；JS 的 `this` 由调用方式决定，要 `bind` 或箭头函数兜着 ——
+      这套心防搬过来可以整个丢掉。
+  - featureId: concepts-javascript/interface
+    equivalence: divergent
+    code: |
+      interface Greeter { String greet(String name); }   // @note 只写签名，实现类必须实现
+      class En implements Greeter {
+        public String greet(String n) { return "Hi " + n; }
+      }
+      Greeter g = new En();                              // @note 声明成接口类型，可注入任何实现
+    body: |
+      **接口是这门语言的中心概念** —— 变量、参数、返回值都可以声明成接口类型，
+      「有没有实现」由**编译器**检查，不是运行时碰运气。
+
+      JS 语言层面根本没有这个东西（`interface` 只是 TypeScript 的编译期概念，
+      运行时不留痕迹），所以「这个参数应该具备哪些方法」只能写进注释或 TS 类型。
+      这里它是一等公民：可以先定义接口再写实现，也可以让两个毫不相干的类
+      各自实现同一个接口后互换使用。
+  - featureId: concepts-javascript/generics
+    equivalence: divergent
+    code: |
+      java.util.List<String> xs = new java.util.ArrayList<>();
+      // xs.add(1);                             // @note! 编译期就拦住
+      // java.util.List<int> ys;                // @note! 类型参数不能用基本类型，得写 Integer
+      // if (xs instanceof java.util.List<String>) {}   // @note! 编译错误：运行期已擦除
+    body: |
+      **编译期强约束、运行期擦除** —— 泛型参数编译后就被抹掉（`List<String>` 与
+      `List<Integer>` 运行期是同一个类），因此 `instanceof List<String>`
+      这类检查根本写不出来。
+
+      对 JS 而言这条其实是**降级**：从「编译期真的会拦」退到「运行期谁也拦不住」，
+      `xs.add(1)` 这种错误要等到某个假设它是字符串的地方才炸 ——
+      JS 那边至少还有 TS 那层可选的编译期标注。
+  - featureId: concepts-javascript/error-handling
+    equivalence: divergent
+    code: |
+      try {
+        java.nio.file.Files.readString(java.nio.file.Path.of("f.txt"));
+      } catch (java.io.IOException e) {          // @note 受检异常：不处理就编译不过
+        System.out.println(e.getMessage());
+      }
+      // throw "出错了";                           // @note! 编译错误：只能抛 Throwable 的子类
+    body: |
+      **受检异常是契约** —— 方法声明 `throws IOException` 之后，调用方**必须**
+      处理或继续上抛，编译器强制。JS 里「任何函数都可能抛、签名上看不出来」
+      这件事，在这里被写进了类型签名。
+
+      另一半是**能抛什么**：只能抛 `Throwable` 的子类，`throw "..."` 编译不过，
+      所以 `catch` 到的东西一定有 `getMessage()` ——
+      JS 那边 `catch (e)` 的 `e` 可能是字符串，取 `e.message` 得到 `undefined`。

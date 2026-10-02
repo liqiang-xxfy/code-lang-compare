@@ -324,7 +324,6 @@ async function main(): Promise<void> {
     const out: RenderedSnippet = {
       lang,
       equivalence: s.equivalence,
-      flags: s.flags,
       code: top.code,
       html: top.html,
       lineCount: top.lineCount,
@@ -481,7 +480,6 @@ async function main(): Promise<void> {
   const topicSummaries: Manifest['topics'] = topics.map(([topicId, topicConfig]) => ({
     id: topicId,
     title: topicConfig.title,
-    kind: topicConfig.kind,
     section: topicConfig.section,
     baseline: topicConfig.baseline,
     ...(topicConfig.target ? { target: topicConfig.target } : {}),
@@ -543,7 +541,9 @@ async function main(): Promise<void> {
   })
 
   /*
-   * 静态资源按对拆文件：`static/<baseline>--<target>.json` + 全局 `static/concepts.json`。
+   * 静态资源按对拆文件：`static/<baseline>--<target>.json`。
+   * （心智模型曾是这里的全局 `static/concepts.json`，ADR-31 之后它是普通板块，
+   * 内容走章节分片，这个文件已不再产出。）
    *
    * 为什么不是单个 static.json：12 个方向的陷阱/词典/路线合起来会变成主包里的
    * 常驻体积，而用户一次只看一个方向。拆开后可懒加载 —— 代价是三个列表视图

@@ -1,0 +1,97 @@
+# python —— concepts-java/02-data 的实现
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/collections
+    equivalence: divergent
+    code: |
+      xs = ["a", "b"]           # @note 直接有字面量，不用 new 再 add
+      m = {"a": 1}
+      s = {1, 2}
+      t = ("a", "b")            # @note 不可变序列，可以当 dict 的键
+    body: |
+      **容器有字面量，也不写类型参数** —— `[...]` / `{...}` 直接建出 list / dict / set，
+      不必 `new`，也不必声明 `List<String>`；元素类型运行时跟着值走。
+
+      对应关系大致是 `ArrayList` → `list`、`HashMap` → `dict`、`HashSet` → `set`，
+      但**键的约束更严**：`dict` 的键必须可哈希，所以 `list` 不能当键、`tuple` 可以 ——
+      Java 里没有「可变对象不能当键」这条硬规则（只有一条容易踩坑的软约定）。
+  - featureId: concepts-java/immutable-data
+    equivalence: divergent
+    code: |
+      xs = ("a", "b")           # @note 不可变序列：根本没有 append 这个方法
+      fs = frozenset({1, 2})    # @note 不可变集合
+      s = "ab"                  # @note str 不可变，与 Java 的 String 一致
+      # 没有 final 对应物 —— 重新赋值只是把名字指向别的对象
+    body: |
+      **不可变是一种类型，不是一个修饰符** —— `tuple` / `frozenset` / `str` 本身
+      就是不可变类型，拿来就能安全共享、能当 dict 的键；没有 `List.of` 那种
+      「类是有了、但成员方法在运行时抛异常」的半吊子状态。
+
+      缺的恰恰是 Java 的 `final`：这里没有「锁住这个绑定」的语法，重新赋值永远合法。
+      `record` 的对应物是 `dataclass(frozen=True)` 或 `NamedTuple`，
+      但那是标准库层的工具，不是语言语法 —— 编译器不会替你检查。
+  - featureId: concepts-java/string-format
+    equivalence: analogous
+    code: |
+      f"{'苹果'} 有 {3} 个，均价 {4.5:.2f}"     # @note 表达式直接写在占位符里
+      "{0} 与 {0}".format("x")                 # @note 带序号的占位符，同一个参数可复用
+      f"{1234567:,}"                           # @note 千分位等说明符跟在值的后面
+    body: |
+      **格式说明符写在值的后面** —— f-string 把「哪个值」和「怎么格式化」放在同一处
+      （`{x:.2f}`），不像 Java 那样把格式集中写在串首再按顺序对参数。
+
+      好处是**参数顺序不会错位**，值就写在它出现的位置；对齐、补零、千分位这些
+      能力两边都有，只是写法从「前面声明」变成「就地标注」。
+      三种写法（`%` / `.format` / f-string）并存，新代码一律用 f-string ——
+      遇到老代码里的 `%s` 不必奇怪，那只是历史的层积。
+  - featureId: concepts-java/regex
+    equivalence: divergent
+    code: |
+      import re
+      re.search(r"\d", "a1b")     # @note 找任意位置 —— 对应 Java 的 find
+      re.match(r"\d", "a1b")      # @note! None —— match 只锚定开头，不要求整串
+      re.fullmatch(r"\d", "a1b")  # @note 整串匹配 —— 对应 Java 的 matches
+    body: |
+      **三个入口各锚定一种范围** —— `search` 任意位置、`match` 只锚开头、
+      `fullmatch` 整串。Java 只有两个（`find` / `matches`），
+      所以「`match` 就是 `matches`」这个望文生义的对应是错的：
+      前者不要求整串，`re.match(r"\d", "1b")` 能匹配上。
+
+      另一个小差别是转义层数：这里用原始字符串 `r"..."` 写模式，
+      Java 因为模式是普通字符串所以要写 `"\\d"` —— 搬过来时容易多写一层反斜杠。
+  - featureId: concepts-java/serialization
+    equivalence: divergent
+    code: |
+      import json
+      json.dumps({"n": 1, "s": "x"})        # @note 标准库自带，不必装库
+      json.dumps({"d": {1, 2}})             # @note! TypeError: Object of type set is not JSON serializable
+      json.dumps({"d": 1}, default=str)     # @note 自定义兜底
+    body: |
+      **JSON 在标准库里** —— `import json` 就能用，不必像 Java 那样选型、加依赖。
+
+      代价是**只认基本类型**：遇到 `set`、`datetime`、自定义类直接抛 `TypeError`。
+      报错很明确，要么换类型、要么给 `default=` 一个转换函数；
+      既不像 Java 那边需要引库，也不像 JS 的 `JSON.stringify` 那样安静地丢掉字段。
+      这里的类型是运行时带着的，所以「怎么序列化」这件事只能显式回答。
+  - featureId: concepts-java/date-time
+    equivalence: divergent
+    code: |
+      from datetime import date, datetime, timedelta
+      d = date(2026, 1, 5)          # @note 月份从 1 起，与 Java 一致
+      d + timedelta(days=1)         # @note 返回新对象，d 不变
+      datetime.now()                # @note! naive —— 不带时区；与 aware 相减会抛 TypeError
+    body: |
+      **月份从 1 起、运算返回新对象** —— 这两条与 Java 的 `java.time` 一致，
+      搬过来不用改。
+
+      差别在**时区怎么表达**：这里没有独立的 `ZonedDateTime` 类型，
+      而是同一个 `datetime` 分「naive（无时区）」与「aware（带时区）」两种状态，
+      两者比较或相减直接抛 `TypeError`。也就是说 Java 用**类型**区分的语义，
+      这里靠**运行时状态**区分 —— 类型检查帮不上忙，只能看 `tzinfo` 有没有值。

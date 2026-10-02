@@ -1,0 +1,96 @@
+# java —— concepts-javascript/02-data 的实现
+topic: concepts-javascript
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-javascript/collections
+    equivalence: divergent
+    code: |
+      java.util.List<String> xs = new java.util.ArrayList<>();
+      xs.add("a");                          // @note 没有字面量，建完再填
+      java.util.Map<String, Integer> m = new java.util.HashMap<>();
+      m.put("a", 1);
+      java.util.List.of("a", "b");          // @note 不可变：add 会抛 UnsupportedOperationException
+      int[] arr = {1, 2, 3};                // @note 数组有字面量，但长度固定、没有集合方法
+    body: |
+      **容器是泛型类，基本没有字面量** —— 数组有 `{1, 2, 3}` 这种写法但长度固定，
+      日常装数据用的是 `ArrayList` / `HashMap` 这些类，要 `new` 出来再逐个 `add` / `put`。
+
+      与 JS 最关键的一处差别在**键**：`HashMap` 的键可以是任意对象，按
+      `hashCode` / `equals` 判定；而 JS 的对象字面量键只能是字符串或 Symbol，
+      数字键会被悄悄转成字符串 —— 同一份数据在两边能表达的键类型并不对等。
+  - featureId: concepts-javascript/immutable-data
+    equivalence: divergent
+    code: |
+      final java.util.List<String> xs = java.util.List.of("a", "b");
+      // xs.add("c");                       // @note! 编译过、运行抛 —— 不可变是对象行为，不是类型信息
+      final StringBuilder sb = new StringBuilder("a");
+      sb.append("b");                       // @note final 只锁绑定，对象照样能改（与 JS 的 const 一样）
+      record Point(int x, int y) {}         // @note record 字段是 final，且自动生成 equals / hashCode
+    body: |
+      **四重载体各管一段** —— `final` 锁绑定（与 JS 的 `const` 完全对应）、
+      `List.of` / `Map.of` 产出不可变实例、`String` 自身不可变、
+      `record` 把「不可变数据类」变成一行声明。
+
+      比 JS 强的是**不可变集合是标准库的一等公民**，不必自己写冻结逻辑；
+      但 `final` 那一层和 JS 一样只管绑定不管内容 —— `final StringBuilder`
+      仍然可以被 `append`。而 `List.of` 的不可变性是**运行时的**：
+      类型上看不出来，编译期拦不住 `add`。
+  - featureId: concepts-javascript/string-format
+    equivalence: divergent
+    code: |
+      String.format("%s 有 %d 个，均价 %.2f", "苹果", 3, 4.5);
+      String.format("%1$s 与 %1$s", "x");   // @note 带序号的占位符，同一个参数可复用
+      "n = " + n;                           // @note 拼接两边都有，但那只是拼接
+    body: |
+      **`String.format` 是语言级能力** —— `%s` / `%d` / `%.2f` / `%,d`
+      各管一种转换与对齐，补零、千分位、宽度都写在格式串里，不用额外方法调用。
+
+      JS 那边是模板字符串 `` `${x}` `` 加 `toFixed` / `toLocaleString`，
+      格式化分成两步；这里格式与值写在同一处，代价是**参数类型写错运行时才炸**
+      （`%d` 拿到字符串直接抛异常）—— 而 JS 的模板字符串压根不会因为类型而失败。
+  - featureId: concepts-javascript/regex
+    equivalence: divergent
+    code: |
+      java.util.regex.Pattern.compile("\\d").matcher("a1b").find();   // @note true —— find 找任意位置
+      "a1b".matches("\\d");                                           // @note! false —— matches 要求整串匹配
+      java.util.regex.Pattern.compile("(?<num>\\d+)")                 // @note 命名分组，先编译再取
+          .matcher("a12").results().findFirst().orElseThrow().group("num");
+    body: |
+      **先编译成 `Pattern`，再交给 `Matcher`** —— 正则不是字面量语法而是字符串，
+      所以反斜杠要写两层（`\\d`），这是它最容易写错的地方。
+
+      更要紧的是入口的选择：`matches()` 要求**整串匹配**，找任意位置得用 `find()`；
+      JS 的 `match` / `test` 一律是任意位置匹配 —— 把 `matches` 当成 `test` 用，
+      得到的是「看起来只是没匹配上」的结果，查起来很费劲。
+  - featureId: concepts-javascript/serialization
+    equivalence: divergent
+    code: |
+      record User(String name, int age) {}   // @note 序列化的目标从一开始就是显式的
+      // 标准库没有 JSON，下面这行要先引入 Jackson 或 Gson
+      // new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(user);
+    body: |
+      **JSON 不在标准库里** —— 得引 Jackson / Gson 之类的库，所以「序列化」在这里
+      是一个要选型、要加依赖的决定，而不是随手一个 `JSON.stringify`。
+
+      反过来，JS 那个「静默丢字段」的坑在这里不存在：类型是显式声明的，
+      序列化成什么、反序列化时多出来的字段怎么办，都由库的配置和类的字段决定，
+      默认行为倾向于**报错而不是安静地丢掉**。
+  - featureId: concepts-javascript/date-time
+    equivalence: divergent
+    code: |
+      java.time.LocalDate d = java.time.LocalDate.of(2026, 1, 5);   // @note 月份从 1 起，这里就是 1 月
+      java.time.LocalDate e = d.plusMonths(1);                      // @note 返回新对象，d 不变
+      java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Shanghai"));
+    body: |
+      **`java.time` 全部不可变** —— 每次「修改」都返回新对象，`d` 不会被别处改掉，
+      也就没有 JS 那种「别处还引用着同一个 `Date`，它自己变了」的问题。
+
+      月份从 **1** 起（JS 的 `Date` 从 0 起），这是搬过来最容易错一位的地方。
+      时区在这里是一等概念：`LocalDate` / `LocalDateTime` / `ZonedDateTime` /
+      `Instant` 各表示一种「带不带时区」的语义，选错类型比写错方法更容易出问题。

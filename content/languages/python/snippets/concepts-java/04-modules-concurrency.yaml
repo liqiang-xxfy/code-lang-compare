@@ -1,0 +1,70 @@
+# python —— concepts-java/04-modules-concurrency 的实现
+topic: concepts-java
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-flash
+    promptTemplateId: concepts-compare-v1
+    generatedAt: '2026-10-02'
+snippets:
+  - featureId: concepts-java/module-system
+    equivalence: divergent
+    code: |
+      # 文件即模块：util.py 就是一个模块，文件名就是模块名
+      import util                  # @note! import 会真的把这个文件执行一遍
+      from util import helper
+      # 目录（传统上带 __init__.py）才是包；一个文件里可以放任意多个类
+    body: |
+      **文件即模块、目录即包** —— 没有「一个公开类一个文件」的强制，
+      一个文件里可以放任意多个类与函数；也没有 `public` 类名必须与文件名
+      一致的规矩，文件名就是模块名这件事才是硬约束。
+
+      关键差别在**执行语义**：`import` 会真的把这个文件跑一遍（顶层代码立即执行），
+      模块顶层不只是声明。所以循环依赖表现为「拿到一个只初始化了一半的模块」，
+      而不是 Java 那种编译期的「找不到符号」—— 前者要跑到运行时才暴露。
+  - featureId: concepts-java/memory
+    equivalence: analogous
+    code: |
+      import sys
+      x = [1, 2]
+      sys.getrefcount(x)       # @note 引用计数能直接看到 —— Java 里没有这个概念
+      del x                    # @note 计数归零立刻释放，不等一轮 GC
+      # 循环引用靠分代 GC 兜底；资源仍要用 with / try-finally 显式关
+    body: |
+      **引用计数为主，循环 GC 兜底** —— 对象计数归零就**立刻**释放，
+      不必等一次扫描；Java 那边完全没有「什么时候被回收」这个可观察的时点。
+
+      代价有两处：① 引用计数本身有开销，且循环引用回收不掉，要另一个 GC 定期扫；
+      ② `__del__` 在循环里的调用时机不确定，所以资源照样得用 `with` 显式关闭 ——
+      这一点与 Java 的 `try-with-resources` 同理，只是动机不同（那边是资源不归 GC 管，
+      这边是回收时机不够可靠）。
+  - featureId: concepts-java/concurrency-unit
+    equivalence: divergent
+    code: |
+      import threading
+      threading.Thread(target=work).start()    # @note! GIL 之下同一时刻只有一个线程跑字节码
+      import multiprocessing
+      multiprocessing.Process(target=work).start()   # @note CPU 密集要换进程
+    body: |
+      **线程在，但 GIL 挡在中间** —— 同一时刻只有一个线程执行字节码，
+      CPU 密集任务换不来加速；I/O 等待期间会释放 GIL，所以 I/O 密集仍然有效。
+      Java 的线程是真并行的，那条「加线程就更快」的直觉在这里必须打折。
+
+      于是「并发单元」在这里是三选一：线程（I/O）、进程（CPU）、协程（高并发 I/O）。
+      取进程要付序列化的代价 —— 没有 Java 那种共享堆内存，数据得传过去而不是共享。
+  - featureId: concepts-java/async-model
+    equivalence: divergent
+    code: |
+      import asyncio
+      async def load():
+          return await fetch("/api")
+      asyncio.run(load())      # @note! 必须显式启动事件循环，不启动就什么都不发生
+    body: |
+      **事件循环要显式启动** —— `asyncio.run(...)` 或 `loop.run_until_complete(...)`，
+      没有 Java 那种「线程池一直在那儿，丢个任务就跑了」的默认；协程对象创建出来
+      不 await 就永远不执行。
+
+      与 Java 的线程池相比，`await` 不占线程（手感更接近 Java 21 的虚拟线程），
+      但代价很尖锐：**在协程里写一个阻塞调用，整个事件循环就卡住** ——
+      这是同步世界与异步世界混用的经典事故，Java 的线程池模型里没有对应形态。

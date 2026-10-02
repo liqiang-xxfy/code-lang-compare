@@ -111,12 +111,6 @@ export const chapterSchema = z.object({
 })
 
 /**
- * topic 类别 —— 驱动侧栏分组与 R2 的覆盖率语言范围。
- * 'concept' 是语言无关的概念对比（basics 那种）；'migration' 是 A→B 迁移教程。
- */
-export const topicKindSchema = z.enum(['concept', 'migration'])
-
-/**
  * 一个板块的定义 —— `registry.yaml` 的 `sections:` 段的成员。
  *
  * 板块曾是**封闭枚举**（`z.enum(['basics', ...])`），于是加一个板块要改 17 处代码：
@@ -222,7 +216,6 @@ export const topicConfigSchema = z
   .object({
     enabled: z.boolean().default(true),
     title: z.string().min(1),
-    kind: topicKindSchema.default('concept'),
     section: sectionSchema,
     /** 基准语言（from）。所有板块必填 */
     baseline: z.string().min(1),
@@ -257,15 +250,6 @@ export const equivalenceSchema = z.enum([
   'analogous', // 形似：结构相近但有关键差异
   'divergent', // 语义不同：看起来像但行为不同（迁移陷阱高发区）
   'absent', // 无等价：该语言没有这个概念
-])
-
-/** 事实性标注。刻意不含 'differs' / 'no-equivalent' —— 那由 equivalence 推导。 */
-export const snippetFlagSchema = z.enum([
-  'partial',
-  'deprecated',
-  'new',
-  'experimental',
-  'api-only',
 ])
 
 export const provenanceSchema = z.discriminatedUnion('origin', [
@@ -323,7 +307,6 @@ export const snippetBlockSchema = z.object({
 const snippetBase = z.object({
   featureId: z.string().min(1),
   equivalence: equivalenceSchema,
-  flags: z.array(snippetFlagSchema).default([]),
   /** 单段代码。与 `blocks` 二选一（R16），可含内联 @note 标记 */
   code: z.string().default(''),
   /**
@@ -566,15 +549,11 @@ export type FeatureKind = z.infer<typeof featureKindSchema>
 export type Feature = z.infer<typeof featureSchema>
 export type Chapter = z.infer<typeof chapterSchema>
 export type TopicConfig = z.infer<typeof topicConfigSchema>
-/** @deprecated 用 TopicConfig —— 保留别名只为减少外围改名噪音 */
-export type Topic = TopicConfig
-export type TopicKind = z.infer<typeof topicKindSchema>
 /** 一个板块的定义（registry.yaml 的 sections 段成员），不含 id */
 export type SectionDef = z.infer<typeof sectionDefSchema>
 /** 板块 id —— 由 src/generated/sections.gen.ts 派生的联合类型 */
 export type Section = z.infer<typeof sectionSchema>
 export type Equivalence = z.infer<typeof equivalenceSchema>
-export type SnippetFlag = z.infer<typeof snippetFlagSchema>
 export type Provenance = z.infer<typeof provenanceSchema>
 export type ReviewRecord = z.infer<typeof reviewRecordSchema>
 export type SnippetSource = z.infer<typeof snippetSchema>
@@ -613,7 +592,6 @@ export interface RenderedBlock {
 export interface RenderedSnippet {
   lang: string
   equivalence: Equivalence
-  flags: SnippetFlag[]
   /**
    * 多段对照代码；单段内容没有这个字段。
    *
@@ -744,7 +722,6 @@ export interface Manifest {
   topics: Array<{
     id: string
     title: string
-    kind: TopicKind
     section: Section
     baseline: string
     target?: string

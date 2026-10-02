@@ -61,13 +61,13 @@ content/**/*.{yaml,md} ──[03-validate → 04-build]──▶ src/generated/*
 
 ```
 content/topics/
-  basics-javascript/   basics-python/   basics-java/       # 基准级 3 套（每个基准候选一套）
+  basics-javascript/ basics-python/ basics-java/           # 基准级 3 套（每个基准候选一套，各 8 章）
+  concepts-javascript/ concepts-python/ concepts-java/     # 心智模型 3 套（每个基准一套视角，各 5 章）
   js2python/  js2java/  js2go/  js2rust/  python2java/  java2python/
-    ├─ 01-functions.yaml   ← 迁移教程（章节）              # 对级：规划 12 个方向
+    ├─ 01-functions.yaml   ← 迁移教程（章节，各 5 章）      # 对级：规划 12 个方向
     ├─ pitfalls.yaml       ← 迁移陷阱（数组，loader 跳过）  #   = 3 基准 × 4 目标
     ├─ glossary.yaml       ← 速语词典（数组）              #   当前登记 6 个
     └─ roadmap.yaml        ← 迁移学习路线（数组）
-content/concepts/concepts.yaml                              # 心智模型对照表（与基准无关，全局）
 ```
 
 - **列表型资源与章节同放一个目录**，靠 `core.ts` 的 `Array.isArray(raw)` 约定区分 —— 一行 loader 改动都不需要。
@@ -169,7 +169,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 ## 测试地图
 
-`npm test` = `vitest run`。8 个文件按"钉住什么"分两类：
+`npm test` = `vitest run`。9 个文件按"钉住什么"分两类：
 
 | 文件 | 钉住的不变量 |
 | --- | --- |
@@ -180,6 +180,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 | [tests/unit/extract-notes.test.ts](tests/unit/extract-notes.test.ts) | `extractNotes` 的 `notes`（仅高危）/ `allNotes`（全部）分流契约 |
 | [tests/unit/lang-mention.test.ts](tests/unit/lang-mention.test.ts) | R12 的语言点名检测器（`JavaScript` 含 `Java`、`Go` 撞英文动词） |
 | [tests/unit/redirects.test.ts](tests/unit/redirects.test.ts) | 旧地址 → 新地址的重定向 |
+| [tests/unit/snippet-blocks.test.ts](tests/unit/snippet-blocks.test.ts) | 多段代码的契约（`code` / `blocks` 二选一、每段必有 `label`）与**逐段** diff（段数不一致时拒绝，不拼成一份错位的着色） |
 | [tests/unit/search.test.ts](tests/unit/search.test.ts) | 中文 bigram 分词、检索、文档构造、按基准分片过滤 |
 
 前两个**读真实内容目录与真实构建产物**，因此它们既是回归测试、也是内容契约的第二道闸门 —— 改 `analyze.ts` 的判定逻辑时，会先在这两处红。
@@ -211,12 +212,16 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 - **搜索索引三个分片全部超出原定的 90 KB(gz) 红线**：2026-10-02 实测 `javascript` **247 KB** / `python` **145 KB** / `java` **136 KB**（此前这里记的「javascript 118 KB」已过时 —— 内容补到 444 feature / 1274 实现之后涨了一倍）。同日把 `SEARCH_INDEX_BUDGET_KB` 上调到 280，**是承认现状而不是取消红线**：它仍是一条增长告警，越线时逐分片打印一行提示。真正能回到 90 KB 的只有 ADR-21 那条路（`text` 里的 `@note` 与 body 降级为 summary-only，或按 section 域内检索），代价是牺牲检索精度（注记是内容里检索价值最高的部分），属独立的产品决策。**实测提醒**：全部注记文本仅 67 KB raw，单靠砍它到不了 90 KB。**推翻信号**：降到 150 KB 仍不达标就改为按 section 域内检索，牺牲跨板块检索。
 - **矩阵模式（默认展示模式）不渲染 `feature.body`**：`MatrixLayout` 从不引用它，于是**迁移教程那份共享说明在默认视图下一直不可见**（ADR-35 记录时顺带发现，本次未修）。多列板块的说明走每列 `snippet.body`，不受影响。要修的话是在矩阵里给 feature 行加一条跨列的说明行，属于新交互，不是补一行模板能了事的。
-- **骨架期内容不完整，目前只有「JavaScript 基准 + Python 对比」一套算完整模板**：Python / Java 基准各只有 1 章基础语法、各只有 1 个迁移方向，6 个迁移方向也都只有 1 章教程（`01-functions`，5 个 feature 的样板）。R5 会按基准汇总一条 warn 列出缺哪些方向（刻意是 warn 不是 error，否则补齐内容前构建一直是红的）。**补内容时照下面这三处抄形态**（数字用 `npm run content:report` 复核）：
+- **内容已经补齐到「五门语言全覆盖」，剩下的是正文与校对**（2026-10-02 实测，数字用 `npm run content:report` 复核）：
 
-  | 维度 | 完整的那一套 | 其余 |
-  | --- | --- | --- |
-  | 基础语法章节 | [basics-javascript](content/topics/basics-javascript/) **8 章 × 9 feature = 72**，5 门语言各 72 条实现 | [basics-python](content/topics/basics-python/) / [basics-java](content/topics/basics-java/) 各 **1 章**，且 `languages` 压到 2 门 |
-  | 迁移方向列表 | [js2python](content/topics/js2python/)：陷阱 **10** / 词典 **10** / 路线 **5** | 其余 5 个方向：陷阱 2–4 / 词典 4 / 路线 3 |
-  | 人工校对（reviewed） | [python](content/languages/python/) 的 `01~08` **72/72 全 reviewed** | [javascript](content/languages/javascript/) 39/72（07-control-flow 只 1 条、08-functions 只 3 条）；java / rust / go **全 draft** |
+  | 维度 | 实测 |
+  | --- | --- |
+  | 规模 | **444 feature / 1326 实现**，5 门启用语言覆盖率**全部 100%** |
+  | 基础语法 | 三个基准**各 8 章 × 72 feature** —— `basics-javascript` 对 **5 门**语言，`basics-python` / `basics-java` 对 **3 门** |
+  | 心智模型 | 三套视角**各 5 章 26 条，三套都已对齐 `[javascript, python, java]`**（2026-10 统一，此前方向不对称） |
+  | 迁移方向 | 6 个方向**各 5 章 + 12 陷阱 / 10 词典 / 5 路线阶段** |
+  | 人工校对 | python **81/369**、javascript **39/394**；java / rust / go **全 draft**（本机无这三门工具链，无法逐条实跑） |
+  | 多列板块正文 | 基准列 **294/294 已完成**；对比列 **283/732** —— **449 格待补**（R18 过渡期 warn） |
 
-  两个"完整"不是一回事：`basics-javascript` 是**章节结构**最全（唯一填满 8 章的基准级板块），**Python 列**是**校对完成度**最高（也是全站唯一逐条实跑验证过的语言）—— 迁移板块的实际样板是 `js2python`。Rust / Go 是 `baseline: false`，只能当对比列。
+  两个"完整"仍然不是一回事：`basics-javascript` 是**章节结构**最全，**Python 列**是**校对完成度**最高（也是全站唯一逐条实跑验证过的语言）—— 迁移板块的实际样板是 `js2python`。Rust / Go 是 `baseline: false`，只能当对比列。
+  R5 会按基准汇总一条 warn 列出缺哪些方向（java / python 基准下还没有 go / javascript / rust 三个方向；刻意是 warn 不是 error，否则补齐前构建一直是红的）。

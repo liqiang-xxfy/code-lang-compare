@@ -11,12 +11,11 @@
       "chapterId": "concepts-python/05-toolchain",
       "title": "包管理",
       "kind": "concept",
-      "summary": "声明文件与落地位置都换了，JS 默认就锁版本",
+      "summary": "pip 只管装包、与构建分离；依赖锁定默认较弱",
       "snippets": {
         "java": {
           "lang": "java",
           "equivalence": "divergent",
-          "flags": [],
           "code": "// ⚠ 依赖不是\"装到环境里\"，而是写进构建文件的三段坐标：\n// <dependency>\n//   <groupId>com.google.guava</groupId>\n//   <artifactId>guava</artifactId>\n//   <version>33.0.0-jre</version>\n// </dependency>\n\n// Gradle 里是简写：implementation(\"com.google.guava:guava:33.0.0-jre\")\n\n// 传递依赖会被自动解析，版本冲突也由构建工具按规则裁决",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 依赖不是\"装到环境里\"，而是写进构建文件的三段坐标：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// &#x3C;dependency></span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   &#x3C;groupId>com.google.guava&#x3C;/groupId></span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   &#x3C;artifactId>guava&#x3C;/artifactId></span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   &#x3C;version>33.0.0-jre&#x3C;/version></span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// &#x3C;/dependency></span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Gradle 里是简写：implementation(\"com.google.guava:guava:33.0.0-jre\")</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 传递依赖会被自动解析，版本冲突也由构建工具按规则裁决</span></span></code></pre>",
           "lineCount": 10,
@@ -34,7 +33,6 @@
         "javascript": {
           "lang": "javascript",
           "equivalence": "analogous",
-          "flags": [],
           "code": "npm install lodash\nnpm install -D vitest         // 对标 dev 依赖组\nnpx vitest                    // 对标 uvx，临时跑一个工具",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">npm install lodash</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">npm install </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">D</span><span style=\"color:var(--shiki-foreground)\"> vitest         </span><span style=\"color:var(--shiki-token-comment)\">// 对标 dev 依赖组</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">npx vitest                    </span><span style=\"color:var(--shiki-token-comment)\">// 对标 uvx，临时跑一个工具</span></span></code></pre>",
           "lineCount": 3,
@@ -46,7 +44,6 @@
         "python": {
           "lang": "python",
           "equivalence": "identical",
-          "flags": [],
           "code": "pip install requests\nuv add requests              # dev 依赖组对标 npm install -D\nuvx ruff                     # 对标 npx，临时跑一个工具",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">pip install requests</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">uv add requests              </span><span style=\"color:var(--shiki-token-comment)\"># dev 依赖组对标 npm install -D</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">uvx ruff                     </span><span style=\"color:var(--shiki-token-comment)\"># 对标 npx，临时跑一个工具</span></span></code></pre>",
           "lineCount": 3,
@@ -62,12 +59,11 @@
       "chapterId": "concepts-python/05-toolchain",
       "title": "依赖隔离",
       "kind": "concept",
-      "summary": "你的环境全局一套、同名包只能一个版本；JS 就近查找、多版本共存",
+      "summary": "一个环境一套版本，隔离靠虚拟环境",
       "snippets": {
         "java": {
           "lang": "java",
           "equivalence": "divergent",
-          "flags": [],
           "code": "// ⚠ 没有虚拟环境：所有依赖铺在**一条 classpath** 上，\n// 同一个全限定类名只能有一个版本存在\n\n// 两个库各自依赖 guava 的不同版本时，classpath 上谁在前面用谁 ——\n// 这就是\"classpath 地狱\"：编译过、运行时报 NoSuchMethodError\n\n// 三条出路：构建工具里强制版本、shading（把依赖重命名后打进自己的 jar）、\n// 或 Java 9+ 的模块系统（JPMS）做显式边界",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有虚拟环境：所有依赖铺在**一条 classpath** 上，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 同一个全限定类名只能有一个版本存在</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两个库各自依赖 guava 的不同版本时，classpath 上谁在前面用谁 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这就是\"classpath 地狱\"：编译过、运行时报 NoSuchMethodError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 三条出路：构建工具里强制版本、shading（把依赖重命名后打进自己的 jar）、</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 或 Java 9+ 的模块系统（JPMS）做显式边界</span></span></code></pre>",
           "lineCount": 8,
@@ -85,7 +81,6 @@
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
-          "flags": [],
           "code": "// node_modules 就近查找：同一库的不同版本可以共存\nnode_modules/a/node_modules/lodash   // ⚠ 没有「一个环境一个版本」这回事\n// 代价是体积与「到底装了哪一版」的困惑",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// node_modules 就近查找：同一库的不同版本可以共存</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">node_modules</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">a</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">node_modules</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">lodash   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有「一个环境一个版本」这回事</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 代价是体积与「到底装了哪一版」的困惑</span></span></code></pre>",
           "lineCount": 3,
@@ -103,7 +98,6 @@
         "python": {
           "lang": "python",
           "equivalence": "identical",
-          "flags": [],
           "code": "python -m venv .venv\n# 同一个环境里同名包只能有一个版本\n# 冲突时正确动作是建第二个 venv，不是升降级",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">python </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">m venv </span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-foreground)\">venv</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 同一个环境里同名包只能有一个版本</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 冲突时正确动作是建第二个 venv，不是升降级</span></span></code></pre>",
           "lineCount": 3,
@@ -119,12 +113,11 @@
       "chapterId": "concepts-python/05-toolchain",
       "title": "运行时",
       "kind": "concept",
-      "summary": "一个解释器就是全部 vs 同一份代码要跑在浏览器与 Node 两套 API 上",
+      "summary": "一个解释器就是全部；分发的是源码而不是编译产物",
       "snippets": {
         "java": {
           "lang": "java",
           "equivalence": "divergent",
-          "flags": [],
           "code": "// 两步走：先编译再运行\n// javac Main.java      → Main.class\n// java Main\n\n// 打包成可执行 jar：\n// java -jar app.jar\n\n// 单文件源码模式（Java 11+）可以一步跑：\n// java Main.java\n\n// \"改了没生效\"最常见的原因就是忘了重新编译",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两步走：先编译再运行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// javac Main.java      → Main.class</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// java Main</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 打包成可执行 jar：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// java -jar app.jar</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 单文件源码模式（Java 11+）可以一步跑：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// java Main.java</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// \"改了没生效\"最常见的原因就是忘了重新编译</span></span></code></pre>",
           "lineCount": 11,
@@ -136,7 +129,6 @@
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
-          "flags": [],
           "code": "fetch(\"/api\");               // 浏览器与 Node 都有，但 fs / DOM 各只有一边有\n// ⚠ 运行时分裂：要时刻意识到「这段代码在哪跑」",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-function)\">fetch</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"/api\"</span><span style=\"color:var(--shiki-foreground)\">);               </span><span style=\"color:var(--shiki-token-comment)\">// 浏览器与 Node 都有，但 fs / DOM 各只有一边有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 运行时分裂：要时刻意识到「这段代码在哪跑」</span></span></code></pre>",
           "lineCount": 2,
@@ -154,7 +146,6 @@
         "python": {
           "lang": "python",
           "equivalence": "identical",
-          "flags": [],
           "code": "python app.py\n# 运行时就是解释器本身，不存在「平台 API 不一致」这层问题",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">python app</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-foreground)\">py</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 运行时就是解释器本身，不存在「平台 API 不一致」这层问题</span></span></code></pre>",
           "lineCount": 2,
@@ -170,12 +161,11 @@
       "chapterId": "concepts-python/05-toolchain",
       "title": "构建工具",
       "kind": "concept",
-      "summary": "解释执行、开发不用构建；JS 的打包转译是每次都要跑的环节",
+      "summary": "解释执行，日常开发没有构建这一步；打包只在发布时发生",
       "snippets": {
         "java": {
           "lang": "java",
           "equivalence": "divergent",
-          "flags": [],
           "code": "// 构建工具是必需项，不是可选项 —— 编译、测试、打包、发依赖都在它手里\n// Maven：pom.xml 声明式生命周期（compile → test → package → install）\n//       约定优先，目录结构固定，想偏离要改配置\n// Gradle：build.gradle 脚本式，增量构建，灵活但要自己维护正确性\n\n// mvn test / mvn package / ./gradlew build",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 构建工具是必需项，不是可选项 —— 编译、测试、打包、发依赖都在它手里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Maven：pom.xml 声明式生命周期（compile → test → package → install）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//       约定优先，目录结构固定，想偏离要改配置</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Gradle：build.gradle 脚本式，增量构建，灵活但要自己维护正确性</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// mvn test / mvn package / ./gradlew build</span></span></code></pre>",
           "lineCount": 6,
@@ -187,7 +177,6 @@
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
-          "flags": [],
           "code": "npm run build                // ⚠ 打包 + 转译 + 压缩，浏览器不能直接跑源码\n// 开发时也一直在跑，构建是日常的一部分",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">npm run build                </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 打包 + 转译 + 压缩，浏览器不能直接跑源码</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 开发时也一直在跑，构建是日常的一部分</span></span></code></pre>",
           "lineCount": 2,
@@ -205,7 +194,6 @@
         "python": {
           "lang": "python",
           "equivalence": "identical",
-          "flags": [],
           "code": "python -m build        # 只有发布时才打包成 wheel / sdist\n# 开发时不需要构建 —— 改完直接跑",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">python </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">m build        </span><span style=\"color:var(--shiki-token-comment)\"># 只有发布时才打包成 wheel / sdist</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 开发时不需要构建 —— 改完直接跑</span></span></code></pre>",
           "lineCount": 2,
@@ -221,12 +209,11 @@
       "chapterId": "concepts-python/05-toolchain",
       "title": "测试框架",
       "kind": "concept",
-      "summary": "普通函数加裸 assert vs 框架词汇加 expect 链",
+      "summary": "普通函数加裸 assert，靠命名约定被发现",
       "snippets": {
         "java": {
           "lang": "java",
           "equivalence": "analogous",
-          "flags": [],
           "code": "// import org.junit.jupiter.api.Test;\n// import static org.junit.jupiter.api.Assertions.assertEquals;\n//\n// class CalcTest {\n//     @Test void adds() { assertEquals(3, add(1, 2)); }\n//\n//     @BeforeEach void setUp() { }\n//     @ParameterizedTest @ValueSource(ints = {1, 2}) void p(int n) { }\n// }\n\n// 测试发现靠注解（@Test），断言是静态方法，测试类与方法默认包可见",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// import org.junit.jupiter.api.Test;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// import static org.junit.jupiter.api.Assertions.assertEquals;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// class CalcTest {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     @Test void adds() { assertEquals(3, add(1, 2)); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     @BeforeEach void setUp() { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     @ParameterizedTest @ValueSource(ints = {1, 2}) void p(int n) { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 测试发现靠注解（@Test），断言是静态方法，测试类与方法默认包可见</span></span></code></pre>",
           "lineCount": 11,
@@ -238,7 +225,6 @@
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
-          "flags": [],
           "code": "import { test, expect } from \"vitest\";\ntest(\"加法\", () => { expect(1 + 1).toBe(2); });   // 断言链代替裸 assert\n// 发现靠框架配置的 glob，不靠命名约定",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { test</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> expect } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> \"vitest\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">test</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"加法\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> () </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">expect</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-function)\">.toBe</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">); });   </span><span style=\"color:var(--shiki-token-comment)\">// 断言链代替裸 assert</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 发现靠框架配置的 glob，不靠命名约定</span></span></code></pre>",
           "lineCount": 3,
@@ -250,7 +236,6 @@
         "python": {
           "lang": "python",
           "equivalence": "identical",
-          "flags": [],
           "code": "def test_add():\n    assert 1 + 1 == 2      # 测试就是普通函数加裸 assert\n# 发现靠命名约定：test_*.py / test_*",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> test_add</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    assert</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-keyword)\"> ==</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">      # 测试就是普通函数加裸 assert</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 发现靠命名约定：test_*.py / test_*</span></span></code></pre>",
           "lineCount": 3,
@@ -266,12 +251,11 @@
       "chapterId": "concepts-python/05-toolchain",
       "title": "测试替身",
       "kind": "concept",
-      "summary": "猴补丁直接换属性 vs 模块级 mock 需要提升",
+      "summary": "猴补丁直接替换属性、不必提升；也可以照常注入依赖",
       "snippets": {
         "java": {
           "lang": "java",
           "equivalence": "analogous",
-          "flags": [],
           "code": "// var repo = org.mockito.Mockito.mock(Repo.class);\n// org.mockito.Mockito.when(repo.find(1)).thenReturn(user);\n// org.mockito.Mockito.verify(repo).find(1);\n\n// ⚠ 替身是**接口实现**（动态代理），所以：\n//   · 接口、非 final 类、非 final 方法才能被替身\n//   · 静态方法、构造器、final 类默认换不掉（要换得上 mockito-inline）",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// var repo = org.mockito.Mockito.mock(Repo.class);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// org.mockito.Mockito.when(repo.find(1)).thenReturn(user);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// org.mockito.Mockito.verify(repo).find(1);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 替身是**接口实现**（动态代理），所以：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   · 接口、非 final 类、非 final 方法才能被替身</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   · 静态方法、构造器、final 类默认换不掉（要换得上 mockito-inline）</span></span></code></pre>",
           "lineCount": 7,
@@ -289,7 +273,6 @@
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
-          "flags": [],
           "code": "vi.mock(\"./api\", () => ({ fetchUser: vi.fn() }));   // ⚠ 必须提升到 import 之前\nconst spy = vi.fn().mockReturnValue(1);              // 模块绑定换不动",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">vi</span><span style=\"color:var(--shiki-token-function)\">.mock</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"./api\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> () </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> ({ fetchUser</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> vi</span><span style=\"color:var(--shiki-token-function)\">.fn</span><span style=\"color:var(--shiki-foreground)\">() }));   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 必须提升到 import 之前</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> spy</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> vi</span><span style=\"color:var(--shiki-token-function)\">.fn</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-function)\">.mockReturnValue</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">);              </span><span style=\"color:var(--shiki-token-comment)\">// 模块绑定换不动</span></span></code></pre>",
           "lineCount": 2,
@@ -307,7 +290,6 @@
         "python": {
           "lang": "python",
           "equivalence": "identical",
-          "flags": [],
           "code": "def test_it(monkeypatch):\n    monkeypatch.setattr(api, \"fetch_user\", lambda: {\"id\": 1})\n    # 直接替换属性，作用域由 fixture 管，用完自动还原",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> test_it</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">monkeypatch</span><span style=\"color:var(--shiki-foreground)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    monkeypatch</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">setattr</span><span style=\"color:var(--shiki-token-punctuation)\">(api, </span><span style=\"color:var(--shiki-token-string-expression)\">\"fetch_user\"</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-keyword)\">lambda</span><span style=\"color:var(--shiki-token-punctuation)\">: {</span><span style=\"color:var(--shiki-token-string-expression)\">\"id\"</span><span style=\"color:var(--shiki-token-punctuation)\">: </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">})</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    # 直接替换属性，作用域由 fixture 管，用完自动还原</span></span></code></pre>",
           "lineCount": 3,
@@ -323,12 +305,11 @@
       "chapterId": "concepts-python/05-toolchain",
       "title": "代码检查与格式化",
       "kind": "concept",
-      "summary": "生态收敛到唯一答案 vs 规则可插拔、每个项目一套配置",
+      "summary": "检查与格式化分开，生态收敛到 ruff / black 这套答案",
       "snippets": {
         "java": {
           "lang": "java",
           "equivalence": "analogous",
-          "flags": [],
           "code": "// 静态分析是独立进程，不在编译器里，各管一摊：\n//   Checkstyle / PMD   → 风格与常见缺陷\n//   SpotBugs           → 字节码层面的 bug 模式\n//   google-java-format → 格式化\n\n// 稍特别的一条：编译器的警告本身也能当闸门用\n// javac -Xlint:all -Werror",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 静态分析是独立进程，不在编译器里，各管一摊：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   Checkstyle / PMD   → 风格与常见缺陷</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   SpotBugs           → 字节码层面的 bug 模式</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   google-java-format → 格式化</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 稍特别的一条：编译器的警告本身也能当闸门用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// javac -Xlint:all -Werror</span></span></code></pre>",
           "lineCount": 7,
@@ -340,7 +321,6 @@
         "javascript": {
           "lang": "javascript",
           "equivalence": "divergent",
-          "flags": [],
           "code": "npx eslint .                 // ⚠ 规则可插拔，每个项目一套配置\nnpx prettier --write .       // 风格与检查分离，不是「唯一答案」",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">npx eslint .                 </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 规则可插拔，每个项目一套配置</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">npx prettier </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">write .       </span><span style=\"color:var(--shiki-token-comment)\">// 风格与检查分离，不是「唯一答案」</span></span></code></pre>",
           "lineCount": 2,
@@ -358,7 +338,6 @@
         "python": {
           "lang": "python",
           "equivalence": "identical",
-          "flags": [],
           "code": "ruff check .\nruff format .\n# 风格几乎没有可选项 —— 官方偏好就是唯一答案",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">ruff check </span><span style=\"color:var(--shiki-token-punctuation)\">.</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">ruff </span><span style=\"color:var(--shiki-token-function)\">format</span><span style=\"color:var(--shiki-token-punctuation)\"> .</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 风格几乎没有可选项 —— 官方偏好就是唯一答案</span></span></code></pre>",
           "lineCount": 3,
@@ -374,12 +353,11 @@
       "chapterId": "concepts-python/05-toolchain",
       "title": "交互式环境",
       "kind": "concept",
-      "summary": "两边都有 REPL，迁移期用它在不建项目的前提下验证差异",
+      "summary": "不带参数运行 python 就进 REPL，是日常的验证工具",
       "snippets": {
         "java": {
           "lang": "java",
           "equivalence": "divergent",
-          "flags": [],
           "code": "// jshell（Java 9+）是唯一的官方 REPL：\n// jshell> int x = 1\n// jshell> x + 2\n// $2 ==> 3\n\n// ⚠ 只支持\"语句与表达式\"，不能直接贴一个带 package 声明的类；\n// 也没有 __doc__ 那种对象级文档，没有 help()\n\n// 日常的反馈循环在 IDE 里：改一行 → 编译 → 跑测试",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// jshell（Java 9+）是唯一的官方 REPL：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// jshell> int x = 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// jshell> x + 2</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// $2 ==> 3</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 只支持\"语句与表达式\"，不能直接贴一个带 package 声明的类；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 也没有 __doc__ 那种对象级文档，没有 help()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 日常的反馈循环在 IDE 里：改一行 → 编译 → 跑测试</span></span></code></pre>",
           "lineCount": 9,
@@ -397,7 +375,6 @@
         "javascript": {
           "lang": "javascript",
           "equivalence": "identical",
-          "flags": [],
           "code": "node\n> [1, 2, 3].map((x) => x * 2)\n[ 2, 4, 6 ]",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">node</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-function)\">.map</span><span style=\"color:var(--shiki-foreground)\">((x) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[ </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 4</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 6</span><span style=\"color:var(--shiki-foreground)\"> ]</span></span></code></pre>",
           "lineCount": 3,
@@ -409,7 +386,6 @@
         "python": {
           "lang": "python",
           "equivalence": "identical",
-          "flags": [],
           "code": "python\n>>> [x * 2 for x in [1, 2, 3]]\n[2, 4, 6]",
           "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">python</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">>>></span><span style=\"color:var(--shiki-foreground)\"> [x </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-keyword)\"> for</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">]]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 4</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 6</span><span style=\"color:var(--shiki-foreground)\">]</span></span></code></pre>",
           "lineCount": 3,
