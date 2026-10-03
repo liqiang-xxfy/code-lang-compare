@@ -1,0 +1,156 @@
+# java —— model / modules
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: modules` 的那批。
+# 这一组以 Java 为基准时展示在「包与模块」章（见 catalog/model/java.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-modules-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  module-unit:
+    code: |
+      package com.example.shop;        // @note 包声明：命名空间的真源
+
+      public class Order { }           // @note 模块的单位是**类**，不是文件
+      class Helper { }                 // @note 同一个文件里可以放多个类
+
+      // module-info.java（JPMS，Java 9+）：一个模块显式声明依赖与导出
+      // module com.example.shop {
+      //     requires java.sql;
+      //     exports com.example.shop.api;
+      // }
+    baseline: |
+      模块的单位是**类**（一个文件可以放多个类），命名空间靠 `package` 声明 ——
+      与目录结构是约定关系而不是强制。更大的单位是 JPMS 的模块：
+      `module-info.java` 里显式声明需要哪些模块、对外导出哪些包，
+      这是一层可选的强封装（不带它就在类路径上跑）。
+    vs:
+      javascript: |
+        JavaScript 里「文件 = 模块」，包是目录加的额外一层；Java 里「类 = 模块」，
+        文件只是装类的容器。Java 的包名与目录结构是约定，JavaScript 的路径
+        必须与真实文件一一对应。
+      python: |
+        Python 是「文件 = 模块、目录（含 `__init__.py`）= 包」，两层嵌套；
+        Java 的基本单位是类，包只是命名空间。另一处差别是 Java 有 JPMS 这一层
+        显式的模块依赖声明，Python 没有对应物。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  export-import:
+    code: |
+      import java.util.List;              // @note 只给类型起短名，不加载任何东西
+      import java.util.*;                 // @note 通配：整个包（不含子包）
+
+      public class Order {
+        private List<String> items;       // @note 用短名
+      }
+
+      // @note 不写 import 也能用，写全限定名就行：
+      // java.util.Map<String, Integer> m = new java.util.HashMap<>();
+    baseline: |
+      `import` 是**编译期的起名声明**，不加载任何东西 —— 类什么时候被加载由 JVM
+      决定。通配 `import java.util.*` 只覆盖该包下的类型，不含子包。
+      不写 import 也完全可以，写全限定名即可（重名时这是唯一办法）。
+    vs:
+      javascript: |
+        这个 import 不产生任何运行时行为，JavaScript 的 import 会真的把模块拉进来
+        并执行一次。所以「导入顺序」在 Java 里无所谓，在 JavaScript 里能决定
+        副作用谁先跑。
+      python: |
+        Python 的 import 是运行时语句、会执行整个模块；Java 的 import 只是起名，
+        删掉它代码照样跑（改成全限定名即可）。一边是行为、一边是记号。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  default-vs-named:
+    code: |
+      public class Order {          // @note public：任何包都能用
+        public int id;              // @note 谁都能访问
+        protected int total;        // @note 本包 + 子类
+        int internal;               // @note 不写修饰符 = 包内可见
+        private String secret;      // @note 只有本类
+
+        public static void main(String[] args) { }
+        static void helper() { }    // @note 包内可见
+      }
+
+      import static java.lang.Math.max;   // @note 静态导入：直接写 max(...)
+    baseline: |
+      **没有「导出清单」这个概念** —— 可见性由每个成员上的修饰符决定：
+      `public` 谁都能用、`protected` 本包加子类、不写是包内可见、`private` 仅本类。
+      粒度细到单个字段与方法。`import static` 把某个类的静态成员导入当前类，
+      写起来短一些。
+    vs:
+      javascript: |
+        JavaScript 在模块层面决定「导出什么」，粒度是名字；Java 在**每个成员**
+        上决定可见性，粒度是成员。Java 因此没有「一个模块一个默认导出」这种概念。
+      python: |
+        Python 的「私有」只有下划线约定，语言不强制；Java 有四个层级的修饰符，
+        编译器逐个检查。一边靠约定、一边靠类型系统，这是两者最根本的差别之一。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  namespace-alias:
+    code: |
+      // @note! Java 没有别名机制 —— 重名只能写全限定名
+      java.util.Date utilDate = new java.util.Date();
+      java.sql.Date sqlDate = new java.sql.Date(0);
+
+      // 常见的绕法：只 import 一个，另一个写全
+      import java.util.Date;
+      // 下面这个必须写全路径
+      java.sql.Date d = new java.sql.Date(0);
+
+      // 或者包一层自己的类型
+      class Dates { static java.sql.Date sqlDate(long t) { return new java.sql.Date(t); } }
+    baseline: |
+      **没有给类型起别名的手段**。同一个简单名在一个编译单元里只能指向一个类型，
+      重名时必须有一方写全限定名 —— 或者自己包一层静态方法当门面。
+      包本身也没有别名，`package` 名写多长就是多长。
+    vs:
+      javascript: |
+        JavaScript 的 `import { x as y }` 与 `import * as ns` 随手就能解决重名；
+        Java 只能退回到全限定名。所以 Java 代码里出现长长的全路径是有原因的，
+        不是风格问题。
+      python: |
+        Python 的 `import x as y` 同样随手可用，Java 完全没有对应语法。
+        两边的包名都可能很长，区别是 Python 能用一个短别名收住，
+        Java 只能每次写全。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  module-resolution:
+    code: |
+      // 包名与目录结构约定一致（不是语法强制，但工具链都按它来）
+      //   src/main/java/com/example/shop/Order.java
+      //   package com.example.shop;
+
+      // 编译与运行时靠 classpath / module path 找类
+      //   javac -cp lib/*.jar src/...
+      //   java  -cp out:lib/*.jar com.example.shop.Main
+
+      // @note! 同一个类出现在两个 jar 里时，谁先生效取决于 classpath 顺序
+    baseline: |
+      包名与**目录结构**约定一一对应，但这是工具链的约定而不是语法强制。
+      编译与运行都靠 classpath（或 JPMS 的 module path）搜索：
+      按路径顺序找第一个匹配的类。同名类冲突、版本冲突都源于这个顺序。
+    vs:
+      javascript: |
+        JavaScript 的模块解析由代码里的路径与 `package.json` 决定，结果是确定的；
+        Java 靠 classpath 搜索，同一个程序换个 classpath 顺序可能加载到不同的类。
+      python: |
+        两者都是「按顺序搜索」：Java 用 classpath，Python 用 `sys.path`，
+        连「同名谁先生效」这类问题都一样。差别在 Java 的包名与目录必须严格对应，
+        Python 的包靠 `__init__.py` 标记，目录位置相对宽松。
+    equivalence:
+      javascript: divergent
+      python: analogous

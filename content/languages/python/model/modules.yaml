@@ -1,0 +1,156 @@
+# python —— model / modules
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: modules` 的那批。
+# 这一组以 Python 为基准时展示在「模块与包」章（见 catalog/model/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-modules-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  module-unit:
+    code: |
+      # 一个文件就是一个模块
+      _secret = 1          # @note 下划线只是约定，外部照样能取
+      shared = 2           # @note 顶层名字默认就是「导出」的
+
+      if __name__ == "__main__":     # @note 直接被运行时才为真，被导入时为假
+          main()
+
+      # 包 = 一个目录（含 __init__.py），目录名就是包的顶层名字
+    baseline: |
+      **一个文件就是一个模块**，一个目录（含 `__init__.py`）就是一个包。
+      模块顶层没有「私有」这个概念 —— 下划线开头只是约定。`__name__`
+      是被导入还是被直接运行的分水岭，`if __name__ == "__main__":` 是标准写法。
+      **导入会执行整个文件**，顶层语句在第一次导入时跑一遍。
+    vs:
+      javascript: |
+        JavaScript 靠 `export` 明确列出对外暴露什么，模块里其余顶层名字是私有的；
+        Python 反过来 —— 顶层名字默认全公开，靠下划线「表示」内部。
+        两边都是「一个文件一个模块」，但默认值相反。
+      java: |
+        Java 的模块单位是**类**，一个文件可以有多个类，命名空间靠 `package`
+        声明（与目录位置只是约定关系）。Python 的文件、包、模块三者层层嵌套，
+        与 Java 的类 / 包两级结构不是一回事。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  export-import:
+    code: |
+      import os                       # @note 导入模块，用 os.path 访问
+      from os import path             # @note 只取一个名字
+      from os.path import join, exists
+      import json, csv                # @note 一行多个
+
+      # @note import 是**运行时语句**，可以写在函数里、可以条件导入
+      def load():
+          import ujson               # @note 用到时才导入
+          return ujson
+
+      # @note! 循环导入会让其中一方拿到半成品模块
+    baseline: |
+      两种写法：`import 模块`（用模块名当命名空间）与 `from 模块 import 名字`
+      （把名字取进当前作用域）。**没有导出声明** —— 模块顶层的名字都可见。
+      `import` 是普通语句：可以写在函数里、可以在 `if` 里、可以延迟到真正需要时，
+      代价是循环导入会出问题（一方拿到还没执行完的模块）。
+    vs:
+      javascript: |
+        JavaScript 的导入是静态声明，只能写在顶层、路径必须是字面量；
+        Python 的 import 是运行时语句，放哪都行。反过来 JavaScript 要显式
+        `export` 才可见，Python 顶层名字默认全可见。
+      java: |
+        Java 的 `import` 只给类型起短名、不加载任何东西；Python 的 import 会真的
+        把模块找出来并执行一遍。所以「导入有副作用」这件事在 Java 里不存在，
+        在 Python 里是必须记住的前提。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  default-vs-named:
+    code: |
+      # 只有「具名」这一种：模块顶层的名字就是导出
+      x = 1
+      def f(): pass
+
+      # __all__ 控制 from m import * 会带走哪些名字（不影响直接访问）
+      __all__ = ["x", "f"]
+
+      from m import *        # @note! 只带 __all__ 里的；没定义 __all__ 则带所有
+                             #        不以 _ 开头的顶层名字
+    baseline: |
+      **没有默认导出** —— 模块顶层的名字就是它的全部导出。`__all__` 只影响
+      `from m import *` 这一种写法（决定通配导入会带走哪些名字），
+      对 `m.x` 或 `from m import x` 没有任何约束。所以「私有」在语言层面不存在，
+      只有下划线这个社区约定。
+    vs:
+      javascript: |
+        JavaScript 把默认可访问的顶层名字反过来 —— 不 `export` 就是私有，
+        还区分默认导出（一个）与具名导出（多个）。Python 只有具名那一种，
+        而且默认全公开。
+      java: |
+        Java 用 `public` / `private` 在**每个成员**上标可见性，粒度细到字段与方法；
+        Python 只有模块级的下划线约定，类内部靠 `_` 与 `__` 前缀表示。
+        语言强制的程度差得很远。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  namespace-alias:
+    code: |
+      import numpy as np                 # @note 模块别名
+      from numpy import array as arr     # @note 名字别名
+      from collections import OrderedDict as OD
+
+      # 包也一样：import 包.子模块
+      import xml.etree.ElementTree as ET
+
+      # @note! from m import * 会把名字摊进当前作用域，容易撞名
+    baseline: |
+      `import m as alias` 给模块起短名，`from m import n as alias` 给名字起短名 ——
+      两种需求两种写法。「包 + 子模块」用点号连起来，别名作用在整条路径上
+      （`import xml.etree.ElementTree as ET` 之后 `ET` 就是那个子模块）。
+    vs:
+      javascript: |
+        两边都能给模块与名字起别名，`as` 的用法几乎逐字对应。差别在通配导入：
+        Python 的 `from m import *` 把名字摊进当前作用域，JavaScript 的
+        `import * as ns` 是收进一个对象、不污染本地命名空间。
+      java: |
+        Java 没有别名，类型重名只能写全限定名。Python 与这里都能随手起短名，
+        所以「`np` 是什么」这件事在 Java 里不存在 —— 名字就是类型名本身。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  module-resolution:
+    code: |
+      import sys
+      sys.path                       # @note 模块的搜索路径（列表）
+      sys.path.insert(0, "/my/lib")  # @note 临时加一条
+
+      from . import sibling          # @note 相对导入：同一个包内
+      from ..pkg import thing        # @note 上一级
+
+      # @note! 直接运行一个文件时，它不属于任何包 —— 相对导入会失败
+      # @note! 同名模块谁先被找到就用谁，"导入的是哪个"取决于 sys.path 顺序
+    baseline: |
+      按 **`sys.path` 列表顺序搜索**：当前目录（脚本所在目录，不是 cwd）、
+      标准库、已安装的包，找到第一个匹配就停。包内部可以用相对导入
+      （`from . import x`），但直接执行某个文件时它不属于任何包，相对导入会失败。
+      「装了两个同名包谁生效」这类问题都源于这个搜索顺序。
+    vs:
+      javascript: |
+        JavaScript（ESM）的解析是确定的：路径怎么写在代码里，模块就怎么定位，
+        不依赖搜索顺序。Python 依赖 `sys.path` 的先后 —— 同一个 import 在不同
+        环境里可能解析到不同的文件。
+      java: |
+        两者都靠「路径 + 顺序」搜索：Python 是 `sys.path`，Java 是 classpath。
+        共同的问题是同名谁先生效；共同的解法是把顺序管理交给构建工具。
+        Java 的包名与目录结构绑定更严，Python 的包则是靠 `__init__.py` 显式标记。
+    equivalence:
+      javascript: divergent
+      java: analogous

@@ -164,8 +164,10 @@ describe('章节分组随基准变，内容不随', () => {
       expect(g.file.replace(/\\/g, '/')).toMatch(
         new RegExp(`languages/javascript/${g.section}/${g.group}\\.yaml$`),
       )
-      // 存放组必须来自**池**（与基准无关的那一层），不是某个基准的章节 id
-      expect(groupsOfPool(expressPool)).toContain(g.group)
+      // 存放组必须来自**本板块的池**（与基准无关的那一层），不是某个基准的章节 id
+      const pool = pools.find((p) => p.section === g.section)!
+      expect(pool, `没有 ${g.section} 的池`).toBeTruthy()
+      expect(groupsOfPool(pool)).toContain(g.group)
     }
     const bindings = js.find((g) => g.group === 'bindings')!
     expect(Object.keys(bindings.boxes).sort()).toEqual([
@@ -179,17 +181,20 @@ describe('章节分组随基准变，内容不随', () => {
   })
 
   it('box 的 key 必须是池里该存放组的 feature —— 别的组的 key 会被 R21 拦住', () => {
-    const groupMembers = new Set(
-      expressPool.features.filter((f) => f.group === 'bindings').map((f) => f.id),
-    )
+    // 必须按 (板块, 存放组) 取成员：同一个组名可以出现在不同板块的池里
+    // （如 express 与 model 都有 collections 之外的同名情况），拿错池会得出相反结论
+    const membersOf = (section: string, group: string) => {
+      const pool = pools.find((p) => p.section === section)!
+      return new Set(pool.features.filter((f) => f.group === group).map((f) => f.id))
+    }
     for (const lang of ['javascript', 'python']) {
-      for (const g of loadPoolLanguageContent(lang, pools)) {
-        const members = new Set(
-          expressPool.features.filter((f) => f.group === g.group).map((f) => f.id),
-        )
+      const files = loadPoolLanguageContent(lang, pools)
+      expect(files.length).toBeGreaterThan(0)
+      for (const g of files) {
+        const members = membersOf(g.section, g.group)
+        expect(members.size, `${g.section}/${g.group} 在池里没有成员`).toBeGreaterThan(0)
         for (const key of Object.keys(g.boxes)) expect(members.has(key), `${lang}/${key}`).toBe(true)
       }
-      expect(groupMembers.size).toBeGreaterThan(0)
     }
   })
 })
