@@ -1,0 +1,260 @@
+# rust —— model / objects
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: objects` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-objects-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  class-declaration:
+    code: |
+      struct Account {              // @note 数据：只有字段
+        owner: String,
+        balance: i64,
+      }
+
+      impl Account {                // @note 行为：另一个代码块，可以写多个 impl
+        fn deposit(&mut self, n: i64) {
+          self.balance += n;
+        }
+      }
+
+      impl Account {                // @note 再开一个 impl 也合法（常用于条件编译或拆分）
+        fn owner_name(&self) -> &str { &self.owner }
+      }
+
+      // @note! Rust 没有 class 关键字 —— 数据与行为是分开声明的
+    vs:
+      javascript: |
+        JavaScript 用 `class` 把数据（字段）与行为（方法）写在一个块里；
+        Rust 把它们**分开**：`struct` 只放字段，`impl` 块放方法，
+        而且可以写多个 `impl`。更根本的差别是 Rust 没有 `this` 隐式绑定、
+        没有构造器、没有继承 —— 读 Rust 的「类」时，
+        要同时看 `struct` 定义和它所有的 `impl` 块才完整。
+      python: |
+        Python 的 `class` 把字段（在 `__init__` 里）与方法写在一起，
+        属性查找是运行时的；Rust 的 `struct` 只声明字段、`impl` 放方法，
+        方法在编译期绑定。另一个显著差别是 Python 的实例可以随时
+        加新属性，Rust 的结构体字段在编译期就固定了，多一个都没有。
+      java: |
+        Java 的 `class` 把字段与方法写在同一个花括号里，Rust 分成
+        `struct` + `impl`。这个分离不是为了啰嗦：它让「这个类型有哪些数据」
+        与「它提供哪些能力」成为两个独立可查的东西，
+        而且 `impl` 可以写在别的模块里（只要类型在本 crate）。
+        Java 的类必须在运行时加载，Rust 的 impl 在编译期就全部确定。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  constructor:
+    code: |
+      impl Account {
+        fn new(owner: &str) -> Self {          // @note new 只是个惯例名，不是关键字
+          Account { owner: owner.to_string(), balance: 0 }
+        }
+      }
+      let a = Account::new("Ada");
+
+      // 也可以定义别的名字，表达不同语义
+      impl Account {
+        fn empty() -> Self { Account::new("") }
+        fn with_balance(owner: &str, n: i64) -> Self {
+          Account { owner: owner.into(), balance: n }
+        }
+      }
+
+      #[derive(Default)]                        // @note derive 出「零值构造」
+      struct Config { retries: u32 }
+      let c = Config::default();
+
+      // 字面量构造也是一等写法
+      let b = Account { owner: "Bob".into(), balance: 100 };
+    vs:
+      javascript: |
+        JavaScript 的 `constructor` 是关键字，`new Account(...)` 会分配对象
+        并调用它；Rust 的 `new` 只是**一个普通函数**（关联函数），
+        惯例叫 `new`，也可以叫别的名字，而且可以有好几个。
+        调用语法也不同：`Account::new("Ada")` 而不是 `new Account("Ada")`。
+        结构体字面量 `Account { … }` 是最直接的构造方式，
+        字段少一个都不行 —— JavaScript 的对象字面量可以少字段。
+      python: |
+        Python 的 `__init__` 是运行时被调用的初始化钩子（实例已存在），
+        `__new__` 才负责分配；Rust 没有这套 —— `Account::new(...)`
+        直接返回一个构造好的结构体值，没有分两步。
+        Rust 也可以直接用字面量 `Account { … }` 构造（前提是字段可见），
+        这在 Python 里对应 `Account(...)` 或 dataclass 的构造器。
+        `#[derive(Default)]` 提供 `Default::default()`，类似 dataclass 的默认值。
+      java: |
+        Java 的构造器与类同名、没有返回类型、可以重载；
+        Rust 的 `new` 是普通关联函数，有返回类型 `Self`，
+        可以起任何名字（`empty` / `with_balance`），
+        因此「构造语义不同的多个入口」在 Rust 里更自然 ——
+        Java 里只能靠重载，参数类型撞上了就没法表达。
+        两边都能直接构造：Java `new Account(...)`，Rust `Account { … }`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  fields-and-properties:
+    code: |
+      pub struct User {
+        pub name: String,        // @note 导出字段：外部可读可写
+        age: u32,                // @note! 私有字段：外部构造不了、也读不到
+      }
+
+      impl User {
+        pub fn age(&self) -> u32 { self.age }        // @note 想要只读就用方法暴露
+        pub fn set_age(&mut self, a: u32) { self.age = a; }
+      }
+
+      // 外部：User { name: "Ada".into(), age: 30 }  // @note! 编译错误，age 私有
+      // 只能走 User::new(...) 之类的入口
+
+      // 派生 getter 的库：getset / derive_getters
+    vs:
+      javascript: |
+        JavaScript 的类字段默认就是公开的，`#private` 才私有；
+        Rust 的结构体字段**默认全部私有**，要公开得逐个 `pub` ——
+        默认值是反的。更重要的是 Rust 没有「属性」这个概念：
+        JavaScript 可以用 getter/setter 拦截读写，
+        Rust 只能写普通方法，读的时候必须带括号（`u.age()` 而不是 `u.age`）。
+      python: |
+        Python 的属性默认公开，`_x` 只是约定，`@property` 能把方法伪装成属性；
+        Rust 的字段默认私有且**由编译器强制**，外部根本写不出
+        `u.age` 这个表达式。Rust 也没有 `@property` 那种透明拦截 ——
+        暴露只读字段就是写一个 `age()` 方法，调用点带上括号，
+        读代码时「这是取字段还是算出来的」一眼可辨。
+      java: |
+        Java 的字段默认包私有，惯例是写 `private` 字段加 getter/setter；
+        Rust 的字段默认**模块私有**（比包更细），惯例是
+        「该公开的直接 `pub`，该只读的用方法暴露」——
+        Rust 社区不像 Java 那样给每个字段都配 getter，
+        因为借用检查已经保证了可变性由 `&mut` 显式表达。
+        两边都没有真正的属性拦截（Java 有 JavaBeans 惯例但不拦访问）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  methods-and-receiver:
+    code: |
+      impl User {
+        fn name(&self) -> &str { &self.name }          // @note 只读借用
+        fn rename(&mut self, n: &str) { self.name = n.into(); }   // @note 可变借用
+        fn into_name(self) -> String { self.name }     // @note! 消耗自身，调用后变量没了
+      }
+
+      let mut u = User { name: "Ada".into(), age: 30 };
+      println!("{}", u.name());     // @note 不可变借用
+      u.rename("Bob");              // @note 可变借用 —— 调用点不需要额外标记
+      let n = u.into_name();        // @note! u 被移走，之后不能再用 u
+
+      // 关联函数（没有 self）用 :: 调用
+      // User::new("x")
+    vs:
+      javascript: |
+        JavaScript 的方法通过 `this` 拿到实例，`this` 是隐式的、可以丢；
+        Rust 的 receiver 是**第一个参数**（`&self` / `&mut self` / `self`），
+        写在签名里，调用点不需要额外标记。三种 receiver 表达了
+        「只读 / 要改 / 拿走所有权」，JavaScript 里只有一种情况 ——
+        `this` 永远能改、也永远不会被消耗。
+      python: |
+        Python 的 `self` 也是显式第一个参数，与 Rust 最接近；
+        差别在 Rust 要写 `&self` / `&mut self` / `self` 三种形式，
+        分别表示借用、可变借用、拿走 —— Python 里 `self` 永远是引用，
+        想表达「这个方法会消耗对象」没有语法。
+        调用上 Rust 的 `u.rename("Bob")` 与 Python 的 `u.rename("Bob")` 一样，
+        但 Rust 会检查此时 u 有没有被别的引用占着。
+      java: |
+        Java 的方法有隐式 `this`，没有「消耗自身」的概念 ——
+        对象由 GC 管，谁都能持有。Rust 的 `self` receiver
+        （不带 `&`）会**移动**结构体，调用后原变量失效，
+        这在 Java 里完全不存在。另一方面 Rust 的
+        `&self` / `&mut self` 让「这个方法会不会改我」
+        成为签名的一部分，Java 里只能靠命名（`setX`）或文档暗示。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  inheritance:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有继承** —— 没有 `extends`、没有原型链、没有类层级。
+        想法是：共享行为用 trait（接口）表达，共享数据用组合
+        （把另一个结构体当字段）。JavaScript 的 `extends` 在 Rust 里
+        的对应物是两个东西：想要「是一类」用 `impl Trait for T`，
+        想要「有一份」就把那个类型作为字段。
+        这也是 Rust 里看不到深继承树的原因 —— 语言不给你造。
+      python: |
+        Rust **没有继承**，Python 的 `class B(A)` 在 Rust 里没有对应语法。
+        共享行为用 trait 实现（可以给任何类型实现，包括别人的类型），
+        共享状态用组合（结构体里放另一个结构体）。
+        Python 的 MRO、`super()`、多继承菱形问题在 Rust 里都不存在 ——
+        因为没有继承这回事。代价是「复用一份实现」要显式写
+        默认方法或把公共部分抽成独立类型。
+      java: |
+        Rust **没有继承** —— 没有 `extends`，也就没有
+        「子类是一种父类」这层类型关系。Java 的 `extends` 在 Rust 里
+        要拆成两件事：`implements` 那部分用 `impl Trait for T`，
+        「复用父类字段与方法」那部分用组合加手写转发，
+        或者用 trait 的默认方法。Rust 因此没有虚函数表继承、
+        没有 `super` 调用、也没有「向上转型」——
+        需要多态时一律走 trait 对象或泛型。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  access-control:
+    code: |
+      pub struct Api {
+        pub name: String,           // @note 到处可见
+        pub(crate) inner: u32,      // @note 只在本 crate 内可见
+        pub(super) sibling: u32,    // @note 只在父模块可见
+        secret: u32,                // @note 默认：本模块及子模块
+      }
+
+      pub mod inner {
+        pub fn helper() {}
+        pub(in crate::api) fn scoped() {}   // @note 指定可见范围
+      }
+
+      // 类型本身也要 pub，否则外部连名字都写不出来
+      pub enum Level { Low, High }   // @note enum 的变体随 enum 一起公开
+    vs:
+      javascript: |
+        JavaScript 只有两档：公开（默认）与 `#` 私有（真私有）。
+        Rust 有四档以上：默认模块私有、`pub`、`pub(crate)`、`pub(super)`，
+        还能指定具体路径。默认值是反的 —— JavaScript 不写就是公开，
+        Rust 不写就是私有。Rust 的「模块私有」允许子模块看到父模块的私有项，
+        这一点 JavaScript 里没有对应机制。
+      python: |
+        Python 的可见性全是约定：`_x` 提示内部、`__x` 触发名称改写，
+        但解释器不拦任何访问；Rust 的 `pub` 由编译器强制，
+        而且有 `pub(crate)` / `pub(super)` 这些精确粒度。
+        Python 里没有「这个模块内的东西只给本包用」这种语言级表达，
+        只能靠 `__all__` 与文档；Rust 一个关键字就够。
+      java: |
+        Java 是 `public` / `protected` / 包私有 / `private` 四档，
+        Rust 是 `pub` / `pub(crate)` / `pub(super)` / 模块私有 ——
+        两边都有中间档，但范围定义不同：Java 的「包私有」按包划分，
+        Rust 的 `pub(crate)` 按整个 crate（可能含多个模块）。
+        Java 有 `protected`（子类可见），Rust 没有 —— 因为没有继承。
+        Rust 的默认是私有，Java 的默认（成员）是包私有，都不写就是最窄的一档。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

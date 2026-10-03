@@ -1,0 +1,237 @@
+# go —— model / objects
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: objects` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-objects-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  class-declaration:
+    code: |
+      type Account struct {          // @note 数据
+        Owner   string
+        balance int64                // @note 小写 = 包内私有
+      }
+
+      func (a *Account) Deposit(n int64) {   // @note! 行为写在函数上，receiver 决定它属于谁
+        a.balance += n
+      }
+
+      func (a Account) OwnerName() string { return a.Owner }
+
+      // @note! Go 没有 class 关键字 —— 类型 + 方法就是全部
+    vs:
+      javascript: |
+        JavaScript 用 `class` 把字段和方法包在一起；Go 用
+        `type X struct` 定义数据、用带 receiver 的函数定义方法 ——
+        两者在源码里是分开的，方法可以写在**同一个包里的任何文件**里。
+        另一处根本差别：Go 的方法必须与类型在同一个包，
+        不像 JavaScript 可以把方法挂到任何对象上。
+      python: |
+        Python 的类把属性与方法写在一起、实例可以随时加属性；
+        Go 的类型与方法分开声明，而且字段在编译期固定 ——
+        没有 `__dict__`、不能动态加字段。方法的 receiver
+        相当于 Python 的 `self`，但它写在 `func` 关键字后、
+        方法名之前，形态上是「给这个类型挂一个函数」。
+      java: |
+        Java 的类里字段与方法同处一个花括号，Go 分成
+        `type` 声明与带 receiver 的函数。最实际的差别是
+        **Go 可以给任何本包定义的类型加方法**（包括 `type MyInt int`），
+        Java 想给已有类型加方法只能继承或包装。
+        Go 的方法也不能重载 —— 同一个类型上同名方法只能有一个。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  constructor:
+    code: |
+      func NewAccount(owner string) *Account {   // @note 惯例：New + 类型名，返回指针
+        return &Account{Owner: owner}
+      }
+
+      func NewAccountWithBalance(owner string, n int64) *Account {
+        return &Account{Owner: owner, balance: n}
+      }
+
+      // 也可以直接构造字面量（字段导出时）
+      a := Account{Owner: "Ada"}
+      b := &Account{Owner: "Bob"}      // @note 取地址，得到指针
+
+      // 零值可用是 Go 的设计目标：很多类型不写构造函数也能直接用
+      var c Account                    // @note 字段全是零值，可以直接调用方法
+    vs:
+      javascript: |
+        JavaScript 用 `constructor` 关键字配 `new`；Go 没有构造器语法，
+        惯例是写一个 `NewXxx` 函数返回 `*Xxx`。调用形态也不同：
+        `NewAccount("Ada")` 就是一次普通函数调用，没有 `new` 运算符。
+        另一处差别是 Go 的类型**零值可用** —— `var c Account` 之后
+        直接能调方法，JavaScript 里 `new` 之前对象根本不存在。
+      python: |
+        Python 用 `__init__`（实例已存在后初始化）；Go 用
+        `NewXxx` 工厂函数返回结构体或指针，没有两步过程。
+        Go 还能直接用字面量 `Account{Owner: "Ada"}` 构造，
+        这在 Python 里相当于 dataclass 的直接调用。
+        零值可用也是 Go 特有的设计：`var c Account` 就是个合法可用的值。
+      java: |
+        Java 的构造器与类同名、可重载；Go 的 `NewXxx` 是普通函数，
+        名字自由（`NewAccountWithBalance`），因此「多种构造语义」
+        表达得更清楚 —— Java 里只能靠参数列表区分。
+        返回指针还是值也是 Go 要显式做的选择：`NewAccount` 惯例返回 `*Account`，
+        因为结构体按值传会整体复制。Java 的对象天生是引用，没有这个选择。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  fields-and-properties:
+    code: |
+      type User struct {
+        Name string        // @note 导出：外部可读可写
+        age  int           // @note! 私有：外部连构造都构造不出来（除非有 NewXxx）
+      }
+
+      func (u *User) Age() int { return u.age }     // @note 暴露只读用方法
+      func (u *User) SetAge(a int) { u.age = a }
+
+      // 没有 getter/setter 惯例 —— 社区倾向直接把字段导出
+      type Point struct{ X, Y int }        // @note 简单数据直接公开字段
+
+      // JSON 序列化只看导出字段：小写字段不会被编码
+      data, _ := json.Marshal(User{Name: "Ada"})
+    vs:
+      javascript: |
+        JavaScript 的字段默认公开、`#` 才私有；Go 的字段**默认包内私有**，
+        大写才导出 —— 默认值相反。Go 没有属性（getter/setter 拦截），
+        也没有 `Object.defineProperty` 那套；想只读就写个 `Age()` 方法。
+        最实际的一处是：Go 的 JSON 序列化**只处理导出字段**，
+        小写字段会被静默忽略 —— JavaScript 的 `JSON.stringify`
+        不会漏字段，但 Go 里字段名写小了就是数据丢失。
+      python: |
+        Python 的字段默认公开、`_x` 只是约定、`@property` 能拦截；
+        Go 的字段默认私有且编译器强制，没有属性拦截这一层。
+        Go 的导出规则还决定了序列化行为：小写字段不会被 JSON 编码，
+        这在 Python 里没有对应陷阱（`dataclasses.asdict` 不看下划线）。
+        两边都有「简单数据直接公开」的写法，Go 更常见。
+      java: |
+        Java 惯例是 `private` 字段配 getter/setter；Go 用首字母大小写，
+        惯例是**该公开就直接大写，需要保护的才留小写**——
+        不像 Java 那样每个字段都套一层方法。
+        序列化上 Java 靠注解（Jackson 的 `@JsonProperty`）能处理私有字段，
+        Go 的标准库只看导出与否，小写字段一律不编码 —— 更简单也更硬。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  methods-and-receiver:
+    code: |
+      type Counter struct{ n int }
+
+      func (c Counter) Value() int   { return c.n }    // @note 值 receiver：拿到的是副本
+      func (c *Counter) Inc()        { c.n++ }          // @note! 指针 receiver：改到原值
+      func (c *Counter) Reset()      { *c = Counter{} }
+
+      c := Counter{}
+      c.Inc()                       // @note Go 自动取地址：等价于 (&c).Inc()
+      c.Value()
+
+      // 值 receiver 的方法改不动原值 —— 这是最常见的错误来源
+      func (c Counter) BadInc() { c.n++ }    // @note! 调用后 c.n 没变
+    vs:
+      javascript: |
+        JavaScript 的方法通过 `this` 拿到对象，改 `this.x` 一定改到原对象；
+        Go 的 receiver 有两种，**值 receiver 拿到的是副本** ——
+        在它里面改字段改不到调用方。这个区分是 Go 特有的，
+        从 JavaScript 过来最容易写出「方法里改了但外面没变」的 bug，
+        而且编译器不报错。惯例是：要改就用指针 receiver，类型上保持一致。
+      python: |
+        Python 的 `self` 永远是引用，改 `self.x` 一定改到原对象；
+        Go 的 receiver 分值与指针两种，值 receiver 里改字段无效 ——
+        这是从 Python 过来最需要养成的新习惯。判断方法：
+        receiver 带 `*` 才能改到原值。同一个类型上混用两种 receiver
+        是允许的但会造成困惑，Go 社区建议统一。
+      java: |
+        Java 的 `this` 是引用，改字段一定改到原对象，没有「副本 receiver」这回事；
+        Go 的值 receiver 相当于把结构体复制一份再调用 ——
+        这是 Java 里完全不存在的语义。Go 的方法集规则也更细：
+        值类型只拥有值 receiver 的方法，指针类型两者都有，
+        这直接影响接口能否被满足（`*T` 能满足的接口 `T` 不一定能）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  inheritance:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有继承** —— 没有 `extends`、没有原型链。
+        复用靠**嵌入**：把一个类型作为匿名字段放进去，
+        它的方法与字段被「提升」到外层，但这不是「是一种」的关系。
+        JavaScript 的 `class B extends A` 在 Go 里对应的是
+        `type B struct { A }` —— 差别是 B 并不是 A，
+        传参给要 A 的地方不会自动成立。
+      python: |
+        Go **没有继承**，Python 的 `class B(A)` 没有对应语法。
+        复用靠嵌入（匿名结构体字段），外层类型获得内层的方法与字段，
+        但**没有子类型关系** —— 这与 Python 的继承有本质区别：
+        Python 里 `isinstance(b, A)` 为真，Go 里 B 不是 A。
+        需要「是一种」的关系时，Go 用接口（并且是隐式满足的）。
+      java: |
+        Go **没有继承** —— 没有 `extends`，也没有 `super`。
+        复用靠嵌入（匿名字段）：外层类型可以直接调用内层的方法，
+        看起来像继承，但**没有子类型关系**，也不能覆写后多态调用到子类
+        （嵌入的方法调用的是内层实现）。Java 的 `extends` 解决的两件事
+        在 Go 里被拆开：代码复用用嵌入，多态用接口。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  access-control:
+    code: |
+      type Api struct {
+        Name   string    // @note 导出
+        secret int       // @note 包内私有
+      }
+
+      func Exported() {}    // @note 导出
+      func internal() {}    // @note 包内私有
+
+      // 包级边界：internal/ 目录下的包只能被其父目录子树导入
+      // import "github.com/me/app/internal/store"
+
+      // 没有 protected、没有 friend、没有模块级可见性修饰符
+    vs:
+      javascript: |
+        JavaScript 只有两档：默认公开、`#` 真私有（类字段）。
+        Go 也是两档（导出 / 包内私有），但**判据是首字母大小写**，
+        而且作用范围是「包」而不是「类」—— Go 里没有类作用域。
+        另一个 Go 独有的机制是 `internal/` 目录：路径里含 internal 的包
+        只能被父目录子树导入，这是 JavaScript 里没有的语言级边界。
+      python: |
+        Python 的可见性全是约定（`_` / `__` 前缀），解释器不拦；
+        Go 的导出由编译器强制，大小写写错就是编译不过。
+        粒度上 Go 只有「包内 / 包外」两档，Python 连这两档都靠自觉。
+        Go 还多一个 `internal/` 包约定，用目录位置表达「仅供内部使用」，
+        比 Python 的命名约定硬得多。
+      java: |
+        Java 四档（`public` / `protected` / 包私有 / `private`），
+        Go 只有两档（导出 / 包内私有）—— 没有 `protected`（没有继承）、
+        没有类级私有（没有类）。Go 的「包内私有」比 Java 的
+        「包私有」范围更大（一个目录里的所有文件共享），
+        而 Go 的 `internal/` 目录机制在 Java 里要用模块系统才能表达。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
