@@ -1,0 +1,140 @@
+# python —— express / control-flow
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: control-flow` 的那批。
+# 这一组以 Python 为基准时展示在「流程与迭代」章（见 catalog/express/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  conditionals:
+    code: |
+      if n > 0:
+          label = "正"
+      elif n == 0:          # @note 是 elif，不是 else if
+          label = "零"
+      else:
+          label = "负"
+
+      if []: pass           # @note! 假 —— 空容器为假
+      if [0]: pass          # @note! 真 —— 非空容器为真，里面有 0 也算
+      label = "正" if n > 0 else "非正"   # @note 条件表达式
+    baseline: |
+      条件可以是任何值，**真值判断覆盖面很宽**：`0` / `0.0` / `""` / `None` /
+      空容器（空列表、空字典、空集合、空元组）都为假，其余为真。注意「空容器为假」
+      这一条 —— 判断容器有没有内容直接 `if xs:` 就行。分支用 `elif`，
+      条件表达式（`a if cond else b`）也是表达式。
+    vs:
+      javascript: |
+        JavaScript 只认五个假值（`0` / `""` / `NaN` / `null` / `undefined`），
+        空数组与空对象都是**真**；Python 把「空」也算假，`if xs:` 直接能判空容器。
+        两边的真值表不同，是迁移时最容易想当然的一处。
+      java: |
+        Java 的条件必须是 `boolean`，没有真值转换 —— 想判空容器得显式写
+        `!list.isEmpty()`。Python 的 `if xs:` 一行搞定，代价是
+        「容器里装着 0 或空字符串」与「容器是空的」在某些写法下会混。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  loops:
+    code: |
+      for i in range(3):        # @note 计数循环靠 range
+          pass
+
+      for x in [10, 20]:        # @note 直接遍历元素
+          pass
+      for i, x in enumerate([10, 20]):   # @note 需要下标就 enumerate
+          pass
+      for k, v in {"a": 1}.items():      # @note 字典遍历键值
+          pass
+
+      while n > 0:
+          n -= 1
+    baseline: |
+      **只有一种 `for`**：遍历一个可迭代对象。计数循环写成 `for i in range(n)`，
+      需要下标用 `enumerate`，需要键值用 `.items()` —— 这些都是「把你要的东西
+      先造出来再遍历」而不是语法糖。`range` 是惰性的，不占内存。
+    vs:
+      javascript: |
+        JavaScript 把计数与遍历分成两套语法（三段式 `for` 与 `for...of`），
+        Python 统一成「遍历可迭代对象」，计数靠 `range`。Python 的
+        `enumerate` / `.items()` 对应 JavaScript 的 `entries()`，
+        但 Python 里它们是遍历时的常规搭配，不是额外一步。
+      java: |
+        Java 的增强 for 与 `for x in xs` 是同一种东西，计数循环两边都要写三段式
+        （Python 是 `range`）。差别在类型：Java 遍历时元素类型由编译期确定，
+        Python 拿到什么类型要运行时才知道。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  iteration-protocol:
+    code: |
+      class Countdown:
+          def __init__(self, n): self.n = n
+          def __iter__(self):            # @note 返回迭代器
+              return self
+          def __next__(self):            # @note 给下一个值，或抛 StopIteration
+              if self.n <= 0: raise StopIteration
+              self.n -= 1
+              return self.n + 1
+
+      for x in Countdown(3): pass        # @note 1 2 3
+      list(Countdown(3))                 # @note 任何接受可迭代对象的地方都能用
+
+      for ch in "abc": pass              # @note 字符串、字典、文件都是可迭代的
+    baseline: |
+      「可迭代」由 `__iter__` / `__next__` 两个方法定义：实现了它，
+      `for`、`list()`、解包、`in` 全都认。**内建类型几乎都实现了这套协议** ——
+      字符串、列表、字典、集合、文件对象，所以「遍历」在 Python 里到处都是。
+      迭代器耗尽后再遍历会得到空，这是一次性的。
+    vs:
+      javascript: |
+        JavaScript 的对应协议是 `Symbol.iterator`，思路一致，但覆盖面窄：
+        字符串可迭代、普通对象**不可迭代**。Python 的字典本身就可迭代
+        （默认遍历键），这一条在迁移时最容易撞上。
+      java: |
+        Java 的 `Iterable` 是编译期的接口契约，Python 的协议是运行时的鸭子类型。
+        两边都有「迭代器一次性」的性质。另一个差别是 Java 的 Stream 可以并行、
+        可以惰性组合，Python 里对应的是生成器表达式，表达能力相近但机制不同。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  switch-and-match:
+    code: |
+      match command.split():
+          case ["go", direction]:            # @note 按结构匹配，并绑定变量
+              move(direction)
+          case ["look"]:
+              look()
+          case ["go", *rest]:                # @note 剩余元素收进 rest
+              move_all(rest)
+          case _:                            # @note 兜底用 _
+              unknown()
+
+      match point:
+          case Point(x=0, y=0): pass         # @note 也能按属性/类匹配
+    baseline: |
+      `match`（3.10+）是**结构化模式匹配**：按序列、映射、类实例的形状去匹配，
+      顺带把解出来的部分绑成变量 —— 它比「多路等值比较」强一个量级。
+      分支默认互斥（不贯穿），兜底写 `case _`。注意它仍然不是 C 的 switch：
+      每个 case 都要能描述一个形状，纯等值只是其中最简单的一种。
+    vs:
+      javascript: |
+        JavaScript 的 `switch` 只是严格相等的多路比较，还得手动 `break`；
+        Python 的 `match` 能拆解结构、绑定变量。要模拟同样的能力，
+        JavaScript 侧得写一串 `if` 加解构。
+      java: |
+        Java 也有模式匹配（`switch` 的 type pattern 与 record pattern），方向与这里
+        一致，但它是编译期检查的、且必须穷尽；Python 的 `match` 运行时匹配，
+        漏了分支不会报错，只会落到 `case _`。
+    equivalence:
+      javascript: divergent
+      java: analogous

@@ -1,0 +1,145 @@
+# java —— express / control-flow
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: control-flow` 的那批。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  conditionals:
+    code: |
+      if (n > 0) {
+        label = "正";
+      } else if (n == 0) {
+        label = "零";
+      } else {
+        label = "负";
+      }
+
+      // if (0) { }                    // @note! 编译错误：int 不是 boolean
+      // if (list) { }                 // @note! 编译错误：要写 !list.isEmpty()
+
+      String label2 = n > 0 ? "正" : "非正";   // @note 三目是表达式
+    baseline: |
+      条件**必须是 `boolean`**：没有真值转换，`if (0)` 或 `if (list)` 都编译不过，
+      判空容器要显式写 `!list.isEmpty()`。好处是每个条件的意图都写在类型上，
+      没有「空数组算真还是算假」这类问题；代价是比别的语言啰嗦。
+      三目运算符是表达式，可以直接赋值。
+    vs:
+      javascript: |
+        JavaScript 里任何值都能当条件，`if ([])` 为真、`if ("0")` 也为真；
+        Java 只接受 `boolean`，编译期就拦住。从这边的视角看，Java 少了真值转换
+        这类意外，也少了「用短路表达式顺手判空」的写法。
+      python: |
+        Python 的 `if xs:` 能直接判空容器（空容器为假），Java 必须写
+        `!list.isEmpty()`。Java 换来的是条件类型永远明确，代价是每处判空都要
+        自己挑对方法 —— 空对象、空字符串、空集合各有各的写法。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  loops:
+    code: |
+      for (int i = 0; i < 3; i++) { }       // @note 计数循环
+
+      for (int x : xs) { }                  // @note 增强 for：遍历数组或 Iterable
+      for (var e : map.entrySet()) { }      // @note 遍历映射要显式取 entrySet
+
+      while (n > 0) { n--; }
+      do { n++; } while (n < 3);            // @note do-while 至少执行一次
+
+      xs.forEach(x -> use(x));              // @note 也可以走 Stream / forEach
+    baseline: |
+      计数循环是 C 风格三段式，遍历用增强 for（`for (X x : xs)`），
+      它同时支持数组与任何 `Iterable`。遍历映射要显式 `entrySet()` ——
+      映射本身不是 `Iterable`。另有 `do-while`（至少执行一次），
+      以及 `Stream.forEach` 这条函数式路径。
+    vs:
+      javascript: |
+        Java 的增强 for 与 `for...of` 是同一个东西，计数循环两边都是三段式。
+        差别在遍历映射：这里要 `entrySet()`，JavaScript 侧是 `Object.entries()`；
+        另外 Java 有 `do-while`，JavaScript 没有专门的语法，得自己写。
+      python: |
+        Python 的 `for` 只有「遍历可迭代对象」一种，计数靠 `range`；
+        Java 把两种语法分开写。Python 遍历字典直接拿到键、`.items()` 拿键值，
+        Java 必须显式 `entrySet()` —— 但要付出的是编译期就知道元素类型。
+    equivalence:
+      javascript: analogous
+      python: divergent
+
+  iteration-protocol:
+    code: |
+      class Countdown implements Iterable<Integer> {   // @note 实现接口
+        private int n;
+        Countdown(int n) { this.n = n; }
+        public Iterator<Integer> iterator() {
+          return new Iterator<>() {
+            public boolean hasNext() { return n > 0; }
+            public Integer next() { return n--; }
+          };
+        }
+      }
+
+      for (int x : new Countdown(3)) { }        // @note 1 2 3
+
+      // for (int x : "abc") { }                // @note! 编译错误：String 不是 Iterable
+      "abc".chars().forEach(...);                // @note 想遍历字符串要显式转成流
+      xs.stream().filter(...).map(...).toList(); // @note Stream 是另一套管道
+    baseline: |
+      「可迭代」是一个**编译期的接口**：实现 `Iterable<T>` 就能进增强 for，
+      而 `Iterable` 只要求一个 `iterator()` 方法。因为要在类型系统里声明，
+      它是显式的 —— 没实现就编译不过。注意两点：`String` **不是** `Iterable`
+      （要 `.chars()` 换一套），以及 `Stream` 是并列的另一套惰性管道，
+      不是 `Iterable` 的子类型。
+    vs:
+      javascript: |
+        JavaScript 的协议是运行时的（挂一个 `Symbol.iterator`），Java 的是编译期
+        实现的接口 —— 后者写错在编译期就红。覆盖面也不同：Java 的字符串
+        不可直接迭代，JavaScript 的字符串可以。
+      python: |
+        Python 用 `__iter__` / `__next__` 的鸭子类型，Java 用 `Iterable` 接口 ——
+        一个运行时认、一个编译期认。两边都把字符串当作可迭代对象，
+        而 Java 不把它算在内。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  switch-and-match:
+    code: |
+      switch (day) {
+        case MON, TUE -> System.out.println("上班");     // @note 箭头语法不贯穿
+        case SAT, SUN -> System.out.println("休息");
+        default -> System.out.println("别的");
+      }
+
+      // 表达式形式：可以返回值，编译器检查穷尽性
+      String kind = switch (obj) {
+        case Integer i -> "整数 " + i;          // @note 类型模式
+        case String s  -> "字符串 " + s;
+        default        -> "别的";
+      };
+
+      // @note 老写法仍然有贯穿问题：
+      // case A: doA(); case B: doB(); break;   // A 会顺带执行 doB
+    baseline: |
+      经典 `switch` 默认**贯穿**（不写 `break` 会继续往下），这也是它最老的坑。
+      新版提供箭头语法 `case X -> ...`，不贯穿、可以直接作为表达式返回值，
+      而且配合模式匹配（`case Integer i`、record 解构）时**编译器会检查穷尽性**
+      —— 漏了分支编译不过，这一点比多数语言都强。
+    vs:
+      javascript: |
+        这里的箭头 `switch` 与 JavaScript 的 `switch` 差了一代：前者不贯穿、
+        能当表达式、能按类型匹配、还能穷尽性检查；后者是等值比较加手动 `break`。
+      python: |
+        两边的模式匹配能力相当（都能按结构拆解并绑定变量）。差别在检查时机：
+        Java 的 `switch` 由**编译器**保证穷尽，Python 的 `match` 运行时匹配、
+        漏分支只会落到 `case _`；另外 Java 的 `switch` 能直接当表达式赋值，
+        Python 要写成 `match` 语句加赋值。
+    equivalence:
+      javascript: divergent
+      python: analogous

@@ -1,0 +1,131 @@
+# javascript —— express / control-flow
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: control-flow` 的那批：
+# conditionals / loops / iteration-protocol / switch-and-match。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  conditionals:
+    code: |
+      if (0) {}            // @note! 假 —— 0 / "" / NaN / null / undefined 都是假
+      if ([]) {}           // @note! 真 —— 空数组是对象，对象恒为真
+      if ("0") {}          // @note! 真 —— 非空字符串恒为真
+
+      const label = n > 0 ? "正" : "非正";
+      n > 0 && doSomething();   // @note 用短路代替单行 if
+    baseline: |
+      条件必须是值，而且**任何值都能当条件**：`0` / `""` / `NaN` / `null` /
+      `undefined` 为假，其余为真 —— 注意空数组 `[]` 与空对象 `{}` 都是**真**，
+      这是最容易想当然的一处。三目运算符是表达式，`&&` 短路则常被用来写单行条件。
+    vs:
+      python: |
+        Python 的真值范围更宽（空列表、空字典、空字符串都为假），JavaScript 只认
+        那五个假值 —— `[]` 与 `{}` 在 JavaScript 里是真。写法上 JavaScript 用
+        `else if` 串，Python 用 `elif`，但条件表达式（三目）两边都是表达式。
+      java: |
+        Java 的条件必须是 `boolean`，没有真值转换 —— `if (0)` 直接编译错误。
+        好处是「这个条件到底想问什么」没有歧义；代价是没有 `n > 0 && do()` 这种
+        顺手的短路写法（那在 Java 里也得写成完整语句）。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  loops:
+    code: |
+      for (let i = 0; i < 3; i++) {}      // @note 计数循环
+
+      const xs = [10, 20];
+      for (const x of xs) {}              // @note 遍历值 —— 想遍历数组就用它
+      for (const i in xs) {}              // @note! 遍历的是**下标**（字符串 "0"）
+      for (const k in obj) {}             // @note 遍历对象的键，顺序有约定但别依赖
+
+      while (n > 0) { n--; }
+    baseline: |
+      计数循环是 C 风格的三段式。遍历集合有两个容易混的：`for...of` 给**值**，
+      `for...in` 给**键**（数组上给的是字符串下标）—— 数组用 `of`、对象用 `in`，
+      搞反了不报错只是拿到错的东西。没有 `range` 这类语法，
+      要么三段式、要么 `[...Array(n).keys()]` 这种绕法。
+    vs:
+      python: |
+        Python 的 `for` 只有一种：遍历可迭代对象，计数要 `range(n)` 包一层。
+        JavaScript 把「按索引数」与「遍历集合」分成了两套语法，还额外有一个
+        给键不给值的 `for...in` —— 后者在数组上返回字符串下标，是常见的事故来源。
+      java: |
+        Java 的增强 for（`for (X x : xs)`）与这里的 `for...of` 一一对应，
+        计数也用三段式。差别是 Java 有类型检查兜着 —— 遍历数组时拿到的元素类型
+        是编译期确定的，这里则全靠运行时自觉。
+    equivalence:
+      python: divergent
+      java: analogous
+
+  iteration-protocol:
+    code: |
+      // 能被 for...of 遍历的东西，必须实现 Symbol.iterator
+      const range = {
+        from: 1, to: 3,
+        [Symbol.iterator]() {
+          let cur = this.from, last = this.to;
+          return { next: () => cur <= last ? { value: cur++, done: false } : { done: true } };
+        },
+      };
+      [...range];          // @note [1, 2, 3] —— 展开运算符也走这套协议
+
+      Object.keys({ a: 1 });   // @note! 普通对象默认不可迭代，要先取键
+    baseline: |
+      「可迭代」是一份**协议**而不是类型：对象上挂一个 `Symbol.iterator` 方法，
+      返回一个带 `next()` 的迭代器，`for...of`、展开运算符、解构都认这一份协议。
+      普通对象**没有**实现它，所以 `for...of` 一个对象会抛错 ——
+      要先 `Object.keys` / `values` / `entries` 转成数组。
+    vs:
+      python: |
+        Python 的协议是 `__iter__` / `__next__` 两个方法，同样是「实现了就能被
+        for 遍历」，连思路都一样。差别在覆盖面：Python 的字典**本身就是可迭代的**
+        （默认遍历键），JavaScript 的普通对象默认不可迭代 —— 这是从一边换到另一边
+        时最常撞上的一处。
+      java: |
+        Java 用 `Iterable<T>` 接口 + `Iterator<T>`，是**编译期**的类型契约，
+        没实现就编译不过；JavaScript 的协议是运行时的，写错了要到遍历那一刻才抛。
+        另外 Java 的 Stream 是另一套（惰性管道），与这里的迭代协议不是一回事。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  switch-and-match:
+    code: |
+      switch (x) {
+        case 1:
+        case 2:
+          both();            // @note! 不写 break 会继续往下执行（fallthrough）
+          break;
+        default:
+          other();
+      }
+
+      // @note switch 用的是 === 比较，不做类型转换
+      switch (true) {        // @note 常见技巧：用布尔表达式当分支
+        case n > 0: positive(); break;
+      }
+    baseline: |
+      `switch` 用严格相等比较，所以 `switch ("1")` 不会命中 `case 1`。
+      分支**默认贯穿**：忘了 `break` 就会继续执行下一段，这是它最经典的坑
+      （也偶尔被故意利用来做「多个 case 共用一段」）。没有模式匹配，
+      也没有穷尽性检查 —— 漏了哪个分支编译器不管。
+    vs:
+      python: |
+        Python 的 `match`（3.10+）是真正的**结构化模式匹配**：能按元组、列表、
+        字典的形状与字面量匹配，还能绑定变量，并且默认不贯穿。
+        JavaScript 的 `switch` 只是「多路等值比较 + 手动 break」。
+      java: |
+        Java 的经典 `switch` 与这里一样有贯穿问题，但新版提供了箭头语法
+        （`case 1 -> ...`，不贯穿）与模式匹配，还能由编译器检查穷尽性。
+        JavaScript 的 `switch` 一直停在最老的那一版形态。
+    equivalence:
+      python: divergent
+      java: divergent
