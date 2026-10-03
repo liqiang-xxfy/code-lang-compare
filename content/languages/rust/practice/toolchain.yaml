@@ -1,0 +1,230 @@
+# rust —— practice / toolchain
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: toolchain` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+#
+# 注意：Rust 的配置/脚本常以 `#` 注释，但 meta.comment.line 是 `//` ——
+# @note 必须写在 `//` 之后，否则会被判错并静默丢弃（R4/R9）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-toolchain-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  compile-run:
+    code: |
+      // @note 调试构建：带溢出检查与调试信息，编译快、跑得慢
+      cargo build
+      cargo run
+
+      // @note 发布构建：开优化，编译慢、跑得快
+      cargo run --release
+      cargo build --release       // 产物在 target/release/
+
+      // 编译产物是**原生可执行文件**，可以直接拷到同架构的机器上跑
+      // 交叉编译要装对应 target：
+      //   rustup target add x86_64-unknown-linux-musl
+      //   cargo build --target x86_64-unknown-linux-musl
+    vs:
+      javascript: |
+        JavaScript 没有编译这一步 —— `node app.js` 直接解释执行，
+        或者打包后交给浏览器。Rust 必须先 `cargo build` 编译成原生二进制，
+        运行时不需要任何解释器。这带来两个直接后果：
+        ① 部署只需拷一个文件（或几个），不用装运行时；
+        ② 改一行代码也要重新编译，开发循环比 JavaScript 慢。
+        另外 Rust 区分 debug 与 release 两套构建，行为都不一样。
+      python: |
+        Python 是解释执行，`python app.py` 就跑，不需要构建步骤；
+        Rust 必须先编译，且编译要花时间。收益是运行时不依赖解释器、
+        启动快、性能高。另一个 Python 里没有的区分是
+        debug 与 release 两套构建 —— Rust 的 debug 版本带整数溢出检查、
+        release 不带（溢出静默回绕），这个差别会影响程序行为。
+      java: |
+        Java 编译成字节码、运行时靠 JVM，Rust 编译成原生机器码、
+        运行时零依赖。所以部署形态差别很大：Java 要装 JRE 或打包 JVM，
+        Rust 拷一个二进制即可。编译速度上 Java 通常更快
+        （增量编译成熟），Rust 的全量编译经常是分钟级 ——
+        这是 Rust 开发体验里最常被抱怨的一点。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  bundler:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有打包器**，因为不需要：`cargo build --release`
+        产出的就是一个自包含的原生可执行文件，依赖已经在里面了。
+        JavaScript 要用打包器（webpack / vite / esbuild）把成百上千个模块
+        合成浏览器能加载的少数文件，还要处理 tree-shaking、代码分割、
+        资源引用 —— 这整套工作在 Rust 里不存在。
+        代价是 Rust 的二进制通常比等价的 JavaScript 产物大（几 MB 起步）。
+      python: |
+        Rust **没有打包器**。Python 要打成 wheel / 单文件 exe
+        （PyInstaller 那类还要把解释器一起塞进去），
+        或者用 zipapp；Rust 的 `cargo build` 直接产出可执行文件，
+        这一步就是「打包」的全部。差别在于 Rust 的产物里
+        只有真正用到的代码（链接器会去掉未使用的部分），
+        而 Python 打包往往得带上整个解释器与依赖树。
+      java: |
+        Rust **没有打包器**，与 Java 一样 —— 但原因不同：
+        Java 的产物是 jar（字节码 + 资源），要靠 JVM 执行；
+        Rust 的产物是原生二进制，链接完就能跑。
+        Java 的近年在往「自带运行时的单文件」走（jlink / native-image），
+        这正是在补 Rust 一开始就有的形态。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  linter-formatter:
+    code: |
+      // @note rustfmt：格式化，随工具链一起装，不需要单独配置就能用
+      cargo fmt
+      cargo fmt --check          // CI 里检查是否已格式化
+
+      // @note clippy：官方 lint 工具，也是随工具链一起装
+      cargo clippy
+      cargo clippy -- -D warnings   // 把警告当错误，CI 常用
+
+      // 配置写在 rustfmt.toml / clippy.toml / Cargo.toml 的 [lints] 段
+      // @note! 两者的默认规则都由官方统一，社区几乎没有「换一套规则」的余地
+    vs:
+      javascript: |
+        JavaScript 的格式化与 lint 生态是分裂的：Prettier 与 ESLint
+        曾经各管一半，还有 biome / oxlint 等新选手，
+        每个项目都要选型并写配置文件。Rust 的 rustfmt 与 clippy
+        **随工具链一起装**，`cargo fmt` / `cargo clippy` 在哪都能跑，
+        而且默认规则由官方统一 —— 所以 Rust 代码库的风格一致性
+        远高于 JavaScript 项目，几乎没有「这个项目用的哪套规则」这个问题。
+      python: |
+        Python 的现状是本格化工具换过几代（autopep8 → black → ruff），
+        lint 也一样（pylint / flake8 / ruff），配置要选、要装。
+        Rust 的 rustfmt 与 clippy 是**官方工具链的一部分**，
+        `cargo fmt` 与 `cargo clippy` 开箱可用、不需要在项目里
+        加依赖。这让「新人 clone 下来就能跑同一套检查」成为默认。
+      java: |
+        Java 的格式化与静态检查基本靠第三方插件
+        （Checkstyle / SpotBugs / PMD / Error Prone），
+        每个项目要挑、要配，Maven/Gradle 里还要接插件。
+        Rust 把 rustfmt 与 clippy 做进了 `cargo` 子命令，
+        不用改构建脚本就能用 —— 这是官方工具链「一体化」的直接好处。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-checker:
+    code: |
+      // @note cargo check：只做类型检查与借用检查，不生成机器码 —— 比 build 快很多
+      cargo check
+
+      // @note 编辑器里由 rust-analyzer 实时给同样的诊断
+      // （它内部就是跑 check 的那套逻辑）
+
+      // @note! Rust 的类型检查与借用检查是同一遍 —— 「类型对了但借用不对」
+      // 同样是编译错误，没有「类型检查通过但运行崩溃」这层
+    vs:
+      javascript: |
+        JavaScript 需要**另装**一个类型检查器（tsc），
+        而且它检查的是一层可选的类型注解、与运行时无关 ——
+        类型检查通过不代表运行时不崩。Rust 的类型检查是编译器本身，
+        和借用检查在同一遍里做完，通过就意味着不会有类型错误与内存错误。
+        代价是必须写类型（或让它推断），没有「先不写类型跑起来再说」这条路。
+      python: |
+        Python 的类型检查器（mypy / pyright）是外部工具，
+        检查的是可选标注、运行时不生效，而且不检查也能跑。
+        Rust 的 `cargo check` 是编译器的一个模式，检查不通过就编译不了 ——
+        类型与借用一起查完，是「能不能运行」的前置条件而不是建议。
+        `cargo check` 比 `cargo build` 快，所以它是开发时的默认动作。
+      java: |
+        Java 的编译器本身做类型检查，这一点与 Rust 一样；
+        但 Java 没有借用检查那一层，所以类型对了运行时仍可能出错
+        （NPE、并发修改、类型擦除带来的意外）。
+        Rust 的 `cargo check` 把类型与借用一起查，通过后
+        内存安全与数据竞争也一并被排除 —— 这是「检查通过」
+        在两门语言里含金量不同的地方。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  runtime-version:
+    code: |
+      // @note rustup 管工具链：可以同时装多个版本并切换
+      rustup toolchain install 1.75.0
+      rustup default stable
+      rustup update
+
+      // @note 把版本写进仓库，团队与 CI 自动一致
+      //   rust-toolchain.toml
+      //   [toolchain]
+      //   channel = "1.75.0"
+      //   components = ["rustfmt", "clippy"]
+
+      // @note! edition 是另一回事 —— 它不是版本号，是语言方言
+      //   edition = "2021"   // 写在 Cargo.toml 里，按 crate 生效
+      rustc --version
+    vs:
+      javascript: |
+        JavaScript 的运行时版本由宿主决定（Node 版本、浏览器版本），
+        项目只能靠 `engines` 字段声明、靠 CI 与文档约束，
+        实际跑在哪个版本上不受代码控制。Rust 用 `rust-toolchain.toml`
+        把一个确切版本写进仓库，谁 clone 下来 `cargo build`
+        都会自动用那个版本 —— 这是「构建可复现」的一部分。
+        另一处 Rust 独有的是 edition：语言方言按 crate 生效，
+        不同 crate 可以用不同 edition 而共存。
+      python: |
+        Python 的项目通常只声明「需要 3.10+」，实际用哪个版本
+        靠虚拟环境与 CI 配置保证；Rust 把确切版本写进
+        `rust-toolchain.toml`，工具链管理器（rustup）会照它执行。
+        这让「我的机器上能编译、你的不能」这类问题在 Rust 里少得多。
+        Rust 还有 edition 这一层（语言方言，与版本号无关），
+        Python 的 `from __future__ import` 是最接近的东西但弱得多。
+      java: |
+        Java 用 `--release` 指定目标版本、用 `JAVA_HOME` 与
+        构建工具的 `source`/`target` 配置控制，但「用哪个 JDK 编译」
+        经常靠环境变量与文档。Rust 的 `rust-toolchain.toml` 是
+        仓库内的声明、由 rustup 自动执行，粒度更细也更可靠。
+        另一处差别是 Rust 的 edition 可以在同一个项目里按 crate 混用，
+        Java 的版本是全局的。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  repl:
+    absent: true
+    vs:
+      javascript: |
+        Rust 的工具链里**没有 REPL** —— `cargo` 没有交互模式，
+        `rustc` 也不能像 `node` 那样直接开一个提示符。
+        想试一段代码就得建个项目（或者用第三方的 evcxr、rust-script）。
+        原因是 Rust 需要编译，而编译要知道 crate 与依赖 ——
+        「随手敲一行看看」这个动作与它的构建模型天然不合。
+        JavaScript 里 `node` 敲开就能算，这是解释型语言的便利。
+      python: |
+        Rust **没有 REPL**，`python` 那种敲一行看一行的体验不存在。
+        要快速验证一小段代码，标准做法是 `cargo new` 一个临时项目，
+        或者用第三方工具（evcxr / rust-script）。
+        根本原因是编译模型：Rust 需要知道依赖与 edition 才能编译，
+        而 REPL 的「无项目上下文」与它冲突。
+      java: |
+        Rust **没有 REPL** —— 与 Java 有 `jshell` 形成对照。
+        Java 能提供 jshell 是因为它有字节码与即时编译，
+        单段代码可以脱离项目编译执行；Rust 的单元是 crate，
+        一个表达式没有 crate 上下文就编译不了。
+        这也是 Rust 社区一直把「快速试验」当作痛点、
+        第三方脚本工具（rust-script）有存在空间的原因。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
