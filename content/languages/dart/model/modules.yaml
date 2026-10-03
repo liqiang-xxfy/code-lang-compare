@@ -1,0 +1,229 @@
+# dart —— model / modules
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: modules` 的那批：
+# module-unit / export-import / default-vs-named / namespace-alias / module-resolution。
+#
+# 口径说明：这一组的第一条事实是 **Dart 的私有是「库级」不是「类级」** ——
+# `_` 开头的成员对整个库可见，而一个库可以包含多个文件（`part`）。
+# 所以同一个文件里的两个类能互相访问对方的 `_` 成员，这一点 Java 读者最容易想错。
+# 第二条是 **`export` 与 `import` 是两件事**：「给我用」与「给我的使用者用」分开。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-modules-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  module-unit:
+    code: |
+      // 一个 .dart 文件就是一个库（即使不写 library 指令）
+      // @note 库是**私有性的单位**：_ 开头的成员在整个库里可见
+
+      class Cart {
+        void _recalc() { }         // @note! 库级私有：同库的其它类也能调它
+      }
+
+      class Item {
+        void test(Cart c) => c._recalc();   // @note! 合法 —— 它们在同一个库里
+      }
+
+      // @note part 能把多个文件合成一个库（此时 _ 跨文件可见）
+      // @note 但官方不推荐 part，建议改成多个小库
+
+      // @note 库级文档写在 library 指令上；不写也可以，指令本身几乎不用
+    vs:
+      javascript: |
+        两边的私有单位不同：JavaScript 的 `#` 前缀是**类级**私有，
+        一个文件里的其他类也碰不到；Dart 的 `_` 是**库级**私有，
+        同一个库（通常就是一个文件）里的任何代码都能访问。
+        所以 Dart 里两个类互相调私有方法是正常的，JavaScript 里那要报错。
+        共同点是两边都没有 `private` 这个关键字 —— 都用一个符号表达。
+      python: |
+        两边的下划线是同一套写法，**分量却不同**：
+        Python 的 `_` 纯属君子协定，没有任何作用域含义 ——
+        跨模块访问 `obj._x` 照样能拿到，只是不礼貌；
+        Dart 的 `_` 有明确的语义，它划的界是**库**，
+        跨库访问直接编译不过。
+        所以同样是「下划线开头」，一边是给人看的提示，
+        一边是编译器执行的规则 —— 这在迁移时是最容易低估的一处。
+      java: |
+        **这是与 Java 差别最实在的一处**：Java 的 `private` 是**类级**的，
+        同一个文件里的另一个类也访问不到；Dart 的 `_` 是**库级**的，
+        同一个库里的任何代码都能访问。
+        所以 Java 里「同一个文件的两个类通过公开 getter 互相访问」
+        在 Dart 里可以直接点私有成员。另一处是文件与类的关系：
+        Java 要求 public 类与文件同名，Dart 一个文件能放任意多个类，
+        而且它们天然共享同一个隐私边界。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  export-import:
+    code: |
+      import 'dart:math';                       // @note 内置库用 dart: 前缀
+      import 'package:http/http.dart' as http;  // @note 包用 package: 前缀
+      import '../utils.dart';                   // @note 相对路径：相对于**当前文件**
+
+      import 'lib2.dart' show User;             // @note 只引入 User
+      import 'lib2.dart' hide Internal;         // @note 引入除了 Internal 之外的全部
+      import 'lib2.dart' as lib2 show User;     // @note 前缀与 show 可以叠加
+
+      // @note export 面向**本库的使用者**，对当前文件自己没影响
+      export 'src/cart.dart';                   // @note 常见的「入口文件再导出」写法
+      export 'src/item.dart' show Item;
+
+      // @note 约定：实现放 lib/src/，在 lib/<包名>.dart 里再导出
+    vs:
+      javascript: |
+        两边都有具名导入与别名，但**方向多了一条**：
+        JavaScript 有 `export ... from`（转出），Dart 的 `export` 与之接近；
+        差别在 Dart 的 `export` 是**给使用者看的**，对当前文件没有任何作用 ——
+        写起来像导入，其实是「替下游开门」。
+        另一处是过滤：JavaScript 导入什么就是全部可用，
+        Dart 能用 `show` / `hide` 在导入处裁剪，不用改被导入的库。
+      python: |
+        两边的选择性导入手段不同：Python 在**被导入方**用 `__all__`
+        控制「星号导入能拿到什么」，在导入方只能用 `from x import a, b` 一个个列；
+        Dart 反过来 —— 在**导入方**用 `show` / `hide` 直接裁剪，
+        被导入的库不用配合。所以 Dart 的导入行往往更长，
+        但读一行就知道这个文件用了哪些名字。
+      java: |
+        Java 的 `import` 纯粹是名字引入，没有「再导出」这件事 ——
+        一个 public 类在任何地方都能被导入，不存在「我决定对下游开放哪些」。
+        Dart 用 `export` 补上了这一层：实现放 `lib/src/`，
+        入口文件决定对包外暴露什么，这是一种**可控的公开面**。
+        另一处是通配符：Java 的 `import x.*` 不能排除某个名字，
+        Dart 的 `hide` 可以。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  default-vs-named:
+    code: |
+      // @note Dart **没有默认导出** —— 所有导出都是按名字的
+      // @note 想让某个名字对外可见：不用下划线开头，并且在某个可导入的库里
+
+      class Cart { }              // @note 公开
+      class _Internal { }         // @note 库级私有，导不出去
+
+      // @note 一个库里可以有任意多个公开名字，没有「文件级导出面」这个开关
+      // @note 想控制对外可见的范围，靠的是**入口文件里的 export 行**
+    vs:
+      javascript: |
+        JavaScript 有「默认导出」这一档 —— 一个模块只能有一个，
+        导入时可以随便起名，于是同一个东西在不同文件里叫不同的名字；
+        Dart 完全没有这个机制，所有对外的名字都固定，
+        想改名只能在自己这边用 `as` 起前缀。
+        另一处是控制公开面的方式：JavaScript 靠「导不导出」，
+        Dart 靠「有没有下划线」加「入口文件导出哪些」。
+      python: |
+        两边都是「按名字」，没有默认导出 —— 这一层可以对应。
+        差别在**控制手段**：Python 用下划线表示「别导入我」，
+        但这只是约定，`from x import _y` 照样能拿到；
+        Dart 的下划线是硬约束，跨库导入编译不过。
+        另一处是控制范围的单位：Python 用 `__all__`（一个模块级列表），
+        Dart 用入口文件里的 `export` 行 ——
+        前者在库自己身上，后者在调用者的入口处。
+      java: |
+        Java 用 `public` 控制对外可见，Dart 用「有没有下划线」，
+        两边都能达到「这个类外面看不见」的效果。
+        差别在**有没有再导出这一层**：Java 的 public 类一旦公开，
+        任何地方都能导入，包作者没法缩小范围；
+        Dart 可以在入口文件里只导出其中几个，
+        实现细节留在 `lib/src/` 里谁也拿不到 ——
+        这是 Dart 比 Java 多出来的一层控制。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  namespace-alias:
+    code: |
+      import 'package:lib2/lib2.dart' as lib2;    // @note 前缀：避免重名
+      lib2.User; lib2.create();
+
+      import 'dart:math' as math show max;
+      math.max(1, 2);
+
+      // @note 前缀也能是下划线：只引入扩展方法，不占名字
+      import 'extensions.dart' as _;
+
+      // @note 类型别名用 typedef
+      typedef Handler = void Function(String);
+      typedef UserMap = Map<String, List<String>>;
+
+      // @note! typedef 只是别名，不产生新类型 —— 与原类型可以互相赋值
+    vs:
+      javascript: |
+        JavaScript 的 `import * as ns` 会造出一个**真的命名空间对象**，
+        能当值传递、能遍历它的键；Dart 的 `as` 前缀只影响**名字解析**，
+        编译之后就没了，不是一个可以传递的对象。
+        另一处是类型别名：JavaScript 没有类型，自然也没有 typedef；
+        类型只活在编辑器与文档里。
+      python: |
+        两边都能给导入起别名（`import numpy as np` ↔ `import ... as x`），
+        而且都只影响名字、不产生对象 —— 这点一致。
+        差别在类型别名：Python 的类型别名就是一次赋值
+        （`Handler = Callable[[str], None]`），运行期是个变量；
+        Dart 的 `typedef` 是语言级声明，编译器认它、也能写进签名。
+        共同点是两边都**不产生新类型**，`Handler` 与那个函数类型完全等价。
+      java: |
+        Java 完全没有命名空间别名 —— 类名冲突只能靠写全限定名
+        （`com.a.User` 与 `com.b.User` 同时用就得全写）。
+        Dart 的 `as` 前缀给了一个轻量得多的办法。
+        另一处是类型别名：Java 没有 typedef，想给复杂泛型起名字
+        只能抽一个类出来，而那会真的产生新类型；
+        Dart 的 `typedef` 不产生新类型，纯粹是可读性工具。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  module-resolution:
+    code: |
+      import 'dart:core';                  // @note 内置库：语言自带
+      import 'package:flutter/material.dart';   // @note 包：解析到该包的 lib/ 下
+      import './sibling.dart';             // @note 相对路径：**相对于当前文件**
+      import '../parent/dir/file.dart';
+
+      // @note 解析顺序里没有「向上找 node_modules」这回事 ——
+      // @note 包从 .dart_tool/package_config.json 里查（由 dart pub get 生成）
+
+      // @note pubspec.yaml 管依赖，其中 environment.sdk 是硬性约束
+      // @note 约定：lib/src/ 放实现，lib/<包名>.dart 作对外入口
+
+      // @note 还有延迟加载：import '...' deferred as heavy;
+      // @note   之后 await heavy.loadLibrary() 才真的加载（仅 web 目标支持）
+    vs:
+      javascript: |
+        两边都有相对路径与包名两种导入，解析规则接近。
+        差别在**包从哪来**：JavaScript 的 `node_modules` 是逐级向上找的，
+        同一份代码在不同深度可能解析到不同副本；
+        Dart 的包由一份生成的清单（`package_config.json`）统一决定，
+        全局只有一份映射，所以不会出现「两个版本同时存在」那种局面。
+        另一处是延迟加载：JavaScript 的 `import()` 到处都能用，
+        Dart 的 deferred 是编译期声明的，且只在 web 目标上有效。
+      python: |
+        这一格两边差别明显：Python 的导入路径**就是**文件系统路径，
+        所以 `sys.path`、虚拟环境、包目录结构都是日常话题；
+        Dart 的 `package:` 导入解析到**逻辑包名**，与文件在哪无关，
+        由一份生成的映射决定。
+        相对导入两边都有，而且都相对于当前文件 —— 这一点一致。
+        另一处是 Dart 那套「实现放 lib/src、入口再导出」的约定，
+        Python 里对应的是下划线模块名与 `__all__`，但约束力弱得多。
+      java: |
+        Java 的导入靠**类路径**加包名，Dart 靠包名加生成的映射，
+        两者都不依赖文件位置 —— 这一层彼此最接近。
+        差别在**粒度**：Java 导入的是类，Dart 导入的是库
+        （一个库可以导出多个类，还能再导出别的库）。
+        另一处是 Java 没有延迟加载的等价物（类加载本身就是按需的，
+        但那是 JVM 行为，语言层面写不出来），Dart 的 deferred 是显式声明的。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

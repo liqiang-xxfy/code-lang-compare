@@ -1,0 +1,199 @@
+# kotlin —— model / iteration
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: iteration` 的那批：
+# generator-yield / comprehension / lazy-evaluation / destructuring。
+#
+# 口径说明：这一组的主线是**急切与惰性的分界** —— `Iterable` 上的 `map` / `filter`
+# 每一步都会造一个中间集合，`Sequence`（`.asSequence()` 之后）才是逐元素跑完全部步骤。
+# 第二条是**没有推导式也没有 `yield`**：这两样都要正面交代替代写法，
+# 不能只说「没有」。第三条是解构**按位置不按名字** —— 这条对 Python 读者最关键。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-iteration-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generator-yield:
+    code: |
+      // @note Kotlin 没有 Python 那种「函数里出现 yield 就变生成器」的写法
+      // @note 替代一：sequence 构建器，最接近生成器
+      fun countdown(from: Int): Sequence<Int> = sequence {
+        for (i in from downTo 1) yield(i)     // @note yield 是构建器里的挂起式写法
+      }
+
+      // @note 替代二：手写迭代器（更啰嗦，但完全可控）
+      fun odds(limit: Int) = object : Iterable<Int> {
+        override fun iterator() = object : Iterator<Int> {
+          var cur = 1
+          override fun hasNext() = cur <= limit
+          override fun next() = cur.also { cur += 2 }
+        }
+      }
+
+      countdown(3).toList()          // @note [3, 2, 1]
+      odds(5).toList()               // @note [1, 3, 5]
+    vs:
+      javascript: |
+        JavaScript 用 `function*` 加 `yield` 写生成器，是语法级的；
+        Kotlin 没有这个语法，最接近的是 `sequence { }` 这个构建器函数 ——
+        它靠一个**挂起式的 lambda** 达到同样的效果，
+        写起来像，但机制不同（一个是语言关键字，一个是标准库函数）。
+        另一处是惰性的边界：JavaScript 的生成器天然是惰性的；
+        Kotlin 的 `sequence` 也是，但如果写成返回 `List` 的函数，
+        就变成一次性算完了 —— 惰性在这边取决于你选了哪个类型。
+      python: |
+        **这是两个语言差别最大的一处之一**：Python 的 `yield` 是语言特性，
+        一个函数里出现它就整体变成生成器，写法极简；
+        Kotlin 完全没有这个机制，要写 `sequence { yield(x) }`，
+        而且那个函数必须显式声明返回 `Sequence<T>`。
+        所以 Python 里三行的生成器，在 Kotlin 里要么写成构建器、
+        要么手写一个迭代器类。代价换来的是类型明确：
+        看到 `Sequence<Int>` 就知道它是惰性的，不用读函数体。
+      java: |
+        Java 完全没有生成器机制，要「按需产出一串值」只能实现
+        `Iterator` 或者用 `Stream.generate` / `Stream.iterate`
+        （后者能表达无穷流但不好写有状态的分支）。
+        Kotlin 的 `sequence { }` 相比之下更顺手 ——
+        里面能写普通的 `for` 与 `if`，`yield` 打断在哪都行，
+        这一条 Kotlin 比 Java 明显好写。两边手写迭代器的形状则完全一样。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  comprehension:
+    code: |
+      val xs = listOf(1, 2, 3, 4)
+
+      // @note Kotlin 没有推导式语法 —— 用变换函数代替
+      xs.map { it * 2 }                     // @note [2, 4, 6, 8]
+      xs.filter { it % 2 == 0 }             // @note [2, 4]
+      xs.filter { it % 2 == 0 }.map { it * 10 }   // @note [20, 40]
+
+      // @note 常用的一批：mapNotNull / flatMap / associate / groupBy / zip
+      xs.associateWith { it * it }          // @note {1=1, 2=4, 3=9, 4=16}
+      xs.groupBy { it % 2 }                 // @note {1=[1, 3], 0=[2, 4]}
+      xs.zip(listOf("a", "b"))              // @note [(1, a), (2, b)] —— 取短的那个
+
+      // @note! 这些变换都**立即求值**、返回新的 List —— 不是惰性的
+      // @note 想惰性就先 .asSequence()
+    vs:
+      javascript: |
+        JavaScript 用 `map` / `filter` 链，与 Kotlin 几乎可以逐条对应，
+        连「立即求值」这一点都一样（JavaScript 的数组方法也是急切的）。
+        差别在**链上有什么**：Kotlin 标准库多出一批
+        （`associateWith` / `groupBy` / `zip` / `distinct` / `sortedBy`），
+        JavaScript 里有些要自己写、有些是新加的。两边的共同点是
+        都得靠方法名猜行为，没有语法层面的表达。
+      python: |
+        **写法上的分野**：Python 的 `[x * 2 for x in xs if ...]`
+        是一行讲完「取哪些、每个怎么变」的语法；
+        Kotlin 要拆成 `filter { }.map { }` 两个方法调用，
+        而且**顺序要自己排**（先 filter 再 map 与反过来结果可能不同）。
+        好处是每一步在做什么一眼可见、也容易在中途插别的操作；
+        代价是表达力靠自己组织，写不出 Python 那种密集的一行。
+      java: |
+        Java 的流（`stream().filter().map().collect()`）与 Kotlin
+        可以逐条对应，两边都是链式调用而不是语法。
+        差别在**收尾**：Java 的流最后必须 `collect(...)` 才能拿回集合，
+        Kotlin 的 `filter` / `map` 直接返回 `List`，不用收尾；
+        反过来 Java 的流默认就是惰性的，Kotlin 的 `Iterable` 版本是急切的
+        —— 同一个链式写法，两边求值时机相反，这是最容易想当然的一处。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  lazy-evaluation:
+    code: |
+      // @note Iterable：**急切** —— 每一步都造一个中间集合
+      val eager = (1..5).map { println("map $it"); it * 2 }
+      // 打印 5 次，得到 List<Int>
+
+      // @note Sequence：**惰性** —— 只有要结果时才跑，而且是逐元素跑完所有步骤
+      val lazySeq = (1..5).asSequence().map { println("map $it"); it * 2 }
+      // 什么都不打印 —— 还没开始算
+      lazySeq.toList()               // @note 这时才打印，且是一个元素跑完全部步骤
+
+      // @note 无穷序列靠惰性才成立
+      val naturals = generateSequence(1) { it + 1 }
+      naturals.take(3).toList()      // @note [1, 2, 3]
+
+      // @note 终端操作（toList / sum / first / forEach）才触发计算
+      // @note 惰性有额外开销，小集合上未必划算
+    vs:
+      javascript: |
+        JavaScript 的数组方法一律**急切**，每一步都产生一个新数组 ——
+        与 Kotlin 的 `Iterable` 版本一致。要惰性两条路：
+        手写生成器，或者用较新的迭代器辅助方法。
+        Kotlin 的 `Sequence` 是把惰性做成了**一个类型**，
+        在链首加一句 `.asSequence()` 就整体切换 ——
+        这种「同一个链、两种求值时机」的写法在那边没有对应物。
+      python: |
+        两边的分界方式相似：Python 靠生成器表达式（`(... for ...)`）
+        与 `map` / `filter` 的惰性版本，Kotlin 靠 `Sequence` 类型。
+        差别在**切换的成本**：Python 里换一对圆括号就变了；
+        Kotlin 要在链首显式写 `.asSequence()`，而且之后不能再按 List 用。
+        这条显式切换其实更安全 —— 读代码时能看出这一段是不是惰性的。
+        两边都有一条共同的坑：惰性的链只跑一次就耗尽，反复遍历要重新构造。
+      java: |
+        两边的默认相反：Java 的流**默认就是惰性的**，
+        要拿回集合必须 `collect`（那一步才是终端操作）；
+        Kotlin 的 `Iterable` 链**默认是急切的**，
+        惰性要显式 `.asSequence()`。所以 Java 里写好的一条链
+        搬到 Kotlin 会变成「每一步都造一个中间集合」，
+        小数据看不出来，大数据上是实打实的差别。
+        无穷流两边都能做，机制不同（`Stream.iterate` ↔ `generateSequence`）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  destructuring:
+    code: |
+      data class User(val name: String, val age: Int)
+      val u = User("Ada", 30)
+
+      val (name, age) = u            // @note 按**声明顺序**取 component1 / component2
+      val (only,) = u                // @note 只想要第一个
+      val (_, years) = u             // @note 下划线跳过不想要的（那个分量不会求值）
+
+      // @note Map 的条目也能解构，所以能这样遍历
+      for ((k, v) in mapOf("a" to 1)) { }
+
+      // @note lambda 参数也能解构 —— 但括号很关键
+      mapOf("a" to 1).mapValues { (k, v) -> "$k=$v" }   // @note 解构一个 Pair
+      mapOf("a" to 1).mapValues { e -> e.key }          // @note 不解构，取整个条目
+
+      // @note 自定义类想支持解构，就提供 operator fun componentN()
+      // @note! 位置是对齐的：字段顺序一改，解构的结果会静静地换对象，编译器不提醒
+    vs:
+      javascript: |
+        两边的解构写法很像（`const { name } = u` ↔ `val (name) = u`），
+        但**依据不同**：JavaScript 按**属性名**取，名字写错得到 undefined；
+        Kotlin 按**位置**取（`component1` / `component2`），
+        名字是你自己起的、写什么都行，位置才是真的 ——
+        所以重排字段顺序在 Kotlin 里是个静默的破坏性改动。
+        好处是 Kotlin 的数组、Map 条目、任何类都能解构，不限于对象字面量。
+      python: |
+        Python 的 `name, age = u` 同样按位置，
+        与 Kotlin 的 `val (name, age) = u` 规则一致，这一点两边相同。
+        差别在**来源**：Python 的可迭代对象天然可解包（几个元素就解几个），
+        字符串、列表都能直接拆；Kotlin 要求类型**显式提供 `componentN`**，
+        所以 `List` 之类就不能随手解构，得先转成具体类型。
+        另一处是 Kotlin 的 `_` 跳过某个分量时**不会调用**那一步，Python 也会照解。
+      java: |
+        Java 至今没有解构（较新的版本在预览 record 模式，
+        但仍限于模式匹配的场合）。Kotlin 的 `val (a, b) = u`
+        与 Java 的 `u.a()` / `u.b()` 两步取值等价，
+        只是把「同时取出多个字段」写成了一个动作。
+        共同的坑两边都有：Kotlin 按位置、Java 的 record 模式按类型与顺序，
+        重排字段都可能导致静默变化 —— 只是 Java 那边目前用得少，撞上的机会也少。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

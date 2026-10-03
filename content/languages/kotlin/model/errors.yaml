@@ -1,0 +1,299 @@
+# kotlin —— model / errors
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: errors` 的那批：
+# throw-raise / try-catch / finally-cleanup / error-types / custom-error / error-propagation。
+#
+# 口径说明：**这一组的第一条事实是「Kotlin 没有受检异常」** ——
+# 所有异常都是 unchecked，签名里没有 throws，调用方不被强制处理。
+# 这是对 Java 读者价值最高也最容易误解的一条：不是「Kotlin 不检查」，
+# 是「Kotlin 认为强制声明 throws 弊大于利」。反向的一条同样要写：
+# Kotlin 函数抛出的异常导出到 Java 时**默认不在 throws 列表里**，
+# 所以要加 `@Throws`，否则 Java 调用方可能漏 catch。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  throw-raise:
+    code: |
+      fun parse(s: String): Int {
+        if (s.isEmpty()) throw IllegalArgumentException("不能为空")
+        return s.toInt()
+      }
+
+      // @note throw 是**表达式**，类型是 Nothing，所以能塞进 ?: 里
+      val port = System.getenv("PORT")?.toIntOrNull()
+          ?: throw IllegalStateException("没配 PORT")
+
+      // @note 不需要在签名里声明它抛什么 —— Kotlin 没有受检异常
+      // @note 抛出的东西必须是 Throwable 的子类（throw "字符串" 编译不过）
+    vs:
+      javascript: |
+        两边都能随时抛、都不需要在签名里声明，这一点很像。
+        差别在**能抛什么**：JavaScript 可以 `throw "字符串"`、
+        `throw {code: 1}` 甚至 `throw 42` —— 抛出去的东西不必是 Error；
+        Kotlin 要求必须是 `Throwable` 的子类，所以调用方捕获时
+        总能拿到一个有意义的对象（有消息、有栈）。
+        另一处是 `throw` 的位置：Kotlin 里它是表达式，
+        能直接写在 `?:` 右边当「兜底就是炸」，JavaScript 里 `throw` 是语句。
+      python: |
+        两边都不强制声明异常，这一点相同。差别在**异常的种类纪律**：
+        Python 可以 `raise "字符串"`（会得到一个 TypeError，因为
+        raise 要求 BaseException），日常也经常自定义异常类；
+        Kotlin 明确要求 `Throwable` 子类，而且把
+        `Error`（不该捕获的严重问题）与 `Exception`（业务错误）
+        分成两支，惯例上前者不捕获。
+        另一处是 Kotlin 的 `throw` 是表达式，能嵌进表达式里用。
+      java: |
+        **这是与 Java 差别最大的一组**。Java 有受检异常：方法签名里
+        写着 `throws IOException`，调用方不处理就编译不过。
+        Kotlin **全部取消**，所有异常都是运行时才可能发生的 ——
+        好处是不再出现「为了满足编译器而写个空 catch」的场面，
+        坏处是「这个函数可能抛什么」不再从签名读得出来，只能看文档。
+        注意这不是「Kotlin 不做检查」，而是明确认为强制声明
+        弊大于利：绝大多数 `throws` 最后都变成了空的 catch 或者
+        无意义的向上传递。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  try-catch:
+    code: |
+      // @note try 是表达式：能直接给变量赋值
+      val n = try { "42".toInt() } catch (e: NumberFormatException) { -1 }
+
+      try {
+        risky()
+      } catch (e: IllegalStateException) {
+        println("状态不对：${e.message}")
+      } catch (e: Exception) {            // @note 多个 catch 从上往下匹配
+        println("别的错")
+      }
+
+      // @note 不关心异常对象时可以只写类型
+      try { risky() } catch (_: Exception) { }
+
+      // @note! catch 到的异常类型必须显式写，没有「捕获全部」的简写
+      // @note 但 Exception 已经是很宽的兜底了
+
+      // @note 取消协程时抛的 CancellationException 也会被 catch(Exception) 接住 ——
+      // @note 协程代码里吞掉它会让取消失效，要单独放行
+    vs:
+      javascript: |
+        两边的 `try / catch` 形态一致，主要差别在**类型**：
+        JavaScript 的 `catch` 不写类型，拿到的东西得自己判断是不是 Error；
+        Kotlin 必须写明要接哪种异常，多个 `catch` 从上往下匹配，
+        所以「这个分支在接什么」是明摆着的。
+        另一处是取值：JavaScript 的 `try` 是语句，取结果要靠在外层先声明变量；
+        Kotlin 的 `try` 是表达式，直接 `val n = try { ... } catch { ... }`。
+      python: |
+        两边都能接多种异常、都不强制声明。差别在**匹配的粒度**：
+        Python 把多个异常类型写在一个 `except` 里（`except (A, B):`），
+        Kotlin 是一类一个 `catch` 分支；Python 还有 `else` 子句
+        （没出错时走），Kotlin 没有，得靠 `try` 表达式取值来代替。
+        另一处是 Python 的裸 `except:` 能接住一切（包括键盘中断），
+        Kotlin 至少要求写出类型，最宽也只能到 `Exception`。
+      java: |
+        语法几乎一样（`try` / `catch` 按类型匹配、从上往下），
+        这一格两边很像。两处实质差别：一是 Kotlin 的 `try` 是**表达式**、
+        有值，Java 里想拿到 try 里的结果得在外面先声明变量；
+        二是**取消语义**——Kotlin 的协程取消是通过抛一个特殊异常实现的，
+        它也会被 `catch (e: Exception)` 接住，吞掉它取消就失效了，
+        所以协程代码里要把这个异常单独放行。这层陷阱 Java 没有。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  finally-cleanup:
+    code: |
+      try {
+        risky()
+      } finally {
+        println("总会执行")
+      }
+
+      // @note! finally 会执行，但**不会改变 try/catch 的结果值**
+      val v = try { 1 } finally { println("清理") }   // v 是 1
+
+      // @note 关资源不用 try-with-resources —— Kotlin 没有那个语法
+      FileReader("a.txt").use { reader ->              // @note use：自动关
+        println(reader.readText())
+      }
+
+      // @note use 收的是 Closeable / AutoCloseable，无论抛不抛都会关
+      // @note 需要在取消时也做挂起清理，用 withContext(NonCancellable) { }
+    vs:
+      javascript: |
+        两边的 `finally` 都是「无论怎样都执行」，语义一致。
+        差别在**关资源这件事**：JavaScript 没有 `use` 这类语言级辅助，
+        要么手工在 `finally` 里关，要么用 `await using` 那种较新的语法；
+        Kotlin 的 `use` 是一个标准库扩展函数，一行收住
+        「打开、用、无论如何关掉」这三步，也不用记资源的类型。
+      python: |
+        Python 的 `finally` 与 Kotlin 的语义相同。关资源两边都用语言级辅助：
+        Python 是 `with` 语句（协议是 `__enter__` / `__exit__`），
+        Kotlin 是 `use`（协议是 `Closeable`）—— 用途一样，
+        但 Python 的 `with` 是关键字、能接多个资源，Kotlin 的 `use`
+        是个函数、一次一个。另一处是 Kotlin 明确写了
+        「`finally` 不改变 try 的结果值」，Python 的 `finally` 里
+        `return` 反而会覆盖掉原来的返回值，两边在这点上一个澄清、一个埋雷。
+      java: |
+        Java 的 `finally` 与 Kotlin 完全相同，连「总是执行」的规则都一致。
+        差别在**关资源的写法**：Java 用 try-with-resources
+        （`try (var r = new FileReader(...)) { }`），是语法；
+        Kotlin 没有这个语法，用标准库的 `.use { }` 扩展函数，
+        形态上更像一次普通的高阶函数调用。
+        从 Java 过来时这一处要改写法，但语义等价。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  error-types:
+    code: |
+      // @note 异常体系的根是 Throwable，分两支：
+      // @note   Error      —— 环境层面的严重问题（内存耗尽等），惯例上不捕获
+      // @note   Exception  —— 业务与程序错误，平时捕获的都是这一支
+
+      catch (e: Exception) { }             // @note 兜底用这个
+      catch (e: Throwable) { }             // @note! 连 Error 一起接住，一般不该这么做
+
+      // @note 所有异常都是 unchecked —— 没有受检与不受检的分野
+      // @note 标准库里常见的：IllegalArgumentException / IllegalStateException /
+      // @note   NumberFormatException / NoSuchElementException / IndexOutOfBoundsException
+
+      // @note 断言式的快捷函数，比自己拼异常消息清楚
+      require(n > 0) { "n 必须为正" }        // @note 不满足抛 IllegalArgumentException
+      check(state != null) { "状态不对" }    // @note 不满足抛 IllegalStateException
+      error("不该走到这里")                  // @note 直接抛 IllegalStateException
+    vs:
+      javascript: |
+        JavaScript 的异常体系只有一层（`Error` 与它的子类），
+        并没有「不该捕获的严重错误」这一支，所有错误一视同仁；
+        Kotlin 从 `Throwable` 分出 `Error` 与 `Exception` 两支，
+        惯例上前者不捕获 —— `OutOfMemoryError` 这类接住了也做不了什么。
+        另一处是标准库给的断言函数：JavaScript 里断言要自己写
+        `if (...) throw new Error(...)`，Kotlin 有 `require` / `check` 一行搞定。
+      python: |
+        两边都只有「异常」这一层，没有「不该捕获」的分支
+        （Python 的 `BaseException` 与 `Exception` 那层分野用途不同，
+        主要是为了不让裸 `except` 接住键盘中断）。
+        差别在**标准库给的断言工具**：Python 有 `assert` 语句，
+        但它会被优化开关整个去掉；Kotlin 的 `require` / `check`
+        是普通函数，永远生效，而且会抛带明确消息的异常 ——
+        用同一套写法既能当断言又能当参数校验。
+      java: |
+        Java 的异常体系与 Kotlin **是同一套**（都跑在 JVM 上，
+        `Throwable` / `Error` / `Exception` 一字不差），这部分可以逐条对应。
+        差别只在**受检与否**：Java 里 `Exception` 的子类默认是受检的
+        （`RuntimeException` 那一支除外），Kotlin 把整棵树都当不受检。
+        所以同一个 `IOException`，Java 里必须在签名声明或就地捕获，
+        Kotlin 里两样都不做也合法 —— 这是「同一套类库、两套纪律」。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  custom-error:
+    code: |
+      class CartEmptyException(val cartId: String) :
+          Exception("购物车 $cartId 是空的")     // @note 继承 Exception
+
+      class RetryableException(msg: String, cause: Throwable) :
+          RuntimeException(msg, cause)            // @note 运行时异常，惯例上更常用
+
+      throw CartEmptyException("c-1")
+
+      try {
+        checkout()
+      } catch (e: CartEmptyException) {
+        println(e.cartId)                          // @note 自定义字段直接读
+      }
+
+      // @note 要传「原来的异常」就放在构造参数里（cause），栈会保留
+      // @note! 从 Java 调用这个函数时，异常不会出现在 throws 里 ——
+      // @note! 想让 Java 侧看到，函数要标 @Throws(CartEmptyException::class)
+    vs:
+      javascript: |
+        两边都靠继承内置错误类型来定义自己的错误。
+        差别在**构造与字段**：JavaScript 自定义错误要手写
+        `constructor(msg) { super(msg); this.name = ... }`，
+        还要小心原型链；Kotlin 一行 `class X(val id: String) : Exception("...")`
+        既声明了字段又调了父构造器。
+        另一处是带「原因」的构造：两边都支持，但 Kotlin 的异常
+        默认就带栈、带 cause 链，JavaScript 要自己维护。
+      python: |
+        Python 的自定义异常通常就是 `class CartEmpty(Exception): pass`，
+        要带字段得自己写 `__init__`；Kotlin 在主构造器里
+        直接声明属性，写法更短。
+        差别在**基类的选择**：Python 几乎都继承 `Exception`，
+        不太区分「运行时」与「受检」（本来也没有）；
+        Kotlin 惯例上更常继承 `RuntimeException`，因为受检那一套已经取消，
+        继承 `Exception` 反而显得像是从别处带过来的包袱。
+      java: |
+        两边都是「继承 Exception 或 RuntimeException，加自己的字段」，
+        写法几乎可以逐字对应，这部分最像。
+        差别在**要不要声明**：Java 里继承 `Exception` 就是受检异常，
+        抛它的方法必须在签名写 `throws`；Kotlin 里继承什么都不会
+        出现在签名里。反过来，Kotlin 定义的异常要给 Java 用，
+        必须标 `@Throws`，否则 Java 调用方看不到它、可能漏掉 catch ——
+        这个方向的不对称是最容易忽略的一处。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  error-propagation:
+    code: |
+      fun a() { b() }                       // @note 不用声明，异常自己往上冒
+      fun b() { throw IllegalStateException("炸了") }
+
+      // @note 想显式建模「可能失败」而不走异常，用 Result
+      fun parse(s: String): Result<Int> =
+          runCatching { s.toInt() }          // @note 把异常收成一个值
+
+      parse("42").getOrNull()                // @note 失败给 null
+      parse("42").getOrDefault(0)
+      parse("x").exceptionOrNull()           // @note 失败给异常对象，成功给 null
+      parse("x").fold(
+          onSuccess = { println("得到 $it") },
+          onFailure = { println("失败：${it.message}") },
+      )
+
+      // @note! 要给 Java 调用方看的异常，得标 @Throws
+      @Throws(IllegalStateException::class)
+      fun forJava() { throw IllegalStateException("炸了") }
+    vs:
+      javascript: |
+        两边都靠「往上冒」传播，中间层不写任何东西 —— 这一层很像。
+        差别在**有没有「把失败收成值」的官方工具**：
+        JavaScript 靠 Promise 的 reject 或者自己返回 `{ok, error}`；
+        Kotlin 标准库直接给了 `Result` 与 `runCatching`，
+        失败是一个正常的值，能用 `fold` 一次分完两条路。
+        另一处是 Kotlin 多一层「给别的语言看」的注解，JavaScript 没有对应问题。
+      python: |
+        两边都靠冒泡传播，中间层不声明 —— 这一点相同。
+        差别在**「可能失败」怎么表达**：Python 的惯例是用异常
+        （`try/except`），或者返回一个特殊值再判断；
+        Kotlin 的 `Result` 把「成功值或异常」做成一个类型，
+        让编译器提醒你必须处理两条路 —— 有点像 Python 里
+        返回 `None` 加 `raise` 两种手段的合体，但它是类型的一部分。
+      java: |
+        差别在**签名里写不写**：Java 的方法必须声明它抛的受检异常，
+        层层往上传递时每一层都要重复一遍 `throws`；
+        Kotlin 什么都不用写，异常静静地冒到有 catch 的地方。
+        代价是「这个函数会抛什么」从签名里消失了 ——
+        所以 Kotlin 提供了 `Result` 这个类型给需要显式建模失败的场合。
+        反向的坑：Kotlin 的异常给 Java 用时必须标 `@Throws`，
+        否则 Java 侧看不到、可能漏 catch。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

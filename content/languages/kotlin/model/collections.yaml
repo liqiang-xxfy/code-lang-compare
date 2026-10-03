@@ -1,0 +1,280 @@
+# kotlin —— model / collections
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: collections` 的那批：
+# list-array / map-dict / set / tuple-record / collection-mutability / slicing。
+#
+# 口径说明：这一组的主线是**「只读接口 ≠ 不可变」** —— `List` 只是没有写方法的
+# 接口，背后那个对象可能是可变的，别人改了你也会看到。
+# 官方文档通篇用 "read-only"，从不用 "immutable"，写作时按这个词走。
+# 第二条是**型变**：只读集合协变、可变集合不变，这正是「为什么必须分成两个接口」的答案。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  list-array:
+    code: |
+      val readOnly = listOf(1, 2, 3)        // @note List<Int>：只读接口，没有 add
+      val mut = mutableListOf(1, 2, 3)      // @note MutableList<Int>：可以增删
+      mut.add(4); mut.removeAt(0)
+
+      readOnly.size                          // @note 属性，不是方法
+      readOnly[0]; readOnly.first(); readOnly.last()
+      readOnly.isEmpty(); readOnly.contains(2)
+
+      // @note listOf 元素少的时候有专门实现（0 个、1 个各一个单例），别以为总是 ArrayList
+      // @note 两者之间的转换：mut.toList() 是**拷贝**，不是换个接口看
+      val copy = mut.toList()                // @note 之后 mut 变了，copy 不变
+    vs:
+      javascript: |
+        两边都有「可变的列表」与「只读的列表」，但**划分方式不同**：
+        JavaScript 用 `Object.freeze` 或者干脆靠约定，语言层面只有一个数组类型；
+        Kotlin 是两个**类型**（`List` 与 `MutableList`），编译器按类型拦。
+        另一处是转换的语义：JavaScript 的 `[...arr]` 是拷贝，
+        Kotlin 的 `toList()` 同样是拷贝 —— 但 Kotlin 还允许
+        「不拷贝、只是换个只读视角看同一个对象」，那才是最容易误会的一处。
+      python: |
+        Python 的 `list` 与 Kotlin 的 `MutableList` 用法接近，
+        但 Python **没有只读的那一档**（元组是另一个类型，不是视图）。
+        Kotlin 的 `List` 更像「同一个列表的只读窗口」——
+        它可能真的是不可变的，也可能只是你看不到写操作。
+        另一处是名字：Python 的 `len(x)` 是函数，Kotlin 的 `x.size` 是属性；
+        Python 有负下标，Kotlin 没有。
+      java: |
+        Java 的 `List` 接口**本身就带 `add`**，所以「只读」只能靠
+        `Collections.unmodifiableList` 这类运行期包装，编译器不帮忙；
+        Kotlin 把接口拆成 `List` 与 `MutableList` 两个，
+        只读的那一半根本没有写方法可调 —— 同一件事，
+        一个靠运行期拦截、一个靠编译期拒绝。
+        另一处是创建：Java 9 起有 `List.of(...)`（真不可变），
+        Kotlin 的 `listOf(...)` 是对应的写法。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  map-dict:
+    code: |
+      val ages = mapOf("Ada" to 30, "Bob" to 25)   // @note to 是造 Pair 的中缀函数
+      val mut = mutableMapOf("a" to 1)
+      mut["b"] = 2                                  // @note 下标赋值
+      mut.put("c", 3)
+
+      ages["Ada"]                                   // @note 30
+      ages["Nobody"]                                // @note null —— 返回类型是 Int?
+      ages.getValue("Nobody")                       // @note! 这个才抛异常
+      ages.getOrDefault("x", 0)
+      ages.getOrElse("x") { 0 }
+      mut.getOrPut("d") { 4 }                       // @note 没有才放，一步完成
+
+      for ((name, age) in ages) { }                 // @note 解构遍历
+      ages.filterKeys { it.startsWith("A") }
+      ages.mapValues { it.value + 1 }
+
+      // @note 默认实现保持**插入顺序**（底层是 LinkedHashMap）
+      // @note Map 不属于 Collection —— 它有自己的层级
+    vs:
+      javascript: |
+        两边都用下标取值，取不到都给一个「空」—— 差别在那个空是什么：
+        JavaScript 给 `undefined`，Kotlin 给 `null`，而且写在返回类型里，
+        用之前必须处理。另一处是**键的类型**：JavaScript 的对象键
+        只能是字符串或符号，要别的类型得换 `Map`；
+        Kotlin 的 `Map` 从一开始就能用任意类型当键。
+        还有一处：JavaScript 的 `Object.keys` 顺序要靠约定，
+        Kotlin 的 `mapOf` 明确保持插入顺序。
+      python: |
+        字典这一层两边可以逐条对应（`d[k]` ↔ `m[k]`、
+        `d.get(k, 默认)` ↔ `m.getOrDefault(k, 默认)`、
+        `d.setdefault` ↔ `getOrPut`）。最要紧的差别是**取不到的键**：
+        Python 抛 `KeyError`，Kotlin 给 `null` ——
+        所以 Python 里那个 `try/except KeyError` 在 Kotlin 里默认是判空，
+        想让它抛异常得显式写 `getValue`。
+        另一处是 `to` 这个写法：Python 用 `(k, v)` 元组，Kotlin 用中缀 `to`。
+      java: |
+        方法名两边能对应上（`get` / `put` / `getOrDefault` / `putIfAbsent`），
+        默认实现也都保持插入顺序。差别在**语法糖**：
+        Java 至今要写 `map.put(k, v)`，Kotlin 能写 `map[k] = v`。
+        另一处是 `getOrPut`：Java 里「没有就建一个放进去」要写
+        「先 get 判空、再 put」三步，还容易写错；
+        Kotlin 一行搞定，而且那条 Lambda 只在真没有时才求值。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  set:
+    code: |
+      val s = setOf(1, 2, 3)                // @note 只读集合
+      val ms = mutableSetOf(1, 2)
+      ms.add(3); ms.remove(1)
+
+      s.contains(2); 2 in s                 // @note 两种写法等价
+      s union setOf(3, 4)                   // @note 并集，返回新集合
+      s intersect setOf(2, 3)               // @note 交集
+      s subtract setOf(1)                   // @note 差集
+
+      // @note 默认实现是 LinkedHashSet：**保持插入顺序**，遍历时可预期
+      // @note 要无序的哈希集合得显式写 HashSet(...)
+      // @note 元素靠 equals / hashCode 判重 —— 自定义类要重载这两个
+    vs:
+      javascript: |
+        JavaScript 的 `Set` 与 Kotlin 的 `Set` 用法接近
+        （`add` / `has` / `delete` ↔ `add` / `contains` / `remove`），
+        两者都保持插入顺序。差别在**集合运算**：JavaScript 的 `Set`
+        没有并集交集差集，要自己写循环或用新出的方法；
+        Kotlin 标准库直接给了 `union` / `intersect` / `subtract`，
+        而且都返回新集合。另一处是判重的依据：两边都看相等性，
+        但 Kotlin 明确要求重载 `==` 时同时给 `hashCode`。
+      python: |
+        两边的集合都能做并交差（`| & -` ↔ `union` / `intersect` / `subtract`），
+        这一层可以对应。差别在**顺序**：Python 的 `set`
+        遍历顺序不可预期，Kotlin 的 `setOf` 默认保持插入顺序 ——
+        这在「输出稳定、测试可复现」这件事上差别很实在。
+        另一处是可变性：Python 的 `set` 可变、`frozenset` 不可变，
+        与 Kotlin 的 `Set` / `MutableSet` 分法相似，但对齐的不是同一根轴。
+      java: |
+        两边的集合都能增删查，`HashSet` 与 `LinkedHashSet` 也都在。
+        差别在**只读与可变**：Java 的 `Set` 接口带 `add`，
+        只读要靠运行期包装；Kotlin 拆成 `Set` 与 `MutableSet` 两个类型。
+        另一处是集合运算：Java 没有 `union` / `intersect` 这类工具，
+        要自己拿 `addAll` / `retainAll` 去改一个副本，
+        而那两个方法**是原地修改**的 —— Kotlin 的那三个返回新集合，
+        不会不小心改到原来的那个。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  tuple-record:
+    code: |
+      val pair = "Ada" to 30                 // @note Pair<String, Int>
+      val triple = Triple(1, "a", true)      // @note Triple
+
+      pair.first; pair.second                // @note 名字没有语义，只有位置
+      val (name, age) = pair                 // @note 解构，靠 componentN 按位置取
+
+      // @note 想要有意义的名字就用 data class
+      data class User(val name: String, val age: Int)
+      val u = User("Ada", 30)
+      val (n, a) = u                         // @note 同样是按**声明顺序**解构
+      println(u.name)
+
+      // @note 三个以上就只能自己定义 data class —— 标准库只到 Triple
+    vs:
+      javascript: |
+        JavaScript 的数组与对象都能当「临时组合」用，
+        而且对象带字段名、解构也按名字来；Kotlin 的 `Pair` 只有
+        `first` / `second` 两个位置名，**解构是按顺序不是按名字** ——
+        位置一改，解构的结果就悄悄换了对象，编译器不提醒。
+        所以 Kotlin 里一旦超过「随手传两个值」，惯例是定义 data class。
+        另一处是 Kotlin 的解构是编译器特性（`componentN`），
+        可以给任何类加，JavaScript 那边是协议（可迭代）。
+      python: |
+        Python 的元组与 Kotlin 的 `Pair` 用途相同，
+        解构也都可以（`name, age = pair` ↔ `val (name, age) = pair`）。
+        差别在**命名**：Python 可以用 `NamedTuple` 给字段起名并保留解构，
+        Kotlin 的 `Pair` 不行 —— 想两者兼得就得写 data class，
+        多一行声明。另一处是长度：Python 的元组任意长，
+        Kotlin 标准库只到三个，更长的要自己定义。
+      java: |
+        Java 长期没有元组，多返回值要么建个类、要么用数组或 `Map` 凑；
+        较新的版本才有 `record`，而且 record 必须**先声明类型**
+        （`record Point(int x, int y) {}`），不能像 Kotlin 那样
+        随手写 `"a" to 1` 造一个匿名的。
+        Kotlin 的 `Pair` / `Triple` 是标准库里现成的两个类，
+        适合临时用；真正的多返回值两边都推荐定义具名类型，
+        这一点是一致的。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  collection-mutability:
+    code: |
+      val list: List<Int> = mutableListOf(1, 2)
+      // list.add(3)                    // @note! 编译错误：List 上没有这个方法
+      (list as MutableList).add(3)      // @note! 但它背后真的是可变的，强转就能改
+
+      // @note 只读集合是**协变**的：List<Dog> 能当 List<Animal> 用
+      val dogs: List<Dog> = listOf(Dog())
+      val animals: List<Animal> = dogs   // @note 合法 —— 因为只读，塞不进去东西
+
+      // @note! 可变集合**不变**：MutableList<Dog> 不能当 MutableList<Animal>
+      // val bad: MutableList<Animal> = mutableListOf<Dog>()   // 编译错误
+      // @note 否则就能往里加一只猫，而调用方以为拿到的是狗的列表
+
+      // @note 这三行就是「为什么必须拆成两个接口」的全部理由
+    vs:
+      javascript: |
+        JavaScript 只有一个数组类型，没有「只读的那一半」，
+        所以「能不能改」这件事编译器不知道，只能靠运行时冻结或者约定。
+        Kotlin 把它拆成两个类型之后，多出一件 JavaScript 里没有的事：
+        **只读的那个可以协变** —— `List<Dog>` 能当 `List<Animal>` 用，
+        因为反正塞不进东西。这是类型系统换来的实打实的好处，
+        也是「只读接口」存在的第二个理由（第一个是防误改）。
+      python: |
+        Python 用「换成不可变类型」来表达不能改（列表换元组），
+        代价是操作变少、而且是**真的另一份数据**；
+        Kotlin 的只读接口是**同一个对象的另一个视角**，
+        所以强转就能绕过去 —— 它防的是手滑，不是防恶意。
+        另一处是协变：Python 的 `list[Dog]` 在类型检查器眼里也是不变的，
+        这一点两边一致；但 Kotlin 把它变成了编译器强制的规则。
+      java: |
+        这一格与 Java 的对照最能说明问题：Java 的 `List` 接口带 `add`，
+        所以**不可能**既「只读」又「协变」—— 只能靠 `? extends` 通配符
+        在使用的每一处单独放宽，而且放宽的是「读」，写操作仍然要单独处理。
+        Kotlin 拆接口之后，`List` 天然协变、`MutableList` 天然不变，
+        不用在调用处写通配符。这也是 Kotlin 泛型看起来比 Java 简单的原因之一。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  slicing:
+    code: |
+      val xs = listOf(0, 1, 2, 3, 4, 5)
+
+      xs.subList(1, 4)              // @note [1, 2, 3] —— 右端不含
+      xs.take(2); xs.drop(2)        // @note 前两个 / 去掉前两个
+      xs.takeLast(2); xs.dropLast(2)
+      xs.slice(listOf(0, 2, 4))     // @note 按下标挑：[0, 2, 4]
+      xs.chunked(2)                 // @note [[0,1],[2,3],[4,5]] 分组
+      xs.windowed(3)                // @note 滑动窗口
+      xs.filter { it % 2 == 0 }
+      xs.reversed(); xs.sortedDescending()
+
+      // @note! 没有负下标、没有切片语法 —— x[-1] 与 xs[1:3] 都不存在
+      // @note subList 返回的是**视图**（改了会互相影响），要副本用 toList()
+    vs:
+      javascript: |
+        JavaScript 的 `slice(1, 4)` 与 Kotlin 的 `subList(1, 4)` 形态一样，
+        右端都不含 —— 这一层两边很像。差别在**有没有专门的切片语法**：
+        JavaScript 只能靠 `slice` / `splice` 这些方法；
+        Kotlin 除了 `subList`，还多出一批按用途命名的方法
+        （`take` / `drop` / `chunked` / `windowed`），
+        写「取前 N 个」「每 N 个分一组」时不用自己算下标。
+        两边的负下标都只有 JavaScript 有。
+      python: |
+        **这是两个语言差别最直观的一格**：Python 的 `xs[1:4]` 是语法，
+        还支持负下标与步长（`xs[::-1]` 直接反转）；
+        Kotlin 完全没有切片语法，一切都得调方法，
+        取末位要写 `last()`、反转要写 `reversed()`。
+        好在 Kotlin 用一批具名方法补上了表达力
+        （`take` / `drop` / `chunked` / `windowed`），
+        写「分块」「滑动窗口」这类需求时反而比 Python 的切片清楚。
+      java: |
+        Java 的 `subList(1, 4)` 与 Kotlin 的 `subList(1, 4)` 完全相同，
+        连「返回的是视图不是副本」这条陷阱都一样 —— 这部分可以逐字对应。
+        差别在 Kotlin 多出的那一批：`take` / `drop` / `chunked` /
+        `windowed` / `sortedDescending` 都是标准库扩展函数，
+        Java 里要自己用流拼或者写循环。
+        两边的下标都是越界即抛异常，也都没有负下标。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

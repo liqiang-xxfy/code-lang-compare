@@ -1,0 +1,287 @@
+# dart —— model / collections
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: collections` 的那批：
+# list-array / map-dict / set / tuple-record / collection-mutability / slicing。
+#
+# 口径说明：这一组的主线是 **`const` 与 `final` 在集合上的分工**（`const` 深度冻结、
+# `final` 只锁绑定），以及 **record 是结构类型** ——
+# 两个互不相识的库里声明的、字段相同的 record 是**同一个类型**，
+# 这一点与 Java 的 record（名义）和 Python 的 namedtuple（具名）都相反，
+# 是 record 这一格最值得写的东西。
+# 另一条是 `List.unmodifiable` 只是**运行期**只读，与 `const` 不是一回事。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  list-array:
+    code: |
+      var list = [1, 2, 3];                 // @note 默认**可增长**：能 add / remove
+      list.add(4); list.removeAt(0);
+
+      var fixed = List<int>.filled(3, 0);   // @note 定长：长度不能再变
+      var gen = List<int>.generate(3, (i) => i * 2);
+      var empty = <int>[];                  // @note 空字面量要标元素类型
+
+      list.length; list[0]; list.first; list.last;
+      list.contains(2); list.indexOf(3);
+      list.reversed;                        // @note 是 Iterable，不是 List
+      list + [5, 6];                        // @note 拼接，返回新列表
+
+      // @note! 协变：List<int> 能当 List<num> 用，但往里加小数会在运行期抛错
+    vs:
+      javascript: |
+        两边的列表用法非常接近（`push` ↔ `add`、`length` ↔ `length`、
+        `slice` ↔ `sublist`），这一格是全部 22 组里最像的之一。
+        差别在**元素类型**：JavaScript 的数组可以 `[1, "a", {}]`，
+        Dart 的 `List<int>` 塞别的东西编译不过。
+        另一处是定长：JavaScript 只能靠约定，Dart 有 `List.filled` 这种
+        明确不可增长的构造 —— 类型一样，但运行期行为不同。
+      python: |
+        两边都是可增长、能混合类型的列表（除非标了类型），日常用法接近。
+        差别有两处：一是**不可变的那一档**，Python 靠换成元组
+        （代价是操作变少），Dart 用 `const` 或 `List.unmodifiable`
+        （接口还是列表的样子，但写操作抛异常）；
+        二是**下标**，Python 有负下标与切片语法，Dart 两个都没有，
+        取末尾要 `last`、取一段要 `sublist`。
+      java: |
+        两边都对「能增长」与「定长」分得很清楚，但**默认相反**：
+        Java 的 `List` 通常默认可增长（`new ArrayList<>()`），
+        定长要用数组；Dart 的 `List` 一个字面量就既能当数组又能增长，
+        想定长得显式写 `List.filled`。
+        另一处是协变：Java 的数组协变会导致 `ArrayStoreException`，
+        Dart 的 `List<int>` 当 `List<num>` 用会导致 `TypeError` ——
+        成因与爆发时机都一样，只是名字不同。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  map-dict:
+    code: |
+      var ages = {'Ada': 30, 'Bob': 25};    // @note 花括号加冒号就是映射
+      var mut = <String, int>{};            // @note! 空的 {} 是映射，不是集合
+
+      mut['a'] = 1;                         // @note 下标赋值即插入
+      mut.putIfAbsent('b', () => 2);        // @note 没有才放
+      mut.update('a', (v) => v + 1);        // @note 有则改，没有会抛
+      mut.update('z', (v) => v + 1, ifAbsent: () => 0);   // @note 给兜底
+
+      ages['Ada'];                          // @note 30
+      ages['Nobody'];                       // @note null（返回类型是 int?）
+      ages.containsKey('Ada');              // @note 比拿 null 可靠
+      ages.keys; ages.values; ages.entries;
+
+      var merged = {...ages, 'Eve': 40};    // @note 展开合并，后面的覆盖前面
+
+      // @note 默认实现保持**插入顺序**（LinkedHashMap）
+      // @note 要无序用 HashMap，要按 key 排序用 SplayTreeMap
+    vs:
+      javascript: |
+        字面量语法不同（`{a: 1}` ↔ `{'a': 1}`），用途一样。
+        差别在**键的类型**：JavaScript 的对象键只能是字符串或符号，
+        别的类型得换 `Map`；Dart 的 `Map` 一开始就能用任意类型当键。
+        另一处是**空 `{}` 的含义**：JavaScript 里它永远是对象，
+        Dart 里它是**映射**（空集合要写 `<int>{}`）—— 这一处最容易看错。
+        两边默认都保持插入顺序。
+      python: |
+        字典这一层两边几乎可以逐条对应（`d[k]` ↔ `m[k]`、
+        `d.get(k, 默认)` ↔ `m[k] ?? 默认`、`d.setdefault` ↔ `putIfAbsent`），
+        连「空 `{}` 是字典」都一样。最要紧的差别是**取不到的键**：
+        Python 抛 `KeyError`，Dart 给 `null` ——
+        所以那边那个 `try/except KeyError` 在这边默认变成一次判空。
+        另一处是 `update`：Dart 有「有则改、没有则抛」与
+        「没有时给默认」两种选择，Python 得自己写判断。
+      java: |
+        方法名两边能对应（`put` / `get` / `containsKey` / `putIfAbsent`），
+        默认实现也都保持插入顺序（Java 要 `LinkedHashMap`，
+        Dart 的 `Map()` 默认就是）。差别在**语法糖**：
+        Java 至今要写 `map.put(k, v)`，Dart 能写 `map[k] = v`；
+        而且 Dart 有 `update` 这个「改一个已存在的键」的组合操作，
+        Java 里要写「先 get 判空、再 put」三步。
+        取不到的键两边都给 null，但 Dart 的可空返回类型会强制调用方处理。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  set:
+    code: |
+      var s = {1, 2, 3};                    // @note 花括号不带冒号就是集合
+      var empty = <int>{};                  // @note! 空集合必须标类型 —— 不标就是映射
+
+      s.add(4); s.remove(1);
+      s.contains(2); 2 in s;
+      s.union({3, 4});                      // @note 并集
+      s.intersection({2, 3});               // @note 交集
+      s.difference({1});                    // @note 差集
+
+      // @note 默认实现是 LinkedHashSet：**保持插入顺序**
+      // @note 元素靠 == / hashCode 判重 —— 自定义类要重载这两个
+    vs:
+      javascript: |
+        两边都有 `Set`，都能 `add` / `has` / `delete`，
+        也都保持插入顺序。差别在**字面量**：JavaScript 没有集合字面量，
+        必须 `new Set([1,2,3])`；Dart 直接写 `{1, 2, 3}` ——
+        但代价是空的那个有歧义（`{}` 是映射），要标类型才成集合。
+        另一处是集合运算：JavaScript 的 `Set` 至今没有并交差，
+        Dart 标准库直接给了三个。
+      python: |
+        两边的集合都能做并交差（`| & -` ↔ `union` / `intersection` / `difference`），
+        这一层可以对应。差别在**顺序**：Python 的 `set` 遍历顺序不可预期，
+        Dart 的默认集合保持插入顺序 —— 输出稳定、测试可复现，这一点差别很实在。
+        另一处是字面量写法：Python 的空集合要写 `set()`（`{}` 是字典），
+        Dart 的空集合要写 `<int>{}` —— 两个语言都在这件事上给空值留了个坑。
+      java: |
+        两边的集合都能增删查，`HashSet` 与 `LinkedHashSet` 也都在，
+        默认实现同样保持插入顺序（Java 要显式选，Dart 默认就是）。
+        差别在**集合运算**：Java 没有 `union` / `intersection` 这类工具，
+        要自己拿 `addAll` / `retainAll` 去改一个副本，
+        而那两个方法是**原地修改**的；Dart 的三个都返回新集合，
+        不会不小心改到原来那个。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  tuple-record:
+    code: |
+      // record：匿名的、不可变的、固定大小的组合类型（需要语言版本 3.0+）
+      var point = (1, 2);                          // @note 位置字段：point.$1 / point.$2
+      var named = (name: 'Ada', age: 30);          // @note 命名字段：named.name
+      var mixed = (1, 'a', ok: true);
+
+      (int, String) describe() => (1, 'x');        // @note 类型写成字段类型的元组
+
+      // @note 自动生成 == 与 hashCode —— 按字段逐个比
+      print((1, 2) == (1, 2));                     // true
+
+      // @note! 而且是**结构类型**：
+      // @note! 两个互不相识的库里声明的、字段相同的 record 是同一个类型
+      // @note 命名字段的名字**属于类型的一部分**：(a: 1) 与 (x: 1) 不是一回事
+      // @note 位置字段的标注名不算：(int a, int b) 与 (int x, int y) 是同一类型
+
+      // @note 解构（pattern）：
+      var (x, y) = point;
+      var (name: n, age: a) = named;
+    vs:
+      javascript: |
+        JavaScript 用数组或对象凑「临时组合」，而且**按名字或位置**取
+        都靠约定；Dart 的 record 是一个真正的类型，有类型标注、
+        有自动生成的相等判断。
+        差别在**相等**：JavaScript 的两个 `{a:1}` 永远不相等（比引用），
+        Dart 的两个 `(1, 2)` 相等（按字段比）—— 这一条改变了
+        「能不能拿它当 Map 的键」这类判断。无序的对象字面量没有这个能力。
+      python: |
+        Python 的元组与 Dart 的位置 record 用途相同、解构写法也像
+        （`x, y = point` ↔ `var (x, y) = point`），但**等价性规则不同**：
+        Python 的元组按位置逐项比，与 record 一致；
+        而 Python 的 `namedtuple` 是按名字取字段的**具名类型**，
+        两个字段相同的 namedtuple 类互不相等。
+        Dart 的 record 无论位置还是命名都是**结构**的 ——
+        命名字段只要求名字与类型相同就算同一类型，不看它来自哪个库。
+      java: |
+        两边都有 record，但**类型系统的立场相反**：Java 的 record 是
+        **名义**类型 —— 两个字段完全相同的 record 类互不兼容，
+        要转换得写代码；Dart 的 record 是**结构**类型，
+        字段对得上就是同一个类型，跨库也能直接互相赋值。
+        另一处是声明：Java 必须先写 `record Point(int x, int y) {}`，
+        不能像 Dart 那样随手写 `(1, 2)`；好处是 Java 那边有个名字可读，
+        Dart 这边临时用起来更轻。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  collection-mutability:
+    code: |
+      var mutable = [1, 2];
+      mutable.add(3);                       // @note 字面量默认可变
+
+      final bound = [1, 2];
+      bound.add(3);                         // @note! final 只锁绑定，内容照改
+      // bound = [];                        // @note 编译错误：不能再赋一次
+
+      const frozen = [1, 2];
+      // frozen.add(3);                     // @note! 编译错误：const 深度冻结
+
+      final view = List.unmodifiable([1, 2]);
+      // view.add(3);                       // @note! 运行期抛 UnsupportedError
+
+      // @note! 分三档：`final` 只锁绑定、`const` 编译期冻结、
+      // @note! `unmodifiable` 是**运行期**只读视图（普通变量也能包）
+    vs:
+      javascript: |
+        **关键字是错位的**：JavaScript 的 `const arr` 只锁绑定
+        （照样能 `push`），Dart 里干这件事的是 `final`；
+        而 Dart 的 `const` 是编译期 + 深度冻结，JavaScript 里
+        最接近的是 `Object.freeze` —— 但那是运行期、而且只冻一层。
+        所以同一个词 `const` 在两个语言里管的事不一样，
+        这是从那边过来最先要改的直觉。
+      python: |
+        Python 没有「只读绑定」这一档，改不改全看自觉；
+        Dart 的 `final` 由编译器保证只能赋一次。
+        内容不可变上两边思路不同：Python 靠换类型（列表换元组，
+        代价是操作变少），Dart 靠 `const`（编译期拒绝）或
+        `List.unmodifiable`（运行期拦截）—— 后者保留列表的接口，
+        但任何写操作都抛异常。
+        所以 Dart 这边「看起来是列表但不能写」有两种成因，要分清是编译期还是运行期。
+      java: |
+        `final` 在两边含义相同（赋一次、不冻结内容），可以逐条对应。
+        差别在只读视图的时机：Java 的 `List.of(...)` 是**运行期**不可变，
+        编译器不检查、改它运行期抛异常；Dart 的 `const` 集合
+        **编译期**就拦下写操作，连运行期绕过去都抛。
+        另一处是 Dart 多一层「真正的编译期常量集合」——
+        Java 的 `List.of` 给不了这个，因为它的值不参与常量折叠。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  slicing:
+    code: |
+      var xs = [0, 1, 2, 3, 4, 5];
+
+      xs.sublist(1, 4);             // @note [1, 2, 3]，右端不含；**返回新列表**（急切）
+      xs.sublist(2);                // @note 从 2 到末尾
+      xs.getRange(1, 4);            // @note 惰性的 Iterable，不是 List
+      xs.take(2); xs.skip(2);       // @note 惰性 Iterable
+      xs.where((v) => v.isEven);    // @note 惰性
+      xs.map((v) => v * 2);         // @note! 惰性 —— 要 toList() 才真的算
+
+      [...xs.reversed];             // @note 反转（reversed 给的是 Iterable）
+      xs.sublist(1, 4).toList();
+
+      // @note! 没有切片语法：xs[1:4] 是语法错误
+      // @note Iterable 没有下标 —— 只能 elementAt()（线性）或先 toList()
+    vs:
+      javascript: |
+        两边都没有切片语法，都要调方法（`slice(1,4)` ↔ `sublist(1,4)`），
+        右端也都不含 —— 这一格很像。差别在**急不急切**：
+        JavaScript 的 `slice` 直接返回新数组；Dart 的 `sublist` 也是，
+        但 Dart 另有一批 `getRange` / `take` / `where` / `map`
+        返回的是**惰性 Iterable**，要用之前得先 `toList()`。
+        同一个链，混着用很容易忘记落地。
+      python: |
+        **这是两个语言差别最直观的一格**：Python 的 `xs[1:4]` 是语法，
+        还支持负下标、步长、整体反转（`xs[::-1]`）；
+        Dart 完全没有切片语法，写 `xs[1:4]` 直接是语法错误，
+        取一段只能 `sublist`，反转要写 `xs.reversed` 再展开。
+        好在 Dart 有一批具名方法（`take` / `skip` / `where` / `map`），
+        表达「取前 N 个」「按条件筛」时反而比切片清楚。
+      java: |
+        Java 的 `subList(1, 4)` 与 Dart 的 `sublist(1, 4)` 形态一样、
+        右端都不含，但**返回的东西不同**：Java 的 `subList` 返回的是
+        **视图**（改它会改到原列表，也会因为原列表结构变化而失效）；
+        Dart 的 `sublist` 返回的是**新列表**（拷贝），
+        改它不影响原来那个。
+        哪边更安全取决于意图，但从 Java 过来时这一步的反直觉程度很高。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent

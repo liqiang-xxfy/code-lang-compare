@@ -1,0 +1,318 @@
+# kotlin —— model / objects
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: objects` 的那批：
+# class-declaration / constructor / fields-and-properties / methods-and-receiver /
+# inheritance / access-control。
+#
+# 口径说明：这一组对 Java 读者有**三条会反复撞上的事实**，每条都要正面写：
+# ① **Kotlin 没有 `static`**（用 object / companion object / 顶层函数替代）；
+# ② **类默认是 final**（想被继承必须标 `open`——这也正是 Kotlin 上 Mockito 失效的根因）；
+# ③ **没有 `new`**，构造就是函数调用。三条都是「少了一种东西」，
+# 只写「没有」不写替代写法，读者会卡住。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-objects-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  class-declaration:
+    code: |
+      class Cart                          // @note 没有 new：构造就是调用类名
+      val c = Cart()
+
+      class User(val name: String)        // @note 主构造器写在类头里
+      data class Point(val x: Int, val y: Int)   // @note data class：自动生成 equals/hashCode/toString/copy
+
+      object Config {                     // @note object：声明式单例，全程序只有一个
+        val timeout = 30
+      }
+      Config.timeout                      // @note 用类名直接访问
+
+      class User2(val name: String) {
+        companion object {                // @note 伴生对象：放「静态」成员的地方
+          fun create(n: String) = User2(n)
+        }
+      }
+      User2.create("Ada")
+
+      sealed interface Shape              // @note sealed：实现者限定在本文件/本包，配合 when 做穷尽检查
+      class Circle(val r: Double) : Shape
+
+      enum class Color { RED, GREEN }     // @note 枚举照常
+    vs:
+      javascript: |
+        两边都用 `class`，也都不写 `new` 之外的东西 —— JavaScript 其实要写 `new`。
+        真正的差别在**单例与静态**：JavaScript 用一个模块级的对象字面量
+        当单例（模块本身只求值一次），Kotlin 用 `object` 声明，
+        两者的效果接近但 Kotlin 的是语言机制。
+        另一处是 `data class`：JavaScript 里想要「按值相等 + 可拷贝」
+        得自己写或者用库，Kotlin 一个关键字生成四个方法。
+      python: |
+        两边的类都很轻。差别在**实例的字段从哪来**：
+        Python 在 `__init__` 里逐个 `self.x = x`，字段是运行期长上去的；
+        Kotlin 在类头的构造器里直接声明属性，字段在编译期就定下来，
+        写错名字编译不过。另一处是单例：Python 靠模块级变量或装饰器，
+        Kotlin 有专门的 `object` 关键字 —— 而且它是**语言保证**的线程安全单例。
+      java: |
+        **三条会反复撞上的差别**。一是**没有 `static`**：
+        Java 写 `static` 方法，Kotlin 要用 `companion object`、
+        `object` 或者干脆写成顶层函数 —— 所以找「工具方法」在 Kotlin 项目里
+        要去文件顶部找，不是在类里找。二是**没有 `new`**。
+        三是 `data class`：Java 的 `record` 与之最接近，
+        但 record 的字段不可变、也不能像 `copy()` 那样改一个字段生成新实例。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  constructor:
+    code: |
+      // 主构造器：写在类头，带 val/var 的参数同时成为属性
+      class User(val name: String, var age: Int = 0)
+
+      // 不带 val/var 的参数只在 init 块与属性初始化器里可用
+      class Token(raw: String) {
+        val value = raw.trim()             // @note 这里能用 raw
+      }
+      // token.raw                          // @note! 编译错误：它不是属性
+
+      // init 块：按**书写顺序**执行，与属性初始化器穿插着跑
+      class Logged {
+        val a = println("先算 a")
+        init { println("再跑 init") }
+        val b = println("最后算 b")
+      }
+
+      // 次构造器：必须（直接或间接）委托给主构造器
+      class Box(val w: Int) {
+        constructor() : this(0)            // @note 通过 this(...) 委托
+      }
+
+      // 想要「构造函数私有」就显式写
+      class Singleton private constructor()
+    vs:
+      javascript: |
+        两边都有「构造时初始化字段」这件事，写法不同：
+        JavaScript 有专门的 `constructor(...)`，Kotlin 把构造器
+        提到类头里、与字段声明合成一件事。
+        差别在**多一个构造入口**：JavaScript 一个类只有一个构造器，
+        要多种初始化方式得靠静态工厂方法；Kotlin 有主构造器加若干个
+        次构造器，但次构造器必须委托回主构造器 —— 保证只有一条初始化主路径。
+      python: |
+        差别在**字段声明的时机**：Python 的字段是在 `__init__` 里
+        动态挂上去的，所以同一个类的不同实例理论上能长得不一样；
+        Kotlin 的属性在类头或类体里声明，所有实例形状一致。
+        另一处是默认值：Kotlin 的构造参数能带默认值，
+        于是「几个可选参数」不用写成一串重载；
+        Python 的 `__init__` 默认值也有，但那是函数参数的默认值，
+        两边动机一样、位置不同。
+      java: |
+        差别集中在**啰嗦程度**上：Java 一个带三个字段的类要写
+        字段声明、构造器、赋值三遍（或者靠 Lombok）；
+        Kotlin 写一行 `class User(val name: String, var age: Int = 0)`
+        就把三件事都做了，而且构造参数带默认值就不必写重载。
+        另一处是 `init` 块：Java 用实例初始化块与构造器，
+        Kotlin 用 `init` 加属性初始化器，且**按书写顺序执行**——
+        这一点两边相似，但 Kotlin 的顺序更显式，
+        因为它和属性初始化的穿插是可见的。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  fields-and-properties:
+    code: |
+      class User(name: String) {
+        var age: Int = 0
+          set(value) {                     // @note 自定义 setter，field 指幕后字段
+            require(value >= 0) { "年龄不能为负" }
+            field = value
+          }
+
+        val display: String                // @note 只有 getter 的属性
+          get() = "$name（$age 岁）"
+
+        var nickname: String = ""
+          private set                      // @note! setter 私有：外面读得到、改不了
+
+        lateinit var token: String         // @note 稍后再赋值；没赋就用会抛异常
+
+        companion object {
+          const val MAX = 100              // @note 编译期常量，可作注解参数
+        }
+      }
+
+      val u = User("Ada")
+      u.age = 30                           // @note 读写在属性上，**不是** setAge()
+      u.age = -1                           // @note! setter 里抛异常
+
+      // @note 声明成 val 的字段，Java 那边看到的是 getter，没有 setter
+    vs:
+      javascript: |
+        两边都是「直接读写字段」，不写 getter / setter 那一套 ——
+        这一层很像。差别在**能不能拦截**：JavaScript 要用
+        `Object.defineProperty` 或者较新的 getter / setter 语法，
+        而且要在一开始就定义好；Kotlin 的 setter 是属性声明的一部分，
+        加校验只改声明处，调用方完全看不出来。
+        另一处是可见性：Kotlin 能只把 setter 设为私有，JavaScript 做不到。
+      python: |
+        Python 的 `@property` 与 Kotlin 的自定义 getter 动机相同 ——
+        「读起来像字段、背后可以跑代码」。差别在**默认姿态相反**：
+        Python 里属性访问默认就是普通字段，要拦截才加装饰器；
+        Kotlin 里每个属性**天生**有 getter / setter（只是默认不做事），
+        要拦截就在原地写，不用改结构。
+        另一处是 Python 没有「只读的 setter」，只能不提供 setter 方法。
+      java: |
+        **这是 Kotlin 代码读起来最短的一处**：Java 的
+        `private String name;` 加 `getName()` / `setName()` 三份声明，
+        Kotlin 一行 `var name` 就行，调用方写 `u.name` 而不是 `u.getName()`。
+        代价是**看不出开销**：Java 里 `u.getName()` 一眼知道是方法调用，
+        Kotlin 的 `u.name` 背后可能是简单字段、也可能是一段校验逻辑。
+        另一处是 `private set`：Java 想「外面读得到、改不了」
+        只能不给 setter 方法，Kotlin 一行修饰符搞定，
+        而且在 Java 调用方看来仍然是标准的 getter / 无 setter。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  methods-and-receiver:
+    code: |
+      class Greeter(val prefix: String) {
+        fun greet(name: String) = "$prefix $name"    // @note 成员函数，this 是 Greeter
+      }
+
+      // @note 扩展函数：给一个改不了源码的类型加方法
+      fun String.shout() = uppercase() + "!"
+      "hi".shout()                                   // HI!
+      // @note! 但它只是**静态解析**的语法糖 —— 按声明处类型决定调哪个，
+      // @note! 不进 String 类里，也不能被继承覆盖
+
+      // @note 中缀函数：让调用看起来像运算符
+      infix fun Int.pow2(times: Int): Int { var r = 1; repeat(times) { r *= this }; return r }
+      2 pow2 3                                        // @note 8
+
+      // @note 顶层函数不属于任何类，是「工具方法」的惯用去处
+      fun parsePort(s: String) = s.toIntOrNull() ?: 8080
+    vs:
+      javascript: |
+        两边都能给对象挂方法。差别在**扩展函数这件事**：
+        JavaScript 靠改原型（`String.prototype.shout = ...`）真的把方法加进去，
+        所有字符串从此都有它；Kotlin 的扩展函数只是编译器认的一个约定，
+        `"hi".shout()` 会被翻译成一次静态调用 ——
+        所以它能给「你不能改的类型」加方法，但也**不会**真的改变那个类型，
+        传给别的模块时对方看不到它。
+      python: |
+        Python 给类加方法就是赋值（`String.shout = ...`），运行期生效、
+        全局可见；Kotlin 的扩展函数是编译期解析的，
+        只在导入了它的文件里有效，也不会被继承覆盖。
+        另一处是 `self` 与隐式 `this`：Python 要显式写出接收者，
+        Kotlin 不写，方法体里直接用属性名 —— 少一层噪音，
+        但读代码时分不清某个名字是属性还是外部变量，得靠编辑器。
+      java: |
+        Java 完全没有扩展函数 —— 想给 `String` 加个方法，
+        只能写静态工具类（`Strings.shout(s)`），调用形态是
+        「动词在前」而不是「对象在前」。Kotlin 的扩展函数让调用点
+        变成 `s.shout()`，读起来更顺，但**机制上仍然是静态方法**：
+        它按声明处的静态类型派发，不会多态。Java 那边也有类似的东西
+        （较新的接口默认方法），但那是真的要改接口。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  inheritance:
+    code: |
+      open class Animal(val name: String) {          // @note! 必须写 open，否则不能被继承
+        open fun speak() = "……"                       // @note! 成员默认也是 final
+        fun breathe() = "呼吸"                         // @note 这个是 final，子类改不了
+      }
+
+      class Dog(name: String) : Animal(name) {       // @note 继承用冒号
+        override fun speak() = "汪"                   // @note override 之后**默认又是 open**
+        // override fun breathe() = "..."             // @note! 编译错误：它不是 open
+      }
+
+      final class Cat(name: String) : Animal(name) {
+        final override fun speak() = "喵"             // @note 显式封回去，不让再被覆盖
+      }
+
+      abstract class Shape {                          // @note 抽象类不用写 open
+        abstract fun area(): Double
+      }
+
+      // @note! 初始化顺序：基类先初始化 —— 基类构造器里别调用 open 成员
+    vs:
+      javascript: |
+        两边都能继承，但**默认姿态相反**：JavaScript 的类默认就能被继承，
+        想禁止才加限制；Kotlin 的类默认**不能**被继承，想允许必须写 `open`。
+        这意味着读 Kotlin 代码时，「这个类可以被继承」是一条显式信息，
+        而不是默认状态。另一处是 `override` 是强制的关键字，
+        JavaScript 里写错了父类方法名不会报错，Kotlin 编译不过。
+      python: |
+        两边的多继承与否不同：Python 支持多继承，方法解析按 MRO 线性化；
+        Kotlin 只能继承一个类（接口可以多个），所以没有 MRO 那套复杂度。
+        另一处是**默认能不能继承**：Python 的类随时可以被继承，
+        想禁止要额外手段；Kotlin 默认封死，要显式 `open`。
+        这带来一个实际后果：Kotlin 项目里继承是**有意设计**的结果，
+        Python 项目里常常是顺手就用了。
+      java: |
+        类与接口的继承规则两边一样（单继承类、多实现接口），
+        但**默认值相反**：Java 的类默认可继承、方法默认可覆盖
+        （除非标 `final`）；Kotlin 的类与方法**默认都是 final**，
+        要开放必须写 `open`。
+        这一条有个很实际的后果：Java 的 Mockito 默认无法代理 Kotlin 的类，
+        因为字节码层面它们就是 final —— 这也是 Kotlin 项目改用 MockK
+        的根因（动机来自默认 final，与工具推荐无关）。
+        另一处是初始化顺序，两边都有「基类先初始化」的坑，规则相似。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  access-control:
+    code: |
+      class User {
+        val id = 1                         // @note 不写 = public（默认）
+        private var secret = ""            // @note 只有本类可见
+        protected var tier = 0             // @note 本类 + 子类
+        internal var cache = ""            // @note! 同一个 module 内可见
+        var score = 0
+          private set                      // @note 属性级：读得到、只有本类能写
+      }
+
+      private fun topLevel() { }           // @note! 顶层 private = 只在这个文件里可见
+      internal class Cache { }             // @note 跨 module 就看不到了
+
+      // @note! `internal` 在字节码里其实还是 public，只是名字被改了 ——
+      // @note! 它是「别用」的信号，不是安全边界
+    vs:
+      javascript: |
+        JavaScript 的可见性手段是 `#` 前缀（真私有，运行期强制）
+        与模块导出边界（没导出的外面看不到）。
+        Kotlin 的 `private` 是编译期检查，运行期用反射还是能拿到；
+        `#` 那个在 JavaScript 里是运行期硬拦。
+        另一处是粒度：Kotlin 有 `internal`（module 级）这一档，
+        JavaScript 的对应物其实是「模块边界」本身，但那是文件级的。
+      python: |
+        Python 的私有是**约定**：下划线开头表示「别碰」，解释器不管；
+        Kotlin 的 `private` 违反就编译不过。这是从 Python 过来的第一处不适应 ——
+        在 Python 里习以为常的「反正能访问」，到这边得改成提供访问器
+        或者把逻辑挪进类里。
+        另一处是 Python 有名称修饰（`__x` 变成 `_类名__x`），
+        那只是为了防意外覆盖，Kotlin 没有对应机制。
+      java: |
+        两边都有 `public` / `private` / `protected`，但**默认值相反**：
+        Java 不写修饰符是「包内可见」，Kotlin 不写是 **public**。
+        而且 Kotlin **没有包内可见这一档**，取而代之的是 `internal`
+        （module 级，比包大）。还有一处细节：Java 的 `protected`
+        允许同包访问，Kotlin 的 `protected` **只对子类开放**，同包不行 ——
+        同一个关键字，可见范围不同。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent

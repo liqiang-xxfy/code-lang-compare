@@ -1,0 +1,203 @@
+# kotlin —— model / abstraction
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: abstraction` 的那批：
+# interface / abstract-class / mixin-trait / duck-typing。
+#
+# 口径说明：这一组的主线是**委托 `by`** —— 它是 Kotlin 对「mixin / 组合优于继承」
+# 那个问题的语言级答案，也是三个基准都没有的东西，必须正面讲清。
+# 同时要交代它那条真实的陷阱：**被外层覆盖的成员，委托对象内部看不到**。
+# 另一条是接口**不能存状态**（不能有幕后字段）—— 这正是它与委托的分界线。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  interface:
+    code: |
+      interface Greeter {
+        fun greet(name: String): String                  // @note 抽象方法
+        fun greetTwice(name: String) = "${greet(name)}、${greet(name)}"   // @note 带默认实现
+        val prefix: String                               // @note 抽象属性，实现者提供
+        val label: String get() = "[$prefix]"            // @note 有 getter 的属性也可以
+        // var count = 0                                 // @note! 编译错误：接口不能有幕后字段
+      }
+
+      class Hello : Greeter {
+        override val prefix = "你好"
+        override fun greet(name: String) = "$prefix $name"
+      }
+
+      // @note 一个类能实现多个接口；同名默认实现冲突时必须显式覆盖
+      interface A { fun f() = "A" }
+      interface B { fun f() = "B" }
+      class C : A, B {
+        override fun f() = super<A>.f() + super<B>.f()    // @note 用 super<接口> 指名
+      }
+    vs:
+      javascript: |
+        JavaScript 根本没有接口 —— 结构上的约定只能写进文档或用 TypeScript 补。
+        所以这一格是**有无之别**：Kotlin 的接口是编译期契约，
+        实现者必须写 `:`，写漏了参数或返回值编译不过。
+        另一处是默认实现：Kotlin 的接口能带实现体，
+        JavaScript 想复用行为只能靠类继承或者把函数传进去。
+      python: |
+        Python 有 `abc.ABC` 与 `Protocol` 两种抽象方式，
+        但都**不强制**（可以不继承就用，Protocol 更是纯静态检查的）。
+        Kotlin 的接口是硬约束：不写 `:` 就不是实现，传参直接编译不过。
+        代价是「事后给一个改不了的类型补上接口」在 Kotlin 里做不到，
+        Python 因为不强制所以天然能做到 —— 一边换来确定性，一边换来灵活性。
+      java: |
+        两边的接口非常接近（都能有默认实现、都能多实现），可以逐条对应。
+        差别在**能不能存状态**：两边的接口都不能有实例字段，这一条一致。
+        另一处细节是多实现冲突的解决：Java 用 `Interface.super.f()`，
+        Kotlin 用 `super<Interface>.f()`，写法不同但动机一样。
+        还有一处容易忽略：Kotlin 的接口属性在 Java 那边看到的是 getter，
+        而不是字段 —— 从 Java 侧实现一个 Kotlin 接口时要按 getter 写。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  abstract-class:
+    code: |
+      abstract class Repository(val table: String) {   // @note 抽象类可以带构造器与状态
+        abstract fun find(id: Int): String             // @note 抽象成员必须显式标 abstract
+        fun describe() = "表 $table"                    // @note 具体成员照常
+        protected var cache: String? = null            // @note 能有字段 —— 接口做不到
+      }
+
+      class UserRepo : Repository("users") {
+        override fun find(id: Int) = "user-$id"
+      }
+
+      // @note 抽象类**不用写 open** —— 它本来就是拿来继承的
+      // @note 与接口的分界线：要不要存状态、要不要构造参数
+
+      sealed class Result {                            // @note sealed：继承者限在本文件/本包
+        class Ok(val value: Int) : Result()
+        class Err(val message: String) : Result()
+      }
+    vs:
+      javascript: |
+        JavaScript 的抽象类只是个约定（或者靠 `new.target` 手工拦），
+        语言不检查你有没有实现抽象方法；Kotlin 的 `abstract` 是编译期要求，
+        子类漏实现就报错。
+        另一处是 `sealed`：Kotlin 用 `sealed` 把「可能有哪些子类」
+        限定在一个文件里，于是 `when` 能做穷尽检查；
+        JavaScript 的类层次永远是开放的，没法静态地知道有几种情况。
+      python: |
+        Python 的 `abc.ABC` 加 `@abstractmethod` 能做到类似的强制，
+        实例化没实现完的类会抛 `TypeError` —— 但那是**运行期**才发现；
+        Kotlin 在编译期就拒绝。这一点是从 Python 过来会明显感觉到的差别：
+        以前要跑起来才知道，现在写的时候就红。
+        另一处是 Python 有 `sealed` 的近似物吗？没有 ——
+        枚举可以近似，但带数据的子类不行。
+      java: |
+        两边的抽象类几乎一模一样（都能带构造器与字段、都能混合抽象与具体成员），
+        可以逐条对应。差别在**要不要写 `open`**：Java 的抽象类天然可继承，
+        Kotlin 也是；但 Kotlin 的**具体类默认是 final**，
+        所以「抽一个基类出来」这件事在 Kotlin 里是显式选择。
+        另一处是 `sealed`：Java 较新的版本也有密封类，
+        用它配合 `switch` 能做穷尽检查，思路上与 Kotlin 一致。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  mixin-trait:
+    code: |
+      interface Speaker { fun speak() = "……" }         // @note 默认实现能复用行为
+      interface Walker { fun walk() = "走走" }
+
+      class Robot : Speaker, Walker                     // @note 多实现 = 行为组合
+
+      // @note 但接口**不能存状态** —— 想复用「带状态的实现」用委托
+      class LoggingSpeaker(private val inner: Speaker) : Speaker by inner {
+        override fun speak(): String {                  // @note 想改就覆盖
+          println("调用前记一笔")
+          return "记录：" + inner.speak()
+        }
+      }
+
+      // @note! 委托的真实陷阱：被外层覆盖的成员，委托对象内部看不到
+      interface Base { val message: String; fun print() = "base: $message" }
+      class Impl : Base { override val message = "impl" }
+      class Derived(b: Base) : Base by b {
+        override val message = "derived"
+      }
+      // @note Derived().print() 仍然是 "base: impl" ——
+      // @note 因为 print() 的实现跑在 Impl 里，读的是 Impl 自己的 message
+    vs:
+      javascript: |
+        JavaScript 没有 mixin 语法，惯用做法是「把方法拷贝进原型」
+        或者写一个接收类再返回新类的函数 —— 都是手工的。
+        Kotlin 有两条路：接口的默认实现（能组合、不能存状态），
+        以及**委托 `by`**（能带状态、由编译器生成转发方法）。
+        另一处是这两条路在运行期的形态不同：接口默认方法是接口自带的方法，
+        而委托生成的是**真实的转发方法**，落到类自己身上。
+      python: |
+        Python 的多重继承本身就是 mixin 机制，而且**能带状态** ——
+        这是它比 Kotlin 的接口强的地方（Kotlin 的接口不能有字段）。
+        Kotlin 用委托 `by` 补上了带状态的复用，但代价是
+        方法解析变成显式的转发，没有 Python 的 MRO 那套自动线性化。
+        另一处是冲突处理：Python 靠 MRO 顺序决定用哪个，
+        往往要靠读代码推断；Kotlin 直接要求你写清楚，编译不过为止。
+      java: |
+        Java 8 起接口也能有默认方法，这一点两边一样；
+        但 Java **没有委托** —— 想「把这个接口的所有方法转发给另一个对象」
+        得手写每一个转发方法（或者用动态代理）。
+        Kotlin 的 `class X(b: B) : B by b` 一行就让编译器生成全部转发，
+        这是它明显省事的一处。
+        两边共同的限制是接口不能存状态，所以带状态的复用
+        只能靠抽象类或者（Kotlin 这边）委托。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  duck-typing:
+    code: |
+      // @note Kotlin 是**名义**类型：形状一样但没声明，就是传不进去
+      interface Quacker { fun quack(): String }
+      class RealDuck : Quacker { override fun quack() = "嘎" }
+      class Toy { fun quack() = "哔" }
+      // fun need(q: Quacker) { }
+      // need(Toy())                    // @note! 编译错误：Toy 没声明实现 Quacker
+
+      // @note 唯一接近结构化的是 SAM 转换：单方法接口能用 lambda 顶
+      fun interface Greeter { fun greet(): String }
+      val g = Greeter { "你好" }         // @note 不用写一个类
+
+      // @note 扩展函数能给已有类型补方法，但**不会**让它真的实现某个接口
+      fun Toy.quack2() = quack()
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型是运行期事实：有那个方法就能调用，
+        没有就到运行时炸。Kotlin 要求显式声明实现，形状相同也没用。
+        好处是读到一个 `Quacker` 类型的参数，可以确信它来自某个
+        显式写了 `: Quacker` 的地方 —— 这是可以搜、可以跳转的线索；
+        代价是给一个改不了源码的类型补接口，在 Kotlin 里做不到。
+      python: |
+        Python 的鸭子类型是默认，`Protocol` 提供的是**可选**的结构化标注；
+        Kotlin 反过来 —— 名义类型是默认且强制的，
+        结构化的近似物只有 `fun interface`（单方法接口能用 lambda 构造）。
+        所以 Python 里那句「像鸭子就是鸭子」在这边不成立：
+        像不像不重要，**声明了才算**。这一条决定了迁移时
+        很多「传个长得像的对象进去」的写法要改成显式实现接口。
+      java: |
+        两边都是名义类型，这一点完全一致 —— 接口必须显式实现，
+        形状相同也没用。差别在**能不能用 lambda 顶**：
+        Java 的 SAM 转换要求接口标 `@FunctionalInterface`（虽然不标也行，
+        但多一个抽象方法就不成立）；Kotlin 要显式写 `fun interface`，
+        而且只对接口有效，抽象类不行。
+        另一处是 Kotlin 的扩展函数能「事后加方法」，
+        但那只改调用形态、不改类型关系，别当成实现接口用。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

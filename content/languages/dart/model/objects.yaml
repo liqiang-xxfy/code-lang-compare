@@ -1,0 +1,336 @@
+# dart —— model / objects
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: objects` 的那批：
+# class-declaration / constructor / fields-and-properties / methods-and-receiver /
+# inheritance / access-control。
+#
+# 口径说明：这一组对 Java 读者有**两条会反复撞上的事实**：
+# ① **可见性由下划线决定，而且是库级**（没有 public / private 关键字）；
+# ② **一个类可以有好几个「构造器」**（命名构造器），这在 Java 里要靠重载或工厂方法。
+# 对 JavaScript 读者则是 `new` 可省、以及那套**类修饰符**（`interface class` /
+# `base class` / `sealed`）—— 它们限制的不是成员可见性，而是**这个类能被怎么用**。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-objects-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  class-declaration:
+    code: |
+      class Cart { }                       // @note new 可省：Cart() 直接构造
+      var c = Cart();
+
+      abstract class Shape {               // @note 抽象类：不能实例化
+        double area();
+      }
+
+      sealed class Result { }              // @note sealed：子类限在本文件里 → switch 能穷尽检查
+      class Ok extends Result { }
+      class Err extends Result { }
+
+      interface class Marked { }           // @note! interface class：只能被实现，不能被继承
+      base class Base { }                  // @note! base：只能被继承，不能被实现
+      final class Sealed { }               // @note! final：本库外既不能继承也不能实现
+
+      mixin Walker { void walk() { } }     // @note mixin：给别的类「贴」一段行为
+      class Robot with Walker { }
+
+      // @note 这些**类修饰符**限制的是「这个类能被怎么用」，
+      // @note 与成员的可见性（下划线）是两件不相干的事
+    vs:
+      javascript: |
+        两边都用 `class`，但**限制手段完全不同**：
+        JavaScript 没有类修饰符 —— 一个类永远既可以被继承、
+        也可以被实现（接口本来就是隐式的），开放程度只有一种；
+        Dart 用 `base` / `interface` / `final` / `sealed` 明确声明
+        「这个类打算被怎么用」。
+        另一处是 `new`：JavaScript 必须写，Dart 可以省。
+      python: |
+        Python 的类层次永远是开放的：任何类都能被继承，
+        想禁止要额外手段（`__init_subclass__` 之类）。
+        Dart 把「能不能继承」「能不能实现」写成类声明的一部分，
+        而且 `sealed` 还能让编译器知道**一共有哪几种情况**，
+        于是 `switch` 可以要求你穷尽 —— Python 里没有这一层。
+        另一处是 Dart 有专门的 `mixin` 声明（Python 直接多继承就能当 mixin 用）。
+      java: |
+        两边都有 `abstract`，也都把「接口」与「类」分开；
+        但 Dart 多出一整套**类修饰符**来描述开放程度
+        （`base` / `interface` / `final` / `sealed`），
+        Java 里对应的只有 `final`（禁止继承）与 `sealed`（限定子类）。
+        另一处是 `new` 可省，以及 Dart 的 `mixin` 是语言关键字，
+        而 Java 靠接口的默认方法近似 —— 但接口不能存状态，mixin 可以。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  constructor:
+    code: |
+      class Point {
+        final int x;
+        final int y;
+
+        Point(this.x, this.y);                       // @note 简写：参数直接赋给字段
+        Point.origin() : x = 0, y = 0;               // @note 命名构造器
+        Point.fromJson(Map<String, int> m)
+            : x = m['x']!, y = m['y']!;              // @note 初始化列表
+
+        factory Point.parse(String s) {              // @note 工厂构造器：可以不返回新实例
+          final parts = s.split(',');
+          return Point(int.parse(parts[0]), int.parse(parts[1]));
+        }
+
+        const Point.constant(this.x, this.y);        // @note const 构造器：能当编译期常量
+      }
+
+      var p1 = Point(1, 2);
+      var p2 = Point.origin();
+      var p3 = Point.parse('3,4');
+
+      // @note! 命名构造器**不会被子类继承**
+      // @note 初始化列表在构造器体之前跑，适合算 final 字段
+      class Color extends Point {
+        Color(int v) : super(v, v);                  // @note 用 super(...) 转发
+      }
+    vs:
+      javascript: |
+        差别在**能不能有多个构造入口**：JavaScript 一个类只有一个
+        `constructor`，要多种初始化方式得写静态工厂方法
+        （`static fromJson()`），调用形态是 `Point.fromJson(...)` ——
+        看起来像，但它是方法不是构造器，不能被 `extends` 里的 `super` 调。
+        Dart 的命名构造器是**真的构造器**，而且工厂构造器能返回缓存
+        或者子类实例，这是运行时不同的能力。
+      python: |
+        Python 只有 `__init__` 一个入口，多种初始化方式靠
+        `@classmethod` 工厂（`Point.from_json(...)`）—— 想法一样，只是换了个叫法。
+        Dart 的命名构造器把这件事做进语法：`Point.origin()` 是真构造器。
+        另一处是**字段初始化时机**：Python 在 `__init__` 里随意赋值；
+        Dart 的 `final` 字段必须在初始化列表里给定，写法更受限，
+        换来的是「对象构造完就一定是完整的」。
+      java: |
+        两边都有多个构造入口，但方式不同：Java 靠**重载**（参数列表不同），
+        调用点长得一样（都写 `new Point(1, 2)`）——
+        所以从 Java 过来会觉得 Dart 的 `Point.origin()` 很陌生：
+        多了一个名字。好处是意图更明确，代价是不能靠参数类型猜。
+        另一处是**初始化列表**：Java 的 `final` 字段在构造器体里赋值，
+        Dart 把它提到构造器体之前，而且能调用静态方法算初值。
+        还有 `factory`：Java 里只能写静态方法，不能叫「构造器」。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  fields-and-properties:
+    code: |
+      class User {
+        final String name;                   // @note final 字段：构造时定死
+        int age = 0;                         // @note 普通字段
+        late final String token;             // @note 稍后赋值一次，之后再改会抛
+
+        static const maxAge = 150;           // @note 静态常量在类上
+        static var count = 0;                // @note 静态字段
+
+        User(this.name);
+
+        // @note getter / setter：写起来像字段，背后能跑代码
+        String get display => '$name（$age 岁）';
+        set age2(int v) {
+          if (v < 0) throw ArgumentError('年龄不能为负');
+          age = v;
+        }
+
+        // @note! 私有字段用下划线，而且是**库级**私有 —— 同库的其它类能访问
+        String _secret = '';
+      }
+
+      var u = User('Ada');
+      u.age = 30;                            // @note 直接读写字段
+      print(u.display);                      // @note 调用 getter 时不用写括号
+      print(User.maxAge);                    // @note 静态成员在类上
+    vs:
+      javascript: |
+        两边都是「直接读写字段」，差别在**getter / setter 的写法**：
+        JavaScript 用 `get` / `set` 关键字，Dart 用 `get` / `set` 但
+        参数与返回类型要写全；两边调用点都是属性形式（`u.display`）。
+        另一处是静态成员：两边都写 `static`，这一层一致。
+        还有私有：JavaScript 的 `#name` 是类级真私有，
+        Dart 的 `_name` 是**库级**私有（同库的其它类能访问）。
+      python: |
+        Python 的 `@property` 与 Dart 的 `get` 动机相同
+        （读起来像字段、背后能跑代码），但**默认姿态相反**：
+        Python 里属性访问默认是普通字段，要拦截才加装饰器；
+        Dart 里字段与 getter 是两种声明，想拦截就写成 getter，
+        调用方看不出区别。
+        另一处是 Python 没有静态字段（只有类属性），
+        Dart 的 `static` 与类属性概念相近但语义更明确。
+      java: |
+        **这一格 Dart 明显更短**：Java 的 `private String name;`
+        加 `getName()` / `setName()` 三份声明，Dart 一行 `final String name`
+        就够；调用方写 `u.name` 而不是 `u.getName()`。
+        代价是**看不出开销**：Java 里 `u.getName()` 一眼是方法调用，
+        Dart 的 `u.name` 背后可能是字段、也可能是 getter 里的一段逻辑。
+        另一处是 `late final`：Java 想表达「构造后不久赋值、只赋一次」
+        只能靠约定，Dart 有专门的修饰符，且违反会抛。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  methods-and-receiver:
+    code: |
+      class Greeter {
+        final String prefix;
+        Greeter(this.prefix);
+
+        String greet(String name) => '$prefix $name';   // @note 实例方法
+        @override
+        String toString() => 'Greeter($prefix)';        // @note 覆盖 Object 的方法
+
+        // @note 运算符也是方法
+        Greeter operator +(Greeter other) => Greeter('$prefix${other.prefix}');
+      }
+
+      // @note 扩展方法：给改不了源码的类型加方法
+      extension on String {
+        String get shout => toUpperCase() + '!';
+      }
+      'hi'.shout;                                       // HI!
+
+      // @note! 扩展方法是**静态解析**的：按变量的静态类型找，
+      // @note! 而且如果同名成员本来就有，扩展永远输
+
+      // @note 静态方法写 static；顶层函数不挂在任何类上
+      int parsePort(String s) => int.tryParse(s) ?? 8080;
+    vs:
+      javascript: |
+        两边都是「对象上挂方法」，这一层很像。差别在**扩展方法**：
+        JavaScript 靠改原型（`String.prototype.shout = ...`）真的把方法
+        加进去，全局生效；Dart 的扩展方法是静态解析的，
+        只在导入了它的库里有效，而且**遇到同名成员会输给真成员** ——
+        所以它不会像原型那样把已有方法盖掉，也不会被继承覆盖。
+      python: |
+        Python 给类加方法就是赋值（`String.shout = ...`），
+        运行期生效、全局可见；Dart 的扩展方法只在导入它的文件里有效，
+        写错了名字也不会报错，只是「这个扩展没生效」。
+        另一处是接收者：Python 要显式写 `self`，
+        Dart 不写，方法体里直接用字段名 —— 少一层噪音，
+        但读代码时分不清某个名字是字段还是外部变量。
+      java: |
+        Java 完全没有扩展方法 —— 给 `String` 加个方法只能写静态工具类
+        （`Strings.shout(s)`），调用形态是「动词在前」而不是「对象在前」。
+        Dart 的 `s.shout` 读起来更顺，但机制上仍是静态解析的方法调用，
+        这点与 Java 的静态工具类一样，不会多态。
+        另一处是运算符重载：Java 不行，Dart 可以，
+        而且 `[]` 与 `[]=` 也能重载（像做自己的集合类型时很有用）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  inheritance:
+    code: |
+      abstract class Animal {
+        final String name;
+        Animal(this.name);                   // @note 基类构造器
+
+        String speak() => '……';               // @note Dart 的成员默认可以被覆盖
+        String get kind => '动物';
+      }
+
+      class Dog extends Animal {
+        Dog(super.name);                     // @note super 参数：直接把参数转给基类
+
+        @override
+        String speak() => '汪';               // @note @override 是注解，写错名字有分析器警告
+
+        @override
+        String get kind => '狗';
+      }
+
+      // @note 单继承 + mixin：一个类只有一个超类，但可以 with 多个 mixin
+      class Robot extends Animal with Walker, Swimmer { Robot(super.name); }
+
+      // @note! 构造顺序：先跑基类的初始化列表与构造器体，再跑子类的
+      // @note! 所以基类构造器里不要调用会被子类覆盖的方法
+    vs:
+      javascript: |
+        两边都用 `extends` 与 `super`，接口接近。
+        差别在**覆盖有没有标记**：JavaScript 里子类写个同名方法
+        就叫覆盖，写错名字只是多了一个新方法、不会报错；
+        Dart 用 `@override` 注解，名字对不上时分析器会警告 ——
+        「我以为在覆盖，其实没有」这类错误在这边能被拦下。
+        另一处是 `super` 参数：Dart 能把构造参数直接转给基类，
+        JavaScript 得在构造器体里显式 `super(name)`。
+      python: |
+        Python 支持多继承、靠 MRO 决定用哪个实现；Dart 只能单继承，
+        但可以 `with` 多个 mixin —— 表达力接近，规则简单得多
+        （mixin 不是父类，冲突时按 `with` 的顺序取）。
+        另一处是**默认能不能覆盖**：Python 随时可以覆盖，
+        Dart 也是（没有 `open` 那一套），但 Dart 鼓励写 `@override`，
+        因为分析器能据此发现名字写错。
+        构造顺序两边都有「基类先初始化」的坑，实质相同。
+      java: |
+        两边都是单继承、都用 `@Override`，这一格最接近 ——
+        连「注解写错名字会被工具发现」这一点都一样。
+        差别在多继承行为：Java 只能用接口的默认方法拼，
+        而接口**不能存状态**；Dart 的 mixin 可以带字段，
+        所以「好几个类共享一段带状态的实现」在这边更自然。
+        另一处是 `super` 参数（把构造参数直接转给基类），
+        Java 必须写 `super(name)` 那一行。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  access-control:
+    code: |
+      class User {
+        final String name;                   // @note 没有 public 关键字，公开是默认
+        String _secret = '';                 // @note! 下划线开头 = 库级私有
+
+        void _recalc() { }
+
+        @protected                           // @note 注解式的「约定」：给子类用
+        void hook() { }
+
+        @visibleForTesting                   // @note 注解：只为测试放开
+        void reset() { }
+      }
+
+      // @note! 同一个库（通常是一个文件）里的其它类**能**访问 _secret
+      // @note! 跨库才编译不过 —— 这与别的语言的 private 不是一回事
+
+      // @note Dart 刻意不提供 public / private / protected 关键字；
+      // @note @protected / @visibleForTesting 只是**分析器警告**，不是强制
+    vs:
+      javascript: |
+        两边都用符号而不是关键字，但**私有单位不同**：
+        JavaScript 的 `#x` 是**类级**真私有，只有本类能碰；
+        Dart 的 `_x` 是**库级**私有，同一个文件里的别的类也能访问。
+        另一处是强制力：`#` 由运行期语法保证，`_` 是编译期检查。
+        两边都没有 `public` 关键字 —— 不写就是公开。
+      python: |
+        语法上两边最像（都用下划线开头），**分量差得远**：
+        Python 的 `_x` 是纯粹的君子协定，跨模块访问照样能拿到；
+        Dart 的 `_x` 会真的编译不过。
+        所以从 Python 过来时，「反正能访问」的习惯要改 ——
+        测试代码想碰私有成员，在 Python 里顺手就做了，
+        在 Dart 里得改成 `@visibleForTesting` 或者把逻辑挪出去。
+      java: |
+        **两处方向相反的差别**。一是**手段**：Java 用
+        `public` / `private` / `protected` 三个关键字，
+        Dart 只用「有没有下划线」，其余全公开 —— 从 Java 过来时
+        最危险的是「忘了写 private」这件事在 Dart 里根本不存在，
+        因为不写下划线就是公开。
+        二是**作用范围**：Java 的 `private` 是类级，
+        Dart 的 `_` 是库级（同一个文件里的其它类能访问）；
+        Java 的 `protected` 允许同包访问，Dart 没有对应物，
+        `@protected` 只是个警告注解。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

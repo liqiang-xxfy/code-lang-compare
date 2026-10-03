@@ -1,0 +1,220 @@
+# dart —— model / abstraction
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: abstraction` 的那批：
+# interface / abstract-class / mixin-trait / duck-typing。
+#
+# 口径说明：这一组最值得写的是 **Dart 没有单独的 interface 声明** ——
+# 每个类都自带一个隐式接口，`implements` 一个普通类是合法且常见的做法，
+# 这与另外三个基准都不一样（那边要么没有接口，要么接口必须单独声明）。
+# 第二条是 **mixin 能带状态**，而接口不能 —— 这正是它们的分界线，
+# 也是「组合优于继承」在这门语言里的落地方式。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  interface:
+    code: |
+      abstract interface class Repository {        // @note Dart 3：只允许被实现
+        String find(int id);
+      }
+
+      class UserRepo implements Repository {
+        @override
+        String find(int id) => 'user-$id';
+      }
+
+      // @note! 每个类都**自带**一个隐式接口 —— 普通类也能被 implements
+      class Cart {
+        String total() => '0';
+        void _recalc() { }
+      }
+
+      // @note! 私有成员在**同一个库里**算接口的一部分，必须实现
+      class FakeCart implements Cart {
+        @override
+        String total() => '假的';
+        @override
+        void _recalc() { }                          // @note! 不写这行就编译不过
+      }
+
+      // @note 换个库去 implements 就不用管私有成员了 —— 隐式接口在库外
+      // @note 只包含公开成员（这也是「库级私有」的另一面）
+
+      // @note implements 是「照单实现一遍」，不继承任何实现代码
+      // @note 想复用实现用 extends 或 with
+    vs:
+      javascript: |
+        JavaScript 根本没有接口这个概念（连 `interface` 关键字都没有），
+        结构约定只能写进文档或者靠 TypeScript。
+        Dart 不但有，而且**普通类自带接口** ——
+        这意味着你可以对着一个已有的类写 `implements`，只要求形状、
+        不拿它的实现。JavaScript 里想做到「只借形状」只能手抄一遍。
+      python: |
+        Python 的抽象基类与 `Protocol` 都不强制实现
+        （`Protocol` 更是纯静态检查的东西）；
+        Dart 的 `implements` 是硬约束：公开成员少实现一个就编译不过。
+        另一处是**隐式接口**这件事 Python 也有类似味道
+        （任何类都能被当成协议来用），但 Python 靠的是结构匹配、
+        运行期才发现；Dart 靠显式声明、编译期就查。
+      java: |
+        Java 的接口必须**单独声明**（`interface X`），
+        类不会自带接口；Dart 里每个类天然有一个，`implements` 一个普通类
+        是常见做法 —— 这是最直观的一处差别，
+        也是从 Java 过来时最容易觉得「怎么可以这样」的地方。
+        另一处是限制的方向：Java 的接口随便实现、随便继承；
+        Dart 3 用 `interface class` 明确「只能实现不能继承」，
+        `base class` 反过来。Java 里没有这层控制。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  abstract-class:
+    code: |
+      abstract class Repository {                  // @note 不能实例化
+        final String table;
+        Repository(this.table);                    // @note 能有构造器
+
+        String find(int id);                       // @note 抽象成员：没有方法体
+        String describe() => '表 $table';           // @note 具体成员照常
+        String? _cache;                            // @note 能有字段 —— 接口做不到
+      }
+
+      class UserRepo extends Repository {
+        UserRepo() : super('users');
+        @override
+        String find(int id) => 'user-$id';          // @note 漏实现就编译不过
+      }
+
+      // @note 与接口的分界线：要不要**存状态**、要不要**构造参数**
+      // @note 抽象类同时也能当接口用（别人可以 implements 它）
+    vs:
+      javascript: |
+        JavaScript 没有抽象类，想禁止实例化只能手工在构造器里抛错，
+        想让子类必须实现某个方法只能靠文档。
+        Dart 的 `abstract` 两条都由编译器保证：不能 `new`、
+        子类漏实现会编译不过。另一处是状态：
+        JavaScript 的类本来就能有字段，这一点两边一致。
+      python: |
+        Python 的 `abc.ABC` 加 `@abstractmethod` 能表达同样的意图，
+        但**报错时机不同**：Python 是实例化时才抛 `TypeError`，
+        Dart 在编译期就说「这个类不能被实例化」或「子类漏实现了」。
+        从 Python 过来会明显感觉到反馈提前了 ——
+        以前要跑起来才知道，现在写的时候就红。
+        另一处是 Python 有多继承，抽象类可以混着来，Dart 只能单继承。
+      java: |
+        两边的抽象类几乎一模一样（都能带构造器与字段、
+        都混着抽象与具体成员），可以逐条对应。
+        差别在**它同时也是接口**：Dart 里任何类都能被 `implements`，
+        所以抽象类有两种用法（继承拿实现 / 实现只借形状），
+        Java 的抽象类只能被继承。
+        另一处是 `sealed`：Dart 的 `sealed class` 把子类限制在本文件里，
+        于是 `switch` 能做穷尽检查；Java 较新的版本也有密封类，思路上一致。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  mixin-trait:
+    code: |
+      mixin Walker {
+        int steps = 0;                       // @note! mixin **能存状态** —— 接口不行
+        void walk() { steps++; }
+      }
+
+      mixin Swimmer on Animal {              // @note on 约束：只给 Animal 家族用
+        void swim() => print('$name 在游');   // @note 能用 Animal 的成员
+      }
+
+      class Robot extends Animal with Walker, Swimmer {
+        Robot(super.name);
+      }
+
+      // @note with 的顺序有意义：靠后的 mixin 覆盖靠前的同名方法
+      // @note mixin class 既是 mixin 又是普通类（Dart 3）
+      mixin class Both { }
+      // @note 一个类只能 extends 一个超类，但可以 with 好几个 mixin
+    vs:
+      javascript: |
+        JavaScript 没有 mixin 语法，惯用做法是「把方法拷贝进原型」
+        或者写一个接收类再返回新类的函数 —— 都是手工的，
+        而且带状态的 mixin 要自己想办法。
+        Dart 的 `with` 是语言机制，由编译器把成员合成进类里，
+        `on` 还能约束「这个 mixin 只能贴到谁身上」。
+        另一处是顺序：JavaScript 靠调用顺序决定谁覆盖谁，
+        Dart 明确写了「靠后的赢」。
+      python: |
+        Python 的多重继承本身就是 mixin 机制，而且同样能带状态 ——
+        这一点两边一致（都比只有接口的语言强）。
+        差别在**冲突解决**：Python 靠 MRO 自动线性化，
+        用哪个实现要看继承顺序推理；Dart 的 `with` 顺序更直白
+        （后面覆盖前面），而且 `on` 能在声明处限定适用范围，
+        Python 只能靠文档说「这个 mixin 要给谁用」。
+      java: |
+        Java 8 起接口能有默认方法，但**接口不能有实例字段** ——
+        所以「好几个类共享一段带状态的实现」在 Java 里办不到，
+        只能抽一个共同基类（那就用掉了唯一的继承名额）。
+        Dart 的 mixin 能存状态，一个类还能 `with` 好几个，
+        这是它明显强的一处。
+        两边共同的限制是没有多继承，Dart 用 mixin 补、
+        Java 用接口加组合补，后者的手工量更大。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  duck-typing:
+    code: |
+      // @note Dart 是**名义**类型：形状一样但没声明实现，就传不进去
+      abstract interface class Quacker { String quack(); }
+      class RealDuck implements Quacker { @override String quack() => '嘎'; }
+      class Toy { String quack() => '哔'; }
+      // void need(Quacker q) { }
+      // need(Toy());            // @note! 编译错误：Toy 没声明实现 Quacker
+
+      // @note 唯一的运行期逃生口是 dynamic：关掉检查，把错误推到运行时
+      dynamic d = Toy();
+      d.quack();                 // @note 能跑，因为没有静态检查
+
+      // @note 另一个逃生口：noSuchMethod —— 调用不存在的方法时被调
+      class Anything {
+        @override
+        dynamic noSuchMethod(Invocation i) => '兜底';
+      }
+      (Anything() as dynamic).whatever();   // @note 不报错，走 noSuchMethod
+
+      // @note! 扩展方法**不会**让类型真的实现某个接口，只是换个调用形态
+    vs:
+      javascript: |
+        鸭子类型在两个语言里是**相反的默认**：
+        JavaScript 的运行期行为就是「有那个方法就能调」，
+        类型系统（如果有）另行叠加；Dart 名义类型是强制的，
+        形状对不上就编译不过，要绕开必须显式写 `dynamic` ——
+        而 `dynamic` 是一个**主动放弃检查**的标记，看到它就该警觉。
+        另一处是 JavaScript 没有 `noSuchMethod` 这种兜底钩子。
+      python: |
+        Python 的鸭子类型是默认，「像鸭子就是鸭子」；
+        Dart 反过来 —— 像不像不重要，**声明了才算**。
+        这一条决定了迁移时的改法：Python 里「传一个长得像的对象」
+        在 Dart 里要么显式实现接口，要么把参数写成 `dynamic`
+        （等于关掉这处的类型保护）。
+        Python 里有个更接近 Dart 的中间选项 —— `Protocol`，
+        但那边是可选的静态检查，Dart 是强制的。
+      java: |
+        两边都是名义类型，这一点完全一致：接口必须显式实现，
+        形状相同也没用。差别在**逃生口**：
+        Java 想绕开类型检查只能强转或者用反射，
+        而且失败会在运行期抛异常；Dart 有 `dynamic` 这个明确的
+        「不要检查」标记，还有 `noSuchMethod` 这个兜底钩子 ——
+        后者能让一个对象接住任意方法调用，Java 里只能靠动态代理。
+        两边的共同点是：绕开类型系统都要显式写出来，不会悄悄发生。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
