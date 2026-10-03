@@ -761,7 +761,7 @@ export interface Issue {
 
 /* ────────────────────────── v2 内容架构契约（只追加） ──────────────────────────
  *
- * 目标形态见 docs/对比内容架构.md。以下**全部是新增定义**，不改动上方任何旧
+ * 目标形态见 docs/完整项目架构.md。以下**全部是新增定义**，不改动上方任何旧
  * schema / 接口 —— 迁移的增量期里旧管线与旧测试必须继续跑绿。
  *
  * 与旧模型的三处根本差别：
@@ -880,7 +880,7 @@ export const baselineCatalogSchema = z
 /* ── 内容（languages/<语言>/<板块>/<章节>.yaml） ── */
 
 /**
- * 一个「对比框」—— 一个 feature × 一门语言 = 矩阵里的一格（docs/对比内容架构.md §2.1）。
+ * 一个「对比框」—— 一个 feature × 一门语言 = 矩阵里的一格（docs/完整项目架构.md §2.1）。
  *
  * 三个槽位：
  *   ① 代码    `code` / `blocks` 二选一，外加 `output`
@@ -954,7 +954,7 @@ export const boxEntrySchema = boxBase
  * 一门语言在一个板块下的一章内容。
  *
  * 顶层**不写** language / section / chapter —— 全部由路径派生
- * （docs/对比内容架构.md §3 约定 2）。`.strict()` 让「重复声明」直接报错，
+ * （docs/完整项目架构.md §3 约定 2）。`.strict()` 让「重复声明」直接报错，
  * 而不是被静默忽略。
  */
 export const languageContentFileSchema = z
