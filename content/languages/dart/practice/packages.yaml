@@ -1,0 +1,261 @@
+# dart —— practice / packages
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: packages` 的那批：
+# package-manager / dependency-declaration / version-constraint / lockfile /
+# environment-isolation / publishing。
+#
+# 口径说明：这一组有一条**与另外两家都相反**的官方指导，必须写清楚 ——
+# **应用包建议提交 `pubspec.lock`，库包不要提交**（好让它对最新的兼容版本做测试）。
+# 别的地方是「锁文件无脑入库」，这里要按包的类型分。
+# 另两条：`environment.sdk` 是**强制**的（省略会让取依赖直接失败）；
+# 发布到 pub.dev **不可撤销**（版本号永久占用，撤回窗口只有 7 天）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  package-manager:
+    code: |
+      dart pub get                // @note 按 pubspec.yaml 与锁文件取依赖
+      dart pub add http           // @note 加依赖并写进 pubspec
+      dart pub upgrade            // @note 忽略锁文件取最新，并重写它
+      dart pub outdated           // @note 看哪些能升
+      flutter pub get             // @note Flutter 项目用这个前缀
+
+      // @note! 没有独立的 pub 可执行文件 —— 一律 `dart pub <子命令>`
+      // @note! 也没有 `dart pub run`，运行就是 `dart run`
+      // @note 默认仓库是 pub.dev（中央仓库），一般不用配
+    vs:
+      javascript: |
+        两边的命令形状最接近（`get` ↔ `install`、`upgrade` ↔ `update`），
+        而且都默认用一个中央仓库。差别在**命令挂在哪**：
+        JavaScript 有独立的包管理器可执行文件；Dart 把它做成了
+        语言工具链的一个子命令（`dart pub ...`），所以要敲两段。
+        另一处是**运行时入口**：那边装完靠包管理器提供的运行方式，
+        这边统一是 `dart run`。
+      python: |
+        两边都要先声明再取依赖，但**心智模型不同**：
+        Python 那边包管理器与运行环境绑得很紧
+        （装到哪个环境、要不要激活），Dart 这边依赖是按项目解析的，
+        没有「装进哪个环境」这个选择。
+        另一处是中央索引：两边都有一个默认源，
+        但 Python 那边因为历史上工具林立，换源是常见操作；
+        Dart 这边几乎不换，`pub.dev` 就是默认。
+      java: |
+        这一格两边差别明显：Java 的依赖由**构建工具**管
+        （Maven 或 Gradle），所以「包管理器」这个概念是借来的；
+        Dart 的 `dart pub` 是**语言自带**的，与构建是一体的。
+        另一处是仓库：Java 那边「仓库」是一等概念，要显式列出；
+        Dart 默认就走中央仓库，通常连配都不用配。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  dependency-declaration:
+    code: |
+      # pubspec.yaml
+      name: my_app
+      environment:
+        sdk: ^3.6.0                    # 注意：Dart 2 起强制，省略会让 pub get 失败
+
+      dependencies:
+        http: ^1.2.0
+        path: any                      # any = 不设约束
+
+      dev_dependencies:
+        test: ^1.25.0
+        lints: ^5.0.0
+
+      dependency_overrides:            # 临时强制某个版本（排查问题用）
+        http: ^1.1.0
+
+      # 依赖来源分四类：hosted（默认）/ git / path / sdk
+      # 注意：git 与 path 依赖**不允许**发布到 pub.dev
+      # 「发布出去的 overrides 对使用者无效」—— 只影响当前这个包
+    vs:
+      javascript: |
+        两边的依赖声明文件形状相近（都是「运行依赖 + 开发依赖」两段），
+        连版本范围都用同一个 `^` 记号。差别在**强制字段**：
+        Dart 的 pubspec 必须写 SDK 约束，缺了直接取不了依赖；
+        JavaScript 那边没有这一项，所以没人管你用的是哪个版本的运行时。
+        另一处是来源：Dart 明确区分四种来源并限制哪些能发布，
+        JavaScript 那边限制更松。
+      python: |
+        两边的声明文件结构接近（都分运行与开发两段）。
+        差别有三处：一是**必须有 SDK 约束**（Python 那边推荐但不强制）；
+        二是版本范围的记号含义不同 —— Python 的 `~=1.2.3` 只放开到下一个
+        次版本，Dart 的 `^1.2.3` 放开到下一个大版本，从 Python 过来最容易混；
+        三是「临时替换某个依赖」这件事 Dart 有专门的关键字，
+        Python 那边要改依赖文件本身。
+      java: |
+        两边的模型差别很大：Java 的依赖是**三段坐标**（组织、构件、版本），
+        同一个组织下可以有很多构件；Dart 的依赖是**包名**一段，
+        一个名字一个包，与那边更接近「一个名字一个仓库」那种模式。
+        另一处是作用范围：Java 用不同的配置项区分编译/运行/测试，
+        Dart 只分「运行依赖」与「开发依赖」，粒度粗但简单。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  version-constraint:
+    code: |
+      ^1.3.0        # 等于 >=1.3.0 <2.0.0
+      ^0.1.2        # 注意：等于 >=0.1.2 <0.2.0（1.0 之前上限是**下一个次版本**）
+      any           # 不设约束
+      1.2.3         # 精确版本（可以用，但不推荐）
+      ">=1.2.0 <2.0.0"   # 注意：必须加引号 —— YAML 对 > 有特殊含义
+
+      # 0.x 版本的规则与 1.x 不同，这是最容易踩的一处：
+      # 官方认为 1.0 之前的次版本号就可能带来破坏性变更
+    vs:
+      javascript: |
+        两边的 `^` **含义一致**（都放开到下一个大版本），可以逐条对应。
+        差别在**写在哪**：JavaScript 写在 JSON 里，没有引号问题；
+        Dart 写在 YAML 里，带比较运算符的约束**必须加引号**，
+        否则 YAML 解析器会先报错 —— 这是从那边过来第一个会撞上的坑。
+        另一处是 0.x 的处理：两边都特殊对待，规则略有不同。
+      python: |
+        **这是最容易记混的一对**：Python 的 `~=1.2.3` 意思是
+        「放开最后一个分量」，即 `>=1.2.3, <1.3.0`；
+        Dart 的 `^1.2.3` 意思是「放开到下一个大版本」，即 `>=1.2.3, <2.0.0`。
+        同一个「大约这个版本」的意图，两个语言的写法与范围都不一样。
+        另一处是 Dart 的约束写在 YAML 里，带比较运算符要加引号，
+        Python 那边没有这个问题。
+      java: |
+        两边都能写范围，但**现在都不推荐**：Java 那边的主流做法是
+        「依赖不写版本，由一个 BOM 统一决定」；Dart 那边则是
+        「用 `^` 表达兼容范围，交给解析器取最新的兼容版」。
+        所以同一种「别写死」的意图，一个靠集中管理、一个靠范围记号。
+        另一处是精确版本：两边都支持，也都不推荐写进库的声明里。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  lockfile:
+    code: |
+      # pubspec.lock 由 `dart pub get` 生成，记下解析出的确切版本
+      # 注意：官方指导按**包的类型**分：
+      # 注意：  应用包（app）—— **建议提交**，保证团队与 CI 装到一样的版本
+      # 注意：  库包（package）—— **不要提交**，好让它对最新的兼容版本做测试
+      # 注意：这条与「锁文件一律入库」的直觉相反
+
+      # 有锁文件时，`dart pub get` 会遵从里面的版本
+      # 想忽略它取最新，用 `dart pub upgrade`
+    vs:
+      javascript: |
+        两边的锁文件机制几乎一样（装依赖时生成、记精确版本、
+        下次按它装），也都提供「忽略锁文件取最新」的命令。
+        差别在**要不要入库**：JavaScript 那边一律建议提交，
+        Dart 这边按包的类型分 —— 库包**明确不要**提交。
+        所以在这边维护一个库时，`.gitignore` 里的取舍与那边正好相反。
+      python: |
+        两边都有锁文件，但**官方口径不同**：
+        Python 生态里锁文件是「都应该有」的主流共识；
+        Dart 明确区分应用与库，库包反而不提交。
+        背后的理由很实在：库是给别人用的，锁定自己的开发版本
+        会让它测不到依赖的新版本 —— 这条思路值得记住。
+        另一处是 Dart 只有一个官方锁文件格式，不用选。
+      java: |
+        两边差别很大：Java 那边**默认没有锁文件**
+        （版本每次重新解析，想复现要额外开锁定功能），
+        Dart 默认就在 `dart pub get` 时生成一个。
+        所以「今天装的和明天装的一样吗」这个问题，
+        在 Java 那边要靠主动配置才能回答，在 Dart 这边是默认行为。
+        两边的共同点是都要想清楚「库要不要锁」这件事，只是默认值不同。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  environment-isolation:
+    code: |
+      dart pub get             // @note 依赖按项目解析，装进项目自己的 .dart_tool
+
+      # 没有「虚拟环境」这个概念，也没有「激活」这个动作
+      # 每个项目的依赖各自解析，互不影响
+
+      # 多包工程用 workspace（Dart 3.6 起）
+      # 根 pubspec：
+      #   workspace:
+      #     - packages/app
+      #     - packages/core
+      # 成员 pubspec 加：
+      #   resolution: workspace
+      # 注意：只生成**一份**根级 pubspec.lock 与一份共享的包配置
+      # 注意：成员各自散落的锁文件要删掉
+    vs:
+      javascript: |
+        两边都天然按项目隔离，也都不需要「激活」这一步 ——
+        这一格最像。差别在**单仓库多包**：
+        JavaScript 的 workspace 允许每个子包有自己的锁文件与依赖版本；
+        Dart 的 workspace 更彻底 —— 只有**一份**根级锁文件，
+        所有成员共用同一份解析结果，所以不会出现「同一个依赖在两个子包里
+        版本不一样」这种事。
+      python: |
+        **这一格两边差别很大**：Python 必须主动建虚拟环境，
+        忘了激活就会装到全局去，是常见的操作事故；
+        Dart 的依赖是**按项目解析**的，没有全局安装这个状态，
+        所以那类事故在这边根本不会发生。
+        代价是「我想手工装个包试试」变得没那么直接 ——
+        得先有个项目。
+      java: |
+        两边都按项目隔离、都用「本地缓存 + 按坐标取用」，
+        这一层可以对应。差别在**隔离的单位**：
+        Java 那边靠类路径，一个进程里可以出现同一个库的两个版本
+        （取决于类加载器）；Dart 的 workspace 只解析出一份结果，
+        整个工程里同一个包只有一个版本。
+        所以「版本冲突」这个问题在这边更早被消解掉。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  publishing:
+    code: |
+      dart pub publish --dry-run     // @note 先干跑一遍，看有没有问题
+      dart pub publish               // @note 真的发布
+
+      # 硬性门槛：
+      #   必须有 LICENSE 文件
+      #   包体积有上限（压缩前后各一条线）
+      #   依赖只能限「中央仓库的 hosted 依赖 + SDK 依赖」
+      #   git 与 path 依赖不允许带上
+
+      # 注意：发布**不可撤销** —— 包名加版本号永久占用，
+      # 注意：撤回的窗口只有发布后 7 天
+
+      # pub.dev 还会算一个分数：有没有 README / CHANGELOG /
+      # 示例代码 / 文档覆盖率，以及静态分析有没有告警
+    vs:
+      javascript: |
+        两边的发布流程形状相近（先干跑、再上传、都能看评分），
+        差别在**可逆性**：JavaScript 那边可以撤回已发布的版本；
+        Dart 这边**发出去就收不回**，版本号永久占用，
+        撤回窗口只有一周。
+        所以那边的发布是日常动作，这边每一次都要更慎重。
+        另一处是硬门槛：Dart 明确要求许可文件与体积上限。
+      python: |
+        两边都要先构建再上传，也都有干跑与私有源。
+        差别在两处：一是**发布可不可逆** —— Python 那边能删掉版本
+        （虽然不推荐），Dart 这边永久占用；
+        二是**硬门槛**：Dart 要求必须有许可文件、有体积上限，
+        还限制依赖只能来自中央仓库 —— 这些在 Python 那边是软要求。
+      java: |
+        两边的发布体系差别很大：Java 那边是**仓库加坐标**
+        （可以发到中央仓库、公司内网，也可以只发到本地），
+        没有「一个中央目录说了算」这件事；
+        Dart 的 `pub.dev` 是唯一的默认目录，评分与检索都围绕着它。
+        另一处是撤回：Java 那边的中央仓库也基本不允许覆盖已发布版本，
+        这一点两边倒是一致的。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

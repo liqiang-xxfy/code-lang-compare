@@ -1,0 +1,233 @@
+# kotlin —— practice / testing
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: testing` 的那批：
+# test-framework / assertions / mocking / parameterized-tests / coverage。
+#
+# 口径说明：三条要写准的 ——
+# ① `kotlin-test` **只是断言与注解的兼容层**，底层仍然是 JUnit；
+#    而且官方推荐的 `kotlin-test-junit5` **名字里带 5、却支持 JUnit 6**，
+#    别按名字推断它只能用 5。
+# ② **MockK 是第三方**，官方文档里没有它 —— 只能写成「社区的方案」。
+#    因果链要写清：类默认 final → 基于字节码代理的 mock 框架用不了 → 才有 MockK。
+# ③ **Kover 是 JetBrains 官方的覆盖率工具**，官方明说它比 JaCoCo 更能正确处理
+#    内联函数与 data class 这类 Kotlin 特有的构造 —— 这是「推荐工具换人」的一条。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-testing-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  test-framework:
+    code: |
+      import kotlin.test.Test          // @note 这个注解来自 kotlin-test，不是 JUnit
+      import kotlin.test.assertEquals
+
+      class CartTest {
+        @Test
+        fun emptyCartHasZeroTotal() {
+          assertEquals(0, total(emptyList()))
+        }
+      }
+
+      // 依赖：testImplementation(kotlin("test"))
+      // @note 它会自动拉进需要的 JUnit 构件；用 JUnit 平台要写
+      // @note   tasks.test { useJUnitPlatform() }
+
+      // @note! 新项目官方推荐 kotlin-test-junit5 ——
+      // @note! **名字里带 5，但它支持包括 JUnit 6 在内的最新版本**，别按名字推断
+    vs:
+      javascript: |
+        两边都是「选一个框架加进去」，但 Kotlin 这边多一层：
+        `kotlin-test` 是一组**与框架无关的注解与断言**，
+        底下接的还是 JUnit。所以「我用的是什么框架」这个问题
+        在这边有两层答案，而 JavaScript 那边只有一个。
+        另一处是注解的形式：JavaScript 那边用例是普通的函数调用，
+        这边是带注解的类方法 —— 从那边过来会觉得多了一层壳。
+      python: |
+        两边的差别在**「用例是什么」**：Python 那边一个函数就是一个用例，
+        断言就是语言自带的语句；Kotlin 这边用例必须写在类里、
+        标上注解，断言要用库提供的函数。
+        所以那边的测试文件读起来像普通代码，这边的像一份声明。
+        代价换来的是结构清楚（分组、生命周期钩子都是显式的），
+        以及「工具能静态发现你写了哪些用例」。
+      java: |
+        两边**用的是同一套框架**（都跑在 JVM 上、都用 JUnit），
+        连注解的名字都相同，这一格可以逐条对应。
+        差别在**断言从哪来**：Java 那边直接静态导入断言类；
+        Kotlin 这边通常从 `kotlin.test` 导入 ——
+        它是个兼容层，所以同一份测试换个底层框架也基本能用。
+        另一处是类默认 final 带来的影响，见 mocking 那一格。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  assertions:
+    code: |
+      import kotlin.test.*
+
+      assertEquals(2, add(1, 1))            // @note 期望值在前、实际值在后
+      assertTrue(cart.isEmpty())
+      assertNull(result)
+      assertNotEquals(1, 2)
+
+      assertFailsWith<IllegalArgumentException> {   // @note 断言一定会抛
+        parse("bad")
+      }
+
+      // @note 失败信息可以自己补一句
+      assertEquals(3, count, "数量不对")
+
+      // @note 有个可选的编译器插件能生成更详细的失败信息
+      // @note （把表达式拆开、把中间值打出来），需要在构建里显式开启
+    vs:
+      javascript: |
+        两边的断言都是方法调用，命名也相近。差别在**参数顺序**：
+        JavaScript 是「实际值在前、期望值作为匹配器」，
+        读起来是先说被测的东西；Kotlin 这边是**期望值在前**，
+        属于「先说答案、再说被测值」那一派 —— 从 JavaScript 过来这个顺序最容易写反，
+        而且类型相同时不会报错，只是失败信息反着读。
+        另一处是「断言一定会抛」：两边都有对应写法，形态不同。
+      python: |
+        两边差别很大：Python 用语言自带的断言语句，
+        失败时由框架重写断言、给出详细的差异对比，写法极简；
+        Kotlin 这边是库函数调用，要自己挑方法、注意参数顺序，
+        失败信息由断言本身提供。
+        所以那边一行 `assert a == b` 的事，这边要写成
+        `assertEquals(a, b)` —— 信息更明确，但写起来更长。
+      java: |
+        两边**是同一批断言**（静态方法、期望值在前），
+        连「参数顺序写反不报错、只是失败信息反着读」这条
+        共性风险都一样，这一格可以逐条对应。
+        差别在**它们来自哪里**：Java 直接静态导入断言类；
+        Kotlin 通常走 `kotlin.test` 这个兼容层 ——
+        好处是换框架时测试代码不用改，代价是多一层间接。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  mocking:
+    code: |
+      // @note SDK 里**没有**替身工具 —— 主流选择都是第三方
+      class MockRepo : Repo {
+        override fun find(id: Int): String = "假的"     // @note 手工替身也能用
+      }
+
+      // // MockK（社区方案，不是官方文档里的东西）：
+      // val repo = mockk<Repo>()
+      // every { repo.find(1) } returns "假的"
+      // verify { repo.find(1) }
+
+      // @note! 为什么 Kotlin 上要专门的替身库：
+      // @note! 类与成员**默认是 final**，靠字节码代理的框架绕不过去 ——
+      // @note! 要么把类标 open，要么换一个能处理 final 的工具
+      // @note 挂起函数还要额外支持（那是另一套调用约定）
+    vs:
+      javascript: |
+        两边都有替身库，但**门槛不同**：JavaScript 的假函数随手就能造、
+        能替换任意模块，没有「这个类不能替」的限制；
+        Kotlin 这边因为类默认 final，基于代理的框架直接失效，
+        所以要么改类声明、要么换工具。
+        这一条是语言设计（默认封闭）带来的实际后果，
+        不只是工具选择问题。
+      python: |
+        **两边对替身的态度差别很大**：Python 的替身工具什么都不用配
+        就能替换任何东西，连内建函数都能打补丁；
+        Kotlin 这边有一份「默认替不了」的名单（final 的类与方法），
+        要额外手段才能绕过。
+        代价反过来也存在：Python 那边没有任何东西提醒你
+        「这样替是不对的」，Kotlin 这边的限制至少会让问题在编译期暴露。
+      java: |
+        两边**是同一套生态**（都跑在 JVM 上，常用的替身库也是同一批），
+        但 Kotlin 这边多一条硬限制：**类默认不可继承**，
+        所以原本能代理的类在这边代理不了 ——
+        这也正是社区要另找工具的原因。
+        从 Java 过来时，要么给需要替身的类加 `open`，
+        要么接受换一个替身库；两边的验证写法（打桩加校验调用）倒是相近的。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  parameterized-tests:
+    code: |
+      // Kotlin 侧没有自己的参数化机制 —— 用的是底层的 JUnit
+      @ParameterizedTest
+      @ValueSource(ints = [1, 2, 3])
+      fun positive(n: Int) { assertTrue(n > 0) }
+
+      @ParameterizedTest
+      @CsvSource("1, 1, 2", "2, 3, 5")
+      fun add(a: Int, b: Int, expected: Int) {
+        assertEquals(expected, add(a, b))
+      }
+
+      // @note 数据源也可以指向一个方法，用例能由代码生成
+      // @note 失败时会指出是第几组数据，不会只报「断言失败」
+      // @note 官方文档里没有专门的参数化测试页 —— 这一格讲的是底层框架的能力
+    vs:
+      javascript: |
+        两边都能声明一组用例并逐个报告，但**数据能不能算出来不同**：
+        JavaScript 的表格是字面量，更紧凑但不能算；
+        Kotlin 这边的数据源可以指向一个方法，用例能动态生成。
+        组合爆炸的场景这边更合适，「一堆固定的输入输出对照」
+        那边写起来更顺手。两边失败信息都会带上参数。
+      python: |
+        两边的思路一样（声明一组输入、逐个跑、失败时指出第几组），
+        写法不同：Python 用装饰器叠参数，多个装饰器叠加会做成笛卡尔积；
+        Kotlin 这边用的是底层框架的注解，多维组合要么嵌套、
+        要么自己在数据源里算。
+        所以「几组固定数据」两边差不多，「多维交叉」那边更省事。
+      java: |
+        这一格两边**完全一样** —— 用的就是 JUnit 自己的参数化测试，
+        注解、数据源、失败信息的形态都相同，可以逐字对应。
+        唯一要说的是 Kotlin 的写法细节：数组字面量用方括号、
+        注解参数不能可空，其余不用改。
+        所以从 Java 过来时这一格不需要重新学。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: identical
+
+  coverage:
+    code: |
+      ./gradlew koverHtmlReport      // @note 出报告
+      ./gradlew koverVerify          // @note 按阈值卡住构建
+
+      // @note! Kover 是 JetBrains 官方的 Kotlin 覆盖率工具
+      // @note! 官方明说它比通用方案更能正确处理 Kotlin 特有的构造 ——
+      // @note! 比如内联函数与 data class 生成的字节码，
+      // @note! 通用工具会把它们算成没覆盖到，得出偏低的假象
+
+      // @note! 覆盖率只回答「哪些代码被执行过」，
+      // @note! 不说明断言有没有意义，也不等于类型正确
+    vs:
+      javascript: |
+        两边都是「跑测试时顺便统计」，也都能设阈值卡流水线。
+        差别在**要不要专门挑工具**：JavaScript 那边覆盖率通常就是
+        测试运行器自带的一个开关；Kotlin 这边因为要正确处理
+        内联函数这类编译器生成的代码，官方专门给了一个工具 ——
+        用通用工具会得到偏低的假数字。
+      python: |
+        两边都是插件式的覆盖率，都能出报告、设阈值。
+        差别在**与语言特性的耦合**：Python 的覆盖率工具
+        面对的是源码与字节码的对应关系，问题相对少；
+        Kotlin 有内联函数与数据类这些「一行源码编译出一堆字节码」的构造，
+        通用工具容易算错，所以官方才自己做了一个。
+        共同的提醒两边都适用：覆盖率不等于测试有效。
+      java: |
+        这里有个实际的取舍：**通用覆盖率工具在这边会低估**
+        （内联函数、数据类生成的代码会被算成未覆盖），
+        所以官方另做了一个能正确处理的工具。
+        Java 那边没有这个问题，因为它的语言构造与字节码的对应
+        更直白。所以从 Java 过来时，工具要换一个 ——
+        否则同一份测试在两边会报出不同的覆盖率数字。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

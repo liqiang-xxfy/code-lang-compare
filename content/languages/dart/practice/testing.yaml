@@ -1,0 +1,233 @@
+# dart —— practice / testing
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: testing` 的那批：
+# test-framework / assertions / mocking / parameterized-tests / coverage。
+#
+# 口径说明：两条要写准的 ——
+# ① **`package:test` 没有参数化测试**（官方教程与配置文档都没提），
+#    这是三个基准都有、而 Dart 没有的一项，要正面写清替代方案，
+#    别只是说「没有」。
+# ② **替身工具都是第三方的**（`mocktail` 与 `mockito` 都不在 SDK 里），
+#    而且 `mockito` 从 5.0.0 起主要靠**代码生成**（要跑 build_runner），
+#    `mocktail` 不用 —— 这一点决定了新项目挑哪个。
+# 另有一处易混：`--coverage`（输出到目录）与 `--coverage-path`（输出单个 lcov 文件）
+# 是两个**都存在**但语义不同的选项。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-testing-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  test-framework:
+    code: |
+      import 'package:test/test.dart';       // @note 要作为开发依赖加进来
+
+      void main() {
+        group('购物车', () {                  // @note 组：描述会前缀到里面的用例名上
+          test('空车总价为零', () {
+            expect(total([]), 0);
+          });
+
+          test('异步也能测：框架自动等返回的 Future', () async {
+            expect(await fetchCount(), 3);
+          });
+        });
+      }
+
+      # dart test                       # 默认跑当前项目的 test/ 目录
+      # dart test test/cart_test.dart   # 只跑一个文件
+      # dart test -n '空车'              # 按名字筛
+      # dart test -t slow               # 按标签筛
+    vs:
+      javascript: |
+        两边都是「装一个框架、按约定放测试文件、用命令行跑」，
+        结构也接近（组、用例、断言三层）。差别在**运行时从哪来**：
+        Dart 的测试运行器**内建在语言命令行里**（`dart test`），
+        但库还是要作为开发依赖装上 —— 两者是分开的。
+        JavaScript 那边运行器与库通常来自同一个包。
+      python: |
+        两边的组织方式差别明显：Python 那边一个函数就是一个用例，
+        发现靠文件名与函数名前缀的约定；Dart 这边要显式写
+        `test(...)` 把它注册进去，组用 `group(...)` 嵌。
+        所以那边「加个函数就多一个用例」，这边「必须调用注册函数」——
+        后者的好处是能动态生成用例（循环里注册一批），
+        坏处是忘了写注册就不是用例。
+      java: |
+        两边都是「用例写在类里、由工具扫描执行」，形态相近。
+        差别在**注册方式**：Java 靠注解，测试类被扫描到就自动跑；
+        Dart 靠一个 `main` 函数手动注册 —— 用例与组都是函数调用。
+        所以 Dart 这边能做「按条件注册不同的用例」这种动态的事，
+        而 Java 那边注解是静态的。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  assertions:
+    code: |
+      expect(add(1, 1), 2);                    // @note 普通值会被自动包成「相等」匹配器
+      expect(cart.isEmpty, isTrue);
+      expect(result, isNull);
+      expect(list, contains(2));
+      expect(name, startsWith('A'));
+      expect(list, hasLength(3));
+      expect(n, inInclusiveRange(1, 10));
+      expect(value, isNot(3));
+
+      expect(() => parse('bad'), throwsA(isA<FormatException>()));
+      expect(future, completion(equals(42)));   // @note 异步匹配器，框架会等它完成
+
+      expect(count, 3, reason: '数量不对');       // @note 说明是**命名参数**，追加到自动说明后
+
+      // @note 要「匹配完再接着做事」就用 expectLater 拿回一个 Future
+    vs:
+      javascript: |
+        两边都是「实际值在前、匹配器在后」，形状很像，
+        但**匹配器的名字不同**：JavaScript 的 `toEqual` / `toBe`
+        在这边对应 `equals` / `same`，`toHaveLength` 对应 `hasLength` ——
+        从那边过来要重新记一套名字。
+        另一处是失败说明：JavaScript 通常是第二参数直接写字符串，
+        Dart 要用**命名参数** `reason:`，而且它是**追加**在自动说明之后的。
+      python: |
+        两边差别很大：Python 用语言自带的断言语句，
+        失败时框架重写断言、把两侧的值展开给你看；
+        Dart 必须调用断言函数、挑一个匹配器，
+        失败信息由匹配器提供。
+        所以那边写 `assert x == 3` 就行，这边要写
+        `expect(x, 3)` —— 更明确，也更容易写出「匹配器选错」的问题。
+      java: |
+        两边都是「调一个断言函数」，但**形态不同**：
+        Java 是大量各自命名的静态方法，Dart 是**一个 `expect` 加一堆匹配器**。
+        所以 Dart 这边组合能力更强（匹配器能嵌套、能取反、能组合），
+        代价是断言写成了嵌套表达式，读起来不如一个方法名直接。
+        共同的坑是一类错误信息的可读性：两边都要靠工具把实际值打出来。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  mocking:
+    code: |
+      // @note SDK 里没有替身工具 —— 主流选择都是第三方的
+      // @note 手写一个假实现也可以，很多时候比引库更省事
+
+      // mocktail（不需要代码生成）：
+      // class MockRepo extends Mock implements Repo {}
+      // when(() => repo.find(1)).thenReturn('假的');    // @note! 所有调用都要包成闭包
+      // verify(() => repo.find(1)).called(1);
+
+      // mockito（5.0.0 起主要靠代码生成）：
+      // @GenerateNiceMocks([MockSpec<Repo>()])
+      // 然后跑 dart run build_runner build
+      // @note! 返回 Future / Stream 的方法要用 thenAnswer，用 thenReturn 会抛错
+
+      // @note 挑哪个：不想引代码生成那一步就选前者
+    vs:
+      javascript: |
+        两边都有替身工具，也都需要自己引。差别在**打桩的写法**：
+        JavaScript 通常直接把调用结果传进去；Dart 这边
+        要把调用包成一个**闭包**（`when(() => repo.find(1))`）——
+        直接写调用会先执行一次，撞上「还没打桩就先调了」的错误，
+        这是从那边过来最容易踩的一处。
+        另一处是异步返回值的处理（要用另一个方法），那边没有这个区分。
+      python: |
+        两边的门槛差别很大：Python 的替身工具什么都不用配就能替换任何东西，
+        连内建函数都能打补丁；Dart 这边因为要满足类型，
+        替身必须**声明实现了那个接口**（写 `implements`），
+        返回值的类型也要对得上。
+        代价换来的是「替身的形状不对」在编译期就暴露 ——
+        这一点在 Python 那边完全没有保障。
+      java: |
+        两边都是「声明一个替身类、打桩、验证调用」，思路一致。
+        差别在**要不要代码生成**：Java 的主流替身靠注解处理器在编译期生成，
+        配置一次就透明了；Dart 的两个库里一个要手动跑生成命令、
+        一个不用 —— 所以「新项目挑哪个」在这边是个真实的选择题。
+        共同的坑是返回值类型要对得上，只是暴露的时机不同。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  parameterized-tests:
+    code: |
+      // @note! package:test **没有**参数化测试 —— 官方教程与配置文档都没提
+
+      // 替代一（最正统）：在一个组里手写多个用例
+      group('解析', () {
+        test('42 -> 42', () => expect(parse('42'), 42));
+        test('-7 -> -7', () => expect(parse('-7'), -7));
+        test('空串 -> 0', () => expect(parse(''), 0));
+      });
+
+      // 替代二：在循环里注册（这是注册式 API 换来的能力）
+      for (final c in [('42', 42), ('-7', -7), ('', 0)]) {
+        test('解析 ${c.$1}', () => expect(parse(c.$1), c.$2));
+      }
+
+      // 替代三：第三方包 parameterized_test（提供参数化组与单个参数化用例）
+      // @note 失败信息仍然会带上用例名，所以「第几组」也看得出来
+    vs:
+      javascript: |
+        **这一格是直接的能力缺失**：JavaScript 的测试框架有内建的表格化用例，
+        一行就能声明一组输入输出；Dart 没有，只能手写多个用例，
+        或者在循环里注册 —— 后者虽然能少写几行，
+        但用例是「运行时注册出来的」，编辑器里跳不到具体某一组。
+        所以那边一张几十行的用例表，在这边会变成一长段循环或一大段重复。
+      python: |
+        **同样是直接缺失**：Python 用装饰器声明参数，
+        还能叠多层做笛卡尔积；Dart 这边没有对应语法。
+        可以用循环注册近似（思路接近），但没有「二维组合」那种表达，
+        而且没有内建的「这是第几组数据」的失败信息格式。
+        所以组合测试在这边要自己组织，好在测试名能自己拼。
+      java: |
+        **这一格两边差别最干脆**：Java 有内建的参数化测试
+        （注解加数据源，还能让数据来自方法、动态生成）；
+        Dart 完全没有，最正统的做法就是手写多个用例。
+        所以从 Java 过来时，一张参数表要改写成一段循环或一串用例 ——
+        这是本轮里少见的「那边有、这边没有」的整块能力。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  coverage:
+    code: |
+      dart test --coverage=coverage                 # 输出到**目录**
+      dart test --coverage-path=coverage/lcov.info  # 输出单个 lcov **文件**
+
+      dart test --coverage=coverage --branch-coverage   # 连分支一起统计
+      dart test --coverage=coverage --coverage-package=my_pkg
+
+      # 之后用 lcov 的工具把 .info 转成 HTML 报告
+
+      # 注意：两个选项**都存在**而且语义不同：一个是目录、一个是文件
+      # 覆盖率目前只支持在虚拟机或浏览器上跑的测试
+      # 覆盖率只回答「哪些代码被执行过」，不等于断言有效
+    vs:
+      javascript: |
+        两边的用法接近（跑测试时加个开关、之后把原始数据转成报告），
+        也都支持分支覆盖率。差别在**输出格式的约定**：
+        JavaScript 那边通常由框架直接出 HTML 或多种格式；
+        Dart 这边标准输出是 lcov 格式，要看网页报告得再走一步转换。
+        另一处是 Dart 有「只统计指定包」的选项，多包工程里更实用。
+      python: |
+        两边都是插件式的覆盖率，都能出报告、设阈值。
+        差别在**终端体验**：Python 那边的覆盖率插件能直接
+        把漏掉的行号打在终端里，适合快速看；
+        Dart 这边的输出是 lcov 文件，要看细节得先转成报告。
+        共同的提醒两边都适用：覆盖率不等于测试有效。
+      java: |
+        两边的形态相近（跑测试时收集、之后看报告、可设阈值卡构建）。
+        差别在**报告链路**：Java 那边的覆盖率工具通常直接出 HTML，
+        与构建工具集成得很紧；Dart 这边标准输出是 lcov，
+        要几步转换才能看到页面。
+        另一处是 Dart 明确限制「只有虚拟机或浏览器上跑的测试才有覆盖率」——
+        Java 那边没有这个平台限制。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous

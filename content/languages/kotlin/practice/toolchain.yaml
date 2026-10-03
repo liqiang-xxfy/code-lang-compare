@@ -1,0 +1,253 @@
+# kotlin —— practice / toolchain
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: toolchain` 的那批：
+# compile-run / bundler / linter-formatter / type-checker / runtime-version / repl。
+#
+# 口径说明：几条要写准的 ——
+# ① **类型检查就是编译本身**，没有独立的「只检查不产出」这一步（对比那边有）；
+# ② **JVM 目标默认是 1.8**，而且「跑 Gradle 的 JDK / 工具链 JDK / 字节码目标」
+#    是三个不同的东西，这是最容易「本地能编、CI 挂」的地方；
+# ③ `kotlinOptions { }` 自 2.0.0 起弃用，配置迁到编译器选项 DSL；
+# ④ 格式化工具中**官方页列的是 ktlint 与 detekt**，`ktfmt` 不在其中（别写成官方推荐）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-toolchain-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  compile-run:
+    code: |
+      // 命令行编译器
+      kotlinc hello.kt -include-runtime -d hello.jar   // @note -include-runtime 才是自包含
+      java -jar hello.jar                              // @note 用 java 跑
+
+      // 脚本：文件名以 .kts 结尾，直接执行
+      kotlinc -script build.kts -- arg1
+
+      // 日常走构建工具
+      ./gradlew run
+      ./gradlew build
+
+      // @note! 不加 -include-runtime 产出的是普通库 jar，跑不了（缺运行时）
+      // @note 文件名 hello.kt 编译出的主类叫 HelloKt —— 从 Java 侧调用时要用这个名字
+    vs:
+      javascript: |
+        两边都要先「准备」再跑，但**步骤数不同**：
+        JavaScript 那边 `node app.js` 一条命令，没有独立编译步骤；
+        Kotlin 要么先编译成 jar 再 `java -jar`，要么走构建工具的一次 `run`。
+        代价是启动慢一点、步骤多一点，换来的是产物可以独立分发 ——
+        这一点在 JavaScript 那边要靠打包工具另做（见下一格）。
+      python: |
+        两边的「运行」在体感上差别很大：Python 那边
+        `python app.py` 就跑了，改动即时生效；
+        Kotlin 每次改代码都要重新编译，所以开发时的反馈循环更长。
+        换来的是**错误提前暴露**：那边运行到那一行才知道的事，
+        这边编译时就拦下了。
+        另一处是分发：Python 要让别人跑得装解释器加依赖，
+        Kotlin 可以打成一个自包含的 jar。
+      java: |
+        这一格两边**就是同一套**（Kotlin 编译到 JVM 字节码，
+        用同样的 `java -jar` 跑），可以逐条对应。
+        差别只在编译器换了一个：`kotlinc` 而不是 `javac`，
+        而且它要额外把 Kotlin 运行时打进去（`-include-runtime`），
+        Java 那边没有这一步 —— 这也是「纯 Kotlin 的 jar 会大一圈」的原因。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  bundler:
+    code: |
+      // @note Kotlin 这边叫「打包」，不叫「打包成浏览器能跑的包」
+      ./gradlew jar                    // @note 普通 jar：不含依赖
+      ./gradlew shadowJar              // @note fat jar：把依赖也打进去（第三方插件）
+
+      // @note 只发到 Maven 仓库的库：不需要 fat jar
+      // @note 要做成命令行工具分发：通常走 fat jar 或者原生镜像
+
+      // @note! Gradle 的 fat jar 靠第三方插件（如 shadow），
+      // @note! Kotlin 官方文档只给了 -include-runtime 这一条路
+      // @note 体积上没有「摇树」那套 —— 运行时是整体带上的
+    vs:
+      javascript: |
+        两边都有「把东西合成一个可分发产物」这一步，但**动机与粒度不同**：
+        JavaScript 的打包主要是为了浏览器（模块系统、体积、兼容性），
+        所以有摇树优化、代码分割这些手段；
+        Kotlin 打包是为了分发到 JVM 上跑，依赖就是整个带上，
+        没有「把没用到的代码去掉」这一步（有也是另一个层次的优化）。
+        所以那边的产物大小靠工具链精打细算，这边基本是「有多少带多少」。
+      python: |
+        两边都能做出「别人装好就能跑」的产物，但手段不同：
+        Python 有 venv 快照、zipapp、以及各种打包器，
+        生态很碎；Kotlin 这边主要就是 jar（普通或 fat），
+        要独立二进制还得另找原生镜像方案。
+        共同点是两边都有「依赖怎么带」这个问题 ——
+        一个靠冻结环境，一个靠把 jar 塞进 jar。
+      java: |
+        这一格两边**是同一套**（都是 JVM 的 jar 体系，
+        fat jar 也都靠同一个插件），可以逐条对应。
+        差别只在**需不需要**：纯 Java 项目里 fat jar 常用于命令行工具，
+        而用了 Kotlin 之后 jar 会额外带上 Kotlin 运行时，
+        所以「为什么我的 jar 大了 1MB」这个问题会多出现在这边。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: identical
+
+  linter-formatter:
+    code: |
+      ./gradlew ktlintCheck        // @note 检查
+      ./gradlew ktlintFormat       // @note 自动格式化
+      ./gradlew detekt             // @note 静态分析：代码异味、复杂度、潜在 bug
+
+      // @note 官方「代码质量工具」页列的是这几类：
+      // @note   ktlint（检查 + 格式化，默认遵循官方编码规范）
+      // @note   detekt（静态分析）
+      // @note   SonarQube / SonarCloud、Kover（覆盖率）
+      // @note! ktfmt 是社区常用工具，但**不在**官方那页的名单里 —— 别当成官方推荐
+
+      // @note 风格配置可以走 .editorconfig（ktlint 支持切换成 Android 风格）
+    vs:
+      javascript: |
+        两边的分工方式不同：JavaScript 那边通常是「一个格式化器加一个检查器」
+        两套配置拼起来；Kotlin 这边 ktlint 一个工具两件事都做，
+        而且默认就按官方编码规范来 —— 所以「要不要争论风格」这件事
+        在 Kotlin 项目里通常没有，在 JavaScript 项目里往往要配一版规则。
+        另一处是 detekt 这类静态分析在 Kotlin 侧更常见。
+      python: |
+        两边的工具性质相近（格式化器加检查器），但**风格的可配置程度不同**：
+        Python 那边工具之间还在争（不同的格式化器有不同的取舍）；
+        Kotlin 的 ktlint 默认就锚在官方编码规范上，争议空间小。
+        另一处是静态分析：Python 侧多是类型检查加检查器，
+        Kotlin 侧除类型之外还有 detekt 这类看「代码异味」的工具。
+      java: |
+        两边用的**基本是同一批东西**（ktlint 的规则大量借鉴 Java 侧的
+        检查器，detekt 与那些静态分析工具是同类），可以对应。
+        差别在**默认严格度**：Java 项目里 Checkstyle 之类的规则集
+        通常要自己裁一版，而 ktlint 开箱就按官方规范查 ——
+        所以 Kotlin 项目里「格式没按规范来」这件事更容易在 CI 上被抓到。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  type-checker:
+    code: |
+      ./gradlew compileKotlin             // @note 这一步**就是**类型检查
+
+      // @note! 没有「只做类型检查、不产出产物」的独立命令 ——
+      // @note! 类型检查是编译的一部分，跑编译就等于跑检查
+
+      // @note 编译器选项（旧写法 kotlinOptions { } 自 2.0.0 起弃用）
+      kotlin {
+        compilerOptions {
+          jvmTarget.set(JvmTarget.JVM_17)
+          freeCompilerArgs.add("-Xjsr305=strict")   // @note 空安全注解的严格模式
+        }
+      }
+
+      // @note 空安全是编译期检查的一部分：可空类型没处理就编译不过
+    vs:
+      javascript: |
+        **这是两边工作流差别最大的一处**：JavaScript 项目里
+        「跑测试」与「检查类型」往往是两个独立命令、两步流水线；
+        Kotlin 这边类型检查**就是编译**，编译过了就说明类型没问题 ——
+        少一个步骤，也少一类「测试过了但类型是错的」的情况。
+        代价是每次检查都要付编译的时间。
+      python: |
+        两边的姿态**根本不同**：Python 的类型检查是一个**额外**步骤
+        （装一个检查器、单独跑一遍），不跑就没有；而且它的结论
+        不影响程序能不能跑。Kotlin 的类型检查是编译的前置条件，
+        不过就没法产出任何可执行的东西。
+        所以从 Python 过来时，「类型对不对」从一件可选的事
+        变成了必经之路 —— 这也是那边觉得这边「报错多」的原因。
+      java: |
+        这一格两边**完全一致**（类型检查都在编译期、都没有独立命令），
+        连空安全都同理（Java 靠注解加检查器，Kotlin 内建）。
+        真正的差别在**可配置项**：Kotlin 这边有几个
+        `-X` 开头的实验性开关（比如空安全注解的严格模式），
+        Java 那边是注解处理器与检查器的组合。
+        两边的共同点是：想「只检查不产出」都得自己想办法绕。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  runtime-version:
+    code: |
+      // @note 三个 JDK 要分清，这是最容易「本地能编、CI 挂」的地方：
+      // @note   1. 跑 Gradle 自己的 JDK
+      // @note   2. 编译 Kotlin 的工具链 JDK（kotlin { jvmToolchain(17) }）
+      // @note   3. 产出的字节码目标版本（jvmTarget）
+
+      kotlin {
+        jvmToolchain(21)                                  // @note 用哪个 JDK 编
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } // @note 编成哪个版本
+      }
+
+      // @note! jvmTarget **默认是 1.8** —— 想用新版本要显式写
+      // @note 三者不一致时，有的组合能过、有的直接报错（校验模式默认是报错）
+    vs:
+      javascript: |
+        两边都有「目标版本」这个旋钮，但**紧张程度不同**：
+        JavaScript 那边是往浏览器与 Node 的兼容性看，
+        通常靠打包器转译；Kotlin 这边是往 JVM 字节码版本看，
+        而且同时要管三个 JDK 的关系。
+        所以那边「这段语法能不能用」是个主要问题，
+        这边更常遇到的是「编译用的 JDK 和跑的目标对不上」。
+      python: |
+        两边的版本管理方式差别很大：Python 那边是解释器版本
+        加虚拟环境，依赖的语言特性由解释器决定；
+        Kotlin 这边是「用哪个 JDK 编」与「编成哪个字节码版本」两件事，
+        可以编出比自己运行环境更旧的产物（向后兼容）。
+        所以这边多了一层「面向旧运行时」的自由度，也多了一层配置错误的机会。
+      java: |
+        这一格两边**是同一套**（都是 JDK 版本与字节码目标的组合），
+        可以逐条对应。差别在**默认值**：Java 项目通常跟着
+        JDK 的版本走，而 Kotlin 的 `jvmTarget` **默认停在 1.8** ——
+        所以一个 Kotlin 项目可能用了很新的 JDK 却产出很旧的字节码，
+        这件事不看构建脚本是发现不了的。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  repl:
+    code: |
+      kotlinc -Xrepl              // @note 进交互 shell：敲一行看一行结果
+
+      // @note 选项名以 -X 开头，本身就说明它不是常规功能
+      // @note 也可以写 .kts 脚本文件直接跑：kotlinc -script x.kts
+      // @note 构建工具里还有别的入口（Gradle 的 Kotlin DSL 也可以）
+
+      // @note 交互环境里没有工程上下文 —— 依赖与模块不会自动带上，
+      // @note 所以它适合试语法，不适合试项目代码
+    vs:
+      javascript: |
+        JavaScript 的交互环境是自带的、随手就能进（`node` 一敲就是），
+        而且是调试的一等工具；Kotlin 这边要记一个实验性的开关，
+        更接近「偶尔试个语法」的用途。
+        共同点是两边都适合验证一行表达式的行为，
+        都不适合验证需要工程上下文的东西。
+      python: |
+        **两边在这件事上差别很大**：Python 的交互解释器是语言的一部分、
+        打开就能用，甚至是官方文档里的教学工具；
+        Kotlin 的交互 shell 是一个带 `-X` 前缀的实验性选项，
+        更像编译器的附属功能。
+        背后的原因是语言性质：一门编译型的静态语言要做到
+        「敲一行立刻求值」本来就别扭，而动态解释型语言天然就是那样。
+      java: |
+        两边都是**编译型语言里的补充工具**，定位相近：
+        Java 有 `jshell`，Kotlin 有那个带 `-X` 的交互 shell ——
+        都是让「试一小段语法」不用建整个工程。
+        差别在成熟度：`jshell` 是正式的 JDK 工具，
+        而 Kotlin 这个还带着实验性前缀，说明它的定位更边缘。
+        两者共同的局限是都没有完整的工程上下文。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

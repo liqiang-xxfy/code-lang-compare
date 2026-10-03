@@ -1,0 +1,260 @@
+# kotlin —— practice / packages
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: packages` 的那批：
+# package-manager / dependency-declaration / version-constraint / lockfile /
+# environment-isolation / publishing。
+#
+# 口径说明：两条要写准的 ——
+# ① **Gradle 的依赖锁定默认是关的**（要按 configuration 显式开启），
+#    这与「Gradle 默认会锁」的常见印象相反。
+# ② `implementation` / `api` / `compileOnly` / `runtimeOnly` 四档的分工
+#    与 Maven 的 `compile` / `provided` / `runtime` **不等价**，
+#    默认选 `implementation` 就好，只有类型真的出现在公开签名里才用 `api`。
+# 另需注明 Maven Central 的坐标与当前 JUnit 版本无关 —— 那是 testing 组的事。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  package-manager:
+    code: |
+      // Gradle：现在的主流（DSL 是 Kotlin 写的，配置文件就是 .kts）
+      // ./gradlew build
+      // ./gradlew dependencies        // @note 看依赖树
+
+      // Maven：老项目仍然多，配置文件是 XML
+      // mvn package
+
+      // @note 插件版本与语言版本**必须对齐** —— Kotlin 插件版本 = Kotlin 语言版本
+      // @note   plugins { kotlin("jvm") version "2.4.20" }
+
+      // @note 依赖从 Maven Central 等仓库取，坐标是 group:artifact:version
+      // @note 这与另外两门完全不同：那边是「一个中央仓库 + 包名」，
+      // @note 这边是「任意多个仓库 + 三段坐标」
+    vs:
+      javascript: |
+        两边的包管理器都与构建工具绑在一起，但**绑定方式不同**：
+        JavaScript 那边 `npm` 既是包管理器也是任务运行器，
+        脚本写在 `package.json` 里；Kotlin 这边包管理是构建工具
+        （Gradle 或 Maven）的一部分，任务写在构建脚本里。
+        另一处是坐标：那边是「包名加版本」两段，这边是三段
+        （组织、构件、版本），所以同一个库可以有多个构件。
+      python: |
+        两边都有「包管理器 + 构建后端」两层，也都经历过工具换人
+        （那边从 setuptools 到 Poetry 到 uv，这边从 Maven 到 Gradle）。
+        差别在**依赖来源**：Python 默认只有一个中央索引，
+        换源是配置项；Kotlin 这边「仓库」是一等概念，
+        你可以在构建脚本里列任意多个（公司内网、镜像、中央仓库都行）。
+      java: |
+        这边**就是 Java 的构建工具**（Gradle / Maven），与 Java 项目完全共用，
+        这一格两边没有实质差别 —— 连 `build.gradle.kts` 与
+        `pom.xml` 都可以放在同一个工程里。
+        唯一要说的是 Kotlin 让 Gradle 的构建脚本能用 Kotlin 写
+        （`.kts`），比原先的 Groovy 有类型与补全；
+        Maven 那边还是 XML，两种语言共用一套。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: identical
+
+  dependency-declaration:
+    code: |
+      dependencies {
+        implementation("com.example:core:1.2.0")     // @note 内部实现，不暴露给下游
+        api("com.example:model:1.2.0")               // @note 类型出现在公开签名里才用它
+        compileOnly("org.jetbrains:annotations:24.0")// @note 只编译期要，运行期由环境提供
+        runtimeOnly("org.slf4j:slf4j-simple:2.0.0")  // @note 只运行期要
+        testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
+      }
+
+      // @note! 默认选 implementation —— 只有「我这个模块的公开 API 里
+      // @note! 出现了这个库的类型」时才改成 api（那会把它传染给下游）
+      // @note 版本对齐可以用平台/BOM：implementation(platform("...:bom:1.2.0"))
+      // @note 版本集中管理用版本目录：gradle/libs.versions.toml → libs.xxx.yyy
+    vs:
+      javascript: |
+        JavaScript 那边只有 dependencies 与 devDependencies 两档，
+        而且装了什么下游都能拿到 —— 没有「这个依赖算不算我公开接口的一部分」
+        这个问题。Kotlin 这边把这件事拆成四档，默认最严格，
+        要为「暴露给下游」显式付代价。
+        另一处是测试依赖：那边靠 devDependencies，这边靠命名前缀
+        （`testImplementation`），粒度更细。
+      python: |
+        两边都要声明依赖，但**范围模型不同**：Python 那边
+        「运行依赖」与「开发依赖」是主要分野，
+        没有「编译期可见但运行期由环境提供」这一档；
+        Kotlin 这边 `compileOnly` 表达的正是这种情形
+        （例如运行容器已经带了某个 API）。
+        另一处是传递性：Python 的依赖默认也会传染给使用者，
+        但没法在声明处控制；Kotlin 的 `implementation` / `api`
+        就是这个控制的开关。
+      java: |
+        这里要提醒的是**别按 Maven 的直觉套**：Maven 的
+        `compile` / `provided` / `runtime` 三档与 Gradle 的
+        `api` / `implementation` / `compileOnly` / `runtimeOnly`
+        不是一一对应 —— 尤其是 Maven 的 `compile` 默认会把依赖
+        暴露给下游，而 Gradle 的 `implementation` 不会。
+        所以从 Maven 迁过来的项目要逐个想清楚：
+        这个类型到底出没出现在公开签名里。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  version-constraint:
+    code: |
+      "1.2.0"                  // @note 精确版本（不推荐）
+      "1.2.+"                  // @note 动态版本：取 1.2 系列的最新（也不推荐）
+      "[1.0, 2.0)"             // @note 区间
+      "1.2.0!!"                // @note 严格版本：版本冲突时直接失败
+
+      // @note 常见做法是**不写死**，交给平台/BOM 统一决定：
+      implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.4.20"))
+      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+
+      // @note 冲突默认取「最高的那个」
+      // @note 要强制某个版本用 resolutionStrategy.force(...)，或者用约束 constraints
+    vs:
+      javascript: |
+        两边的版本范围语法不同（那边用的是 `^` 与 `~`，
+        这边用区间或动态版本后缀），但**默认行为接近**：
+        都取能满足范围的最新版、冲突时偏向更高版本。
+        差别在**锁定的粒度**：JavaScript 有锁文件把整棵依赖树钉死；
+        Kotlin 默认**不锁**（见下一格），只靠约束与冲突解决规则，
+        所以「今天装的与明天装的」理论上可能不同。
+      python: |
+        两边的约束写法差别很大：Python 用比较运算符组合
+        （`>=1.2,<2.0`），Kotlin 用区间或 `1.2.+` 这类后缀，
+        而且 YAML 之外还有一套自己的记号（`!!` 表示严格版本）。
+        差别还在**默认要不要钉死**：Python 装机量最大的那套
+        依赖一个文本清单或锁文件；Kotlin 默认只声明范围，
+        要复现得额外开启锁定。
+      java: |
+        这一格两边**是同一套**（Maven 的版本范围语法与 Gradle 的兼容），
+        连「冲突时取最高版本」这条默认都一样。
+        差别在**现在更推荐的做法**：两边都倾向于「不写范围、
+        用一个 BOM 统一版本」，而不是在每个依赖上写区间 ——
+        因为区间会让解析结果变得难以预测。
+        所以看到 Kotlin 项目里依赖不写版本，多半是背后有平台在管。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: identical
+
+  lockfile:
+    code: |
+      // @note! Gradle 的依赖锁定**默认是关的** —— 要按需开启
+      configurations.all {
+        resolutionStrategy.activateDependencyLocking()   // @note 逐个配置开
+      }
+      // @note 开启后生成 gradle.lockfile，**建议入库**
+      // @note 还有一个开关：--write-locks 主动写出锁文件
+      // @note 「不一致就失败」的模式是 --update-locks / 锁定后校验
+
+      // @note Maven **默认没有锁文件** —— 版本在每次构建时重新解析
+      // @note 想复现只能靠 dependency:tree 排查，或者上插件
+    vs:
+      javascript: |
+        **两边的默认相反**：JavaScript 一装就产出锁文件、而且强烈建议入库，
+        所以「今天与明天装出一样的东西」是默认保证；
+        Kotlin 这边默认不锁，解析结果随时间可能变，
+        要复现得**主动开一个开关**。
+        另一处是粒度：那边的锁文件覆盖整棵树、格式由官方定义；
+        这边锁定是按配置一块块开的，粒度更细也更需要理解。
+      python: |
+        两边都可以有锁文件，但**默认姿态不同**：
+        Python 生态里锁文件是主流做法（各类工具各有一套格式）；
+        Kotlin 这边默认没有，而且官方的锁定机制也不是人人都在用。
+        另一处是**锁定的是什么**：Python 的锁多半钉住精确版本；
+        这边开锁定之后也是钉住版本，但连校验和一起记下来，
+        能发现依赖被换过 —— 这一点更接近 cargo 那边的做法。
+      java: |
+        这一格两边几乎一样：**Maven 默认没有锁文件**（版本每次重新解析），
+        Gradle 有依赖锁定但**默认关闭**。所以从 Java 过来时，
+        「有没有锁文件」这个问题的答案不变 —— 都是「默认没有」。
+        差别在使用率：Java 项目里显式开启 Gradle 锁定的并不多，
+        所以「构建不可复现」在两边都是常见的既成事实。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  environment-isolation:
+    code: |
+      // @note 不需要「虚拟环境」这种东西 —— 依赖装进项目自己的缓存
+      // @note Gradle 用 ~/.gradle 缓存所有版本，按坐标取用
+      // @note Maven 用 ~/.m2 本地仓库，同理
+
+      // @note 项目之间靠**类路径**隔离，不用切换、不用激活
+      // @note 版本冲突由构建工具仲裁（默认取最高）并给出报告
+
+      // @note 需要「干净的重新开始」时清缓存或加 --refresh-dependencies
+    vs:
+      javascript: |
+        两边都**天然隔离**：依赖装在项目自己的目录（或缓存）里，
+        不用做任何准备工作，也没有「激活环境」这个动作。
+        差别在物理位置：JavaScript 把依赖复制进项目的 node_modules，
+        每个项目一份；Kotlin 用**全局缓存 + 按坐标引用**，
+        同一个版本在所有项目间共用 —— 省空间，但缓存坏了会影响所有项目。
+      python: |
+        **这是两边差别很大的一格**：Python 必须主动建虚拟环境
+        （或者靠外部工具），忘了激活就会装到全局去；
+        Kotlin 这边根本没有「激活」这个动作 ——
+        依赖默认就是项目隔离的，装到全局去这件事做不出来。
+        所以从 Python 过来会少掉一整类操作事故，
+        代价是「我想手工装一个包试试」这种事也变得没那么直接。
+      java: |
+        两边**完全一样**（就是同一套本地仓库加类路径隔离），
+        连缓存目录的位置都相同，这一格可以逐条对应。
+        所以从 Java 过来时这一格不需要重新学。
+        唯一要说的是 Kotlin 项目往往用 Gradle 而不是 Maven，
+        缓存目录名不同（`.gradle` 与 `.m2`），机制一致。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: identical
+
+  publishing:
+    code: |
+      // 发布到 Maven Central（用 maven-publish 插件）
+      plugins { `maven-publish` }
+
+      publishing {
+        publications { create<MavenPublication>("maven") { from(components["java"]) } }
+        repositories { /* 目标仓库与凭据 */ }
+      }
+
+      // ./gradlew publish
+
+      // @note 坐标三段（group / artifact / version）都要自己给
+      // @note 中央仓库**不允许重复发布**同一个版本，发出去就收不回
+      // @note 所有构件必须从同一台机器发布（签名与校验要对得上）
+    vs:
+      javascript: |
+        两边的发布流程差别很大：JavaScript 一条 `npm publish` 就完事，
+        版本号重了会被拒但**可以撤回**；
+        Kotlin 这边要先配发布插件、写好坐标、签名、校验，
+        而且**发出去就收不回**（同版本不能重发）。
+        所以那边的发布是日常动作，这边更像一次正式的交付。
+      python: |
+        两边都要显式构建再上传，也都支持私有源。
+        差别在**元数据的要求**：Python 的包名与版本写在配置文件里，
+        一个名字对应一个包；Kotlin 的坐标是三段，
+        同一个 group 下可以有多个 artifact，所以「一个库」往往是
+        一组构件一起发布。另一处是撤回：那边可以删版本，
+        这边发出去就永久占用了。
+      java: |
+        这一格两边**完全是同一套**（就是 Maven 的发布体系，
+        连 `maven-publish` 插件的用法都一样），可以逐条对应。
+        所以从 Java 过来时发布流程不用改 ——
+        换的只是构建脚本的语言（`.kts` 而不是 Groovy），
+        以及多一门语言要额外发布它的元数据。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: identical
