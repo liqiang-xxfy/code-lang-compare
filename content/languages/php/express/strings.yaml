@@ -1,0 +1,163 @@
+# php —— express / strings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: strings` 的那批：
+# string-literals / string-common-ops。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组要写准的四件事 ——
+# ① PHP 的字符串是**字节序列**，不是字符序列 —— `strlen` 数的是字节，
+#    与「长度」这个词在别的语言里的含义不同；
+# ② 花括号偏移 `$s{0}` **8.0 起是解析错误**（本机实测：整份文件都编译不过），
+#    别与「插值用的花括号」搞混；
+# ③ 拼接是 `.` 不是 `+`，而 `+` 在 8.0 起对字符串直接抛 TypeError；
+# ④ `strpos` 找不到返回 **false**、在开头返回 **0** —— 必须用 `=== false` 判断。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  string-literals:
+    code: |
+      // @note 四种写法，按「插不插值」分两类
+      $name = "Ada";
+      $a = '单引号：$name 不插值';          // @note 转义只认 \' 和 \\ —— 写 \n 就是两个字符
+      $b = "双引号：$name 会插值";           // @note 认 \n \t \" \$ \x41 \u{41} 等
+      $c = <<<EOT
+      heredoc：行为同双引号，$name 插值
+      EOT;
+      $d = <<<'EOT'
+      nowdoc：行为同单引号，$name 不插值
+      EOT;
+
+      // @note! 单引号里 \n **不是**换行 —— 这是从别的语言过来最常见的误写
+      echo 'A\nB';                    // @note 原样输出 A\nB
+      echo "A\nB";                    // @note 这里的 \n 才是换行
+
+      // @note 复杂插值要加花括号
+      $arr = ["k" => "v"];
+      echo "值：{$arr['k']}";          // @note 花括号在这里是**插值语法**
+      echo "下标不加引号也认：$arr[k]"; // @note 老写法，能用但不推荐
+
+      // @note! 花括号**偏移**在 8.0 被移除 —— 下面的写法是解析错误，不是警告
+      // echo $b{0};                  // @note! Parse error: unexpected token "{"
+      echo $b[0];                     // @note 现在只能这样取第 0 个**字节**
+      echo $b[-1];                    // @note 7.1 起支持负索引（从末尾数）
+
+      // @note 字符串可以按下标就地改（不改变长度）
+      $s = "abc"; $s[0] = "X"; echo $s;   // @note Xbc
+
+      // @note! 8.2 起 `"${name}"` 这种插值写法被弃用，用 `"{$name}"`
+    vs:
+      javascript: |
+        插值的思路一致（双引号/模板串会插值，单引号不会），
+        但 JavaScript 的模板串是**反引号**，PHP 用的是双引号与 heredoc ——
+        同样是双引号，JavaScript 的 `"..."` **不插值**，PHP 的会，
+        这是最容易顺手写错的一处。
+        另一处是转义：JavaScript 的单引号与双引号都认全套转义（`'\n'` 是换行）；
+        PHP 的单引号只认 `\'` 与 `\\`，`'\n'` 是两个字符。
+        共同点是两边都能把变量嵌进字符串，但复杂表达式的写法不同：
+        JavaScript 用 `${expr}`（模板串里能放任意表达式），
+        PHP 的 `{$var}` 只能放变量/属性/数组下标，放不了表达式。
+      python: |
+        两边的字面量种类接近：Python 有单引号、双引号（**都插值**，
+        只是 f-string 才插值）、三引号；PHP 有单引号（不插值）、
+        双引号（插值）、heredoc / nowdoc —— 大致能对上
+        （nowdoc ↔ 非 f 的三引号，heredoc ↔ f-string）。
+        差别在**转义**：Python 的单引号与双引号行为一样、都认 `\n`；
+        PHP 的单引号是「几乎原样」的，`'\n'` 不是换行 ——
+        这与 Python 的 raw string（`r'\n'`）才对应。
+        另一处是「字符串是字节还是字符」：Python 3 的 `str` 是
+        **码点序列**，`len("héllo")` 是 5；PHP 的字符串是**字节序列**，
+        `strlen("héllo")` 是 6，要按字符数得用 `mb_strlen`。
+      java: |
+        两边都只有一种字符串字面量（都用双引号），也都不在字面量层面插值 ——
+        但方式不同：Java 用 `+` 拼接或者 `String.format` / 文本块，
+        较新版本有模板表达式；PHP **直接在双引号里插值**，
+        单引号则完全不插值 —— 一个语言里两套规则。
+        另一处是转义集：Java 认全套（`\n`、`\t`、`\uXXXX`），
+        PHP 的单引号几乎不认。共同点是两边都支持多行字符串
+        （Java 的文本块 ↔ PHP 的 heredoc），
+        缩进处理规则都挺挑剔（PHP 里 tab 与空格不能混用）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  string-common-ops:
+    code: |
+      // @note! 拼接用 `.`，不是 `+`
+      $s = "Hello" . " " . "World";
+      $s .= "!";                      // @note 拼接赋值
+      // "a" + "b";                   // @note! 8.0 起 TypeError（+ 只做算术）
+
+      // @note! 长度数的是**字节**
+      strlen("héllo");                // @note 6
+      mb_strlen("héllo");             // @note 5 —— 多字节要用 mb_* 系列
+
+      // @note! `strpos` 找不到返回 **false**，在开头返回 **0** —— 必须用 === 判断
+      $pos = strpos("abc", "b");      // @note 1
+      $miss = strpos("abc", "z");     // @note false
+      if ($miss === false) { }        // @note! 写 `== false` 会把 0 也判成「没找到」
+
+      // @note 8.0 起有三个更直白的函数，别再手写 strpos !== false
+      str_contains("abcdef", "cd");   // @note true
+      str_starts_with("abcdef", "ab"); // @note true
+      str_ends_with("abcdef", "ef");  // @note true
+
+      // @note 常用的几个
+      substr("abcdef", 1, 3);         // @note "bcd"；负的起始值从末尾数
+      str_replace("a", "A", "banana"); // @note "bAnAnA" —— 全部替换
+      explode(",", "a,b,c");          // @note ["a","b","c"]
+      implode("-", ["a","b"]);        // @note "a-b"；也能只传数组（分隔符默认空串）
+      str_pad("7", 3, "0", STR_PAD_LEFT); // @note "007"
+      sprintf("%05.2f", 3.14159);     // @note "03.14"
+
+      // @note PHP 的正则是一套独立的 PCRE 函数，不是字符串方法
+      preg_match('/\d+/', "a12b", $m); // @note $m[0] = "12"
+      preg_replace('/\d+/', "#", "a12b34"); // @note "a#b#"
+    vs:
+      javascript: |
+        两边的字符串方法都很多，但有几处**正相反**。第一是拼接：
+        JavaScript 用 `+`，PHP 用 `.` —— 而 PHP 的 `+` 对字符串
+        在 8.0 起直接抛 TypeError，所以写错了会立刻知道（以前是静默得到 0）。
+        第二是查找：JavaScript 的 `indexOf` 找不到返回 `-1`，
+        PHP 的 `strpos` 返回 `false` —— 两者都要小心判断，
+        但 PHP 的坑更深（`false == 0` 会误判），必须用 `=== false`。
+        8.0 起 PHP 补上了 `str_contains` 这类直白函数，
+        与 JavaScript 的 `includes` / `startsWith` / `endsWith` 对上了。
+        第三是长度：JavaScript 的 `length` 数 UTF-16 码元，
+        PHP 的 `strlen` 数**字节** —— 都不等于「字符数」，但错法不同。
+      python: |
+        这一格两边差别最实际的是**不可变性与长度**。
+        Python 的字符串是码点序列，`len` 给的是字符数，
+        切片 `s[1:3]` 也是最自然的操作；PHP 的字符串是**字节序列**，
+        `strlen` 给字节数、`substr` 按字节切 ——
+        在多字节文本上会**切碎字符**（得到半个 UTF-8 序列），
+        要按字符操作必须整族换成 `mb_*` 函数。
+        另一处是拼接：Python 用 `+` 或 `join`，PHP 用 `.` 与 `implode`。
+        共同点是两边都区分「字符串」与「字节」，只是一个默认按字符、
+        一个默认按字节 —— 默认值正好相反。
+      java: |
+        两边的查找 API 正好可以对照：Java 的 `indexOf` 找不到返回 `-1`，
+        `contains` / `startsWith` / `endsWith` 返回 boolean ——
+        PHP 老代码里那套 `strpos(...) !== false` 就是 Java 的
+        `indexOf(...) != -1`，而 8.0 起 PHP 也有了 boolean 那三个，
+        与 Java 完全对齐。
+        差别在**长度与索引的含义**：Java 的 `String` 是 UTF-16 序列，
+        `length()` 数码元；PHP 的 string 是字节序列，`strlen` 数字节。
+        两边都不等于「字符数」，但 Java 至少有 `codePointCount`，
+        PHP 要整族换 `mb_*`。拼接上 Java 用 `+`、PHP 用 `.`。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

@@ -1,0 +1,309 @@
+# php —— express / control-flow
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: control-flow` 的那批：
+# conditionals / loops / iteration-protocol / switch-and-match。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组要写准的四件事 ——
+# ① 嵌套三元**从 8.0 起是非法的**（不是 deprecated，是**编译错误**，本机实测整份文件
+#    都编译不过），必须加括号；
+# ② `switch` 用**松比较**、`match` 用**严格比较**，这是两者的核心区别；
+# ③ `foreach` 遍历的是**副本**（按值时），按引用遍历后必须 `unset($v)`；
+# ④ `iterator_to_array()` **默认保留键**，而 `yield from` 不重置键 ——
+#    两者相遇会**静默丢元素**（本机实测 `outer()` 的 4 个值只出来 2 个）。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  conditionals:
+    code: |
+      // @note 普通写法
+      if ($n > 10) {
+        echo "大";
+      } elseif ($n > 0) {
+        echo "小";
+      } else {
+        echo "非正";
+      }
+
+      // @note PHP 独有的「替代语法」—— 模板里混 HTML 时更常见
+      if ($n > 10):
+        echo "大";
+      elseif ($n > 0):
+        echo "小";
+      else:
+        echo "非正";
+      endif;
+
+      // @note 三元与 Elvis（省略中段）
+      $label = $n > 0 ? "正" : "非正";
+      $name  = $userName ?: "匿名";    // @note 按真假取默认值
+
+      // @note! 嵌套三元**必须加括号** —— 8.0 起不加是**编译错误**，不是警告
+      $r = ($n > 10 ? "a" : $n > 0) ? "b" : "c";   // @note 合法
+      // $r = $n > 10 ? "a" : $n > 0 ? "b" : "c";  // @note! Fatal error:
+      //   Unparenthesized `a ? b : c ? d : e` is not supported
+
+      // @note 还有一个 `match` 表达式，那是 switch 那一格的内容
+      // @note 另外 `goto` 存在，但只能在同一函数内跳，不能跳进循环或跳进/跳出函数
+    vs:
+      javascript: |
+        基本形状一样（`if` / `else if` / `else`、三元、短路求值），
+        差别在三处。第一，PHP 有**替代语法**（`if (): ... endif;`），
+        JavaScript 没有 —— 那是为「模板里夹 HTML」准备的写法，
+        在 PHP 的模板文件里很常见，前端代码里看不到。
+        第二，**嵌套三元**：JavaScript 允许 `a ? b : c ? d : e` 并约定右结合；
+        PHP 8.0 起**不加括号直接是编译错误**，整份文件都跑不起来。
+        第三，PHP 的真假判定表更宽（`"0"` 是假），
+        JavaScript 那边只有 7 个假值，`"0"` 是**真**的 ——
+        `$x ?: '默认'` 与 `x || '默认'` 在这一个字面量上结果不同。
+      python: |
+        两边都有 `if` / `elif` / `else`，也都有三元表达式，但**顺序不同**：
+        Python 是 `a if 条件 else b`，PHP 是 `条件 ? a : b` ——
+        条件的位置一个在前一个在后，来回切换时容易写反。
+        差别更大的是「多分支」：Python 有 `match` 语句（3.10 起）可以做
+        结构匹配和字面量分支；PHP 对应的 `match` 是**表达式**、
+        只做值比较（而且必须穷尽）—— 能力弱一层但能直接赋值。
+        另一处是替代语法：Python 靠缩进，不存在「块结束标记」这种东西，
+        PHP 的 `endif;` 是为模板设计的，两种风格在同一份代码里可以混。
+      java: |
+        形状最接近的一对：`if` / `else if` / `else`、三元 `? :`，
+        连 `else if` 的写法都一样。差别在**三元能不能嵌套**：
+        Java 允许嵌套并约定右结合，PHP 8.0 起不加括号是编译错误 ——
+        从 Java 过来写嵌套三元会被编译器拦下，这是好事。
+        另一处是穷尽性：Java 的 `switch` 语句不检查覆盖（`switch` 表达式才查），
+        PHP 的 `match` 表达式**必须穷尽**，漏了抛 UnhandledMatchError。
+        共同点是两边都没有「块级作用域的 if」这种说法 ——
+        不对，Java 有块作用域，PHP 没有，这一点差别很大（见 `bindings` 那一格）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  loops:
+    code: |
+      // @note 四种循环都在，写法与别的语言一致
+      for ($i = 0; $i < 3; $i++) { }
+      while ($cond) { }
+      do { } while ($cond);
+      foreach ($arr as $value) { }
+      foreach ($arr as $key => $value) { }
+
+      // @note! `break` / `continue` 可以带**层数**（默认 1，从最内层往外数）
+      foreach ($outer as $row) {
+        foreach ($row as $cell) {
+          if ($cell === null) { continue 2; }   // @note 直接跳外层循环的下一轮
+          if ($cell === "stop") { break 2; }    // @note 一次跳出两层
+        }
+      }
+
+      // @note! `continue` 写在 `switch` 里等同于 `break` —— 它只作用于 switch
+      foreach ($items as $it) {
+        switch ($it) {
+          case 0: continue;          // @note! 这里不是「跳过本轮 foreach」……
+          case 1: break;
+        }
+        echo "这行还是会执行\n";      // @note! ……所以这行照跑
+      }
+      // @note 现在的 PHP 会给这条 continue 发一条 Warning：
+      // @note   "continue" targeting switch is equivalent to "break"
+      // @note 想跳过外层循环的那一轮，写 `continue 2;`
+
+      // @note! `foreach` 遍历的是**副本**（按值），循环里改数组不影响迭代
+      $nums = [1, 2, 3];
+      foreach ($nums as $n) { $nums[] = $n; }   // @note! 只跑了 3 次
+      echo count($nums);                        // @note 6 —— 追加了 3 个，但没被继续遍历
+
+      // @note! 按引用遍历能改原数组，但**循环后必须 unset**，
+      // @note! 否则 $v 还指着最后一个元素，下一次 foreach 会把它改掉
+      foreach ($nums as &$v) { $v *= 2; }
+      unset($v);                                  // @note 这一行不是可选的
+
+      // @note foreach 不移动数组的内部指针（不影响 current() / key()）
+    vs:
+      javascript: |
+        四种循环的形状基本一致，`for...of` / `for...in` 与 `foreach` 大致对应。
+        差别在**跳层的写法**：JavaScript 给循环**贴标签**（`outer: for (...)`）
+        然后 `break outer` / `continue outer`；PHP 不用标签，
+        用数字数层数（`break 2` / `continue 2`）—— 层数数错不报错，
+        只是跳到意料之外的地方。
+        另一处是遍历时修改集合：JavaScript 的 `for...of` 遍历数组时
+        长度是**动态读**的，边遍历边 `push` 会越跑越长；
+        PHP 的 `foreach` 按值时遍历的是副本，追加的元素**不会**被遍历到 ——
+        一个会意外多跑、一个会意外少跑。
+      python: |
+        Python 只有 `for ... in` 与 `while`，没有 C 风格的三段式 `for`
+        （要写得用 `range`）。跳层上两边都没有标签与层数：
+        Python 用 `break` 只能跳一层，要跳两层得靠**标志位**或把内层抽成函数；
+        PHP 直接写 `break 2` 就行 —— 这是 PHP 更顺手的一处。
+        另一处是「遍历时改集合」：Python 的 `for x in lst` 底层是迭代器，
+        边遍历边 `append` 会一直跑下去；PHP 的 `foreach` 按值时是副本，不会。
+        共同点：两个语言都提供了取出下标/键的写法
+        （Python 的 `enumerate`，PHP 的 `foreach ($a as $k => $v)`）。
+      java: |
+        四种循环一一对应，包括 `for-each` 与 `foreach` 的写法与用途。
+        跳层上，Java 用**标签**（`outer:` + `break outer;`），
+        PHP 用**层数**（`break 2;`）—— 这是最直接的一处差别，
+        而且 PHP 数错了不报错。Java 的标签必须显式写在循环前面，
+        所以读代码时「能跳到哪」是看得见的；PHP 的 `break 3`
+        要自己往上数三层才知道。
+        另一处是遍历时修改：Java 的 `for-each` 遍历集合时结构性修改
+        会抛 ConcurrentModificationException（**立刻失败**），
+        PHP 的 `foreach` 按值遍历副本、改了也不报错（**静默不生效**）——
+        一个吵一个静，后者更难发现。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  iteration-protocol:
+    code: |
+      // @note 数组直接 foreach，不碰内部指针
+      foreach (["a", "b"] as $i => $v) { }
+
+      // @note! 对象默认遍历的是**当前作用域可见的属性**
+      class Point { public int $x = 1; protected int $y = 2; private int $z = 3;
+        public function dump() { foreach ($this as $k => $v) echo "$k=$v "; } }
+      foreach (new Point as $k => $v) echo "$k ";   // @note 只有 x —— 类外只见 public
+      (new Point)->dump();                          // @note x=1 y=2 z=3 —— 类内全见
+
+      // @note 自定义可迭代有三条路，复杂度递增：
+      // ① IteratorAggregate：只要给一个现成的迭代器
+      class Range3 implements IteratorAggregate {
+        public function getIterator(): Iterator { return new ArrayIterator([1, 2, 3]); }
+      }
+      // ② Iterator：自己实现 current/key/next/rewind/valid 五个方法
+      // ③ Generator：写个含 yield 的函数，最省事
+
+      function squares(int $n): Generator {
+        for ($i = 1; $i <= $n; $i++) { yield $i => $i * $i; }   // @note 键也能自己给
+      }
+      foreach (squares(3) as $k => $v) echo "$k=>$v ";          // @note 1=>1 2=>4 3=>9
+
+      // @note 生成器支持 yield from 委托另一个可迭代对象
+      function inner() { yield 1; yield 2; }
+      function outer() { yield 0; yield from inner(); yield 3; }
+
+      foreach (outer() as $v) echo $v;              // @note 0123 —— foreach 不受键影响
+      echo implode(",", iterator_to_array(outer()));        // @note! "1,3" —— 丢了两个！
+      echo implode(",", iterator_to_array(outer(), false)); // @note 0,1,2,3 —— 关掉保留键才对
+    vs:
+      javascript: |
+        JavaScript 的迭代协议是**符号**：对象实现 `Symbol.iterator`
+        就能被 `for...of` 遍历，而且 `for...of`、展开运算符、解构
+        都走同一条协议。PHP 是**接口**：`Iterator` / `IteratorAggregate`
+        只服务于 `foreach`（官方明说 `foreach` 是唯一使用 `Iterator` 的语句），
+        展开运算符 `...` 对对象不认这套。
+        另一处是生成器：两边的 `yield` 都做惰性序列，
+        但 PHP 的生成器**键也参与**（`yield $k => $v`），
+        于是 `yield from` 与 `iterator_to_array()` 相遇时键会互相覆盖、
+        静默丢元素 —— JavaScript 的生成器只产值，不存在这个坑。
+        共同点是两边的生成器都只能遍历一次，回头再来不行。
+      python: |
+        Python 的迭代协议是**双下划线方法**（`__iter__` / `__next__`），
+        而且 `for`、解构、`list()`、`in` 全都走同一条协议；
+        PHP 是接口，只有 `foreach` 走。写法上 Python 更省事：
+        一个 `__iter__` 就够了，PHP 要么实现五个方法的 `Iterator`，
+        要么写 `IteratorAggregate` 包一层，要么用生成器。
+        另一处是「键」：Python 的迭代只产值（要下标得自己 `enumerate`），
+        PHP 的迭代**天生带键**（`foreach ($a as $k => $v)`），
+        而且这个键在 `iterator_to_array()` 里默认被保留 ——
+        于是「生成器的键撞车导致元素丢失」这种事在 PHP 里会发生，
+        Python 里根本没有键可以撞。
+      java: |
+        Java 的迭代协议是 `Iterable` + `Iterator`，`for-each` 走它，
+        集合类都实现了 —— 形态上与 PHP 的 `IteratorAggregate` 最接近，
+        但 Java 的 `for-each` 只给你元素、拿不到下标，
+        要下标得用 `ListIterator` 或自己计数；
+        PHP 的 `foreach ($a as $k => $v)` 直接给键。
+        另一处是**惰性序列**：Java 要自己写 `Iterator` 实现或上 Stream，
+        PHP 有 `yield` 语法糖，一个生成器函数就能表达无限序列 ——
+        这一点 PHP 更轻。
+        共同点是两边遍历时改集合都可能出问题：
+        Java 抛 ConcurrentModificationException（吵），
+        PHP 静默不生效（安静）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  switch-and-match:
+    code: |
+      // @note! `switch` 用**松比较**（==），而且**会 fall through**
+      switch ($v) {
+        case 0:   echo "零"; break;   // @note! PHP 8 起 "abc" 不再命中这里
+        case "a": echo "a";  break;   // @note 漏写 break 会继续往下执行
+        default:  echo "其它";
+      }
+
+      // @note `switch` 也可以比较字符串、也可以用替代语法 endswitch
+      // @note 想一次匹配多个值：case 1: case 2: echo "一或二"; break;
+
+      // @note! `match`（8.0 起）是**严格比较**（===）的**表达式**
+      $label = match ($v) {
+        0, "0"  => "零",              // @note 逗号 = 逻辑或
+        "a"     => "字母 a",
+        default => "其它",
+      };
+      // @note! match 没有 fall through、每个分支只能是一个表达式、不写 break
+      // @note! 而且**必须穷尽** —— 没写 default 又没匹配上会抛异常
+      try {
+        match (9) { 1 => "一" };
+      } catch (\UnhandledMatchError $e) {
+        echo "UnhandledMatchError: ", $e->getMessage();   // @note! Unhandled match case 9
+      }
+
+      // @note match(true) 是个常用惯用法：把一串条件判断写成一个表达式
+      $kind = match (true) {
+        is_string($v) => "字符串",
+        is_int($v)    => "整数",
+        default       => "其它",
+      };
+    vs:
+      javascript: |
+        两边都有 `switch`，都用松比较、都会 fall through —— 这一层一样。
+        但 PHP 8.0 把比较规则改过：`switch ("abc") { case 0: }` 在 PHP 7
+        会命中，PHP 8 不命中（与 `==` 的改动同源）。
+        JavaScript 那边没有对应变化。
+        更大的差别是 **PHP 有 `match` 而 JavaScript 没有**：
+        `match` 是表达式（能直接赋值）、**严格比较**、不 fall through、
+        而且漏分支会**抛异常**—— 这四条正好是 `switch` 的四个痛点，
+        相当于把 `switch` 重做了一遍。JavaScript 要同样的效果得靠
+        对象查表或一串 `if`。
+      python: |
+        两边都有一个「多分支」构造，但**用途不同**。Python 3.10 的 `match`
+        是**结构匹配**：能解构序列、映射、类实例，配 `case [x, y]`、
+        `case Point(x=0)` 这种模式，还能加 `if` 守卫；
+        PHP 的 `match` 只做**值的严格比较**，`case` 里只能放值。
+        所以 Python 的 `match` 更像一个模式匹配器，PHP 的 `match`
+        是一个「会更严格的 switch」。
+        另一处是穷尽性：两边都不强制穷尽，但失败方式不同 ——
+        Python 的 `match` 没匹配上就继续往下走（没有默认分支也不报错），
+        PHP 的 `match` **直接抛 UnhandledMatchError**。
+        共同点是两边都用逗号/竖线表达「多个值命中同一分支」。
+      java: |
+        形态最接近的一对：Java 的 `switch` 与 PHP 的 `switch` 都是语句、
+        都有 fall through（Java 的老式 `switch` 要写 `break`、
+        新的箭头形式 `case 1 ->` 不穿透）。**PHP 没有箭头形式**，
+        fall through 只能靠 `break` 防。
+        差别在 `match` 的位置：PHP 的 `match` 是表达式、必须穷尽；
+        Java 的对应物是 **switch 表达式**（`case 1 -> ...;` 加 `yield`），
+        同样是表达式、同样要求穷尽（编译器会查）—— 两边思路一致，
+        但 Java 的检查在**编译期**，PHP 的 `UnhandledMatchError` 在**运行时**。
+        另一处是类型：Java 的 `switch` 对枚举与模式匹配支持更强，
+        PHP 的 `match` 只有值比较。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

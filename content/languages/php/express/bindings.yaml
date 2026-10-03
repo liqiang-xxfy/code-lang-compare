@@ -1,0 +1,339 @@
+# php —— express / bindings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: bindings` 的那批：
+# declaration / mutability / scope / hoisting / shadowing / naming-convention。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组要写准的四件事 ——
+# ① **没有声明关键字**（赋值即声明），但**名字有两套大小写规则**：
+#    变量区分大小写，函数名/类名/关键字不区分；
+# ② **没有块作用域**（只有函数级与全局），这是从三个基准过来最反直觉的一条；
+# ③ **没有变量提升**，但「无条件定义的函数」可以在定义之前调用 —— 两者要分开说；
+# ④ `$GLOBALS` 的限制是「不能整体赋值」，**逐元素写仍然可以**（别写成「只读」）。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-bindings-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  declaration:
+    code: |
+      // @note! PHP **没有声明关键字** —— 没有 var / let / const，变量就是「$ 开头的名字」
+      $count = 0;                     // @note 第一次赋值就等于「声明」
+
+      // @note! 名字的大小写规则在同一门语言里有**两套**：
+      $name = "Ada";                  // @note 变量名**区分大小写**
+      $Name = "Bob";                  // @note! 所以这与上一行是两个不同的变量
+
+      function greet(string $who): string { return "你好，$who"; }
+      echo GREET("Ada");              // @note 函数名**不区分大小写** —— 这样也能调
+
+      // @note 读一个从没赋过值的变量：值当 null，同时报一条 Warning
+      echo $neverSet;                 // @note! Warning: Undefined variable $neverSet
+      echo $neverSet ?? "默认";       // @note ?? 走的是 isset 语义，不报警告
+
+      // @note 还有「变量变量」：名字本身可以是另一个变量的值
+      $key = "name";
+      echo $$key;                     // @note 等同于 $name
+    vs:
+      javascript: |
+        JavaScript 用一个关键字表明「我要引入一个名字」（`let` / `const` / `var`），
+        而这个关键字还顺带决定了作用域与能不能改绑；PHP 没有这个位置 ——
+        `$count = 0;` 既是引入也是赋值，作用域由「写在函数里还是函数外」决定。
+        变量名两边都区分大小写，但 PHP 的**函数名与类名不区分**，
+        JavaScript 区分 —— 同一门语言里两套规则是 PHP 特有的。
+        读一个未定义的名字两边都不会中断脚本：JavaScript 得到 `undefined`，
+        PHP 得到 `null` 外加一条 Warning。
+      python: |
+        两边都不用声明关键字 —— 赋值即引入名字，这一层完全一致。
+        差别在名字的形态：Python 的名字是裸标识符，PHP 必须带 `$`，
+        于是在字符串插值里 `"$name"` 与 `"name"` 是两件不同的事。
+        另一处是大小写：Python 对变量、函数、类名一律区分；
+        PHP 只对变量区分，函数与类名不区分。
+        读未定义的名字差别最大：Python 直接抛 NameError，
+        PHP 给 null 加一条 Warning，脚本继续往下跑。
+      java: |
+        Java 每个变量都必须写类型，作用域由声明所在的块决定；
+        PHP 连声明都没有，作用域只有「函数内」与「全局」两级，没有块。
+        大小写上 Java 一律区分，PHP 只对变量区分。
+        读未定义的名字：Java 的局部变量没初始化是**编译错误**，
+        PHP 是运行时一条 Warning 然后当 null 用 ——
+        一个在你运行之前拦下，一个要跑到那一行才说话。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  mutability:
+    code: |
+      // @note! 普通变量**永远可变**：既能随时重新赋值，也能随时换成别的类型
+      $x = 1;
+      $x = "文本";                    // @note 合法 —— 变量没有固定类型
+
+      // @note 不可变性只存在于**常量**与**属性**两个层面，不在变量上
+      const MAX = 100;                // @note 编译期常量，一经定义不可改
+      define('MIN', 1);               // @note 运行期定义，同样不可改
+
+      class Config {
+        public const VERSION = '8.5'; // @note 类常量：只读、静态、所有实例共享
+        public readonly string $name; // @note 8.1 起：readonly 属性
+        public function __construct(string $name) { $this->name = $name; }
+      }
+
+      $c = new Config("app");
+      // $c->name = "other";          // @note! Error: Cannot modify readonly property
+
+      // @note! readonly **只防「重新绑定」，不防「内部可变」**：
+      class Holder { public function __construct(public readonly object $o) {} }
+      $h = new Holder(new stdClass());
+      $h->o->field = 1;               // @note 合法 —— 换掉 $h->o 才报错，改它里面不报
+
+      // @note 8.2 起还能整个类都 readonly：
+      // readonly class Point { public function __construct(public int $x) {} }
+    vs:
+      javascript: |
+        两边都区分「名字能不能改绑」与「值能不能改」：PHP 的变量层完全没有前者
+        （重新赋值随时可以），不可变性只出现在常量与 `readonly` 属性上；
+        JavaScript 则把「不能改绑」做成了声明关键字（`const`）——
+        但 `const` 的对象内部照样能改，这一点两边反而一致
+        （`readonly` 也只防重新绑定）。
+        差别在粒度：JavaScript 的 `const` 是**变量级**的，
+        PHP 要拿到同样的效果只能靠常量或属性，普通变量没有对应写法。
+      python: |
+        两边对「可变」的态度接近：变量都是重新绑定，不可变只体现在值上。
+        差别在不可变的**做法**：Python 靠类型本身（`tuple`、`str`、
+        `frozenset`）表达不可变，改不了是因为那个类型没有改的方法；
+        PHP 靠 `readonly` 这个**修饰符**，它约束的是「这个属性只能写一次」，
+        与被存的值是什么类型无关。
+        另一处是常量：两边都有模块级常量与类常量，Python 那边只是命名约定，
+        PHP 的 `const` 是语言强制的。
+      java: |
+        两边都有 `final` 这个位置，但放在不同的层次：Java 的 `final` 既能标变量
+        （不能重新赋值）也能标字段，语义与 PHP 的 `readonly` 属性最接近 ——
+        都只防「重新绑定」，都不防对象内部可变。
+        差别在普通变量：Java 的局部变量可以 `final`，PHP 的**变量没有任何办法**
+        标成不可重新赋值，只能靠常量。
+        另一处是常量：Java 的 `static final` 字段与 PHP 的类常量对应得上，
+        但 Java 的常量可以是任意对象，PHP 的类常量到今天仍以标量与数组为主。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  scope:
+    code: |
+      // @note! PHP 只有**函数作用域**与**全局作用域**，**没有块作用域**
+      for ($j = 0; $j < 3; $j++) {
+        if ($j == 1) { $leaked = "我在 if 里定义的"; }
+      }
+      echo $leaked;                   // @note! 照样打印 —— 出了 if 它还在
+
+      // @note! 函数里看不到全局变量 —— 不加 global 就是一个**全新的同名局部变量**
+      $total = 10;
+      function bad() {
+        // echo $total;                // @note! Warning: Undefined variable（不是 10）
+      }
+      function good() {
+        global $total;                // @note 声明一下才看得见
+        return $total;
+      }
+
+      // @note 另一条路是超全局数组 $GLOBALS（任何作用域都能读）
+      function viaArray() { return $GLOBALS['total']; }
+
+      // @note! $GLOBALS 的限制是**不能整体赋值**，逐元素写**仍然可以**
+      $GLOBALS['extra'] = 1;          // @note 合法：等价于在全局作用域写 $extra = 1
+      // $GLOBALS = [];               // @note! Fatal error：只能用 $GLOBALS[名字] = 值 这种写法
+
+      // @note 函数里定义的 static 变量跨调用保值，且**不随实例变化**
+      function counter() { static $n = 0; return ++$n; }
+      echo counter(), counter();      // @note 12
+    vs:
+      javascript: |
+        **这是两边差别最大的一格**。JavaScript 的函数作用域里还套着块作用域
+        （`let` / `const` 写在 `if` 里就出不来），PHP **完全没有块作用域** ——
+        在 `if`、`for` 里赋的变量，出了块仍然在，而且没有 `let` 可用。
+        另一处是「函数能不能看见全局」：JavaScript 的词法作用域让内层自动看得见外层，
+        什么都不用写；PHP 必须显式 `global $total;` 或者走 `$GLOBALS['total']`，
+        否则那只是一个同名的新变量（读它会报警告）。
+        所以从 JavaScript 过来，最容易出的错是「以为函数里能直接读到外层变量」。
+      python: |
+        Python 有块作用域吗？严格说也没有（`if` 里的变量同样泄漏到外层），
+        这一层两边一致。差别在「读到外层」的写法：
+        Python 的函数能直接**读**外层与全局变量，只有**赋值**时才需要 `global`
+        （而且是要写入才声明）；PHP 是**读**就需要 `global`，
+        不声明就当作一个全新的局部变量，读它直接报警告。
+        另一处是闭包捕获：Python 是自动的，PHP 要写 `use`。
+        共同点是两边都只有两级作用域，都没有块级 `let` 那一路写法。
+      java: |
+        Java 的块作用域是硬性的：`for` 里声明的变量出了循环就不存在，
+        PHP 里它会一直活到函数结束 —— 这是最直接的反差。
+        另一处是「函数能不能看见外面的变量」：Java 的方法根本没有「全局变量」这一说，
+        要共享就得靠静态字段或传参；PHP 的全局变量确实存在，
+        但函数里必须 `global` 声明才看得见。
+        所以 Java 过来的人不会踩「以为能直接读全局」的坑，但很容易踩
+        「以为变量出了块就没了」的坑。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  hoisting:
+    code: |
+      // @note! PHP **没有变量提升** —— 变量在被赋值之前根本不存在
+      echo $later;                    // @note! Warning: Undefined variable
+      $later = 1;
+
+      // @note 但**函数**是另一回事，要分两种情况说：
+      echo 提前调用(), "\n";          // @note 合法：无条件定义的函数，运行前就已存在
+
+      if (true) {
+        function 条件函数() { return "if 里定义的"; }
+      }
+      // @note! 条件定义的函数**必须执行到那一行**才存在
+      echo function_exists('条件函数') ? "现在有了\n" : "还没有\n";
+
+      // @note 类没有这条承诺：官方只写「类应该在使用前定义」
+      // $p = new Point();            // @note! 写在 class Point 之前不保证能用
+      class Point { public int $x = 0; }
+    vs:
+      javascript: |
+        两边都有「函数可以先调用后声明」，但细节不同。JavaScript 的
+        **函数声明**整体提升（连函数体一起），**`var` 变量**也提升但只是提升成
+        `undefined`，`let` / `const` 则进暂时性死区。PHP 这边简单得多：
+        **变量没有任何提升**（未赋值就是不存在，读它报警告），
+        函数只在**无条件定义**时才能提前调用 —— 写在 `if` 里的必须先执行到。
+        也就是说 JavaScript 的坑是「提升了一半」，PHP 的坑是「条件定义不提升」。
+      python: |
+        两边都没有提升：Python 读一个还没赋值的名字抛 NameError，
+        PHP 给 null 加 Warning —— 都是「运行到那一行才存在」。
+        差别在函数：Python 的 `def` 是**语句**，写在下面的函数在上面调不到；
+        PHP 的无条件函数声明是**在编译期就登记好的**，所以可以先调用后定义。
+        所以 PHP 这边反而多出一个 Python 没有的特性，
+        而条件定义的函数又退回了「必须先执行到」的语义 —— 一个语言里两种行为。
+      java: |
+        Java 完全没有这个概念：方法属于类，调用的合法性在编译期就确定了，
+        与「写在文件哪一行」无关；局部变量则是「必须先赋值再读」，编译器直接拦下。
+        PHP 的变量读未赋值只是运行时一条 Warning（值当 null），
+        而函数因为无条件定义可以在文件里后置 —— 一个从严、一个从宽。
+        也就是说 Java 这边「先声明后使用」是语法要求，PHP 那边只是建议。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  shadowing:
+    code: |
+      // @note! 没有块作用域，所以**没有「块内遮蔽块外」这回事** —— 同名就是同一个
+      $v = "外层";
+      if (true) { $v = "内层改的"; }   // @note 这就是同一个 $v
+      echo $v;                         // @note 打印「内层改的」，不是遮蔽
+
+      // @note 真正的遮蔽发生在三处，都要单独记：
+      // ① 函数的参数 / 局部变量，与全局同名时是**两个不同的变量**
+      $name = "全局";
+      function f($name = "参数") { return $name; }
+      echo f();                        // @note 参数，全局那个 $name 完全看不见
+
+      // ② 闭包的 `use` 会造出一个同名局部变量
+      $x = "外层";
+      $g = function () use ($x) { $x = "闭包内"; return $x; };
+      echo $g(), " / ", $x;            // @note 「闭包内 / 外层」—— 按值捕获，改不到外面
+
+      // ③ 类自己的方法**优先于** trait 里的同名方法
+      trait Says { public function who() { return "trait"; } }
+      class C { use Says; public function who() { return "class"; } }
+      echo (new C)->who();             // @note class
+
+      // @note 父类的 **private** 属性与子类同名属性是两个不同的东西（不是遮蔽，是各存一份）
+      class Parent1 { private $v = "父私有"; public function pv() { return $this->v; } }
+      class Child1 extends Parent1 { public $v = "子公有"; }
+      echo (new Child1)->pv();         // @note 父私有
+    vs:
+      javascript: |
+        **这一格两边几乎对不上**。JavaScript 的遮蔽主要发生在块作用域里
+        （内层 `let x` 盖住外层 `x`），PHP 没有块作用域，同名就是同一个变量、
+        直接改掉外层。PHP 这边真正的「遮蔽」只有三处：函数局部变量挡住同名全局、
+        闭包的 `use` 造一个同名副本、trait 方法被类自己的方法盖住。
+        也就是说那边「遮蔽」是个高频日常概念，这边是个边角概念 ——
+        照 JavaScript 的直觉读 PHP 代码，会把「改到了外层」误读成「只改了内层」。
+      python: |
+        Python 那边「内层赋值会造出一个新变量」这件事在 PHP 里换成了一条 Warning：
+        PHP 的函数里写 `$name = ...` 同样是造新变量，但**读**一个没声明的同名全局
+        只会得到 Warning，而不是像 Python 那样有 `global` / `nonlocal`
+        这套明确的声明机制（PHP 只有 `global`，没有 `nonlocal`）。
+        另一处是闭包：Python 自动按词法捕获，遮蔽关系一眼可见；
+        PHP 要写 `use ($x)`，而且**默认按值**——捕获的是副本，
+        所以「改到了哪个」这件事在 PHP 里比 Python 更容易看错。
+      java: |
+        Java 的遮蔽主要来自两处：局部变量盖住字段（要靠 `this.x` 才能拿到字段）、
+        子类字段盖住父类同名字段。PHP 的变量与属性本来就分属两个命名空间
+        （`$x` 与 `$this->x` 从不混淆），所以第一类问题不存在；
+        第二类也弱得多 —— 父类的 **private** 属性与子类同名属性是两份独立存储，
+        父类的方法访问的仍是自己那份。
+        所以 PHP 这边更容易踩的反而是 traits：类自己的方法静默盖住 trait 的同名方法，
+        没有 Java 的 `@Override` 那样的显式检查。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  naming-convention:
+    code: |
+      // @note PHP 的命名规则里**只有一半是强制的，另一半是约定**
+      //
+      // 强制的（写错直接语法错误）：
+      //   变量必须以 $ 开头，后面接 [a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*
+      $camelCase = 1;                 // @note 合法
+      $_underscore = 2;               // @note 合法：下划线开头
+      // $4site = 3;                  // @note! 非法：不能数字开头
+
+      // 约定的（写错能跑，但不符合社区标准）：
+      //   变量与方法 camelCase、类 PascalCase、常量 UPPER_SNAKE_CASE
+      class HttpClient {}             // @note 类：PascalCase
+      const MAX_RETRY = 3;            // @note 常量：全大写，官方手册明确说这是约定
+      function parseUrl() {}          // @note 函数：camelCase
+
+      // @note! 三个基准都没有的东西：名字可以是非 ASCII
+      $变量 = "合法";                  // @note UTF-8 字节都落在 \x80-\xff 里
+      // @note! 但比较是按**字节**的 —— 视觉相同、编码不同的两个名字是两个变量
+
+      // @note 官方没有强制风格，现行标准是 PHP-FIG 的 PER Coding Style
+      // @note 它取代了更早的 PSR-12，PSR-12 又取代了 PSR-2
+    vs:
+      javascript: |
+        两边的命名规则强度不同。JavaScript 的标识符规则是硬性的
+        （不能数字开头、不能有连字符），命名风格（camelCase / PascalCase）
+        纯属约定；PHP 也一样，但它多一条硬性要求：变量**必须带 `$`**。
+        差别在「名字能长什么样」：JavaScript 的标识符可以用 `$` 和 `_` 开头
+        也可以含 Unicode 转义，但主流实践是纯 ASCII；
+        PHP 允许**直接的 UTF-8 变量名**，而且比较按字节来 ——
+        这在前端项目里几乎见不到，在 PHP 里是合法的。
+      python: |
+        差别集中在风格而不是规则。Python 有官方背书且被工具强制的风格
+        （PEP 8：`snake_case` 变量与函数、`PascalCase` 类、`UPPER_CASE` 常量），
+        违反它基本过不了代码检查；PHP 的官方手册**只对常量说过「约定全大写」**，
+        其余靠社区标准（PHP-FIG 的 PER Coding Style，取代了 PSR-12）。
+        两边都允许非 ASCII 名字，但两边也都会因为「同形异码」分成两个名字。
+        另一处是必须带 `$` —— Python 的名字是裸的，PHP 不是。
+      java: |
+        Java 的风格约定（`camelCase` 变量与方法、`PascalCase` 类、
+        `UPPER_SNAKE` 常量）与 PHP 社区标准几乎逐条对得上，
+        所以从 Java 过来这一格基本不用改习惯。
+        差别在**强制程度**：Java 的标识符规则由编译器管，风格全靠约定与工具；
+        PHP 多一条编译器级的规则 —— 变量必须带 `$`，
+        于是「同一个名字出现在字符串里要不要插值」在 PHP 里是个真问题
+        （`"$name"` 与 `"name"` 含义不同），Java 里不存在。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: identical

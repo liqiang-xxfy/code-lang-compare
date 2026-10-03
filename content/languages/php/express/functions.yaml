@@ -1,0 +1,315 @@
+# php —— express / functions
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: functions` 的那批：
+# function-declaration / parameters / variadic / return-values / closures。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组要写准的四件事 ——
+# ① 函数名**不区分大小写**，而且**没有重载**（同名再定义是致命错误）；
+# ② 参数默认值**必须是常量表达式**（写成变量是致命错误，本机实测）；
+#    传 `null` **不会**触发默认值 —— 默认值只在「省略」时生效；
+# ③ `fn`（箭头函数）**按值自动捕获、改不到外层**；要改外层必须
+#    `function () use (&$x)`；
+# ④ `use ($x)` 捕获的是**定义时**的值，不是调用时的。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  function-declaration:
+    code: |
+      // @note 普通函数：`function 名字(参数): 返回类型 { }`
+      function greet(string $who): string {
+        return "你好，$who";
+      }
+
+      // @note! 函数名**不区分大小写** —— 大写也认
+      echo GREET("Ada");              // @note 与 greet("Ada") 等价
+
+      // @note! 但**没有函数重载** —— 同名再定义一次是致命错误
+      // function greet(int $n): string { }   // @note! Fatal error: Cannot redeclare
+
+      // @note 也没有「函数的类型」这回事：函数名就是个字符串
+      $f = "greet";                   // @note 可变函数
+      echo $f("Bob");
+      $g = strlen(...);               // @note! 8.1 起的第一类可调用语法
+      echo $g("abcd");                // @note 4 —— 注意 `...` 是语法的一部分，不是省略参数
+
+      // @note 第一类可调用捕获的是**创建处**的作用域（因此能拿到私有方法），
+      // @note 而 `[$obj, "method"]` 这种老写法按**调用点**检查可见性 —— 两者不等价
+    vs:
+      javascript: |
+        两边的函数都是一等值，可以赋给变量、当参数传 —— 这一层一样。
+        差别在**名字的规则**：JavaScript 的标识符区分大小写，
+        PHP 的函数名不区分；JavaScript 允许用后定义的函数覆盖前面的
+        （同名 `function` 声明后者胜），PHP 直接是致命错误。
+        另一处是「拿到函数本身」的写法：JavaScript 写函数名就行，
+        PHP 有三种写法（字符串名、`Closure::fromCallable`、8.1 起的 `f(...)`），
+        而且三者对可见性的检查规则还不一样 —— 第一类可调用是唯一
+        能捕获创建处作用域的那种。
+      python: |
+        两边函数都是一等值。差别在名字：Python 的标识符一律区分大小写，
+        PHP 的函数名不区分。另一处更有意思：Python **允许**同名重定义
+        （后一个静默覆盖前一个，调错方向时很难查），
+        PHP 是致命错误立刻拦住 —— 这一点 PHP 更严，也更好。
+        最后是「拿到函数对象」：Python 写 `f` 就是函数对象本身，
+        可以 `f.__name__`、能当装饰器；PHP 的 `"greet"` 只是一个字符串，
+        想检查它是不是可调用得用 `is_callable()`。
+      java: |
+        架构上差得最远的一格：Java 没有「游离的函数」，
+        所有方法都必须挂在类上（静态方法也属于类），
+        PHP 的函数是全局的、可以独立存在。
+        另一处是重载：Java 的**方法重载**是核心特性，
+        同名不同参数是常规写法；PHP **完全没有**这个概念，
+        同名就是重复定义（致命错误）——
+        所以从 Java 过来最不习惯的就是「没有重载，得靠默认参数或变长参数凑」。
+        共同点是两边都能把「行为」当值传（Java 靠函数式接口与 lambda）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  parameters:
+    code: |
+      // @note 默认**按值传递**；参数前加 `&` 才是按引用
+      function addOne(int &$n): void { $n++; }
+      $x = 1; addOne($x); echo $x;    // @note 2
+
+      // @note 默认值：**必须是常量表达式** —— 写变量直接是致命错误
+      function greet(string $who = "访客", int $times = 1): string {
+        return str_repeat("你好，$who ", $times);
+      }
+      // function bad(int $n = $GLOBALS['x']) {}   // @note! Fatal error:
+      //    Constant expression contains invalid operations
+      // @note 8.1 起默认值里可以用 `new`，但仍是编译期可求值的表达式
+
+      // @note! 命名参数（8.0 起）：可以跳过前面的可选参数
+      echo greet(times: 2);           // @note "你好，访客 你好，访客 "
+      echo greet("Ada", times: 3);
+      // @note 命名参数必须写在位置参数**之后**；重复给同一个会抛 Error
+
+      // @note! 传 null **不会**触发默认值 —— 默认值只在「省略」时生效
+      // echo greet(null);            // @note! TypeError（string 收不了 null）
+      function greet2(?string $who = "访客") { return $who ?? "空"; }
+      echo greet2(null);              // @note "空" —— 显式可空才收得住 null
+
+      // @note! 隐式可空 `string $who = null`（不带 ?）8.4 起被弃用，要写 `?string`
+    vs:
+      javascript: |
+        参数传递上两边差别明显：JavaScript **全是按值传递**，
+        对象传的是引用的副本（改属性有效、换掉对象无效）；
+        PHP 默认也按值，但可以用 `&` 显式声明**按引用** ——
+        这是 JavaScript 完全没有的能力。
+        默认值上 JavaScript 更强：默认值可以是**任意表达式**、甚至引用前面的参数
+        （`function f(a, b = a * 2)`）；PHP 的默认值必须是常量表达式，
+        不能引用别的参数，也不能引用变量。
+        另一处是调用方式：JavaScript 只能按位置传（要模拟命名参数得传对象）；
+        PHP 8.0 起有真正的命名参数。
+      python: |
+        两边都有默认参数与关键字实参，这一层高度对应
+        （Python 的 `f(times=2)` ↔ PHP 的 `greet(times: 2)`）。
+        差别在默认值的求值时机：Python 的默认值**在函数定义时求值一次**，
+        所以可变默认参数 `def f(x=[])` 是著名陷阱；
+        PHP 的默认值必须是常量表达式，根本不允许可变值，所以没有这个坑 ——
+        用限制换掉了陷阱。
+        另一处是传引用：Python 没有「按引用传参」这回事
+        （一切皆对象引用），要改调用方的变量得靠返回值；
+        PHP 有显式的 `&`。
+      java: |
+        Java **没有默认参数**（要模拟得靠重载或 `Optional`），
+        PHP 有 —— 这是 PHP 这边更顺的一处。
+        另一处是命名参数：Java 没有，调用时只能按位置，
+        参数一多就得靠 Builder 或 IDE 提示；
+        PHP 8.0 起可以写 `greet(times: 2)`。
+        传参语义上两边接近：Java 都是按值传递，
+        对象传的是引用的副本（引用本身按值传），
+        而 PHP 默认也按值，但多出显式的 `&` 引用传参 —— Java 没有这个能力。
+        共同点是两边都有「参数不能太多」这条工程共识。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  variadic:
+    code: |
+      // @note 声明侧：`...$args` 把多出来的实参收成一个数组
+      function sum(int ...$nums): int { return array_sum($nums); }
+      echo sum(1, 2, 3);              // @note 6
+      echo sum();                     // @note 0 —— 一个都不传也合法
+
+      // @note 收集参数可以带类型：类型不对会抛 TypeError
+      // sum(1, "a");                 // @note! TypeError
+
+      // @note 调用侧：`...` 把数组**拆开**传进去
+      $nums = [1, 2, 3];
+      echo sum(...$nums);             // @note 6
+
+      // @note! 两边（收集与拆开）用的是同一个记号，位置不同含义不同
+      function wrap(...$all) { return $all; }
+      var_dump(wrap(0, ...[1, 2]));   // @note 拆开之前可以有普通实参
+
+      // @note! 但**位置实参不能出现在拆开之后** —— 这是编译期就拦下的
+      // wrap(...[1, 2], 3);          // @note! Fatal error:
+      //    Cannot use positional argument after argument unpacking
+      // wrap(...[1, 2], ...[3]);     // @note 合法：两个拆开连用没问题
+
+      // @note 8.1 起，字符串键的数组也能拆开（键会被当成命名参数）
+      var_dump(sum(...["a" => 1, "b" => 2]));   // @note 3
+    vs:
+      javascript: |
+        两边的记号一样（都是 `...`），但**方向不同**：JavaScript 的
+        剩余参数 `function f(...args)` 收集成一个**真数组**，
+        展开 `f(...arr)` 拆开；PHP 完全对应，收集出来的也是数组。
+        差别在严格程度：JavaScript 的剩余参数不接受类型标注，
+        PHP 的 `int ...$nums` 会在每次实参上进类型检查。
+        另一处是键：PHP 的数组是有键的，所以拆开一个带字符串键的数组时
+        那些键会成为**命名参数**（8.1 起）—— JavaScript 的展开
+        只按顺序铺开，没有这层含义。
+      python: |
+        记号不同但语义对应得上：Python 的 `*args` 收集位置实参、
+        `*seq` 在调用侧拆开（`**kwargs` 对应 PHP 的字符串键拆开）。
+        差别在**方向的个数**：PHP 只有一个 `...`，同一个记号既收集又拆开，
+        要看它在参数列表里还是调用里；Python 用 `*` 与 `**` 两个记号
+        把两种方向分开，读起来更清楚。
+        另一处是类型：Python 可以写 `*args: int`（只是标注，运行时不检查），
+        PHP 的 `int ...$nums` 是**运行时真的会检查**的声明。
+      java: |
+        Java 的可变参数 `int... nums` 与 PHP 的 `int ...$nums` 几乎一样：
+        都是把多出来的实参收成数组、都必须放在参数列表最后、都能带类型。
+        差别在**调用侧**：Java 传数组进去就是展开（`sum(arr)` 直接用），
+        没有单独的展开语法；PHP 要写 `sum(...$arr)`，
+        于是「传一个数组作为单个参数」与「把数组拆开传」是两种写法 ——
+        PHP 这边多一层显式表达，但也因此不会混。
+        另一处是 PHP 的拆开还能带字符串键变成命名参数，Java 没有命名参数。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  return-values:
+    code: |
+      // @note 返回类型可以写：具体类型、联合类型（8.0）、可空 `?T`、
+      // @note `void`、`never`（8.1）、`static`（8.0）
+      function area(float $r): float { return 3.14 * $r * $r; }
+      function pick(int $i): int|string { return $i > 0 ? 1 : "非正"; }
+      function first(array $a): ?string { return $a[0] ?? null; }
+      function log_it(string $m): void { echo $m; }        // @note 不允许 return 值
+
+      // @note! `never` 是「保证不返回」：只能是返回类型，函数体必须抛异常或退出
+      function fail(string $m): never { throw new RuntimeException($m); }
+
+      // @note! 省略 return 的函数返回 **null**（不是 undefined，也没有隐式返回值的说法）
+      function noop() { }
+      var_dump(noop());               // @note NULL
+
+      // @note 想「返回多个值」就返回数组，再用解构接住
+      function pair(): array { return [1, 2]; }
+      [$a, $b] = pair();
+
+      // @note 按引用返回：**声明处和赋值处都要写 `&`**
+      function &counter_ref() { static $n = 0; return $n; }
+      $r = &counter_ref();
+      $r = 42;
+      echo counter_ref();             // @note 42 —— 改的是那个 static 变量本身
+      // @note `void` 函数按引用返回 8.1 起被弃用
+    vs:
+      javascript: |
+        两边都不写返回类型也能跑，但能力差一截：JavaScript 只能靠
+        JSDoc 或另一个语言的方言标注，运行时看不见；
+        PHP 的返回类型是语言级的、**运行时真的会检查**（不匹配抛 TypeError）。
+        另一处是「没有 return」：JavaScript 返回 `undefined`，
+        PHP 返回 `null` —— 两边都不会因此报错。
+        还有 `never`：PHP 8.1 有了「保证不返回」的类型，
+        JavaScript 那边只有 TypeScript 的 `never`，运行时没有这回事。
+      python: |
+        Python 的返回标注（`-> int`）**运行时完全不生效**，
+        写错了也不会有人拦；PHP 的返回类型运行时执行，写错立刻抛 TypeError。
+        这是两边最实质的差别 —— 一边是文档，一边是关卡。
+        另一处是「多返回值」：Python 直接 `return a, b` 返回元组，
+        解构也自然；PHP 只能返回数组，再靠 `[$a, $b] = ` 接住 ——
+        形状差不多，但 PHP 那边「元组」只是数组的一种用法，没有独立类型。
+        共同点是省略返回时两边都给一个空值（Python 的 `None`、PHP 的 `null`）。
+      java: |
+        两边都能在方法上写返回类型，而且都强制检查 —— 但**时机不同**：
+        Java 在编译期，PHP 在运行时。Java 的「所有路径都必须 return」
+        由编译器保证；PHP 里忘了 return 就得到 null，编译器不管。
+        另一处是「不返回」的表达：Java 用 `void`，PHP 也有 `void`；
+        但 PHP 还多一个 `never`（保证抛异常或退出），
+        Java 里对应的只能是「方法声明为 void 且大家都知道它会抛」，
+        没有类型层面的表达 —— 不过 Java 的受检异常机制部分补上了这一层。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  closures:
+    code: |
+      // @note! 闭包**不会自动继承**父作用域的变量 —— 必须用 `use` 显式引入
+      $n = 10;
+      $f = function () use ($n) { return $n; };
+      $n = 20;
+      echo $f();                      // @note! 10 —— 捕获的是**定义时**的值
+
+      // @note `use (&$n)` 才是按引用
+      $g = function () use (&$n) { return $n; };
+      echo $g();                      // @note 20
+
+      // @note! 箭头函数 `fn`（7.4 起）：自动按值捕获，**而且改不到外层**
+      $h = fn() => $n;                // @note 用到哪个就自动捕获哪个
+      echo $h();                      // @note 20
+      $bad = fn() => $n++;            // @note! 合法但无效：捕获的是副本，外面还是 20
+      $bad();
+      echo $n;                        // @note 20
+
+      // @note 想在箭头函数里改外层，只能退回普通闭包 + `use (&$n)`
+      $ok = function () use (&$n) { $n++; };
+
+      // @note `static function` 不绑定 $this —— 在类里用它避免意外持有对象
+      $s = static function () { return "没有 \$this"; };
+
+      // @note 类里定义的闭包会自动绑定当前 $this，可以 $c->bindTo($other) 换绑定
+      // @note 闭包不能序列化
+    vs:
+      javascript: |
+        **两边的闭包规则差别很大**。JavaScript 是**词法作用域**：
+        函数天然看得见定义处的外层变量，而且引用的是**变量本身**
+        （外层后来改了，闭包看到的也是新值）。
+        PHP 必须写 `use` 显式捕获，而且**默认捕获的是当时的值**——
+        外层再改，闭包里还是老值。所以那边「闭包总是看到最新值」，
+        这边「闭包冻结了捕获那一刻的值」，这是最容易搞反的一点。
+        另一处是箭头函数：JavaScript 的箭头函数主要解决 `this` 的绑定，
+        变量捕获规则与普通函数一样；PHP 的 `fn` 是「自动按值捕获 +
+        不能改外层」，两种设计的动机不同。
+      python: |
+        Python 的闭包是**按名字延迟查找**的：闭包看到的是外层变量
+        **调用时**的值（所以循环里建的一堆 lambda 全都看到最后一个值，
+        这是著名的 late binding 陷阱）。PHP 的 `use ($x)` 是**按值快照**，
+        定义时就定死了 —— 一个晚了、一个早了，两边都会让人吃惊，
+        但吃惊的方向正相反。
+        另一处是写入外层：Python 3 用 `nonlocal` 声明后可以直接改；
+        PHP 要在 `use` 里写 `&`（`use (&$x)`），
+        而箭头函数 `fn` **根本没有**按引用捕获这条路。
+        共同点是两边的闭包都能当值传、都能存起来延后调用。
+      java: |
+        Java 的 lambda / 匿名类捕获的是**事实上不可变的局部变量**
+        （`effectively final`）—— 不能改外层变量，也不存在「按值还是按引用」
+        的选择，编译器强制你把它变成 final。PHP 的 `use` 默认按值、
+        加 `&` 就能按引用，**选择权在写代码的人手里** ——
+        这既是灵活性也是错误来源。
+        另一处是 `$this`：Java 的 lambda 里 `this` 指**外层对象**；
+        PHP 的普通闭包也自动绑定外层 `$this`（一致），
+        但 PHP 多一个 `static function` 可以显式切断绑定，Java 没有对应写法。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

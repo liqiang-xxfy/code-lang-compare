@@ -1,0 +1,161 @@
+# php —— express / containers
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: containers` 的那批：
+# arrays / maps。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组是**唯一一组「两个知识点其实是同一个东西」**的格子 ——
+# PHP 的数组就是有序映射，没有独立的 list 类型。所以 arrays 与 maps
+# 两格要写的是**同一个类型的两个侧面**，不要写成两种容器。
+#
+# 三条最容易错的：
+# ① 数组赋值是**值拷贝**（写时复制），对象赋值才是句柄 —— 与三个基准的直觉都不同；
+# ② `+` 是**并集**（不覆盖已有键），`array_merge` 才覆盖（且会重排 int 键）；
+# ③ **保持插入顺序**是哈希表实现自带的，不是后来加的。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-containers-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  arrays:
+    code: |
+      // @note PHP 的「数组」**同时是列表和字典** —— 官方原话是 ordered map
+      $list = ["a", "b", "c"];              // @note int 键 0,1,2
+      $map  = ["name" => "Ann", "age" => 30];
+      $mixed = [0 => "a", "k" => "b", 1 => "c"];   // @note 两种键可以混在一个数组里
+
+      // @note 自动键 = 出现过的**最大 int 键 + 1**（不是补洞）
+      $a = []; $a[] = "x"; $a[5] = "y"; $a[] = "z";   // @note 键是 0、5、6
+      $b = [1, 2, 3]; unset($b[2]); $b[] = 9;         // @note! 键是 0、1、3 —— 不补 2
+      // @note 8.3 起自动键可以是负数：[ -5 => "a" ] 之后 $a[] 得 -4
+
+      // @note! 键会被强制转换
+      ["8" => 1];        // @note "8" → int 8（看起来像整数的字符串）
+      ["08" => 1];       // @note! "08" **保持字符串** —— 前导零不算整数
+      [true => 1];       // @note true → 1，false → 0
+      // @note 数组/对象做键是致命错误：Illegal offset type
+
+      // @note! 赋值是**值拷贝**（写时复制）—— 改副本不影响原数组
+      $src = [1, 2, 3];
+      $copy = $src;
+      $copy[] = 4;
+      echo count($src), count($copy);       // @note 3 与 4
+
+      // @note! `+` 是**并集**：左边已有的键不会被覆盖（与 array_merge 正相反）
+      $u = ["a" => 1] + ["a" => 2, "b" => 3];   // @note ["a"=>1, "b"=>3]
+      $m = array_merge(["a" => 1], ["a" => 2, "b" => 3]);  // @note ["a"=>2, "b"=>3]
+
+      // @note 展开运算符（7.4 起；字符串键 8.1 起）
+      $spread = [...[1, 2], ...[3]];
+      // @note! 展开时**同名字符串键后者胜**（并集是前者胜，两种写法规则相反）
+      [...["a" => 1], ...["a" => 2]];       // @note ["a" => 2]
+
+      // @note 判断「是不是一个真正的列表」用 array_is_list()（8.1 起）
+      array_is_list([1, 2]);                // @note true
+      array_is_list([1 => "a", 0 => "b"]);  // @note false
+    vs:
+      javascript: |
+        **这一格差别很大**。JavaScript 把「有序列表」与「键值映射」分成
+        Array 与 Map / 对象两种东西（写法、API、语义都不同）；
+        PHP **只有一种**，就是那个有序映射 —— 列表只是「键恰好是 0..n-1」的特例。
+        于是 `["a", "b"]` 与 `["k" => "v"]` 是同一个类型，
+        `array_is_list()` 才需要存在（它是判断「这个数组像不像列表」的函数）。
+        另一处是赋值：JavaScript 的数组是对象、赋值复制的是**引用**
+        （`b = a; b.push(4)` 会改到 `a`）；PHP 的数组赋值是**值拷贝**，
+        改副本不影响原数组 —— 从 JavaScript 过来这一条最容易搞反。
+      python: |
+        Python 把 `list` 与 `dict` 分得很清楚（不同的类型、不同的方法、
+        不同的字面量语法）；PHP 的 `array` **两者都是**，
+        同一个类型既能当列表又能当字典，甚至能混着用。
+        另一处是「顺序」：Python 的 dict 保插入序是 3.7 才**明确承诺**的特性；
+        PHP 的数组从实现上就是有序哈希表，保序是**一直如此**的固有行为，
+        不是后来补的 —— 两边结论一样，但一个是承诺、一个是实现附带。
+        还有赋值语义：Python 的 `b = a` 是引用、要拷贝得显式 `a.copy()`；
+        PHP 的 `b = $a` 就是拷贝，要共享反而得写 `$b = &$a`。
+      java: |
+        Java 的 `List` 与 `Map` 是两个接口、两套实现，泛型参数还不同；
+        PHP 只有一个 `array`，没有类型参数、也没有接口可言。
+        这在对比表里表现为：Java 那边要问「用 ArrayList 还是 LinkedList」，
+        PHP 这边没有这个问题（只有一种）。
+        另一处是赋值：Java 的数组与集合都是对象、赋值复制引用；
+        PHP 的数组赋值复制**整份内容**（写时复制，实际开销按需付）——
+        这一点更像 Java 里把 `int[]` 传进方法后外面改不到。
+        共同点是两边都能表达「有序 + 可按下标访问」
+        （Java 的 `List` ↔ PHP 的列表用法），但 PHP 没有类型安全那一层。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  maps:
+    code: |
+      // @note! PHP **没有独立的映射类型** —— 上面那个数组就是映射
+      $user = [
+        "name" => "Ann",
+        "age"  => 30,
+        "tags" => ["a", "b"],       // @note 值可以是任意类型，包括数组
+      ];
+      $user["city"] = "上海";        // @note 插入
+      unset($user["age"]);           // @note 删除（unset 是语言构造，不是函数）
+      isset($user["city"]);          // @note 判断键存在 —— 但值为 null 时会返回 false
+      array_key_exists("city", $user);  // @note 想严格问「键在不在」用这个
+
+      // @note! 保持插入顺序是**固有行为**，不需要 SortedMap 之类
+      ["z" => 1, "a" => 2, "m" => 3];   // @note 遍历顺序就是 z、a、m
+
+      // @note 排序是另外的动作，而且分成「保键 / 不保键」两组
+      $m = ["z" => 1, "a" => 2];
+      asort($m);                     // @note 按值排序、**保留键**
+      ksort($m);                     // @note 按键排序、保留键
+      sort($m);                      // @note! 按值排序、**丢弃键**（重排成 0..n-1）
+
+      // @note 想用**对象**当键，数组做不到 —— 要用 SPL 的 SplObjectStorage
+      $store = new SplObjectStorage;
+      $o = new stdClass;
+      $store[$o] = "与这个对象绑定的数据";   // @note 按对象**身份**做键
+      echo $store[$o];
+
+      // @note 定长数组也有：SplFixedArray（省内存，但没有字符串键）
+    vs:
+      javascript: |
+        JavaScript 表达映射有两条路：普通对象（键只能是字符串/符号）
+        与 `Map`（键可以是任意值）。PHP 只有一条路：数组，
+        但键的**自动转换**是它特有的 —— `$m[true]` 与 `$m[1]` 是同一个键，
+        `$m["8"]` 与 `$m[8]` 也是。JavaScript 的 `Map` 不做这种转换，
+        `map.set(1, x)` 与 `map.set("1", y)` 是两个不同的键。
+        另一处是「对象当键」：JavaScript 的 `Map` 天然支持（按身份），
+        PHP 要换数据结构（`SplObjectStorage`）——
+        因为数组的键被限制成 int 与 string。
+        顺序上两边一致：`Map` 与 PHP 数组都保持插入顺序。
+      python: |
+        这一格两边能对上大半：键值映射、保插入顺序、都能用任意可哈希对象当键
+        —— 但最后一句话在 PHP 里**不成立**：PHP 的数组键只能是 int 或 string，
+        想用对象当键必须换 `SplObjectStorage`（按身份哈希）。
+        另一处是键的转换：Python 的 `{1: "a", True: "b"}` 里
+        `1` 与 `True` 是同一个键（哈希相同），PHP 里 `true` 直接被转成 `1` ——
+        结论一样但机制不同；而 `"8"` 与 `8` 在 Python 是两个键、
+        在 PHP 是**同一个键**（数字字符串被转成 int），这一点正相反。
+        共同点是两边都用 `in` / `isset` 之外还提供「严格问键在不在」的手段。
+      java: |
+        Java 的 `Map` 是接口加多个实现（`HashMap` 不保序、`LinkedHashMap` 保序、
+        `TreeMap` 按键排序）；PHP 只有一个 array，**保插入序**，
+        要排序得调 `ksort` / `asort` 这类函数，而且这些函数还分
+        「保键」与「丢键」两组 —— Java 那边是换实现类，
+        这边是调函数并记住它会不会弄丢键。
+        另一处是对象做键：Java 的 `HashMap` 用 `hashCode` + `equals`，
+        天然支持；PHP 的数组不支持，要用 `SplObjectStorage`（按身份）。
+        共同点是两边都有「按键/按值排序」与「遍历顺序」这两组概念。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

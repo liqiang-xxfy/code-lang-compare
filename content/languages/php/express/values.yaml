@@ -1,0 +1,252 @@
+# php —— express / values
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: values` 的那批：
+# literals / type-inference / null-and-undefined / type-conversion。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组的四条主线 ——
+# ① 字面量里最容易错的是**前导 0 表示八进制**（只对字面量成立）与**整数溢出静默变 float**；
+# ② PHP **没有类型推断**（是动态类型 + 显式声明），而 `declare(strict_types=1)`
+#    管的是「**从写了这行的文件发起的调用**」—— 本机实跑确认过这一点，
+#    连 `strlen(123)` 这种内置函数也跟着变；
+# ③ `null` 那一格的核心是 **`??` 与 `?:` 不等价**（前者 isset 语义、后者真假语义）；
+# ④ 转换那一格最容易踩的是 `(int)"abc"` **得到 0 而不是报错**。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-values-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  literals:
+    code: |
+      // @note 整数：四种进制 + 数字分隔符
+      $dec = 1234;
+      $hex = 0x1A;                    // @note 十六进制 = 26
+      $oct = 0o123;                   // @note 0o 前缀（8.1 起）；旧式写法是前导 0
+      $old = 0123;                    // @note! 前导 0 = 八进制，所以这是 83 不是 123
+      $bin = 0b1111;                  // @note = 15
+      $big = 1_234_567;               // @note 7.4 起可用下划线分组
+
+      // @note! 但「前导 0 是八进制」**只对字面量成立** —— 字符串不会
+      echo "0123" + 0;                // @note 这是 123
+
+      // @note! 整数溢出**静默变 float**，不报错
+      echo PHP_INT_MAX + 1;           // @note 9.2233720368548E+18（float）
+
+      // @note 浮点：两种写法都能写成 float
+      $f1 = 1.2e3;                    // @note = 1200.0
+      $f2 = 0.1 + 0.2;                // @note! 0.30000000000000004 —— 二进制浮点的老问题
+
+      // @note! 关键字大小写不敏感：这三种写法是同一个值
+      $t = TRUE; $n = Null; $n2 = NULL;
+
+      // @note 字符串里 `+` **不做拼接**（拼接是 `.`）
+      // echo "a" + "b";              // @note! 8.0 起抛 TypeError: Unsupported operand types
+    vs:
+      javascript: |
+        这一格两边最像，但有两处必须记住的差别。第一是**进制的写法**：
+        JavaScript 用前导 `0` 表示八进制是**非严格模式**的历史包袱，
+        写 `0123` 在严格模式下直接报错；PHP 的 `0123` 永远是八进制，
+        而且新写法 `0o123` 是 8.1 才有的 —— 也就是说 PHP 这边「前导 0」
+        是**生效的**，从 JavaScript 过来会把 83 当成 123。
+        第二是溢出：JavaScript 的整数超出安全范围会悄悄丢精度，
+        PHP 是**变成 float**（类型都变了），两者都不报错但表现不同。
+        共同点是浮点误差一模一样（`0.1 + 0.2` 都不是 `0.3`）。
+      python: |
+        数字字面量的写法两边高度一致：都支持十六进制 `0x`、二进制 `0b`、
+        下划线分组（分隔符读起来一样）。差别在八进制：
+        Python 从 3.0 起就**只认 `0o` 前缀**，写 `0123` 是语法错误；
+        PHP 到今天仍然把前导 `0` 当八进制（`0o` 是 8.1 才补上的写法）——
+        所以从 Python 过来，看到 `0123` 要意识到那是 83。
+        另一处是整数溢出：Python 的 int 是任意精度、永远不会溢出；
+        PHP 的整数是固定宽度，溢出**静默变成 float**，
+        于是 `PHP_INT_MAX + 1` 从一个 int 变成了一个浮点数。
+      java: |
+        两边的整数都是固定宽度、都会溢出，但处理方式正相反：
+        Java 溢出是**回绕**（`Integer.MAX_VALUE + 1` 变成最小值，还是 int），
+        PHP 溢出是**升级成 float**（类型变了但值大致对）。
+        一个错得安静且危险，一个错得相对温和但会污染后续运算的类型。
+        字面量写法上 Java 用 `0x` / `0b` / 前导 `0` 表示八进制 ——
+        这一点与 PHP 一致，两边都会把 `0123` 读成 83，所以从 Java 过来反而不会踩。
+        浮点误差两边完全一样，都是二进制浮点的固有行为。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  type-inference:
+    code: |
+      // @note! PHP **没有类型推断** —— 它是动态类型，变量的类型由「当前存的值」决定
+      $x = 1;                         // @note 此刻是 int
+      $x = "abc";                     // @note 此刻是 string，同一个变量，什么都没声明
+
+      // @note 函数与属性上的类型是**显式声明**，不是推断出来的
+      function f(int $a, int $b): int { return $a + $b; }
+
+      // @note! 严格模式**按文件生效**，而且管的是「**从写了这行的文件发起的调用**」
+      // @note! —— 不是「这个文件里声明的函数」。这是最容易被写错的一点：
+      declare(strict_types=1);
+
+      class Point { public int $x = 0; }   // @note 属性类型（7.4 起）
+
+      // @note 严格模式下连**内置函数**也一起变严（本机实测）：
+      // strlen(123)                      // @note TypeError
+      // @note 而同一个 strlen 在宽松文件里调用会返回 3
+    vs:
+      javascript: |
+        两边都是动态类型：变量的类型跟着值走，随时可以换。
+        差别在「有没有地方能写类型」：JavaScript 的标注只能存在于注释或
+        另一个语言的方言里，运行时完全看不见；PHP 可以写在参数、返回值、
+        属性上，而且是**运行时真的会被检查**的那一层。
+        另一处是严格模式的粒度：JavaScript 的严格模式按文件或函数切换、
+        管的是语法与 `this` 的绑定；PHP 的 `declare(strict_types=1)`
+        管的是**类型强制转换**，而且作用于「从这个文件发出的调用」——
+        调用别人写的函数也算在内。
+      python: |
+        两边都有「类型标注」这个位置，但作用完全不同：
+        Python 的标注（`def f(a: int) -> int`）**运行时完全不生效**，
+        要发现问题得另跑一个静态检查器；PHP 的类型声明是**运行时执行**的，
+        不匹配就抛 TypeError，不需要额外工具。
+        另一处是强弱：Python 的标注写了等于没写（不影响行为），
+        PHP 写了就真的会拦 —— 所以 PHP 那边「标注」是一份能兑现的承诺，
+        Python 那边是一份文档。
+        共同点是两边都没有类型推断可言：Python 的变量同样跟着值走。
+      java: |
+        这一格两边是光谱的两端。Java 是静态类型，`var` 是真正的**类型推断**
+        （编译器推出变量的静态类型并固定下来），之后不能改；PHP 没有静态类型
+        这一层，变量随时能换成别的类型，`var` 那样的东西根本不存在。
+        另一处是检查时机：Java 的类型检查全在编译期，运行时只剩强转的检查；
+        PHP 的声明在**运行时、值流过函数边界的那一刻**执行 ——
+        也就是说 PHP 的类型声明是一道运行时的关卡，不是编译期的证明。
+        共同点是两边都能在参数与返回值上写类型，位置对得上。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  null-and-undefined:
+    code: |
+      // @note PHP **只有一个空值** `null` —— 没有 undefined 与 null 之分
+      $a = null;
+      // @note! 读一个**从没赋过值**的变量：值当 null，同时报 Warning
+      // echo $neverSet;                 // @note! Warning: Undefined variable
+
+      // @note! 两条判断「有没有」的路，语义不同 —— 这是本格的核心
+      $conf = ['host' => 'db', 'port' => null];
+      isset($conf['port']);             // @note! false —— isset 对**值为 null** 也返回 false
+      array_key_exists('port', $conf);  // @note true —— 想知道键在不在，用这个
+
+      // @note `??`（null 合并）走 isset 语义，链式求值
+      $port = $conf['port'] ?? 3306;    // @note 键不存在、或值为 null，都取右边
+      $conf['port'] ??= 3306;           // @note 7.4 起的简写：只在左边为 null/不存在时写
+
+      // @note! `?:`（Elvis）走的是**真假**语义，与 `??` **不等价**
+      $z = 0;
+      echo $z ?? "默认";                // @note 0    —— 只认 null
+      echo $z ?: "默认";                // @note 默认 —— 0 也是假值
+
+      // @note! `empty()` 的判定清单里有个经典坑：字符串 "0" 也算空
+      var_dump(empty("0"));             // @note true
+      var_dump(empty("0.0"));           // @note false（这是字符串，不是数字）
+      var_dump(empty(" "));             // @note false（空格非空）
+    vs:
+      javascript: |
+        JavaScript 有 `null` 与 `undefined` 两个空值，PHP **只有一个** ——
+        未定义与 `unset()` 过都归到 `null`，区别只在「读它会不会报警告」。
+        这一层简化了判断，但也带来一个差异：JavaScript 的 `a ?? b`
+        与 `a || b` 的区别两边都能讲清（前者认 null/undefined，后者认真假），
+        对应到 PHP 是 `??` 与 `?:` —— 规则几乎一样，可以照搬。
+        真正的坑在 `isset()`：JavaScript 的 `obj.k !== undefined` 是「有没有」，
+        PHP 的 `isset($a)` 对**值为 null** 的变量也返回 false，
+        想查键存在必须用 `array_key_exists()`。
+      python: |
+        两边都只有一个空值，这一层对应得上。差别在**取值默认**的写法：
+        Python 习惯 `x or default`，但它对 `0`、`""`、`[]` 都会取右边；
+        PHP 有两个运算符分别对应这两种语义 —— `??` 只认 null
+        （`0 ?? 5` 得到 0），`?:` 认真假（`0 ?: 5` 得到 5）。
+        从 Python 过来最容易写错的是把 `or` 的直觉套到 `??` 上 ——
+        Python 那行 `conf.get('port') or 3306` 在端口写成 0 时会被换成 3306，
+        而 PHP 的 `?? 3306` 不会。
+        另一处是「有没有」：Python 用 `is None` 判断，PHP 的 `isset()`
+        对值为 null 的变量返回 false —— 所以 isset 问的是「存在且非 null」，
+        比 Python 的 `is not None` 多管了一件事。
+      java: |
+        Java 的 `null` 与 PHP 的 `null` 都是「引用不指向任何对象」，这一层一样。
+        差别在**表达「可能为空」的能力**：Java 的类型系统里 `null` 可以赋给
+        任何引用类型，编译器不管，所以社区发明了 `Optional` 来兜住返回值；
+        PHP 可以把「可能为空」写进类型本身（`?int`、`?User`），
+        参数、返回值、属性都能标 —— 一种类型层面的声明，不是库层面的包装。
+        另一处是「有没有」：Java 查 map 用 `containsKey`（`get` 返回 null
+        分不清「没有」与「值就是 null」），PHP 的 `isset` 有同样的盲点，
+        对应的解法是 `array_key_exists`。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  type-conversion:
+    code: |
+      // @note PHP 的转换分**显式**与**隐式**两类，两边都要认识
+
+      // ① 显式强转：写什么转什么，**转不动也不报错**
+      $n = (int) "42";                  // @note 42
+      $m = (int) "12abc";               // @note! 12 —— 只解析最前面的数字
+      $z = (int) "abc";                 // @note! 0 —— 一声不吭，和真正的 0 分不开
+      $f = (float) "1e3";               // @note 1000.0
+      $s = (string) 42;                 // @note "42"
+      $b = (bool) "0";                  // @note! false —— 字符串 "0" 是假值
+
+      // @note! 所以想「确认它真的是个数字」得自己先问
+      if (!is_numeric($input)) { throw new InvalidArgumentException("不是数字"); }
+
+      // @note ② 隐式转换（type juggling）：运算符自己转
+      echo "10" + 5;                    // @note 15 —— 数值字符串会被当数字
+      // echo "abc" + 5;                // @note! 8.0 起抛 TypeError（7.x 只是警告）
+      echo [1,2] + [3];                 // @note! 数组的 + 是并集，不涉及转换，仍然合法
+
+      // @note ③ 就地转换：settype 改的是变量本身
+      $x = "7"; settype($x, "integer"); // @note $x 变成 int(7)
+
+      // @note! 8.5 起非规范的转换名被弃用：(boolean)(integer)(double)(binary)
+      // @note! 应该写 (bool)(int)(float)(string) —— 后者一直是规范名
+    vs:
+      javascript: |
+        两边的隐式转换都很活跃，但**失败的表现不同**：
+        JavaScript 的 `Number("abc")` 得到 `NaN`，而 `NaN` 可以用
+        `Number.isNaN` 认出来；PHP 的 `(int)"abc"` 得到 **0**，
+        与一个真实的 0 完全分不开 —— 这是两边互相踩得最狠的一处。
+        另一处是字符串拼接：JavaScript 的 `+` 既做加法又做拼接，
+        PHP 的 `+` **只做算术**、拼接是 `.`，所以 `"1" + "2"` 在 JavaScript 是
+        `"12"`、在 PHP 是 `3`。8.0 起 PHP 更是把「算术里出现非数值字符串」
+        从警告升级成了 TypeError。
+      python: |
+        两边都要显式转换，但失败方式**正相反**：Python 的 `int("abc")`
+        直接抛 ValueError，逼你处理；PHP 的 `(int)"abc"` 得到 0，一声不吭。
+        这是从 Python 过来最容易出事的地方 —— 以为有异常可以捕获，
+        实际拿到的是一个看起来完全正常的数字。
+        截断行为两边一致（`int(3.9)` 与 `(int)3.9` 都是 3），
+        但 `int("12abc")` 在 Python 抛异常、在 PHP 得到 12。
+        另一处是假值转换：`(bool)"0"` 两边都是假，但 `bool("0.0")`
+        在 Python 是 True、PHP 也是 true —— 这一点难得一致。
+      java: |
+        Java 的强转是**有类型检查的转换**：`(int) 3.9` 截断，
+        `(Integer) obj` 会在运行时验证类型、不对就抛 ClassCastException。
+        PHP 的 `(int)` 是三件事挤在一个语法里 —— 数值截断、字符串解析、
+        甚至把数组转成 1 或 0 —— 而且**几乎不失败**。
+        另一处是字符串转数字：Java 必须 `Integer.parseInt`（失败抛
+        NumberFormatException），PHP 的 `(int)"42"` 直接可用、转不动就给 0。
+        也就是说 Java 那边「转换」是一道可能失败的关卡，
+        PHP 那边「转换」是一个总能给出结果的函数。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

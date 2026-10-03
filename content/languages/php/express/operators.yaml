@@ -1,0 +1,278 @@
+# php —— express / operators
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: operators` 的那批：
+# arithmetic / equality / logical / operator-overloading。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组要写准的四件事 ——
+# ① `/` **不总是 float**：两个 int 且能整除时返回 int（本机实测 `6/3` 是 int(2)）；
+# ② `%` 的结果符号**跟被除数**（`-5 % 3` 是 -2），与 Python 的规则相反；
+# ③ 逻辑运算符 `&&`/`||` **恒返回 bool**，不像 JavaScript/Python 返回操作数本身
+#    —— 所以「`$x = $a || '默认'`」拿不到默认值，这是本格最大的坑；
+# ④ PHP **没有用户态运算符重载**，而手册里的「Overloading」讲的是魔术方法，
+#    是另一回事（术语陷阱）。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  arithmetic:
+    code: |
+      // @note! `/` **不总是 float** —— 两个 int 且能整除时返回 int
+      var_dump(6 / 3);                // @note int(2)
+      var_dump(7 / 2);                // @note float(3.5)
+      var_dump(6.0 / 3);              // @note float(2) —— 有一个是 float 就出 float
+
+      // @note 想强制要整数除法，用 intdiv（向零截断）
+      var_dump(intdiv(7, 2));         // @note int(3)
+      var_dump(intdiv(-7, 2));        // @note int(-3) —— 不是 -4，是截断不是下取整
+
+      // @note! `%` 的结果符号**跟被除数**走
+      var_dump(-5 % 3);               // @note int(-2)
+      var_dump(5 % -3);               // @note int(2)
+      // @note 浮点没有 `%`，要用 fmod()
+      var_dump(fmod(7.5, 2));         // @note float(1.5)
+
+      // @note 幂是 `**`（不是 ^ —— ^ 是按位异或）
+      var_dump(2 ** 10);              // @note int(1024)
+
+      // @note! 整数溢出**静默变成 float**
+      var_dump(PHP_INT_MAX + 1);      // @note float(9.2233720368548E+18)
+
+      // @note! 除以零抛的是 Error（不是 Exception），接不住会直接终止
+      // 1 / 0;                       // @note! DivisionByZeroError
+      // 1 % 0;                       // @note! DivisionByZeroError: Modulo by zero
+      var_dump(fdiv(1, 0));           // @note float(INF) —— fdiv 不抛，走 IEEE 规则
+    vs:
+      javascript: |
+        两边最容易踩的是**除法与取模**。JavaScript 没有整数类型，
+        `6 / 3` 永远是 `2`（一个 Number），而 PHP 的 `6 / 3` 是 int(2)、
+        `7 / 2` 是 float(3.5) —— 返回类型取决于**能不能整除**，
+        这会让后续的类型判断（`is_int`）结果不一样。
+        取模上 JavaScript 的 `%` 结果符号跟**被除数**，PHP 也一样 ——
+        这一点难得一致。另一处是 `**`：两边同名同义。
+        除零两边都不抛异常，但表现相反：JavaScript 得到 `Infinity` 继续跑，
+        PHP 抛 `DivisionByZeroError` 直接中断（想要 `Infinity` 得用 `fdiv`）。
+      python: |
+        这一格两边**正好相反**。除法：Python 的 `/` 永远是真除法（`6 / 3`
+        是 `2.0`，float），整除要用 `//`；PHP 的 `/` 是「能整除就给你整数」，
+        想强制整除反而要调 `intdiv()`。取模：Python 的 `%` 结果符号
+        **跟除数**（`-5 % 3` 是 `1`），PHP 跟**被除数**（`-5 % 3` 是 `-2`）——
+        这是从 Python 过来最容易悄悄算错的一处，因为它不报错、只是数值不对。
+        下取整同理：Python 的 `//` 向下取整（`-7 // 2` 是 `-4`），
+        PHP 的 `intdiv(-7, 2)` 是 `-3`（向零截断）。
+        幂运算符两边都是 `**`，这一点一致。
+      java: |
+        两边在整数运算上高度对应：`/` 在两个整数之间是整除、`%` 的结果符号
+        跟被除数（`-5 % 3` 是 `-2`）—— Java 与 PHP 的规则完全相同，
+        所以从 Java 过来这一格基本不会错。
+        差别在**类型是几个**：Java 的 `int / int` 永远给 int，
+        想要小数必须先转成 `double`；PHP 只有一个 `int`/`float` 的自动升级，
+        而且 `/` 会根据能不能整除**自己决定**返回哪个类型。
+        另一处是溢出：Java 回绕成最小值（还是 int），PHP 升级成 float。
+        除零 Java 抛 ArithmeticException（是个 Exception，能接住），
+        PHP 抛 DivisionByZeroError（是个 Error，`catch (Exception)` 接不住）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  equality:
+    code: |
+      // @note 两个等号：`==` 松（会做类型杂耍），`===` 严（类型与值都比）
+      var_dump(1 == "1");             // @note true —— 松的会转换
+      var_dump(1 === "1");            // @note false —— 严的不转
+      var_dump(1 <=> 2);              // @note -1（飞船：小于/等于/大于 → -1/0/1）
+
+      // @note! PHP 8.0 改了一条老规则：数字与非数值字符串比较时，
+      // @note! 改成**把数字转成字符串再比**（以前是把字符串转成数字）
+      var_dump(0 == "foo");           // @note! false（7.x 里是 true）
+      var_dump(0 == "");              // @note! false（7.x 里是 true）
+      var_dump(42 == "42foo");        // @note! false（7.x 里是 true）
+
+      // @note 两个都是**数值字符串**时，仍然按数值比
+      var_dump("1" == "01");          // @note true
+      var_dump("10" == "1e1");        // @note true
+      var_dump(100 == "1e2");         // @note true
+
+      // @note! NaN 与任何值比都是 false —— 包括它自己；但 `NAN == true` 是 true
+      $nan = NAN;
+      var_dump($nan == $nan, $nan != $nan);   // @note! false, true —— 要判 NaN 用 is_nan()
+
+      // @note 对象：`==` 比**属性**，`===` 比**是不是同一个对象**
+      $a = new stdClass; $a->x = 1;
+      $b = new stdClass; $b->x = 1;
+      var_dump($a == $b, $a === $b);  // @note true, false
+    vs:
+      javascript: |
+        两边都有 `==` 与 `===`，而且都建议尽量用 `===` —— 这一层完全对应。
+        差别在**松比较的规则复杂到什么程度**：JavaScript 的 `==` 有一张
+        著名的转换表（`[] == false`、`"" == 0` 之类）；PHP 的 `==` 同样复杂，
+        但 **8.0 把最经典的那条改掉了** —— `0 == "foo"` 从 true 变成 false，
+        因为数字与非数值字符串现在按**字符串**比。
+        所以「PHP 的 `==` 不可靠」这句话必须带版本说，
+        8.0 之后 `0 == "abc"` 这个魔术已经没有了。
+        另一处是 NaN：两边都是「与任何值比都不相等」，规则一致。
+      python: |
+        这边根本没有松紧两个等号：Python 的 `==` 是**值相等**、
+        `is` 是**同一性**，`1 == "1"` 直接是 False（不转换，也没有转换这一步）。
+        PHP 的 `==` 会先把两边转成同一类型再比 —— 所以 `1 == "1"` 是 true。
+        也就是说 Python 那边「`==` 相等」是一件类型敏感的事，
+        PHP 那边「`==` 相等」是一件**会替你做主转换**的事。
+        数学上的坑倒是同一个：Python 的 `float('nan') == float('nan')` 也是 False，
+        要判 NaN 用 `math.isnan`，PHP 用 `is_nan()`。
+      java: |
+        Java 的 `==` 比的是**值（基本类型）或引用（对象）**，
+        比较对象内容要用 `equals()`；PHP 的 `==` 比对象时比的是**属性**，
+        `===` 才比是不是同一个对象 —— 也就是说两边 `==` 的含义刚好错开一层：
+        Java 里 `==` 更接近 PHP 的 `===`。
+        另一处是类型：Java 的 `1 == "1"` 根本编译不过（类型不兼容），
+        编译器直接拦下；PHP 的 `1 == "1"` 合法而且为 true，
+        要到运行时、且要你自己记得用 `===` 才不出错。
+        也就是说 Java 那边是编译期问题，PHP 那边是纪律问题。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  logical:
+    code: |
+      // @note! 核心事实：PHP 的 `&&` / `||` **恒返回 bool**，
+      // @note! 不像 JavaScript / Python 那样返回操作数本身
+      $a = 0 || "avocado";
+      var_dump($a);                   // @note! bool(true) —— 不是 "avocado"
+      $b = "x" && "y";
+      var_dump($b);                   // @note! bool(true) —— 不是 "y"
+
+      // @note 想要「取默认值」的语义，用 `?:` 或 `??`，不要用 `||`
+      $env = "0";                     // @note 注意这是字符串 "0"
+      $p1 = $env ?: 3306;             // @note! 3306 —— 按真假："0" 是假值
+      $p2 = $env ?? 3306;             // @note! "0"  —— 按 null：它不是 null，原样返回
+
+      // @note! 符号形式与单词形式**优先级不同** —— 这是 PHP 独有的坑
+      $c = false || true;             // @note ($c = (false || true)) → true
+      $d = false or true;             // @note! (($d = false) or true) → $d 是 false
+      var_dump($c, $d);               // @note true, false
+
+      // @note 优先级阶梯（从高到低）：! → && → || → ?? → ?: → = → and → xor → or
+      // @note 所以 `and` / `or` 几乎只用在流程控制里：
+      // $ok = doSomething() or die("失败");   // @note 这种写法才符合它的优先级
+
+      // @note 短路求值：`||` 左边为真就不算右边，`&&` 左边为假就不算右边
+      // @note `xor` 两边都要算（异或没法短路）
+    vs:
+      javascript: |
+        **这是两边差别最大、也最容易静默出错的一格**。JavaScript 的
+        `||` 与 `&&` 返回的是**操作数本身**，于是 `const port = x || 3306;`
+        这种「取默认值」的惯用法到处都是；PHP 的 `||` **恒返回 bool**，
+        同样的写法会得到一个 `true`，赋值给变量后要过很久才会发现。
+        对应到 PHP 要用 `?:`（按真假）或 `??`（按 null）。
+        另一处是单词形式：JavaScript 没有 `and` / `or`，
+        所以 PHP 里 `$d = false or true;` 那种「赋值先生效」的坑在 JavaScript 里不存在。
+        短路行为两边一致。
+      python: |
+        Python 的 `or` / `and` **返回操作数本身**（`0 or "默认"` 得到 `"默认"`），
+        而 PHP 的 `||` 只给 bool —— 这是两边最直接的错位。
+        所以 `x = a or b` 这个 Python 惯用法搬到 PHP 要写成 `$x = $a ?: $b;`，
+        否则拿到的永远是 true / false（而且不报错，只是值不对）。
+        不过前提条件不同：Python 的 `or` 判的是真假值（`0`、`""`、`[]` 都算假），
+        PHP 的 `?:` 同样按真假 —— 这部分能对上；真正对不上的只有
+        「返回什么」这一件事。
+        另一处是 `not` / `and` / `or` 在 Python 里是普通运算符、优先级固定，
+        PHP 的 `and` / `or` 优先级低于 `=`，是个有历史包袱的设计。
+      java: |
+        这一格两边最接近：Java 的 `||` / `&&` **同样恒返回 boolean**，
+        也不会给你操作数 —— 所以从 Java 过来不会踩那个坑。
+        Java 也没有 `and` / `or` 这种优先级更低的单词形式，
+        运算符优先级是单一的一套，不像 PHP 有两套。
+        差别在「取默认值」的写法：Java 因为没有 falsy 概念，
+        只能用三元 `x != null ? x : 3306`（或 `Optional`）；
+        PHP 有 `?:` 与 `??` 两个短写法，而且这两个**语义不同** ——
+        一个按真假、一个按 null，这一点 Java 那边没有对应物。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  operator-overloading:
+    code: |
+      // @note! PHP **不支持用户态运算符重载** —— 不能重载 +、==、[] 等
+      // class Money { public function __add(Money $o) {} }   // @note! 不存在这种写法
+
+      // @note! 术语陷阱：PHP 手册里的「Overloading」讲的**不是**运算符重载，
+      // @note! 而是用魔术方法动态处理「不可访问 / 不存在」的属性与方法
+      class Bag {
+        private array $data = [];
+        public function __get($k) { return $this->data[$k] ?? null; }   // @note 读不存在的属性
+        public function __set($k, $v) { $this->data[$k] = $v; }        // @note 写不存在的属性
+        public function __call($m, $a) { return "被调用了：$m"; }       // @note 调不存在的方法
+      }
+      $bag = new Bag;
+      $bag->x = 1;                    // @note 走 __set
+      echo $bag->x;                   // @note 走 __get
+      echo $bag->anything();          // @note 走 __call
+
+      // @note 唯一的「运算符特化」是数组的 `+`，那是数组语义不是重载
+      var_dump([1, 2] + [3]);         // @note [1,2] —— 并集，不覆盖已有键
+
+      // @note 真正「像运算符」的能力来自接口，不是重载：
+      // ArrayAccess   → 让对象支持 $obj['k']
+      // Countable     → 让 count($obj) 可用
+      // IteratorAggregate → 让 foreach ($obj as ...) 可用
+      // Stringable    → 让对象能被拼进字符串（实现 __toString 就自动满足）
+      class Coll implements ArrayAccess, Countable {
+        private array $d = [];
+        public function offsetExists(mixed $o): bool { return isset($this->d[$o]); }
+        public function offsetGet(mixed $o): mixed { return $this->d[$o] ?? null; }
+        public function offsetSet(mixed $o, mixed $v): void { $this->d[$o] = $v; }
+        public function offsetUnset(mixed $o): void { unset($this->d[$o]); }
+        public function count(): int { return count($this->d); }
+      }
+      $c = new Coll; $c['z'] = 9;
+      echo count($c), $c['z'];        // @note 1 与 9
+    vs:
+      javascript: |
+        两边都不能重载运算符，但**能改写的面**不同。JavaScript 有几条
+        「语言内置的钩子」——`Symbol.iterator` 让对象可遍历、
+        `toString` / `valueOf` 影响隐式转换、Proxy 能拦截几乎全部操作；
+        PHP 的对应物是**实现接口 / 定义魔术方法**：`ArrayAccess` 管 `[]`、
+        `Countable` 管 `count()`、`IteratorAggregate` 管 `foreach`、
+        `__toString` 管字符串转换。覆盖面比 Proxy 窄得多，但比 JavaScript
+        多一条：PHP 的 `__get` / `__call` 能在**类内部**拦截属性与方法访问，
+        不需要包一层代理对象。
+        另一处是术语：PHP 文档里的「Overloading」指的是这套魔术方法，
+        与运算符无关 —— 照着别的语言的直觉去搜会找错页面。
+      python: |
+        这一格两边都「有类似能力但都不叫重载」。Python 的运算符重载是
+        **真的**：定义 `__add__` 就能让 `+` 生效，`__eq__` 管 `==`、
+        `__getitem__` 管 `[]` —— 一整套双下划线协议。
+        PHP **没有这条路**：`+`、`==`、`[]` 都不能被用户代码改变含义，
+        只能通过实现 `ArrayAccess` / `Countable` 这类**接口**拿到几个
+        特定的能力（而且 `[]` 那条必须靠接口，不能只写 `__get`）。
+        所以从 Python 过来最明显的失落是：自定义类型没法参与算术。
+        另一处是术语：两边文档里都有「overloading」，
+        Python 指运算符/方法重载，PHP 指魔术方法 —— 同词不同义。
+      java: |
+        两边都不支持运算符重载，Java 的设计者当年是刻意去掉的，
+        PHP 也没有加回来 —— 这一层一致。
+        差别在「替代手段」：Java 靠方法名表达（`money.add(other)`、
+        `list.get(i)`、`equals()`），接口（`Iterable` / `Comparable`）
+        只影响几个特定的语法位置；PHP 也靠接口，但覆盖面更宽一点
+        （`ArrayAccess` 让对象能写 `[]`），并且多了 `__get` / `__call`
+        这类**拦截不存在成员**的能力 —— Java 里没有对应物，
+        编译不过就是编译不过。
+        共同点是两边都读过「不要用重载表达业务语义」这条建议。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
