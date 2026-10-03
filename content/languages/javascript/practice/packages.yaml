@@ -1,0 +1,189 @@
+# javascript —— practice / packages
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: packages` 的那批：
+# package-manager / dependency-declaration / version-constraint / lockfile /
+# environment-isolation / publishing。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  package-manager:
+    code: |
+      npm install lodash          // @note 官方那个
+      pnpm add lodash             // @note 更快、磁盘上只存一份
+      yarn add lodash
+
+      npm init -y                 // @note 生成 package.json
+      npx cowsay hi               // @note 临时跑一个包，不装进项目
+
+      // @note 同一套 package.json，三个客户端都能用 —— 换客户端不需要改清单
+    baseline: |
+      官方是 **npm**，生态里另有 pnpm 与 yarn —— 三者读同一份 `package.json`，
+      换客户端不用改清单，这是与别的语言很不一样的地方。`npx` 能临时执行
+      一个包而不装进项目（一次性工具用得很频繁）。
+    vs:
+      python: |
+        Python 这边的客户端换了要改清单：`pip` + `requirements.txt`
+        与 `poetry` + `pyproject.toml` 是两套写法。
+        这里三个客户端共用一份清单，迁移成本低得多。
+      java: |
+        Java 的构建工具（Maven / Gradle）**同时管依赖与构建**，
+        换工具基本等于换一套项目结构；这里包管理与构建是分开的两件事，
+        包管理器只负责装东西。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  dependency-declaration:
+    code: |
+      // package.json
+      {
+        "dependencies": { "lodash": "^4.17.21" },      // @note 运行时需要
+        "devDependencies": { "vitest": "^3.0.0" },     // @note 只在开发时需要
+        "peerDependencies": { "react": ">=18" },       // @note 由使用方提供
+        "optionalDependencies": { "fsevents": "*" }    // @note 装不上也不报错
+      }
+
+      npm install --save-exact lodash   // @note 写死版本，不带范围符号
+    baseline: |
+      依赖写在 `package.json` 的四个分区里：`dependencies`（运行时）、
+      `devDependencies`（只开发时用）、`peerDependencies`（**由使用方提供**，
+      插件包常用）、`optionalDependencies`（装不上不影响）。
+      分区本身不改变安装行为，但会影响「别人装我的包时会带上什么」——
+      把构建工具误放进 `dependencies` 是常见的包体膨胀来源。
+    vs:
+      python: |
+        Python 的依赖声明在 `pyproject.toml` 的 `[project]` 里，
+        另有 `optional-dependencies` 分组（按功能分，如 `[dev]`）。
+        两边的分区维度不同：这里是「运行时 / 开发时 / 使用方 / 可选」，
+        Python 更多是「核心 / 按用途分组」。
+      java: |
+        Maven 的依赖写在 `pom.xml` 的 `<dependencies>` 里，用
+        `<scope>` 区分（`compile` / `test` / `provided` / `runtime`）——
+        `provided` 与这里的 `peerDependencies` 意思接近。
+        两边都用一份声明式清单，只是字段名与默认值不同。
+    equivalence:
+      python: analogous
+      java: analogous
+
+  version-constraint:
+    code: |
+      "4.17.21"      // @note 精确
+      "^4.17.21"     // @note! 允许升到 <5.0.0 —— 默认行为，主版本不变
+      "~4.17.21"     // @note 允许升到 <4.18.0 —— 只允许补丁位
+      ">=4.17 <5"    // @note 范围写法
+      "*"            // @note! 任何版本，几乎不该出现
+
+      // @note 语义化版本：主.次.补丁
+      //   主版本 = 破坏性变更；次版本 = 加功能；补丁 = 修 bug
+      // @note! 这只是**约定** —— 打包的人不遵守，范围就保护不了你
+    baseline: |
+      用**语义化版本**加范围符号：默认的 `^` 允许次版本与补丁位自由升级
+      （主版本不变），`~` 只允许补丁位。这是个约定 ——
+      上游不遵守语义化版本时，`^` 就可能悄悄带进破坏性变更。
+      想稳就写精确版本或提交锁文件。
+    vs:
+      python: |
+        两边都是「主.次.补丁」加范围符号，连默认宽松这一点都像
+        （那边的 `~=` 与这里的 `~` 略有差别）。差别在语法与工具链：
+        Python 的范围写在 PEP 440 的规格符里，由 pip / poetry 各自解析。
+      java: |
+        Maven 也用「主.次.补丁」，范围语法是 `[1.0,2.0)` 这种区间写法。
+        共同的问题是**传递依赖的版本冲突**：Maven 取「最近优先」、
+        这里可能装出多份副本，两边的解法都得靠锁文件或依赖管理工具。
+    equivalence:
+      python: analogous
+      java: analogous
+
+  lockfile:
+    code: |
+      // package-lock.json / pnpm-lock.yaml / yarn.lock
+      // @note 记录整棵依赖树的**精确版本 + 完整性哈希**
+      // @note 提交进版本库 —— 保证每台机器装出同一套
+
+      npm ci            // @note! 严格按锁文件装，清单与锁不一致就报错（CI 用它）
+      npm install       // @note 会更新锁文件
+
+      // @note 锁文件不属于清单：清单说的是"我要什么范围"，锁文件说的是"实际装了哪一版"
+    baseline: |
+      锁文件记录整棵依赖树的**精确版本与完整性哈希**，提交进版本库之后，
+      每台机器、每次 CI 都装出完全一样的一套。CI 上应该用 `npm ci`
+      （严格按锁文件、清单与锁不一致直接失败），而不是 `npm install`。
+      清单与锁的分工是：清单表达意图（范围），锁文件固化事实（精确版本）。
+    vs:
+      python: |
+        Python 这边的传统是 `requirements.txt` 直接写精确版本
+        （本身就是一份锁），poetry / uv 则用 `pyproject.toml` 加
+        `poetry.lock` / `uv.lock` 的两层结构 —— 与这里的分工一致。
+        两种做法都常见，取决于用哪个工具。
+      java: |
+        Maven 传统上**没有锁文件**（`pom.xml` 里写什么就是什么，
+        传递依赖靠版本仲裁规则），Gradle 近几年才提供依赖锁定。
+        所以「保证每台机器装出同一套」这件事在 Java 这边历史上要弱一些。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  environment-isolation:
+    code: |
+      // @note 天然隔离：每个项目一份 node_modules
+      my-app/node_modules/
+      other-app/node_modules/
+
+      // @note 所以两个项目用同一个包的不同版本完全没问题
+      // @note 也所以 node_modules 才会那么大 —— 磁盘换隔离
+
+      // 全局装的只有命令行工具：
+      npm install -g typescript
+    baseline: |
+      **隔离是默认的**：每个项目一份 `node_modules`，两个项目用同一个包的不同
+      版本互不干扰。代价是磁盘占用（这也是 pnpm 用硬链接解决的那个问题）。
+      全局安装只用于命令行工具，不该用于项目依赖 —— 那正是「依赖地狱」的来源。
+    vs:
+      python: |
+        Python 这边隔离要**主动做**：全局装是默认行为，多项目共享一个环境，
+        所以要 venv / conda / poetry 把环境隔开。这是从一边换到另一边时
+        最需要改的习惯。
+      java: |
+        Java 用**本地仓库**（`~/.m2` 之类）缓存所有版本，项目按坐标取用 ——
+        「多个版本共存」由仓库与类路径共同决定，而不是靠复制多份。
+        所以它不占额外的项目目录，但也有了「同一个类出现在两个 jar 里」这类问题。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  publishing:
+    code: |
+      npm login
+      npm publish                    // @note 发布到公共仓库
+      npm publish --access public    // @note 作用域包默认私有，要显式公开
+
+      // 用私有源：项目里写 .npmrc
+      //   registry=https://npm.mycorp.com/
+      //   @mycorp:registry=https://npm.mycorp.com/   ← 只让某个作用域走私有源
+
+      npm version patch              // @note 升版本号并打 tag
+      // @note 发布前跑 prepublishOnly 脚本（构建、测试）是常规做法
+    baseline: |
+      发布到公共仓库或私有源。项目里用 `.npmrc` 配置源，而且可以**按作用域**
+      分流（`@mycorp:` 开头的包走内网、其余走公共）—— 这一点在混用内部包与
+      开源包时很实用。`npm version` 顺带升版本号并打 git tag，
+      配合发布前脚本（构建、测试）是常规做法。
+    vs:
+      python: |
+        Python 的发布流程更繁琐：构建发行包（sdist / wheel）、用 twine 上传，
+        私有源靠 `pip.conf` 或环境变量指定 —— 没有「按包前缀分流」这种机制。
+        这里一个 `.npmrc` 就能把内外部包分开。
+      java: |
+        Java 不发「包」而发「构件」（jar 加坐标），上传到 Maven 仓库
+        （Nexus / Artifactory），`settings.xml` 里配置镜像与私有仓库。
+        两边都是「上传到仓库 + 客户端配源」，只是构件的组织方式不同。
+    equivalence:
+      python: divergent
+      java: analogous

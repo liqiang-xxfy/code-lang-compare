@@ -1,0 +1,205 @@
+# java —— practice / packages
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: packages` 的那批。
+# 这一组以 Java 为基准时展示在「构建工具与依赖」章（见 catalog/practice/java.yaml）——
+# 与 toolchain 的边界在那里重划过：编译与类型检查归 toolchain，
+# 依赖与构建配置归这里。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  package-manager:
+    code: |
+      // @note! 依赖由**构建工具**管，不是独立的包管理器
+      //   Maven：pom.xml
+      //   Gradle：build.gradle(.kts)
+      mvn dependency:tree           // @note 看依赖树
+      gradle dependencies
+
+      // 构件从仓库取：本地 ~/.m2 缓存 + 远程仓库（Maven Central / 私服）
+      // 坐标 = groupId : artifactId : version —— 例如
+      //   org.apache.commons:commons-lang3:3.14.0
+    baseline: |
+      依赖由**构建工具**管（Maven 或 Gradle），没有独立的包管理器这一层。
+      构件按**坐标**（`groupId:artifactId:version`）从仓库取，本地有缓存仓库
+      （`~/.m2`），远程有 Maven Central 与私服。所以「换构建工具」
+      基本等于换一套项目结构 —— 这是与前两家最不一样的地方。
+    vs:
+      javascript: |
+        JavaScript 把包管理与构建分开（npm 装东西、Vite 打包），
+        Java 的构建工具两件事一起管。好处是只有一个配置入口，
+        代价是「只想换个包管理器」这件事在这里不存在。
+      python: |
+        Python 的包管理与构建也是分开的（pip / poetry 装，
+        build / hatchling 打发行包），比 Java 轻。但 Python 又有
+        「工具与清单绑定」的问题，两边各有各的碎法。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  dependency-declaration:
+    code: |
+      <!-- Maven：pom.xml -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>3.14.0</version>
+        <scope>test</scope>          // @note compile（默认）/ test / provided / runtime
+      </dependency>
+
+      // Gradle
+      dependencies {
+        implementation("org.apache.commons:commons-lang3:3.14.0")
+        testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+      }
+
+      // @note provided 大致对应「由运行环境提供」（如 servlet API）
+      // @note! 传递依赖：我依赖 A，A 依赖 B —— B 也会进来，冲突要处理
+    baseline: |
+      用坐标声明，`<scope>` 表达「什么时候需要」：`compile`（默认，到处都要）、
+      `test`、`provided`（由运行环境提供）、`runtime`。**传递依赖是默认行为** ——
+      依赖的依赖也会进来，因此版本冲突处理是家常便饭
+      （Maven 取「路径最近优先」，`mvn dependency:tree` 是排查入口）。
+    vs:
+      javascript: |
+        两边的声明都是「名字 + 版本 + 用途」，用途的表达方式不同
+        （这里用 `<scope>`，JavaScript 用分区字段名）。
+        差别在传递依赖的处理：Java 有明确的仲裁规则，
+        JavaScript 可能装出多份副本。
+      python: |
+        Python 的分组是任意命名的（`dev` / `docs`），Java 的 `scope`
+        是固定四个且带语义（尤其 `provided` 与 `runtime` 在 Python 里
+        没有直接对应物）。两边都要处理传递依赖冲突，只是手段不同。
+    equivalence:
+      javascript: analogous
+      python: analogous
+
+  version-constraint:
+    code: |
+      3.14.0              <!-- 精确版本（主流做法） -->
+      [3.14.0,)           <!-- 范围：>= 3.14.0 -->
+      [3.0,4.0)           <!-- 区间：>= 3.0 且 < 4.0 -->
+
+      // @note! 但 Maven 里人们几乎总是写精确版本，而不是靠范围 ——
+      //        因为传递依赖仲裁会让范围的效果变得难以预测
+
+      // Gradle 支持动态版本与富版本约束
+      implementation("com.foo:bar:1.+")
+      implementation("com.foo:bar") { version { strictly("[1.0, 2.0)") } }
+
+      // @note 版本对齐：BOM（导入一份统一版本清单）是多模块项目常用的手法
+    baseline: |
+      语法上支持区间（`[1.0,2.0)`），但**实践里几乎都写精确版本** ——
+      因为传递依赖的仲裁规则会让范围约束的效果变得难以预测。
+      多模块项目常靠 **BOM**（导入一份统一的版本清单）来对齐版本。
+      与别的语言相比，这里更依赖「发布时写死 + 依赖管理工具」，
+      而不是运行时解析范围。
+    vs:
+      javascript: |
+        JavaScript 默认用范围符号（`^`），装的时候才解析出具体版本，
+        锁文件固化结果；Java 习惯直接写死精确版本。
+        两种取向：一个把决定推迟到安装时，一个在声明时就定死。
+      python: |
+        Python 介于两者之间：可以写范围也可以写精确，锁文件负责固化。
+        Java 的 BOM 机制（导入一份版本清单）在另两家没有直接对应物 ——
+        那边靠工作区工具或锁文件达到类似效果。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  lockfile:
+    code: |
+      // @note! Maven **没有锁文件** —— 这是它常被诟病的一点
+      //   pom.xml 里写什么就解析什么，同一份 POM 在不同时间可能拉到不同版本
+      //   缓解手段：写死精确版本、用 BOM、私服代理固定住上游
+
+      // Gradle 提供依赖锁定
+      //   dependencyLocking { lockAllConfigurations() }
+      // 生成 gradle.lockfile，之后按它解析
+
+      mvn versions:display-dependency-updates    // @note 看看有哪些能升
+    baseline: |
+      **Maven 没有锁文件** —— 同一份 POM 在不同时间可能解析出不同版本，
+      「可复现安装」要靠写死精确版本、BOM 与私服代理来间接保证。
+      Gradle 提供了依赖锁定（生成 `gradle.lockfile`），
+      这是近些年才补上的。所以这件事在这门语言的生态里，
+      更多是**流程约束**而不是工具保证。
+    vs:
+      javascript: |
+        JavaScript 从一开始就有锁文件，`npm ci` 严格按锁安装 ——
+        「每台机器装出同一套」是工具保证的。Java 这边要靠纪律与私服。
+        这是两家在工程实践上最实在的一个差距。
+      python: |
+        现代 Python 工具（poetry / uv）都有锁文件，传统
+        `requirements.txt` 写精确版本时也相当于锁。Java 的 Maven
+        连这个传统都没有，只能靠写死加代理。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  environment-isolation:
+    code: |
+      // @note 没有「每个项目一份依赖」这回事 —— 用**本地仓库**缓存
+      //   ~/.m2/repository/org/apache/commons/commons-lang3/3.14.0/...
+      // 所有项目共享这个仓库，按坐标取用；不同版本**并存**（各占一个目录）
+
+      // 隔离靠类路径：运行时 classpath 上放哪些 jar，就是那个项目的依赖
+      java -cp "out:lib/*" com.example.Main
+
+      // @note! 因此有了「同一个类出现在两个 jar 里」这个问题 ——
+      //        谁先生效取决于 classpath 顺序（jar hell）
+      mvn dependency:tree        // @note 排查冲突的入口
+    baseline: |
+      **没有「每个项目一份依赖」这回事**：所有项目共享一个本地仓库
+      （`~/.m2`），不同版本按坐标各占一个目录、可以并存。
+      隔离靠类路径 —— 运行时 classpath 上放哪些 jar 就是那个项目的依赖。
+      因此这边的经典问题是 **jar hell**：同一个类出现在两个 jar 里，
+      谁先生效取决于顺序。`dependency:tree` 是排查入口。
+    vs:
+      javascript: |
+        JavaScript 每个项目一份 `node_modules`（磁盘换隔离），
+        Java 共享一个本地仓库（省磁盘、但引出 jar hell）。
+        两种取舍各有代价，Java 这边更依赖工具去分析依赖树。
+      python: |
+        Python 也要主动建虚拟环境，但环境之间是彻底分开的目录；
+        Java 的共享仓库加类路径机制更接近「运行时动态拼装」，
+        因此有 jar 版本冲突这类问题。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  publishing:
+    code: |
+      mvn deploy                       // @note 发布到 <distributionManagement> 指定的仓库
+      gradle publish
+
+      // 坐标即身份：group.artifact:version 全局唯一，不可变（同版本不可覆盖）
+      // 私服（Nexus / Artifactory）通常代理 Maven Central 并托管内部构件：
+      //   ~/.m2/settings.xml 里配 <mirror> 与 <server>
+
+      // @note! 「发布后不可变」是这套体系的硬约束 —— 发错了只能发新版本
+      // @note 签名（GPG）是发布到 Central 的必需步骤
+    baseline: |
+      用 `mvn deploy` / `gradle publish` 发布到 `distributionManagement`
+      指定的仓库，私服（Nexus / Artifactory）通常既代理公共仓库又托管内部构件，
+      客户端在 `settings.xml` 里配镜像。一条硬约束要记住：
+      **坐标发布后不可变**（同一版本不能覆盖），发错了只能升版本重发 ——
+      发到 Maven Central 还要求 GPG 签名。
+    vs:
+      javascript: |
+        JavaScript 理论上允许覆盖已发布版本（虽然社区反对），
+        Java 从机制上就不允许。两边的私服都能代理公共源，
+        但 Java 的「坐标不可变」让版本号更值得认真对待。
+      python: |
+        两边的流程相近（构建构件、上传仓库、配私有源）。
+        差别在标识：Java 用三段坐标、Python 用包名加版本 ——
+        名字的唯一性由仓库保证的方式不同。
+    equivalence:
+      javascript: divergent
+      python: analogous
