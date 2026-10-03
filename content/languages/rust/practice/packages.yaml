@@ -1,0 +1,279 @@
+# rust —— practice / packages
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: packages` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  package-manager:
+    code: |
+      // @note Cargo.toml 用 # 注释，这里用 // 是为了让注记可被抽取
+      // @note 建项目（默认带 git 与 Cargo.toml）
+      cargo new myapp
+      // @note 加依赖，自动改 Cargo.toml
+      cargo add serde
+      cargo build
+      cargo run
+      cargo test
+      // @note 更新依赖版本
+      cargo update
+
+      // Cargo 同时是构建工具、依赖管理器、测试运行器与发布工具
+      // @note! 没有第二个选择 —— 官方只此一个，社区也不做替代品
+
+      // 工作区：一个仓库多个 crate
+      //   [workspace]
+      //   members = ["core", "cli"]
+    vs:
+      javascript: |
+        npm 之外 JavaScript 还有 yarn / pnpm / bun 可选，构建另有 webpack / vite；
+        Rust 只有 **Cargo** 一个 —— 依赖、构建、测试、格式化入口、发布
+        全在 `cargo` 一条命令树下。好处是任何 Rust 项目都能用同一套命令跑起来，
+        不必先读 README 判断用的是哪个包管理器；
+        代价是没有竞争带来的演化压力。
+      python: |
+        Python 的生态是分裂的：pip / poetry / uv / conda 各管一摊，
+        构建另有 setuptools / hatchling。Rust 只有 Cargo，
+        而且它**同时**负责依赖、构建、测试、文档（`cargo doc`）与发布。
+        从 Python 过来最明显的感受是「不用先做技术选型」——
+        一个 `cargo test` 在哪个 Rust 项目里都是同一个意思。
+      java: |
+        Java 有 Maven 与 Gradle 两大阵营，构建脚本本身还要学一套 DSL；
+        Rust 的 Cargo 用 TOML 声明、几乎没有脚本能力（要自定义构建
+        得写 `build.rs`）。好处是 `Cargo.toml` 是纯数据、
+        一眼能读懂；代价是遇到非标准需求时比 Gradle 笨拙。
+        两边都是「一个项目一个清单文件」，但 Rust 只有一个选择。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  dependency-declaration:
+    code: |
+      // Cargo.toml（真实的注释符是 #）
+      // @note 版本 + 特性开关：features 决定这个库的哪些部分参与编译
+      // @note! 结构体声明在下面，依赖项写在 [dependencies] 段
+      //   [package]
+      //   name = "myapp"
+      //   version = "0.1.0"
+      //   edition = "2021"
+      //
+      //   [dependencies]
+      //   serde = { version = "1", features = ["derive"] }
+      //   tokio = { version = "1", features = ["full"] }
+      //   anyhow = "1"
+      //
+      // @note dev-dependencies 只给测试与示例用，不进最终产物
+      //   [dev-dependencies]
+      //   pretty_assertions = "1"
+      //
+      // @note 按平台条件依赖
+      //   [target.'cfg(windows)'.dependencies]
+      //   winapi = "0.3"
+    vs:
+      javascript: |
+        两边都是「一个清单文件列出依赖」，但 Rust 多一个 **feature 开关**：
+        同一个库可以只编译你用到的功能（`features = ["derive"]`），
+        这会实际影响编译产物大小与编译时间。npm 里没有等价机制
+        （tree-shaking 是打包器的事、且不改变依赖本身的代码）。
+        另一处差别是 dev-dependencies：Rust 在清单里明确分区，
+        npm 用 `devDependencies` 也是分区的，这点两边一致。
+      python: |
+        Rust 的依赖分区（`[dependencies]` / `[dev-dependencies]`）
+        比 Python 清晰 —— Python 里测试依赖通常靠 extras
+        （`pip install .[test]`）或单独文件表达。
+        Rust 的 **feature 开关**是 Python 没有的：不用的功能不编译，
+        直接省掉编译时间与体积；Python 里 `pip install` 装的是整个包。
+        另一个共同点是版本都写语义化版本号，但解析规则不同（见下一格）。
+      java: |
+        Maven 的 `<dependency>` 与 Cargo 的依赖项对应，
+        scope（`test` / `provided`）对应 dev-dependencies。
+        Rust 独有 feature 开关 —— Maven 里没有「只编译这个库的一部分」
+        这种能力，引入一个依赖就是全部引入。
+        条件依赖上两边都有：Maven 用 profile，Cargo 用
+        `[target.'cfg(...)'.dependencies]`。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  version-constraint:
+    code: |
+      // Rust 用语义化版本，且**默认按兼容性解释**（下面是版本约束的写法）
+      // @note "1" 等价于 ^1，即 >=1.0.0, <2.0.0
+      //   serde = "1"
+      // @note "1.0.150" 等价于 >=1.0.150, <2.0.0
+      //   serde = "1.0.150"
+      // @note 显式写插入符
+      //   serde = "^1.2"
+      // @note 只允许补丁位变化：>=1.2.0, <1.3.0
+      //   serde = "~1.2"
+      // @note 锁定精确版本
+      //   serde = "=1.2.3"
+      // @note! "*" 是任意版本 —— 实践中不该用
+      //   serde = "*"
+
+      // 版本解析结果是「所有约束的交集里选最高版本」
+    vs:
+      javascript: |
+        npm 的 `"^1.2.3"` 与 Cargo 的 `"1.2.3"` 含义相同（都允许次版本升级），
+        但 Cargo 允许**省略**插入符 —— `serde = "1"` 就是 `^1`。
+        JavaScript 里 `"1"` 是精确版本，写成这样反而更严。
+        另一处差别是 0.x：两边都把 0.x 当不稳定，但 Cargo 的
+        `0.2.3` 等价于 `>=0.2.3, <0.3.0`（次版本视为破坏性），
+        npm 的 `^0.2.3` 也是同样规则，这一点一致。
+      python: |
+        Python 的版本约束写在 `requirements.txt` 或 `pyproject.toml` 里，
+        `>=1.2,<2` 这样的区间更啰嗦；Rust 用一行 `"1"` 就表达完了。
+        Python 生态里 `~=` 是「兼容版本」运算符，`==` 是精确锁定 ——
+        语义划分与 Rust 的 `^` / `~` / `=` 类似但记法不同。
+        共同点是都遵循语义化版本，解析结果都取满足条件的最高版本。
+      java: |
+        Maven 的版本范围写法是 `[1.0,2.0)` —— 数学区间记法，
+        比 Rust 的 `"1"` 啰嗦得多；Gradle 支持 `1.+` 这种写法更接近。
+        解析规则差别最大：Maven 用「最近优先」的仲裁（谁在依赖树里更近用谁），
+        Cargo 与 npm 用「所有约束的交集里取最高」——
+        后者更可预测，不会因为依赖树形状改变而换版本。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  lockfile:
+    code: |
+      // Cargo.lock —— 由 cargo 自动生成/更新，**二进制项目应当入库**
+      // 库项目通常不入库（让下游自己解析）
+      //
+      // @note lock 里每条都带校验和，内容被篡改会失败
+      //   [[package]]
+      //   name = "serde"
+      //   version = "1.0.197"
+      //   checksum = "abc123…"
+
+      // @note 全部依赖升到约束内最新，并重写 lock
+      cargo update
+      // @note 只升一个
+      cargo update -p serde
+      // @note! 严格按 lock 构建，lock 与清单不一致就直接报错
+      cargo build --locked
+
+      // CI 里惯用 --locked / --frozen 保证可复现
+    vs:
+      javascript: |
+        两边的锁文件作用相同（钉死整棵依赖树的精确版本），但**处置惯例相反**：
+        npm 的 `package-lock.json` 一律入库；Cargo 的 `Cargo.lock`
+        二进制项目入库、**库项目通常不入库**。
+        另一处差别是 `--locked` 这种「不一致就报错」的模式 ——
+        npm 有 `npm ci`（必须按 lock 装），思路一致。
+        Cargo.lock 还带校验和，能发现源被替换。
+      python: |
+        Python 的锁文件不是标准的一部分 —— `requirements.txt` 可以当锁用
+        （`pip freeze` 生成，带 `==` 精确版本），poetry 有 `poetry.lock`、
+        uv 有 `uv.lock`。Cargo 的 `Cargo.lock` 是工具内建、
+        格式与校验和都由官方定义，不存在「用哪个锁文件」这个问题。
+        两边都靠校验和防篡改，Python 的靠 hash 选项，但默认不开。
+      java: |
+        Maven 没有官方锁文件 —— 依赖版本由依赖树仲裁实时决定，
+        想复现要靠 `mvn dependency:tree` 排查或插件。
+        Gradle 有 dependency locking 但默认关闭。Cargo 与 npm 一样
+        默认生成锁文件，且带校验和 ——
+        这让「今天能构建、明天构建不出来」在 Rust 里基本不会发生。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  environment-isolation:
+    code: |
+      // Rust 没有虚拟环境 —— 依赖装在用户级共享缓存里，按 crate + 版本隔离
+      // @note ~/.cargo/registry/ 是全局缓存，所有项目共享同一份
+
+      // 项目之间天然不冲突：不同版本可以并存（各自解析各自的 lock）
+      // 构建产物在项目内的 target/ 目录
+
+      // 需要指定工具链版本时用 rustup
+      rustup toolchain install 1.75
+      // @note 只对当前目录生效
+      rustup override set 1.75
+      // 或用 rust-toolchain.toml 把版本写进仓库
+
+      // @note! 不存在「先激活环境再工作」这一步 —— 进目录就能编译
+    vs:
+      javascript: |
+        JavaScript 用 `node_modules` 做项目级隔离 —— 每个项目一份
+        （或 pnpm 用硬链接共享）。Rust 的依赖装在**用户级全局缓存**里、
+        按名字加版本寻址，项目之间靠锁文件解析出各自要的版本，
+        磁盘上只有一份。所以 Rust 没有「删掉 node_modules 重装」
+        这个日常动作，也没有「装了两份同一个包」的浪费。
+      python: |
+        Python 的虚拟环境是为了解决「全局只能装一个版本」——
+        Rust 从设计上就没有这个问题：全局缓存按版本寻址，
+        不同项目可以同时用 serde 1.0.100 与 1.0.200，
+        而且不需要激活任何环境。从 Python 过来最直观的差别是：
+        没有 `source venv/bin/activate` 这一步，
+        `cd` 进项目就能 `cargo build`。
+      java: |
+        Java 用 Maven 的本地仓库（`~/.m2`）做全局缓存，
+        这一点与 Cargo 最接近 —— 都是全局按坐标寻址、项目间共享。
+        差别在版本冲突的处理：Maven 在依赖树仲裁时**只能选一个版本**
+        （最近优先），Cargo 可以按 crate 分别解析（不同 crate 用不同版本的
+        同一个依赖是正常的）。所以 Java 里要处理「依赖冲突」，
+        Rust 里这个问题基本不存在。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  publishing:
+    code: |
+      // @note 存 token
+      cargo login
+      // @note 发布到 crates.io
+      cargo publish
+      // @note 先验证一遍，不上传
+      cargo publish --dry-run
+
+      // 版本号一旦发布就**永久占用**，不能覆盖、不能删除（只能 yank）
+      // @note 撤回：新项目解析不到，已有 lock 仍可用
+      cargo yank --version 1.0.1
+
+      // 准备清单：Cargo.toml 里的 description / license / repository 是必填的
+      // 也可以只做内部包，用 git 依赖或私有 registry：
+      //   mylib = { git = "https://github.com/me/mylib", tag = "v1.0" }
+    vs:
+      javascript: |
+        两边都是「向中央仓库发布、版本不可覆盖」，但 Rust 的约束更硬：
+        crates.io 上的版本号**永久占用**，删不掉，只能 `yank`（撤回）——
+        npm 允许在 72 小时内 unpublish，之后受限但仍有例外。
+        另一处差别是私有分发的默认做法：npm 靠私有 registry 或
+        `file:` 依赖；Rust 更常用 **git 依赖**（直接指向仓库与 tag），
+        因为 Cargo 原生支持，不需要私有仓库服务。
+      python: |
+        Python 的发布产物是 wheel/sdist（要先构建），
+        Cargo 发布的是源码包、由 crates.io 构建与校验。
+        版本不可变这一点两边都有（PyPI 也不允许覆盖同名版本，
+        只能 yank），但 Rust 的 `cargo publish` 会先做一次本地校验
+        （`--dry-run`），PyPI 靠 twine check。
+        私有分发上 Rust 的 git 依赖是原生能力，Python 里对应的是
+        `pip install git+https://…`，也能用但更少见。
+      java: |
+        Java 的发布走 Maven Central（Sonatype），流程复杂得多：
+        要 GPG 签名、要 staging 仓库、要人工确认。
+        Rust 的 `cargo publish` 一条命令就完成，
+        门槛低是 crates.io 生态活跃的原因之一。
+        版本不可变两边都有；撤回上 Maven Central 不允许删除，
+        Rust 的 `yank` 也只是让新解析避开、旧 lock 仍能用。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

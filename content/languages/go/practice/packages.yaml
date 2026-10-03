@@ -1,0 +1,258 @@
+# go —— practice / packages
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: packages` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  package-manager:
+    code: |
+      // @note 初始化 module
+      go mod init github.com/me/myapp
+      // @note 加依赖
+      go get github.com/lib/pq@v1.10.9
+      // @note 清理未用依赖、补齐缺失的
+      go mod tidy
+      go build ./...
+      go test ./...
+
+      // @note! 包管理器就是 go 命令本身 —— 没有独立的工具，也没有版本要选
+      // 标准库自带 HTTP、JSON、测试、加密等，很多项目零依赖
+    vs:
+      javascript: |
+        JavaScript 的包管理与构建是两套工具（npm + webpack/vite），
+        而且各有多个替代品；Go 只有 `go` 一条命令 ——
+        依赖、构建、测试、格式化全在里面，**没有版本可选**。
+        另一处实际差别是标准库的分量：Go 的 net/http、encoding/json、
+        testing 都在标准库里，很多服务零第三方依赖；
+        JavaScript 里连发个 HTTP 请求都要挑库（axios / fetch / undici）。
+      python: |
+        Python 要选 pip / poetry / uv，构建要选 setuptools / hatchling；
+        Go 用 `go` 命令本身就够了 —— `go mod` 管依赖、
+        `go build` / `go test` 管构建测试，不需要额外安装任何东西
+        （装完 Go 就全有了）。从 Python 过来最不适应的是
+        「没有虚拟环境、没有 requirements.txt 的多种写法」，
+        清单就是 `go.mod` 一个文件。
+      java: |
+        Java 要选 Maven 或 Gradle，还要装 JDK 之外的东西才能舒服地开发；
+        Go 的工具链是**自带的**：格式化、测试、文档、静态检查
+        （`go vet`）都在 `go` 命令里，装完即用。
+        另一处差别是标准库：Java 的集合、HTTP 客户端在标准库里有，
+        但 JSON、日志等通常还是引入库；Go 的 JSON 在标准库里。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  dependency-declaration:
+    code: |
+      // go.mod
+      module github.com/me/myapp
+
+      go 1.23                        // @note 语言版本要求
+
+      require (
+        github.com/lib/pq v1.10.9    // @note 直接依赖
+        golang.org/x/text v0.14.0
+      )
+
+      require (
+        github.com/some/indirect v1.2.3 // @note! 间接依赖也会列出来，标 // indirect
+      )
+
+      // 在代码里 import 就是声明依赖 —— go mod tidy 会自动同步 go.mod
+      import "github.com/lib/pq"
+    vs:
+      javascript: |
+        JavaScript 要**显式**在 `package.json` 里写依赖，然后代码里 import；
+        Go 反过来 —— 代码里 `import` 是唯一的声明，
+        `go mod tidy` 根据实际 import 自动增删 `go.mod`。
+        所以 Go 项目里不存在「装了但没用」或「用了但没声明」这种状态。
+        另一处差别是间接依赖也会列在 go.mod 里（标 `// indirect`），
+        而 npm 只在 lock 文件里展开整棵树。
+      python: |
+        Python 要在 `requirements.txt` / `pyproject.toml` 里声明，
+        代码里 import 只是使用；Go 里 `import` **就是**声明，
+        `go mod tidy` 会把清单同步成代码实际需要的样子。
+        这意味着 Python 里常见的「requirements 与实际 import 不一致」
+        在 Go 里不会发生。代价是 import 路径必须写完整（含仓库地址），
+        不能像 Python 那样写个短名字。
+      java: |
+        Java 在 `pom.xml` / `build.gradle` 里声明依赖、代码里 import 类名；
+        Go 用代码里的 import 反向推导 go.mod —— 清单是**结果**不是输入。
+        这消掉了 Java 项目里常见的一类问题：清单里有但没人用的依赖
+        （Maven 要 `dependency:analyze` 才查得出来）。
+        另一处差别是 Go 的 import 路径就是仓库地址，
+        Java 是 groupId + artifactId 的坐标。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  version-constraint:
+    code: |
+      // go.mod 里写的是**最低版本**，不是范围
+      require github.com/lib/pq v1.10.9
+
+      // 选择规则：MVS（最小版本选择）——
+      // 所有依赖要求的版本里取**最高的那个最低要求**
+      // @note 关键：go.mod 里的版本是下限，构建时不会自动升到最新
+
+      go get github.com/lib/pq@latest     // @note 显式升级
+      go get github.com/lib/pq@v1.10.9    // @note 降到指定版本
+
+      // 主版本号 ≥2 要写进路径
+      // require github.com/foo/bar/v2 v2.1.0   // @note! /v2 是路径的一部分
+    vs:
+      javascript: |
+        npm 的 `"^1.2.3"` 是个**范围**，装的时候取满足条件的最高版本；
+        Go 的 `v1.10.9` 是**下限**，构建时严格用这个版本，
+        除非有人显式 `go get -u`。所以 Go 项目不会因为
+        「依赖发了新版」而在某天构建出不同的结果 ——
+        这对可复现性是决定性的差别。
+        另一处 Go 独有的是主版本进路径（`/v2`），
+        这让 v1 与 v2 可以同时存在于依赖树里。
+      python: |
+        Python 的 `>=1.2,<2` 是范围，安装时取最新的满足者；
+        Go 的版本号是**下限**，且默认不自动升级 ——
+        想让依赖前进必须显式执行 `go get`。这比 pip 的
+        「今天装和明天装可能不一样」稳定得多，
+        也让 `go.mod` 本身就记录了实际使用的版本。
+        主版本 ≥2 要写进 import 路径是 Go 独有的约定，
+        Python 里 `import foo` 与包版本无关。
+      java: |
+        Maven 的版本是精确值，但**依赖树仲裁**会在多个版本间挑一个
+        （最近优先），所以实际用到的可能不是你写的那个；
+        Go 的 MVS 规则是「取所有约束里最高的最低要求」，
+        结果完全由依赖图决定、可预测。
+        另一处差别是 Go 把主版本写进路径（`/v2`），
+        于是两个大版本可以共存；Java 里同一个 groupId+artifactId
+        只能有一个版本胜出，这正是「依赖冲突」的来源。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lockfile:
+    code: |
+      // go.sum —— 记录每个模块的校验和（内容哈希），**必须入库**
+      // github.com/lib/pq v1.10.9 h1:abc123…
+      // github.com/lib/pq v1.10.9/go.mod h1:def456…
+
+      // @note 注意：go.sum 不是「锁版本」用的 —— 版本已经钉在 go.mod 里，
+      // go.sum 只负责校验「下载到的内容与上次一致」
+
+      go mod verify        // @note 校验本地缓存的内容
+      GOFLAGS=-mod=readonly go build   // @note 默认行为：不允许自动改 go.mod
+    vs:
+      javascript: |
+        两边都有校验和，但**职责划分完全不同**：
+        npm 的 `package-lock.json` 既锁定整棵依赖树的精确版本、
+        又记校验和；Go 的版本钉在 `go.mod` 里、
+        `go.sum` **只**记校验和。所以 Go 里不存在
+        「清单写 ^1.0、实际装 1.2.3」这种需要靠 lock 才能复现的情况 ——
+        `go.mod` 本身就精确。
+        另一处差别是 `go.sum` 会记录间接依赖的哈希，内容更全。
+      python: |
+        Python 的锁定要靠 `requirements.txt` 里的 `==` 或者
+        poetry/uv 的锁文件；Go 的版本本来就是精确的（写在下限里），
+        `go.sum` 只承担校验和职责。所以 Go 项目里
+        「复制 go.mod + go.sum 就能复现构建」是默认成立的，
+        Python 里要先确认项目用的是哪套锁定方案。
+      java: |
+        Maven 没有锁文件也没有校验和 —— 依赖内容被替换（比如
+        仓库被投毒）不会有人发现；Go 的 `go.sum` 会校验每个模块的内容，
+        不一致就构建失败。Gradle 有 dependency verification 但默认关闭。
+        这是 Go 在供应链安全上比传统 JVM 工具链更靠前的一处。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  environment-isolation:
+    code: |
+      // Go 没有虚拟环境 —— 依赖下载到全局模块缓存，按版本并存
+      // $GOPATH/pkg/mod/github.com/lib/pq@v1.10.9/
+
+      go clean -modcache       // @note 清空整个模块缓存（很少需要）
+
+      // 项目之间天然隔离：各自的 go.mod 决定用哪个版本，
+      // 缓存里可以同时存在同一个库的多个版本
+      // @note! 不需要安装、不需要激活 —— clone 下来就能 go build
+
+      // 工具链版本由 go.mod 的 go 指令与 toolchain 指令表达
+    vs:
+      javascript: |
+        JavaScript 用 `node_modules` 做项目级隔离，每个项目一份；
+        Go 把依赖放在**全局模块缓存**里按版本寻址，项目只记版本号 ——
+        磁盘上同一个版本只有一份。所以 Go 里没有
+        `rm -rf node_modules && npm install` 这个仪式，
+        也没有 pnpm 那种「用硬链接省空间」的动机（本来就共享）。
+      python: |
+        Python 的虚拟环境解决「全局只能装一个版本」；
+        Go 的全局缓存**按版本寻址**，天然可以并存，
+        不需要激活任何环境。从 Python 过来最直接的差别是：
+        没有 `venv`、没有 `activate`、没有 `requirements.txt`，
+        clone 一个 Go 仓库直接 `go build` 就行。
+        代价是依赖缓存全在用户目录、由 go 命令统一管理，不能手工干预。
+      java: |
+        Java 的 `~/.m2` 本地仓库也是全局按坐标缓存，与 Go 的模块缓存最接近；
+        但 Maven 一个坐标只能有一个版本胜出（依赖仲裁），
+        而 Go 的缓存里同一模块的多个版本可以并存、
+        各项目按自己的 go.mod 取用。
+        两边都不需要在工作前「激活」任何东西 —— 进目录就能构建，
+        这一点比虚拟环境式的隔离省事得多。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  publishing:
+    code: |
+      // Go **没有中央包仓库** —— 发布就是打一个 git tag
+      git tag v1.2.3
+      git push origin v1.2.3
+      // @note 之后任何人 go get github.com/me/mylib@v1.2.3 都能拿到
+
+      // 模块代理（默认 proxy.golang.org）负责缓存与校验，
+      // 但真相源是你的代码仓库
+
+      // 私有模块：直接配 GOPRIVATE
+      // go env -w GOPRIVATE=github.com/mycompany/*
+
+      // 主版本 ≥2 时 tag 要写 v2.0.0，且模块路径要以 /v2 结尾
+    vs:
+      javascript: |
+        npm 发布是「上传到中央仓库并占住版本号」；
+        Go **没有中央仓库** —— 发布就是给 git 打个 tag，
+        导入路径本身就是仓库地址。所以 Go 里不存在
+        「包名被抢注」或「包被下架」的问题，也不存在
+        发布被审核阻塞的情况。代价是没有统一的发现渠道
+        （搜索靠 pkg.go.dev 这种索引站），也没有「下架」这个动作。
+      python: |
+        Python 要构建 wheel/sdist 再上传到 PyPI，占住版本号；
+        Go 打 tag 就等于发布，没有构建产物、没有上传步骤。
+        这让 Go 的发布极其轻 —— 一次 `git push --tags` 就够了。
+        反面是撤回困难：Go 可以 `go mod retract` 在 go.mod 里声明撤回，
+        但代码仍在仓库里；PyPI 与 npm 至少能 yank 掉。
+      java: |
+        Java 发布到 Maven Central 要走 Sonatype、GPG 签名、
+        staging 审核，是几门语言里最重的流程；
+        Go 打 tag 即发布，几乎没有门槛。
+        私有分发上两边都很方便：Go 用 `GOPRIVATE` 直接拉私有仓库，
+        Java 用公司内部 Nexus/Artifactory ——
+        但 Go 不需要额外服务，这是它更轻的一点。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
