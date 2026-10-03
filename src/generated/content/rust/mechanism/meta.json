@@ -1,0 +1,93 @@
+{
+  "lang": "rust",
+  "section": "mechanism",
+  "group": "meta",
+  "boxes": {
+    "reflection": {
+      "lang": "rust",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Rust <strong>没有运行时反射</strong> —— 拿不到一个值的类型名、列不出它的字段、\n也调不了它的方法。能做宏（编译期）与 <code>dyn Any</code> 那点有限的类型判断。\nJavaScript 里 <code>Object.keys</code> / <code>typeof</code> / <code>for…in</code> 随手可得，\nRust 里这些能力在编译期被宏与 trait 取代了：\n需要「遍历字段」的场合（序列化、调试输出）都靠\n<code>#[derive(Serialize)]</code> 这种宏展开成具体代码。</p>\n",
+        "python": "<p>Rust <strong>没有运行时反射</strong>，<code>getattr</code> / <code>dir</code> / <code>type()</code> 都没有对应物。\n取而代之的是<strong>编译期宏</strong>：<code>#[derive(Debug)]</code> 在编译时生成\n「打印所有字段」的代码，<code>#[derive(Serialize)]</code> 生成序列化逻辑 ——\n效果相似，但代价在编译期而不是运行期，产物里没有任何类型元数据。\n所以 Rust 里「动态地按名字取字段」这件事做不到。</p>\n",
+        "java": "<p>Rust <strong>没有运行时反射</strong> —— 没有 <code>Class</code>、没有 <code>getDeclaredFields</code>、\n没有 <code>Method.invoke</code>。Java 的反射能在运行时发现并调用任意方法，\nRust 里这些工作在编译期由宏完成（<code>derive</code> 展开成具体代码）。\n两个直接后果：Rust 产物里不带类型元数据（体积小、\n也没有反射带来的安全面），但「插件式按名字加载」这类设计\n在 Rust 里要显式写 trait 对象与注册表。</p>\n"
+      }
+    },
+    "decorator-annotation": {
+      "lang": "rust",
+      "code": "#[derive(Debug, Clone, PartialEq)]        // ⚠ derive 宏：编译期生成实现\nstruct User { id: u64, name: String }\n\n#[inline]                                  // 提示内联\nfn fast() {}\n\n#[cfg(test)]                               // 条件编译：只在测试构建里存在\nmod tests { }\n\n#[serde(rename_all = \"camelCase\")]         // 属性宏：由库提供，可带参数\nstruct Config { retry_count: u32 }\n\n// 过程宏的三种形态：derive / 属性宏 / 函数式宏\n// 都在**编译期**展开成代码 —— 运行时不产生任何额外开销",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[derive(</span><span style=\"color:var(--shiki-token-function)\">Debug</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">Clone</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">PartialEq</span><span style=\"color:var(--shiki-foreground)\">)]        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ derive 宏：编译期生成实现</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\"> { id</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> u64</span><span style=\"color:var(--shiki-foreground)\">, name</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> String</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[inline]                                  </span><span style=\"color:var(--shiki-token-comment)\">// 提示内联</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> fast</span><span style=\"color:var(--shiki-foreground)\">() {}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[cfg(test)]                               </span><span style=\"color:var(--shiki-token-comment)\">// 条件编译：只在测试构建里存在</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">mod</span><span style=\"color:var(--shiki-foreground)\"> tests { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[serde(rename_all </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"camelCase\"</span><span style=\"color:var(--shiki-foreground)\">)]         </span><span style=\"color:var(--shiki-token-comment)\">// 属性宏：由库提供，可带参数</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> Config</span><span style=\"color:var(--shiki-foreground)\"> { retry_count</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> u32</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 过程宏的三种形态：derive / 属性宏 / 函数式宏</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 都在**编译期**展开成代码 —— 运行时不产生任何额外开销</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 1,
+          "text": "derive 宏：编译期生成实现",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的装饰器（<code>@decorator</code>）在<strong>运行时</strong>执行，\n函数被包一层，调用时多一跳；Rust 的 <code>#[derive(…)]</code>\n在<strong>编译期</strong>展开成实现代码，运行时没有痕迹、没有开销。\n语法上的相似（都有 <code>@</code> 或 <code>#[…]</code>）很容易让人误以为是同一件东西，\n实际上一个是运行时元编程，一个是编译期代码生成。</p>\n",
+        "python": "<p>Python 的装饰器是运行时的高阶函数（<code>@decorator</code> 把函数传进去再返回新的），\n每个调用都有额外开销；Rust 的 <code>#[derive]</code> / 属性宏在编译期展开，\n运行时零成本。另外 Rust 的属性还能做<strong>条件编译</strong>（<code>#[cfg(test)]</code>），\n这在 Python 里没有对应物 —— 测试代码在 Python 里永远会被打包。</p>\n",
+        "java": "<p>Java 的注解本身没有行为，要靠运行时反射（或注解处理器）\n去读并做事，所以「注解生效」通常意味着运行时扫描；\nRust 的属性宏<strong>在编译期就展开成代码</strong>，运行时什么都不剩。\n形态上 Java 的 <code>@Override</code> / <code>@Deprecated</code> 更接近 Rust 的\n内建属性（<code>#[inline]</code> / <code>#[cfg]</code>），而 <code>@Entity</code> 那种\n需要框架扫描的注解，在 Rust 里对应的是\n「写一个 derive 宏，把代码生成出来」。</p>\n"
+      }
+    },
+    "dynamic-eval": {
+      "lang": "rust",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Rust <strong>没有 <code>eval</code></strong>，也没有任何在运行时执行字符串代码的手段。\n编译单位是静态的 crate，代码在编译期全部确定。\nJavaScript 的 <code>eval</code> / <code>new Function</code> 早就是安全与性能上的禁忌，\nRust 干脆不支持 —— 想「运行时可配置的逻辑」，\n得设计一个数据格式或嵌入一个解释器（如 rhai、lua）。</p>\n",
+        "python": "<p>Rust <strong>没有 <code>eval</code> / <code>exec</code></strong>，运行时无法执行字符串代码。\nPython 里 <code>eval</code> 是危险但常用的能力（配置化、DSL、快速原型），\nRust 里要替代它只能引入嵌入式脚本引擎或自己写解释器。\n这也是 Rust 里宏之所以重要的原因之一：\n它们提供了一部分「生成代码」的能力，但全部发生在编译期。</p>\n",
+        "java": "<p>Rust <strong>没有 <code>eval</code></strong> —— 与 Java 一样，语言层面都不提供运行时求值。\nJava 里最接近的是运行时编译（<code>javax.tools.JavaCompiler</code>）\n或脚本引擎（JSR-223），都需要额外机制；\nRust 里对应的做法是嵌入一个脚本引擎。两边都把\n「运行时代码生成」排除在语言之外，要动态逻辑就得自己背这个包袱。</p>\n"
+      }
+    },
+    "proxy-interception": {
+      "lang": "rust",
+      "code": "use std::ops::{Deref, Index};\n\n// Rust 没有通用的属性拦截，但**运算符与解引用**可以自定义\nstruct Wrapper(Vec<i32>);\n\nimpl Deref for Wrapper {                  // . 访问被转发到内部字段\n  type Target = Vec<i32>;\n  fn deref(&self) -> &Vec<i32> { &self.0 }\n}\n\nimpl Index<usize> for Wrapper {           // 拦截 [] 取值\n  type Output = i32;\n  fn index(&self, i: usize) -> &i32 { &self.0[i] }\n}\n\nlet w = Wrapper(vec![1, 2, 3]);\nprintln!(\"{}\", w.len());                  // 通过 Deref 调到 Vec 的方法\nprintln!(\"{}\", w[0]);\n\n// 想要「访问属性时执行逻辑」，只能写成方法（`w.get(0)`），\n// 或者用 RefCell / Mutex 把内部可变性显式化",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">ops</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">{</span><span style=\"color:var(--shiki-token-function)\">Deref</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">Index</span><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 没有通用的属性拦截，但**运算符与解引用**可以自定义</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> Wrapper</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">Vec</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-foreground)\">>);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">impl</span><span style=\"color:var(--shiki-token-function)\"> Deref</span><span style=\"color:var(--shiki-token-keyword)\"> for</span><span style=\"color:var(--shiki-token-function)\"> Wrapper</span><span style=\"color:var(--shiki-foreground)\"> {                  </span><span style=\"color:var(--shiki-token-comment)\">// . 访问被转发到内部字段</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  type</span><span style=\"color:var(--shiki-token-function)\"> Target</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-function)\"> Vec</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-foreground)\">>;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  fn</span><span style=\"color:var(--shiki-token-function)\"> deref</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\">self) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-function)\">Vec</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-foreground)\">> { </span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\">self</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">impl</span><span style=\"color:var(--shiki-token-function)\"> Index</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">usize</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-token-function)\"> Wrapper</span><span style=\"color:var(--shiki-foreground)\"> {           </span><span style=\"color:var(--shiki-token-comment)\">// 拦截 [] 取值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  type</span><span style=\"color:var(--shiki-token-function)\"> Output</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-function)\"> i32</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  fn</span><span style=\"color:var(--shiki-token-function)\"> index</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\">self, i</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> usize</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\">self</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">[i] }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> w </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Wrapper</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">vec!</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\">]);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">println!</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"{}\"</span><span style=\"color:var(--shiki-foreground)\">, w</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-foreground)\">());                  </span><span style=\"color:var(--shiki-token-comment)\">// 通过 Deref 调到 Vec 的方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">println!</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"{}\"</span><span style=\"color:var(--shiki-foreground)\">, w[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">]);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想要「访问属性时执行逻辑」，只能写成方法（`w.get(0)`），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 或者用 RefCell / Mutex 把内部可变性显式化</span></span></code></pre>",
+      "lineCount": 21,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 <code>Proxy</code> 能拦截<strong>任意属性读写</strong>（<code>get</code> / <code>set</code> trap），\n这让「透明地做日志、缓存、校验」变得可能；\nRust <strong>没有这种通用拦截</strong>，能自定义的只有\n<code>Deref</code>（<code>.</code> 转发）、<code>Index</code>（<code>[]</code>）、运算符 trait 这些<strong>固定几种</strong>，\n而且都是编译期绑定、没有运行时的 trap。\n想达到类似效果只能显式写方法，或者造一个名字不同的容器类型。</p>\n",
+        "python": "<p>Python 的 <code>__getattr__</code> / <code>__setattr__</code> / <code>__getattribute__</code>\n能在运行时拦截属性访问，<code>@property</code> 更是把方法伪装成属性；\nRust 没有这层 —— 字段就是字段、方法就是方法，\n读代码时 <code>.x</code> 与 <code>.x()</code> 的区别不会骗人。\nRust 能自定义的只有 <code>Deref</code> / <code>Index</code> / 运算符这些固定接口，\n它们同样在编译期解析，没有运行时的钩子。</p>\n",
+        "java": "<p>Java 用动态代理（<code>Proxy</code> + <code>InvocationHandler</code>）或字节码库\n（cglib / ByteBuddy）做拦截，Spring 的 AOP 就是这么实现的；\nRust <strong>没有动态代理</strong> —— 拦截只能在<strong>手写包装类型</strong>里做：\n新类型持有被包装对象，方法里加逻辑再转发。\n代价是每个方法都要手写一遍，收益是调用关系完全显式、\n没有运行时代理对象，性能与可调试性都更好。</p>\n"
+      }
+    }
+  }
+}
