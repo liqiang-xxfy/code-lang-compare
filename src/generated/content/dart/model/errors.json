@@ -1,0 +1,171 @@
+{
+  "lang": "dart",
+  "section": "model",
+  "group": "errors",
+  "boxes": {
+    "throw-raise": {
+      "lang": "dart",
+      "code": "void check(int n) {\n  if (n < 0) throw ArgumentError('不能为负');   // 抛内置错误类型\n}\n\n// ⚠ 可以抛任意非 null 对象 —— 连字符串都行\nvoid bail() => throw '出事了';                   // 合法，但不推荐\n\n// throw 是**表达式**，能写在箭头函数右边\nint mustParse(String s) => int.parse(s);         // parse 失败自己会抛\n\n// 抛出的东西**不必**是 Exception 或 Error 的子类\n// ⚠ 但没有栈信息 —— 捕获方拿到的只是个字符串，排查很难",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> check</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-foreground)\"> n) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (n </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-constant)\"> ArgumentError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'不能为负'</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// 抛内置错误类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 可以抛任意非 null 对象 —— 连字符串都行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> bail</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-keyword)\"> throw</span><span style=\"color:var(--shiki-token-string-expression)\"> '出事了'</span><span style=\"color:var(--shiki-foreground)\">;                   </span><span style=\"color:var(--shiki-token-comment)\">// 合法，但不推荐</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// throw 是**表达式**，能写在箭头函数右边</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-token-function)\"> mustParse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-foreground)\"> s) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> int</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">parse</span><span style=\"color:var(--shiki-foreground)\">(s);         </span><span style=\"color:var(--shiki-token-comment)\">// parse 失败自己会抛</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 抛出的东西**不必**是 Exception 或 Error 的子类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但没有栈信息 —— 捕获方拿到的只是个字符串，排查很难</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 5,
+          "text": "可以抛任意非 null 对象 —— 连字符串都行",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "但没有栈信息 —— 捕获方拿到的只是个字符串，排查很难",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都能抛任意值（<code>throw '字符串'</code> 都合法），这一点是共同的，\n也都因此有一个同样的坑：抛出去的不是 Error 就没有栈。\n差别在<strong>类型系统</strong>：Dart 的 <code>throw</code> 表达式要求参数是<strong>非空对象</strong>，\n所以 <code>throw null</code> 编译不过；JavaScript 里 <code>throw null</code> 是合法的，\n捕获方拿到 null 只能自己判。\n另外 Dart 建议抛标准错误类型，那边的语言不做这个建议。</p>\n",
+        "python": "<p><strong>能抛什么</strong>两边差得远：Python 要求 <code>raise</code> 一个 <code>BaseException</code> 子类，\n<code>raise '字符串'</code> 会得到一个 <code>TypeError</code>；Dart 放开到任意非 null 对象，\n抛字符串是合法的。所以 Python 的「异常一定是对象、一定有类型」\n这条保障在 Dart 里要自己维持 —— 语言不拦。\nDart 的 <code>throw</code> 还是表达式，能直接写在箭头函数体里，\nPython 的 <code>raise</code> 是语句。</p>\n",
+        "java": "<p>Java 只能抛 <code>Throwable</code> 的子类，Dart 放开到任意非 null 对象 ——\n这是最直接的一处差别。Java 的限制保证了一件事：\n捕获方一定拿到一个有消息、有栈的对象；Dart 放弃了这个保证，\n换来的是「随手抛个东西」的便利。\nJava 读者从这边过来会发现：能抛什么不再由类型系统把关，\n所以「抛标准错误类型」从强制变成了纪律。</p>\n"
+      }
+    },
+    "try-catch": {
+      "lang": "dart",
+      "code": "try {\n  risky();\n} on FormatException {                 // ⚠ 只按类型接，**拿不到异常对象**\n  print('格式不对');\n} on RangeError catch (e) {            // 要对象就得再加 catch (e)\n  print('越界：${e.message}');\n} catch (e, st) {                      // 兜底；第二个参数是栈\n  print('别的错：$e');\n  print(st);\n} finally {\n  print('总会执行');\n}\n\n// 只写 on 不写 catch 是合法的，也确实拿不到对象 —— 不是漏写\n// catch (e) 不带类型等于接住一切",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  risky</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">on</span><span style=\"color:var(--shiki-token-constant)\"> FormatException</span><span style=\"color:var(--shiki-foreground)\"> {                 </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 只按类型接，**拿不到异常对象**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'格式不对'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">on</span><span style=\"color:var(--shiki-token-constant)\"> RangeError</span><span style=\"color:var(--shiki-token-keyword)\"> catch</span><span style=\"color:var(--shiki-foreground)\"> (e) {            </span><span style=\"color:var(--shiki-token-comment)\">// 要对象就得再加 catch (e)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'越界：</span><span style=\"color:var(--shiki-token-string-expression)\">${e.message}</span><span style=\"color:var(--shiki-token-string-expression)\">'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e, st) {                      </span><span style=\"color:var(--shiki-token-comment)\">// 兜底；第二个参数是栈</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'别的错：</span><span style=\"color:var(--shiki-token-string-expression)\">$e</span><span style=\"color:var(--shiki-token-string-expression)\">'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(st);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">finally</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'总会执行'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只写 on 不写 catch 是合法的，也确实拿不到对象 —— 不是漏写</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// catch (e) 不带类型等于接住一切</span></span></code></pre>",
+      "lineCount": 15,
+      "notes": [
+        {
+          "line": 3,
+          "text": "只按类型接，**拿不到异常对象**",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的形状不同：JavaScript 只有一个 <code>catch</code>，类型过滤要自己在里面写\n<code>if (e instanceof ...)</code>；Dart 把「按类型挑分支」做成了 <code>on</code> 子句，\n而且<strong>能写多个</strong>，从上往下匹配。\n另一处是栈：JavaScript 从 <code>e.stack</code> 里拿，Dart 用\n<code>catch (e, st)</code> 的第二个参数显式接住，更明确一点。</p>\n",
+        "python": "<p>Python 的 <code>except E as e</code> 一个子句既按类型过滤又绑定对象；\nDart 把它拆成两件事 —— <code>on E</code> 只过滤，<code>on E catch (e)</code> 才绑定。\n所以从 Python 过来时，把 <code>except ValueError:</code> 直译成 <code>on ValueError:</code>\n会发现自己拿不到那个异常 —— 这是最容易踩的一处。\n另一处是分支顺序：两边都是从前往下匹配，宽的类型要放后面。</p>\n",
+        "java": "<p>两边的 <code>try</code> / <code>catch</code> / <code>finally</code> 结构几乎一样，多个 <code>catch</code>\n也都是从上往下匹配 —— 这一层很像。\n差别在<strong>类型过滤与绑定是分开的</strong>：Java 的 <code>catch (IOException e)</code>\n一个子句两件事全做了；Dart 的 <code>on IOException</code> 只过滤，\n想要对象必须写 <code>on IOException catch (e)</code>。\n所以从 Java 过来的代码里，凡是 catch 块用到了异常变量的地方，\n都要多加一个 <code>catch (e)</code>。</p>\n"
+      }
+    },
+    "finally-cleanup": {
+      "lang": "dart",
+      "code": "try {\n  risky();\n} finally {\n  print('无论如何都跑');\n}\n\n// 没有 try-with-resources 那种语法级的资源管理\nfinal file = File('a.txt');\nfinal contents = file.readAsStringSync();      // 读文件本身不用手关\n\n// 需要显式释放的东西（流、端口）用 try/finally 手工关\nvar stream = file.openRead();\ntry {\n  await stream.drain();\n} finally {\n  await stream.cancel();                       // 放在 finally 里\n}\n\n// rethrow：想「记一笔再往上抛」时用它，别用 throw e\ntry { risky(); } catch (e) { print('记一笔'); rethrow; }",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  risky</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">finally</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'无论如何都跑'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有 try-with-resources 那种语法级的资源管理</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> file </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> File</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'a.txt'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> contents </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> file.</span><span style=\"color:var(--shiki-token-function)\">readAsStringSync</span><span style=\"color:var(--shiki-foreground)\">();      </span><span style=\"color:var(--shiki-token-comment)\">// 读文件本身不用手关</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 需要显式释放的东西（流、端口）用 try/finally 手工关</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> stream </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> file.</span><span style=\"color:var(--shiki-token-function)\">openRead</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-foreground)\"> stream.</span><span style=\"color:var(--shiki-token-function)\">drain</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">finally</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-foreground)\"> stream.</span><span style=\"color:var(--shiki-token-function)\">cancel</span><span style=\"color:var(--shiki-foreground)\">();                       </span><span style=\"color:var(--shiki-token-comment)\">// 放在 finally 里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// rethrow：想「记一笔再往上抛」时用它，别用 throw e</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">risky</span><span style=\"color:var(--shiki-foreground)\">(); } </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) { </span><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'记一笔'</span><span style=\"color:var(--shiki-foreground)\">); </span><span style=\"color:var(--shiki-token-keyword)\">rethrow</span><span style=\"color:var(--shiki-foreground)\">; }</span></span></code></pre>",
+      "lineCount": 20,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的 <code>finally</code> 语义一致（无论如何都执行），\n资源清理也都得手工写在 <code>finally</code> 里 —— 这一层相同。\n差别在<strong>重抛</strong>：JavaScript 写裸 <code>throw;</code> 就能重新抛出并保留栈，\nDart <strong>不允许</strong>裸 <code>throw;</code>，必须写 <code>rethrow</code>；\n写成 <code>throw e</code> 会丢掉原始栈信息，这是从那边过来最容易犯的错。</p>\n",
+        "python": "<p>Python 的 <code>finally</code> 与 Dart 语义相同。差别有两处：\n一是<strong>重抛</strong>，Python 用裸 <code>raise</code>（或 <code>raise ... from</code>），\nDart 用专门的 <code>rethrow</code> 关键字，且写成 <code>throw e</code> 会丢栈；\n二是<strong>资源管理</strong>，Python 有 <code>with</code> 语句把「进入与退出」做进协议，\nDart 没有对应语法，只能在 <code>finally</code> 里手工关 ——\n少写一次清理在 Dart 里不会有任何提示。</p>\n",
+        "java": "<p>两边都有关键字级的 <code>finally</code>，语义完全一致，这一层可以逐条对应。\n差别在<strong>资源管理</strong>：Java 有 try-with-resources，\n把「打开」和「必然关闭」绑在一个语法结构上，漏写编译器会提醒；\nDart 没有这个语法，流、端口这类东西要在 <code>finally</code> 里手工取消，\n忘了不会有任何警告。\n另一处是重抛：Java 写 <code>throw e;</code> 是常见做法，Dart 要求 <code>rethrow</code>\n—— 目的正是保住原始栈。</p>\n"
+      }
+    },
+    "error-types": {
+      "lang": "dart",
+      "code": "// ⚠ Error 与 Exception 是**两条独立分支**，共同父类只有 Object\n// ⚠ 所以没有「一个类型能接住所有异常」这回事\n\ntry { risky(); }\non Exception catch (e) { }        // 接住实现了 Exception 的那些\ncatch (e) { }                     // ⚠ 不带类型的 catch 才接住一切\n\n// 分野不是继承层级，而是「谁的问题」：\n// Error     —— 程序写错了，调用方**不该捕获**（越界、断言失败、类型错）\n// Exception —— 预料之中的失败，**就是给人接的**\n// Exception 只是个空标记接口，自己不提供任何行为\n\n// 常见的 Exception：FormatException / IOException / HttpException\n// 常见的 Error：ArgumentError / StateError / TypeError / RangeError\n\n// 生产代码默认关闭断言：assert 的条件**根本不会被求值**\nassert(n > 0, '这里不能放副作用');",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Error 与 Exception 是**两条独立分支**，共同父类只有 Object</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以没有「一个类型能接住所有异常」这回事</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">risky</span><span style=\"color:var(--shiki-foreground)\">(); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">on</span><span style=\"color:var(--shiki-token-constant)\"> Exception</span><span style=\"color:var(--shiki-token-keyword)\"> catch</span><span style=\"color:var(--shiki-foreground)\"> (e) { }        </span><span style=\"color:var(--shiki-token-comment)\">// 接住实现了 Exception 的那些</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) { }                     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不带类型的 catch 才接住一切</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 分野不是继承层级，而是「谁的问题」：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Error     —— 程序写错了，调用方**不该捕获**（越界、断言失败、类型错）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Exception —— 预料之中的失败，**就是给人接的**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Exception 只是个空标记接口，自己不提供任何行为</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 常见的 Exception：FormatException / IOException / HttpException</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 常见的 Error：ArgumentError / StateError / TypeError / RangeError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 生产代码默认关闭断言：assert 的条件**根本不会被求值**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">assert</span><span style=\"color:var(--shiki-foreground)\">(n </span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">'这里不能放副作用'</span><span style=\"color:var(--shiki-foreground)\">);</span></span></code></pre>",
+      "lineCount": 17,
+      "notes": [
+        {
+          "line": 1,
+          "text": "Error 与 Exception 是**两条独立分支**，共同父类只有 Object",
+          "tone": "warn"
+        },
+        {
+          "line": 2,
+          "text": "所以没有「一个类型能接住所有异常」这回事",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "不带类型的 catch 才接住一切",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 里一切都是 <code>Error</code> 的子类，没有「不该捕获」这一支 ——\n所有错误一视同仁。Dart 从根上分出两支：\n<code>Error</code> 表示程序写错了（调用方不该接），<code>Exception</code> 表示预料之中的失败。\n另一处更实际的是<strong>兜底写法</strong>：JavaScript 的 <code>catch</code> 一律接住一切；\nDart 里写 <code>on Exception</code> 接不住 <code>Error</code>，\n想兜底必须用不带类型的 <code>catch</code> —— 少写那半句就漏了。</p>\n",
+        "python": "<p>Python 有一棵统一的异常树，<code>BaseException</code> 之下分\n<code>Exception</code> 与几个不该接的（键盘中断、退出信号）；\nDart <strong>没有统一的树</strong>，<code>Error</code> 与 <code>Exception</code> 只是各自独立的两支，\n共同祖先只有 <code>Object</code>。所以「捕获所有异常」在 Python 里写\n<code>except Exception</code>，在 Dart 里写 <code>on Exception</code> 是<strong>不行的</strong>，\n必须用不带类型的 <code>catch</code>。\n另一处是断言：Python 的 <code>assert</code> 会被 <code>-O</code> 去掉，\nDart 的生产构建同样忽略它，而且<strong>连参数都不求值</strong>。</p>\n",
+        "java": "<p>Java 的 <code>Throwable</code> 之下分 <code>Error</code> 与 <code>Exception</code>，Dart 分成同样的两支 ——\n名字一样，但<strong>结构不一样</strong>：Java 有一个共同祖先，\n所以 <code>catch (Throwable t)</code> 能接住一切；Dart 的两支互不相干，\n共同父类只是 <code>Object</code>，想兜底只能用不带类型的 <code>catch</code>。\n另一处是纪律的来源：Java 靠<strong>受检异常</strong>强制你处理，\nDart 全靠自觉（所有异常都是不受检的），\n所以「该接哪些、不该接哪些」在这边是团队约定而不是编译器要求。</p>\n"
+      }
+    },
+    "custom-error": {
+      "lang": "dart",
+      "code": "class CartEmptyException implements Exception {      // 惯例是 implements\n  final String cartId;\n  const CartEmptyException(this.cartId);\n\n  @override\n  String toString() => '购物车 $cartId 是空的';       // 决定打印时看到什么\n}\n\nvoid checkout(String id) {\n  throw CartEmptyException(id);\n}\n\ntry {\n  checkout('c-1');\n} on CartEmptyException catch (e) {\n  print(e.cartId);                                   // 自定义字段直接读\n}\n\n// ⚠ Exception 只是个**空标记接口** —— 实现它不带来任何行为，\n// ⚠ 消息与栈都要自己给（toString 决定消息）\n// 想让捕获方拿到「原来的异常」，自己加一个 cause 字段",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> CartEmptyException</span><span style=\"color:var(--shiki-token-keyword)\"> implements</span><span style=\"color:var(--shiki-token-constant)\"> Exception</span><span style=\"color:var(--shiki-foreground)\"> {      </span><span style=\"color:var(--shiki-token-comment)\">// 惯例是 implements</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  final</span><span style=\"color:var(--shiki-token-constant)\"> String</span><span style=\"color:var(--shiki-foreground)\"> cartId;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  const</span><span style=\"color:var(--shiki-token-constant)\"> CartEmptyException</span><span style=\"color:var(--shiki-foreground)\">(this.cartId);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  @override</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  String</span><span style=\"color:var(--shiki-token-function)\"> toString</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-string-expression)\"> '购物车 </span><span style=\"color:var(--shiki-token-string-expression)\">$cartId</span><span style=\"color:var(--shiki-token-string-expression)\"> 是空的'</span><span style=\"color:var(--shiki-foreground)\">;       </span><span style=\"color:var(--shiki-token-comment)\">// 决定打印时看到什么</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> checkout</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-foreground)\"> id) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  throw</span><span style=\"color:var(--shiki-token-constant)\"> CartEmptyException</span><span style=\"color:var(--shiki-foreground)\">(id);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  checkout</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'c-1'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">on</span><span style=\"color:var(--shiki-token-constant)\"> CartEmptyException</span><span style=\"color:var(--shiki-token-keyword)\"> catch</span><span style=\"color:var(--shiki-foreground)\"> (e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(e.cartId);                                   </span><span style=\"color:var(--shiki-token-comment)\">// 自定义字段直接读</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Exception 只是个**空标记接口** —— 实现它不带来任何行为，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 消息与栈都要自己给（toString 决定消息）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想让捕获方拿到「原来的异常」，自己加一个 cause 字段</span></span></code></pre>",
+      "lineCount": 21,
+      "notes": [
+        {
+          "line": 19,
+          "text": "Exception 只是个**空标记接口** —— 实现它不带来任何行为，",
+          "tone": "warn"
+        },
+        {
+          "line": 20,
+          "text": "消息与栈都要自己给（toString 决定消息）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都能自定义错误类型，但<strong>继承什么不同</strong>：\nJavaScript 必须继承 <code>Error</code>（否则没有栈），而且构造函数里\n要自己写 <code>super(message)</code> 与 <code>this.name</code>，还得留意原型链；\nDart 惯例是 <code>implements Exception</code>，那是个空接口，\n所以 <code>toString()</code> 得自己写 —— 省心的是没有原型链那套麻烦，\n费心的是消息不会自动带上。</p>\n",
+        "python": "<p>两边的写法接近（都是继承一个基类、之后 <code>raise</code> / <code>throw</code> 它）。\n差别在<strong>基类给不给东西</strong>：Python 的 <code>Exception</code> 会给你\n消息、<code>args</code>、完整的栈；Dart 的 <code>Exception</code> 是空接口，\n什么都不给 —— 消息、栈、cause 全要自己加字段。\n所以从 Python 过来会觉得自定义异常变啰嗦了，\n但换来的是「异常对象上有什么」完全由你决定。</p>\n",
+        "java": "<p>两边都要自己定义类型、加字段，形状接近。\n差别在两处：一是<strong>继承还是实现</strong>：Java 惯例是\n<code>extends Exception</code>（或 <code>RuntimeException</code>），Dart 惯例是\n<code>implements Exception</code>，因为后者只是个标记接口； Java 的\n<code>Exception</code> 自带消息与 cause 的构造器，Dart 的要自己写。\n二是<strong>要不要声明</strong>：Java 的受检异常必须在签名里写 <code>throws</code>，\nDart 没有任何这样的要求，异常在签名上是隐形的。</p>\n"
+      }
+    },
+    "error-propagation": {
+      "lang": "dart",
+      "code": "void a() { b(); }                       // 不声明、不处理，异常自己往上冒\nvoid b() { throw StateError('炸了'); }\n\n// 没人接就冒到顶层：当前 isolate 被挂起（web 上表现为控制台报错）\n// 没有「全局异常处理器」的语言级机制可以续命\n\n// 部分处理再往上抛：rethrow 保留原始栈\ntry { a(); } catch (e) { print('记一笔'); rethrow; }\n\n// Dart 没有 Result 那样的「把失败收成值」的类型；\n// 惯例是返回可空值或另建一个结果类\nint? tryParse(String s) => int.tryParse(s);    // 失败给 null",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> a</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-function)\">b</span><span style=\"color:var(--shiki-foreground)\">(); }                       </span><span style=\"color:var(--shiki-token-comment)\">// 不声明、不处理，异常自己往上冒</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> b</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-constant)\"> StateError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'炸了'</span><span style=\"color:var(--shiki-foreground)\">); }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没人接就冒到顶层：当前 isolate 被挂起（web 上表现为控制台报错）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有「全局异常处理器」的语言级机制可以续命</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 部分处理再往上抛：rethrow 保留原始栈</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">a</span><span style=\"color:var(--shiki-foreground)\">(); } </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) { </span><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'记一笔'</span><span style=\"color:var(--shiki-foreground)\">); </span><span style=\"color:var(--shiki-token-keyword)\">rethrow</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Dart 没有 Result 那样的「把失败收成值」的类型；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 惯例是返回可空值或另建一个结果类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-token-function)\"> tryParse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-foreground)\"> s) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> int</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">tryParse</span><span style=\"color:var(--shiki-foreground)\">(s);    </span><span style=\"color:var(--shiki-token-comment)\">// 失败给 null</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都靠冒泡传播，中间层不写任何东西 —— 这一层很像。\n差别在<strong>没接住时会发生什么</strong>：JavaScript 在浏览器里\n冒到顶层只影响那一次事件回调，页面照常活着；\nDart 里未捕获的异常会<strong>挂起当前 isolate</strong> ——\n代价更大，所以「兜底 catch」在这边更重要。\n另一处是重抛的写法（<code>rethrow</code> ↔ 裸 <code>throw</code>）。</p>\n",
+        "python": "<p>两边都靠冒泡，都不需要在签名里声明。差别在<strong>兜底的粒度</strong>：\nPython 有 <code>sys.excepthook</code> 与线程级钩子，异常冒到顶层后\n还能做点事再让程序结束；Dart 的未捕获异常会直接挂起 isolate，\n能插手的余地更小。\n另一处是「可能失败」的表达：Python 惯例用异常或返回 <code>None</code>，\nDart 同样用异常或返回可空值（<code>int.tryParse</code> 给 null），\n两边都没有把失败做成类型的做法。</p>\n",
+        "java": "<p>最大的差别是<strong>签名</strong>：Java 的受检异常必须写进 <code>throws</code>，\n层层上传时每一层都要重复一遍，调用方也被迫处理；\nDart 什么都不用写，异常在签名上完全隐形。\n好处是方法签名短、不用为满足编译器写空 catch；\n代价是「这个方法会抛什么」只能看文档。\n另一处是兜底：Java 可以 <code>catch (Throwable)</code> 一次性接住所有东西，\nDart 没有这样一个共同祖先，只能靠不带类型的 <code>catch</code>。</p>\n"
+      }
+    }
+  }
+}

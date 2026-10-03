@@ -126,9 +126,11 @@ describe('架构决策的可执行断言', () => {
     expect(a.registry.defaultBaseline).toBe('javascript')
     expect([...a.enabledLanguageIds].sort()).toEqual([
       'arkts',
+      'dart',
       'go',
       'java',
       'javascript',
+      'kotlin',
       'python',
       'rust',
       'typescript',

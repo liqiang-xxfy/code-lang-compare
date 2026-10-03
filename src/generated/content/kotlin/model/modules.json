@@ -1,0 +1,136 @@
+{
+  "lang": "kotlin",
+  "section": "model",
+  "group": "modules",
+  "boxes": {
+    "module-unit": {
+      "lang": "kotlin",
+      "code": "// 文件顶部声明包名（可以省略，省略就是根包）\npackage com.example.cart\n\n// ⚠ 一个文件里能有多个顶层类 —— 文件名不必与类名一致\nclass Cart { }\nclass Item { }\n\n// 顶层函数挂在「包」里，不挂在类里\nfun totalOf(c: Cart) = 0\n\n// 真正划分边界的不是包，是 **module**（一个 Gradle source set /\n// 一个 Maven 项目）—— internal 可见性按它来判",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 文件顶部声明包名（可以省略，省略就是根包）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">package</span><span style=\"color:var(--shiki-foreground)\"> com.example.cart</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 一个文件里能有多个顶层类 —— 文件名不必与类名一致</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Cart</span><span style=\"color:var(--shiki-foreground)\"> { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Item</span><span style=\"color:var(--shiki-foreground)\"> { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 顶层函数挂在「包」里，不挂在类里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> totalOf</span><span style=\"color:var(--shiki-foreground)\">(c: </span><span style=\"color:var(--shiki-token-function)\">Cart</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 真正划分边界的不是包，是 **module**（一个 Gradle source set /</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 一个 Maven 项目）—— internal 可见性按它来判</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 4,
+          "text": "一个文件里能有多个顶层类 —— 文件名不必与类名一致",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都是「一个文件就是一个单元」，但<strong>边界的性质不同</strong>：\nJavaScript 的模块边界由文件决定，一个文件一个模块，\n导出的东西才能被外面看到；Kotlin 的文件不构成可见性边界 ——\n可见性由包与 module 决定，同一个包里的文件互相看得见。\n最接近 JavaScript 直觉的是 Kotlin 的<strong>顶层 <code>private</code></strong>：\n它才是「只在这个文件里可见」，但那是声明级的修饰符，不是文件级的规则。</p>\n",
+        "python": "<p>Python 的模块就是文件、包就是带 <code>__init__</code> 的目录，\n所以目录结构<strong>就是</strong>程序结构，导入路径与文件路径必须对上；\nKotlin 的包只是一个名字空间，文件放在哪个目录与包名无关\n（约定上会对应，编译器不管）。结果是从 Python 过来会不适应：\n这边可以随意挪文件而不破坏导入，但也少了「看目录就知道结构」这层保障。</p>\n",
+        "java": "<p>两处方向相反的差别。一是<strong>默认可见性</strong>：Java 不写修饰符是\n「同一个包内可见」，Kotlin 不写就是 <strong>public</strong> —— 默认姿态从保守变成了开放，\n迁移时最容易在这一点上把不该暴露的东西暴露出去。\n二是<strong>文件名</strong>：Java 要求 public 类必须与文件同名，\nKotlin 没这个规矩，一个文件能放好几个顶层类与顶层函数 ——\n所以读 Kotlin 项目的「这个类在哪个文件」不能靠猜。</p>\n"
+      }
+    },
+    "export-import": {
+      "lang": "kotlin",
+      "code": "import kotlin.math.sqrt              // 导入具体的东西\nimport com.example.util.*            // 星号：导入一批\nimport com.example.Cart as 购物车     // 起别名，避免重名\nimport com.example.Config.Companion.DEFAULTS   // 连伴生对象成员也能导\n\n// ⚠ 与同名显式导入冲突时，**显式的那条赢**，星号不会把它盖掉\n// 默认已经导入了 kotlin.* / kotlin.collections.* / kotlin.io.* 等一批\n// JVM 上还默认导入 java.lang.* —— 所以 String 这类名字不用自己导",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> kotlin.math.sqrt              </span><span style=\"color:var(--shiki-token-comment)\">// 导入具体的东西</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> com.example.util.*            </span><span style=\"color:var(--shiki-token-comment)\">// 星号：导入一批</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> com.example.Cart </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> 购物车     </span><span style=\"color:var(--shiki-token-comment)\">// 起别名，避免重名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> com.example.Config.Companion.DEFAULTS   </span><span style=\"color:var(--shiki-token-comment)\">// 连伴生对象成员也能导</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 与同名显式导入冲突时，**显式的那条赢**，星号不会把它盖掉</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 默认已经导入了 kotlin.* / kotlin.collections.* / kotlin.io.* 等一批</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// JVM 上还默认导入 java.lang.* —— 所以 String 这类名字不用自己导</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 6,
+          "text": "与同名显式导入冲突时，**显式的那条赢**，星号不会把它盖掉",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都有具名导入与别名（<code>as</code> ↔ <code>as</code>），形状接近。\n差别在<strong>导入的粒度</strong>：JavaScript 导入的是模块的导出项，\n「默认导出」与「具名导出」是两种不同的东西；\nKotlin 导入的是名字（顶层函数、类、对象成员都能导），\n没有「默认导出」这个概念 —— 所以那边 <code>import x from 'y'</code>\n与 <code>import { x } from 'y'</code> 的区别，在这边根本不存在。</p>\n",
+        "python": "<p>两边的导入写法可以逐条对应（<code>import ... as ...</code> ↔ <code>import ... as ...</code>），\n连星号导入的争议都相似。差别在<strong>导入的是什么</strong>：\nPython 导入模块对象，所以 <code>import os</code> 之后要用 <code>os.path</code>；\nKotlin 导入的是名字，所以能直接把一个函数或对象成员导进来用 ——\n因此 Kotlin 里看不到「模块名」这一层前缀，读代码时\n不容易一眼看出某个名字来自哪里。</p>\n",
+        "java": "<p>Java 的 <code>import</code> 同样只是名字的引入，两边都能逐条对应\n（通配符导入、静态导入 ↔ 导入伴生对象成员）。\n差别在<strong>默认导入的范围</strong>：Java 只默认导入 <code>java.lang</code>，\nKotlin 默认导入了 <code>kotlin.*</code>、<code>kotlin.collections.*</code>、\n<code>kotlin.text.*</code> 等一大批 —— 好处是集合与字符串的工具函数\n直接可用，代价是这些名字从哪来，读 Kotlin 代码时不容易看出来。</p>\n"
+      }
+    },
+    "default-vs-named": {
+      "lang": "kotlin",
+      "code": "// Kotlin 没有「默认导出」这个概念，所有导出都是按名字的\n// 想让某个名字对外可见，标 public（默认就是）即可\n\npublic class Cart { }                 // 默认可见性\ninternal class Cache { }              // 只在同一个 module 内可见\nprivate fun helper() { }              // ⚠ 顶层 private = 只在这个文件里可见\n\n// 一个文件里能同时有多个 public 顶层声明，\n// 编译后各自成为独立的类，没有「文件级的导出面」",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Kotlin 没有「默认导出」这个概念，所有导出都是按名字的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想让某个名字对外可见，标 public（默认就是）即可</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">public</span><span style=\"color:var(--shiki-token-keyword)\"> class</span><span style=\"color:var(--shiki-token-function)\"> Cart</span><span style=\"color:var(--shiki-foreground)\"> { }                 </span><span style=\"color:var(--shiki-token-comment)\">// 默认可见性</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">internal</span><span style=\"color:var(--shiki-token-keyword)\"> class</span><span style=\"color:var(--shiki-token-function)\"> Cache</span><span style=\"color:var(--shiki-foreground)\"> { }              </span><span style=\"color:var(--shiki-token-comment)\">// 只在同一个 module 内可见</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">private</span><span style=\"color:var(--shiki-token-keyword)\"> fun</span><span style=\"color:var(--shiki-token-function)\"> helper</span><span style=\"color:var(--shiki-foreground)\">() { }              </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 顶层 private = 只在这个文件里可见</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 一个文件里能同时有多个 public 顶层声明，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编译后各自成为独立的类，没有「文件级的导出面」</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 6,
+          "text": "顶层 private = 只在这个文件里可见",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 有「默认导出」这一档 —— 一个模块只能有一个，\n导入时可以随便起名，于是同一个东西在不同文件里叫不同的名字；\nKotlin 完全没有这个机制，所有对外的名字都是固定的，\n想改名只能在自己这边用 <code>as</code> 起别名。\n代价是 Kotlin 这边多写几个字，换来的是「搜名字一定能搜到定义处」。</p>\n",
+        "python": "<p>两边都是「按名字」，没有默认导出这一档 —— 这一层可以对应。\n差别在<strong>控制可见性的手段</strong>：Python 用下划线开头表示私有\n（君子协定，解释器不管），Kotlin 用 <code>private</code> / <code>internal</code>\n这些修饰符，违反了编译不过。\n另一处是导出面：Python 一个文件就是一个模块，导出的是文件里的名字；\nKotlin 一个文件能放很多顶层声明，可见性逐个标，没有「文件级导出」的开关。</p>\n",
+        "java": "<p>Java 用 <code>public</code> 还是 <code>private</code> 控制可见，Kotlin 也有这两档，\n但<strong>默认值相反</strong>：Java 什么都不写是包内可见（保守），\nKotlin 什么都不写是 public（开放）。而且 Kotlin 没有「包内可见」\n这一档 —— 它把这一层换成了 <code>internal</code>（module 级），\n比包大、比 public 小。从 Java 过来时，\n「忘了写修饰符」在两个语言里的后果完全相反。</p>\n"
+      }
+    },
+    "namespace-alias": {
+      "lang": "kotlin",
+      "code": "typealias Handler = (String) -> Unit          // 给函数类型起个名字\ntypealias UserMap = Map<String, List<Cart>>   // 给复杂泛型起名字\n\n// ⚠ typealias **不产生新类型** —— 别名与原类型可以互相赋值，\n// ⚠ 编译器报错时也会展开成原类型，别指望靠它区分两种东西\nval h: Handler = { s -> println(s) }\nval raw: (String) -> Unit = h                 // 完全等价\n\n// 想真的造一个新类型用 value class 或 fun interface\n@JvmInline value class UserId(val raw: Int)   // 加一层类型保护，运行期不额外开销\n\n// typealias 不能声明在函数里，只能顶层或类内",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">typealias</span><span style=\"color:var(--shiki-token-function)\"> Handler</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> (String) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-foreground)\"> Unit          </span><span style=\"color:var(--shiki-token-comment)\">// 给函数类型起个名字</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">typealias</span><span style=\"color:var(--shiki-token-function)\"> UserMap</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> Map</span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\">String, List</span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\">Cart</span><span style=\"color:var(--shiki-token-keyword)\">>></span><span style=\"color:var(--shiki-token-comment)\">   // 给复杂泛型起名字</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ typealias **不产生新类型** —— 别名与原类型可以互相赋值，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 编译器报错时也会展开成原类型，别指望靠它区分两种东西</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> h: </span><span style=\"color:var(--shiki-token-function)\">Handler</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> { s </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> println</span><span style=\"color:var(--shiki-foreground)\">(s) }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> raw: (</span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">) -> </span><span style=\"color:var(--shiki-token-function)\">Unit</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> h                 </span><span style=\"color:var(--shiki-token-comment)\">// 完全等价</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想真的造一个新类型用 value class 或 fun interface</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">@JvmInline</span><span style=\"color:var(--shiki-token-keyword)\"> value</span><span style=\"color:var(--shiki-token-keyword)\"> class</span><span style=\"color:var(--shiki-token-function)\"> UserId</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> raw: </span><span style=\"color:var(--shiki-token-function)\">Int</span><span style=\"color:var(--shiki-foreground)\">)   </span><span style=\"color:var(--shiki-token-comment)\">// 加一层类型保护，运行期不额外开销</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// typealias 不能声明在函数里，只能顶层或类内</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 4,
+          "text": "typealias **不产生新类型** —— 别名与原类型可以互相赋值，",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "编译器报错时也会展开成原类型，别指望靠它区分两种东西",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 没有类型别名这回事（类型只活在文档和工具链里），\n所以「给一个函数签名起名字」这件事在那边根本不存在。\nKotlin 的 <code>typealias</code> 只是个<strong>缩写</strong>，不是新类型 ——\n这一点与 JavaScript 那边「起个名字方便读」的动机一致，\n但 Kotlin 会因为别名影响编译器的报错文本（会展开成原类型）。</p>\n",
+        "python": "<p>Python 的类型别名只是普通的赋值（<code>Handler = Callable[[str], None]</code>），\n运行期就是一个变量；Kotlin 的 <code>typealias</code> 是语言级的声明，\n可以带类型参数、能被编译器识别。共同点是<strong>都不产生新类型</strong> ——\n两边都没法靠别名把 <code>str</code> 与 <code>UserId</code> 区分开。\n想做「有名字的新类型」，Python 那边靠 NewType，Kotlin 靠 value class。</p>\n",
+        "java": "<p>Java 没有类型别名（<code>typedef</code> 是 C 的东西），想让一个复杂泛型好读\n只能抽一个类出来 —— 而抽类就真的产生了新类型。\nKotlin 的 <code>typealias</code> 是纯粹的缩写，不产生新类型，\n想产生新类型另有 <code>value class</code>（带类型保护，且多数情况下\n不会带来装箱开销）。所以 Java 那边「为了可读性抽个类」\n的写法搬到 Kotlin 里可以用 typealias，但<strong>语义与 Java 的抽类不同</strong>。</p>\n"
+      }
+    },
+    "module-resolution": {
+      "lang": "kotlin",
+      "code": "import com.example.cart.Cart          // 按包名解析，与文件位置无关\n\n// 默认导入的包（不用写 import 就能用）：\n// kotlin.*  kotlin.collections.*  kotlin.text.*  kotlin.io.*\n// kotlin.ranges.*  kotlin.sequences.*  kotlin.math.*\n// JVM 上另有 java.lang.* 与 kotlin.jvm.*\n\n// 同名冲突时用 as 起别名，或者写全限定名\n// 依赖从哪来由构建工具决定（Gradle / Maven），语言层面只有包名",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> com.example.cart.Cart          </span><span style=\"color:var(--shiki-token-comment)\">// 按包名解析，与文件位置无关</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 默认导入的包（不用写 import 就能用）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// kotlin.*  kotlin.collections.*  kotlin.text.*  kotlin.io.*</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// kotlin.ranges.*  kotlin.sequences.*  kotlin.math.*</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// JVM 上另有 java.lang.* 与 kotlin.jvm.*</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 同名冲突时用 as 起别名，或者写全限定名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 依赖从哪来由构建工具决定（Gradle / Maven），语言层面只有包名</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>解析规则的起点不同：JavaScript 的导入写的是<strong>路径</strong>\n（相对路径或包名），所以文件放在哪儿是语义的一部分；\nKotlin 导入的是<strong>包名加名字</strong>，与文件位置无关 ——\n同一份代码把文件挪到别的目录，只要包声明不改就照样编译。\n另一处是默认导入：JavaScript 什么都不默认导入，\nKotlin 有一批隐式可用的名字，读代码时这些名字「凭空出现」。</p>\n",
+        "python": "<p>解析规则相反：Python 的导入路径<strong>就是</strong>文件路径，\n所以「装了什么、放在哪里」直接决定能不能导入，\n<code>sys.path</code> 与虚拟环境也因此成了日常话题；\nKotlin 的包名是纯粹的名字空间，解析靠构建工具的依赖列表，\n文件位置不参与。共同点是两边都有一批内置可用的名字，\n只是 Python 需要显式 <code>import</code> 的东西在 Kotlin 里可能已经默认导入了。</p>\n",
+        "java": "<p>两边都按包名解析、都用构建工具管依赖，这一格最接近。\n差别在<strong>默认导入的范围</strong>：Java 只默认导入 <code>java.lang</code>，\n用 <code>List</code> 还得写 <code>import java.util.List</code>；\nKotlin 默认导入了集合、字符串、区间、序列等一整批工具包 ——\n所以 Kotlin 文件顶部的 import 列表通常短得多，\n但反过来，看到 <code>map</code> 或 <code>filter</code> 时得知道它们来自默认导入。</p>\n"
+      }
+    }
+  }
+}

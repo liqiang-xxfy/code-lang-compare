@@ -1,0 +1,150 @@
+{
+  "lang": "dart",
+  "section": "mechanism",
+  "group": "concurrency",
+  "boxes": {
+    "concurrency-unit": {
+      "lang": "dart",
+      "code": "import 'dart:isolate';\n\n// 现代写法：跑一个计算、拿回结果\nFuture<int> heavy() => Isolate.run(() {\n  var sum = 0;\n  for (var i = 0; i < 1000000; i++) sum += i;\n  return sum;\n});\n\n// 长期存在的 worker 用 spawn，配一个接收端口\nFuture<void> worker() async {\n  final rp = ReceivePort();\n  await Isolate.spawn(entry, rp.sendPort);\n  await for (final msg in rp) { print(msg); }\n}\n\nvoid entry(SendPort reply) => reply.send('干完了');\n\n// ⚠ 每个 isolate 有**自己的内存与自己 的事件循环** ——\n// ⚠ 这是它与「线程」最根本的差别\n// ⚠ `compute` 是 Flutter 提供的（纯 SDK 用 Isolate.run），\n// ⚠ 而且在 web 上它只跑当前事件循环、**并不并行**\n// ⚠ web 上根本没有 isolate —— 「Dart 有 isolate」与「Dart web 能并行」是两回事",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'dart:isolate'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 现代写法：跑一个计算、拿回结果</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Future</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-function)\">heavy</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> Isolate</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">run</span><span style=\"color:var(--shiki-foreground)\">(() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  var</span><span style=\"color:var(--shiki-foreground)\"> sum </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">; i </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\"> 1000000</span><span style=\"color:var(--shiki-foreground)\">; i</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">) sum </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-foreground)\"> i;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-foreground)\"> sum;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">});</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 长期存在的 worker 用 spawn，配一个接收端口</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Future</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-function)\">worker</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  final</span><span style=\"color:var(--shiki-foreground)\"> rp </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> ReceivePort</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-token-constant)\"> Isolate</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">spawn</span><span style=\"color:var(--shiki-foreground)\">(entry, rp.sendPort);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-token-keyword)\"> for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> msg </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> rp) { </span><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-foreground)\">(msg); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> entry</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">SendPort</span><span style=\"color:var(--shiki-foreground)\"> reply) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> reply.</span><span style=\"color:var(--shiki-token-function)\">send</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'干完了'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 每个 isolate 有**自己的内存与自己 的事件循环** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 这是它与「线程」最根本的差别</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `compute` 是 Flutter 提供的（纯 SDK 用 Isolate.run），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 而且在 web 上它只跑当前事件循环、**并不并行**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ web 上根本没有 isolate —— 「Dart 有 isolate」与「Dart web 能并行」是两回事</span></span></code></pre>",
+      "lineCount": 23,
+      "notes": [
+        {
+          "line": 19,
+          "text": "每个 isolate 有**自己的内存与自己 的事件循环** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 20,
+          "text": "这是它与「线程」最根本的差别",
+          "tone": "warn"
+        },
+        {
+          "line": 21,
+          "text": "`compute` 是 Flutter 提供的（纯 SDK 用 Isolate.run），",
+          "tone": "warn"
+        },
+        {
+          "line": 22,
+          "text": "而且在 web 上它只跑当前事件循环、**并不并行**",
+          "tone": "warn"
+        },
+        {
+          "line": 23,
+          "text": "web 上根本没有 isolate —— 「Dart 有 isolate」与「Dart web 能并行」是两回事",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的「并发单元」最像的地方是<strong>都有一根主线程加事件循环</strong>，\n所以不阻塞主线程这件事两边都靠异步来做。\n区别在于真要多干活时：JavaScript 只能用 Worker，\n而 Dart 的 isolate 是语言内置的、API 更顺手\n（<code>Isolate.run</code> 一行就够，不用自己写消息协议）。\n另一处是<strong>浏览器里没有 isolate</strong> —— 编译到 web 的 Dart 与\nJavaScript 的处境一样，只能靠 Worker 或干脆别做并行。</p>\n",
+        "python": "<p><strong>默认的并发模型差得远</strong>：Python 的 <code>asyncio</code> 是单线程协作式，\n要真并行得用多进程（<code>multiprocessing</code>）；Dart 的 isolate\n就是「轻量的独立执行单元」，而且默认就在同一个进程里。\n与多进程相比，Dart 起一个 isolate 便宜得多（不用真的开进程），\n但内存隔离这一点两者是一样的 —— 都要靠消息传数据。\n所以从 Python 过来时，可以把 isolate 理解成「更便宜的进程」。</p>\n",
+        "java": "<p>两边的并发单元是<strong>两套完全不同的东西</strong>：Java 的是线程，\n<strong>共享同一块堆</strong>；Dart 的 isolate <strong>各有各的堆</strong>，\n连全局变量都是各自一份。\n所以 Java 里「开个线程改改共享变量」的写法在 Dart 里根本写不出来 ——\n必须把数据传过去、把结果传回来。\n代价是通信有拷贝开销，好处是<strong>整整一类 bug 消失了</strong>（见下一格）。</p>\n"
+      }
+    },
+    "shared-state": {
+      "lang": "dart",
+      "code": "// ⚠ isolate 之间**没有共享内存** —— 这是整组结论的来源\nvar counter = 0;                      // 这个变量每个 isolate 各有一份\n\n// 想「共享」只有两条路：\n// 1. 把数据**拷过去**（普通对象都行，不可变的还会被共享）\n// 2. 把状态关进**一个** isolate，别人通过消息问它\n\n// 结果就是：Dart 里**不会发生数据竞争** ——\n// 官方原话是「没有共享状态意味着互斥锁、锁与数据竞争都不会发生」\n// ⚠ 但有一处例外：native 代码（FFI）访问同一块内存时仍需自己协调\n\n// 代价：既要传大数据、又不想拷贝时，得用 TransferableTypedData\n// 或者干脆改变设计，让数据只在一个 isolate 里待着",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ isolate 之间**没有共享内存** —— 这是整组结论的来源</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;                      </span><span style=\"color:var(--shiki-token-comment)\">// 这个变量每个 isolate 各有一份</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想「共享」只有两条路：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 1. 把数据**拷过去**（普通对象都行，不可变的还会被共享）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 2. 把状态关进**一个** isolate，别人通过消息问它</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 结果就是：Dart 里**不会发生数据竞争** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 官方原话是「没有共享状态意味着互斥锁、锁与数据竞争都不会发生」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但有一处例外：native 代码（FFI）访问同一块内存时仍需自己协调</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 代价：既要传大数据、又不想拷贝时，得用 TransferableTypedData</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 或者干脆改变设计，让数据只在一个 isolate 里待着</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 1,
+          "text": "isolate 之间**没有共享内存** —— 这是整组结论的来源",
+          "tone": "warn"
+        },
+        {
+          "line": 10,
+          "text": "但有一处例外：native 代码（FFI）访问同一块内存时仍需自己协调",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的<strong>默认处境几乎一样</strong>：主线程单跑，Worker / isolate 内存隔离，\n要共享就得走消息。所以从 JavaScript 过来时这一格几乎是平移 ——\n「共享可变状态」这个坑在两边都不存在\n（准确说，是在主线程里不会因为并行而出问题）。\n差别在 API 的顺手程度：Dart 的 <code>Isolate.run</code> 让「跑个纯函数拿结果」\n变得像一次普通调用，而 Worker 那边要自己搭消息协议。</p>\n",
+        "python": "<p><strong>这一格两边差别很大</strong>：Python 的多线程是共享内存的，\n所以「加锁保护共享变量」是日常课题；Dart 的 isolate 内存隔离，\n这件事从根上不存在。\n但 Python 的 <code>asyncio</code> 下共享变量也不需要锁（协作式调度、\n只在 <code>await</code> 处切换），所以「要不要担心竞态」在 Python 里\n取决于你用哪套并发 —— 而 Dart 里不管用哪套都不用担心。\n这一条从 Python 过来最容易想多。</p>\n",
+        "java": "<p><strong>这是整个 mechanism 板块里两边差别最大的一格</strong>：\nJava 的并发建立在共享内存之上，所以「可见性、原子性、有序性」\n三大问题全都存在，<code>synchronized</code>、<code>volatile</code>、原子类都是必需品；\nDart 把共享内存整个拿掉，这三类问题<strong>一次性消失</strong>。\n代价是通信成本：Java 里传个引用就行，Dart 里要把对象图拷过去\n（不可变的会被共享，其余的都拷）。\n所以两边是在「共享 + 加锁」与「隔离 + 拷贝」之间选了不同的边。</p>\n"
+      }
+    },
+    "lock-mutex": {
+      "lang": "dart",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Dart <strong>没有互斥锁</strong>这类工具 —— 因为 isolate 之间没有共享内存，\n根本没有需要保护的东西。要「串行地改一份状态」，\n做法是<strong>把那份状态放进一个 isolate</strong>，别人通过消息请求它改，\n它的单线程事件循环天然保证了顺序。\n所以在 JavaScript 里不存在的东西，在这边同样不存在，\n但原因不一样：那边是没并行，这边是没共享。</p>\n",
+        "python": "<p>Dart <strong>没有锁</strong>。Python 那边需要锁的场景有两种：\n多线程共享变量（<code>threading.Lock</code>）、以及\n<code>asyncio</code> 里保护跨 <code>await</code> 的临界区（<code>asyncio.Lock</code>）；\nDart 的 isolate 内存隔离，前者不存在，\n而单个 isolate 内部又是单线程事件循环，后者也不存在。\n要串行化就靠「把状态关进一个 isolate」这个设计手段。</p>\n",
+        "java": "<p>Dart <strong>没有 <code>synchronized</code>、没有 <code>ReentrantLock</code>、没有 <code>volatile</code></strong> ——\n这不是「还没提供」，是共享内存被拿掉之后它们没有用武之地。\nJava 里那一整套并发原语，前提都是「多根线程看得见同一块内存」；\nDart 取消了那个前提，也就一并取消了整套工具。\n从 Java 过来时，需要重新建立的是<strong>设计思路</strong>：\n不是「怎么保护这块内存」，而是「这块内存该归哪个 isolate」。</p>\n"
+      }
+    },
+    "channel": {
+      "lang": "dart",
+      "code": "import 'dart:isolate';\nimport 'dart:typed_data';\n\nfinal rp = ReceivePort();\nfinal other = await Isolate.spawn(entry, rp.sendPort);\n\n// 发送：异步，不阻塞；投递时机取决于对方的事件循环\nrp.listen((msg) => print('收到 $msg'));\n\n// 发出去的是什么：\n// 不可变对象（字符串等）**被共享**\n// 其余对象**被拷贝**（连同它引用到的整张图）\n// 函数、闭包、栈信息也能发（2.15 起）\n// ⚠ 但持有本地资源的对象发不了：Socket、ReceivePort、DynamicLibrary…\n\n// 大块字节要不拷贝地搬过去，用 TransferableTypedData\nfinal t = TransferableTypedData.fromList([Uint8List(1024)]);\nrp.send(t);                            // 发出去是常数时间；本地那份作废\n\n// 回信地址的惯用法：把 receivePort.sendPort 交给对方\nrp.close();                            // 端口要自己关",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'dart:isolate'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'dart:typed_data'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> rp </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> ReceivePort</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> other </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-constant)\"> Isolate</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">spawn</span><span style=\"color:var(--shiki-foreground)\">(entry, rp.sendPort);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 发送：异步，不阻塞；投递时机取决于对方的事件循环</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rp.</span><span style=\"color:var(--shiki-token-function)\">listen</span><span style=\"color:var(--shiki-foreground)\">((msg) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-function)\"> print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'收到 </span><span style=\"color:var(--shiki-token-string-expression)\">$msg</span><span style=\"color:var(--shiki-token-string-expression)\">'</span><span style=\"color:var(--shiki-foreground)\">));</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 发出去的是什么：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 不可变对象（字符串等）**被共享**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 其余对象**被拷贝**（连同它引用到的整张图）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 函数、闭包、栈信息也能发（2.15 起）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但持有本地资源的对象发不了：Socket、ReceivePort、DynamicLibrary…</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 大块字节要不拷贝地搬过去，用 TransferableTypedData</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> t </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> TransferableTypedData</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">fromList</span><span style=\"color:var(--shiki-foreground)\">([</span><span style=\"color:var(--shiki-token-constant)\">Uint8List</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1024</span><span style=\"color:var(--shiki-foreground)\">)]);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rp.</span><span style=\"color:var(--shiki-token-function)\">send</span><span style=\"color:var(--shiki-foreground)\">(t);                            </span><span style=\"color:var(--shiki-token-comment)\">// 发出去是常数时间；本地那份作废</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 回信地址的惯用法：把 receivePort.sendPort 交给对方</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rp.</span><span style=\"color:var(--shiki-token-function)\">close</span><span style=\"color:var(--shiki-foreground)\">();                            </span><span style=\"color:var(--shiki-token-comment)\">// 端口要自己关</span></span></code></pre>",
+      "lineCount": 21,
+      "notes": [
+        {
+          "line": 14,
+          "text": "但持有本地资源的对象发不了：Socket、ReceivePort、DynamicLibrary…",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的消息传递形状很像（<code>send</code> ↔ <code>postMessage</code>，\n发出去的都是拷贝或结构化克隆），连「转移所有权」这件事都对应\n（JavaScript 是 <code>postMessage</code> 的 transfer list 转移\nArrayBuffer，Dart 是 <code>TransferableTypedData</code>）。\n差别在<strong>能发什么</strong>：Dart 能直接发函数与闭包（2.15 起），\n也能发任意普通对象；JavaScript 那边受结构化克隆限制，\n函数发不了、类实例会丢原型。\n另一处是端口要自己关，JavaScript 那边靠 <code>close()</code> 或者 GC。</p>\n",
+        "python": "<p>两边都是「跨隔离边界传消息」，但<strong>传的东西差别很大</strong>：\nPython 的多进程要用 <code>pickle</code> 序列化，很多对象根本发不了\n（打开的文件、lambda、本地类）；Dart 的 isolate 之间\n能发普通对象、函数与闭包，只排除持有本地资源的那些。\n所以 Dart 这边「把一段逻辑连同数据送过去」是可行的，\n那边往往要重新设计。代价是 Dart 的拷贝是<strong>传递式拷贝</strong>，\n对象图大时开销可观。</p>\n",
+        "java": "<p>Java 那边跨线程根本不用「传」——共享引用就行，\n所以没有「拷贝还是共享」这个选择；真要用队列\n（<code>BlockingQueue</code>），放的也是引用，而且 <code>put</code> / <code>take</code>\n会<strong>阻塞线程</strong>。\nDart 的 <code>SendPort.send</code> 不阻塞、而且是拷贝，\n于是「传大对象」变成一笔看得见的开销，\n这也逼着人把状态设计得更靠近使用方。\n两种模型各有一个要防的东西：那边防竞态，这边防拷贝量。</p>\n"
+      }
+    },
+    "atomicity": {
+      "lang": "dart",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Dart <strong>没有原子类型</strong> —— 没有共享内存，也就没有「读-改-写\n被打断」这件事。单个 isolate 内部是单线程事件循环，\n一段同步代码不会被从中间切开。\n所以在 JavaScript 里派不上用场的东西，在这边同样派不上用场，\n而且理由相同：都没有真并行。</p>\n",
+        "python": "<p>Dart <strong>没有原子类型</strong>。Python 那边需要它是因为多线程共享内存，\n而 <code>asyncio</code> 下的共享变量本来就不需要保护 ——\nDart 的处境与后者一致，并且是<strong>语言层面保证</strong>的，\n不取决于你选了哪套并发。\n所以从 Python 过来，「这里要不要加个原子操作」这个问题\n在 Dart 里可以直接划掉。</p>\n",
+        "java": "<p>Dart <strong>没有 <code>AtomicInteger</code> 这一类东西</strong>，也没有 <code>volatile</code>。\nJava 的原子类型是为共享内存准备的，而 Dart 的 isolate 各有各的堆 ——\n原子性这个概念失去了对象。\n要从 Java 过来，需要换的不只是工具，还有<strong>思路</strong>：\nJava 里「用原子类替代锁」是一种优化技巧，\n在 Dart 里这个问题压根不存在，取而代之的是\n「哪些数据该放在同一个 isolate 里」这个设计问题。</p>\n"
+      }
+    }
+  }
+}

@@ -1,0 +1,176 @@
+{
+  "lang": "dart",
+  "section": "mechanism",
+  "group": "types",
+  "boxes": {
+    "static-vs-dynamic": {
+      "lang": "dart",
+      "code": "var n = 1;                   // 推断为 int\n// n = 'text';               // —— ⚠ 编译错误：类型在编译期定死\n\nprint(n.runtimeType);        // int —— 运行时能问出真实类型\n\ndynamic loose = 42;          // 主动退出检查的逃生舱\nloose = 'text';              // 合法：编译器不再管这个变量\nloose.notAMethod();          // ⚠ 也不报错，要到运行时才炸\n\nint? maybe;                  // sound null safety：可空性也在编译期追踪\n// print(maybe + 1);         // —— ⚠ 编译错误：可能为 null",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;                   </span><span style=\"color:var(--shiki-token-comment)\">// 推断为 int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// n = 'text';               // —— ⚠ 编译错误：类型在编译期定死</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-foreground)\">(n.runtimeType);        </span><span style=\"color:var(--shiki-token-comment)\">// int —— 运行时能问出真实类型</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">dynamic</span><span style=\"color:var(--shiki-foreground)\"> loose </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 42</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// 主动退出检查的逃生舱</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">loose </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> 'text'</span><span style=\"color:var(--shiki-foreground)\">;              </span><span style=\"color:var(--shiki-token-comment)\">// 合法：编译器不再管这个变量</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">loose.</span><span style=\"color:var(--shiki-token-function)\">notAMethod</span><span style=\"color:var(--shiki-foreground)\">();          </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 也不报错，要到运行时才炸</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\"> maybe;                  </span><span style=\"color:var(--shiki-token-comment)\">// sound null safety：可空性也在编译期追踪</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// print(maybe + 1);         // —— ⚠ 编译错误：可能为 null</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 2,
+          "text": "编译错误：类型在编译期定死",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "也不报错，要到运行时才炸",
+          "tone": "warn"
+        },
+        {
+          "line": 11,
+          "text": "编译错误：可能为 null",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的类型全在运行时，错了跑起来才知道；Dart 在编译期检查，\n类型不匹配编译不过，而且这份检查在运行时同样可靠（sound）——\n不存在「编译期说是 int、运行时却塞进来一个字符串」这种事。\nDart 另外留了一个主动退出检查的出口 <code>dynamic</code>，用它声明的变量\n退回 JavaScript 那种「运行时才知道对不对」的状态；\nJavaScript 不需要这个开关 —— 它本来就只做运行时检查。</p>\n",
+        "python": "<p>Python 全程动态，类型错误靠运行暴露；Dart 在编译期检查，\n错在运行之前就被拦下。两边都能在运行时问到类型\n（Python 的 <code>type()</code>、Dart 的 <code>runtimeType</code>），但 Dart 里这属于调试手段 ——\n编译器早就知道类型，要问通常是遇上了 <code>dynamic</code>。\nDart 还有一条 Python 没有的保证：可空性由编译器完整追踪，\n<code>null</code> 不可能悄悄溜进一个非空类型。</p>\n",
+        "java": "<p>Dart 与 Java 都是静态类型，都保留运行时类型信息（Java 用反射，\nDart 用 <code>runtimeType</code> 与 <code>is</code>；不过 Dart 的 <code>dart:mirrors</code>\n在 AOT 编译下不可用，反射能力远不如 Java）。泛型上两边也接近：\nJava 的类型参数被擦除、运行时看不到，Dart 的泛型同样在运行时被擦除。\n实质差别是 Dart 多了一个 <code>dynamic</code> 出口，可以按需退回动态检查，\nJava 里没有等价的开关。</p>\n"
+      }
+    },
+    "type-annotation": {
+      "lang": "dart",
+      "code": "double area(double r) => 3.14 * r * r;   // 签名可以写类型\n\nvar x = 1;                 // 推断为 int，之后类型不能再改\nfinal y = 2;               // final：只赋一次值\nconst z = 3;               // const：编译期常量\nint? maybe;                // 可空写进类型：int?\n\nclass Point {              // 字段必须写类型\n  final double x;\n  final double y;\n  Point(this.x, this.y);\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">double</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">double</span><span style=\"color:var(--shiki-foreground)\"> r) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> 3.14</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> r;   </span><span style=\"color:var(--shiki-token-comment)\">// 签名可以写类型</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;                 </span><span style=\"color:var(--shiki-token-comment)\">// 推断为 int，之后类型不能再改</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> y </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;               </span><span style=\"color:var(--shiki-token-comment)\">// final：只赋一次值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> z </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">;               </span><span style=\"color:var(--shiki-token-comment)\">// const：编译期常量</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\"> maybe;                </span><span style=\"color:var(--shiki-token-comment)\">// 可空写进类型：int?</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Point</span><span style=\"color:var(--shiki-foreground)\"> {              </span><span style=\"color:var(--shiki-token-comment)\">// 字段必须写类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  final</span><span style=\"color:var(--shiki-token-constant)\"> double</span><span style=\"color:var(--shiki-foreground)\"> x;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  final</span><span style=\"color:var(--shiki-token-constant)\"> double</span><span style=\"color:var(--shiki-foreground)\"> y;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  Point</span><span style=\"color:var(--shiki-foreground)\">(this.x, this.y);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 没有类型标注；Dart 的标注是编译器的事实来源，\n函数签名、字段、变量都能写，能省的靠 <code>var</code> / <code>final</code> 推断。\n<code>final</code> 与 <code>const</code> 是 JavaScript 的 <code>const</code> 被拆开的两件事 ——\n<code>final</code> 表示「只赋一次」，<code>const</code> 表示「编译期常量」，\nJavaScript 的 <code>const</code> 只做到前者。可空标注 <code>int?</code> 也是\nJavaScript 完全没有的一层。</p>\n",
+        "python": "<p>两边的标注都写在名字后面（<code>x: int</code>），也都能只标一部分；\n差别在谁把它当真：Python 的标注运行时不检查、写错代码照跑，\nDart 的标注是编译器的输入，写错就编译不过。\n可空上更明显：Python 的 <code>Optional[int]</code> 只是给类型检查器看的提示，\nDart 的 <code>int?</code> 是编译器会强制执行的真类型。\n另外 Dart 把「常量」拆成 <code>final</code>（只赋一次）与 <code>const</code>（编译期常量）两种，\nPython 里没有对应写法。</p>\n",
+        "java": "<p>两边都是「类型在前」的写法（<code>int x</code> / <code>int area(int r)</code>），\n签名与字段类型都必须写，能省的范围也相似（局部变量靠推断）。\n差别在常量：Java 用一个 <code>final</code> 同时管「只赋一次」与「编译期常量」，\nDart 拆成了 <code>final</code> 与 <code>const</code>。可空性 Java 完全没有对应物 ——\nDart 的 <code>int?</code> 是类型的一部分，Java 只能靠库里的 <code>Optional</code> 包装，\n而 <code>Optional</code> 覆盖不到字段与局部变量。</p>\n"
+      }
+    },
+    "structural-nominal": {
+      "lang": "dart",
+      "code": "abstract class Greeter {\n  String greet();\n}\n\nclass Dog implements Greeter {     // 必须显式写 implements / extends\n  String greet() => '汪';\n}\n\n// 每个类都隐含定义了一份接口：可以只取签名、不要实现\nclass Robot implements Dog {       // Robot 复用 Dog 的接口\n  String greet() => '哔';\n}\n\nvoid hello(Greeter g) => print(g.greet());\nhello(Dog());                      // 具名类型：靠 implements 接线",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">abstract</span><span style=\"color:var(--shiki-token-keyword)\"> class</span><span style=\"color:var(--shiki-token-constant)\"> Greeter</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  String</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Dog</span><span style=\"color:var(--shiki-token-keyword)\"> implements</span><span style=\"color:var(--shiki-token-constant)\"> Greeter</span><span style=\"color:var(--shiki-foreground)\"> {     </span><span style=\"color:var(--shiki-token-comment)\">// 必须显式写 implements / extends</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  String</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-string-expression)\"> '汪'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 每个类都隐含定义了一份接口：可以只取签名、不要实现</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Robot</span><span style=\"color:var(--shiki-token-keyword)\"> implements</span><span style=\"color:var(--shiki-token-constant)\"> Dog</span><span style=\"color:var(--shiki-foreground)\"> {       </span><span style=\"color:var(--shiki-token-comment)\">// Robot 复用 Dog 的接口</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  String</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-string-expression)\"> '哔'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> hello</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">Greeter</span><span style=\"color:var(--shiki-foreground)\"> g) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-function)\"> print</span><span style=\"color:var(--shiki-foreground)\">(g.</span><span style=\"color:var(--shiki-token-function)\">greet</span><span style=\"color:var(--shiki-foreground)\">());</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">hello</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">Dog</span><span style=\"color:var(--shiki-foreground)\">());                      </span><span style=\"color:var(--shiki-token-comment)\">// 具名类型：靠 implements 接线</span></span></code></pre>",
+      "lineCount": 15,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的鸭子类型在运行时，只要求对象上有那个方法；\nDart 是<strong>名义</strong>的：类型必须显式 <code>implements</code> / <code>extends</code>，光有同名方法不算数。\n它还多一层 JavaScript 没有的能力 —— 每个类都隐含定义一份接口，\n<code>implements</code> 一个类可以只取它的方法签名、不要它的实现，\n所以「复用接口」不必先抽出一个专门的抽象类型。\n好处是编译器知道每个类型实现了什么，跳转、补全、报错都有据可依。</p>\n",
+        "python": "<p>Python 的鸭子类型在运行时，<code>Protocol</code> 提供可选的结构化标注；\nDart 是<strong>名义</strong>类型，必须显式声明实现关系，而且类型本身\n就是可以写进签名、当作参数与返回值用的东西。两者都能做面向接口编程，\n但 Dart 的接口是<strong>具名</strong>的 —— 想让类型满足接口，\n要么 <code>extends</code> / <code>implements</code>，要么把成员实现齐，没有第三条路。\n额外的差别是 Dart 里「接口」不必单独声明：任何类都自带一份，\n可以只取签名复用，这一点比 Python 里先写 <code>Protocol</code> 再让类标注要直接。</p>\n",
+        "java": "<p>两边都是<strong>名义</strong>类型：Java 的类必须 <code>implements</code> 接口，有同名方法不算数；\nDart 的类必须写 <code>implements</code> / <code>extends</code>，规则一致。\n差别在「接口」的定义：Java 的接口要单独写一个 <code>interface</code>，\nDart 里每个类都隐含定义了一份接口，<code>implements</code> 一个已有类\n就能只取它的方法签名、不继承实现 —— Java 想做同样的事往往得先抽出一个接口。\n另外 Dart 的 <code>mixin</code> 提供了 Java 接口之外的一种代码复用方式。</p>\n"
+      }
+    },
+    "type-narrowing": {
+      "lang": "dart",
+      "code": "Object x = 42;\nif (x is int) {\n  print(x + 1);           // is 触发类型提升：这里 x 就是 int\n}\n// x.abs();               // —— ⚠ 出了分支就不再提升，回到 Object\n\n// Dart 3：sealed 家族 + switch 表达式有穷尽检查\nsealed class Shape {}\nclass Circle extends Shape { final double r; Circle(this.r); }\nclass Square extends Shape { final double s; Square(this.s); }\n\ndouble area(Shape shape) => switch (shape) {\n  Circle(r: final r) => 3.14 * r * r,\n  Square(s: final s) => s * s,\n};                         // ⚠ 漏掉一个子类，编译不过",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Object</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 42</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (x </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-token-constant)\"> int</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(x </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">);           </span><span style=\"color:var(--shiki-token-comment)\">// is 触发类型提升：这里 x 就是 int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// x.abs();               // —— ⚠ 出了分支就不再提升，回到 Object</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Dart 3：sealed 家族 + switch 表达式有穷尽检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">sealed</span><span style=\"color:var(--shiki-token-keyword)\"> class</span><span style=\"color:var(--shiki-token-constant)\"> Shape</span><span style=\"color:var(--shiki-foreground)\"> {}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Circle</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-constant)\"> Shape</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-token-constant)\"> double</span><span style=\"color:var(--shiki-foreground)\"> r; </span><span style=\"color:var(--shiki-token-constant)\">Circle</span><span style=\"color:var(--shiki-foreground)\">(this.r); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Square</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-constant)\"> Shape</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-token-constant)\"> double</span><span style=\"color:var(--shiki-foreground)\"> s; </span><span style=\"color:var(--shiki-token-constant)\">Square</span><span style=\"color:var(--shiki-foreground)\">(this.s); }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">double</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">Shape</span><span style=\"color:var(--shiki-foreground)\"> shape) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-keyword)\"> switch</span><span style=\"color:var(--shiki-foreground)\"> (shape) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  Circle</span><span style=\"color:var(--shiki-foreground)\">(r</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-keyword)\"> final</span><span style=\"color:var(--shiki-foreground)\"> r) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> 3.14</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> r,</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  Square</span><span style=\"color:var(--shiki-foreground)\">(s</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-keyword)\"> final</span><span style=\"color:var(--shiki-foreground)\"> s) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> s,</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">};                         </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 漏掉一个子类，编译不过</span></span></code></pre>",
+      "lineCount": 15,
+      "notes": [
+        {
+          "line": 5,
+          "text": "出了分支就不再提升，回到 Object",
+          "tone": "warn"
+        },
+        {
+          "line": 15,
+          "text": "漏掉一个子类，编译不过",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 <code>typeof</code> / <code>instanceof</code> 判断完，类型只对读代码的人有意义；\nDart 的 <code>is</code> 会触发<strong>类型提升</strong> —— 判断过之后，同一个变量在编译器眼里\n就是那个更具体的类型，可以直接调它的成员，不用再转一次。\n另一处 JavaScript 给不了的是穷尽检查：Dart 3 的 <code>sealed</code> 家族配 <code>switch</code>\n表达式，漏掉一个子类就编译不过。</p>\n",
+        "python": "<p>Python 用 <code>isinstance</code> 判断再分支；Dart 的 <code>is</code> 更进一步，\n判断之后会触发<strong>类型提升</strong>，同一个变量直接获得更具体类型的能力。\n两边的结构匹配也像 —— Python 的 <code>match</code> / <code>case</code> 与 Dart 3 的\n<code>switch</code> 表达式都能按结构拆解，但 Python 不强制覆盖所有分支，\nDart 在 <code>sealed</code> 家族上强制：漏掉一个子类就编译不过。\n差别就在这条强制性：收窄在 Dart 里是编译器认账的事实，不只是给人看的。</p>\n",
+        "java": "<p>Java 传统上是 <code>instanceof</code> 判断加显式强转（两步，中间那一转可能写错）；\nJava 16 起有 <code>instanceof</code> 模式匹配、21 起 switch 支持模式，\n形态上与 Dart 越来越像。差别是 Dart 的收窄更自动：\n<code>is</code> 判断过之后编译器会<strong>提升</strong>变量的类型，连模式都不用写；\nJava 的模式匹配需要显式声明一个绑定变量。\n穷尽检查两边都有（Java 靠 switch 配 sealed 类型，Dart 靠 switch 配 sealed 家族），\n但 Dart 把它做进了 <code>switch</code> 表达式，可以直接拿来算出一个值。</p>\n"
+      }
+    },
+    "null-safety": {
+      "lang": "dart",
+      "code": "String a = 'hi';\n// a = null;               // —— ⚠ 编译错误：非空类型不能是 null\n\nString? b = null;          // 可空写进类型：String?\nprint(b?.length);          // 可选链：为 null 时整体得 null\n// print(b!.length);       // —— ⚠ 强制解包：为 null 时抛错\nprint(b ?? '默认');        // ?? 提供默认值\n\nint? len = b?.length;\nif (len != null) {         // 判断过之后，len 提升成非空 int\n  print(len + 1);\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> 'hi'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// a = null;               // —— ⚠ 编译错误：非空类型不能是 null</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// 可空写进类型：String?</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-foreground)\">(b</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\">.length);          </span><span style=\"color:var(--shiki-token-comment)\">// 可选链：为 null 时整体得 null</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// print(b!.length);       // —— ⚠ 强制解包：为 null 时抛错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-foreground)\">(b </span><span style=\"color:var(--shiki-token-keyword)\">??</span><span style=\"color:var(--shiki-token-string-expression)\"> '默认'</span><span style=\"color:var(--shiki-foreground)\">);        </span><span style=\"color:var(--shiki-token-comment)\">// ?? 提供默认值</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\"> len </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> b</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\">.length;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (len </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">) {         </span><span style=\"color:var(--shiki-token-comment)\">// 判断过之后，len 提升成非空 int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-foreground)\">(len </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 2,
+          "text": "编译错误：非空类型不能是 null",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "强制解包：为 null 时抛错",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 里 <code>null</code> / <code>undefined</code> 能赋给任何变量，读属性就抛错；\nDart 的 sound null safety 把「可能为空」变成类型的一部分 ——\n<code>String?</code> 与 <code>String</code> 是两个不同的类型，想用里面的值必须先处理 null。\n可选链与默认值两边都有（JavaScript 的 <code>?.</code> / <code>??</code>，Dart 的 <code>?.</code> / <code>??</code>），\n但 Dart 的检查是<strong>编译器强制</strong>且在运行时也成立的：\n漏写一个 <code>?.</code> 在 Dart 里根本编译不过，在 JavaScript 里要到运行时才炸。</p>\n",
+        "python": "<p>Python 的 <code>None</code> 同样能赋给任何变量，<code>x.y</code> 到运行时才抛 AttributeError；\nDart 把它提到编译期拦下。两边的可选写法还差一层语义：\nPython 的 <code>x or &quot;默认&quot;</code> 对空字符串、0、空列表都会取右边，\nDart 的 <code>??</code> 只认 <code>null</code> —— <code>0 ?? 5</code> 得到 0，而 <code>0 or 5</code> 得到 5。\n另外 Python 的 <code>Optional[int]</code> 只是给类型检查器的提示，\nDart 的 <code>int?</code> 是编译器会强制执行的真类型。</p>\n",
+        "java": "<p>Java 的 <code>null</code> 能赋给任何引用类型，解引用就是 NPE，编译器不管；\nDart 在编译期就要求把「可能为空」写进类型（<code>String?</code>），用之前必须先处理。\nJava 的对策是库层面的 <code>Optional</code>，但它只覆盖返回值，\n字段、参数、局部变量都用不上，套上之后写法还变重；\nDart 的可空性是类型系统里的一等公民，字段和参数一样能标，\n<code>?.</code> 与 <code>??</code> 让判空成为表达式里的一步，而不是一层包装。</p>\n"
+      }
+    },
+    "type-assertion": {
+      "lang": "dart",
+      "code": "Object x = 'hello';\nString s = x as String;    // as：不做转换，只是断言；失败抛 TypeError\n// int n = x as int;       // —— ⚠ 运行时抛 TypeError\n\nint a = int.parse('42');   // 真的做解析转换：42\n// int.parse('abc');       // —— ⚠ 抛 FormatException\n\nnum f = 3.9;\nint t = f.toInt();         // 3，向零截断\ndouble big = f.toDouble(); // 3.9，同样是显式调用",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Object</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> 'hello'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-token-constant)\"> String</span><span style=\"color:var(--shiki-foreground)\">;    </span><span style=\"color:var(--shiki-token-comment)\">// as：不做转换，只是断言；失败抛 TypeError</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// int n = x as int;       // —— ⚠ 运行时抛 TypeError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> int</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">parse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'42'</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// 真的做解析转换：42</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// int.parse('abc');       // —— ⚠ 抛 FormatException</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">num</span><span style=\"color:var(--shiki-foreground)\"> f </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3.9</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-foreground)\"> t </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> f.</span><span style=\"color:var(--shiki-token-function)\">toInt</span><span style=\"color:var(--shiki-foreground)\">();         </span><span style=\"color:var(--shiki-token-comment)\">// 3，向零截断</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">double</span><span style=\"color:var(--shiki-foreground)\"> big </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> f.</span><span style=\"color:var(--shiki-token-function)\">toDouble</span><span style=\"color:var(--shiki-foreground)\">(); </span><span style=\"color:var(--shiki-token-comment)\">// 3.9，同样是显式调用</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 3,
+          "text": "运行时抛 TypeError",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "抛 FormatException",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的转换大多隐式（<code>Number</code> / <code>String</code> / 运算符自己转），\n失败得到 <code>NaN</code> 不报错；Dart 的 <code>as</code> 只做类型断言、不做转换，\n失败直接抛 TypeError，而真的转换要走 <code>int.parse</code> 这类 API。\n所以 Dart 里「断言」与「转换」是两件分开的事，\nJavaScript 里两者常常糊在一个表达式里。</p>\n",
+        "python": "<p>Python 的转换是运行时动作，失败就抛异常（<code>int(&quot;abc&quot;)</code> 抛 ValueError）；\nDart 里断言与转换分得很清：<code>as</code> 只改类型的看法、不做值的转换，\n失败抛 TypeError；真要换值必须调 API（<code>int.parse('42')</code> 得到 42，\n<code>num.toInt()</code> 向零截断，解析失败抛 FormatException 而不返回哨兵值）。\n所以 Python 里一个 <code>int(...)</code> 同时承担「转换」与「可能失败」两件事，\nDart 把它们拆成了不同的方法。</p>\n",
+        "java": "<p>Java 的强转 <code>(String) x</code> 会<strong>在运行时检查</strong>，类型不对抛 ClassCastException；\nDart 的 <code>as</code> 同样在运行时检查、失败抛 TypeError，两者是一回事。\n数值转换两边都显式：Java 用隐式加宽加显式窄化（<code>(int) 3.9</code>），\nDart 靠 <code>num.toInt()</code> / <code>toDouble()</code> 这类方法，向零截断的行为一致。\n解析字符串 Java 抛异常，Dart 也抛异常（FormatException），\n这一层比「返回 nil / 哨兵值」的做法更接近。</p>\n"
+      }
+    }
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "lang": "kotlin",
+  "section": "practice",
+  "group": "packages",
+  "boxes": {
+    "package-manager": {
+      "lang": "kotlin",
+      "code": "// Gradle：现在的主流（DSL 是 Kotlin 写的，配置文件就是 .kts）\n// ./gradlew build\n// ./gradlew dependencies        // —— 看依赖树\n\n// Maven：老项目仍然多，配置文件是 XML\n// mvn package\n\n// 插件版本与语言版本**必须对齐** —— Kotlin 插件版本 = Kotlin 语言版本\n// plugins { kotlin(\"jvm\") version \"2.4.20\" }\n\n// 依赖从 Maven Central 等仓库取，坐标是 group:artifact:version\n// 这与另外两门完全不同：那边是「一个中央仓库 + 包名」，\n// 这边是「任意多个仓库 + 三段坐标」",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Gradle：现在的主流（DSL 是 Kotlin 写的，配置文件就是 .kts）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ./gradlew build</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ./gradlew dependencies        // —— 看依赖树</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Maven：老项目仍然多，配置文件是 XML</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// mvn package</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 插件版本与语言版本**必须对齐** —— Kotlin 插件版本 = Kotlin 语言版本</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// plugins { kotlin(\"jvm\") version \"2.4.20\" }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 依赖从 Maven Central 等仓库取，坐标是 group:artifact:version</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这与另外两门完全不同：那边是「一个中央仓库 + 包名」，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这边是「任意多个仓库 + 三段坐标」</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的包管理器都与构建工具绑在一起，但<strong>绑定方式不同</strong>：\nJavaScript 那边 <code>npm</code> 既是包管理器也是任务运行器，\n脚本写在 <code>package.json</code> 里；Kotlin 这边包管理是构建工具\n（Gradle 或 Maven）的一部分，任务写在构建脚本里。\n另一处是坐标：那边是「包名加版本」两段，这边是三段\n（组织、构件、版本），所以同一个库可以有多个构件。</p>\n",
+        "python": "<p>两边都有「包管理器 + 构建后端」两层，也都经历过工具换人\n（那边从 setuptools 到 Poetry 到 uv，这边从 Maven 到 Gradle）。\n差别在<strong>依赖来源</strong>：Python 默认只有一个中央索引，\n换源是配置项；Kotlin 这边「仓库」是一等概念，\n你可以在构建脚本里列任意多个（公司内网、镜像、中央仓库都行）。</p>\n",
+        "java": "<p>这边<strong>就是 Java 的构建工具</strong>（Gradle / Maven），与 Java 项目完全共用，\n这一格两边没有实质差别 —— 连 <code>build.gradle.kts</code> 与\n<code>pom.xml</code> 都可以放在同一个工程里。\n唯一要说的是 Kotlin 让 Gradle 的构建脚本能用 Kotlin 写\n（<code>.kts</code>），比原先的 Groovy 有类型与补全；\nMaven 那边还是 XML，两种语言共用一套。</p>\n"
+      }
+    },
+    "dependency-declaration": {
+      "lang": "kotlin",
+      "code": "dependencies {\n  implementation(\"com.example:core:1.2.0\")     // 内部实现，不暴露给下游\n  api(\"com.example:model:1.2.0\")               // 类型出现在公开签名里才用它\n  compileOnly(\"org.jetbrains:annotations:24.0\")// 只编译期要，运行期由环境提供\n  runtimeOnly(\"org.slf4j:slf4j-simple:2.0.0\")  // 只运行期要\n  testImplementation(\"org.junit.jupiter:junit-jupiter:6.1.3\")\n}\n\n// ⚠ 默认选 implementation —— 只有「我这个模块的公开 API 里\n// ⚠ 出现了这个库的类型」时才改成 api（那会把它传染给下游）\n// 版本对齐可以用平台/BOM：implementation(platform(\"...:bom:1.2.0\"))\n// 版本集中管理用版本目录：gradle/libs.versions.toml → libs.xxx.yyy",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-function)\">dependencies</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  implementation</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"com.example:core:1.2.0\"</span><span style=\"color:var(--shiki-foreground)\">)     </span><span style=\"color:var(--shiki-token-comment)\">// 内部实现，不暴露给下游</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  api</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"com.example:model:1.2.0\"</span><span style=\"color:var(--shiki-foreground)\">)               </span><span style=\"color:var(--shiki-token-comment)\">// 类型出现在公开签名里才用它</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  compileOnly</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"org.jetbrains:annotations:24.0\"</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-comment)\">// 只编译期要，运行期由环境提供</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  runtimeOnly</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"org.slf4j:slf4j-simple:2.0.0\"</span><span style=\"color:var(--shiki-foreground)\">)  </span><span style=\"color:var(--shiki-token-comment)\">// 只运行期要</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  testImplementation</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"org.junit.jupiter:junit-jupiter:6.1.3\"</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 默认选 implementation —— 只有「我这个模块的公开 API 里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 出现了这个库的类型」时才改成 api（那会把它传染给下游）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本对齐可以用平台/BOM：implementation(platform(\"...:bom:1.2.0\"))</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本集中管理用版本目录：gradle/libs.versions.toml → libs.xxx.yyy</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 9,
+          "text": "默认选 implementation —— 只有「我这个模块的公开 API 里",
+          "tone": "warn"
+        },
+        {
+          "line": 10,
+          "text": "出现了这个库的类型」时才改成 api（那会把它传染给下游）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 那边只有 dependencies 与 devDependencies 两档，\n而且装了什么下游都能拿到 —— 没有「这个依赖算不算我公开接口的一部分」\n这个问题。Kotlin 这边把这件事拆成四档，默认最严格，\n要为「暴露给下游」显式付代价。\n另一处是测试依赖：那边靠 devDependencies，这边靠命名前缀\n（<code>testImplementation</code>），粒度更细。</p>\n",
+        "python": "<p>两边都要声明依赖，但<strong>范围模型不同</strong>：Python 那边\n「运行依赖」与「开发依赖」是主要分野，\n没有「编译期可见但运行期由环境提供」这一档；\nKotlin 这边 <code>compileOnly</code> 表达的正是这种情形\n（例如运行容器已经带了某个 API）。\n另一处是传递性：Python 的依赖默认也会传染给使用者，\n但没法在声明处控制；Kotlin 的 <code>implementation</code> / <code>api</code>\n就是这个控制的开关。</p>\n",
+        "java": "<p>这里要提醒的是<strong>别按 Maven 的直觉套</strong>：Maven 的\n<code>compile</code> / <code>provided</code> / <code>runtime</code> 三档与 Gradle 的\n<code>api</code> / <code>implementation</code> / <code>compileOnly</code> / <code>runtimeOnly</code>\n不是一一对应 —— 尤其是 Maven 的 <code>compile</code> 默认会把依赖\n暴露给下游，而 Gradle 的 <code>implementation</code> 不会。\n所以从 Maven 迁过来的项目要逐个想清楚：\n这个类型到底出没出现在公开签名里。</p>\n"
+      }
+    },
+    "version-constraint": {
+      "lang": "kotlin",
+      "code": "\"1.2.0\"                  // 精确版本（不推荐）\n\"1.2.+\"                  // 动态版本：取 1.2 系列的最新（也不推荐）\n\"[1.0, 2.0)\"             // 区间\n\"1.2.0!!\"                // 严格版本：版本冲突时直接失败\n\n// 常见做法是**不写死**，交给平台/BOM 统一决定：\nimplementation(platform(\"org.jetbrains.kotlin:kotlin-bom:2.4.20\"))\nimplementation(\"org.jetbrains.kotlinx:kotlinx-coroutines-core\")\n\n// 冲突默认取「最高的那个」\n// 要强制某个版本用 resolutionStrategy.force(...)，或者用约束 constraints",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"1.2.0\"</span><span style=\"color:var(--shiki-token-comment)\">                  // 精确版本（不推荐）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"1.2.+\"</span><span style=\"color:var(--shiki-token-comment)\">                  // 动态版本：取 1.2 系列的最新（也不推荐）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"[1.0, 2.0)\"</span><span style=\"color:var(--shiki-token-comment)\">             // 区间</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"1.2.0!!\"</span><span style=\"color:var(--shiki-token-comment)\">                // 严格版本：版本冲突时直接失败</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 常见做法是**不写死**，交给平台/BOM 统一决定：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">implementation</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">platform</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"org.jetbrains.kotlin:kotlin-bom:2.4.20\"</span><span style=\"color:var(--shiki-foreground)\">))</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">implementation</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"org.jetbrains.kotlinx:kotlinx-coroutines-core\"</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 冲突默认取「最高的那个」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 要强制某个版本用 resolutionStrategy.force(...)，或者用约束 constraints</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的版本范围语法不同（那边用的是 <code>^</code> 与 <code>~</code>，\n这边用区间或动态版本后缀），但<strong>默认行为接近</strong>：\n都取能满足范围的最新版、冲突时偏向更高版本。\n差别在<strong>锁定的粒度</strong>：JavaScript 有锁文件把整棵依赖树钉死；\nKotlin 默认<strong>不锁</strong>（见下一格），只靠约束与冲突解决规则，\n所以「今天装的与明天装的」理论上可能不同。</p>\n",
+        "python": "<p>两边的约束写法差别很大：Python 用比较运算符组合\n（<code>&gt;=1.2,&lt;2.0</code>），Kotlin 用区间或 <code>1.2.+</code> 这类后缀，\n而且 YAML 之外还有一套自己的记号（<code>!!</code> 表示严格版本）。\n差别还在<strong>默认要不要钉死</strong>：Python 装机量最大的那套\n依赖一个文本清单或锁文件；Kotlin 默认只声明范围，\n要复现得额外开启锁定。</p>\n",
+        "java": "<p>这一格两边<strong>是同一套</strong>（Maven 的版本范围语法与 Gradle 的兼容），\n连「冲突时取最高版本」这条默认都一样。\n差别在<strong>现在更推荐的做法</strong>：两边都倾向于「不写范围、\n用一个 BOM 统一版本」，而不是在每个依赖上写区间 ——\n因为区间会让解析结果变得难以预测。\n所以看到 Kotlin 项目里依赖不写版本，多半是背后有平台在管。</p>\n"
+      }
+    },
+    "lockfile": {
+      "lang": "kotlin",
+      "code": "// ⚠ Gradle 的依赖锁定**默认是关的** —— 要按需开启\nconfigurations.all {\n  resolutionStrategy.activateDependencyLocking()   // 逐个配置开\n}\n// 开启后生成 gradle.lockfile，**建议入库**\n// 还有一个开关：--write-locks 主动写出锁文件\n// 「不一致就失败」的模式是 --update-locks / 锁定后校验\n\n// Maven **默认没有锁文件** —— 版本在每次构建时重新解析\n// 想复现只能靠 dependency:tree 排查，或者上插件",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Gradle 的依赖锁定**默认是关的** —— 要按需开启</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">configurations.</span><span style=\"color:var(--shiki-token-function)\">all</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  resolutionStrategy.</span><span style=\"color:var(--shiki-token-function)\">activateDependencyLocking</span><span style=\"color:var(--shiki-foreground)\">()   </span><span style=\"color:var(--shiki-token-comment)\">// 逐个配置开</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 开启后生成 gradle.lockfile，**建议入库**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 还有一个开关：--write-locks 主动写出锁文件</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 「不一致就失败」的模式是 --update-locks / 锁定后校验</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Maven **默认没有锁文件** —— 版本在每次构建时重新解析</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想复现只能靠 dependency:tree 排查，或者上插件</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 1,
+          "text": "Gradle 的依赖锁定**默认是关的** —— 要按需开启",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>两边的默认相反</strong>：JavaScript 一装就产出锁文件、而且强烈建议入库，\n所以「今天与明天装出一样的东西」是默认保证；\nKotlin 这边默认不锁，解析结果随时间可能变，\n要复现得<strong>主动开一个开关</strong>。\n另一处是粒度：那边的锁文件覆盖整棵树、格式由官方定义；\n这边锁定是按配置一块块开的，粒度更细也更需要理解。</p>\n",
+        "python": "<p>两边都可以有锁文件，但<strong>默认姿态不同</strong>：\nPython 生态里锁文件是主流做法（各类工具各有一套格式）；\nKotlin 这边默认没有，而且官方的锁定机制也不是人人都在用。\n另一处是<strong>锁定的是什么</strong>：Python 的锁多半钉住精确版本；\n这边开锁定之后也是钉住版本，但连校验和一起记下来，\n能发现依赖被换过 —— 这一点更接近 cargo 那边的做法。</p>\n",
+        "java": "<p>这一格两边几乎一样：<strong>Maven 默认没有锁文件</strong>（版本每次重新解析），\nGradle 有依赖锁定但<strong>默认关闭</strong>。所以从 Java 过来时，\n「有没有锁文件」这个问题的答案不变 —— 都是「默认没有」。\n差别在使用率：Java 项目里显式开启 Gradle 锁定的并不多，\n所以「构建不可复现」在两边都是常见的既成事实。</p>\n"
+      }
+    },
+    "environment-isolation": {
+      "lang": "kotlin",
+      "code": "// 不需要「虚拟环境」这种东西 —— 依赖装进项目自己的缓存\n// Gradle 用 ~/.gradle 缓存所有版本，按坐标取用\n// Maven 用 ~/.m2 本地仓库，同理\n\n// 项目之间靠**类路径**隔离，不用切换、不用激活\n// 版本冲突由构建工具仲裁（默认取最高）并给出报告\n\n// 需要「干净的重新开始」时清缓存或加 --refresh-dependencies",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 不需要「虚拟环境」这种东西 —— 依赖装进项目自己的缓存</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Gradle 用 ~/.gradle 缓存所有版本，按坐标取用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Maven 用 ~/.m2 本地仓库，同理</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 项目之间靠**类路径**隔离，不用切换、不用激活</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本冲突由构建工具仲裁（默认取最高）并给出报告</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 需要「干净的重新开始」时清缓存或加 --refresh-dependencies</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都<strong>天然隔离</strong>：依赖装在项目自己的目录（或缓存）里，\n不用做任何准备工作，也没有「激活环境」这个动作。\n差别在物理位置：JavaScript 把依赖复制进项目的 node_modules，\n每个项目一份；Kotlin 用<strong>全局缓存 + 按坐标引用</strong>，\n同一个版本在所有项目间共用 —— 省空间，但缓存坏了会影响所有项目。</p>\n",
+        "python": "<p><strong>这是两边差别很大的一格</strong>：Python 必须主动建虚拟环境\n（或者靠外部工具），忘了激活就会装到全局去；\nKotlin 这边根本没有「激活」这个动作 ——\n依赖默认就是项目隔离的，装到全局去这件事做不出来。\n所以从 Python 过来会少掉一整类操作事故，\n代价是「我想手工装一个包试试」这种事也变得没那么直接。</p>\n",
+        "java": "<p>两边<strong>完全一样</strong>（就是同一套本地仓库加类路径隔离），\n连缓存目录的位置都相同，这一格可以逐条对应。\n所以从 Java 过来时这一格不需要重新学。\n唯一要说的是 Kotlin 项目往往用 Gradle 而不是 Maven，\n缓存目录名不同（<code>.gradle</code> 与 <code>.m2</code>），机制一致。</p>\n"
+      }
+    },
+    "publishing": {
+      "lang": "kotlin",
+      "code": "// 发布到 Maven Central（用 maven-publish 插件）\nplugins { `maven-publish` }\n\npublishing {\n  publications { create<MavenPublication>(\"maven\") { from(components[\"java\"]) } }\n  repositories { /* 目标仓库与凭据 */ }\n}\n\n// ./gradlew publish\n\n// 坐标三段（group / artifact / version）都要自己给\n// 中央仓库**不允许重复发布**同一个版本，发出去就收不回\n// 所有构件必须从同一台机器发布（签名与校验要对得上）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 发布到 Maven Central（用 maven-publish 插件）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">plugins</span><span style=\"color:var(--shiki-foreground)\"> { `maven</span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">publish` }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">publishing</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  publications</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">create</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">MavenPublication</span><span style=\"color:var(--shiki-foreground)\">>(</span><span style=\"color:var(--shiki-token-string-expression)\">\"maven\"</span><span style=\"color:var(--shiki-foreground)\">) { </span><span style=\"color:var(--shiki-token-function)\">from</span><span style=\"color:var(--shiki-foreground)\">(components[</span><span style=\"color:var(--shiki-token-string-expression)\">\"java\"</span><span style=\"color:var(--shiki-foreground)\">]) } }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  repositories</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-comment)\">/* 目标仓库与凭据 */</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ./gradlew publish</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 坐标三段（group / artifact / version）都要自己给</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 中央仓库**不允许重复发布**同一个版本，发出去就收不回</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所有构件必须从同一台机器发布（签名与校验要对得上）</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的发布流程差别很大：JavaScript 一条 <code>npm publish</code> 就完事，\n版本号重了会被拒但<strong>可以撤回</strong>；\nKotlin 这边要先配发布插件、写好坐标、签名、校验，\n而且<strong>发出去就收不回</strong>（同版本不能重发）。\n所以那边的发布是日常动作，这边更像一次正式的交付。</p>\n",
+        "python": "<p>两边都要显式构建再上传，也都支持私有源。\n差别在<strong>元数据的要求</strong>：Python 的包名与版本写在配置文件里，\n一个名字对应一个包；Kotlin 的坐标是三段，\n同一个 group 下可以有多个 artifact，所以「一个库」往往是\n一组构件一起发布。另一处是撤回：那边可以删版本，\n这边发出去就永久占用了。</p>\n",
+        "java": "<p>这一格两边<strong>完全是同一套</strong>（就是 Maven 的发布体系，\n连 <code>maven-publish</code> 插件的用法都一样），可以逐条对应。\n所以从 Java 过来时发布流程不用改 ——\n换的只是构建脚本的语言（<code>.kts</code> 而不是 Groovy），\n以及多一门语言要额外发布它的元数据。</p>\n"
+      }
+    }
+  }
+}

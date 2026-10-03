@@ -1,0 +1,162 @@
+{
+  "lang": "kotlin",
+  "section": "mechanism",
+  "group": "concurrency",
+  "boxes": {
+    "concurrency-unit": {
+      "lang": "kotlin",
+      "code": "import kotlinx.coroutines.*\n\nfun main() = runBlocking {                  // 桥接：把协程接到普通代码上\n  val job = launch {                        // launch 返回 Job，没有结果值\n    delay(1000)                             // 挂起：线程不被占住，可以去干别的\n    println(\"后台\")\n  }\n  println(\"主流程继续\")                      // 这一行会先打印\n  job.join()                                // 等它跑完\n\n  coroutineScope {                          // 结构化并发：这个块等所有子协程\n    launch { delay(500) }\n    launch { delay(500) }\n  }                                         // 到这里两个都完成了\n}\n\n// 协程不是线程：它可以在一根线程上挂起、换到另一根上恢复\n// ⚠ 但它**默认会并行** —— Dispatchers.Default 背后是多线程池\n// 「轻」指的是开销：几万个协程没问题，几万个线程会先耗尽内存",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> kotlinx.coroutines.*</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> main</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> runBlocking</span><span style=\"color:var(--shiki-foreground)\"> {                  </span><span style=\"color:var(--shiki-token-comment)\">// 桥接：把协程接到普通代码上</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  val</span><span style=\"color:var(--shiki-foreground)\"> job </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> launch</span><span style=\"color:var(--shiki-foreground)\"> {                        </span><span style=\"color:var(--shiki-token-comment)\">// launch 返回 Job，没有结果值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    delay</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1000</span><span style=\"color:var(--shiki-foreground)\">)                             </span><span style=\"color:var(--shiki-token-comment)\">// 挂起：线程不被占住，可以去干别的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    println</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"后台\"</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  println</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"主流程继续\"</span><span style=\"color:var(--shiki-foreground)\">)                      </span><span style=\"color:var(--shiki-token-comment)\">// 这一行会先打印</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  job.</span><span style=\"color:var(--shiki-token-function)\">join</span><span style=\"color:var(--shiki-foreground)\">()                                </span><span style=\"color:var(--shiki-token-comment)\">// 等它跑完</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  coroutineScope</span><span style=\"color:var(--shiki-foreground)\"> {                          </span><span style=\"color:var(--shiki-token-comment)\">// 结构化并发：这个块等所有子协程</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    launch</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">delay</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">500</span><span style=\"color:var(--shiki-foreground)\">) }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    launch</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">delay</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">500</span><span style=\"color:var(--shiki-foreground)\">) }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }                                         </span><span style=\"color:var(--shiki-token-comment)\">// 到这里两个都完成了</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 协程不是线程：它可以在一根线程上挂起、换到另一根上恢复</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但它**默认会并行** —— Dispatchers.Default 背后是多线程池</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 「轻」指的是开销：几万个协程没问题，几万个线程会先耗尽内存</span></span></code></pre>",
+      "lineCount": 19,
+      "notes": [
+        {
+          "line": 18,
+          "text": "但它**默认会并行** —— Dispatchers.Default 背后是多线程池",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>最容易被想当然的一处</strong>：JavaScript 只有一根线程加事件循环，\n所以「同时只跑一段代码」是免费的保证；\nKotlin 的协程<strong>可以在多根线程上并行跑</strong>，只是「挂起不占线程」而已 ——\n共享可变状态的问题照旧，不会因为你用了协程就消失。\n写法上两边很像（<code>async</code> / <code>await</code> 这套形状接近），\n但调度模型不同：那边是单线程排队，这边是真并行。</p>\n",
+        "python": "<p>Python 的 <code>async</code> / <code>await</code> 与 Kotlin 的协程形状像，但<strong>并发模型不同</strong>：\nPython 的协程跑在单线程事件循环上（要并行得另起进程或线程），\nKotlin 的协程默认调度到多线程池上，是真的并行。\n另一处是<strong>结构化并发</strong>：Kotlin 的 <code>coroutineScope</code> 保证\n「父等子、父取消子一起取消」，Python 那边得自己用 <code>TaskGroup</code> 或手工管理。</p>\n",
+        "java": "<p>Java 的并发单元是线程，Kotlin 多了一层协程 —— 而且两者可以混用\n（协程最终跑在线程上）。协程的价值在<strong>挂起不阻塞线程</strong>：\n一个阻塞的 IO 操作在 Java 里要占住一根线程，在 Kotlin 里可以挂起，\n让同一根线程去跑别的协程。\n另一处是结构化并发：Java 那边要自己管线程池的关闭与异常传播，\nKotlin 的 <code>coroutineScope</code> 把「等所有子任务」做成了一行。</p>\n"
+      }
+    },
+    "shared-state": {
+      "lang": "kotlin",
+      "code": "var counter = 0\n// 危险：多个协程同时读改写\n// repeat(1000) { launch { counter++ } }        // —— ⚠ 结果小于 1000\n\n// 办法一：把状态限制在单线程上（线程封闭）\nval single = newSingleThreadContext(\"only\")\n// 办法二：用挂起的互斥锁（见 lock-mutex 一格）\n// 办法三：用原子类型（见 atomicity 一格）\n\n@Volatile var flag = false                       // ⚠ 只保证可见性，\n// ⚠ 不保证 counter++ 这种「读-改-写」是原子的\n\n// 每个协程有自己的上下文，但**堆是共享的** —— 对象谁都能拿到",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 危险：多个协程同时读改写</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// repeat(1000) { launch { counter++ } }        // —— ⚠ 结果小于 1000</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 办法一：把状态限制在单线程上（线程封闭）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> single </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> newSingleThreadContext</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"only\"</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 办法二：用挂起的互斥锁（见 lock-mutex 一格）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 办法三：用原子类型（见 atomicity 一格）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">@Volatile</span><span style=\"color:var(--shiki-token-keyword)\"> var</span><span style=\"color:var(--shiki-foreground)\"> flag </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> false</span><span style=\"color:var(--shiki-token-comment)\">                       // ⚠ 只保证可见性，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不保证 counter++ 这种「读-改-写」是原子的</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 每个协程有自己的上下文，但**堆是共享的** —— 对象谁都能拿到</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 3,
+          "text": "结果小于 1000",
+          "tone": "warn"
+        },
+        {
+          "line": 10,
+          "text": "只保证可见性，",
+          "tone": "warn"
+        },
+        {
+          "line": 11,
+          "text": "不保证 counter++ 这种「读-改-写」是原子的",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都能在多个「任务」之间共享变量，但<strong>共享会不会出问题相反</strong>：\nJavaScript 的任务之间不会真正同时跑，所以 <code>counter++</code> 不可能被\n从中间打断；Kotlin 的协程在多线程上并行时，<code>counter++</code> 是三步操作，\n中间随时可能被换出去 —— 结果是少加了一些。\n所以那边「随便写」的代码搬到这边会变成一个真实的竞态。</p>\n",
+        "python": "<p>两边都可能撞上竞态，但<strong>成因不同</strong>：Python 的 <code>asyncio</code> 只在\n<code>await</code> 处切换，所以没有 <code>await</code> 的 <code>counter++</code> 是安全的；\nKotlin 的协程在多线程上并行，任何一行都可能与另一根线程交错。\n结果是 Python 那边「看着像原子」的代码在这边不安全 ——\n这一条从 Python 过来最容易误判。\n共同点是两边都要有意识地选一种保护手段。</p>\n",
+        "java": "<p>两边共享状态的问题是<strong>同一套</strong>（多线程、共享堆、可见性与原子性），\n可以逐条对应。差别在<strong>默认值</strong>：Java 里写并发要用线程池、\n要显式提交任务；Kotlin 里一个 <code>launch</code> 就起来了，\n于是「不小心共享了一个可变变量」的概率高得多 ——\n门槛降低的同时，踩坑的机会也变多了。\n两边可用的手段一致（锁、原子类、线程封闭），只是 Kotlin 多一个挂起版。</p>\n"
+      }
+    },
+    "lock-mutex": {
+      "lang": "kotlin",
+      "code": "import kotlinx.coroutines.sync.*\n\nval mutex = Mutex()                    // 挂起式互斥锁，**不阻塞线程**\n\nsuspend fun safeIncrement() {\n  mutex.withLock {                     // 等价于 lock / try / finally unlock\n    counter++\n  }\n}\n\n// ⚠ 协程里别用 synchronized —— 它会**阻塞整根线程**，\n// ⚠ 与「挂起不占线程」的初衷冲突\n// JVM 上当然还能用 ReentrantLock，同样会阻塞\n\n// 只读共享用 @Volatile 就够；要保护一段复合操作就得用锁\n// 另有一条路：干脆不加锁，把状态挪进单个协程，用消息传（见 channel 一格）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> kotlinx.coroutines.sync.*</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> mutex </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Mutex</span><span style=\"color:var(--shiki-foreground)\">()                    </span><span style=\"color:var(--shiki-token-comment)\">// 挂起式互斥锁，**不阻塞线程**</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">suspend</span><span style=\"color:var(--shiki-token-keyword)\"> fun</span><span style=\"color:var(--shiki-token-function)\"> safeIncrement</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  mutex.</span><span style=\"color:var(--shiki-token-function)\">withLock</span><span style=\"color:var(--shiki-foreground)\"> {                     </span><span style=\"color:var(--shiki-token-comment)\">// 等价于 lock / try / finally unlock</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    counter</span><span style=\"color:var(--shiki-token-keyword)\">++</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 协程里别用 synchronized —— 它会**阻塞整根线程**，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 与「挂起不占线程」的初衷冲突</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// JVM 上当然还能用 ReentrantLock，同样会阻塞</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只读共享用 @Volatile 就够；要保护一段复合操作就得用锁</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 另有一条路：干脆不加锁，把状态挪进单个协程，用消息传（见 channel 一格）</span></span></code></pre>",
+      "lineCount": 16,
+      "notes": [
+        {
+          "line": 11,
+          "text": "协程里别用 synchronized —— 它会**阻塞整根线程**，",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "与「挂起不占线程」的初衷冲突",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 里根本不需要锁 —— 单线程加事件循环已经保证了\n「一段同步代码不会被从中间打断」。Kotlin 这边默认会并行，\n所以锁是必需品。\n这一点是从那边过来最需要重新建立的直觉：\n在这边，「这两行之间不会插进别的代码」是需要主动争取的，\n而在那边它是免费的。</p>\n",
+        "python": "<p>两边都有锁，但<strong>默认需不需要</strong>不同：Python 的 <code>asyncio</code> 只在\n<code>await</code> 处切换任务，所以没有 <code>await</code> 的临界区天然是安全的，\n锁是可选的；Kotlin 的协程在多线程上并行，临界区必须显式保护。\n另一处是锁的种类：Python 的 <code>asyncio.Lock</code> 是挂起式的，\n与 Kotlin 的 <code>Mutex</code> 对应；而 Python 还有个线程版的 <code>threading.Lock</code>，\n两者不能混用 —— Kotlin 这边同样要分清 <code>Mutex</code> 与 JVM 的锁。</p>\n",
+        "java": "<p>两边可用同一套 JVM 锁（<code>synchronized</code>、<code>ReentrantLock</code>），\n但<strong>在协程里用它们是错的</strong>：那些锁会阻塞线程，\n而协程的价值就在于挂起时不占线程 —— 一阻塞就把整根线程钉住了。\n所以 Kotlin 协程代码里要用挂起版的 <code>Mutex</code>，\n它的 <code>withLock</code> 在拿不到锁时挂起而不是等待。\nJava 那边没有这一层区分，因为它的并发单元本来就是线程。</p>\n"
+      }
+    },
+    "channel": {
+      "lang": "kotlin",
+      "code": "import kotlinx.coroutines.channels.*\nimport kotlinx.coroutines.*\n\nfun main() = runBlocking {\n  val ch = Channel<Int>()              // 默认无缓冲：发和收要碰头\n\n  launch {\n    for (i in 1..3) ch.send(i)         // send 是挂起的，不阻塞线程\n    ch.close()                          // 关掉，接收方会收到结束信号\n  }\n\n  for (v in ch) println(v)             // 用 for 收，到 close 自动结束\n\n  // 带缓冲：Channel(10)，发满之前不会挂起\n  // 一对多的扇出、多对一的扇入都能做\n  // produce { } 是个构建器，返回一个接收端\n}\n\n// ⚠ 扇出场景别用 consumeEach —— 它会把通道消费掉，改用 for 循环",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> kotlinx.coroutines.channels.*</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> kotlinx.coroutines.*</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> main</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> runBlocking</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  val</span><span style=\"color:var(--shiki-foreground)\"> ch </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Channel</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">Int</span><span style=\"color:var(--shiki-foreground)\">>()              </span><span style=\"color:var(--shiki-token-comment)\">// 默认无缓冲：发和收要碰头</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  launch</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    for</span><span style=\"color:var(--shiki-foreground)\"> (i </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-keyword)\">..</span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\">) ch.</span><span style=\"color:var(--shiki-token-function)\">send</span><span style=\"color:var(--shiki-foreground)\">(i)         </span><span style=\"color:var(--shiki-token-comment)\">// send 是挂起的，不阻塞线程</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    ch.</span><span style=\"color:var(--shiki-token-function)\">close</span><span style=\"color:var(--shiki-foreground)\">()                          </span><span style=\"color:var(--shiki-token-comment)\">// 关掉，接收方会收到结束信号</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> (v </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> ch) </span><span style=\"color:var(--shiki-token-function)\">println</span><span style=\"color:var(--shiki-foreground)\">(v)             </span><span style=\"color:var(--shiki-token-comment)\">// 用 for 收，到 close 自动结束</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // 带缓冲：Channel(10)，发满之前不会挂起</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // 一对多的扇出、多对一的扇入都能做</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // produce { } 是个构建器，返回一个接收端</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 扇出场景别用 consumeEach —— 它会把通道消费掉，改用 for 循环</span></span></code></pre>",
+      "lineCount": 19,
+      "notes": [
+        {
+          "line": 19,
+          "text": "扇出场景别用 consumeEach —— 它会把通道消费掉，改用 for 循环",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 没有内建的进程内通道，跨线程只有 <code>postMessage</code>，\n进程内传值一般靠回调或者自己写一个队列。\nKotlin 的 <code>Channel</code> 是标准做法：发送方挂起、接收方挂起、\n关闭后自动结束遍历 —— 这套形状在那边要自己搭。\n共同点是两边都有「消息传递优于共享内存」这条思路，\n只是这边把它做成了现成的工具。</p>\n",
+        "python": "<p>Python 的 <code>asyncio.Queue</code> 与 Kotlin 的 <code>Channel</code> 用途相同，\n都是挂起式队列，也都能做扇出扇入。差别在<strong>结束信号</strong>：\nPython 惯用往队列里放一个哨兵值来表示「没了」，\nKotlin 用 <code>close()</code>，接收端的 <code>for</code> 会自动结束 ——\n少了一类「忘记处理哨兵」的 bug。\n另一处是 Kotlin 的通道可以在协程之外被关闭与取消。</p>\n",
+        "java": "<p>Java 的 <code>BlockingQueue</code> 与 Kotlin 的 <code>Channel</code> 形态相近\n（都是先进先出的队列），但<strong>阻塞行为不同</strong>：\n<code>BlockingQueue</code> 的 <code>put</code> / <code>take</code> 会<strong>阻塞线程</strong>，\n<code>Channel</code> 的 <code>send</code> / <code>receive</code> 是<strong>挂起协程</strong> ——\n在高并发下前者要占住大量线程，后者不用。\n另一处是结束：Java 那边没有内建的「关闭」概念，得自己约定毒丸值。</p>\n"
+      }
+    },
+    "atomicity": {
+      "lang": "kotlin",
+      "code": "import java.util.concurrent.atomic.AtomicInteger\n\nval count = AtomicInteger(0)\n// count.incrementAndGet()             // —— 读改写是一步，不会被插进来\n\n// ⚠ Kotlin 自己没有原子类型 —— 用的是 JVM 的 java.util.concurrent.atomic\n// ⚠ `@Volatile` 只保证「一个线程写、别的线程能看见」，\n// ⚠ 保证不了 `count++` 这种复合操作\n\n// 高竞争、要更新多个变量时，原子类不够用，得上锁或换个思路\n// 只想发布一个不可变对象：把它放进 @Volatile 字段即可",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> java.util.concurrent.atomic.AtomicInteger</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> count </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> AtomicInteger</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// count.incrementAndGet()             // —— 读改写是一步，不会被插进来</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Kotlin 自己没有原子类型 —— 用的是 JVM 的 java.util.concurrent.atomic</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `@Volatile` 只保证「一个线程写、别的线程能看见」，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 保证不了 `count++` 这种复合操作</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 高竞争、要更新多个变量时，原子类不够用，得上锁或换个思路</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只想发布一个不可变对象：把它放进 @Volatile 字段即可</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 6,
+          "text": "Kotlin 自己没有原子类型 —— 用的是 JVM 的 java.util.concurrent.atomic",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "`@Volatile` 只保证「一个线程写、别的线程能看见」，",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "保证不了 `count++` 这种复合操作",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 里没有「原子类型」这个概念 —— 单线程模型下\n<code>count++</code> 本来就不会被打断。Kotlin 这边并行是真并行，\n所以需要专门的原子类型（或锁）。\n所以这一格是<strong>需求有无之别</strong>：那边没有这个工具，\n不是因为没想到，而是因为用不上。</p>\n",
+        "python": "<p>Python 的 <code>asyncio</code> 下没有 <code>await</code> 的 <code>counter += 1</code> 是安全的，\n所以也没有内建的原子类型；多线程场景靠 <code>threading.Lock</code>\n或者 <code>itertools.count</code> 这类特例。\nKotlin 这边因为协程默认并行，原子类成了常用工具 ——\n这一格同样是「需求有没有」的差别。</p>\n",
+        "java": "<p>两边<strong>用的是同一批类</strong>（<code>AtomicInteger</code>、<code>AtomicReference</code>、\n<code>LongAdder</code> 等），语义完全一样，可以逐条对应。\n差别在<strong>用不用得上</strong>：Java 里只有在真开多线程时才有这个问题，\n而 Kotlin 里一个 <code>launch</code> 就可能已经并行了 ——\n所以同样的代码在 Kotlin 里更容易在不知不觉中踩到竞态。\n另一处是 <code>@Volatile</code>：Java 是关键字，Kotlin 是注解，语义相同。</p>\n"
+      }
+    }
+  }
+}

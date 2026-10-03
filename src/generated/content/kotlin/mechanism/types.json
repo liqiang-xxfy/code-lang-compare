@@ -1,0 +1,182 @@
+{
+  "lang": "kotlin",
+  "section": "mechanism",
+  "group": "types",
+  "boxes": {
+    "static-vs-dynamic": {
+      "lang": "kotlin",
+      "code": "var n = 1                    // 编译期推断为 Int，之后再赋值也只能给 Int\n// n = \"text\"                // —— ⚠ 编译错误：静态类型，值不能换门类\n\nval t = n::class             // JVM 运行时还带着类型：KClass 上能看到 Int\n\n// is 检查之后，编译器自动把变量当更具体的类型用，不用强转\nval x: Any = \"hello\"\nif (x is String) {\n  println(x.length)          // 这里 x 已经是 String，可以点出 .length\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">                    // 编译期推断为 Int，之后再赋值也只能给 Int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// n = \"text\"                // —— ⚠ 编译错误：静态类型，值不能换门类</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> t </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> n::</span><span style=\"color:var(--shiki-token-function)\">class</span><span style=\"color:var(--shiki-token-comment)\">             // JVM 运行时还带着类型：KClass 上能看到 Int</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// is 检查之后，编译器自动把变量当更具体的类型用，不用强转</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> x: </span><span style=\"color:var(--shiki-token-function)\">Any</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"hello\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (x </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-foreground)\"> String) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  println</span><span style=\"color:var(--shiki-foreground)\">(x.length)          </span><span style=\"color:var(--shiki-token-comment)\">// 这里 x 已经是 String，可以点出 .length</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 2,
+          "text": "编译错误：静态类型，值不能换门类",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的类型只活在运行时，写错了要跑到那一行才知道；\nKotlin 在编译期就拦下，类型还是字节码的一部分，运行时（JVM 上）\n能靠反射看到它。另一处是 <code>is</code> 检查之后 Kotlin 会<strong>智能转换</strong> ——\n同一个分支里不用再强转就能当具体类型用，JavaScript 里\n<code>typeof</code> 判断完只是给读代码的人看的，引擎不会因此改变看法。</p>\n",
+        "python": "<p>Python 的类型错误要等到运行时才暴露，标注本身不产生检查；\nKotlin 在编译期拒绝，且编译产物里带着类型。\n差别还体现在收窄上：Python 的 <code>isinstance</code> 判断只对类型检查器有用，\nKotlin 的 <code>is</code> 是语言规则 —— 判断过之后编译器就换了个更具体的类型\n来看这个变量。</p>\n",
+        "java": "<p>两边都是静态类型、都跑在 JVM 上，编译产物里都保留类型信息（反射能读到）。\n差别在推断与收窄：Java 的 <code>var</code> 只能省局部变量的类型，\nKotlin 的 <code>val</code> / <code>var</code> 在局部与属性上都能推断；Java 的 <code>instanceof</code>\n模式匹配要到较新的版本才有，Kotlin 的智能转换从第一天就在。</p>\n"
+      }
+    },
+    "type-annotation": {
+      "lang": "kotlin",
+      "code": "fun area(r: Double): Double = 3.14 * r * r     // 签名必须写类型\nfun greet(name: String): String = \"你好，$name\" // 参数与返回值都写类型\n\nval x = 1                    // 有初值就能推断，不用写\nval y: Double = 1.0          // 也可以显式标注\nvar count: Int               // 局部变量没有初值，类型就不能省\n\nclass Point(val x: Double, val y: Double)   // 主构造函数里直接声明属性\n\nconst val MAX_RETRY = 3      // 编译期常量：顶层或 object 成员，限基本类型与 String",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(r: </span><span style=\"color:var(--shiki-token-function)\">Double</span><span style=\"color:var(--shiki-foreground)\">): </span><span style=\"color:var(--shiki-token-function)\">Double</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 3.14</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> r     </span><span style=\"color:var(--shiki-token-comment)\">// 签名必须写类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">(name: </span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">): </span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"你好，$name\"</span><span style=\"color:var(--shiki-token-comment)\"> // 参数与返回值都写类型</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">                    // 有初值就能推断，不用写</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> y: </span><span style=\"color:var(--shiki-token-function)\">Double</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1.0</span><span style=\"color:var(--shiki-token-comment)\">          // 也可以显式标注</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> count: </span><span style=\"color:var(--shiki-token-function)\">Int</span><span style=\"color:var(--shiki-token-comment)\">               // 局部变量没有初值，类型就不能省</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Point</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> x: </span><span style=\"color:var(--shiki-token-function)\">Double</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> y: </span><span style=\"color:var(--shiki-token-function)\">Double</span><span style=\"color:var(--shiki-foreground)\">)   </span><span style=\"color:var(--shiki-token-comment)\">// 主构造函数里直接声明属性</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-keyword)\"> val</span><span style=\"color:var(--shiki-foreground)\"> MAX_RETRY </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">      // 编译期常量：顶层或 object 成员，限基本类型与 String</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 没有类型标注这回事，值自己带着类型到处走；\nKotlin 的函数签名、属性、没有初值的变量都必须写类型，\n能省的只有「有初值的局部变量」这一处。更根本的差别是标注的去向：\nJavaScript 本来就无标注可谈，Kotlin 的标注会进字节码，\n运行时的反射读得到。</p>\n",
+        "python": "<p>两边都把类型写在名字后面（<code>r: Double</code> / <code>r: float</code>），也都能只标注一部分；\n差别是<strong>谁在检查</strong>：Python 的标注运行时不生效，写错了代码照跑，\n要靠 mypy 这类工具另跑一遍才发现；Kotlin 的标注是编译器的输入，\n写错就编译不过。Kotlin 还有 <code>const val</code> 这种编译期常量，Python 里没有对应写法。</p>\n",
+        "java": "<p>位置相反：Java 写 <code>double r</code>（类型在前），Kotlin 写 <code>r: Double</code>（类型在后），\n而且 Kotlin 的 <code>Double</code> / <code>Int</code> 是类，不是 Java 的基本类型。\n能省的范围也不同：Java 的 <code>var</code> 只给局部变量用，Kotlin 的属性与局部变量\n都能靠初值推断；但反过来，Java 的成员变量有默认初值，\nKotlin 的属性必须在声明处或构造里给出。</p>\n"
+      }
+    },
+    "structural-nominal": {
+      "lang": "kotlin",
+      "code": "interface Quacker { fun quack(): String }\n\nclass Duck : Quacker {                        // 必须显式写 : Quacker\n  override fun quack() = \"嘎\"\n}\n\nclass Robot {                                 // ⚠ 有 quack() 也不算数：名义类型看声明\n  fun quack() = \"哔\"\n}\n// val q: Quacker = Robot()                   // —— ⚠ 编译错误：没声明实现 Quacker\n\nfun interface Greeter { fun greet(): String }\nval g = Greeter { \"你好\" }                     // SAM 转换：唯一接近结构化的地方\n\nfun String.shout() = uppercase()              // 扩展函数：静态解析，没进 String 类里",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">interface</span><span style=\"color:var(--shiki-token-function)\"> Quacker</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> quack</span><span style=\"color:var(--shiki-foreground)\">(): </span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Duck</span><span style=\"color:var(--shiki-foreground)\"> : </span><span style=\"color:var(--shiki-token-function)\">Quacker</span><span style=\"color:var(--shiki-foreground)\"> {                        </span><span style=\"color:var(--shiki-token-comment)\">// 必须显式写 : Quacker</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  override</span><span style=\"color:var(--shiki-token-keyword)\"> fun</span><span style=\"color:var(--shiki-token-function)\"> quack</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"嘎\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Robot</span><span style=\"color:var(--shiki-foreground)\"> {                                 </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 有 quack() 也不算数：名义类型看声明</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  fun</span><span style=\"color:var(--shiki-token-function)\"> quack</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"哔\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// val q: Quacker = Robot()                   // —— ⚠ 编译错误：没声明实现 Quacker</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun interface</span><span style=\"color:var(--shiki-token-function)\"> Greeter</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">(): </span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> g </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Greeter</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-string-expression)\">\"你好\"</span><span style=\"color:var(--shiki-foreground)\"> }                     </span><span style=\"color:var(--shiki-token-comment)\">// SAM 转换：唯一接近结构化的地方</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> String</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">shout</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> uppercase</span><span style=\"color:var(--shiki-foreground)\">()              </span><span style=\"color:var(--shiki-token-comment)\">// 扩展函数：静态解析，没进 String 类里</span></span></code></pre>",
+      "lineCount": 15,
+      "notes": [
+        {
+          "line": 7,
+          "text": "有 quack() 也不算数：名义类型看声明",
+          "tone": "warn"
+        },
+        {
+          "line": 10,
+          "text": "编译错误：没声明实现 Quacker",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的鸭子类型在运行时生效：有那个方法就能调用，没有就到运行时炸。\nKotlin 相反，接口必须<strong>显式声明实现</strong>，形状相同但没写 <code>: Quacker</code> 的类\n传不进去，错误在编译期出现。代价是没法给一个改不了源码的类型\n事后补上接口实现 —— Kotlin 只能用扩展函数加方法，\n但那只是静态解析的语法糖，不会让它真的成为该接口的实现。</p>\n",
+        "python": "<p>Python 的鸭子类型在运行时，<code>Protocol</code> 提供的是可选的结构化标注；\nKotlin 是<strong>名义</strong>类型 —— 不写 <code>: Interface</code> 就不算实现，有同样的方法也没用。\n这带来一个 Python 没有的确定性：读到一个 <code>Quacker</code> 类型的参数，\n它一定来自某个显式声明实现了 Quacker 的类。唯一接近结构化的是\n<code>fun interface</code> 的 SAM 转换：单个抽象方法能用 lambda 顶上。</p>\n",
+        "java": "<p>两边都是名义类型，接口都要显式 <code>:</code> / <code>implements</code>，这一点形状相同。\n差别在能表达的东西：Kotlin 的接口可以有默认实现与属性，\n还能用扩展函数给已有类型加方法；再加上 <code>fun interface</code> 让单方法接口\n可以直接用 lambda 构造。Java 的 <code>implements</code> 与 Kotlin 的 <code>:</code> 一样，\n都在编译期留下一条可以跳转、可以搜索的声明。</p>\n"
+      }
+    },
+    "type-narrowing": {
+      "lang": "kotlin",
+      "code": "fun describe(x: Any): String {\n  if (x is String) return \"字符串，长度 ${x.length}\"   // 智能转换：这里 x 已是 String\n  if (x !is Int) return \"都不是\"                       // 取反后同样收窄：往下走 x 就是 Int\n  return \"整数 ${x + 1}\"\n}\n\nsealed interface Shape\nclass Circle(val r: Double) : Shape\nclass Square(val side: Double) : Shape\n\nfun area(s: Shape) = when (s) {          // when 表达式对 sealed 有穷尽检查\n  is Circle -> 3.14 * s.r * s.r          // 分支里自动收窄成 Circle\n  is Square -> s.side * s.side\n}                                        // ⚠ 漏掉一种分支编译不过",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> describe</span><span style=\"color:var(--shiki-foreground)\">(x: </span><span style=\"color:var(--shiki-token-function)\">Any</span><span style=\"color:var(--shiki-foreground)\">): </span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (x </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-foreground)\"> String) </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-string-expression)\"> \"字符串，长度 </span><span style=\"color:var(--shiki-token-keyword)\">${</span><span style=\"color:var(--shiki-foreground)\">x.length</span><span style=\"color:var(--shiki-token-keyword)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-comment)\">   // 智能转换：这里 x 已是 String</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (x </span><span style=\"color:var(--shiki-token-keyword)\">!is</span><span style=\"color:var(--shiki-foreground)\"> Int) </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-string-expression)\"> \"都不是\"</span><span style=\"color:var(--shiki-token-comment)\">                       // 取反后同样收窄：往下走 x 就是 Int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-string-expression)\"> \"整数 </span><span style=\"color:var(--shiki-token-keyword)\">${</span><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-keyword)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">sealed</span><span style=\"color:var(--shiki-token-keyword)\"> interface</span><span style=\"color:var(--shiki-token-function)\"> Shape</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Circle</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> r: </span><span style=\"color:var(--shiki-token-function)\">Double</span><span style=\"color:var(--shiki-foreground)\">) : </span><span style=\"color:var(--shiki-token-function)\">Shape</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Square</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> side: </span><span style=\"color:var(--shiki-token-function)\">Double</span><span style=\"color:var(--shiki-foreground)\">) : </span><span style=\"color:var(--shiki-token-function)\">Shape</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(s: </span><span style=\"color:var(--shiki-token-function)\">Shape</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> when</span><span style=\"color:var(--shiki-foreground)\"> (s) {          </span><span style=\"color:var(--shiki-token-comment)\">// when 表达式对 sealed 有穷尽检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  is</span><span style=\"color:var(--shiki-foreground)\"> Circle </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-constant)\"> 3.14</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-foreground)\"> s.r </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> s.r          </span><span style=\"color:var(--shiki-token-comment)\">// 分支里自动收窄成 Circle</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  is</span><span style=\"color:var(--shiki-foreground)\"> Square </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-foreground)\"> s.side </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> s.side</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}                                        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 漏掉一种分支编译不过</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 14,
+          "text": "漏掉一种分支编译不过",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 <code>typeof</code> / <code>instanceof</code> 判断只影响这次分支走哪边，\n判断完那个变量还是原来的类型；Kotlin 的 <code>is</code> 检查同时也是<strong>编译期事实</strong>，\n分支里可以直接用具体类型的方法。两边的检查动作一样（运行时真的查了），\n差别在之后 —— 一边编译器跟着改了看法，一边没有。</p>\n",
+        "python": "<p>Python 用 <code>isinstance</code> 判断再分支，收窄要靠类型检查器推断；\nKotlin 的 <code>is</code> 是语言内建的，判断完编译器立刻换用更具体的类型。\n更明显的一处差别是穷尽性：Kotlin 的 <code>when</code> 用在 sealed 类型上\n会检查你有没有覆盖全部分支，漏一种就编译不过；\nPython 的 <code>if / elif</code> 链没人管你漏没漏，只能靠阅读发现。</p>\n",
+        "java": "<p>Java 传统上是 <code>instanceof</code> 判断加显式强转（两步，中间那一转可能写错）；\nKotlin 的 <code>is</code> 一步到位，检查过就自动收窄。Java 较新的版本也有\n<code>instanceof</code> 模式匹配，形态上接近了。Kotlin 更强的一处是\n<code>sealed interface</code> + <code>when</code> 的穷尽检查 —— 漏掉一种实现编译不过，\n把「忘了处理某种情况」变成了编译期错误。</p>\n"
+      }
+    },
+    "null-safety": {
+      "lang": "kotlin",
+      "code": "var a: String = \"hi\"\n// a = null                     // —— ⚠ 编译错误：String 不接受 null\n\nvar b: String? = null           // 「可能为空」写进类型，不写 ? 就不能是 null\n// b.length                     // —— ⚠ 编译错误：可能为 null，先证明它不为空\nval len = b?.length             // 安全调用：为 null 时整个表达式是 null\nval s = b ?: \"默认\"             // Elvis：左边为 null 时取右边\n// b!!.length                   // —— ⚠ 非空断言：为 null 直接抛 NPE\n\nfun f(x: String?) = if (x != null) x.length else 0   // 判空之后智能转换",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> a: </span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"hi\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// a = null                     // —— ⚠ 编译错误：String 不接受 null</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> b: </span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">? </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-token-comment)\">           // 「可能为空」写进类型，不写 ? 就不能是 null</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// b.length                     // —— ⚠ 编译错误：可能为 null，先证明它不为空</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> len </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> b?.length             </span><span style=\"color:var(--shiki-token-comment)\">// 安全调用：为 null 时整个表达式是 null</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> b ?: </span><span style=\"color:var(--shiki-token-string-expression)\">\"默认\"</span><span style=\"color:var(--shiki-token-comment)\">             // Elvis：左边为 null 时取右边</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// b!!.length                   // —— ⚠ 非空断言：为 null 直接抛 NPE</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fun</span><span style=\"color:var(--shiki-token-function)\"> f</span><span style=\"color:var(--shiki-foreground)\">(x: </span><span style=\"color:var(--shiki-token-function)\">String</span><span style=\"color:var(--shiki-foreground)\">?) </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> if</span><span style=\"color:var(--shiki-foreground)\"> (x </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">) x.length </span><span style=\"color:var(--shiki-token-keyword)\">else</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-comment)\">   // 判空之后智能转换</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 2,
+          "text": "编译错误：String 不接受 null",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "编译错误：可能为 null，先证明它不为空",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "非空断言：为 null 直接抛 NPE",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 里 <code>null</code> / <code>undefined</code> 能落到任何变量上，读属性才抛错；\nKotlin 把「可能为空」写成类型的一部分（<code>String?</code>），不接受空就写 <code>String</code>，\n往 <code>String</code> 里塞 null 编译不过。<code>?.</code> 与 <code>?:</code> 两边都有，\n但 Kotlin 的 <code>!!</code> 会把「我确定它不为空」变成一个显式的、会抛 NPE 的承诺 ——\n在 JavaScript 里这种承诺是默认状态，根本写不出来。</p>\n",
+        "python": "<p>Python 的 <code>None</code> 同样能赋给任何变量，出问题要到运行时才看见；\nKotlin 把可空性编码进类型，不处理 <code>String?</code> 就拿不到里面的值。\n写法上两边都有快捷方式 —— Python 的 <code>x or &quot;默认&quot;</code> 与 Kotlin 的 <code>?:</code> ——\n但 <code>or</code> 对空字符串、0、空列表同样取右边，<code>?:</code> 只在左边真的是 null 时才取右边，\n所以 Kotlin 的默认值判断更精确。</p>\n",
+        "java": "<p>Java 的 <code>null</code> 可以赋给任何引用类型，解引用就是 NPE，编译器不管；\nKotlin 在类型上区分 <code>String</code> 与 <code>String?</code>，不判空就用会编译不过。\nJava 的对策是库层面的 <code>Optional</code> 与 <code>@Nullable</code> 注解，\n它们只覆盖部分位置、也不强制；Kotlin 的可空性是类型系统的一等公民 ——\n字段、参数、返回值、集合元素类型都能标，判空分支还会自动收窄。</p>\n"
+      }
+    },
+    "type-assertion": {
+      "lang": "kotlin",
+      "code": "val x: Any = \"hello\"\nval s = x as String             // 强转成功，得到 String\n// val n = x as Int             // —— ⚠ 类型不符直接抛 ClassCastException\n\nval n2 = x as? Int              // 安全转换：不符得到 null，不抛\n\nval d = 3.9\nval i = d.toInt()               // 3，数值转换一律显式调用方法\nval b = 300.toByte()            // ⚠ 44，窄化静默回绕，编译器不拦\n\nval anyList: List<Any> = listOf(1, \"two\")\nval strs = anyList as List<String>   // ⚠ 泛型被擦除：这里查不出来，取用时才抛",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> x: </span><span style=\"color:var(--shiki-token-function)\">Any</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"hello\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> String             </span><span style=\"color:var(--shiki-token-comment)\">// 强转成功，得到 String</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// val n = x as Int             // —— ⚠ 类型不符直接抛 ClassCastException</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> n2 </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\">? Int              </span><span style=\"color:var(--shiki-token-comment)\">// 安全转换：不符得到 null，不抛</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> d </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3.9</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> d.</span><span style=\"color:var(--shiki-token-function)\">toInt</span><span style=\"color:var(--shiki-foreground)\">()               </span><span style=\"color:var(--shiki-token-comment)\">// 3，数值转换一律显式调用方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 300</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">toByte</span><span style=\"color:var(--shiki-foreground)\">()            </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 44，窄化静默回绕，编译器不拦</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> anyList: </span><span style=\"color:var(--shiki-token-function)\">List</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">Any</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> listOf</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">\"two\"</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">val</span><span style=\"color:var(--shiki-foreground)\"> strs </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> anyList </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> List</span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-foreground)\">String</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-comment)\">   // ⚠ 泛型被擦除：这里查不出来，取用时才抛</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 3,
+          "text": "类型不符直接抛 ClassCastException",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "44，窄化静默回绕，编译器不拦",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "泛型被擦除：这里查不出来，取用时才抛",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 没有「断言」这个动作 —— 值就是值，没有静态类型需要被说服，\n转换大量是隐式的（<code>Number</code> / <code>String</code> / 运算符自己转），失败得到哨兵值不报错。\nKotlin 的 <code>as</code> 是真的运行时检查，类型不符直接抛异常；<code>as?</code> 是不抛的版本，\n不符得到 null。数值转换必须写出方法名，窄化截断时编译器也不提醒。</p>\n",
+        "python": "<p>Python 的 <code>cast</code> 只是给类型检查器下的指令，运行时什么都不做；\nKotlin 的 <code>as</code> 在运行时真的检查，不符就抛 ClassCastException，\n拿不准时用 <code>as?</code> 得到 null 而不是异常。数值转换两边都要显式写\n（<code>int(x)</code> / <code>x.toInt()</code>），但 Python 的整数是任意精度、不会回绕，\nKotlin 的 <code>300.toByte()</code> 会静默变成 44 —— 一处 Python 里不存在的失败模式。</p>\n",
+        "java": "<p>两边都跑在 JVM 上，语法几乎可以逐字对应：Kotlin 的 <code>as</code> 就是 Java 的强转，\n失败都抛 ClassCastException；<code>as?</code> 对应「先用 instanceof 判一下再转」的写法，\n只是收成了一句。泛型上两边同样被擦除，<code>as List&lt;String&gt;</code> 这类转换\n编译器只给警告、查不出元素真实类型，取用的时候才抛。</p>\n"
+      }
+    }
+  }
+}

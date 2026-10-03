@@ -1,0 +1,124 @@
+{
+  "lang": "dart",
+  "section": "model",
+  "group": "modules",
+  "boxes": {
+    "module-unit": {
+      "lang": "dart",
+      "code": "// 一个 .dart 文件就是一个库（即使不写 library 指令）\n// 库是**私有性的单位**：_ 开头的成员在整个库里可见\n\nclass Cart {\n  void _recalc() { }         // ⚠ 库级私有：同库的其它类也能调它\n}\n\nclass Item {\n  void test(Cart c) => c._recalc();   // ⚠ 合法 —— 它们在同一个库里\n}\n\n// part 能把多个文件合成一个库（此时 _ 跨文件可见）\n// 但官方不推荐 part，建议改成多个小库\n\n// 库级文档写在 library 指令上；不写也可以，指令本身几乎不用",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 一个 .dart 文件就是一个库（即使不写 library 指令）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 库是**私有性的单位**：_ 开头的成员在整个库里可见</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Cart</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  void</span><span style=\"color:var(--shiki-token-function)\"> _recalc</span><span style=\"color:var(--shiki-foreground)\">() { }         </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 库级私有：同库的其它类也能调它</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Item</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  void</span><span style=\"color:var(--shiki-token-function)\"> test</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">Cart</span><span style=\"color:var(--shiki-foreground)\"> c) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> c.</span><span style=\"color:var(--shiki-token-function)\">_recalc</span><span style=\"color:var(--shiki-foreground)\">();   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 合法 —— 它们在同一个库里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// part 能把多个文件合成一个库（此时 _ 跨文件可见）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 但官方不推荐 part，建议改成多个小库</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 库级文档写在 library 指令上；不写也可以，指令本身几乎不用</span></span></code></pre>",
+      "lineCount": 15,
+      "notes": [
+        {
+          "line": 5,
+          "text": "库级私有：同库的其它类也能调它",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "合法 —— 它们在同一个库里",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的私有单位不同：JavaScript 的 <code>#</code> 前缀是<strong>类级</strong>私有，\n一个文件里的其他类也碰不到；Dart 的 <code>_</code> 是<strong>库级</strong>私有，\n同一个库（通常就是一个文件）里的任何代码都能访问。\n所以 Dart 里两个类互相调私有方法是正常的，JavaScript 里那要报错。\n共同点是两边都没有 <code>private</code> 这个关键字 —— 都用一个符号表达。</p>\n",
+        "python": "<p>两边的下划线是同一套写法，<strong>分量却不同</strong>：\nPython 的 <code>_</code> 纯属君子协定，没有任何作用域含义 ——\n跨模块访问 <code>obj._x</code> 照样能拿到，只是不礼貌；\nDart 的 <code>_</code> 有明确的语义，它划的界是<strong>库</strong>，\n跨库访问直接编译不过。\n所以同样是「下划线开头」，一边是给人看的提示，\n一边是编译器执行的规则 —— 这在迁移时是最容易低估的一处。</p>\n",
+        "java": "<p><strong>这是与 Java 差别最实在的一处</strong>：Java 的 <code>private</code> 是<strong>类级</strong>的，\n同一个文件里的另一个类也访问不到；Dart 的 <code>_</code> 是<strong>库级</strong>的，\n同一个库里的任何代码都能访问。\n所以 Java 里「同一个文件的两个类通过公开 getter 互相访问」\n在 Dart 里可以直接点私有成员。另一处是文件与类的关系：\nJava 要求 public 类与文件同名，Dart 一个文件能放任意多个类，\n而且它们天然共享同一个隐私边界。</p>\n"
+      }
+    },
+    "export-import": {
+      "lang": "dart",
+      "code": "import 'dart:math';                       // 内置库用 dart: 前缀\nimport 'package:http/http.dart' as http;  // 包用 package: 前缀\nimport '../utils.dart';                   // 相对路径：相对于**当前文件**\n\nimport 'lib2.dart' show User;             // 只引入 User\nimport 'lib2.dart' hide Internal;         // 引入除了 Internal 之外的全部\nimport 'lib2.dart' as lib2 show User;     // 前缀与 show 可以叠加\n\n// export 面向**本库的使用者**，对当前文件自己没影响\nexport 'src/cart.dart';                   // 常见的「入口文件再导出」写法\nexport 'src/item.dart' show Item;\n\n// 约定：实现放 lib/src/，在 lib/<包名>.dart 里再导出",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'dart:math'</span><span style=\"color:var(--shiki-foreground)\">;                       </span><span style=\"color:var(--shiki-token-comment)\">// 内置库用 dart: 前缀</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'package:http/http.dart'</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-foreground)\"> http;  </span><span style=\"color:var(--shiki-token-comment)\">// 包用 package: 前缀</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> '../utils.dart'</span><span style=\"color:var(--shiki-foreground)\">;                   </span><span style=\"color:var(--shiki-token-comment)\">// 相对路径：相对于**当前文件**</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'lib2.dart'</span><span style=\"color:var(--shiki-token-keyword)\"> show</span><span style=\"color:var(--shiki-foreground)\"> User;             </span><span style=\"color:var(--shiki-token-comment)\">// 只引入 User</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'lib2.dart'</span><span style=\"color:var(--shiki-token-keyword)\"> hide</span><span style=\"color:var(--shiki-foreground)\"> Internal;         </span><span style=\"color:var(--shiki-token-comment)\">// 引入除了 Internal 之外的全部</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'lib2.dart'</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-foreground)\"> lib2 </span><span style=\"color:var(--shiki-token-keyword)\">show</span><span style=\"color:var(--shiki-foreground)\"> User;     </span><span style=\"color:var(--shiki-token-comment)\">// 前缀与 show 可以叠加</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// export 面向**本库的使用者**，对当前文件自己没影响</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-string-expression)\"> 'src/cart.dart'</span><span style=\"color:var(--shiki-foreground)\">;                   </span><span style=\"color:var(--shiki-token-comment)\">// 常见的「入口文件再导出」写法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-string-expression)\"> 'src/item.dart'</span><span style=\"color:var(--shiki-token-keyword)\"> show</span><span style=\"color:var(--shiki-foreground)\"> Item;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 约定：实现放 lib/src/，在 lib/&#x3C;包名>.dart 里再导出</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都有具名导入与别名，但<strong>方向多了一条</strong>：\nJavaScript 有 <code>export ... from</code>（转出），Dart 的 <code>export</code> 与之接近；\n差别在 Dart 的 <code>export</code> 是<strong>给使用者看的</strong>，对当前文件没有任何作用 ——\n写起来像导入，其实是「替下游开门」。\n另一处是过滤：JavaScript 导入什么就是全部可用，\nDart 能用 <code>show</code> / <code>hide</code> 在导入处裁剪，不用改被导入的库。</p>\n",
+        "python": "<p>两边的选择性导入手段不同：Python 在<strong>被导入方</strong>用 <code>__all__</code>\n控制「星号导入能拿到什么」，在导入方只能用 <code>from x import a, b</code> 一个个列；\nDart 反过来 —— 在<strong>导入方</strong>用 <code>show</code> / <code>hide</code> 直接裁剪，\n被导入的库不用配合。所以 Dart 的导入行往往更长，\n但读一行就知道这个文件用了哪些名字。</p>\n",
+        "java": "<p>Java 的 <code>import</code> 纯粹是名字引入，没有「再导出」这件事 ——\n一个 public 类在任何地方都能被导入，不存在「我决定对下游开放哪些」。\nDart 用 <code>export</code> 补上了这一层：实现放 <code>lib/src/</code>，\n入口文件决定对包外暴露什么，这是一种<strong>可控的公开面</strong>。\n另一处是通配符：Java 的 <code>import x.*</code> 不能排除某个名字，\nDart 的 <code>hide</code> 可以。</p>\n"
+      }
+    },
+    "default-vs-named": {
+      "lang": "dart",
+      "code": "// Dart **没有默认导出** —— 所有导出都是按名字的\n// 想让某个名字对外可见：不用下划线开头，并且在某个可导入的库里\n\nclass Cart { }              // 公开\nclass _Internal { }         // 库级私有，导不出去\n\n// 一个库里可以有任意多个公开名字，没有「文件级导出面」这个开关\n// 想控制对外可见的范围，靠的是**入口文件里的 export 行**",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Dart **没有默认导出** —— 所有导出都是按名字的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想让某个名字对外可见：不用下划线开头，并且在某个可导入的库里</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Cart</span><span style=\"color:var(--shiki-foreground)\"> { }              </span><span style=\"color:var(--shiki-token-comment)\">// 公开</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> _Internal</span><span style=\"color:var(--shiki-foreground)\"> { }         </span><span style=\"color:var(--shiki-token-comment)\">// 库级私有，导不出去</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 一个库里可以有任意多个公开名字，没有「文件级导出面」这个开关</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想控制对外可见的范围，靠的是**入口文件里的 export 行**</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 有「默认导出」这一档 —— 一个模块只能有一个，\n导入时可以随便起名，于是同一个东西在不同文件里叫不同的名字；\nDart 完全没有这个机制，所有对外的名字都固定，\n想改名只能在自己这边用 <code>as</code> 起前缀。\n另一处是控制公开面的方式：JavaScript 靠「导不导出」，\nDart 靠「有没有下划线」加「入口文件导出哪些」。</p>\n",
+        "python": "<p>两边都是「按名字」，没有默认导出 —— 这一层可以对应。\n差别在<strong>控制手段</strong>：Python 用下划线表示「别导入我」，\n但这只是约定，<code>from x import _y</code> 照样能拿到；\nDart 的下划线是硬约束，跨库导入编译不过。\n另一处是控制范围的单位：Python 用 <code>__all__</code>（一个模块级列表），\nDart 用入口文件里的 <code>export</code> 行 ——\n前者在库自己身上，后者在调用者的入口处。</p>\n",
+        "java": "<p>Java 用 <code>public</code> 控制对外可见，Dart 用「有没有下划线」，\n两边都能达到「这个类外面看不见」的效果。\n差别在<strong>有没有再导出这一层</strong>：Java 的 public 类一旦公开，\n任何地方都能导入，包作者没法缩小范围；\nDart 可以在入口文件里只导出其中几个，\n实现细节留在 <code>lib/src/</code> 里谁也拿不到 ——\n这是 Dart 比 Java 多出来的一层控制。</p>\n"
+      }
+    },
+    "namespace-alias": {
+      "lang": "dart",
+      "code": "import 'package:lib2/lib2.dart' as lib2;    // 前缀：避免重名\nlib2.User; lib2.create();\n\nimport 'dart:math' as math show max;\nmath.max(1, 2);\n\n// 前缀也能是下划线：只引入扩展方法，不占名字\nimport 'extensions.dart' as _;\n\n// 类型别名用 typedef\ntypedef Handler = void Function(String);\ntypedef UserMap = Map<String, List<String>>;\n\n// ⚠ typedef 只是别名，不产生新类型 —— 与原类型可以互相赋值",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'package:lib2/lib2.dart'</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-foreground)\"> lib2;    </span><span style=\"color:var(--shiki-token-comment)\">// 前缀：避免重名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">lib2.</span><span style=\"color:var(--shiki-token-constant)\">User</span><span style=\"color:var(--shiki-foreground)\">; lib2.</span><span style=\"color:var(--shiki-token-function)\">create</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'dart:math'</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-foreground)\"> math </span><span style=\"color:var(--shiki-token-keyword)\">show</span><span style=\"color:var(--shiki-foreground)\"> max;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">math.</span><span style=\"color:var(--shiki-token-function)\">max</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 前缀也能是下划线：只引入扩展方法，不占名字</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'extensions.dart'</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-foreground)\"> _;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 类型别名用 typedef</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">typedef</span><span style=\"color:var(--shiki-token-constant)\"> Handler</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> void</span><span style=\"color:var(--shiki-token-constant)\"> Function</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">typedef</span><span style=\"color:var(--shiki-token-constant)\"> UserMap</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> Map</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">List</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">String</span><span style=\"color:var(--shiki-foreground)\">>>;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ typedef 只是别名，不产生新类型 —— 与原类型可以互相赋值</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 14,
+          "text": "typedef 只是别名，不产生新类型 —— 与原类型可以互相赋值",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 <code>import * as ns</code> 会造出一个<strong>真的命名空间对象</strong>，\n能当值传递、能遍历它的键；Dart 的 <code>as</code> 前缀只影响<strong>名字解析</strong>，\n编译之后就没了，不是一个可以传递的对象。\n另一处是类型别名：JavaScript 没有类型，自然也没有 typedef；\n类型只活在编辑器与文档里。</p>\n",
+        "python": "<p>两边都能给导入起别名（<code>import numpy as np</code> ↔ <code>import ... as x</code>），\n而且都只影响名字、不产生对象 —— 这点一致。\n差别在类型别名：Python 的类型别名就是一次赋值\n（<code>Handler = Callable[[str], None]</code>），运行期是个变量；\nDart 的 <code>typedef</code> 是语言级声明，编译器认它、也能写进签名。\n共同点是两边都<strong>不产生新类型</strong>，<code>Handler</code> 与那个函数类型完全等价。</p>\n",
+        "java": "<p>Java 完全没有命名空间别名 —— 类名冲突只能靠写全限定名\n（<code>com.a.User</code> 与 <code>com.b.User</code> 同时用就得全写）。\nDart 的 <code>as</code> 前缀给了一个轻量得多的办法。\n另一处是类型别名：Java 没有 typedef，想给复杂泛型起名字\n只能抽一个类出来，而那会真的产生新类型；\nDart 的 <code>typedef</code> 不产生新类型，纯粹是可读性工具。</p>\n"
+      }
+    },
+    "module-resolution": {
+      "lang": "dart",
+      "code": "import 'dart:core';                  // 内置库：语言自带\nimport 'package:flutter/material.dart';   // 包：解析到该包的 lib/ 下\nimport './sibling.dart';             // 相对路径：**相对于当前文件**\nimport '../parent/dir/file.dart';\n\n// 解析顺序里没有「向上找 node_modules」这回事 ——\n// 包从 .dart_tool/package_config.json 里查（由 dart pub get 生成）\n\n// pubspec.yaml 管依赖，其中 environment.sdk 是硬性约束\n// 约定：lib/src/ 放实现，lib/<包名>.dart 作对外入口\n\n// 还有延迟加载：import '...' deferred as heavy;\n// 之后 await heavy.loadLibrary() 才真的加载（仅 web 目标支持）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'dart:core'</span><span style=\"color:var(--shiki-foreground)\">;                  </span><span style=\"color:var(--shiki-token-comment)\">// 内置库：语言自带</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'package:flutter/material.dart'</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// 包：解析到该包的 lib/ 下</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> './sibling.dart'</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// 相对路径：**相对于当前文件**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> '../parent/dir/file.dart'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 解析顺序里没有「向上找 node_modules」这回事 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 包从 .dart_tool/package_config.json 里查（由 dart pub get 生成）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// pubspec.yaml 管依赖，其中 environment.sdk 是硬性约束</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 约定：lib/src/ 放实现，lib/&#x3C;包名>.dart 作对外入口</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 还有延迟加载：import '...' deferred as heavy;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 之后 await heavy.loadLibrary() 才真的加载（仅 web 目标支持）</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都有相对路径与包名两种导入，解析规则接近。\n差别在<strong>包从哪来</strong>：JavaScript 的 <code>node_modules</code> 是逐级向上找的，\n同一份代码在不同深度可能解析到不同副本；\nDart 的包由一份生成的清单（<code>package_config.json</code>）统一决定，\n全局只有一份映射，所以不会出现「两个版本同时存在」那种局面。\n另一处是延迟加载：JavaScript 的 <code>import()</code> 到处都能用，\nDart 的 deferred 是编译期声明的，且只在 web 目标上有效。</p>\n",
+        "python": "<p>这一格两边差别明显：Python 的导入路径<strong>就是</strong>文件系统路径，\n所以 <code>sys.path</code>、虚拟环境、包目录结构都是日常话题；\nDart 的 <code>package:</code> 导入解析到<strong>逻辑包名</strong>，与文件在哪无关，\n由一份生成的映射决定。\n相对导入两边都有，而且都相对于当前文件 —— 这一点一致。\n另一处是 Dart 那套「实现放 lib/src、入口再导出」的约定，\nPython 里对应的是下划线模块名与 <code>__all__</code>，但约束力弱得多。</p>\n",
+        "java": "<p>Java 的导入靠<strong>类路径</strong>加包名，Dart 靠包名加生成的映射，\n两者都不依赖文件位置 —— 这一层彼此最接近。\n差别在<strong>粒度</strong>：Java 导入的是类，Dart 导入的是库\n（一个库可以导出多个类，还能再导出别的库）。\n另一处是 Java 没有延迟加载的等价物（类加载本身就是按需的，\n但那是 JVM 行为，语言层面写不出来），Dart 的 deferred 是显式声明的。</p>\n"
+      }
+    }
+  }
+}

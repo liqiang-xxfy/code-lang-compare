@@ -1,0 +1,150 @@
+{
+  "lang": "dart",
+  "section": "mechanism",
+  "group": "meta",
+  "boxes": {
+    "reflection": {
+      "lang": "dart",
+      "code": "import 'dart:mirrors';                 // ⚠ 只在 Dart VM（JIT）上有\n\nfinal m = reflectClass(User);\nm.declarations.forEach((k, v) => print(k));\nm.newInstance(Symbol(''), ['Ada', 30]);\n\n// ⚠ 平台限制，而且是硬限制：\n// ⚠ Experimental + 只在 Native 的 JIT 上\n// ⚠ Flutter / AOT 编译 / web 上**都没有**\n// ⚠ `dart compile exe` 官方明说不支持 dart:mirrors\n\n// 所以 Dart 的惯例是**不用运行期反射**，改用代码生成：\n// 装 build_runner，跑 `dart run build_runner build`\n// 产物是**源码文件**，之后照常编译 —— 与反射是两条路",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> 'dart:mirrors'</span><span style=\"color:var(--shiki-foreground)\">;                 </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 只在 Dart VM（JIT）上有</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> m </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> reflectClass</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">User</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">m.declarations.</span><span style=\"color:var(--shiki-token-function)\">forEach</span><span style=\"color:var(--shiki-foreground)\">((k, v) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-function)\"> print</span><span style=\"color:var(--shiki-foreground)\">(k));</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">m.</span><span style=\"color:var(--shiki-token-function)\">newInstance</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">Symbol</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">''</span><span style=\"color:var(--shiki-foreground)\">), [</span><span style=\"color:var(--shiki-token-string-expression)\">'Ada'</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">30</span><span style=\"color:var(--shiki-foreground)\">]);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 平台限制，而且是硬限制：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Experimental + 只在 Native 的 JIT 上</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Flutter / AOT 编译 / web 上**都没有**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `dart compile exe` 官方明说不支持 dart:mirrors</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以 Dart 的惯例是**不用运行期反射**，改用代码生成：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 装 build_runner，跑 `dart run build_runner build`</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 产物是**源码文件**，之后照常编译 —— 与反射是两条路</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 1,
+          "text": "只在 Dart VM（JIT）上有",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "平台限制，而且是硬限制：",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "Experimental + 只在 Native 的 JIT 上",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "Flutter / AOT 编译 / web 上**都没有**",
+          "tone": "warn"
+        },
+        {
+          "line": 10,
+          "text": "`dart compile exe` 官方明说不支持 dart:mirrors",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的可用性<strong>差别很大</strong>：JavaScript 的反射是运行时自带的、\n到处都是；Dart 的 <code>dart:mirrors</code> 只在虚拟机的即时编译模式下有，\n打包成原生程序或编译到 web 之后<strong>完全不可用</strong>。\n所以那边 <code>Reflect.ownKeys(obj)</code> 随手就写，\n这边要提前想清楚「这个功能上了线还能不能跑」。\n代价换来的是更小的产物体积与更快的启动。</p>\n",
+        "python": "<p>Python 的反射是<strong>日常工具</strong>（<code>getattr</code> / <code>inspect</code> 到处在用），\n而且随处可用；Dart 的反射是一个<strong>受限且不稳定的实验特性</strong> ——\n官方直接说这个库不稳定、API 可能变，而且移动端与 web 上根本没有。\n所以两边的生态走向不同：那边大量库靠反射工作，\n这边大量库靠<strong>编译期代码生成</strong>（先跑一个生成器产出源码，再正常编译）。</p>\n",
+        "java": "<p>两边都有反射，也都跑得出结果，但<strong>能不能用是有条件的</strong>：\nJava 的反射在标准库里、任何平台都有（只是原生镜像会受限）；\nDart 的 <code>dart:mirrors</code> 在移动端、AOT 编译与 web 上一律没有。\n所以从 Java 过来最需要改的是<strong>习惯</strong>：\n那边「反射一下就好了」的场景，这边通常要改成代码生成，\n而且这一步是<strong>构建流程的一环</strong>，不是运行期的事。</p>\n"
+      }
+    },
+    "decorator-annotation": {
+      "lang": "dart",
+      "code": "class Todo {\n  final String who;\n  final String what;\n  const Todo(this.who, this.what);     // ⚠ 自定义注解**必须有 const 构造**\n}\n\n@Todo('Ada', '补测试')\nvoid doSomething() { }\n\n// 内建的：@Deprecated（可带说明）、@override、@pragma(...)\n// package:meta 里的：@Target({...})、@visibleForTesting、@protected\n// ⚠ Dart 没有装饰器 —— 注解只是**挂在声明上的数据**，自己不做事\n\n// ⚠ 而且注解**默认不产生运行期反射**（见上一格：反射本身就不可用），\n// ⚠ 它们主要给两拨人看：分析器（给警告）与 build_runner（生成代码）\n// @override 是可选的，写了主要为了让分析器帮你查名字写错没有",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Todo</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  final</span><span style=\"color:var(--shiki-token-constant)\"> String</span><span style=\"color:var(--shiki-foreground)\"> who;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  final</span><span style=\"color:var(--shiki-token-constant)\"> String</span><span style=\"color:var(--shiki-foreground)\"> what;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  const</span><span style=\"color:var(--shiki-token-constant)\"> Todo</span><span style=\"color:var(--shiki-foreground)\">(this.who, this.what);     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 自定义注解**必须有 const 构造**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">@Todo</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'Ada'</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">'补测试'</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> doSomething</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 内建的：@Deprecated（可带说明）、@override、@pragma(...)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// package:meta 里的：@Target({...})、@visibleForTesting、@protected</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Dart 没有装饰器 —— 注解只是**挂在声明上的数据**，自己不做事</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 而且注解**默认不产生运行期反射**（见上一格：反射本身就不可用），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 它们主要给两拨人看：分析器（给警告）与 build_runner（生成代码）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// @override 是可选的，写了主要为了让分析器帮你查名字写错没有</span></span></code></pre>",
+      "lineCount": 16,
+      "notes": [
+        {
+          "line": 4,
+          "text": "自定义注解**必须有 const 构造**",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "Dart 没有装饰器 —— 注解只是**挂在声明上的数据**，自己不做事",
+          "tone": "warn"
+        },
+        {
+          "line": 14,
+          "text": "而且注解**默认不产生运行期反射**（见上一格：反射本身就不可用），",
+          "tone": "warn"
+        },
+        {
+          "line": 15,
+          "text": "它们主要给两拨人看：分析器（给警告）与 build_runner（生成代码）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的名字容易混：JavaScript 的装饰器是<strong>可执行的函数</strong>，\n能在定义时改写类与方法（而且提案还在演进，写法变过）；\nDart 的注解只是数据，谁都不会自动去读它。\n所以那边 <code>@foo</code> 可能真的改变了行为，这边 <code>@foo</code> 只是留了个记号 ——\n差别不在写法，在「挂了注解之后有没有事情发生」。</p>\n",
+        "python": "<p><strong>这两个概念同名不同物，是最容易混的一对</strong>：\nPython 的 <code>@decorator</code> 就是一个函数调用（<code>f = decorator(f)</code>），\n真的把对象换掉；Dart 的注解只是元数据，\n要有人读它才有效果。\n想在 Dart 里做「调用前后加行为」，得靠代码生成\n（构建期把包装代码写出来）或者手工包装，不能指望注解自己生效。\n两边共同点是都能给声明挂信息，区别在这层信息会不会被执行。</p>\n",
+        "java": "<p>语法几乎一样（<code>@interface</code> ↔ 带 const 构造的类，<code>@Target</code> 同名），\n这一格最接近。差别在<strong>默认能不能读到</strong>：Java 的注解要运行期可读\n必须显式标 <code>@Retention(RUNTIME)</code>，然后靠反射读；\nDart 这边<strong>根本不该指望运行期读注解</strong>（反射在移动端与 web 上不可用），\n注解的正确用法是喂给<strong>构建期的代码生成器</strong>。\n所以同一套语法，一边的落点是运行期反射，一边的落点是构建期生成。</p>\n"
+      }
+    },
+    "dynamic-eval": {
+      "lang": "dart",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Dart <strong>没有 <code>eval</code></strong>，也没有 <code>new Function</code> 这类把字符串变成代码的入口。\n官方库里没有任何求值工具，官方博客在讲 REPL 时也直说 Dart 没有 eval。\n要动态执行只能<strong>接一个解释器</strong>（自己带一个脚本引擎，或者走 isolate\n加上编译好的代码），代价与 <code>eval</code> 完全不是一个量级。\n所以那边一句 <code>eval(s)</code> 的事，在这边通常要改设计。</p>\n",
+        "python": "<p>Dart <strong>没有 <code>eval</code> / <code>exec</code></strong>，字符串不能当代码跑。\n与 Python 相比，这一条是直接的能力缺失 ——\n那边 <code>eval</code>、<code>exec</code>、<code>getattr</code> 三件套能做到的元编程，\n在这边要么改成构建期代码生成，要么干脆换个方案。\n代价换来的是：可以放心地认为「能跑的代码都是被编译过的」。</p>\n",
+        "java": "<p>Java 与 Dart 都<strong>没有内建的 eval</strong>，这一点一致 ——\n两边都只能靠外部脚本引擎（Java 是 JSR-223，Dart 得自己接）。\n所以从 Java 过来不需要改认知：那边写不了的东西这边同样写不了，\n连替代方案的思路（引一个解释器）都一样。\n差别在于 Java 的脚本引擎生态更成熟一些。</p>\n"
+      }
+    },
+    "proxy-interception": {
+      "lang": "dart",
+      "code": "class Anything {\n  @override\n  dynamic noSuchMethod(Invocation invocation) {     // 成员不存在时才来这\n    print('有人调了 ${invocation.memberName}');\n    return '兜底';\n  }\n}\n\nfinal a = Anything();\n(a as dynamic).whatever(1, 2);        // ⚠ 只有**动态调用**才走这条路\n\n// 实现了 noSuchMethod 的类，可以**不实现接口里的成员** ——\n// 调用会被转发到这里（做替身/伪造对象时常这么干）\n\n// ⚠ 但它拦不住**已经存在**的成员 —— 那不是「不存在」，不会触发\n// ⚠ 静态类型下调用不存在的方法仍然是编译错误，走不到运行期",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-constant)\"> Anything</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  @override</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  dynamic</span><span style=\"color:var(--shiki-token-function)\"> noSuchMethod</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">Invocation</span><span style=\"color:var(--shiki-foreground)\"> invocation) {     </span><span style=\"color:var(--shiki-token-comment)\">// 成员不存在时才来这</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    print</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'有人调了 </span><span style=\"color:var(--shiki-token-string-expression)\">${invocation.memberName}</span><span style=\"color:var(--shiki-token-string-expression)\">'</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-string-expression)\"> '兜底'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">final</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> Anything</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">(a </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-token-constant)\"> dynamic</span><span style=\"color:var(--shiki-foreground)\">).</span><span style=\"color:var(--shiki-token-function)\">whatever</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">);        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 只有**动态调用**才走这条路</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 实现了 noSuchMethod 的类，可以**不实现接口里的成员** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 调用会被转发到这里（做替身/伪造对象时常这么干）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但它拦不住**已经存在**的成员 —— 那不是「不存在」，不会触发</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 静态类型下调用不存在的方法仍然是编译错误，走不到运行期</span></span></code></pre>",
+      "lineCount": 16,
+      "notes": [
+        {
+          "line": 10,
+          "text": "只有**动态调用**才走这条路",
+          "tone": "warn"
+        },
+        {
+          "line": 15,
+          "text": "但它拦不住**已经存在**的成员 —— 那不是「不存在」，不会触发",
+          "tone": "warn"
+        },
+        {
+          "line": 16,
+          "text": "静态类型下调用不存在的方法仍然是编译错误，走不到运行期",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>两者看起来像，实际能拦的范围差很远</strong>：\nJavaScript 的 <code>Proxy</code> 能拦住<strong>所有</strong>属性访问 ——\n包括已经存在的属性、<code>in</code> 判断、删除操作；\nDart 的 <code>noSuchMethod</code> <strong>只在成员不存在时</strong>才被调用，\n已经有的方法它一概拦不到。\n所以那边「给任意对象套一层透明代理」在这边做不到，\n只能对缺失的成员做兜底。</p>\n",
+        "python": "<p>Python 的 <code>__getattr__</code> 与 Dart 的 <code>noSuchMethod</code> 触发条件<strong>很像</strong>\n（都只在常规查找失败时调用），这一层可以对应；\n但 Python 还有 <code>__getattribute__</code>，它能拦下<strong>每一次</strong>属性访问 ——\n那个才与 <code>Proxy</code> 同级。\nDart 没有后者，所以「无条件拦截」在这边写不出来。\n另一处是 Dart 的触发必须是动态调用，静态类型下仍是编译错误。</p>\n",
+        "java": "<p>两边能做的是<strong>同一件事</strong>（拦下接口方法的调用），\n因为 Dart 在这一点上用的就是 JVM/原生那套动态派发，\n而不是一个通用的代理层。\n差别在写法与边界：Java 用 <code>Proxy.newProxyInstance</code> 生成一个新对象；\nDart 是在类里重写 <code>noSuchMethod</code>，让<strong>这个类自己</strong>接住缺失的成员。\n两边共同的限制是字段访问拦不到 —— 那是 <code>Proxy</code> 才有的能力。</p>\n"
+      }
+    }
+  }
+}
