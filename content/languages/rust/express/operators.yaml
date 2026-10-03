@@ -1,0 +1,168 @@
+# rust —— express / operators
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: operators` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arithmetic:
+    code: |
+      let a = 7 / 2;             // @note 3 —— 整数除法向零截断
+      let b = 7.0 / 2.0;         // @note 3.5
+      let c = 7 % 3;             // @note 1
+
+      let max: u8 = 255;
+      // let over = max + 1;     // @note! debug 构建 panic；release 构建静默回绕到 0
+      let safe = max.saturating_add(1);  // @note 255 —— 饱和
+      let wrapped = max.wrapping_add(1); // @note 0 —— 显式回绕
+      let checked = max.checked_add(1);  // @note None —— 溢出变成一个可处理的值
+
+      let mut i = 0;
+      i += 1;                    // @note! Rust 没有 ++ / -- 运算符，只有 += 1
+    vs:
+      javascript: |
+        整数与浮点在 JavaScript 里是同一个 `number`，`7 / 2` 得 3.5 而不是 3；
+        Rust 的整数除法会截断，`7 / 2` 就是 3。更要紧的是溢出：
+        JavaScript 的数字溢出会变成 `Infinity` 或悄悄丢失精度，
+        Rust 在 debug 构建下**直接 panic**，release 下回绕 ——
+        想两种行为都不要，可以用 `checked_add` 拿到一个 `Option`。
+        另外 Rust 没有 `++`，`i += 1` 才是唯一写法。
+      python: |
+        Python 的整数除法用 `//`、真除法用 `/`，两个运算符分得很清楚；
+        Rust 只有 `/`，结果取决于操作数是不是整数。溢出上差别最大：
+        Python 的整数是任意精度的，永远不会溢出；Rust 的 `u8` 到 255 就到头了，
+        debug 构建下再加会 panic，所以它备了 `checked_` / `saturating_` /
+        `wrapping_` 三套显式写法让你挑。
+      java: |
+        两边都是整数除法截断、都有 `%`，数值行为最接近。
+        溢出是分水岭：Java 的 `int` 溢出静默回绕，从来不报错；
+        Rust 在 debug 构建下 panic，逼你在开发阶段就发现它。
+        Java 有 `++` 与 `--`（前缀后缀各一种），Rust 一个都没有，
+        只能写 `i += 1`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  equality:
+    code: |
+      let a = 5 == 5;            // @note true
+      // let b = 5 === 5;        // @note! Rust 没有 === —— 只有一个 ==
+      let s1 = String::from("hi");
+      let s2 = String::from("hi");
+      let same = s1 == s2;       // @note true —— == 比较内容，不是地址
+
+      let f = f64::NAN;
+      // let nan_eq = f == f;    // @note false —— 浮点遵循 IEEE 754
+
+      #[derive(PartialEq)]
+      struct Point { x: i32, y: i32 }   // @note derive 自动生成逐字段比较
+    vs:
+      javascript: |
+        Rust 只有 `==` 一个相等运算符，没有 `===`：类型不同根本编译不过，
+        所以「严格相等」这个概念没有存在的必要。对象比较上两边默认值相反 ——
+        JavaScript 的 `==` 对对象比引用，两个内容相同的对象不相等；
+        Rust 的 `==` 由 `PartialEq` 决定，`String` 比的是内容，
+        自定义类型 `derive(PartialEq)` 后逐字段比较。
+      python: |
+        Python 的 `==` 走 `__eq__`、默认比身份，可以重载；
+        Rust 的 `==` 走 `PartialEq` trait，一样可以自定义，
+        但必须**显式实现或 derive**，不会默默继承出默认行为。
+        浮点上两边一致：NaN 不等于自己。差别在 `is` ——
+        Python 用 `is` 比身份，Rust 没有对应的运算符，
+        要比地址得显式调 `std::ptr::eq`。
+      java: |
+        Java 的 `==` 对基本类型比数值、对引用比地址，想比内容必须调 `equals`；
+        Rust 只有一个 `==`，比什么由类型的 `PartialEq` 决定 ——
+        对 `String` 就是比内容，不存在「忘了调 equals」这个经典错误。
+        另外 Rust 的浮点也不实现全等（只有 `PartialEq`），
+        排序或做哈希键时要自己包一层，Java 的 `Double.equals` 同样要对 NaN 特别对待。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  logical:
+    code: |
+      let ok = true && false;    // @note false
+      let either = true || false; // @note true
+      let not = !ok;             // @note true —— 取反是 !，不是 not
+
+      // let x = 1 && true;      // @note! 编译错误：期望 bool，得到整数
+
+      let name = user.map(|u| u.name).unwrap_or_default();
+      // @note && 与 || 都是短路的：左边能定结果时右边不求值
+    vs:
+      javascript: |
+        JavaScript 的 `&&` 与 `||` 返回的是**操作数本身**而不是布尔值
+        （`a || b` 常被当成默认值语法用），Rust 的 `&&` / `||` 严格返回 `bool`。
+        另一处是条件本身：JavaScript 的 `if` 接受任何值并做真值转换，
+        `if (1)` 合法；Rust 的 `if` 只接受 `bool`，`if 1` 编译不过。
+        想在 Rust 里表达「空则取默认」，得用 `Option` 的方法而不是 `||`。
+      python: |
+        Python 的 `and` / `or` 返回的是**操作数本身**而不是布尔值，
+        还有一长串真值规则（空列表、0、"" 都是假）；Rust 的 `&&` / `||`
+        只作用于 `bool`，没有任何真值转换 —— `if 1` 是编译错误。
+        这意味着 Rust 代码里「这个值算不算有」必须显式写出来
+        （`.is_empty()` / `.is_some()`），读的时候不必在脑子里跑一遍真值表。
+      java: |
+        Java 的 `&&` / `||` 同样严格返回 `boolean`，且同样是短路的，
+        这一点两边一致 —— Java 也没有真值转换，`if (1)` 编译不过。
+        差别在非短路版本：Java 有 `&` / `|` 可以当非短路布尔运算符用，
+        Rust 一个都没有，`&` / `|` 只做位运算。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  operator-overloading:
+    code: |
+      use std::ops::Add;
+
+      #[derive(Debug, PartialEq)]
+      struct Vec2 { x: f64, y: f64 }
+
+      impl Add for Vec2 {                 // @note 实现 std::ops::Add 就能让 + 生效
+        type Output = Vec2;
+        fn add(self, other: Vec2) -> Vec2 {
+          Vec2 { x: self.x + other.x, y: self.y + other.y }
+        }
+      }
+
+      let v = Vec2 { x: 1.0, y: 2.0 } + Vec2 { x: 3.0, y: 4.0 };
+      // @note 运算符是 trait 的语法糖，没有「自定义运算符」这种东西
+
+      let s = String::from("a") + "b";    // @note String 的 + 只接受 &str，会拿走左侧所有权
+    vs:
+      javascript: |
+        JavaScript **不支持运算符重载** —— 对象相加只会走 `toString` 或 `valueOf`，
+        得到字符串拼接或 NaN。Rust 的重载不是语言外挂，而是把运算符定义成 trait
+        （`+` 就是 `std::ops::Add`），实现它即可。代价是 Rust 的 `+`
+        会拿走左侧值的所有权 —— `String + &str` 之后左边的变量就不能再用了，
+        这是 JavaScript 里拼接字符串时完全不会遇到的事。
+      python: |
+        Python 用 `__add__` 这类双下方法重载运算符，Rust 用实现 std::ops 的 trait，
+        思路一致，差别在**约束**：Rust 的 `Add` 要求两个操作数与返回值类型
+        在 trait 上就写清楚，且不能重载出语言里不存在的运算符；
+        Python 的 `__add__` 什么都能返回，包括 NotImplemented 这种特殊协议值。
+        另外 Rust 的 `+` 默认按值传递，实现里经常要决定「拿走还是借用」。
+      java: |
+        Java **不支持运算符重载** —— `+` 对字符串是编译器特例，
+        其余类型只能定义 `add` 这样的普通方法。Rust 通过实现 trait 让 `+` 生效，
+        所以同一个符号在不同类型上有不同含义是有据可查的。
+        最需要注意的仍是所有权：Rust 的 `String + &str` 会消耗左边，
+        循环里累加要用 `push_str` 或 `+=` 的借用版本，不能照搬 Java 的 `+=` 直觉。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

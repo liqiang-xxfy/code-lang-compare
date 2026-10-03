@@ -1,0 +1,149 @@
+# go —— express / operators
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: operators` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arithmetic:
+    code: |
+      a := 7 / 2                  // @note 3 —— 整数除法向零截断
+      b := 7.0 / 2.0              // @note 3.5
+      c := 7 % 3                  // @note 1；% 对负数取余，符号跟被除数
+
+      var max uint8 = 255
+      over := max + 1             // @note! 不会 panic，静默回绕到 0 —— Go 没有溢出检查
+
+      i := 0
+      i++                         // @note! 只能当语句写；++i 不合法，i++ 也不能当表达式
+      i += 1
+    vs:
+      javascript: |
+        JavaScript 只有一种数字类型，`7 / 2` 得 3.5；Go 的整数除法会截断，
+        `7 / 2` 得 3 —— 想做浮点除法得先把操作数写成浮点。
+        溢出行为也不同：JavaScript 的 `number` 溢出成 `Infinity` 或丢精度，
+        Go 的定宽整数**静默回绕**，`uint8(255) + 1` 得 0，不报错也不 panic。
+        `++` 上两边写法一样，但 Go 只允许它单独成句，不能写 `x = i++`。
+      python: |
+        Python 用 `//` 做整除、`/` 做真除法，Go 只有 `/`，语义由操作数类型决定；
+        Python 的 `%` 对负数取模结果符号跟除数，Go 的 `%` 符号跟被除数 ——
+        处理负数时这是实打实的行为差异。溢出上 Python 完全不必操心
+        （整数任意精度），Go 的定宽整数会静默回绕，且没有 `checked_add`
+        这类安全版本可换。
+      java: |
+        两边几乎逐条对应：整数除法截断、`%` 取余、`++` 存在。
+        差别在 `++` 的地位：Java 的 `i++` 是表达式，可以嵌在赋值或参数里；
+        Go 把它降级成语句，`x = i++` 编译不过 —— 这让带副作用的表达式
+        少了一种，读代码时更好判断求值顺序。溢出两边都是静默回绕。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  equality:
+    code: |
+      a := 5 == 5                 // @note true，唯一一个相等运算符
+      s1 := "hi"
+      s2 := "hi"
+      same := s1 == s2            // @note true —— 字符串按内容比较
+
+      type Point struct{ X, Y int }
+      p1 := Point{1, 2}
+      p2 := Point{1, 2}
+      eq := p1 == p2              // @note true —— 字段都可比较的结构体可比较
+
+      xs := []int{1}
+      // bad := xs == []int{1}    // @note! 编译错误：切片只能和 nil 比较
+    vs:
+      javascript: |
+        Go 没有 `===`，只有 `==`，而且类型不同不能比较（编译期就拦）。
+        引用类型上差别最大：JavaScript 的对象与数组比的是地址，
+        `{} == {}` 恒为 false；Go 的**结构体逐字段比较**，
+        `Point{1,2} == Point{1,2}` 是 true，但**切片与映射不可比较**，
+        除了跟 `nil` 比 —— 这一条 JavaScript 里没有对应限制，数组照样能比（比地址）。
+      python: |
+        Python 的 `==` 走 `__eq__`，列表、字典都能按内容比较；
+        Go 的结构体也能逐字段比较，但**切片、映射、函数不可比较**，
+        写 `xs == ys` 是编译错误，只能自己写循环或 `reflect.DeepEqual`。
+        Python 用 `is` 比身份，Go 没有身份比较运算符，
+        要比指针地址得直接比指针值。
+      java: |
+        Java 的 `==` 比引用、`equals` 比内容，是新手最容易踩的一处；
+        Go 的 `==` 直接比内容（数组与结构体逐字段），没有 `equals` 这一步。
+        但 Go 划了一条 Java 没有的线：**切片、映射、函数不可比较**，
+        编译期就拒绝，逼你在「DeepEqual 还是有意义的部分比较」之间做选择。
+        Java 的数组用 `==` 比引用、`Arrays.equals` 比内容，与 Go 的数组可 `==` 相反。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  logical:
+    code: |
+      ok := true && false         // @note false
+      either := true || false     // @note true
+      not := !ok                  // @note true —— 取反是 !，不是 not
+
+      // var x int = 1
+      // if x { }                 // @note! 编译错误：条件必须是 bool
+
+      name := user.Name
+      if user == nil || name == "" {   // @note && 与 || 都是短路的
+        name = "匿名"
+      }
+    vs:
+      javascript: |
+        JavaScript 的 `&&` / `||` 返回操作数本身（`a || b` 被当默认值语法），
+        Go 的严格返回 `bool`。条件上两边都严格：JavaScript 的 `if (1)` 合法
+        （做了真值转换），Go 的 `if` 只接受 `bool`，`if x` 里 x 是整数就编译不过。
+        想在 Go 里表达「空则取默认」，得老老实实写 `if`，不能用 `||` 兜底。
+      python: |
+        Go 的 `&&` / `||` 只作用于 `bool`，没有 Python 那套真值规则
+        （空列表、0、"" 判假）—— `if xs` 在 Python 里是「列表非空」，
+        在 Go 里编译不过，必须写 `len(xs) > 0`。这个差别让 Go 代码里
+        「这个值算不算有」永远是显式的，读的时候不必回忆真值表。
+      java: |
+        Java 与 Go 在这条上几乎一致：`&&` / `||` 严格返回 `boolean`、
+        短路求值、条件位置只接受 `boolean`。唯一差别是 Java 还有
+        `&` / `|` 可以当非短路布尔运算符用，Go 的 `&` / `|` 只做位运算，
+        没有非短路的逻辑版本。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  operator-overloading:
+    absent: true
+    vs:
+      javascript: |
+        Go **不支持运算符重载**，JavaScript 也不支持 —— 两边在这条上是
+        同一个立场。差别在「不支持」之后怎么办：JavaScript 会让 `+` 退化成
+        字符串拼接或 NaN，Go 直接编译不过，必须写成 `a.Add(b)` 这样的方法调用。
+        所以 Go 里自定义类型的算术永远是显式方法名，不会出现
+        「这个 `+` 到底做了什么」的疑问。
+      python: |
+        Go **不支持运算符重载** —— 没有 `__add__` 那样的钩子，
+        自定义类型要做加法只能定义 `Add` 方法。这是从 Python 过来
+        最容易低估的一条：矩阵、向量、金额这类类型在 Python 里
+        写 `a + b` 很自然，在 Go 里一律是 `a.Add(b)`。
+        代价是代码更长，收益是任何一个 `+` 的行为都不必去查定义。
+      java: |
+        Go **不支持运算符重载**，Java 也不支持 —— 立场相同，
+        都是「只给内建类型保留运算符」。Java 为字符串的 `+` 开了编译器特例，
+        Go 连这个特例都没有：字符串拼接必须写 `+` 之外的
+        `strings.Join` 或 `+=`（`+=` 对字符串是允许的）。
+        自定义类型两边都只能写方法。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: identical
