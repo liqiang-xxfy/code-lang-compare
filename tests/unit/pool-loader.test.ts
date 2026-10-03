@@ -290,9 +290,20 @@ describe('语言内容装载的细节', () => {
   it('非基准语言（对比列）没有 baseline，但三份 vs 写全', () => {
     /*
      * 架构 §4.4 规则 4：非基准语言的 `baseline` 可以省略 —— 它们永远不会被渲染成基准列。
-     * rust / go 是第一批这样的语言（S7.5），这条同时守住「别顺手给它们补 baseline」。
+     * rust / go 是第一批这样的语言（S7.5）。此后每新增一门对比列语言都要登记进下面这个数组，
+     * 否则它不受这条契约保护 —— 注意它对空内容 `continue`，漏登记不会报错，只会静默失守。
      */
-    for (const id of ['rust', 'go']) {
+    for (const id of [
+      'rust',
+      'go',
+      'typescript',
+      'arkts',
+      'kotlin',
+      'swift',
+      'dart',
+      'cpp',
+      'php',
+    ]) {
       const groups = loadPoolLanguageContent(id, pools)
       if (groups.length === 0) continue // 还没开写，跳过（爬坡期）
       for (const g of groups) {

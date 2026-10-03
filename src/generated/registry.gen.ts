@@ -3,10 +3,10 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml + content/languages/<id>/meta.yaml
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-03T12:49:24.445Z
+ * 生成时间：2026-10-03T12:58:03.581Z
  */
 import type { LanguageMeta } from '../schemas'
-export const allLanguageIds = ['javascript', 'python', 'java', 'go', 'rust', 'typescript', 'arkts', 'kotlin', 'swift', 'dart'] as const
+export const allLanguageIds = ['javascript', 'python', 'java', 'go', 'rust', 'typescript', 'arkts', 'kotlin', 'swift', 'dart', 'cpp', 'php'] as const
 export const enabledLanguageIds = ['javascript', 'python', 'java', 'go', 'rust'] as const
 
 /** 全集：内容源（snippets.yaml）可以引用任意一门，哪怕是尚未启用的语言——这支持「先攒内容后启用」 */
@@ -433,6 +433,83 @@ export const languageMeta: LanguageMeta[] = [
       {
         "label": "Dart 官方语言之旅",
         "url": "https://dart.dev/language"
+      }
+    ]
+  },
+  {
+    "id": "cpp",
+    "name": "C++",
+    "shortName": "C++",
+    "aliases": [
+      "cpp",
+      "cplusplus"
+    ],
+    "version": "20",
+    "fileExtension": ".cpp",
+    "comment": {
+      "line": "//",
+      "block": [
+        "/*",
+        "*/"
+      ]
+    },
+    "shikiLang": "cpp",
+    "paradigm": [
+      "procedural",
+      "oop",
+      "generic",
+      "multi-paradigm"
+    ],
+    "typing": "static",
+    "typeSystem": "nominal",
+    "memoryModel": "manual",
+    "concurrency": [
+      "thread",
+      "atomic",
+      "coroutine"
+    ],
+    "baseline": false,
+    "links": [
+      {
+        "label": "cppreference（中文）",
+        "url": "https://zh.cppreference.com/"
+      },
+      {
+        "label": "ISO C++ 官方站",
+        "url": "https://isocpp.org/"
+      }
+    ]
+  },
+  {
+    "id": "php",
+    "name": "PHP",
+    "shortName": "PHP",
+    "aliases": [
+      "php8"
+    ],
+    "version": "8.3",
+    "fileExtension": ".php",
+    "comment": {
+      "line": "//",
+      "block": [
+        "/*",
+        "*/"
+      ]
+    },
+    "shikiLang": "php",
+    "paradigm": [
+      "procedural",
+      "oop",
+      "multi-paradigm"
+    ],
+    "typing": "gradual",
+    "memoryModel": "gc",
+    "concurrency": [],
+    "baseline": false,
+    "links": [
+      {
+        "label": "PHP 官方手册（中文）",
+        "url": "https://www.php.net/manual/zh/"
       }
     ]
   }

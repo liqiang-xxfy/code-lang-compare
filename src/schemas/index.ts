@@ -39,7 +39,7 @@ export const languageMetaSchema = z.object({
   version: z.string().optional(),
   fileExtension: z.string().startsWith('.'),
   comment: commentSchema,
-  /** Shiki 语言标识。ArkTS 无独立语法包 → 用 'typescript'，此处是刻意的近似 */
+  /** Shiki 语言标识。某些语言没有独立语法包时，近似借用其超集的语法标识 */
   shikiLang: z.string().min(1),
   paradigm: z.array(z.string()).default([]),
   typing: z.enum(['dynamic', 'static', 'gradual']),
