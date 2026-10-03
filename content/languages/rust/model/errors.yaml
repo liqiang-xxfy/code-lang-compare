@@ -1,0 +1,281 @@
+# rust —— model / errors
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: errors` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  throw-raise:
+    code: |
+      fn divide(a: i32, b: i32) -> Result<i32, String> {
+        if b == 0 {
+          return Err("除数为零".to_string());   // @note 可恢复的失败：返回 Err
+        }
+        Ok(a / b)
+      }
+
+      // @note! panic! 是不可恢复的失败，会展开栈并终止当前线程
+      fn must_be_positive(n: i32) {
+        assert!(n > 0, "必须为正数");   // @note 断言失败即 panic
+      }
+
+      let v = vec![1, 2];
+      // v[9];                            // @note! 越界也会 panic
+    vs:
+      javascript: |
+        JavaScript 用 `throw` 抛出异常 —— 它是一次**控制流跳转**，
+        调用栈上任何一层没 catch 就会一路炸到顶层。Rust 分成两种：
+        可恢复的失败用返回 `Result`（调用方必须处理），
+        不可恢复的用 `panic!`（直接终止）。所以 Rust 里
+        「这个函数会不会失败」写在签名上，而 JavaScript 里看不出来。
+      python: |
+        Python 的 `raise` 是控制流跳转，异常会沿调用栈上抛；
+        Rust 把「可能失败」编码进返回类型 `Result<T, E>`，
+        失败是一个普通的返回值，不打断执行流。Python 里
+        `raise` 与 `assert` 都能中断程序，Rust 的对应物是
+        `Err`（可处理）与 `panic!`（不可恢复），分得很清楚。
+      java: |
+        Java 的受检异常见写在 `throws` 里，调用方必须处理 ——
+        这点与 Rust 的 `Result` 在意图上相通，但机制完全不同：
+        Java 的异常是跳转，Rust 的 `Err` 是返回值，必须显式 `match` 或 `?`。
+        Java 的 `RuntimeException` 是免检的（随时可能冒出来），
+        Rust 的 `panic!` 与之对应，但 Rust 社区把 panic 限定在
+        「程序有 bug」的场景，不用它做正常错误处理。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  try-catch:
+    code: |
+      match divide(6, 0) {              // @note 处理 Result 的第一种写法：match
+        Ok(v) => println!("{}", v),
+        Err(e) => eprintln!("出错：{}", e),
+      }
+
+      if let Err(e) = divide(6, 0) {    // @note 只关心失败分支
+        eprintln!("{}", e);
+      }
+
+      let v = divide(6, 0).unwrap_or(0);          // @note 失败就给默认值
+      let v = divide(6, 0).expect("除法失败");     // @note 失败就 panic 并打印这句话
+      // let v = divide(6, 0).unwrap();            // @note! 失败就 panic，消息里只有行号
+
+      fn caller() -> Result<i32, String> {
+        let v = divide(6, 0)?;          // @note! ? 失败就提前返回，不写 try 块
+        Ok(v + 1)
+      }
+    vs:
+      javascript: |
+        Rust **没有 try / catch**。处理失败靠三样东西：`match`（两个分支都写）、
+        `if let Err(e)`（只关心失败）、以及 `?`（失败就往上抛）。
+        `unwrap()` 看着最省事，但它失败时是 panic 而不是抛异常 ——
+        JavaScript 的 `throw` 还能被上层 catch 住，Rust 的 panic
+        默认没有人接得住（除非专门设 hook），所以 `unwrap()` 只该用在
+        「我确信它不会失败」的地方。
+      python: |
+        Rust **没有 try / except**，对应物是按值处理：`match` 相当于
+        `try/except` 的两个分支，`?` 相当于「不处理，往上抛」。
+        差别在于**显式程度**：Python 里忘了 try 的代码照样跑，
+        出错时才抛；Rust 的 `Result` 不解开就用不了里面的值，
+        编译器逼你在每个调用点做决定。
+      java: |
+        Rust **没有 try / catch / finally**。`match` 与 `if let`
+        对应 catch 块，`?` 对应 `throws` 的自动上传。
+        写法上最大的不同是 Rust 没有「一段可能出错的代码块」这个概念 ——
+        它把粒度收窄到**每一次可能失败的调用**，因为失败是返回值而不是跳转，
+        不存在「这一大块里不知道哪句抛了」这种情况。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  finally-cleanup:
+    code: |
+      use std::fs::File;
+      use std::io::Read;
+
+      {
+        let mut f = File::open("data.txt")?;
+        let mut s = String::new();
+        f.read_to_string(&mut s)?;
+      }                          // @note! 离开作用域时 f 自动关闭 —— Drop 在起作用
+
+      struct Guard;
+      impl Drop for Guard {
+        fn drop(&mut self) { println!("清理"); }   // @note 实现 Drop 就获得「析构时执行」
+      }
+      {
+        let _g = Guard();        // @note 块结束时 drop 自动调用，即使中间 panic
+      }
+    vs:
+      javascript: |
+        JavaScript 用 `try { … } finally { … }` 保证清理，
+        或者用 `using`（新语法）。Rust **不需要写清理代码** ——
+        值的生命周期由作用域决定，离开 `{}` 时编译器自动插入析构调用。
+        所以 Rust 代码里看不到 finally，也看不到手动 close；
+        即便中途 panic，栈展开时同样会跑析构。
+      python: |
+        Python 用 `try / finally` 或 `with` 语句管理资源；
+        Rust 用作用域加 `Drop` trait —— 后者更彻底：**任何**类型都能定义
+        析构行为，且由编译器保证调用，不依赖作者记得写 `with`。
+        离开块时自动清理、panic 时也会清理，Python 的 `with`
+        在这一点上已经接近，但仍需要显式进入上下文。
+      java: |
+        Java 用 `try / finally`，或者 `try-with-resources`（`AutoCloseable`）；
+        Rust 的 `Drop` 相当于后者，但**不需要任何语法**：
+        只要值离开作用域就一定析构，没有「忘了放进 try 里」这种可能。
+        Java 的 `finalize` 已被弃用、调用时机不确定；
+        Rust 的析构是确定性的（作用域结束就执行），这点比 Java 强。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  error-types:
+    code: |
+      use std::error::Error;
+      use std::fmt;
+
+      #[derive(Debug)]
+      enum ParseError {
+        Empty,
+        BadChar(char),
+      }
+
+      impl fmt::Display for ParseError {          // @note 给人看的信息
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+          match self {
+            ParseError::Empty => write!(f, "输入为空"),
+            ParseError::BadChar(c) => write!(f, "非法字符：{}", c),
+          }
+        }
+      }
+
+      impl Error for ParseError {}                // @note 让它可以被当作标准错误传递
+
+      fn parse(s: &str) -> Result<i32, Box<dyn Error>> {   // @note 统一的错误出口
+        if s.is_empty() { return Err(Box::new(ParseError::Empty)); }
+        Ok(0)
+      }
+    vs:
+      javascript: |
+        JavaScript 用 `Error` 基类加子类表达错误类型，靠 `instanceof` 分派 ——
+        但任何值都能被 throw（字符串、数字都行）。Rust 的错误**必须实现
+        `std::error::Error`**，且类型在函数签名里写出来，不能乱丢。
+        分派上 Rust 用 `match` 配枚举，编译器会检查你有没有处理完所有变体；
+        JavaScript 的 `instanceof` 链漏一个分支只会静默走空。
+      python: |
+        Python 用异常类层级表达错误类型，靠 `except 类名` 捕获；
+        Rust 用实现了 `Error` 的枚举，靠 `match` 分派。
+        关键差别是**穷尽性**：Rust 的 `match` 漏掉一个错误变体编译不过，
+        Python 的 `except` 链漏掉一种就让它继续上抛（有时正是想要的，
+        但没有编译器提醒你）。Python 的异常对象带 traceback，
+        Rust 的错误默认只有值，要堆栈得额外引入库。
+      java: |
+        Java 的异常继承 `Exception` / `RuntimeException`，可以携带 message 与 cause，
+        受检异常还要写在 `throws` 里；Rust 的错误实现 `Error` trait，
+        用 `Box<dyn Error>` 做统一出口（相当于 Java 的 `Exception` 基类）。
+        差别在代价与来源：Java 的异常构造会抓取堆栈（较贵），
+        Rust 的错误是普通值，几乎零开销；Java 用继承层级分类，
+        Rust 更常用枚举 —— 于是「有哪些种错误」在一个地方列清楚，
+        调用方的 `match` 也必须列全。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  custom-error:
+    code: |
+      #[derive(Debug)]
+      struct TimeoutError { seconds: u64 }
+
+      impl fmt::Display for TimeoutError {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+          write!(f, "超时 {} 秒", self.seconds)
+        }
+      }
+      impl Error for TimeoutError {}
+
+      // 用 thiserror 这类库可以省掉样板代码：
+      // #[derive(thiserror::Error, Debug)]
+      // #[error("超时 {0} 秒")]
+      // struct TimeoutError(u64);
+
+      // 错误链：用 source() 串起「底层原因」
+    vs:
+      javascript: |
+        JavaScript 自定义错误要 `class MyError extends Error`，
+        还得手动修 `name` 与原型链（历史上 `instanceof` 会失灵）。
+        Rust 要实现 `Display` 与 `Error` 两个 trait，样板更多，
+        但每个错误类型都必须能打印成人话 —— 编译器不允许你写一个
+        「没有说明」的错误。不想手写样板可以用 `thiserror` 宏。
+      python: |
+        Python 定义异常类就是 `class MyError(Exception): pass`，非常轻；
+        Rust 要为一个错误类型写 `Display` 与 `Error` 的实现，
+        明显更啰嗦，好处是错误信息**强制可读**（`Display` 是必需的），
+        不会出现「抛了一个打印出来是 `<object at 0x…>` 的异常」。
+        Python 的异常可以随便带属性，Rust 的错误类型是结构体，字段是类型化的。
+      java: |
+        Java 继承 `Exception` 就有了 message 与 cause，样板很少；
+        Rust 要分别实现 `Display`（给人看）与 `Error`（给程序传递），
+        且 `Debug` 通常也要 derive —— 三个 trait 起步，比 Java 重。
+        好处是「人能读的信息」与「机器的错误链」被分开了：
+        Java 里 message 既是日志又是判断依据，容易混用，
+        Rust 的 `Display` 与 `source()` 职责清晰。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  error-propagation:
+    code: |
+      use std::num::ParseIntError;
+
+      fn parse_pair(s: &str) -> Result<(i32, i32), ParseIntError> {
+        let mut it = s.split(',');
+        let a = it.next().unwrap_or("").trim().parse::<i32>()?;   // @note ? 自动转换并返回
+        let b = it.next().unwrap_or("").trim().parse::<i32>()?;
+        Ok((a, b))
+      }
+
+      // 不同错误类型时，用 From 自动转换：? 会调用 .into()
+      #[derive(Debug)]
+      enum AppError { Parse(ParseIntError), Io(std::io::Error) }
+      impl From<ParseIntError> for AppError {
+        fn from(e: ParseIntError) -> Self { AppError::Parse(e) }
+      }
+    vs:
+      javascript: |
+        JavaScript 的异常自动沿调用栈上抛，中间层什么都不用写；
+        Rust 每一层都要在签名上声明 `Result`，并用 `?` 显式往上递 ——
+        多写的东西换来的是「这个函数会失败、失败是什么类型」写在类型里。
+        中间层想加点上下文，JavaScript 可以 catch 后重新 throw，
+        Rust 通常把原错误包进新的枚举变体里，保留底层原因。
+      python: |
+        Python 里不写 try 的异常会自动上抛，栈信息自动累积；
+        Rust 每个中间函数都要返回 `Result` 并用 `?` 传递，
+        否则调用方拿不到错误。代价是签名更啰嗦、收益是失败路径在类型上可见。
+        两者都能保留「底层原因」：Python 是 `raise … from e`，
+        Rust 是把原错误放进枚举变体或用 `source()` 串成错误链。
+      java: |
+        Java 的受检异常必须写在 `throws` 里，中间层要么处理要么继续声明 ——
+        这一点与 Rust 的 `Result` + `?` 最像，都是「编译器盯着你表态」。
+        差别在机制：Java 是跳转（中间层的清理代码靠 finally），
+        Rust 是返回值（`?` 就是提前 return）。
+        Java 用 `cause` 串错误链，Rust 用 `From` 自动转换加 `source()`，
+        两边表达力相当，Rust 的转换更自动化一些。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
