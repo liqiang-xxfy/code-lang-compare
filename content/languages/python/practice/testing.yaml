@@ -1,0 +1,183 @@
+# python —— practice / testing
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: testing` 的那批。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-testing-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  test-framework:
+    code: |
+      # pytest：文件名与函数名靠约定发现
+      #   test_*.py / *_test.py；函数 test_ 开头；类 Test 开头
+      def test_empty_cart_total_is_zero():
+          assert total([]) == 0
+
+      class TestCart:                  # @note 类只是用来分组，不需要继承
+          def test_add(self):
+              assert True
+
+      # 夹具用 fixture，靠参数名注入
+      import pytest
+      @pytest.fixture
+      def cart():
+          c = Cart()
+          yield c                     # @note yield 之前的准备 / 之后的清理
+      def test_add(cart):              # @note 名字对上就注入
+          cart.add("苹果")
+          assert len(cart) == 1
+
+      # @note 跑：pytest（零配置，自动发现）
+    baseline: |
+      **约定发现 + 零配置**：文件名 `test_*.py`、函数 `test_` 开头、类 `Test` 开头，
+      跑 `pytest` 就行，不需要注册或继承。准备与清理用 **fixture**
+      （`yield` 前是准备、后是清理），靠**参数名**注入用例 ——
+      这套机制比别的语言的 `beforeEach` 更灵活，也让用例之间的依赖显式可见。
+    vs:
+      javascript: |
+        两边都是约定发现、函数即用例。差别在准备/清理：JavaScript 用
+        `beforeEach` 这类钩子（隐式作用在作用域内所有用例上），
+        Python 用 fixture 按名注入（用哪个写哪个，还能 yield 出清理）。
+        后者更显式，前者更省事。
+      java: |
+        Java 的测试必须在类里、用 `@Test` 标注，靠构建工具集成；
+        Python 的用例是自由函数、零配置就能跑。一边要脚手架，
+        一边「写个 def 就算」。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  assertions:
+    code: |
+      assert total([]) == 0
+      assert "苹果" in cart
+      assert result is None            # @note 判空用 is
+
+      # 异常断言
+      with pytest.raises(ValueError, match="无效"):
+          parse("bad")
+
+      # 浮点比较
+      assert value == pytest.approx(0.3)
+
+      # @note! pytest 会**重写 assert**，失败时把两侧的值都打出来 ——
+      #        所以不需要记匹配器名字，写普通 == 就行
+    baseline: |
+      直接用内建的 `assert`，**pytest 会重写它**，失败时把两侧的实际值、
+      中间表达式都展开打印 —— 所以不用记 `assertEquals` 这类匹配器名字，
+      写 `assert a == b` 就好。异常断言用 `pytest.raises`，
+      浮点比较用 `pytest.approx`（避免二进制浮点的经典误差）。
+    vs:
+      javascript: |
+        JavaScript 要写 `expect(x).toBe(y)` 并记住匹配器名字，
+        还得区分 `toBe`（比引用）与 `toEqual`（深比较）；
+        Python 的 `==` 本来就有明确语义，加上 assert 重写，
+        写起来更接近自然表达。
+      java: |
+        Java 用静态方法且**参数顺序是反的**（期望在前、实际在后），
+        写反了不报错只是失败信息别扭。Python 的 assert 没有这个陷阱。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  mocking:
+    code: |
+      from unittest.mock import MagicMock, patch
+
+      m = MagicMock()                  # @note 任意属性/方法都能调，自动记录
+      m.read.return_value = "数据"
+      m.read("a.txt")                  # @note "数据"
+      m.read.assert_called_once_with("a.txt")
+
+      @patch("mymod.requests.get")     # @note 装饰器：补丁在测试期间有效
+      def test_fetch(mock_get):
+          mock_get.return_value.json.return_value = {"ok": True}
+          ...
+
+      with patch.object(obj, "save") as s:    # @note 上下文管理器：作用域更清楚
+          s.return_value = True
+
+      # @note! patch 的字符串路径要在**被使用的地方**打，不是定义的地方
+    baseline: |
+      标准库自带 `unittest.mock`：`MagicMock` 会自动生成任意属性与方法
+      （调用它、取它的属性都不报错），从而记录下所有交互。
+      `patch` 既能当装饰器也能当上下文管理器 —— 后者作用域更清楚，推荐。
+      最容易踩的一处：**patch 的路径要写「被使用的地方」**，不是定义的地方。
+    vs:
+      javascript: |
+        JavaScript 的假函数要显式配置返回值（`mockReturnValue`），
+        不配置就返回 undefined；Python 的 `MagicMock` 什么都不配也能调，
+        更省事但也更容易掩盖「其实没配对」。两边的模块级替换都必须小心路径。
+      java: |
+        Java 用 Mockito：`when(mock.read()).thenReturn(...)` / `verify(mock)`，
+        而且默认不能 mock 静态方法与 final 类。Python 的 mock 没有这些限制 ——
+        代价是没有任何类型检查帮你发现写错了。
+    equivalence:
+      javascript: analogous
+      java: analogous
+
+  parameterized-tests:
+    code: |
+      import pytest
+
+      @pytest.mark.parametrize("a, b, expected", [
+          (1, 1, 2),
+          (2, 3, 5),
+      ])
+      def test_add(a, b, expected):
+          assert add(a, b) == expected
+
+      # 叠两个 parametrize = 笛卡尔积
+      @pytest.mark.parametrize("x", [1, 2])
+      @pytest.mark.parametrize("y", ["a", "b"])
+      def test_pair(x, y): ...
+
+      # @note! 失败时输出会带上具体参数组合，一眼知道是哪组
+      # @note 参数名、值、用例签名三处要对上 —— 对不上会报错，不会静默
+    baseline: |
+      `@pytest.mark.parametrize` 装饰器：参数名用字符串写、值用列表给，
+      函数签名按名字接收。**可以叠多层**（做笛卡尔积），失败时输出带上
+      具体参数组合。参数名、值、签名三处对不上会直接报错，不会静默跑过。
+    vs:
+      javascript: |
+        JavaScript 用 `it.each` 加表格（数组或模板字符串），
+        一行一组数据。Python 的装饰器把「参数名」显式列出来，
+        叠多层时的组合语义更明确。
+      java: |
+        Java 用 `@ParameterizedTest` 加数据源注解，数据还能来自
+        `@MethodSource` 方法 —— 动态生成数据更方便。三家的表达力相当，
+        写法各有各的啰嗦。
+    equivalence:
+      javascript: analogous
+      java: analogous
+
+  coverage:
+    code: |
+      pytest --cov=mypackage --cov-report=term-missing
+      # 配置写在 pyproject.toml / .coveragerc 里
+      #   阈值：--cov-fail-under=80
+
+      # @note! 覆盖率只说明"哪些行被执行过" —— 不说明断言有没有意义
+      #        term-missing 会列出没被跑到的那几行，比看百分比有用
+      # @note pytest-cov 是插件，要单独装
+    baseline: |
+      用 `pytest-cov` 插件（要单独装），`--cov` 指定包、
+      `--cov-report=term-missing` 会列出**没被跑到的那几行** ——
+      这比看总百分比有用得多。设阈值（`--cov-fail-under`）能让 CI 卡住。
+      记住它的边界：覆盖率说明不了断言是否有效。
+    vs:
+      javascript: |
+        两边都是插件式开关加阈值。差别在报告形态：Python 的
+        `term-missing` 直接列出漏掉的行号，很适合在终端里看；
+        JavaScript 那边更常出 HTML 报告。
+      java: |
+        Java 用 JaCoCo，集成进构建生命周期，出 HTML 报告并设阈值。
+        三家的能力一致，区别只在「插件」与「构建环节」的集成方式。
+    equivalence:
+      javascript: analogous
+      java: analogous

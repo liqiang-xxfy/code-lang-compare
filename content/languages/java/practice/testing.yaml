@@ -1,0 +1,190 @@
+# java —— practice / testing
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: testing` 的那批。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-testing-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  test-framework:
+    code: |
+      // JUnit 5：测试必须写在**类**里
+      class CartTest {
+        @Test                                  // @note 标在方法上
+        void emptyCartTotalIsZero() {
+          assertEquals(0, total(List.of()));
+        }
+
+        @BeforeEach                            // @note 每个用例前的准备
+        void setUp() { cart = new Cart(); }
+
+        @AfterEach
+        void tearDown() { }
+
+        @Nested                                // @note 嵌套类分组
+        class WhenEmpty { }
+      }
+
+      // 跑：构建工具负责（mvn test / gradle test）
+      // @note! 没有"约定发现"这回事 —— 靠构建工具的扫描规则 + 注解
+    baseline: |
+      测试**必须写在类里**、方法用 `@Test` 标注，由构建工具（Maven / Gradle）
+      扫描并运行。准备与清理用 `@BeforeEach` / `@AfterEach`，
+      分组用 `@Nested` 嵌套类。与别处不同的是：**没有「按文件名约定发现」
+      这回事**，发现规则来自构建工具的配置与注解扫描。
+    vs:
+      javascript: |
+        JavaScript 的用例是自由函数、靠文件命名约定被发现；
+        Java 的用例必须是类方法、靠注解与构建工具。一边「写个函数就算」，
+        一边要脚手架与目录约定（`src/test/java` 是标准布局）。
+      python: |
+        Python 的 pytest 几乎零配置（文件名与函数名前缀就是约定），
+        Java 要建标准的测试目录结构、配好构建工具。三家里 Java 的
+        启动成本最高。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  assertions:
+    code: |
+      // JUnit 5：静态方法，**期望值在前**
+      assertEquals(2, add(1, 1));
+      assertTrue(cart.isEmpty());
+      assertNull(result);
+      assertNotEquals(1, 2);
+
+      // 异常断言
+      var ex = assertThrows(IllegalArgumentException.class,
+                            () -> parse("bad"));
+      assertEquals("无效", ex.getMessage());
+
+      // 分组断言（失败时报告所有失败项，而不是第一个就停）
+      assertAll(
+          () -> assertEquals(1, a),
+          () -> assertEquals(2, b)
+      );
+
+      // @note! 参数顺序写反不报错 —— 只是失败信息会误导人
+      // @note 浮点比较要带误差：assertEquals(0.3, v, 1e-9)
+    baseline: |
+      静态方法风格，而且**期望值在前、实际值在后** —— 这是初学最容易写反
+      又不报错的一处（类型相同时编译通过，只是失败信息反着读）。
+      异常断言用 `assertThrows`，浮点比较必须带误差参数。
+      `assertAll` 能在一次运行里报告所有失败项，做表单校验这类多处断言时很有用。
+    vs:
+      javascript: |
+        JavaScript 是链式匹配器 `expect(实际).toBe(期望)`，读起来顺序自然
+        （先写被测的东西）；Java 是 `assertEquals(期望, 实际)`，
+        期望在前 —— 从一边换到另一边时这个顺序最容易搞混。
+      python: |
+        Python 的 `assert a == b` 顺序自然、还有 assert 重写帮着展开两侧值；
+        Java 的静态方法既要注意参数顺序，浮点还得手动给误差参数。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  mocking:
+    code: |
+      // Mockito：主流选择（不在 JDK 里，要加依赖）
+      var repo = mock(Repository.class);
+      when(repo.find("a")).thenReturn(Optional.of(user));   // @note 打桩
+      when(repo.save(any())).thenThrow(new IOException());
+
+      var svc = new Service(repo);
+      svc.load("a");
+
+      verify(repo).find("a");                 // @note 验证交互
+      verify(repo, times(1)).save(any());
+
+      // @note! 默认**不能 mock 静态方法、final 类、私有方法**
+      //        （要 mockStatic 或 inline mock maker，多一层配置）
+      // @note 构造器注入让 mock 变简单 —— 这正是它比字段注入好的原因之一
+    baseline: |
+      主流是 Mockito：`mock()` 造替身、`when(...).thenReturn(...)` 打桩、
+      `verify(...)` 验证交互。一处硬限制要记住：**默认不能 mock 静态方法、
+      final 类与私有方法**（要靠额外配置）。另外「构造器注入」让测试变简单 ——
+      依赖从外面传进来就能换掉，这是它比字段注入更受推荐的实际理由。
+    vs:
+      javascript: |
+        JavaScript 的假函数随手就能造、能替换任意模块，没有「不能 mock 静态
+        方法」这类限制；Java 因为类型与 final 的存在，mock 是有边界的。
+        两边的验证方式相近（`toHaveBeenCalledWith` ↔ `verify`）。
+      python: |
+        Python 的 `unittest.mock` 什么都不用配就能替换任何东西
+        （连内建函数都能 patch），Java 的 Mockito 有明确的不可 mock 名单。
+        代价是 Python 那边没有任何东西提醒你「这样 mock 是不对的」。
+    equivalence:
+      javascript: analogous
+      python: analogous
+
+  parameterized-tests:
+    code: |
+      @ParameterizedTest
+      @ValueSource(ints = {1, 2, 3})              // @note 单参数
+      void positive(int n) { assertTrue(n > 0); }
+
+      @ParameterizedTest
+      @CsvSource({"1, 1, 2", "2, 3, 5"})          // @note 多参数，逗号分隔
+      void add(int a, int b, int expected) {
+        assertEquals(expected, add(a, b));
+      }
+
+      @ParameterizedTest
+      @MethodSource("cases")                      // @note 数据来自方法（可变、可生成）
+      void fromMethod(String input, int expected) { }
+      static Stream<Arguments> cases() { ... }
+
+      // @note 失败时输出带上第几组数据，不会只报"断言失败"
+    baseline: |
+      用 `@ParameterizedTest` 加数据源注解：`@ValueSource`（单参数）、
+      `@CsvSource`（多参数，逗号分隔）、`@MethodSource`（数据来自方法，
+      可以动态生成）。失败时报告会指出是第几组数据。
+      `@MethodSource` 这条路在前两家不容易对应 —— 数据可以是计算出来的流。
+    vs:
+      javascript: |
+        JavaScript 用 `it.each` 加表格，数据只能字面量写在用例旁边；
+        Java 的 `@MethodSource` 让数据来自方法，能生成、能组合。
+        两边的失败信息都会带上参数。
+      python: |
+        两边都用装饰器，Python 的 `parametrize` 可以叠多层做笛卡尔积，
+        Java 要自己在数据源里组合。写法的啰嗦程度相差不大。
+    equivalence:
+      javascript: analogous
+      python: analogous
+
+  coverage:
+    code: |
+      // JaCoCo：集成进构建工具，不在 JDK 里
+      ./gradlew test jacocoTestReport
+      mvn test jacoco:report
+
+      // 覆盖率门槛可以设成构建规则，低于就失败：
+      //   jacocoTestCoverageVerification {
+      //     violationRules { rule { limit { minimum = 0.80 } } }
+      //   }
+
+      // @note! 覆盖率只说明哪些行被执行过 —— 不说明断言有没有意义
+      // @note 报告是 HTML，能看到每行/每个分支的命中情况
+      // @note 分支覆盖率比行覆盖率更能说明问题（if 的两条路都走过没有）
+    baseline: |
+      用 JaCoCo，集成进构建生命周期（`jacocoTestReport` 任务），
+      能出 HTML 报告、看每行与每个分支的命中情况，也能把阈值设成构建规则
+      （低于就失败）。**分支覆盖率比行覆盖率更能说明问题** ——
+      行被执行过不等于 `if` 的两条路都走过。当然，它仍然说明不了断言是否有效。
+    vs:
+      javascript: |
+        两边的能力一致（报告 + 阈值 + 集成 CI）。差别在集成方式：
+        JavaScript 是跑测试时加个开关（`--coverage`），
+        Java 是构建生命周期里的一个任务 —— 与「测试必须走构建工具」一致。
+      python: |
+        Python 用 pytest-cov 插件，`term-missing` 直接列出漏掉的行号，
+        适合在终端看；Java 的 JaCoCo 更常出 HTML 报告。
+        两边都把「低于阈值就失败」做成了开关。
+    equivalence:
+      javascript: analogous
+      python: analogous
