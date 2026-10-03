@@ -3,7 +3,7 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml + content/languages/<id>/meta.yaml
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-03T18:37:47.870Z
+ * 生成时间：2026-10-03T18:57:35.134Z
  */
 import type { LanguageMeta } from '../schemas'
 export const allLanguageIds = ['javascript', 'python', 'java', 'go', 'rust', 'typescript', 'arkts', 'kotlin', 'swift', 'dart', 'cpp', 'php'] as const

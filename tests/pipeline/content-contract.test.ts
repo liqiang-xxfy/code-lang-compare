@@ -6,8 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { analyzeContent, globalIdOf } from '../../scripts/lib/analyze'
-import { loadAllLanguageMeta, loadRegistry } from '../../scripts/lib/core'
-import { findLanguageWords, isKindredMention, kindredIds } from '../../scripts/lib/lang-mention'
+import { loadRegistry } from '../../scripts/lib/core'
 import { baselineCatalogSchema, languageContentFileSchema, provenanceSchema } from '../../src/schemas'
 
 const a = analyzeContent()
@@ -184,23 +183,6 @@ describe('架构决策的可执行断言', () => {
     }
   })
 
-  /*
-   * ADR-71 的同族豁免。判定逻辑在 lang-mention.test.ts 里单测，这里守的是**配置本身**：
-   * 配置一删，那边的单测仍然全绿，而启用 TypeScript 时既有内容里 53 处 R25 会集体冒出来 ——
-   * 「逻辑对、配置没了」正是最不容易被发现的那种坏法。
-   */
-  it('ADR-71：R25 的同族豁免在注册表里声明着，且只豁免 JS 与 TS 这一对', () => {
-    const kindred = kindredIds(a.registry.mentionGroups)
-    expect(kindred.get('javascript')).toEqual(new Set(['typescript']))
-    // 同族豁免按两门算：本语言同族，或该格面对的基准同族
-    expect(isKindredMention('typescript', 'python', 'javascript', kindred)).toBe(true)
-    expect(isKindredMention('typescript', 'javascript', null, kindred)).toBe(true)
-    // 两门都不沾 JS 家族的格子不受影响
-    expect(isKindredMention('typescript', 'go', 'python', kindred)).toBe(false)
-    // ArkTS 不在同族里 —— 它不是 JavaScript 的超集，是独立的语言
-    expect(isKindredMention('arkts', 'javascript', 'python', kindred)).toBe(false)
-  })
-
   it('ADR-08：llm 来源的 schema 里根本没有 license 字段', () => {
     // zod 会剥掉不在契约里的键 —— 强填 MIT/GFDL 是错误陈述，所以连字段都不给
     const r = provenanceSchema.safeParse({
@@ -225,13 +207,14 @@ describe('架构决策的可执行断言', () => {
 
 /* ────────────── 速查正文的写作口径 ──────────────
  *
- * 速查三兄弟的正文是**散文**：`perLanguage` 的键有 R5 守着、对比框的 `@note` 有 R25 守着，
+ * 速查三兄弟的正文是**散文**：`perLanguage` 的键有 R5 守着，
  * 而 `symptom` / `cause` / `fix` / `note` / `todo` / `acceptance` 里的字**没有任何规则在看**。
- * 「只讲本方向两门语言」这条口径此前只写在文档里，靠人守 —— 于是 TypeScript 与 Java
- * 悄悄出现在别的方向的词典里，一直没被发现。这两条断言把它变成机器守的。
+ * 「提到的板块名必须真实存在」这条口径由下面的断言守着 —— 它抓的是从 v1 搬过来的
+ * 「心智模型」/「基础语法」这类死引用（那两个板块 v2 里都不存在）。
+ *
+ * 曾经的另一条「只讲本方向两门语言」已随 ADR-72 废除（原编号 R25 的幽灵语言口径）。
  */
 describe('速查正文的写作口径', () => {
-  const languageMetas = loadAllLanguageMeta()
   const sectionLabels = new Set(Object.values(loadRegistry().sections).map((s) => s.label))
 
   /** 一个方向里全部面向读者的文字。**url 除外** —— 域名与路径里本来就有语言名 */
@@ -248,15 +231,6 @@ describe('速查正文的写作口径', () => {
     }
     return out
   }
-
-  it('只讲本方向的两门语言 —— 点名第三门，读者会以为那里也会踩到同样的坑', () => {
-    for (const pair of a.pairs) {
-      const banned = languageMetas.filter((m) => m.id !== pair.baseline && m.id !== pair.target)
-      for (const text of readerFacingTexts(pair)) {
-        expect(findLanguageWords(text, banned), `${pair.dir}：${text.slice(0, 60)}`).toEqual([])
-      }
-    }
-  })
 
   it('提到的板块名必须是注册表里真实存在的板块', () => {
     for (const pair of a.pairs) {
