@@ -20,7 +20,7 @@ import {
   enabledLanguageIds,
 } from '@/generated/registry.gen'
 import { getCachedDiff } from '@/content/diff'
-import { manifest, resolvePairTarget } from '@/content/repository'
+import { chaptersOf, hasChapterContent, manifest, resolvePairTarget } from '@/content/repository'
 import { resolveSwitchPath } from '@/composables/useBaselineSwitch'
 import { pickColumns } from '@/composables/useVisibleColumns'
 import { sectionEntryPath } from '@/router'
@@ -30,6 +30,18 @@ import { useLanguageStore } from '@/stores/language'
 const nonCandidate = enabledLanguageIds.find(
   (id) => !(baselineLanguageIds as readonly string[]).includes(id),
 )
+
+/**
+ * 某个基准在某个板块下「章节分类里有、但还没写内容」的章。
+ *
+ * 骨架期**必然存在**（清单一次列全、正文按批填），但会随内容爬坡逐个消失，
+ * 所以回落的用例按它推导例子，而不是写死某章的 id —— 否则每填一批内容
+ * 就要改一次测试，而那属于「测试钉住了爬坡进度」而不是「钉住了契约」。
+ * 内容铺满后这两条用例自动不再断言（前提已不成立），不需要删。
+ */
+const emptyChapterOf = (baseline: string, section: 'express' | 'model'): string | null =>
+  chaptersOf(baseline, section).find((c) => !hasChapterContent(baseline, baseline, section, c.id))
+    ?.id ?? null
 
 /**
  * 每个用例都从一块干净的 localStorage 开始。
@@ -225,9 +237,12 @@ describe('全局选择：切换基准时的回落', () => {
       '/compare/python/express/names',
     )
     // 分类里有、但这一门还没写内容的章同样要回落（骨架期的常态）
-    expect(resolveSwitchPath('python', { section: 'express', key: 'values' })).toBe(
-      sectionEntryPath('python', 'express'),
-    )
+    const emptyPy = emptyChapterOf('python', 'express')
+    if (emptyPy) {
+      expect(resolveSwitchPath('python', { section: 'express', key: emptyPy })).toBe(
+        sectionEntryPath('python', 'express'),
+      )
+    }
   })
 
   it('新基准没有这一章（或还没写内容）时，落到它自己第一个有内容的章节', () => {
@@ -246,9 +261,16 @@ describe('全局选择：切换基准时的回落', () => {
   })
 
   it('基准连一个存放组都没写时，整块没有落点（骨架期的板块就是这种状态）', () => {
-    // java 在 model 板块还没有任何内容 —— 章节分组在、内容不在，落点必须是 /404
-    expect(resolveSwitchPath('java', { section: 'model', key: 'objects' })).toBe('/404')
-    expect(sectionEntryPath('java', 'model')).toBe('/404')
+    // 找一个「章节分组在、内容一个都没写」的基准 × 板块 —— 骨架期必然有，
+    // 铺满后自动不再断言（那时这条前提已经不存在了）
+    const barren = baselineLanguageIds.flatMap((b) =>
+      (['express', 'model'] as const)
+        .filter((s) => chaptersOf(b, s).length > 0 && sectionEntryPath(b, s) === '/404')
+        .map((s) => ({ baseline: b, section: s })),
+    )[0]
+    if (barren) {
+      expect(resolveSwitchPath(barren.baseline, { section: barren.section, key: null })).toBe('/404')
+    }
   })
 
   it('列表板块：地址里没有目标，只要该基准下有内容就跳过去', () => {

@@ -1,0 +1,117 @@
+# python —— express / values
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: values` 的那批。
+#
+# 注意 Python 的「值与类型」章还引用了 `equality`（它属于 operators 存放组）——
+# 章跨存放组是常态，见 catalog/express/python.yaml。那一格写在 operators.yaml 里。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-values-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  literals:
+    code: |
+      n = 42                     # @note 整型是任意精度，不会溢出
+      big = 10 ** 100            # @note 照样精确
+      f = 1.5                    # @note 浮点是 IEEE 754 双精度
+      s = 'text'                 # @note 单双引号等价
+      t = f"你好，{name}"         # @note f-string 插值
+      xs = [1, 2, 3]             # @note list：可变序列
+      tup = (1, 2)               # @note tuple：不可变序列
+      d = {"a": 1}               # @note dict：键值对
+      st = {1, 2}                # @note set：去重
+    baseline: |
+      整型是任意精度，没有溢出这回事。浮点是 IEEE 754 双精度，所以 `0.1 + 0.2`
+      仍然不等于 `0.3`。字符串用 f-string 插值。复合字面量有四种：
+      list（可变有序）、tuple（不可变有序）、dict（映射）、set（去重）。
+      字面量写出来的类型就是它的类型，没有隐式包装。
+    vs:
+      javascript: |
+        JavaScript 只有一种数字类型（双精度浮点），大整数要靠 BigInt 才不丢精度；
+        Python 的 int 是任意精度，`10 ** 100` 直接算。另一处差别在复合字面量：
+        JavaScript 主要就对象与数组两种，Python 把「有序可变 / 有序不可变 /
+        映射 / 去重」拆成了四种类型。
+      java: |
+        Java 的数字按宽度分 `int` / `long` / `double`，装不下的值要么换类型要么溢出；
+        Python 的 int 想装多大装多大，代价是慢。Java 的集合要 `new` 出来，
+        Python 用字面量语法直接写。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  type-inference:
+    code: |
+      def greet(name: str) -> str:     # @note 标注是语法的一部分
+          return f"你好，{name}"
+
+      greet(42)                        # @note! 照样跑 —— 解释器不看标注
+      xs: list[int] = []               # @note 变量也能标
+    baseline: |
+      类型属于值，不属于名字 —— `x = 1` 之后 `x = "a"` 完全合法。标注（`name: str`）
+      是**可选**的，解释器只在函数定义时把 `__annotations__` 存下来，运行时不检查；
+      真正检查的是 mypy 这类外部工具。所以标注是写给人和工具看的文档，
+      不是语言的约束。
+    vs:
+      javascript: |
+        JavaScript 的语法里根本没有标注这一席之地 —— 想要静态检查必须换成
+        TypeScript 这种超集。Python 把标注做进了语法，代价是它**不强制**：
+        标了 `str` 也照样能传整数进来，出错要等运行时。
+      java: |
+        Java 的类型是编译器全程执行的约束，写错根本编译不过；Python 的标注只是
+        给外部检查器的线索，解释器一概不看。两边都叫「类型」，约束力差一个量级。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  null-and-undefined:
+    code: |
+      a = None             # @note 唯一的空值
+      a is None            # @note 判空用 is，不用 ==
+      d.get("k")           # @note 键不存在给 None，不抛错
+      d["missing"]         # @note! KeyError —— 下标访问不返回 None
+    baseline: |
+      只有一种空值 `None`（它是单例，判等习惯写 `is None` 而不是 `== None`）。
+      没有「未定义」这个状态：读一个还没赋值的名字是 NameError，不是拿到空值。
+      容器的行为要分清 —— `dict.get` 对缺失键给 None，`d[k]` 却抛 KeyError；
+      `None` 与「没有这个键」因此是两件事。
+    vs:
+      javascript: |
+        JavaScript 分成 undefined（还没有值）与 null（有意为空）两种，Python 只有
+        None 一种。少一种的代价是区分不出「属性不存在」与「属性值就是空」——
+        Python 里这件事只能靠 `in` / `get` 的写法来分工。
+      java: |
+        Java 的 `null` 可以塞进任何引用类型，编译器不会提示；Python 的 None 同样是
+        全类型通用的空值。两边的共通坑一模一样：把空值当成有值用，运行时才炸。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  type-conversion:
+    code: |
+      1 + "a"              # @note! TypeError —— 不做隐式转换
+      "1" == 1             # @note False —— 不同类型直接不等
+      int("12")            # @note 显式转换
+      str(3) + "a"         # @note "3a"
+      bool("")             # @note False —— 真值判断是另一回事
+    baseline: |
+      基本不做隐式转换：数字与字符串相加直接抛 TypeError，`"1" == 1` 是 False
+      而不是先转换再比较。要换类型就显式写 `int()` / `str()` / `float()`，
+      失败时抛 ValueError 而不是返回一个特殊值。真值判断是独立的一件事：
+      `""` / `0` / `None` / 空容器为假。
+    vs:
+      javascript: |
+        JavaScript 到处做隐式转换，`"3" * 2` 得 6、`1 == "1"` 得 true；
+        Python 遇到这类混用直接报错。这是两边差别最大的一处：JavaScript 不报错，
+        只是给你另一个值。
+      java: |
+        两边都要求数字与字符串之间显式转换。差别在数值类型内部：Java 会隐式拓宽
+        （`int` 自动变 `double`，还能自动装箱成 `Integer`），Python 不做 ——
+        `1 + 1.5` 两边都得 2.5，但 Java 是转换、Python 是数值提升。
+    equivalence:
+      javascript: divergent
+      java: analogous

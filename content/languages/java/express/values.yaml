@@ -1,0 +1,125 @@
+# java —— express / values
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: values` 的那批。
+#
+# 这个存放组在 Java 视角下被拆进两章：`literals` / `type-inference` /
+# `null-and-undefined` / `type-conversion` 都在「类型、声明与命名」里
+# （见 catalog/express/java.yaml），但那与内容存放无关。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-values-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  literals:
+    code: |
+      int n = 42;                        // @note 整型字面量默认是 int
+      long big = 9007199254740993L;      // @note 超出 int 范围要加 L
+      double f = 1.5;                    // @note 小数字面量默认是 double
+      float g = 1.5f;                    // @note float 必须加 f 后缀
+
+      char c = 'a';                      // @note 单引号是 char（一个 UTF-16 码元）
+      String s = "text";                 // @note 双引号是 String —— 两者不能混用
+      String t = "你好，" + name;         // @note 拼接；没有插值语法
+
+      int[] xs = {1, 2};                 // @note 数组字面量带类型
+      var m = new HashMap<String, Integer>();   // @note 集合要 new
+    baseline: |
+      字面量的类型由**写法**决定：整型默认 `int`（装不下要加 `L` 变 `long`），
+      小数默认 `double`（`float` 必须加 `f`）。单引号是 `char`、双引号是 `String`，
+      这是编译期就分死的两种类型。字符串没有插值语法，只能 `+` 拼接。
+      数组与集合都要写出元素类型，集合还得 `new`。
+    vs:
+      javascript: |
+        JavaScript 的数字只有一种（双精度浮点），字面量不用挑宽度；Java 要在
+        `int` / `long` / `double` 之间选，选错会溢出或丢精度。另一处一眼可见的差别：
+        Java 里单引号是字符、双引号是字符串，而 JavaScript 两者等价。
+      python: |
+        Python 的整型任意精度、字面量不用挑类型，Java 的 `int` 装不下就得换 `long`。
+        Python 的集合用字面量直接写，Java 要 `new` 并写出泛型参数 —— 同样的数据结构，
+        一边是语法、一边是构造。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  type-inference:
+    code: |
+      int n = 42;            // @note 类型写在声明上
+      var m = compute();     // @note Java 10+：局部变量让编译器推断，结果仍然固定
+      // n = "text";         // @note! 编译错误：类型不符
+      // var field = 1;      // @note! 编译错误：var 不能用在字段上
+    baseline: |
+      类型是**声明的一部分**，编译器全程检查：给 `int` 变量赋字符串根本编译不过。
+      `var`（Java 10+）只是省掉手写，推断出来的类型照样固定，而且只能用在局部变量上
+      —— 字段、方法参数、返回值都必须写出来。所以 Java 的「推断」是编译期的一次
+      便利，不是动态类型。
+    vs:
+      javascript: |
+        JavaScript 的名字没有类型，同一个 `let` 可以先后装数字与字符串，类型错了
+        要到运行时才发现。Java 把这件事挪到了编译期 —— `var` 看着像 JavaScript 的
+        `let`，其实推断完就锁死了。
+      python: |
+        Python 的标注是可选的、运行时不检查，Java 的类型是强制的、编译期就拦。
+        Python 里 `x: int = "a"` 能跑，Java 里 `int x = "a";` 直接编译失败 ——
+        这是「写了类型」与「类型有约束力」的区别。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  null-and-undefined:
+    code: |
+      String s = null;                 // @note 唯一的空值
+      s.length();                      // @note! NullPointerException
+
+      Optional<String> opt = Optional.ofNullable(s);
+      opt.orElse("默认值");             // @note 用 Optional 表达「可能没有」
+    baseline: |
+      只有 `null` 一种空值，而且它可以塞进任何引用类型 —— 类型系统不区分
+      「一定非空」与「可能为空」，编译器不会提醒。基本类型（`int` / `boolean`）
+      不能为 null，它们的「没有值」要靠包装类型或哨兵值表达。
+      `Optional` 是标准库给的补救：把「可能没有」写进返回类型，逼调用方处理。
+    vs:
+      javascript: |
+        JavaScript 分成 undefined（还没有值）与 null（有意为空）；Java 只有 null，
+        但基本类型连 null 都装不下。两边的坑是同一个：空值当有值用，
+        到运行时才抛（这里叫 NullPointerException）。
+      python: |
+        Python 的 None 也是全类型通用，判空习惯写 `is None`；Java 只能 `== null`。
+        两边都靠约定防住空值，Java 多一个标准库层面的手段（Optional），
+        Python 侧对应的是 `Optional[...]` 标注加上检查器。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  type-conversion:
+    code: |
+      int i = 1;
+      double d = i;                    // @note 隐式拓宽，安全
+      // int j = 3.7;                  // @note! 编译错误：double 不能隐式收窄
+      int k = (int) 3.7;               // @note 显式强转，直接截断成 3
+
+      Integer boxed = i;               // @note 自动装箱
+      String s = "12";
+      int p = Integer.parseInt(s);     // @note 字符串转数字必须显式，失败抛异常
+      String t = String.valueOf(i);
+    baseline: |
+      数值类型之间有**隐式拓宽**（`int` → `long` → `double` 一路安全），反向收窄
+      必须写强制转换 `(int)`，而且只截断、不四舍五入。基本类型与包装类型之间会自动
+      装箱拆箱。字符串与数字之间**没有**隐式转换，必须 `Integer.parseInt` /
+      `String.valueOf`，失败时抛异常而不是返回特殊值。
+    vs:
+      javascript: |
+        JavaScript 的隐式转换横跨字符串与数字，`"1" + 1` 得 `"11"`；Java 只允许
+        数值类型之间隐式拓宽，字符串那条线必须显式跨。另一处不同是失败的行为：
+        Java 抛 NumberFormatException，JavaScript 给 NaN 然后继续往下跑。
+      python: |
+        两边都要求数字与字符串之间显式转换，失败都抛异常。差别在数值内部：
+        Java 会隐式拓宽与自动装箱，Python 靠数值提升（`1 + 1.5` 得 float）
+        且不做隐式收窄 —— Python 里 `int(3.7)` 同样截断，但必须写出来。
+    equivalence:
+      javascript: divergent
+      python: analogous

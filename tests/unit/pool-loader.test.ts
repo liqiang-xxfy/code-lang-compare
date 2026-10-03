@@ -156,13 +156,19 @@ describe('章节分组随基准变，内容不随', () => {
     expect(titles(js)).not.toEqual(titles(py))
   })
 
-  it('而内容文件与基准无关 —— 仍然只有一份，路径第三段是存放组', () => {
+  it('而内容文件与基准无关 —— 路径第三段是存放组，不是任何基准的章节名', () => {
     const js = loadPoolLanguageContent('javascript', pools)
-    expect(js).toHaveLength(1)
-    expect(js[0].section).toBe('express')
-    expect(js[0].group).toBe('bindings')
-    expect(js[0].file).toMatch(/languages[\\/]javascript[\\/]express[\\/]bindings\.yaml$/)
-    expect(Object.keys(js[0].boxes).sort()).toEqual([
+    // 文件数是「写过的存放组数」，随内容爬坡增长 —— 断言形状而不是条数
+    expect(js.length).toBeGreaterThan(0)
+    for (const g of js) {
+      expect(g.file.replace(/\\/g, '/')).toMatch(
+        new RegExp(`languages/javascript/${g.section}/${g.group}\\.yaml$`),
+      )
+      // 存放组必须来自**池**（与基准无关的那一层），不是某个基准的章节 id
+      expect(groupsOfPool(expressPool)).toContain(g.group)
+    }
+    const bindings = js.find((g) => g.group === 'bindings')!
+    expect(Object.keys(bindings.boxes).sort()).toEqual([
       'declaration',
       'hoisting',
       'mutability',
@@ -206,10 +212,11 @@ describe('私有目录约定', () => {
 
   it('孤儿扫描跳过 snippets/ 与 `_` 前缀目录', () => {
     const files = listLanguageGroupFiles('javascript')
-    expect(files.map((f) => f.section)).toEqual(['express'])
+    expect(files.length).toBeGreaterThan(0)
     for (const f of files) {
       expect(f.section).not.toBe('snippets')
       expect(f.section.startsWith('_')).toBe(false)
+      expect(f.group).toBeTruthy()
     }
   })
 })
@@ -223,10 +230,12 @@ describe('语言内容装载的细节', () => {
 
   it('文件级 review 被补齐到每一格', () => {
     const py = loadPoolLanguageContent('python', pools)
-    expect(py).toHaveLength(1)
-    for (const box of Object.values(py[0]!.boxes)) {
-      expect(box.review.state).toBe('draft')
-      expect(box.review.provenance.origin).toBe('llm')
+    expect(py.length).toBeGreaterThan(0)
+    for (const g of py) {
+      for (const box of Object.values(g.boxes)) {
+        expect(box.review.state, `${g.group}`).toBe('draft')
+        expect(box.review.provenance.origin).toBe('llm')
+      }
     }
   })
 
