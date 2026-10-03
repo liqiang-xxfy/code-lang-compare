@@ -1,0 +1,151 @@
+{
+  "lang": "go",
+  "section": "practice",
+  "group": "packages",
+  "boxes": {
+    "package-manager": {
+      "lang": "go",
+      "code": "// 初始化 module\ngo mod init github.com/me/myapp\n// 加依赖\ngo get github.com/lib/pq@v1.10.9\n// 清理未用依赖、补齐缺失的\ngo mod tidy\ngo build ./...\ngo test ./...\n\n// ⚠ 包管理器就是 go 命令本身 —— 没有独立的工具，也没有版本要选\n// 标准库自带 HTTP、JSON、测试、加密等，很多项目零依赖",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 初始化 module</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> mod init github.com</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">me</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">myapp</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 加依赖</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> get github.com</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">lib</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">pq@v1.</span><span style=\"color:var(--shiki-token-constant)\">10.9</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 清理未用依赖、补齐缺失的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> mod tidy</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> build .</span><span style=\"color:var(--shiki-token-keyword)\">/...</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> test .</span><span style=\"color:var(--shiki-token-keyword)\">/...</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 包管理器就是 go 命令本身 —— 没有独立的工具，也没有版本要选</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 标准库自带 HTTP、JSON、测试、加密等，很多项目零依赖</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 10,
+          "text": "包管理器就是 go 命令本身 —— 没有独立的工具，也没有版本要选",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的包管理与构建是两套工具（npm + webpack/vite），\n而且各有多个替代品；Go 只有 <code>go</code> 一条命令 ——\n依赖、构建、测试、格式化全在里面，<strong>没有版本可选</strong>。\n另一处实际差别是标准库的分量：Go 的 net/http、encoding/json、\ntesting 都在标准库里，很多服务零第三方依赖；\nJavaScript 里连发个 HTTP 请求都要挑库（axios / fetch / undici）。</p>\n",
+        "python": "<p>Python 要选 pip / poetry / uv，构建要选 setuptools / hatchling；\nGo 用 <code>go</code> 命令本身就够了 —— <code>go mod</code> 管依赖、\n<code>go build</code> / <code>go test</code> 管构建测试，不需要额外安装任何东西\n（装完 Go 就全有了）。从 Python 过来最不适应的是\n「没有虚拟环境、没有 requirements.txt 的多种写法」，\n清单就是 <code>go.mod</code> 一个文件。</p>\n",
+        "java": "<p>Java 要选 Maven 或 Gradle，还要装 JDK 之外的东西才能舒服地开发；\nGo 的工具链是<strong>自带的</strong>：格式化、测试、文档、静态检查\n（<code>go vet</code>）都在 <code>go</code> 命令里，装完即用。\n另一处差别是标准库：Java 的集合、HTTP 客户端在标准库里有，\n但 JSON、日志等通常还是引入库；Go 的 JSON 在标准库里。</p>\n"
+      }
+    },
+    "dependency-declaration": {
+      "lang": "go",
+      "code": "// go.mod\nmodule github.com/me/myapp\n\ngo 1.23                        // 语言版本要求\n\nrequire (\n  github.com/lib/pq v1.10.9    // 直接依赖\n  golang.org/x/text v0.14.0\n)\n\nrequire (\n  github.com/some/indirect v1.2.3 // ⚠ 间接依赖也会列出来，标 // indirect\n)\n\n// 在代码里 import 就是声明依赖 —— go mod tidy 会自动同步 go.mod\nimport \"github.com/lib/pq\"",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go.mod</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">module github.com</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">me</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">myapp</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-token-constant)\"> 1.23</span><span style=\"color:var(--shiki-token-comment)\">                        // 语言版本要求</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">require (</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  github.com</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">lib</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">pq v1.</span><span style=\"color:var(--shiki-token-constant)\">10.9</span><span style=\"color:var(--shiki-token-comment)\">    // 直接依赖</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  golang.org</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">x</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">text v0.</span><span style=\"color:var(--shiki-token-constant)\">14.0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">require (</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  github.com</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">some</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">indirect v1.</span><span style=\"color:var(--shiki-token-constant)\">2.3</span><span style=\"color:var(--shiki-token-comment)\"> // ⚠ 间接依赖也会列出来，标 // indirect</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 在代码里 import 就是声明依赖 —— go mod tidy 会自动同步 go.mod</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> \"github.com/lib/pq\"</span></span></code></pre>",
+      "lineCount": 16,
+      "notes": [
+        {
+          "line": 12,
+          "text": "间接依赖也会列出来，标 // indirect",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 要<strong>显式</strong>在 <code>package.json</code> 里写依赖，然后代码里 import；\nGo 反过来 —— 代码里 <code>import</code> 是唯一的声明，\n<code>go mod tidy</code> 根据实际 import 自动增删 <code>go.mod</code>。\n所以 Go 项目里不存在「装了但没用」或「用了但没声明」这种状态。\n另一处差别是间接依赖也会列在 go.mod 里（标 <code>// indirect</code>），\n而 npm 只在 lock 文件里展开整棵树。</p>\n",
+        "python": "<p>Python 要在 <code>requirements.txt</code> / <code>pyproject.toml</code> 里声明，\n代码里 import 只是使用；Go 里 <code>import</code> <strong>就是</strong>声明，\n<code>go mod tidy</code> 会把清单同步成代码实际需要的样子。\n这意味着 Python 里常见的「requirements 与实际 import 不一致」\n在 Go 里不会发生。代价是 import 路径必须写完整（含仓库地址），\n不能像 Python 那样写个短名字。</p>\n",
+        "java": "<p>Java 在 <code>pom.xml</code> / <code>build.gradle</code> 里声明依赖、代码里 import 类名；\nGo 用代码里的 import 反向推导 go.mod —— 清单是<strong>结果</strong>不是输入。\n这消掉了 Java 项目里常见的一类问题：清单里有但没人用的依赖\n（Maven 要 <code>dependency:analyze</code> 才查得出来）。\n另一处差别是 Go 的 import 路径就是仓库地址，\nJava 是 groupId + artifactId 的坐标。</p>\n"
+      }
+    },
+    "version-constraint": {
+      "lang": "go",
+      "code": "// go.mod 里写的是**最低版本**，不是范围\nrequire github.com/lib/pq v1.10.9\n\n// 选择规则：MVS（最小版本选择）——\n// 所有依赖要求的版本里取**最高的那个最低要求**\n// 关键：go.mod 里的版本是下限，构建时不会自动升到最新\n\ngo get github.com/lib/pq@latest     // 显式升级\ngo get github.com/lib/pq@v1.10.9    // 降到指定版本\n\n// 主版本号 ≥2 要写进路径\n// require github.com/foo/bar/v2 v2.1.0   // —— ⚠ /v2 是路径的一部分",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go.mod 里写的是**最低版本**，不是范围</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">require github.com</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">lib</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">pq v1.</span><span style=\"color:var(--shiki-token-constant)\">10.9</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 选择规则：MVS（最小版本选择）——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所有依赖要求的版本里取**最高的那个最低要求**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 关键：go.mod 里的版本是下限，构建时不会自动升到最新</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> get github.com</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">lib</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">pq@latest     </span><span style=\"color:var(--shiki-token-comment)\">// 显式升级</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> get github.com</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">lib</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">pq@v1.</span><span style=\"color:var(--shiki-token-constant)\">10.9</span><span style=\"color:var(--shiki-token-comment)\">    // 降到指定版本</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 主版本号 ≥2 要写进路径</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// require github.com/foo/bar/v2 v2.1.0   // —— ⚠ /v2 是路径的一部分</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 12,
+          "text": "/v2 是路径的一部分",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>npm 的 <code>&quot;^1.2.3&quot;</code> 是个<strong>范围</strong>，装的时候取满足条件的最高版本；\nGo 的 <code>v1.10.9</code> 是<strong>下限</strong>，构建时严格用这个版本，\n除非有人显式 <code>go get -u</code>。所以 Go 项目不会因为\n「依赖发了新版」而在某天构建出不同的结果 ——\n这对可复现性是决定性的差别。\n另一处 Go 独有的是主版本进路径（<code>/v2</code>），\n这让 v1 与 v2 可以同时存在于依赖树里。</p>\n",
+        "python": "<p>Python 的 <code>&gt;=1.2,&lt;2</code> 是范围，安装时取最新的满足者；\nGo 的版本号是<strong>下限</strong>，且默认不自动升级 ——\n想让依赖前进必须显式执行 <code>go get</code>。这比 pip 的\n「今天装和明天装可能不一样」稳定得多，\n也让 <code>go.mod</code> 本身就记录了实际使用的版本。\n主版本 ≥2 要写进 import 路径是 Go 独有的约定，\nPython 里 <code>import foo</code> 与包版本无关。</p>\n",
+        "java": "<p>Maven 的版本是精确值，但<strong>依赖树仲裁</strong>会在多个版本间挑一个\n（最近优先），所以实际用到的可能不是你写的那个；\nGo 的 MVS 规则是「取所有约束里最高的最低要求」，\n结果完全由依赖图决定、可预测。\n另一处差别是 Go 把主版本写进路径（<code>/v2</code>），\n于是两个大版本可以共存；Java 里同一个 groupId+artifactId\n只能有一个版本胜出，这正是「依赖冲突」的来源。</p>\n"
+      }
+    },
+    "lockfile": {
+      "lang": "go",
+      "code": "// go.sum —— 记录每个模块的校验和（内容哈希），**必须入库**\n// github.com/lib/pq v1.10.9 h1:abc123…\n// github.com/lib/pq v1.10.9/go.mod h1:def456…\n\n// 注意：go.sum 不是「锁版本」用的 —— 版本已经钉在 go.mod 里，\n// go.sum 只负责校验「下载到的内容与上次一致」\n\ngo mod verify        // 校验本地缓存的内容\nGOFLAGS=-mod=readonly go build   // 默认行为：不允许自动改 go.mod",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go.sum —— 记录每个模块的校验和（内容哈希），**必须入库**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// github.com/lib/pq v1.10.9 h1:abc123…</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// github.com/lib/pq v1.10.9/go.mod h1:def456…</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 注意：go.sum 不是「锁版本」用的 —— 版本已经钉在 go.mod 里，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go.sum 只负责校验「下载到的内容与上次一致」</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> mod verify        </span><span style=\"color:var(--shiki-token-comment)\">// 校验本地缓存的内容</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">GOFLAGS</span><span style=\"color:var(--shiki-token-keyword)\">=-</span><span style=\"color:var(--shiki-foreground)\">mod</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\">readonly </span><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> build   </span><span style=\"color:var(--shiki-token-comment)\">// 默认行为：不允许自动改 go.mod</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都有校验和，但<strong>职责划分完全不同</strong>：\nnpm 的 <code>package-lock.json</code> 既锁定整棵依赖树的精确版本、\n又记校验和；Go 的版本钉在 <code>go.mod</code> 里、\n<code>go.sum</code> <strong>只</strong>记校验和。所以 Go 里不存在\n「清单写 ^1.0、实际装 1.2.3」这种需要靠 lock 才能复现的情况 ——\n<code>go.mod</code> 本身就精确。\n另一处差别是 <code>go.sum</code> 会记录间接依赖的哈希，内容更全。</p>\n",
+        "python": "<p>Python 的锁定要靠 <code>requirements.txt</code> 里的 <code>==</code> 或者\npoetry/uv 的锁文件；Go 的版本本来就是精确的（写在下限里），\n<code>go.sum</code> 只承担校验和职责。所以 Go 项目里\n「复制 go.mod + go.sum 就能复现构建」是默认成立的，\nPython 里要先确认项目用的是哪套锁定方案。</p>\n",
+        "java": "<p>Maven 没有锁文件也没有校验和 —— 依赖内容被替换（比如\n仓库被投毒）不会有人发现；Go 的 <code>go.sum</code> 会校验每个模块的内容，\n不一致就构建失败。Gradle 有 dependency verification 但默认关闭。\n这是 Go 在供应链安全上比传统 JVM 工具链更靠前的一处。</p>\n"
+      }
+    },
+    "environment-isolation": {
+      "lang": "go",
+      "code": "// Go 没有虚拟环境 —— 依赖下载到全局模块缓存，按版本并存\n// $GOPATH/pkg/mod/github.com/lib/pq@v1.10.9/\n\ngo clean -modcache       // 清空整个模块缓存（很少需要）\n\n// 项目之间天然隔离：各自的 go.mod 决定用哪个版本，\n// 缓存里可以同时存在同一个库的多个版本\n// ⚠ 不需要安装、不需要激活 —— clone 下来就能 go build\n\n// 工具链版本由 go.mod 的 go 指令与 toolchain 指令表达",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go 没有虚拟环境 —— 依赖下载到全局模块缓存，按版本并存</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// $GOPATH/pkg/mod/github.com/lib/pq@v1.10.9/</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> clean </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">modcache       </span><span style=\"color:var(--shiki-token-comment)\">// 清空整个模块缓存（很少需要）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 项目之间天然隔离：各自的 go.mod 决定用哪个版本，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 缓存里可以同时存在同一个库的多个版本</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不需要安装、不需要激活 —— clone 下来就能 go build</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 工具链版本由 go.mod 的 go 指令与 toolchain 指令表达</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 8,
+          "text": "不需要安装、不需要激活 —— clone 下来就能 go build",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 用 <code>node_modules</code> 做项目级隔离，每个项目一份；\nGo 把依赖放在<strong>全局模块缓存</strong>里按版本寻址，项目只记版本号 ——\n磁盘上同一个版本只有一份。所以 Go 里没有\n<code>rm -rf node_modules &amp;&amp; npm install</code> 这个仪式，\n也没有 pnpm 那种「用硬链接省空间」的动机（本来就共享）。</p>\n",
+        "python": "<p>Python 的虚拟环境解决「全局只能装一个版本」；\nGo 的全局缓存<strong>按版本寻址</strong>，天然可以并存，\n不需要激活任何环境。从 Python 过来最直接的差别是：\n没有 <code>venv</code>、没有 <code>activate</code>、没有 <code>requirements.txt</code>，\nclone 一个 Go 仓库直接 <code>go build</code> 就行。\n代价是依赖缓存全在用户目录、由 go 命令统一管理，不能手工干预。</p>\n",
+        "java": "<p>Java 的 <code>~/.m2</code> 本地仓库也是全局按坐标缓存，与 Go 的模块缓存最接近；\n但 Maven 一个坐标只能有一个版本胜出（依赖仲裁），\n而 Go 的缓存里同一模块的多个版本可以并存、\n各项目按自己的 go.mod 取用。\n两边都不需要在工作前「激活」任何东西 —— 进目录就能构建，\n这一点比虚拟环境式的隔离省事得多。</p>\n"
+      }
+    },
+    "publishing": {
+      "lang": "go",
+      "code": "// Go **没有中央包仓库** —— 发布就是打一个 git tag\ngit tag v1.2.3\ngit push origin v1.2.3\n// 之后任何人 go get github.com/me/mylib@v1.2.3 都能拿到\n\n// 模块代理（默认 proxy.golang.org）负责缓存与校验，\n// 但真相源是你的代码仓库\n\n// 私有模块：直接配 GOPRIVATE\n// go env -w GOPRIVATE=github.com/mycompany/*\n\n// 主版本 ≥2 时 tag 要写 v2.0.0，且模块路径要以 /v2 结尾",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Go **没有中央包仓库** —— 发布就是打一个 git tag</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">git tag v1.</span><span style=\"color:var(--shiki-token-constant)\">2.3</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">git push origin v1.</span><span style=\"color:var(--shiki-token-constant)\">2.3</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 之后任何人 go get github.com/me/mylib@v1.2.3 都能拿到</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 模块代理（默认 proxy.golang.org）负责缓存与校验，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 但真相源是你的代码仓库</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 私有模块：直接配 GOPRIVATE</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go env -w GOPRIVATE=github.com/mycompany/*</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 主版本 ≥2 时 tag 要写 v2.0.0，且模块路径要以 /v2 结尾</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>npm 发布是「上传到中央仓库并占住版本号」；\nGo <strong>没有中央仓库</strong> —— 发布就是给 git 打个 tag，\n导入路径本身就是仓库地址。所以 Go 里不存在\n「包名被抢注」或「包被下架」的问题，也不存在\n发布被审核阻塞的情况。代价是没有统一的发现渠道\n（搜索靠 pkg.go.dev 这种索引站），也没有「下架」这个动作。</p>\n",
+        "python": "<p>Python 要构建 wheel/sdist 再上传到 PyPI，占住版本号；\nGo 打 tag 就等于发布，没有构建产物、没有上传步骤。\n这让 Go 的发布极其轻 —— 一次 <code>git push --tags</code> 就够了。\n反面是撤回困难：Go 可以 <code>go mod retract</code> 在 go.mod 里声明撤回，\n但代码仍在仓库里；PyPI 与 npm 至少能 yank 掉。</p>\n",
+        "java": "<p>Java 发布到 Maven Central 要走 Sonatype、GPG 签名、\nstaging 审核，是几门语言里最重的流程；\nGo 打 tag 即发布，几乎没有门槛。\n私有分发上两边都很方便：Go 用 <code>GOPRIVATE</code> 直接拉私有仓库，\nJava 用公司内部 Nexus/Artifactory ——\n但 Go 不需要额外服务，这是它更轻的一点。</p>\n"
+      }
+    }
+  }
+}

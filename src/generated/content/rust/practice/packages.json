@@ -1,0 +1,157 @@
+{
+  "lang": "rust",
+  "section": "practice",
+  "group": "packages",
+  "boxes": {
+    "package-manager": {
+      "lang": "rust",
+      "code": "// Cargo.toml 用 # 注释，这里用 // 是为了让注记可被抽取\n// 建项目（默认带 git 与 Cargo.toml）\ncargo new myapp\n// 加依赖，自动改 Cargo.toml\ncargo add serde\ncargo build\ncargo run\ncargo test\n// 更新依赖版本\ncargo update\n\n// Cargo 同时是构建工具、依赖管理器、测试运行器与发布工具\n// ⚠ 没有第二个选择 —— 官方只此一个，社区也不做替代品\n\n// 工作区：一个仓库多个 crate\n//   [workspace]\n//   members = [\"core\", \"cli\"]",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Cargo.toml 用 # 注释，这里用 // 是为了让注记可被抽取</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 建项目（默认带 git 与 Cargo.toml）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo new myapp</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 加依赖，自动改 Cargo.toml</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo add serde</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo build</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo run</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo test</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 更新依赖版本</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo update</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Cargo 同时是构建工具、依赖管理器、测试运行器与发布工具</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有第二个选择 —— 官方只此一个，社区也不做替代品</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 工作区：一个仓库多个 crate</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   [workspace]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   members = [\"core\", \"cli\"]</span></span></code></pre>",
+      "lineCount": 17,
+      "notes": [
+        {
+          "line": 13,
+          "text": "没有第二个选择 —— 官方只此一个，社区也不做替代品",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>npm 之外 JavaScript 还有 yarn / pnpm / bun 可选，构建另有 webpack / vite；\nRust 只有 <strong>Cargo</strong> 一个 —— 依赖、构建、测试、格式化入口、发布\n全在 <code>cargo</code> 一条命令树下。好处是任何 Rust 项目都能用同一套命令跑起来，\n不必先读 README 判断用的是哪个包管理器；\n代价是没有竞争带来的演化压力。</p>\n",
+        "python": "<p>Python 的生态是分裂的：pip / poetry / uv / conda 各管一摊，\n构建另有 setuptools / hatchling。Rust 只有 Cargo，\n而且它<strong>同时</strong>负责依赖、构建、测试、文档（<code>cargo doc</code>）与发布。\n从 Python 过来最明显的感受是「不用先做技术选型」——\n一个 <code>cargo test</code> 在哪个 Rust 项目里都是同一个意思。</p>\n",
+        "java": "<p>Java 有 Maven 与 Gradle 两大阵营，构建脚本本身还要学一套 DSL；\nRust 的 Cargo 用 TOML 声明、几乎没有脚本能力（要自定义构建\n得写 <code>build.rs</code>）。好处是 <code>Cargo.toml</code> 是纯数据、\n一眼能读懂；代价是遇到非标准需求时比 Gradle 笨拙。\n两边都是「一个项目一个清单文件」，但 Rust 只有一个选择。</p>\n"
+      }
+    },
+    "dependency-declaration": {
+      "lang": "rust",
+      "code": "// Cargo.toml（真实的注释符是 #）\n// 版本 + 特性开关：features 决定这个库的哪些部分参与编译\n// ⚠ 结构体声明在下面，依赖项写在 [dependencies] 段\n//   [package]\n//   name = \"myapp\"\n//   version = \"0.1.0\"\n//   edition = \"2021\"\n//\n//   [dependencies]\n//   serde = { version = \"1\", features = [\"derive\"] }\n//   tokio = { version = \"1\", features = [\"full\"] }\n//   anyhow = \"1\"\n//\n// dev-dependencies 只给测试与示例用，不进最终产物\n//   [dev-dependencies]\n//   pretty_assertions = \"1\"\n//\n// 按平台条件依赖\n//   [target.'cfg(windows)'.dependencies]\n//   winapi = \"0.3\"",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Cargo.toml（真实的注释符是 #）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本 + 特性开关：features 决定这个库的哪些部分参与编译</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 结构体声明在下面，依赖项写在 [dependencies] 段</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   [package]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   name = \"myapp\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   version = \"0.1.0\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   edition = \"2021\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   [dependencies]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   serde = { version = \"1\", features = [\"derive\"] }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   tokio = { version = \"1\", features = [\"full\"] }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   anyhow = \"1\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// dev-dependencies 只给测试与示例用，不进最终产物</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   [dev-dependencies]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   pretty_assertions = \"1\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 按平台条件依赖</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   [target.'cfg(windows)'.dependencies]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   winapi = \"0.3\"</span></span></code></pre>",
+      "lineCount": 20,
+      "notes": [
+        {
+          "line": 3,
+          "text": "结构体声明在下面，依赖项写在 [dependencies] 段",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都是「一个清单文件列出依赖」，但 Rust 多一个 <strong>feature 开关</strong>：\n同一个库可以只编译你用到的功能（<code>features = [&quot;derive&quot;]</code>），\n这会实际影响编译产物大小与编译时间。npm 里没有等价机制\n（tree-shaking 是打包器的事、且不改变依赖本身的代码）。\n另一处差别是 dev-dependencies：Rust 在清单里明确分区，\nnpm 用 <code>devDependencies</code> 也是分区的，这点两边一致。</p>\n",
+        "python": "<p>Rust 的依赖分区（<code>[dependencies]</code> / <code>[dev-dependencies]</code>）\n比 Python 清晰 —— Python 里测试依赖通常靠 extras\n（<code>pip install .[test]</code>）或单独文件表达。\nRust 的 <strong>feature 开关</strong>是 Python 没有的：不用的功能不编译，\n直接省掉编译时间与体积；Python 里 <code>pip install</code> 装的是整个包。\n另一个共同点是版本都写语义化版本号，但解析规则不同（见下一格）。</p>\n",
+        "java": "<p>Maven 的 <code>&lt;dependency&gt;</code> 与 Cargo 的依赖项对应，\nscope（<code>test</code> / <code>provided</code>）对应 dev-dependencies。\nRust 独有 feature 开关 —— Maven 里没有「只编译这个库的一部分」\n这种能力，引入一个依赖就是全部引入。\n条件依赖上两边都有：Maven 用 profile，Cargo 用\n<code>[target.'cfg(...)'.dependencies]</code>。</p>\n"
+      }
+    },
+    "version-constraint": {
+      "lang": "rust",
+      "code": "// Rust 用语义化版本，且**默认按兼容性解释**（下面是版本约束的写法）\n// \"1\" 等价于 ^1，即 >=1.0.0, <2.0.0\n//   serde = \"1\"\n// \"1.0.150\" 等价于 >=1.0.150, <2.0.0\n//   serde = \"1.0.150\"\n// 显式写插入符\n//   serde = \"^1.2\"\n// 只允许补丁位变化：>=1.2.0, <1.3.0\n//   serde = \"~1.2\"\n// 锁定精确版本\n//   serde = \"=1.2.3\"\n// ⚠ \"*\" 是任意版本 —— 实践中不该用\n//   serde = \"*\"\n\n// 版本解析结果是「所有约束的交集里选最高版本」",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 用语义化版本，且**默认按兼容性解释**（下面是版本约束的写法）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// \"1\" 等价于 ^1，即 >=1.0.0, &#x3C;2.0.0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   serde = \"1\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// \"1.0.150\" 等价于 >=1.0.150, &#x3C;2.0.0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   serde = \"1.0.150\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 显式写插入符</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   serde = \"^1.2\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只允许补丁位变化：>=1.2.0, &#x3C;1.3.0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   serde = \"~1.2\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 锁定精确版本</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   serde = \"=1.2.3\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ \"*\" 是任意版本 —— 实践中不该用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   serde = \"*\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本解析结果是「所有约束的交集里选最高版本」</span></span></code></pre>",
+      "lineCount": 15,
+      "notes": [
+        {
+          "line": 12,
+          "text": "\"*\" 是任意版本 —— 实践中不该用",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>npm 的 <code>&quot;^1.2.3&quot;</code> 与 Cargo 的 <code>&quot;1.2.3&quot;</code> 含义相同（都允许次版本升级），\n但 Cargo 允许<strong>省略</strong>插入符 —— <code>serde = &quot;1&quot;</code> 就是 <code>^1</code>。\nJavaScript 里 <code>&quot;1&quot;</code> 是精确版本，写成这样反而更严。\n另一处差别是 0.x：两边都把 0.x 当不稳定，但 Cargo 的\n<code>0.2.3</code> 等价于 <code>&gt;=0.2.3, &lt;0.3.0</code>（次版本视为破坏性），\nnpm 的 <code>^0.2.3</code> 也是同样规则，这一点一致。</p>\n",
+        "python": "<p>Python 的版本约束写在 <code>requirements.txt</code> 或 <code>pyproject.toml</code> 里，\n<code>&gt;=1.2,&lt;2</code> 这样的区间更啰嗦；Rust 用一行 <code>&quot;1&quot;</code> 就表达完了。\nPython 生态里 <code>~=</code> 是「兼容版本」运算符，<code>==</code> 是精确锁定 ——\n语义划分与 Rust 的 <code>^</code> / <code>~</code> / <code>=</code> 类似但记法不同。\n共同点是都遵循语义化版本，解析结果都取满足条件的最高版本。</p>\n",
+        "java": "<p>Maven 的版本范围写法是 <code>[1.0,2.0)</code> —— 数学区间记法，\n比 Rust 的 <code>&quot;1&quot;</code> 啰嗦得多；Gradle 支持 <code>1.+</code> 这种写法更接近。\n解析规则差别最大：Maven 用「最近优先」的仲裁（谁在依赖树里更近用谁），\nCargo 与 npm 用「所有约束的交集里取最高」——\n后者更可预测，不会因为依赖树形状改变而换版本。</p>\n"
+      }
+    },
+    "lockfile": {
+      "lang": "rust",
+      "code": "// Cargo.lock —— 由 cargo 自动生成/更新，**二进制项目应当入库**\n// 库项目通常不入库（让下游自己解析）\n//\n// lock 里每条都带校验和，内容被篡改会失败\n//   [[package]]\n//   name = \"serde\"\n//   version = \"1.0.197\"\n//   checksum = \"abc123…\"\n\n// 全部依赖升到约束内最新，并重写 lock\ncargo update\n// 只升一个\ncargo update -p serde\n// ⚠ 严格按 lock 构建，lock 与清单不一致就直接报错\ncargo build --locked\n\n// CI 里惯用 --locked / --frozen 保证可复现",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Cargo.lock —— 由 cargo 自动生成/更新，**二进制项目应当入库**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 库项目通常不入库（让下游自己解析）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// lock 里每条都带校验和，内容被篡改会失败</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   [[package]]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   name = \"serde\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   version = \"1.0.197\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   checksum = \"abc123…\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 全部依赖升到约束内最新，并重写 lock</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo update</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只升一个</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo update </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">p serde</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 严格按 lock 构建，lock 与清单不一致就直接报错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo build </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">locked</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// CI 里惯用 --locked / --frozen 保证可复现</span></span></code></pre>",
+      "lineCount": 17,
+      "notes": [
+        {
+          "line": 14,
+          "text": "严格按 lock 构建，lock 与清单不一致就直接报错",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的锁文件作用相同（钉死整棵依赖树的精确版本），但<strong>处置惯例相反</strong>：\nnpm 的 <code>package-lock.json</code> 一律入库；Cargo 的 <code>Cargo.lock</code>\n二进制项目入库、<strong>库项目通常不入库</strong>。\n另一处差别是 <code>--locked</code> 这种「不一致就报错」的模式 ——\nnpm 有 <code>npm ci</code>（必须按 lock 装），思路一致。\nCargo.lock 还带校验和，能发现源被替换。</p>\n",
+        "python": "<p>Python 的锁文件不是标准的一部分 —— <code>requirements.txt</code> 可以当锁用\n（<code>pip freeze</code> 生成，带 <code>==</code> 精确版本），poetry 有 <code>poetry.lock</code>、\nuv 有 <code>uv.lock</code>。Cargo 的 <code>Cargo.lock</code> 是工具内建、\n格式与校验和都由官方定义，不存在「用哪个锁文件」这个问题。\n两边都靠校验和防篡改，Python 的靠 hash 选项，但默认不开。</p>\n",
+        "java": "<p>Maven 没有官方锁文件 —— 依赖版本由依赖树仲裁实时决定，\n想复现要靠 <code>mvn dependency:tree</code> 排查或插件。\nGradle 有 dependency locking 但默认关闭。Cargo 与 npm 一样\n默认生成锁文件，且带校验和 ——\n这让「今天能构建、明天构建不出来」在 Rust 里基本不会发生。</p>\n"
+      }
+    },
+    "environment-isolation": {
+      "lang": "rust",
+      "code": "// Rust 没有虚拟环境 —— 依赖装在用户级共享缓存里，按 crate + 版本隔离\n// ~/.cargo/registry/ 是全局缓存，所有项目共享同一份\n\n// 项目之间天然不冲突：不同版本可以并存（各自解析各自的 lock）\n// 构建产物在项目内的 target/ 目录\n\n// 需要指定工具链版本时用 rustup\nrustup toolchain install 1.75\n// 只对当前目录生效\nrustup override set 1.75\n// 或用 rust-toolchain.toml 把版本写进仓库\n\n// ⚠ 不存在「先激活环境再工作」这一步 —— 进目录就能编译",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 没有虚拟环境 —— 依赖装在用户级共享缓存里，按 crate + 版本隔离</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ~/.cargo/registry/ 是全局缓存，所有项目共享同一份</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 项目之间天然不冲突：不同版本可以并存（各自解析各自的 lock）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 构建产物在项目内的 target/ 目录</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 需要指定工具链版本时用 rustup</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rustup toolchain install </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">75</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只对当前目录生效</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rustup </span><span style=\"color:var(--shiki-token-keyword)\">override</span><span style=\"color:var(--shiki-foreground)\"> set </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">75</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 或用 rust-toolchain.toml 把版本写进仓库</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不存在「先激活环境再工作」这一步 —— 进目录就能编译</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 13,
+          "text": "不存在「先激活环境再工作」这一步 —— 进目录就能编译",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 用 <code>node_modules</code> 做项目级隔离 —— 每个项目一份\n（或 pnpm 用硬链接共享）。Rust 的依赖装在<strong>用户级全局缓存</strong>里、\n按名字加版本寻址，项目之间靠锁文件解析出各自要的版本，\n磁盘上只有一份。所以 Rust 没有「删掉 node_modules 重装」\n这个日常动作，也没有「装了两份同一个包」的浪费。</p>\n",
+        "python": "<p>Python 的虚拟环境是为了解决「全局只能装一个版本」——\nRust 从设计上就没有这个问题：全局缓存按版本寻址，\n不同项目可以同时用 serde 1.0.100 与 1.0.200，\n而且不需要激活任何环境。从 Python 过来最直观的差别是：\n没有 <code>source venv/bin/activate</code> 这一步，\n<code>cd</code> 进项目就能 <code>cargo build</code>。</p>\n",
+        "java": "<p>Java 用 Maven 的本地仓库（<code>~/.m2</code>）做全局缓存，\n这一点与 Cargo 最接近 —— 都是全局按坐标寻址、项目间共享。\n差别在版本冲突的处理：Maven 在依赖树仲裁时<strong>只能选一个版本</strong>\n（最近优先），Cargo 可以按 crate 分别解析（不同 crate 用不同版本的\n同一个依赖是正常的）。所以 Java 里要处理「依赖冲突」，\nRust 里这个问题基本不存在。</p>\n"
+      }
+    },
+    "publishing": {
+      "lang": "rust",
+      "code": "// 存 token\ncargo login\n// 发布到 crates.io\ncargo publish\n// 先验证一遍，不上传\ncargo publish --dry-run\n\n// 版本号一旦发布就**永久占用**，不能覆盖、不能删除（只能 yank）\n// 撤回：新项目解析不到，已有 lock 仍可用\ncargo yank --version 1.0.1\n\n// 准备清单：Cargo.toml 里的 description / license / repository 是必填的\n// 也可以只做内部包，用 git 依赖或私有 registry：\n//   mylib = { git = \"https://github.com/me/mylib\", tag = \"v1.0\" }",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 存 token</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo login</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 发布到 crates.io</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo publish</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 先验证一遍，不上传</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo publish </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">dry</span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">run</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本号一旦发布就**永久占用**，不能覆盖、不能删除（只能 yank）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 撤回：新项目解析不到，已有 lock 仍可用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo yank </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">version </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-constant)\">1</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 准备清单：Cargo.toml 里的 description / license / repository 是必填的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 也可以只做内部包，用 git 依赖或私有 registry：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   mylib = { git = \"https://github.com/me/mylib\", tag = \"v1.0\" }</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都是「向中央仓库发布、版本不可覆盖」，但 Rust 的约束更硬：\ncrates.io 上的版本号<strong>永久占用</strong>，删不掉，只能 <code>yank</code>（撤回）——\nnpm 允许在 72 小时内 unpublish，之后受限但仍有例外。\n另一处差别是私有分发的默认做法：npm 靠私有 registry 或\n<code>file:</code> 依赖；Rust 更常用 <strong>git 依赖</strong>（直接指向仓库与 tag），\n因为 Cargo 原生支持，不需要私有仓库服务。</p>\n",
+        "python": "<p>Python 的发布产物是 wheel/sdist（要先构建），\nCargo 发布的是源码包、由 crates.io 构建与校验。\n版本不可变这一点两边都有（PyPI 也不允许覆盖同名版本，\n只能 yank），但 Rust 的 <code>cargo publish</code> 会先做一次本地校验\n（<code>--dry-run</code>），PyPI 靠 twine check。\n私有分发上 Rust 的 git 依赖是原生能力，Python 里对应的是\n<code>pip install git+https://…</code>，也能用但更少见。</p>\n",
+        "java": "<p>Java 的发布走 Maven Central（Sonatype），流程复杂得多：\n要 GPG 签名、要 staging 仓库、要人工确认。\nRust 的 <code>cargo publish</code> 一条命令就完成，\n门槛低是 crates.io 生态活跃的原因之一。\n版本不可变两边都有；撤回上 Maven Central 不允许删除，\nRust 的 <code>yank</code> 也只是让新解析避开、旧 lock 仍能用。</p>\n"
+      }
+    }
+  }
+}

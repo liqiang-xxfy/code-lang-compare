@@ -1,0 +1,145 @@
+{
+  "lang": "go",
+  "section": "practice",
+  "group": "toolchain",
+  "boxes": {
+    "compile-run": {
+      "lang": "go",
+      "code": "// 直接跑（编译到临时目录再执行，开发时常用）\ngo run main.go\ngo run ./cmd/server\n\n// 编译成单个静态二进制（默认不依赖 libc）\ngo build -o server ./cmd/server\n\n// 交叉编译只要设两个环境变量，不需要额外工具链\n//   GOOS=linux GOARCH=amd64 go build -o server-linux\n\n// 编译极快 —— 这是 Go 从一开始就明确的设计目标\ngo install ./...",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 直接跑（编译到临时目录再执行，开发时常用）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> run main.</span><span style=\"color:var(--shiki-token-keyword)\">go</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> run .</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">cmd</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">server</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编译成单个静态二进制（默认不依赖 libc）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> build </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">o server .</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">cmd</span><span style=\"color:var(--shiki-token-keyword)\">/</span><span style=\"color:var(--shiki-foreground)\">server</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 交叉编译只要设两个环境变量，不需要额外工具链</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   GOOS=linux GOARCH=amd64 go build -o server-linux</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编译极快 —— 这是 Go 从一开始就明确的设计目标</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> install .</span><span style=\"color:var(--shiki-token-keyword)\">/...</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 没有编译步骤，<code>node app.js</code> 直接跑；\nGo 要先编译（<code>go build</code>），产物是<strong>单个静态二进制</strong> ——\n部署时拷一个文件即可，目标机器不需要装任何运行时。\n开发体验上 <code>go run</code> 把编译+执行合成一步，感觉接近解释执行，\n但每次都要重新编译（好在 Go 编译很快）。\n交叉编译是 Go 的强项：两个环境变量搞定，不用装交叉工具链。</p>\n",
+        "python": "<p>Python 解释执行，改完直接重跑；Go 要编译。\n但 Go 的编译速度是它刻意保住的设计目标 —— 大项目也是秒级，\n所以「改一行看一下」的循环并不比 Python 慢多少。\n产物形态差别最大：Python 部署要带解释器与依赖\n（或用 PyInstaller 打包），Go 编译出的是一个自包含的静态二进制。</p>\n",
+        "java": "<p>Java 编译成字节码、靠 JVM 跑；Go 编译成原生静态二进制、\n零运行时依赖。所以 Go 的容器镜像可以只有几 MB\n（<code>FROM scratch</code> 都行），Java 得带上 JRE。\n编译速度上两边都快，但 Java 的增量编译更适合大项目，\nGo 是全量重编也很快（靠简单的语言设计换来）。</p>\n"
+      }
+    },
+    "bundler": {
+      "lang": "go",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Go <strong>没有打包器</strong>，也不需要：<code>go build</code> 产出的单个二进制\n已经包含所有依赖（标准库与第三方库全都静态链接进去了）。\nJavaScript 要用打包器把模块图合成浏览器能加载的文件，\n还要处理 tree-shaking、代码分割、资源引用 ——\n这套工作在 Go 里没有对应物。\n代价是二进制的体积随依赖增长（几十 MB 很常见），\n而且没法像 JavaScript 那样只加载用到的那部分。</p>\n",
+        "python": "<p>Go <strong>没有打包器</strong>，<code>go build</code> 一步到位产出可执行文件。\nPython 里「把程序变成能直接跑的东西」是一整个课题\n（PyInstaller / Nuitka / zipapp / wheel + 入口脚本），\n而且每种都有各自的坑（动态库、数据文件、平台差异）。\nGo 的产物形态从一开始就是「一个静态二进制」，\n所以这个问题根本不存在。</p>\n",
+        "java": "<p>Go <strong>没有打包器</strong>，与 Java 一样都不需要额外打包步骤 ——\n但产物形态完全不同：Java 的 jar 是字节码 + 资源，\n靠 JVM 执行；Go 的二进制是原生机器码，链接完就能跑。\nJava 想做到「单文件自带运行时」要用 jlink 或 GraalVM native-image，\n走的正是 Go 一开始就有的那条路。</p>\n"
+      }
+    },
+    "linter-formatter": {
+      "lang": "go",
+      "code": "// gofmt 是**官方唯一格式**，没有配置项 —— 争论到此为止\ngofmt -w .\ngo fmt ./...\n\n// go vet：官方静态检查，找可疑代码（printf 参数不匹配、锁拷贝等）\ngo vet ./...\n\n// ⚠ 编译器本身就很严格：未使用的变量与 import 直接是编译错误\n\n// 更全的第三方 lint（可选，需要单独安装）\n//   golangci-lint run\n// 编辑器里由 gopls 实时提示",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// gofmt 是**官方唯一格式**，没有配置项 —— 争论到此为止</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">gofmt </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-foreground)\">w .</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> fmt .</span><span style=\"color:var(--shiki-token-keyword)\">/...</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go vet：官方静态检查，找可疑代码（printf 参数不匹配、锁拷贝等）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> vet .</span><span style=\"color:var(--shiki-token-keyword)\">/...</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 编译器本身就很严格：未使用的变量与 import 直接是编译错误</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 更全的第三方 lint（可选，需要单独安装）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   golangci-lint run</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编辑器里由 gopls 实时提示</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 8,
+          "text": "编译器本身就很严格：未使用的变量与 import 直接是编译错误",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的格式化是一道选择题（Prettier / biome / 不格式化），\n配置项能写一屏；Go 的 <code>gofmt</code> 是<strong>官方唯一格式、零配置</strong> ——\n所有人都用同一个，代码评审里不会出现格式争论。\n另一处更狠的差别：Go 把「未使用的变量与 import」\n做成<strong>编译错误</strong>，JavaScript 里那是 lint 提醒（甚至只是警告）。\n所以 Go 代码里不会有死变量堆积。</p>\n",
+        "python": "<p>Python 的格式化工具换过几代（autopep8 → black → ruff），\n风格之争（单引号双引号、行长）至今没完全平息；\nGo 的 gofmt 从第一天就是官方唯一标准，没有配置项，\n也就没有争论空间。另外 Go 把未使用的变量当编译错误，\nPython 里那连警告都不是（flake8 会提，但要额外装）。</p>\n",
+        "java": "<p>Java 的格式化与静态检查靠第三方插件（Checkstyle / SpotBugs / Error Prone），\n每个项目挑一套、写一份配置；Go 的 gofmt 与 go vet\n随工具链自带、零配置。两边的严格程度也不同：\nJava 允许未使用的局部变量（只是警告），\nGo 直接编译失败 —— 这让 Go 代码库更难积累「僵尸代码」。</p>\n"
+      }
+    },
+    "type-checker": {
+      "lang": "go",
+      "code": "// 编译器就是类型检查器 —— go build 通过即类型检查通过\ngo build ./...\n\n// go vet 做编译之外的可疑模式检查（printf 参数、锁拷贝、无用赋值）\ngo vet ./...\n\n// 编辑器里 gopls 实时给诊断（背后是同一套编译器前端）\n// ⚠ 没有「先跑起来再说类型」这条路 —— 类型不对编译不过",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编译器就是类型检查器 —— go build 通过即类型检查通过</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> build .</span><span style=\"color:var(--shiki-token-keyword)\">/...</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// go vet 做编译之外的可疑模式检查（printf 参数、锁拷贝、无用赋值）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> vet .</span><span style=\"color:var(--shiki-token-keyword)\">/...</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编辑器里 gopls 实时给诊断（背后是同一套编译器前端）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有「先跑起来再说类型」这条路 —— 类型不对编译不过</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 8,
+          "text": "没有「先跑起来再说类型」这条路 —— 类型不对编译不过",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的类型检查要另装 tsc，而且它检查的是可选标注、\n与运行时无关；Go 的类型检查是编译器本身，\n通过就意味着不会有类型错误。另一处差别是严格程度：\nJavaScript 里 <code>let x = 1; x = &quot;s&quot;</code> 在纯 JS 下完全合法，\nGo 里编译不过。代价是 Go 必须写类型（局部可用 <code>:=</code> 推断），\n没有「先不写类型跑起来再说」的余地。</p>\n",
+        "python": "<p>Python 的类型检查器（mypy / pyright）是外部工具、\n可选、运行时不生效；Go 的类型检查是编译的前置条件，\n不过就编译不出来。所以 Go 里不存在「标注写得好看但实际传错类型」\n这种状态 —— 而 Python 里类型标注与真实行为脱节是常态，\n只有跑起来才知道。</p>\n",
+        "java": "<p>Java 的编译器做类型检查，与 Go 一样；\n但 Go 没有泛型擦除，运行时保留类型实参，\n所以「类型检查通过但运行时才发现类型不对」的情况更少。\n另一处差别是 Go 更严的编译期检查：未使用的变量与 import\n都是错误，Java 只是警告 —— 这让 Go 强制保持代码整洁。</p>\n"
+      }
+    },
+    "runtime-version": {
+      "lang": "go",
+      "code": "// 版本要求写在 go.mod 里 —— 声明的是「至少需要这个版本」\n//   module github.com/me/myapp\n//   go 1.23\n\n// 需要更精确时用 toolchain 指令（1.21 起）\n//   toolchain go1.23.4    // 指定构建时使用的工具链版本\n\n// ⚠ 升级版本只需改 go.mod 里的数字，Go 会按需自动下载对应工具链\n\n// 想装多个具体版本：\n//   go install golang.org/dl/go1.22.5@latest && go1.22.5 download\ngo version",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本要求写在 go.mod 里 —— 声明的是「至少需要这个版本」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   module github.com/me/myapp</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   go 1.23</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 需要更精确时用 toolchain 指令（1.21 起）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   toolchain go1.23.4    // 指定构建时使用的工具链版本</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 升级版本只需改 go.mod 里的数字，Go 会按需自动下载对应工具链</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想装多个具体版本：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   go install golang.org/dl/go1.22.5@latest &#x26;&#x26; go1.22.5 download</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">go</span><span style=\"color:var(--shiki-foreground)\"> version</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 8,
+          "text": "升级版本只需改 go.mod 里的数字，Go 会按需自动下载对应工具链",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的运行时版本由宿主决定，项目只能用 <code>engines</code> 字段\n声明要求、靠 CI 与文档约束 —— 实际跑在哪个版本不受代码控制。\nGo 的 <code>go.mod</code> 里写 <code>go 1.23</code> 是<strong>语言特性要求</strong>（新语法能不能用），\n加 <code>toolchain</code> 指令还能指定构建用的确切工具链，\n并且 Go 会<strong>自动下载</strong>匹配的工具链执行 ——\n这在 JavaScript 生态里要靠 nvm / volta 之类的外部工具才能做到。</p>\n",
+        "python": "<p>Python 项目通常只声明「需要 3.10+」，实际版本靠虚拟环境与 CI 保证；\nGo 的 <code>go.mod</code> 不只是声明，它还<strong>驱动行为</strong>：\n<code>toolchain</code> 指令会让 Go 自动下载并使用指定版本的工具链，\n不需要用户装任何版本管理器。这让「团队用同一个编译器版本」\n成为默认而非纪律。</p>\n",
+        "java": "<p>Java 通过 <code>--release</code>、<code>source</code>/<code>target</code> 与 <code>JAVA_HOME</code>\n控制版本，但「实际用哪个 JDK」经常靠环境变量与文档约定，\n版本不符时往往报错在运行时而非构建时。\nGo 的 <code>go</code> 指令与 <code>toolchain</code> 指令写在仓库里、\n由工具链自己执行，跨机器一致性强得多。</p>\n"
+      }
+    },
+    "repl": {
+      "lang": "go",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Go <strong>没有 REPL</strong> —— <code>go</code> 命令里没有交互模式。\n想快速验证一段代码就用 <code>go run</code> 跑一个临时文件\n（第三方的 gore 之类可以凑合）。\n这与 Go 的设计取向一致：它是编译型语言，\n而且标准库的很多能力需要完整的包上下文，\n「敲一行看一行」的场景本来就不多。\n好处是也没有「REPL 里能跑、写成文件却不行」这种落差。</p>\n",
+        "python": "<p>Go <strong>没有 REPL</strong> —— 与 Python 那种「打开就能算」的体验相反。\n最快的替代是写个临时 <code>.go</code> 文件然后 <code>go run</code>，\n或者用第三方工具。原因是语言的完整性：\nGo 要求每个文件有包声明、import 必须被使用 ——\n这些规则让「裸表达式求值」很难成立，\n而这些规则又正是 Go 编译快、可读性稳定的来源。</p>\n",
+        "java": "<p>Go <strong>没有 REPL</strong>，与 Java 有 <code>jshell</code> 形成对照 ——\n这是 Go 工具链里少数明显缺的一环。\nJava 能做 jshell 是因为字节码可以逐段加载执行；\nGo 的编译单元是包，一段代码脱离包上下文没有意义。\n实际影响不大：<code>go run</code> 一个临时文件的成本已经很低，\n而且 Go 编译快，改完重跑并不痛苦。</p>\n"
+      }
+    }
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "lang": "rust",
+  "section": "practice",
+  "group": "testing",
+  "boxes": {
+    "test-framework": {
+      "lang": "rust",
+      "code": "// 单元测试写在同一个文件里，用 #[cfg(test)] 圈起来 —— 不进发布构建\n#[cfg(test)]\nmod tests {\n  use super::*;\n\n  #[test]\n  fn adds_two_numbers() {\n    assert_eq!(add(1, 2), 3);\n  }\n}\n\n// 集成测试放 tests/ 目录，每个文件是一个独立 crate，只能用公开 API\n//   tests/integration.rs\n\n// 运行：\n//   cargo test              跑全部\n//   cargo test adds         只跑名字含 adds 的\n//   cargo test -- --nocapture   显示 println! 输出",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 单元测试写在同一个文件里，用 #[cfg(test)] 圈起来 —— 不进发布构建</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[cfg(test)]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">mod</span><span style=\"color:var(--shiki-foreground)\"> tests {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  use</span><span style=\"color:var(--shiki-foreground)\"> super</span><span style=\"color:var(--shiki-token-keyword)\">::*</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  #[test]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  fn</span><span style=\"color:var(--shiki-token-function)\"> adds_two_numbers</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    assert_eq!</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">), </span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 集成测试放 tests/ 目录，每个文件是一个独立 crate，只能用公开 API</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   tests/integration.rs</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 运行：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   cargo test              跑全部</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   cargo test adds         只跑名字含 adds 的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   cargo test -- --nocapture   显示 println! 输出</span></span></code></pre>",
+      "lineCount": 18,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的测试框架是<strong>要挑的</strong>（Jest / Vitest / Mocha + Chai …），\n还得配测试运行器与配置。Rust 的 <code>#[test]</code> 与 <code>cargo test</code>\n是语言与工具链自带的 —— 新建一个 crate 就能写测试，\n零依赖零配置。另一个结构上的差别是位置：\nRust 的单元测试<strong>和被测代码在同一个文件里</strong>（<code>#[cfg(test)] mod tests</code>），\n可以测私有函数；JavaScript 通常测试写在独立的 <code>__tests__</code> 目录，\n只能通过导出的接口测。</p>\n",
+        "python": "<p>Python 要选 pytest / unittest，还要配 <code>conftest.py</code>、\n测试发现规则。Rust 的 <code>cargo test</code> 开箱即用，\n测试发现规则唯一（<code>#[test]</code> 标注的函数）。\n单元测试的位置也不同：Rust 惯例是<strong>同文件内</strong>的\n<code>#[cfg(test)] mod tests</code>（能测私有项、阅读时挨着实现），\nPython 惯例是独立的 <code>test_*.py</code>。\n另一个 Rust 特有的区分是单元测试与 <code>tests/</code> 目录下的集成测试 ——\n后者只能访问公开 API，像外部使用者一样测。</p>\n",
+        "java": "<p>Java 要选 JUnit / TestNG，还要构建工具插件配合；\nRust 的测试框架内建，<code>cargo test</code> 直接可用。\n命名与组织上两边都有惯例：Java 是 <code>src/test/java</code> 下同包名，\nRust 是同文件内 <code>#[cfg(test)] mod tests</code>（单测）+\n<code>tests/</code> 目录（集成测试）。Rust 的这个二分更明确地对应\n「测内部实现」与「测公开契约」两种意图。</p>\n"
+      }
+    },
+    "assertions": {
+      "lang": "rust",
+      "code": "// 断言是**宏**，不是函数 —— 失败时会打印左右两边的值\nassert!(x > 0);\n\nassert_eq!(add(1, 2), 3);          // 相等，失败时打印两个值\nassert_ne!(a, b);\nassert_eq!(add(1, 2), 3, \"加法错了\");   // 可以带自定义消息\n\n// 期望 panic 的测试\n#[test]\n#[should_panic(expected = \"除数为零\")]\nfn divides_by_zero() {\n  divide(1, 0);\n}\n\n// 用 Result 返回错误也是合法测试（配 ? 更顺）\n#[test]\nfn parses() -> Result<(), std::num::ParseIntError> {\n  let n: i32 = \"42\".parse()?;\n  assert_eq!(n, 42);\n  Ok(())\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 断言是**宏**，不是函数 —— 失败时会打印左右两边的值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">assert!</span><span style=\"color:var(--shiki-foreground)\">(x </span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">assert_eq!</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">), </span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\">);          </span><span style=\"color:var(--shiki-token-comment)\">// 相等，失败时打印两个值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">assert_ne!</span><span style=\"color:var(--shiki-foreground)\">(a, b);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">assert_eq!</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">), </span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-string-expression)\">\"加法错了\"</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// 可以带自定义消息</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 期望 panic 的测试</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[test]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[should_panic(expected </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"除数为零\"</span><span style=\"color:var(--shiki-foreground)\">)]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> divides_by_zero</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  divide</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 用 Result 返回错误也是合法测试（配 ? 更顺）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[test]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> parses</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> Result</span><span style=\"color:var(--shiki-foreground)\">&#x3C;(), std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">num</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">ParseIntError</span><span style=\"color:var(--shiki-foreground)\">> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> n</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> i32</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"42\"</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">parse</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  assert_eq!</span><span style=\"color:var(--shiki-foreground)\">(n, </span><span style=\"color:var(--shiki-token-constant)\">42</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  Ok</span><span style=\"color:var(--shiki-foreground)\">(())</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 21,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的断言来自测试库（Jest 的 <code>expect(...).toBe(...)</code>、\nChai 的 <code>expect().to.equal()</code>），换框架就要换一套写法。\nRust 的 <code>assert!</code> / <code>assert_eq!</code> 是<strong>标准库宏</strong>，\n在任何项目里都一样，不需要引入依赖。\n另一处差别是「期望 panic」：Rust 有 <code>#[should_panic]</code> 属性，\n把「这里就该崩」写成一等测试；JavaScript 里要 <code>expect(fn).toThrow()</code>，\n形态相近但来自库。</p>\n",
+        "python": "<p>Python 的 <code>assert</code> 语句在优化模式（<code>-O</code>）下会被整个去掉，\n所以测试里通常用 pytest 的 <code>assert</code> 重写或 <code>unittest</code> 的\n<code>self.assertEqual</code>。Rust 的 <code>assert_eq!</code> 是宏、\n任何构建模式下都在，而且失败信息自带左右值。\n期望 panic 上 Rust 有 <code>#[should_panic(expected = &quot;…&quot;)]</code>，\npytest 用 <code>pytest.raises(...)</code>，两边都能断言消息内容。</p>\n",
+        "java": "<p>Java 的断言来自 JUnit（<code>assertEquals(expected, actual)</code>），\n注意<strong>期望值在前</strong>、实际值在后，写反了报错信息会误导；\nRust 的 <code>assert_eq!(left, right)</code> 两边对称，\n失败时打印两个值，没有「哪个在前」的坑。\n期望异常上 JUnit 用 <code>assertThrows</code>，\nRust 用 <code>#[should_panic]</code> 属性 —— 一个在测试体内、一个在函数上。</p>\n"
+      }
+    },
+    "mocking": {
+      "lang": "rust",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Rust <strong>没有内建的 mock 机制</strong> —— 没有 <code>jest.mock</code> 那样的\n模块级替换，也没有运行时的打桩能力（没有反射、没有动态代理）。\n做法是<strong>围绕 trait 设计</strong>：把外部依赖抽成 trait，\n测试时传一个手写的假实现；或者用 <code>mockall</code> 这类宏\n在编译期生成 mock 类型。\n这与 JavaScript 的「随手 jest.mock 一下」差别很大 ——\nRust 要求被测代码从一开始就为可替换性留出接口。</p>\n",
+        "python": "<p>Rust <strong>没有内建 mock</strong>（没有 <code>unittest.mock</code> 那样\n运行时打补丁的能力 —— 它依赖动态属性查找，Rust 没有）。\n替代路线是 trait + 手写假实现，或用 <code>mockall</code> 宏生成。\n这带来一个显著的正面后果：能被测的代码必须显式依赖抽象，\n所以 Rust 代码天然更容易替换依赖；\nPython 里 <code>patch</code> 可以给任何东西打桩，灵活但也让\n「这段代码到底依赖了什么」变得不透明。</p>\n",
+        "java": "<p>Java 有 Mockito 这类成熟框架（靠动态代理或字节码增强），\nRust <strong>没有等价物</strong> —— 没有运行时反射与动态代理，\n打桩只能在<strong>编译期</strong>做（<code>mockall</code> 宏生成实现）。\n实践上 Rust 更依赖「依赖注入 + trait 对象」这套设计：\n构造函数收 <code>Box&lt;dyn Repository&gt;</code>，测试时传假实现。\n这比 Mockito 的 <code>when(...).thenReturn(...)</code> 啰嗦，\n但依赖关系在类型上完全显式。</p>\n"
+      }
+    },
+    "parameterized-tests": {
+      "lang": "rust",
+      "code": "// 标准库**没有**参数化测试语法 —— 手写循环是最常见的做法\n#[test]\nfn parses_all_cases() {\n  let cases = [\n    (\"1\", 1),\n    (\"42\", 42),\n    (\"-7\", -7),\n  ];\n  for (input, expected) in cases {\n    assert_eq!(input.parse::<i32>().unwrap(), expected, \"输入 {}\", input);\n  }\n}\n\n// 社区用 rstest 这类库补上：\n//   #[rstest]\n//   #[case(\"1\", 1)]\n//   #[case(\"42\", 42)]\n//   fn parses(#[case] input: &str, #[case] expected: i32) { … }",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 标准库**没有**参数化测试语法 —— 手写循环是最常见的做法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">#[test]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> parses_all_cases</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> cases </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    (</span><span style=\"color:var(--shiki-token-string-expression)\">\"1\"</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">),</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    (</span><span style=\"color:var(--shiki-token-string-expression)\">\"42\"</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">42</span><span style=\"color:var(--shiki-foreground)\">),</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    (</span><span style=\"color:var(--shiki-token-string-expression)\">\"-7\"</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-keyword)\">-</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-foreground)\">),</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  ];</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> (input, expected) </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> cases {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    assert_eq!</span><span style=\"color:var(--shiki-foreground)\">(input</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">parse</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-function)\">i32</span><span style=\"color:var(--shiki-foreground)\">>()</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-function)\">unwrap</span><span style=\"color:var(--shiki-foreground)\">(), expected, </span><span style=\"color:var(--shiki-token-string-expression)\">\"输入 {}\"</span><span style=\"color:var(--shiki-foreground)\">, input);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 社区用 rstest 这类库补上：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   #[rstest]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   #[case(\"1\", 1)]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   #[case(\"42\", 42)]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   fn parses(#[case] input: &#x26;str, #[case] expected: i32) { … }</span></span></code></pre>",
+      "lineCount": 18,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的测试框架普遍内建参数化写法\n（<code>it.each([[1,1],[2,4]])('…', (a, b) =&gt; …)</code>）。\nRust 的标准测试框架<strong>没有</strong>这个语法 —— 只能手写循环遍历用例数组，\n或者引入 <code>rstest</code> 这样的库。\n手写循环的代价是：所有用例算<strong>一个测试</strong>，\n第一个失败后面的就不跑了，也看不出「一共过了几个」；\n用库可以每个 case 单独报告，但要加依赖。</p>\n",
+        "python": "<p>pytest 的 <code>@pytest.mark.parametrize</code> 是标准做法，\n每个参数组合算一个独立用例、报告清晰。\nRust 的标准框架没有对应能力 —— 手写循环时所有用例\n挤在一个测试里，失败就中断；想要独立报告得用 <code>rstest</code>。\n从 Python 过来会觉得这是明显的退步，\n不过 Rust 里通常靠「一个测试函数覆盖一组边界值」的写法弥补。</p>\n",
+        "java": "<p>JUnit 5 有 <code>@ParameterizedTest</code> + <code>@ValueSource</code> / <code>@MethodSource</code>，\n每个参数组合是独立用例；Rust 的标准框架没有这个能力，\n手写循环就是「一个测试跑完所有用例」。\n共同点是两边都支持给用例命名/带说明，\n但 Rust 的说明只能写进断言消息里，不会成为用例名 ——\n失败时看到的还是同一个测试函数名。</p>\n"
+      }
+    },
+    "coverage": {
+      "lang": "rust",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Rust <strong>没有内建的覆盖率工具</strong> —— <code>cargo test</code> 不报覆盖率，\n要装 <code>cargo-llvm-cov</code>（基于 LLVM 的插桩）或 <code>cargo-tarpaulin</code>。\n这与 JavaScript 生态（Jest 自带 <code>--coverage</code>、\nc8 / nyc 随手可用）差别明显。\n原因一半是工具链分工：Rust 倾向于把这类能力留给社区工具，\n标准工具链只保底（build / test / fmt / clippy 四件）。</p>\n",
+        "python": "<p>Python 用 <code>coverage.py</code> 或 pytest-cov，需要单独装；\nRust 也没有内建覆盖率，要装 <code>cargo-llvm-cov</code> 这类工具。\n两边都是「额外装一个工具」，但 Rust 的实现基于 LLVM 插桩、\n数字通常更准（尤其对泛型实例化与内联后的代码），\n而且能报告<strong>分支</strong>覆盖；Python 的覆盖率受解释器执行路径影响，\n对 <code>if</code> 的短路分支统计没那么细。</p>\n",
+        "java": "<p>Java 有 JaCoCo / Cobertura，通常作为构建插件接入；\nRust 没有内建覆盖率，靠 <code>cargo-llvm-cov</code> 这类社区工具。\n两边的覆盖率统计口径接近（行/分支），\n但 Rust 的泛型单态化会让同一份源码出现多个实例 ——\n覆盖率报告里可能看到同一个函数被算多次，\n这是 Java 的擦除式泛型不会有的现象。</p>\n"
+      }
+    }
+  }
+}

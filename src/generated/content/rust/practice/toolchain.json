@@ -1,0 +1,145 @@
+{
+  "lang": "rust",
+  "section": "practice",
+  "group": "toolchain",
+  "boxes": {
+    "compile-run": {
+      "lang": "rust",
+      "code": "// 调试构建：带溢出检查与调试信息，编译快、跑得慢\ncargo build\ncargo run\n\n// 发布构建：开优化，编译慢、跑得快\ncargo run --release\ncargo build --release       // 产物在 target/release/\n\n// 编译产物是**原生可执行文件**，可以直接拷到同架构的机器上跑\n// 交叉编译要装对应 target：\n//   rustup target add x86_64-unknown-linux-musl\n//   cargo build --target x86_64-unknown-linux-musl",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 调试构建：带溢出检查与调试信息，编译快、跑得慢</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo build</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo run</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 发布构建：开优化，编译慢、跑得快</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo run </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">release</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo build </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">release       </span><span style=\"color:var(--shiki-token-comment)\">// 产物在 target/release/</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编译产物是**原生可执行文件**，可以直接拷到同架构的机器上跑</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 交叉编译要装对应 target：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   rustup target add x86_64-unknown-linux-musl</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   cargo build --target x86_64-unknown-linux-musl</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 没有编译这一步 —— <code>node app.js</code> 直接解释执行，\n或者打包后交给浏览器。Rust 必须先 <code>cargo build</code> 编译成原生二进制，\n运行时不需要任何解释器。这带来两个直接后果：\n① 部署只需拷一个文件（或几个），不用装运行时；\n② 改一行代码也要重新编译，开发循环比 JavaScript 慢。\n另外 Rust 区分 debug 与 release 两套构建，行为都不一样。</p>\n",
+        "python": "<p>Python 是解释执行，<code>python app.py</code> 就跑，不需要构建步骤；\nRust 必须先编译，且编译要花时间。收益是运行时不依赖解释器、\n启动快、性能高。另一个 Python 里没有的区分是\ndebug 与 release 两套构建 —— Rust 的 debug 版本带整数溢出检查、\nrelease 不带（溢出静默回绕），这个差别会影响程序行为。</p>\n",
+        "java": "<p>Java 编译成字节码、运行时靠 JVM，Rust 编译成原生机器码、\n运行时零依赖。所以部署形态差别很大：Java 要装 JRE 或打包 JVM，\nRust 拷一个二进制即可。编译速度上 Java 通常更快\n（增量编译成熟），Rust 的全量编译经常是分钟级 ——\n这是 Rust 开发体验里最常被抱怨的一点。</p>\n"
+      }
+    },
+    "bundler": {
+      "lang": "rust",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Rust <strong>没有打包器</strong>，因为不需要：<code>cargo build --release</code>\n产出的就是一个自包含的原生可执行文件，依赖已经在里面了。\nJavaScript 要用打包器（webpack / vite / esbuild）把成百上千个模块\n合成浏览器能加载的少数文件，还要处理 tree-shaking、代码分割、\n资源引用 —— 这整套工作在 Rust 里不存在。\n代价是 Rust 的二进制通常比等价的 JavaScript 产物大（几 MB 起步）。</p>\n",
+        "python": "<p>Rust <strong>没有打包器</strong>。Python 要打成 wheel / 单文件 exe\n（PyInstaller 那类还要把解释器一起塞进去），\n或者用 zipapp；Rust 的 <code>cargo build</code> 直接产出可执行文件，\n这一步就是「打包」的全部。差别在于 Rust 的产物里\n只有真正用到的代码（链接器会去掉未使用的部分），\n而 Python 打包往往得带上整个解释器与依赖树。</p>\n",
+        "java": "<p>Rust <strong>没有打包器</strong>，与 Java 一样 —— 但原因不同：\nJava 的产物是 jar（字节码 + 资源），要靠 JVM 执行；\nRust 的产物是原生二进制，链接完就能跑。\nJava 的近年在往「自带运行时的单文件」走（jlink / native-image），\n这正是在补 Rust 一开始就有的形态。</p>\n"
+      }
+    },
+    "linter-formatter": {
+      "lang": "rust",
+      "code": "// rustfmt：格式化，随工具链一起装，不需要单独配置就能用\ncargo fmt\ncargo fmt --check          // CI 里检查是否已格式化\n\n// clippy：官方 lint 工具，也是随工具链一起装\ncargo clippy\ncargo clippy -- -D warnings   // 把警告当错误，CI 常用\n\n// 配置写在 rustfmt.toml / clippy.toml / Cargo.toml 的 [lints] 段\n// ⚠ 两者的默认规则都由官方统一，社区几乎没有「换一套规则」的余地",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// rustfmt：格式化，随工具链一起装，不需要单独配置就能用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo fmt</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo fmt </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">check          </span><span style=\"color:var(--shiki-token-comment)\">// CI 里检查是否已格式化</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// clippy：官方 lint 工具，也是随工具链一起装</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo clippy</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo clippy </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-token-keyword)\"> -</span><span style=\"color:var(--shiki-token-function)\">D</span><span style=\"color:var(--shiki-foreground)\"> warnings   </span><span style=\"color:var(--shiki-token-comment)\">// 把警告当错误，CI 常用</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 配置写在 rustfmt.toml / clippy.toml / Cargo.toml 的 [lints] 段</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 两者的默认规则都由官方统一，社区几乎没有「换一套规则」的余地</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 10,
+          "text": "两者的默认规则都由官方统一，社区几乎没有「换一套规则」的余地",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的格式化与 lint 生态是分裂的：Prettier 与 ESLint\n曾经各管一半，还有 biome / oxlint 等新选手，\n每个项目都要选型并写配置文件。Rust 的 rustfmt 与 clippy\n<strong>随工具链一起装</strong>，<code>cargo fmt</code> / <code>cargo clippy</code> 在哪都能跑，\n而且默认规则由官方统一 —— 所以 Rust 代码库的风格一致性\n远高于 JavaScript 项目，几乎没有「这个项目用的哪套规则」这个问题。</p>\n",
+        "python": "<p>Python 的现状是本格化工具换过几代（autopep8 → black → ruff），\nlint 也一样（pylint / flake8 / ruff），配置要选、要装。\nRust 的 rustfmt 与 clippy 是<strong>官方工具链的一部分</strong>，\n<code>cargo fmt</code> 与 <code>cargo clippy</code> 开箱可用、不需要在项目里\n加依赖。这让「新人 clone 下来就能跑同一套检查」成为默认。</p>\n",
+        "java": "<p>Java 的格式化与静态检查基本靠第三方插件\n（Checkstyle / SpotBugs / PMD / Error Prone），\n每个项目要挑、要配，Maven/Gradle 里还要接插件。\nRust 把 rustfmt 与 clippy 做进了 <code>cargo</code> 子命令，\n不用改构建脚本就能用 —— 这是官方工具链「一体化」的直接好处。</p>\n"
+      }
+    },
+    "type-checker": {
+      "lang": "rust",
+      "code": "// cargo check：只做类型检查与借用检查，不生成机器码 —— 比 build 快很多\ncargo check\n\n// 编辑器里由 rust-analyzer 实时给同样的诊断\n// （它内部就是跑 check 的那套逻辑）\n\n// ⚠ Rust 的类型检查与借用检查是同一遍 —— 「类型对了但借用不对」\n// 同样是编译错误，没有「类型检查通过但运行崩溃」这层",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// cargo check：只做类型检查与借用检查，不生成机器码 —— 比 build 快很多</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">cargo check</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编辑器里由 rust-analyzer 实时给同样的诊断</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// （它内部就是跑 check 的那套逻辑）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Rust 的类型检查与借用检查是同一遍 —— 「类型对了但借用不对」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 同样是编译错误，没有「类型检查通过但运行崩溃」这层</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 7,
+          "text": "Rust 的类型检查与借用检查是同一遍 —— 「类型对了但借用不对」",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 需要<strong>另装</strong>一个类型检查器（tsc），\n而且它检查的是一层可选的类型注解、与运行时无关 ——\n类型检查通过不代表运行时不崩。Rust 的类型检查是编译器本身，\n和借用检查在同一遍里做完，通过就意味着不会有类型错误与内存错误。\n代价是必须写类型（或让它推断），没有「先不写类型跑起来再说」这条路。</p>\n",
+        "python": "<p>Python 的类型检查器（mypy / pyright）是外部工具，\n检查的是可选标注、运行时不生效，而且不检查也能跑。\nRust 的 <code>cargo check</code> 是编译器的一个模式，检查不通过就编译不了 ——\n类型与借用一起查完，是「能不能运行」的前置条件而不是建议。\n<code>cargo check</code> 比 <code>cargo build</code> 快，所以它是开发时的默认动作。</p>\n",
+        "java": "<p>Java 的编译器本身做类型检查，这一点与 Rust 一样；\n但 Java 没有借用检查那一层，所以类型对了运行时仍可能出错\n（NPE、并发修改、类型擦除带来的意外）。\nRust 的 <code>cargo check</code> 把类型与借用一起查，通过后\n内存安全与数据竞争也一并被排除 —— 这是「检查通过」\n在两门语言里含金量不同的地方。</p>\n"
+      }
+    },
+    "runtime-version": {
+      "lang": "rust",
+      "code": "// rustup 管工具链：可以同时装多个版本并切换\nrustup toolchain install 1.75.0\nrustup default stable\nrustup update\n\n// 把版本写进仓库，团队与 CI 自动一致\n//   rust-toolchain.toml\n//   [toolchain]\n//   channel = \"1.75.0\"\n//   components = [\"rustfmt\", \"clippy\"]\n\n// ⚠ edition 是另一回事 —— 它不是版本号，是语言方言\n//   edition = \"2021\"   // 写在 Cargo.toml 里，按 crate 生效\nrustc --version",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// rustup 管工具链：可以同时装多个版本并切换</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rustup toolchain install </span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">75</span><span style=\"color:var(--shiki-token-keyword)\">.</span><span style=\"color:var(--shiki-token-constant)\">0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rustup default stable</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rustup update</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 把版本写进仓库，团队与 CI 自动一致</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   rust-toolchain.toml</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   [toolchain]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   channel = \"1.75.0\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   components = [\"rustfmt\", \"clippy\"]</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ edition 是另一回事 —— 它不是版本号，是语言方言</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   edition = \"2021\"   // 写在 Cargo.toml 里，按 crate 生效</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">rustc </span><span style=\"color:var(--shiki-token-keyword)\">--</span><span style=\"color:var(--shiki-foreground)\">version</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 12,
+          "text": "edition 是另一回事 —— 它不是版本号，是语言方言",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的运行时版本由宿主决定（Node 版本、浏览器版本），\n项目只能靠 <code>engines</code> 字段声明、靠 CI 与文档约束，\n实际跑在哪个版本上不受代码控制。Rust 用 <code>rust-toolchain.toml</code>\n把一个确切版本写进仓库，谁 clone 下来 <code>cargo build</code>\n都会自动用那个版本 —— 这是「构建可复现」的一部分。\n另一处 Rust 独有的是 edition：语言方言按 crate 生效，\n不同 crate 可以用不同 edition 而共存。</p>\n",
+        "python": "<p>Python 的项目通常只声明「需要 3.10+」，实际用哪个版本\n靠虚拟环境与 CI 配置保证；Rust 把确切版本写进\n<code>rust-toolchain.toml</code>，工具链管理器（rustup）会照它执行。\n这让「我的机器上能编译、你的不能」这类问题在 Rust 里少得多。\nRust 还有 edition 这一层（语言方言，与版本号无关），\nPython 的 <code>from __future__ import</code> 是最接近的东西但弱得多。</p>\n",
+        "java": "<p>Java 用 <code>--release</code> 指定目标版本、用 <code>JAVA_HOME</code> 与\n构建工具的 <code>source</code>/<code>target</code> 配置控制，但「用哪个 JDK 编译」\n经常靠环境变量与文档。Rust 的 <code>rust-toolchain.toml</code> 是\n仓库内的声明、由 rustup 自动执行，粒度更细也更可靠。\n另一处差别是 Rust 的 edition 可以在同一个项目里按 crate 混用，\nJava 的版本是全局的。</p>\n"
+      }
+    },
+    "repl": {
+      "lang": "rust",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Rust 的工具链里<strong>没有 REPL</strong> —— <code>cargo</code> 没有交互模式，\n<code>rustc</code> 也不能像 <code>node</code> 那样直接开一个提示符。\n想试一段代码就得建个项目（或者用第三方的 evcxr、rust-script）。\n原因是 Rust 需要编译，而编译要知道 crate 与依赖 ——\n「随手敲一行看看」这个动作与它的构建模型天然不合。\nJavaScript 里 <code>node</code> 敲开就能算，这是解释型语言的便利。</p>\n",
+        "python": "<p>Rust <strong>没有 REPL</strong>，<code>python</code> 那种敲一行看一行的体验不存在。\n要快速验证一小段代码，标准做法是 <code>cargo new</code> 一个临时项目，\n或者用第三方工具（evcxr / rust-script）。\n根本原因是编译模型：Rust 需要知道依赖与 edition 才能编译，\n而 REPL 的「无项目上下文」与它冲突。</p>\n",
+        "java": "<p>Rust <strong>没有 REPL</strong> —— 与 Java 有 <code>jshell</code> 形成对照。\nJava 能提供 jshell 是因为它有字节码与即时编译，\n单段代码可以脱离项目编译执行；Rust 的单元是 crate，\n一个表达式没有 crate 上下文就编译不了。\n这也是 Rust 社区一直把「快速试验」当作痛点、\n第三方脚本工具（rust-script）有存在空间的原因。</p>\n"
+      }
+    }
+  }
+}
