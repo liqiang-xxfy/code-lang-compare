@@ -165,7 +165,7 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
   | R22 | `vs` 完整性：基准候选写除自己外 2 门、非基准写全 3 门 | **error**（S8 翻级） |
   | R23 | 基准候选在**被它引用的** feature 上要有 `baseline` | **error**（S8 翻级） |
   | R24 | 被某基准引用、文件缺 key、且未 `absent` → 疑似漏写 | warn（**刻意不翻**） |
-  | R25 | `vs.<基准>` / `baseline` 点名屏幕外的语言（幽灵语言） | warn |
+  | R25 | `vs.<基准>` / `baseline` 点名屏幕外的语言（幽灵语言）。**同族语言除外**（ADR-71：`registry.yaml` 的 `mentionGroups`，当前只有 JS ↔ TS） | warn |
   | R26 | `absent: true` 且给了 `code`（惯用替代写法）→ 必须有说明 | warn |
   | R27 | 某章引用了 group G 但该基准缺 G 的内容（基准列空洞），按 (基准, 板块) 汇总 | warn |
 
@@ -233,7 +233,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 - 以 `_` 开头的语言目录是**私有目录**，默认不参与构建与校验（`_template/`、`verify:ext` 的 `_fixturelang`）。新增真语言不要用下划线前缀。
 - **YAML 普通标量不能以反引号开头**（``title: `x` 是什么`` 会让整章解析失败），也不能写裸 `null`。SEO 模板一律用引号包起来（以 `{` 开头的普通标量会被 YAML 当成流式映射）。
 - **速查三兄弟只能讲本方向的两门语言**（R5，**两条**）：`glossary.perLanguage` 的键与 `pitfalls.languages` 的值都必须是 error 级合规；但 `symptom` / `cause` / `fix` / `note` / `todo` 这些**散文** R5 够不到 —— 那一层由 `content-contract.test.ts` 的常设断言守（另有「提到的板块名必须真实存在」，它抓的是从 v1 搬过来的「心智模型」/「基础语法」这类死引用）。
-- **`baseline` 文本只讲本语言、`vs.<基准>` 只讲那两门**（R25，warn）：多列板块里提第三门就是屏幕外的幽灵语言。
+- **`baseline` 文本只讲本语言、`vs.<基准>` 只讲那两门**（R25，warn）：多列板块里提第三门就是屏幕外的幽灵语言。**例外是 JavaScript ↔ TypeScript**（ADR-71）—— 它们在 `registry.yaml` 的 `mentionGroups` 里同组，互相点名不算幽灵（判据按本语言与该格基准**两门**算）；ArkTS 刻意不在这一组里。
 - 所有外部 URL 必须是 `https`（R7）。
 - **compare 路由里只有基准 / 板块 / 章节三段**，章节由**该基准的**章节分组定义；feature id 是 `<板块>/<feature>` 两段（不含章节 —— 章节随基准变）。组件里不要拼这些字符串，也不要写死板块名；`verify:sections` 会拦住硬编码的板块 id（白名单在脚本里，每条都写了理由）。
 - **面向用户的文案里不许写死语言名**：三门基准**权重相同**。语言名一律从 meta 取，i18n 里走 `{baseline}` 这类占位符。`verify:ext` 的**第三道断言**守着这条：扫描 i18n 的**值**与 `.vue` 的 `<template>` 段（先摘掉 `<script>` 和 HTML 注释）。
