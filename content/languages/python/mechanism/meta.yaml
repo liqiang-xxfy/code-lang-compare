@@ -1,0 +1,164 @@
+# python —— mechanism / meta
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: meta` 的那批。
+# 这一组以 Python 为基准时展示在「装饰器与元编程」章（见 catalog/mechanism/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  reflection:
+    code: |
+      getattr(obj, "name", None)        # @note 取属性，缺失给默认值
+      hasattr(obj, "name")
+      setattr(obj, "name", 1)
+      dir(obj)                          # @note 列出名字
+      type(obj), obj.__class__
+      vars(obj)                         # @note __dict__
+
+      import inspect
+      inspect.signature(f)              # @note 签名
+      inspect.getsource(f)              # @note 源码
+      inspect.getmembers(obj)           # @note 带类型的成员列表
+
+      # @note 类本身也是对象：能动态创建（type(...)）、能改
+      User = type("User", (Base,), {"name": "Ada"})
+    baseline: |
+      **反射是一等公民**，而且比多数语言更彻底：`getattr` / `dir` / `inspect`
+      覆盖属性、签名、源码、成员列表，**类本身也是对象**（能动态创建、
+      能运行时改）。框架（序列化、依赖注入、ORM）大量建立在这套能力上。
+      代价是「什么都看得到、什么都改得动」，静态分析很难跟全。
+    vs:
+      javascript: |
+        两边的反射都很自然（属性本来就是可枚举的），差别在工具箱：
+        Python 的 `inspect` 能拿到签名与源码，JavaScript 那边要自己想办法。
+        另外 Python 的类是运行时对象，动态创建很直接。
+      java: |
+        Java 的反射要走 `java.lang.reflect`，比普通代码重、还可能受模块系统
+        限制；Python 的 `getattr` 就是普通函数调用。两边都能做框架级的事，
+        门槛不同。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  decorator-annotation:
+    code: |
+      import functools
+
+      def logged(fn):
+          @functools.wraps(fn)          # @note! 保留原函数的元信息
+          def wrapper(*a, **kw):
+              print(fn.__name__)
+              return fn(*a, **kw)
+          return wrapper
+
+      @logged                            # @note 一等语法：直接写在函数上
+      def save(): ...
+
+      @logged
+      @cached                            # @note 可以堆叠，从下往上包
+      def load(): ...
+
+      # 带参数的装饰器 = 返回装饰器的函数（三层）
+      def retry(times):
+          def deco(fn): ...
+          return deco
+
+      @retry(3)
+      def flaky(): ...
+
+      # @note 类装饰器、属性装饰器（@property / @staticmethod）都是同一套机制
+    baseline: |
+      装饰器是**一等语法**：`@x` 写在函数或类上面，本质是 `f = x(f)`。
+      能堆叠（从下往上包）、能带参数（写成三层）、类与属性也能装饰
+      （`@property` / `@classmethod` 本身就是内建装饰器）。
+      写的时候记得 `functools.wraps` —— 否则被包装函数的 `__name__`、
+      文档字符串都会丢。
+    vs:
+      javascript: |
+        JavaScript 还没有装饰器语法（标准在推进中），只能用高阶函数或高阶类
+        手工包装；Python 的 `@` 是语言的一部分，能堆叠、能带参数。
+        两边都得记得保留原函数的元信息。
+      java: |
+        Java 的注解（`@Override` / `@Transactional`）只是**元数据**，
+        本身不执行任何代码 —— 要靠框架在启动时扫描并生成代理。
+        Python 的装饰器是**函数调用**，写在声明上就立刻生效，没有中间层。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  dynamic-eval:
+    code: |
+      eval("1 + 2")                      # @note 只算表达式，有返回值
+      exec("x = 1")                      # @note 执行语句，返回 None
+      compile("x + 1", "<s>", "eval")    # @note 先编译再跑，能复用
+
+      literal_eval("[1, 2]")             # @note ast.literal_eval：只认字面量，安全
+
+      # @note! 与输入有关的一律别用 eval：
+      #   eval(input())                    -> 任意代码执行
+      #   解析数据用 json.loads / ast.literal_eval
+
+      # @note 常见正当用途：算个公式（配合受限命名空间）、生成小段代码
+    baseline: |
+      `eval` 算表达式、`exec` 执行语句，都能拿到当前作用域。
+      **输入相关的一律别用** —— 那是任意代码执行；解析数据用
+      `json.loads` 或 `ast.literal_eval`（后者只认字面量，安全）。
+      正当用途通常是「用户给个公式，我算一下」这类，配合受限的命名空间使用。
+    vs:
+      javascript: |
+        两边的 `eval` 能力与危险程度相当。差别在平台：JavaScript 在浏览器里
+        受内容安全策略（CSP）限制，`eval` 可能直接不可用；Python 没有那一层。
+        两边都有更安全的替代（那边是 `JSON.parse`，这边是 `literal_eval`）。
+      java: |
+        Java **没有动态求值** —— 源码在编译期固定。要做类似的事得引入脚本引擎
+        或生成字节码，属于重量级手段。这既是限制也是保护：
+        前两家要自己记得别用，Java 根本不给这个入口。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  proxy-interception:
+    code: |
+      class Lazy:
+          def __init__(self): self._data = None
+
+          def __getattr__(self, name):        # @note 只在常规查找失败时调
+              if self._data is None:
+                  self._data = load()
+              return getattr(self._data, name)
+
+      class Tracked:
+          def __setattr__(self, k, v):        # @note 拦截所有赋值
+              print(f"{k} = {v}")
+              super().__setattr__(k, v)
+
+      # 更底层的钩子：__getattribute__ / __getitem__ / __call__ / 描述符协议
+      # @note! __getattr__ 与 __getattribute__ 很容易搞混：
+      #        __getattr__ 是"找不到时兜底"，__getattribute__ 是"全都要过我"
+
+      # 元类：控制"类怎么被创建"（框架用得多，业务代码少见）
+      class Meta(type): ...
+    baseline: |
+      拦截靠**魔术方法**写在类里：`__getattr__`（找不到时兜底）、
+      `__getattribute__`（所有访问都过）、`__setattr__`、`__getitem__`、
+      `__call__`，以及描述符协议。再往上还有**元类**控制「类怎么被创建」——
+      那是框架才用的层级。两个概念最容易混：`__getattr__` 只在常规查找失败时
+      触发，`__getattribute__` 每次都触发（写错了会无限递归）。
+    vs:
+      javascript: |
+        JavaScript 用 `Proxy` 从**外面**包一层，能拦读取、写入、`in`、调用；
+        Python 在**类里**实现魔术方法，对象自己是知情的。
+        两边都能做响应式与惰性加载，侵入方式相反。
+      java: |
+        Java 的动态代理只能代理接口、只拦方法调用，要拦字段得靠字节码增强。
+        Python 的钩子覆盖面更广（属性、下标、调用都能拦），
+        代价是这类代码对静态分析不友好。
+    equivalence:
+      javascript: analogous
+      java: divergent

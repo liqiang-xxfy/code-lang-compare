@@ -1,0 +1,122 @@
+{
+  "lang": "javascript",
+  "section": "mechanism",
+  "group": "meta",
+  "boxes": {
+    "reflection": {
+      "lang": "javascript",
+      "code": "// 运行期随手就能问一个对象有什么\nObject.keys(obj);                  // 自己的可枚举属性\nObject.getOwnPropertyNames(obj);   // 含不可枚举的\n\"x\" in obj;                        // ⚠ 会顺原型链找\nobj.constructor.name;              // 类名字符串（压缩后会变）\n\n// Reflect：把语言内部操作变成函数\nReflect.get(obj, \"x\");\nReflect.has(obj, \"x\");\nReflect.ownKeys(obj);\nReflect.getPrototypeOf(obj);\n\n// ⚠ 反射拿不到私有字段（#x）—— 它是真私有\n// 类的字段/方法都能被列举、被替换、被删掉",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 运行期随手就能问一个对象有什么</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Object</span><span style=\"color:var(--shiki-token-function)\">.keys</span><span style=\"color:var(--shiki-foreground)\">(obj);                  </span><span style=\"color:var(--shiki-token-comment)\">// 自己的可枚举属性</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Object</span><span style=\"color:var(--shiki-token-function)\">.getOwnPropertyNames</span><span style=\"color:var(--shiki-foreground)\">(obj);   </span><span style=\"color:var(--shiki-token-comment)\">// 含不可枚举的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"x\"</span><span style=\"color:var(--shiki-token-keyword)\"> in</span><span style=\"color:var(--shiki-foreground)\"> obj;                        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 会顺原型链找</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">obj</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">constructor</span><span style=\"color:var(--shiki-foreground)\">.name;              </span><span style=\"color:var(--shiki-token-comment)\">// 类名字符串（压缩后会变）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Reflect：把语言内部操作变成函数</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Reflect</span><span style=\"color:var(--shiki-token-function)\">.get</span><span style=\"color:var(--shiki-foreground)\">(obj</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"x\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Reflect</span><span style=\"color:var(--shiki-token-function)\">.has</span><span style=\"color:var(--shiki-foreground)\">(obj</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"x\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Reflect</span><span style=\"color:var(--shiki-token-function)\">.ownKeys</span><span style=\"color:var(--shiki-foreground)\">(obj);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Reflect</span><span style=\"color:var(--shiki-token-function)\">.getPrototypeOf</span><span style=\"color:var(--shiki-foreground)\">(obj);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 反射拿不到私有字段（#x）—— 它是真私有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 类的字段/方法都能被列举、被替换、被删掉</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 4,
+          "text": "会顺原型链找",
+          "tone": "warn"
+        },
+        {
+          "line": 13,
+          "text": "反射拿不到私有字段（#x）—— 它是真私有",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>运行期反射很自然</strong> —— 对象本来就是一张可枚举的属性表，<code>Object.keys</code> /\n<code>in</code> / <code>Reflect</code> 都能问。<code>Reflect</code> 把「取值、判断存在、拿原型」这些内部操作\n变成了普通函数，配合 <code>Proxy</code> 用。唯一的盲区是 <code>#</code> 私有字段：\n它是真私有，反射也拿不到。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的反射同样是日常工具（<code>getattr</code> / <code>dir</code> / <code>inspect</code>），\n而且连<strong>类本身都是对象</strong>、能动态创建与修改。两边的差别在\nPython 多一整套 <code>inspect</code>（签名、源码、调用栈）可以用。</p>\n",
+        "java": "<p>Java 的反射要走 <code>java.lang.reflect</code>，而且从「普通代码」到「反射」是\n一次明显的跨越：能拿到字段与方法、但可能受模块系统限制，\n性能也不同。这里（JS）的反射就是普通的属性访问，没有那一层门槛。</p>\n"
+      }
+    },
+    "decorator-annotation": {
+      "lang": "javascript",
+      "code": "// ⚠ 语言里**没有装饰器语法** —— 标准还在推进中\n//   现在要用只能靠转译器（TypeScript 的 experimentalDecorators 等）\n//   @logged\n//   class Service { }\n\n// 不用语法也能达到同样效果：高阶函数 / 高阶类\nfunction logged(fn) {\n  return (...args) => { console.log(fn.name, args); return fn(...args); };\n}\nconst save = logged(doSave);\n\nconst withTimestamp = (Base) => class extends Base {\n  createdAt = Date.now();\n};",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 语言里**没有装饰器语法** —— 标准还在推进中</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   现在要用只能靠转译器（TypeScript 的 experimentalDecorators 等）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   @logged</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   class Service { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 不用语法也能达到同样效果：高阶函数 / 高阶类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> logged</span><span style=\"color:var(--shiki-foreground)\">(fn) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">...</span><span style=\"color:var(--shiki-foreground)\">args) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-constant)\">console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">fn</span><span style=\"color:var(--shiki-foreground)\">.name</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> args); </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-function)\"> fn</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">...</span><span style=\"color:var(--shiki-foreground)\">args); };</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> save</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-function)\"> logged</span><span style=\"color:var(--shiki-foreground)\">(doSave);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-function)\"> withTimestamp</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> (Base) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-keyword)\"> class</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> Base</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  createdAt </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> Date</span><span style=\"color:var(--shiki-token-function)\">.now</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">};</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 1,
+          "text": "语言里**没有装饰器语法** —— 标准还在推进中",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>没有装饰器语法</strong>（还在标准化的路上，现在要靠转译器）。要做「给声明附加\n行为」这件事，惯用手法是<strong>高阶函数与高阶类</strong> —— 接收一个函数/类、\n返回增强后的版本。这套写法很灵活，代价是没有语法标记，\n读代码时要顺着包装层往里看。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的装饰器是<strong>一等语法</strong>（<code>@logged</code> 直接写在函数上面），\n而且能带参数、能堆叠。这里只能靠高阶函数包装，\n写起来形似但读起来差一层。</p>\n",
+        "java": "<p>Java 的注解（<code>@Override</code>）只是<strong>元数据</strong>，本身不改变行为 ——\n要靠注解处理器或运行期反射去读它做事情。两边都不是\n「写在声明上就自动生效」的那种装饰器。</p>\n"
+      }
+    },
+    "dynamic-eval": {
+      "lang": "javascript",
+      "code": "eval(\"1 + 1\");                     // ⚠ 能拿到当前作用域的变量\nnew Function(\"a\", \"b\", \"return a + b\");   // 只在全局作用域里跑\nJSON.parse(str);                   // 需要的是数据就别用 eval\n\n// ⚠ 三个真实代价：\n//   1. CSP 默认禁止 eval —— 很多生产环境直接报错\n//   2. 性能：无法被引擎优化\n//   3. 安全：字符串来自外部就是注入\n\nconst f = new Function(\"return this\")();  // 沙箱逃逸的经典一步",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-function)\">eval</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"1 + 1\"</span><span style=\"color:var(--shiki-foreground)\">);                     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 能拿到当前作用域的变量</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Function</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"b\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"return a + b\"</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// 只在全局作用域里跑</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">JSON</span><span style=\"color:var(--shiki-token-function)\">.parse</span><span style=\"color:var(--shiki-foreground)\">(str);                   </span><span style=\"color:var(--shiki-token-comment)\">// 需要的是数据就别用 eval</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 三个真实代价：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   1. CSP 默认禁止 eval —— 很多生产环境直接报错</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   2. 性能：无法被引擎优化</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   3. 安全：字符串来自外部就是注入</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> f</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Function</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"return this\"</span><span style=\"color:var(--shiki-foreground)\">)();  </span><span style=\"color:var(--shiki-token-comment)\">// 沙箱逃逸的经典一步</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 1,
+          "text": "能拿到当前作用域的变量",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "三个真实代价：",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>有 <code>eval</code> 与 <code>new Function</code>，但<strong>生产代码基本不该用</strong>：内容安全策略\n（CSP）默认就禁掉 <code>eval</code>，性能上引擎没法优化它，而字符串一旦来自外部\n就是代码注入。需要解析数据用 <code>JSON.parse</code>，需要动态行为\n优先考虑查表或函数映射。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 有 <code>eval</code>（只算表达式）与 <code>exec</code>（执行语句），\n同样有安全与性能代价，但没有 CSP 那层平台级限制。\n两边的结论一致：解析数据不用它，动态行为优先用查表。</p>\n",
+        "java": "<p>Java <strong>没有动态求值</strong> —— 源代码在编译期就固定了。\n想做到类似的事得引入脚本引擎或动态生成字节码，那是很重的做法；\n这里一行 <code>eval</code> 就能跑。</p>\n"
+      }
+    },
+    "proxy-interception": {
+      "lang": "javascript",
+      "code": "const p = new Proxy(target, {\n  get(t, k) { return k in t ? t[k] : \"默认值\"; },   // 拦截读取\n  set(t, k, v) { t[k] = v; return true; },          // 拦截写入\n  has(t, k) { return true; },                       // 拦截 in\n  apply(t, thisArg, args) { },                      // 拦截函数调用\n});\n\np.anyKey;                   // \"默认值\" —— 读什么都有\n\"whatever\" in p;            // true\n\n// 典型用途：负下标数组、只读包装、日志、参数校验、Vue 3 的响应式\n// ⚠ 拦截不到私有字段（#x）\n// ⚠ 代理不是透明的：this 会指向 Proxy，某些内建方法会因此出错",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> p</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Proxy</span><span style=\"color:var(--shiki-foreground)\">(target</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  get</span><span style=\"color:var(--shiki-foreground)\">(t</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> k) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> k </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> t </span><span style=\"color:var(--shiki-token-keyword)\">?</span><span style=\"color:var(--shiki-foreground)\"> t[k] </span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"默认值\"</span><span style=\"color:var(--shiki-foreground)\">; }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-comment)\">   // 拦截读取</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  set</span><span style=\"color:var(--shiki-foreground)\">(t</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> k</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> v) { t[k] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> v; </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> true</span><span style=\"color:var(--shiki-foreground)\">; }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-comment)\">          // 拦截写入</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  has</span><span style=\"color:var(--shiki-foreground)\">(t</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> k) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> true</span><span style=\"color:var(--shiki-foreground)\">; }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-comment)\">                       // 拦截 in</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  apply</span><span style=\"color:var(--shiki-foreground)\">(t</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> thisArg</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> args) { }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-comment)\">                      // 拦截函数调用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">});</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">p</span><span style=\"color:var(--shiki-foreground)\">.anyKey;                   </span><span style=\"color:var(--shiki-token-comment)\">// \"默认值\" —— 读什么都有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">\"whatever\"</span><span style=\"color:var(--shiki-token-keyword)\"> in</span><span style=\"color:var(--shiki-foreground)\"> p;            </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 典型用途：负下标数组、只读包装、日志、参数校验、Vue 3 的响应式</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 拦截不到私有字段（#x）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 代理不是透明的：this 会指向 Proxy，某些内建方法会因此出错</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 12,
+          "text": "拦截不到私有字段（#x）",
+          "tone": "warn"
+        },
+        {
+          "line": 13,
+          "text": "代理不是透明的：this 会指向 Proxy，某些内建方法会因此出错",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>Proxy</code> 能在<strong>语言层面拦截</strong>对象的读取、写入、<code>in</code>、删除、函数调用等\n十几种操作 —— 这是 JS 里唯一能做到「无侵入地改变一个对象的全部行为」的\n机制，响应式框架都靠它。两个要留意的地方：拦截不到 <code>#</code> 私有字段，\n以及 <code>this</code> 会指向代理而不是原对象，某些内建方法会因此出错。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 用 <code>__getattr__</code> / <code>__getattribute__</code> / <code>__setattr__</code> 这些\n魔术方法做同样的拦截，写在类里而不是包在外面。\n两边都能做响应式与代理，区别是侵入方式：这里是外加一层，\nPython 是类自己实现。</p>\n",
+        "java": "<p>Java 的 <code>Proxy</code> 只能代理<strong>接口</strong>（动态代理），要代理类得靠字节码增强库。\n而且它拦的是方法调用，不像这里连属性读取、<code>in</code> 都能拦。</p>\n"
+      }
+    }
+  }
+}

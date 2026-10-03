@@ -1,0 +1,139 @@
+# java —— mechanism / meta
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: meta` 的那批。
+# 这一组以 Java 为基准时展示在「注解与反射」章（见 catalog/mechanism/java.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  reflection:
+    code: |
+      Class<?> c = obj.getClass();               // @note 反射的入口
+      c.getName();
+      c.getDeclaredFields();                     // @note 含私有字段
+      c.getMethod("foo", String.class);          // @note 按签名找方法
+      c.getDeclaredConstructor().newInstance();  // @note 动态创建
+
+      Field f = c.getDeclaredField("name");
+      f.setAccessible(true);                     // @note! 打破封装，模块系统可能拒绝
+      f.set(obj, "Ada");
+
+      // @note 反射比直接调用慢、也绕过了编译期检查
+      // @note! 记录类/密封类/泛型擦除都能在反射里看到边界
+    baseline: |
+      反射走 `java.lang.reflect`：从 `Class` 对象出发拿字段、方法、构造器，
+      还能 `setAccessible(true)` 打破封装（但模块系统可能拒绝）。
+      它是框架（Spring、序列化库）的基础，代价是**比直接调用慢、
+      且绕过编译期检查**。日常业务代码不该用它 ——
+      它是给「必须处理未知类型」的框架准备的。
+    vs:
+      javascript: |
+        JavaScript 的反射就是普通的属性访问（对象本来就可枚举），
+        没有「进入反射模式」这一层门槛，也没有性能悬崖；
+        Java 的反射是一条明显不同的路径，代价写在性能与封装上。
+      python: |
+        Python 的 `getattr` / `inspect` 与普通调用没有性能鸿沟，
+        也不需要打破什么封装（本来就没有强封装）。
+        Java 的反射要显式 `setAccessible` 才碰得到私有成员，
+        这个动作本身就说明了边界的存在。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  decorator-annotation:
+    code: |
+      @Override                                  // @note 给编译器看的检查
+      public String toString() { return ""; }
+
+      @Deprecated
+      @SuppressWarnings("unchecked")
+
+      // 自定义注解：靠**元注解**声明它保留到什么时候、能标在哪
+      @Retention(RetentionPolicy.RUNTIME)        // @note 保留到运行期才能反射读到
+      @Target(ElementType.METHOD)
+      public @interface Logged { String value() default ""; }
+
+      @Logged("保存")
+      public void save() { }
+
+      // @note! 注解**本身什么都不做** —— 要有代码去读它：
+      //   运行期反射（框架启动时扫描）或编译期注解处理器
+    baseline: |
+      注解（annotation）是**元数据**：标在声明上，本身不执行任何代码。
+      要让它起作用必须有人去读 —— 要么运行期用反射扫描（保留策略得是
+      `RUNTIME`），要么编译期用注解处理器。`@Override` 这类是编译器直接认的
+      内建注解。所以「加了注解就生效」在这门语言里不成立，
+      总得有个框架在背后处理。
+    vs:
+      javascript: |
+        JavaScript 连注解语法都还没有（装饰器标准在推进中），
+        现在只能用高阶函数包装。两边都不是「标上就生效」，
+        但 Java 至少有一套完整的声明与读取机制。
+      python: |
+        Python 的装饰器是**函数调用**，写在声明上立刻生效 —— 不需要谁去读它；
+        Java 的注解只是数据，必须有人处理。这是两者最根本的差别：
+        一个是行为、一个是标记。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  dynamic-eval:
+    absent: true
+    baseline: |
+      **本语言没有动态求值** —— 源代码在编译期就固定下来了，
+      没有 `eval` 那样的入口。想做「运行时决定行为」，正规路子是
+      反射 + 注解、动态代理，或者引入脚本引擎（那是很重的做法）。
+      这既是限制也是保护：代码注入这一类问题在源头上就不存在。
+    vs:
+      javascript: |
+        JavaScript 有 `eval` 与 `new Function`（虽受内容安全策略限制），
+        Java 完全没有这个入口。前者的动态能力换来了一整类安全问题，
+        后者用「不给」规避掉了。
+      python: |
+        Python 的 `eval` / `exec` 只算表达式或语句，Java 连这个都没有。
+        两边都能靠反射做动态行为，区别是 Python 多一条「直接把字符串当代码跑」
+        的捷径 —— 方便，但也是风险。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  proxy-interception:
+    code: |
+      // 动态代理：只能代理**接口**
+      var handler = (Object proxy, Method m, Object[] args) -> {
+        System.out.println("调用 " + m.getName());
+        return m.invoke(target, args);
+      };
+      Service s = (Service) Proxy.newProxyInstance(
+          Service.class.getClassLoader(),
+          new Class<?>[]{ Service.class },      // @note 必须是接口
+          handler);
+
+      // 想代理类，得靠字节码增强库（CGLIB 那类）—— 框架内部做的事
+
+      // AOP 就是这么实现的：Spring 给接口生成 JDK 代理、给类生成字节码子类
+      // @note! 拦的是**方法调用**，字段读写拦不到（与反射能改字段不是一回事）
+      // @note 代理对象与原始对象不是同一个类型，向下转换要小心
+    baseline: |
+      动态代理是**语言内置的能力**（`java.lang.reflect.Proxy`），
+      但只能代理接口 —— 想代理类得靠字节码增强库。它拦的是**方法调用**，
+      字段读写拦不到。AOP 就是建立在这上面：框架给接口生成代理、
+      给类生成子类。用的时候注意代理对象的类型与原始对象不同。
+    vs:
+      javascript: |
+        JavaScript 的 `Proxy` 从外面包一层，能拦属性读写、`in`、函数调用，
+        覆盖面广得多，而且不需要目标是个接口；Java 的动态代理限制在
+        方法调用与接口上，但它是语言标准库的一部分、类型也更明确。
+      python: |
+        Python 用类里的魔术方法做拦截（`__getattr__` / `__setattr__`），
+        覆盖面同样比 Java 宽，而且不需要接口。Java 这边要做同样的事，
+        通常得引入 AOP 框架。
+    equivalence:
+      javascript: divergent
+      python: divergent
