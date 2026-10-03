@@ -2,7 +2,7 @@
 # severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
 
 - id: pitfall-js2go-error-ignored
-  featureId: concepts-javascript/error-handling
+  featureId: model/error-propagation
   title: 忘了检查 err，编译器不会拦你
   symptom: 调用返回 `(value, err)` 的函数时只接第一个返回值，出错时程序带着零值继续往下跑。
   cause: Go 用返回值表达错误，而「不检查错误」在语法上完全合法 —— JS 里未捕获的 reject 至少会冒泡成未处理异常，Go 里连泡都不会冒。
@@ -15,7 +15,7 @@
   tags: [错误处理]
 
 - id: pitfall-js2go-nil-map-write
-  featureId: basics-javascript/object-access
+  featureId: express/maps
   title: 往 nil map 里写会 panic，读却没事
   symptom: 声明了 `var m map[string]int` 就直接 `m["a"] = 1`，运行时 panic；但同样的 map 读 `m["a"]` 返回 0，一切正常。
   cause: Go 的 nil map 可以读（零值语义）但不能写，而 JS 里 `const m = {}` 天生可写 —— 直觉直接搬过来就会跳过 `make`。
@@ -26,7 +26,7 @@
   tags: [集合, 空值]
 
 - id: pitfall-js2go-goroutine-loop-var
-  featureId: basics-javascript/var-scope
+  featureId: express/scope
   title: 循环里起的 goroutine 全部用了同一个变量
   symptom: '`for _, v := range xs { go func() { use(v) }() }` 里所有 goroutine 都拿到最后一个值。'
   cause: 与 JS 的 `var` 闭包共享是同一个坑；Go 在 1.22 之前 range 变量在整个循环里是单个绑定。
@@ -40,7 +40,7 @@
   tags: [并发, 闭包]
 
 - id: pitfall-js2go-interface-nil
-  featureId: concepts-javascript/interface
+  featureId: model/interface
   title: 返回了 nil 却通过了 `err != nil` 的检查
   symptom: |
     一个返回 `error` 的函数在成功分支写 `return nil`，调用方 `if err != nil`
@@ -60,7 +60,7 @@
   tags: [接口, 空值]
 
 - id: pitfall-js2go-slice-shared-backing
-  featureId: basics-javascript/array-slice
+  featureId: model/slicing
   title: append 写进了另一个切片的领地
   symptom: |
     `b := a[1:3]` 之后 `b = append(b, 99)`，结果 `a[3]` 莫名其妙变成了 99 ——
@@ -81,7 +81,7 @@
   tags: [容器, 切片]
 
 - id: pitfall-js2go-integer-division
-  featureId: basics-javascript/number-precision
+  featureId: express/arithmetic
   title: 除法静默变成了整数除法
   symptom: |
     JS 里 `7 / 2` 得 3.5，Go 里得 3。算平均值、比例、单价时不报错，
@@ -101,7 +101,7 @@
   tags: [数值, 运算]
 
 - id: pitfall-js2go-defer-in-loop
-  featureId: basics-javascript/array-iterate
+  featureId: model/finally-cleanup
   title: defer 写在循环里，资源堆到函数返回才释放
   symptom: |
     一个循环里打开若干文件，循环跑完后句柄数一直涨，
@@ -132,7 +132,7 @@
   tags: [资源, 循环]
 
 - id: pitfall-js2go-string-byte-vs-rune
-  featureId: basics-javascript/string-index-slice
+  featureId: express/string-common-ops
   title: 字符串长度不等于字符数，索引拿到的也不是字符
   symptom: |
     `len("你好")` 得 6 而不是 2；`s[0]` 拿到的是 228 这样的数字，
@@ -151,7 +151,7 @@
   tags: [字符串, 编码]
 
 - id: pitfall-js2go-goroutine-panic
-  featureId: basics-javascript/exception-flow
+  featureId: model/throw-raise
   title: goroutine 里 panic，整个程序挂掉
   symptom: |
     HTTP 服务里某个请求处理 panic，整个进程退出 ——
@@ -180,7 +180,7 @@
   tags: [并发, 错误处理]
 
 - id: pitfall-js2go-err-shadowed
-  featureId: basics-javascript/var-scope
+  featureId: express/shadowing
   title: 用 := 遮蔽了外层的 err，检查的是旧的
   symptom: |
     `if` 里用 `:=` 重新声明了 `err`，检查结果永远是通过 ——
@@ -199,7 +199,7 @@
   tags: [作用域, 错误处理]
 
 - id: pitfall-js2go-map-iteration-order
-  featureId: basics-javascript/object-iterate
+  featureId: express/maps
   title: 依赖 map 的遍历顺序，结果每次跑都不一样
   symptom: |
     本地测试稳定通过，CI 上偶发失败；日志两次跑的顺序完全不同。
@@ -224,7 +224,7 @@
   tags: [容器, 顺序]
 
 - id: pitfall-js2go-json-unexported-fields
-  featureId: basics-javascript/object-json
+  featureId: model/fields-and-properties
   title: 小写字段名，JSON 序列化出来是空对象
   symptom: |
     `json.Marshal(u)` 得到 `{}` —— 结构体里明明有值，序列化出来什么都没有。

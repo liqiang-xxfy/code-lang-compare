@@ -2,7 +2,7 @@
 # severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
 
 - id: pitfall-js2rust-move-after-use
-  featureId: concepts-javascript/value-semantics
+  featureId: mechanism/value-vs-reference
   title: 传过一次的变量就不能再用了
   symptom: 把一个 `String` 传给函数之后，下一行再用它就编译不过：`value borrowed here after move`。
   cause: Rust 默认是**移动语义**，赋值或传参会把所有权交出去；JS 里对象传的只是引用副本，原变量照样能用。
@@ -16,7 +16,7 @@
   tags: [所有权, 内存]
 
 - id: pitfall-js2rust-checked-indexing
-  featureId: basics-javascript/array-index
+  featureId: express/arrays
   title: 下标访问越界是 panic，不是 undefined
   symptom: '`arr[10]` 越界时 JS 得到 `undefined`、继续往下跑；Rust 直接 panic 终止。'
   cause: Rust 的索引运算会做边界检查，越界即 panic；而 JS 的越界只是返回 undefined，把错误推迟到"用的时候"。
@@ -29,7 +29,7 @@
   tags: [集合, 错误处理]
 
 - id: pitfall-js2rust-null-absent
-  featureId: concepts-javascript/null-value
+  featureId: mechanism/null-safety
   title: 没有 null，于是 `Option` 出现在每个可能为空的地方
   symptom: 想表达"这个字段可能没有"，发现写不出 `null`，被迫套一层 `Option<T>`。
   cause: Rust 用 `Option<T>` 在类型层面表达可空，并强制你在使用前处理 `None` 分支。
@@ -42,7 +42,7 @@
   tags: [空值, 类型]
 
 - id: pitfall-js2rust-lifetimes
-  featureId: concepts-javascript/memory
+  featureId: mechanism/lifetime
   title: 借用检查器盯着的其实是「引用活得比数据久」
   symptom: |
     函数想返回内部数据的一个引用，编译器报 `missing lifetime specifier`；
@@ -64,7 +64,7 @@
   tags: [所有权, 内存]
 
 - id: pitfall-js2rust-overflow-modes
-  featureId: basics-javascript/number-precision
+  featureId: express/arithmetic
   title: 同一份代码，开发时崩溃、上线后静默算错
   symptom: |
     本地跑测试时 `x + 1` 在边界上 panic，改了两行让测试过；
@@ -84,7 +84,7 @@
   tags: [数值, 类型]
 
 - id: pitfall-js2rust-string-byte-index
-  featureId: basics-javascript/string-index-slice
+  featureId: express/string-common-ops
   title: 按字节切字符串，遇到中文就崩
   symptom: |
     `&s[0..1]` 在英文上跑得好好的，换成 `"你好"` 就 panic：
@@ -103,7 +103,7 @@
   tags: [字符串, 编码]
 
 - id: pitfall-js2rust-borrow-while-iterate
-  featureId: basics-javascript/array-iterate
+  featureId: mechanism/ownership-borrow
   title: 遍历时改集合 —— 这次直接编译不过
   symptom: |
     `for x in &xs { xs.push(*x); }` 编译报错
@@ -124,7 +124,7 @@
   tags: [借用, 容器]
 
 - id: pitfall-js2rust-slice-is-borrow
-  featureId: basics-javascript/array-slice
+  featureId: model/slicing
   title: 以为取出来的是副本，结果原数据被锁住了
   symptom: |
     `let sub = &xs[1..3];` 之后想改 `xs`，编译报错；
@@ -142,7 +142,7 @@
   tags: [借用, 容器]
 
 - id: pitfall-js2rust-unwrap-overuse
-  featureId: basics-javascript/optional-chaining
+  featureId: mechanism/null-safety
   title: 到处 unwrap，把空值问题换了个形式搬过来
   symptom: |
     代码里几十个 `.unwrap()`，跑起来照样在某个边界输入上 panic ——
@@ -161,7 +161,7 @@
   tags: [错误处理, 空值]
 
 - id: pitfall-js2rust-clone-to-silence
-  featureId: concepts-javascript/value-semantics
+  featureId: mechanism/ownership-borrow
   title: 一被借用检查拦住就 clone，性能悄悄没了
   symptom: |
     编译过了，但代码里到处是 `.clone()`；压测时发现 CPU 大头都在
@@ -181,7 +181,7 @@
   tags: [所有权, 性能]
 
 - id: pitfall-js2rust-default-private
-  featureId: basics-javascript/function-declare
+  featureId: model/access-control
   title: 写好的函数从别的模块调不到
   symptom: |
     `mod utils;` 引入了文件，但 `utils::helper()` 编译报错
@@ -200,7 +200,7 @@
   tags: [模块, 可见性]
 
 - id: pitfall-js2rust-entry-api
-  featureId: basics-javascript/object-default
+  featureId: model/map-dict
   title: 先查再插写了两遍查找，还容易撞上借用检查
   symptom: |
     `if !m.contains_key(&k) { m.insert(k, Vec::new()); } m.get_mut(&k).unwrap().push(v);`

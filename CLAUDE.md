@@ -37,8 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > 现状：4 个板块 / **22 个存放组 / 104 个知识点 / 12 份章节分组** / **520 个对比框**
 > （104 × 5 门启用语言，**五门各 100%**）；
 > `content:validate` **error 0 / warn 7**；183 条可索引路由；162 条测试。
-> 剩下的两笔账（见台账 §0.2）：**S7.6** 速查 `featureId` 重指（6 条 R5 warn）、
-> **S8** 校对升级（1 条 R6 warn）。
+> 剩下的**一笔账**（见台账 §0.2）：**S8** 校对升级（520 条 draft → 1 条 R6 warn）。
 > 旧内容完整存档在 `content.legacy/`，**不参与构建与校验**，填新内容时可对照旧写法。
 > 分批与写作口径见 [docs/项目步骤规划与进度台账.md](docs/项目步骤规划与进度台账.md) 第 6 章。
 
@@ -250,7 +249,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 - **`rust` / `go` 是「对比列语言」**（`meta.yaml` 里 `baseline: false`）：**只写 `vs.{javascript,python,java}` 三份、不写 `baseline`** —— 它们永远不会被渲染成基准列。这条契约由 `tests/unit/pool-loader.test.ts` 的「非基准语言没有 baseline、三份 vs 写全」守着。**可见性判据是「基准自己写了内容」，不是「有没有章节分组」**。
 - **骨架期的池与分组可以自由增删改**：改池或改分组**不动任何内容文件**，这正是骨架先行的意义。这一点已有实证：`express` 池在 S7.1 从 26 个知识点 / 6 个存放组改成 27 / 7，**没有碰任何内容文件**。改动前跑一次 `npm run content:report` 看全貌。
-- **搬过来的 `pitfalls.yaml` 里 `featureId` 全指向旧架构的 id**（如 `basics-javascript/truthiness`），按方向汇总成 R5 warn。S7 收尾时按新板块重指。
+- **速查的 `featureId` 是软引用**：指向 `featureIndex` 里的全局 id，指向不存在的 id 时只断掉「陷阱 → 特性」这条反查链，不影响陷阱渲染（R5 汇总成一条 warn）。**6 个方向共 72 条已于 S7.6 全部重指**。
 - **`npm run content:report` 的逐存放组账本**是爬坡期的进度表：`have/N` 是写没写，「vs 全」是三方视角写全没有，末尾 `✔` 表示三个基准都写满（这一批可以划掉）。
 - **`src/schemas/index.ts` 里仍留着 v1 的 schema**（`snippetSchema` / `chapterSchema` / `featureSchema` / `topicConfigSchema` 等）：`registrySchema` 仍需要 `topics` 字段（现在是必填的 `z.record`，所以新 `registry.yaml` 里显式写了 `topics: {}`）。清理它们属于 S8，但**不要再新增消费者**。
 - **`docs/内容书写标准.md` 已按 v2 改写**（池 / 分组 / 存放组、`baseline` 与 `vs.<基准>`、R20–R27），但只到「操作路径准确」这一层，措辞与配图的润色留 S8。
