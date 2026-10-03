@@ -1,0 +1,227 @@
+# typescript —— practice / packages
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: packages` 的那批：
+# package-manager / dependency-declaration / version-constraint /
+# lockfile / environment-isolation / publishing。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组里 TypeScript 与 JavaScript **共用同一套包管理**，
+# 所以多数格子是 `identical` —— 不要为了填满而编出差别。
+# 真正多出来的是**类型声明的依赖**（`@types/*`）与「发布前必须先编译」这两处，
+# 它们分别落在 dependency-declaration 与 publishing 两格。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  package-manager:
+    code: |
+      // npm 随运行时一起来，项目根一个 package.json 就是全部
+      //   npm install            按清单装依赖
+      //   npm install <包名>      加一个依赖
+      //   npm ci                 按锁文件干净重装（清单与锁不一致会直接失败）
+
+      // 命令行工具用 npx 现取现用，不必全局安装
+      //   npx tsc --noEmit
+
+      // @note! 全局安装是另一回事：装进全局目录、同一时刻只有一个版本，
+      // @note! 容易与项目自己声明的版本打架 —— 项目内的工具走开发依赖
+    vs:
+      javascript: |
+        完全同一套：同一个包管理器、同一份清单结构、同一批命令。
+        TypeScript 项目就是 JavaScript 项目多了一层类型，
+        包管理这一侧一个字都不用改。
+      python: |
+        Python 要先选包管理器（标准库不带），再决定依赖写在哪；
+        这里没有这一层选择。多包工程也分得开：
+        那边要靠额外工具或约定，这里有内建的工作区机制，
+        在根清单里声明一下，包与包之间就能直接互相引用。
+      java: |
+        那边把依赖管理**长在构建工具里**，选哪个构建工具就连带换一套依赖写法；
+        这里依赖与构建是分开的两件事 —— 包管理器管依赖，
+        构建用脚本命令串起来，不绑定在某个构建工具上。
+        代价是没有那边那种「一个工具管到底」的整齐。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: divergent
+
+  dependency-declaration:
+    code: |
+      {
+        "dependencies": {
+          "zod": "^3.23.8"            // @note 运行时要用的
+        },
+        "devDependencies": {
+          "typescript": "^5.9.3",     // @note 编译器本身也是依赖
+          "@types/node": "^22.15.0"   // @note! 类型声明包：只在编译期起作用
+        },
+        "peerDependencies": {
+          "some-host": ">=18"         // @note 声明「我是给谁用的插件」
+        }
+      }
+
+      // @note 类型声明包是目前这里独有的一类依赖：
+      // @note 优先用包自带的声明文件，没有才需要单独装
+    vs:
+      javascript: |
+        清单结构与字段完全一样，多出来的是**一类依赖**：
+        类型声明包。它们只在编译期起作用、运行时不存在，
+        所以放在开发依赖里；而且不是每个库都需要 ——
+        库自带声明文件就不用装。
+        这也是从纯 JavaScript 项目切过来时唯一要改的清单内容。
+      python: |
+        依赖写在文本或 TOML 里，这里是 JSON —— 这一层只是格式。
+        真正不同的是**依赖的分类**：这里把「运行时用」「开发时用」
+        「我是给谁用的插件」分成三类写在清单里；
+        那边的清单通常只分运行时与开发两类，
+        「我给谁用」这类信息要么写进包元数据、要么写进文档。
+      java: |
+        两边都用分类表达依赖的作用范围（那边叫作用域，这里叫依赖段落），
+        大体能对上。差别在「不由我提供」那一档的**责任方**：
+        那边有一个「运行环境会提供」的档次，说的是容器或平台给你；
+        这里的「同伴依赖」说的是「用我的人得自己装」——
+        同样是「我没带」，但一个指向环境、一个指向使用者。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  version-constraint:
+    code: |
+      {
+        "dependencies": {
+          "a": "1.2.3",            // @note 精确
+          "b": "^1.2.3",           // @note 允许升到 1.x.x（不改最左边的非零位）
+          "c": "~1.2.3",           // @note 允许升到 1.2.x
+          "d": ">=1.2.3 <2.0.0"    // @note 显式区间
+        }
+      }
+
+      // @note! 0 开头的版本是特例：^0.2.3 只允许升到 0.2.x ——
+      // @note! 「不改最左边的非零位」在 0.x 里，那一带就是次版本号
+      // @note 范围只决定「能装到哪」，实际装到哪个由锁文件说了算
+    vs:
+      javascript: |
+        同一套规则、同一个实现，逐条一致 —— 这一格两边没有可写的差别。
+        唯一值得与读者对齐的是那句常识：范围决定「能装到哪」，
+        真正装到哪个版本由锁文件定，所以「清单没变但装出来的东西变了」
+        是锁文件在起作用。
+      python: |
+        符号体系不同：Python 的版本规范里**没有 `^`**，
+        「允许升到哪一版」要写兼容子句（`~=`），
+        而且版本号本身另有一套规范（预发布段、本地版本段的比较规则都写死了）。
+        这里的 `^` / `~` 沿用语义化版本那一套，两边不能互相套用。
+      java: |
+        Maven 的版本号**没有语义化版本的含义** —— 官方明说不考虑它，
+        只按字符串规则比较；区间语法也是另一套。
+        更实质的差别在**依赖冲突**：那边同一个坐标只能有一个版本胜出、
+        需要仲裁；这里的范围加锁文件允许同一棵树里装着同一个包的多个版本，
+        各自用各自的 —— 这也是「装出来的树」两边形状不同的根本原因。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: divergent
+
+  lockfile:
+    code: |
+      // package-lock.json —— 装依赖时写入，记录整棵依赖树
+      // 每个包记：精确版本 + 下载地址 + 完整性校验
+
+      // @note 应当入库 —— 别人据此装出同一套依赖
+      // @note! npm ci 按锁文件干净重装：先清空依赖目录，再严格照锁装；
+      // @note! 清单与锁文件不一致时它直接报错退出，不会顺手改锁文件
+
+      // @note 它由包管理器自动维护，不手改
+    vs:
+      javascript: |
+        同一份文件、同一条命令、同一套语义 —— 这一格没有差别。
+        所以从 JavaScript 项目切过来时，锁文件可以直接沿用，
+        连「要不要入库」的答案都一样。
+      python: |
+        这一格是两边差距最大的地方之一。Python 长期没有标准锁文件：
+        导出已装内容的那条命令官方明说**不是**求解结果，
+        真正能锁的几套方案都是第三方工具各自的格式；
+        较新的标准才把格式定下来，生态仍在过渡。
+        这里从来没有「你们项目用哪套锁定方案」这个问题。
+      java: |
+        那边默认**没有锁文件**，版本在每次构建时重新解析；
+        要锁定得显式开启对应功能才有。
+        这里默认就有，而且「按锁文件干净重装」是一条独立的命令，
+        专门用于流水线上复现构建 —— 可复现性在两边是两个成熟度。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: divergent
+
+  environment-isolation:
+    code: |
+      // 依赖装在项目目录下的 node_modules/ —— 每个项目一份
+      //   npm root -g        看全局目录在哪（命令行工具装在那里）
+
+      // 多包工程用工作区：在根清单里声明有哪些包，
+      // 装依赖时它们被提到根目录共享，包与包之间直接互相引用
+      // {
+      //   "workspaces": ["packages/*"]
+      // }
+
+      // @note! 没有「先激活环境」这一步 —— 进目录就能跑
+    vs:
+      javascript: |
+        同一套机制（同样的目录、同样的工作区字段）—— 这一格没有差别。
+        类型那一层管不到依赖装在哪里。
+      python: |
+        那边必须显式创建并**激活**虚拟环境，隔离才成立；
+        这里隔离是默认状态，没有激活这一步，
+        也就不会出现「忘了激活、装到全局去了」这类事故。
+        多包那一侧也反过来：那边要多包协作得靠额外工具，
+        这里有内建的工作区。
+      java: |
+        落点相反：Java 的依赖缓存在**用户目录**里、全局按坐标一份，
+        项目目录里看不到依赖；这里依赖就在项目目录下。
+        实际影响很直接：那边清空本地仓库是全局动作（所有项目一起受影响），
+        这里删掉依赖目录只影响这一个项目，重装也快。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: divergent
+
+  publishing:
+    code: |
+      //   npm publish                  发布到默认仓库
+      //   npm pack --dry-run           先看会打包哪些文件（不真的发布）
+
+      // 清单里几处控制发布：
+      //   "private": true              拒绝发布（内部项目用）
+      //   "files": ["dist"]            只打包这些（不写就是全都打）
+      //   "prepublishOnly": "npm run build"   发布前自动构建
+
+      // @note! 这里比纯 JavaScript 项目多一步：**声明文件要一起发出去** ——
+      // @note! 编译器能产出它（配置里打开），否则用的人拿不到任何类型
+    vs:
+      javascript: |
+        流程与字段完全一样（同一批清单字段、同一条命令）。
+        差别只在一处：这里的库**必须先把类型声明文件产出来一起发**，
+        不然用的人拿不到类型、等于白发。
+        所以发布前多跑一次编译，通常会挂成发布前的自动脚本。
+      python: |
+        两边都要「先构建产物再上传」。差别在**发布前的钩子**：
+        这里的清单里能直接挂一条「发布前先构建」的脚本、由工具自动执行；
+        那边构建与上传是两条独立命令，要串起来得靠额外的任务工具。
+      java: |
+        那边发布到中央仓要走签名与审核，是一条重得多的流程；
+        这里一条命令就完事。私有仓库两边都要配：
+        这里的配置按作用域分流写在配置文件里，
+        那边要在构建文件与设置文件两处配合。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent

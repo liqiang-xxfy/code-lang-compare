@@ -1,0 +1,172 @@
+{
+  "lang": "typescript",
+  "section": "practice",
+  "group": "testing",
+  "boxes": {
+    "test-framework": {
+      "lang": "typescript",
+      "code": "// 框架要自己挑，两类主流选择：\n//   与构建同源的那个（原生 ESM、配置与打包共用）\n//   历史更久的那个（走转译管道，生态与插件更多）\n// 运行时自带的测试运行器也能跑 TypeScript，小项目可以零依赖\n\n// ⚠ 这里比纯 JavaScript 项目多一件事：**测试代码也要过类型检查**，\n// ⚠ 所以「描述 / 用例 / 断言」这些全局函数的类型要有来源 ——\n// ⚠ 要么装框架的类型包，要么把它的类型加进配置的全局类型里\n\n// 测试文件的位置由框架的匹配规则决定（默认按文件名后缀找）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 框架要自己挑，两类主流选择：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   与构建同源的那个（原生 ESM、配置与打包共用）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   历史更久的那个（走转译管道，生态与插件更多）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 运行时自带的测试运行器也能跑 TypeScript，小项目可以零依赖</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 这里比纯 JavaScript 项目多一件事：**测试代码也要过类型检查**，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以「描述 / 用例 / 断言」这些全局函数的类型要有来源 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 要么装框架的类型包，要么把它的类型加进配置的全局类型里</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 测试文件的位置由框架的匹配规则决定（默认按文件名后缀找）</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 6,
+          "text": "这里比纯 JavaScript 项目多一件事：**测试代码也要过类型检查**，",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "所以「描述 / 用例 / 断言」这些全局函数的类型要有来源 ——",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "要么装框架的类型包，要么把它的类型加进配置的全局类型里",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>同一批框架都能用，命令行也一样。差别全在<strong>类型这一侧</strong>：\n测试代码要过类型检查，全局函数（描述、用例、断言）的类型得有来源；\n测试替身还要满足被替换者的形状。\n收益是「用例写错了、替身签名不对」这类问题在编译期就暴露，\n代价是测试目录也要进类型检查的范围，跑得慢一些。</p>\n",
+        "python": "<p>两边都要选框架（那边的标准库自带一个、主流用第三方；这里全靠第三方\n或运行时自带）。差别在类型：那边的标注不影响运行，\n测试写错了要到跑起来才知道；这里<strong>测试代码也在检查范围内</strong>，\n替身的类型不对根本跑不起来。\n所以在这边，测试与生产代码是同一套类型规则的受益者与受害者。</p>\n",
+        "java": "<p>两边都是第三方框架（或运行时自带），都按约定发现用例。\n差别在<strong>全局函数的类型来源</strong>：那边靠静态导入断言类，\n编辑器自然知道它们是什么；这里框架把描述与断言挂成全局，\n类型要额外声明一次，否则编译器不认识这些名字。\n这是从纯 JavaScript 项目切过来时最容易卡住的一步。</p>\n"
+      }
+    },
+    "assertions": {
+      "lang": "typescript",
+      "code": "expect(add(1, 2)).toBe(3);                     // 同一个值（原始值或同一个引用）\nexpect(user).toEqual({ name: \"Ada\" });         // 逐层比较内容\nexpect(user).toStrictEqual({ name: \"Ada\" });   // 更严：多出的空字段也算不同\nexpect(() => parse(\"\")).toThrow();             // 抛错\n\n// 取反、以及「断言一定会抛」这类都有对应写法\n// ⚠ 断言的目标类型来自被断言的值 —— 拿错字段、参数写反，\n// ⚠ 编译期就能发现（这在这件事上确实帮得上忙）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-function)\">expect</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">add</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">))</span><span style=\"color:var(--shiki-token-function)\">.toBe</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\">);                     </span><span style=\"color:var(--shiki-token-comment)\">// 同一个值（原始值或同一个引用）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">expect</span><span style=\"color:var(--shiki-foreground)\">(user)</span><span style=\"color:var(--shiki-token-function)\">.toEqual</span><span style=\"color:var(--shiki-foreground)\">({ name</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Ada\"</span><span style=\"color:var(--shiki-foreground)\"> });         </span><span style=\"color:var(--shiki-token-comment)\">// 逐层比较内容</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">expect</span><span style=\"color:var(--shiki-foreground)\">(user)</span><span style=\"color:var(--shiki-token-function)\">.toStrictEqual</span><span style=\"color:var(--shiki-foreground)\">({ name</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Ada\"</span><span style=\"color:var(--shiki-foreground)\"> });   </span><span style=\"color:var(--shiki-token-comment)\">// 更严：多出的空字段也算不同</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">expect</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-function)\"> parse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"\"</span><span style=\"color:var(--shiki-foreground)\">))</span><span style=\"color:var(--shiki-token-function)\">.toThrow</span><span style=\"color:var(--shiki-foreground)\">();             </span><span style=\"color:var(--shiki-token-comment)\">// 抛错</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 取反、以及「断言一定会抛」这类都有对应写法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 断言的目标类型来自被断言的值 —— 拿错字段、参数写反，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 编译期就能发现（这在这件事上确实帮得上忙）</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 7,
+          "text": "断言的目标类型来自被断言的值 —— 拿错字段、参数写反，",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "编译期就能发现（这在这件事上确实帮得上忙）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>同一套断言 API（连方法名都一样），这里多一层类型检查。\n用处很具体：断言里写错字段名、传错类型的期望值，\n在那边要跑起来才报错，这里编译期就被拦下。\n代价是期望值也得写对类型 —— 想断言一个「本来就不该是那个类型」\n的东西，得先把它断言成宽类型，这里会啰嗦一点。</p>\n",
+        "python": "<p>两边风格不同：那边一个流派用<strong>裸断言语句加表达式</strong>，\n失败时由框架重写断言、给出详细的差异对比；\n这里与另一个流派是方法链式调用，失败信息由断言方法提供。\n共同点是都不靠「把两个值打印出来自己看」。\n类型上这边的收益更明显：那边断言写错只有跑起来才知道。</p>\n",
+        "java": "<p>两边都是断言方法，命名也相近。差别在<strong>比较的分档</strong>：\n这里有「同一个值」「内容相等」「连类型与多余字段都算」三档，\n测对象时可以按需要挑；那边相等与不等两种为主，\n需要深比较时往往要自己实现相等性判断。\n测复杂对象时，这个分档带来的体感差别很大。</p>\n"
+      }
+    },
+    "mocking": {
+      "lang": "typescript",
+      "code": "// 两个主流框架的替身 API 几乎一样，下面是其中一套：\nconst fake = vi.fn();                    // 造一个假函数\nvi.spyOn(obj, \"method\");                 // 监视并可选替换某个方法\nvi.mock(\"./module\");                     // 整个模块换掉\n\n// ⚠ 模块替换的调用会被**提升到文件顶部** ——\n// ⚠ 所以替换工厂里用不了文件里其他变量（有专门的绕过写法）\n// 这里比纯 JavaScript 多一层：假函数与假模块的形状要满足类型，\n// 写错了编译期就报错\n\n// 两套框架有一处已知差异：其中一套的替换工厂允许是异步的",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两个主流框架的替身 API 几乎一样，下面是其中一套：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> fake</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> vi</span><span style=\"color:var(--shiki-token-function)\">.fn</span><span style=\"color:var(--shiki-foreground)\">();                    </span><span style=\"color:var(--shiki-token-comment)\">// 造一个假函数</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">vi</span><span style=\"color:var(--shiki-token-function)\">.spyOn</span><span style=\"color:var(--shiki-foreground)\">(obj</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"method\"</span><span style=\"color:var(--shiki-foreground)\">);                 </span><span style=\"color:var(--shiki-token-comment)\">// 监视并可选替换某个方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">vi</span><span style=\"color:var(--shiki-token-function)\">.mock</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"./module\"</span><span style=\"color:var(--shiki-foreground)\">);                     </span><span style=\"color:var(--shiki-token-comment)\">// 整个模块换掉</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 模块替换的调用会被**提升到文件顶部** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以替换工厂里用不了文件里其他变量（有专门的绕过写法）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这里比纯 JavaScript 多一层：假函数与假模块的形状要满足类型，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 写错了编译期就报错</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两套框架有一处已知差异：其中一套的替换工厂允许是异步的</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 6,
+          "text": "模块替换的调用会被**提升到文件顶部** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "所以替换工厂里用不了文件里其他变量（有专门的绕过写法）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>同一套 API，差别在类型：假函数、被替换的模块、监视的方法，\n形状都要对得上，写错了编译不过。\n好处是「替身与被替的东西长得不一样」这类错误提前暴露；\n坏处是要给替身补类型，简单的场景也得写几行。</p>\n",
+        "python": "<p>那边能在运行时给任何属性打补丁，包括模块里的自由函数；\n这里同样能替换整个模块，但替换是按<strong>导入路径</strong>指定的，\n而不是按名字去改一个已经存在的对象。\n两边都能校验调用次数与参数。差别在时机：\n那边的补丁可以事后加、随意撤销，这里的替换在文件顶部就定了。</p>\n",
+        "java": "<p>那边的打桩库靠动态代理与字节码增强，因此能给<strong>只有接口、\n没有实现</strong>的类型生成替身；这里的替身是假函数与模块替换，\n总得有个真实存在的东西可以替。\n两边都有「指定返回值 + 校验调用次数」这一套，形态接近，\n差别在替身从哪来：一边是凭空生成，一边是先有实物再换掉。</p>\n"
+      }
+    },
+    "parameterized-tests": {
+      "lang": "typescript",
+      "code": "test.each([\n  [\"42\", 42],\n  [\"-7\", -7],\n  [\"\", 0],\n])(\"parse(%s) = %i\", (input, want) => {\n  expect(parse(input)).toBe(want);\n});\n\n// 用例名里的占位符与参数一一对应（字符串与数字各有符号）\n// 失败时用例名带参数值，一眼看出是哪一组\n// ⚠ 回调参数的类型由表格**推断**出来 ——\n// ⚠ 表里的列数或类型写错了，编译期就报错",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">test</span><span style=\"color:var(--shiki-token-function)\">.each</span><span style=\"color:var(--shiki-foreground)\">([</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  [</span><span style=\"color:var(--shiki-token-string-expression)\">\"42\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 42</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-punctuation)\">,</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  [</span><span style=\"color:var(--shiki-token-string-expression)\">\"-7\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> -</span><span style=\"color:var(--shiki-token-constant)\">7</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-punctuation)\">,</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  [</span><span style=\"color:var(--shiki-token-string-expression)\">\"\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-punctuation)\">,</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">])(</span><span style=\"color:var(--shiki-token-string-expression)\">\"parse(%s) = %i\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> (input</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> want) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  expect</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">parse</span><span style=\"color:var(--shiki-foreground)\">(input))</span><span style=\"color:var(--shiki-token-function)\">.toBe</span><span style=\"color:var(--shiki-foreground)\">(want);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">});</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 用例名里的占位符与参数一一对应（字符串与数字各有符号）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 失败时用例名带参数值，一眼看出是哪一组</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 回调参数的类型由表格**推断**出来 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 表里的列数或类型写错了，编译期就报错</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 11,
+          "text": "回调参数的类型由表格**推断**出来 ——",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "表里的列数或类型写错了，编译期就报错",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>同一个 API。这里的收益是<strong>表格与回调的类型自动对上</strong>：\n表里每行几项、什么类型，回调参数就按那个推断；\n行里少写一项、类型不符，编译期就报错。\n在那边这类错误要跑到测试才暴露 —— 对一张几十行的用例表来说，\n这个差别不小。</p>\n",
+        "python": "<p>两边都是「同一段逻辑跑多组输入」，写法不同：\n那边用装饰器声明，多个装饰器叠加会做成笛卡尔积；\n这里用带表格的调用，写的是一张表，一行一组。\n都能给用例命名、都能单跑某一组。\n类型上这里更严：表格里的列要与回调参数对得上。</p>\n",
+        "java": "<p>两边都能声明一组用例并逐个报告。差别在<strong>数据能不能算出来</strong>：\n那边的用例来源可以指向一个方法，因此用例能由代码动态生成；\n这里的表格是字面量，更紧凑但不能算。\n组合爆炸的场景那边更合适，「一堆固定的输入输出对照」这里更顺手。</p>\n"
+      }
+    },
+    "coverage": {
+      "lang": "typescript",
+      "code": "// 覆盖率住在**测试运行器自己的配置**里，与编译器无关\n//   一套用的是运行时自带的统计（默认，不用插桩）\n//   另一套用的是传统插桩方案\n// 两者都能设阈值，低于阈值让流水线失败\n\n// ⚠ 覆盖率工具同样**不做类型检查** —— 它只统计跑过哪些代码\n// ⚠ 所以「覆盖率 100%」与「类型正确」是两件互相独立的事，\n// ⚠ 流水线上这两步要分别跑",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 覆盖率住在**测试运行器自己的配置**里，与编译器无关</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   一套用的是运行时自带的统计（默认，不用插桩）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   另一套用的是传统插桩方案</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两者都能设阈值，低于阈值让流水线失败</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 覆盖率工具同样**不做类型检查** —— 它只统计跑过哪些代码</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以「覆盖率 100%」与「类型正确」是两件互相独立的事，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 流水线上这两步要分别跑</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 6,
+          "text": "覆盖率工具同样**不做类型检查** —— 它只统计跑过哪些代码",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "所以「覆盖率 100%」与「类型正确」是两件互相独立的事，",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "流水线上这两步要分别跑",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "identical",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>完全同一套：同一批工具、同样的配置位置、同样的阈值机制。\n这一格两边没有差别 —— 类型那一层不参与覆盖率统计。</p>\n",
+        "python": "<p>两边都是测试运行器的能力，都能出报告、都能设阈值卡流水线。\n差别在配置摆在哪（那边通常在专门的配置段里，\n这里就在测试运行器的配置对象里）。\n共同点是两边都要记住：覆盖率不检查类型，\n它只回答「哪些代码被执行过」。</p>\n",
+        "java": "<p>那边的覆盖率要靠插件接进构建工具才有报告；\n这里住在测试运行器的配置里，与构建工具无关。\n两边都把覆盖率当成流水线的一道门（可设阈值），\n也都不等价于类型正确 —— 这一点在两边都容易被当成一回事。</p>\n"
+      }
+    }
+  }
+}

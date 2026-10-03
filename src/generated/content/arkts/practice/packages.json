@@ -1,0 +1,172 @@
+{
+  "lang": "arkts",
+  "section": "practice",
+  "group": "packages",
+  "boxes": {
+    "package-manager": {
+      "lang": "arkts",
+      "code": "// 依赖交给 ohpm（OpenHarmony Package Manager）—— 工具链自带\n//   ohpm install                    按清单装依赖\n//   ohpm install <包名>             加一个依赖\n//   ohpm publish <目录>             发布\n\n// ⚠ 依赖与构建是**两套命令**：ohpm 管依赖，hvigorw 管构建\n// 官方中心仓是 ohpm.openharmony.cn；内网私仓用官方工具 ohpm-repo 自建\n// 没有「选一个包管理器」这一步 —— 官方只有这一个",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 依赖交给 ohpm（OpenHarmony Package Manager）—— 工具链自带</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   ohpm install                    按清单装依赖</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   ohpm install &#x3C;包名>             加一个依赖</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   ohpm publish &#x3C;目录>             发布</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 依赖与构建是**两套命令**：ohpm 管依赖，hvigorw 管构建</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 官方中心仓是 ohpm.openharmony.cn；内网私仓用官方工具 ohpm-repo 自建</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有「选一个包管理器」这一步 —— 官方只有这一个</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 6,
+          "text": "依赖与构建是**两套命令**：ohpm 管依赖，hvigorw 管构建",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>思路相近（清单 + 锁文件 + 中心仓），规模差得远 ——\n这里的仓里是给这个平台用的三方库，数量与那边不是一个量级。\n更实际的一处差别是<strong>命令的划分</strong>：那边常见「一条脚本命令把构建、\n测试、发布串起来」，这里的依赖与构建是两条独立的命令，\n各管一段，不互相调用。</p>\n",
+        "python": "<p>Python 要先选包管理器（标准库不带，主流有好几个），\n再决定依赖写在哪；这里没有这一层选择 —— 官方只给一个工具，\n随命令行工具一起装好，装完就能用。\n另一处差别是依赖的落点（见「环境隔离」那一格）：\n那边要显式建虚拟环境，这里默认就是工程内。</p>\n",
+        "java": "<p>Java 的依赖管理<strong>长在构建工具里</strong>：选 Maven 还是 Gradle，\n连带依赖那一套写法一起换。这里两者是分开的 ——\n依赖归 ohpm、构建归 hvigorw，换不了也拆不开。\n好处是依赖这件事只有一种写法；代价是没法像 Java 那样\n用一个工具串起从编译到发布的整条链。</p>\n"
+      }
+    },
+    "dependency-declaration": {
+      "lang": "arkts",
+      "code": "// oh-package.json5 —— 工程级与模块级各一份，允许写注释（JSON5）\n{\n  \"dependencies\": {\n    \"@ohos/axios\": \"^2.2.0\"        // 运行时依赖\n  },\n  \"devDependencies\": {\n    \"@ohos/hypium\": \"1.0.21\"       // 只在开发与测试期用\n  },\n  \"dynamicDependencies\": {\n    \"lib\": \"file:./library\"        // 动态共享包（HSP）写在这里\n  }\n}\n\n// 官方建议：工程级那份别放业务依赖（除 devDependencies 外）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// oh-package.json5 —— 工程级与模块级各一份，允许写注释（JSON5）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">{</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">  \"dependencies\"</span><span style=\"color:var(--shiki-foreground)\">: {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">    \"@ohos/axios\"</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"^2.2.0\"</span><span style=\"color:var(--shiki-token-comment)\">        // 运行时依赖</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">  \"devDependencies\"</span><span style=\"color:var(--shiki-foreground)\">: {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">    \"@ohos/hypium\"</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"1.0.21\"</span><span style=\"color:var(--shiki-token-comment)\">       // 只在开发与测试期用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">  \"dynamicDependencies\"</span><span style=\"color:var(--shiki-foreground)\">: {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">    \"lib\"</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"file:./library\"</span><span style=\"color:var(--shiki-token-comment)\">        // 动态共享包（HSP）写在这里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 官方建议：工程级那份别放业务依赖（除 devDependencies 外）</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>形态最接近的一格：都是 JSON、都有 dependencies 与 devDependencies。\n差别在<strong>清单的份数</strong> —— 这里的<strong>工程与每个模块各有一份</strong>，\n模块自己的依赖写在模块自己的清单里，天然分层；\n那边是单份 package.json，多包要靠 workspaces 才能表达同一件事。\n另一处小的便利：这里允许写注释（JSON5），\n而标准 JSON 不允许，那边的 package.json 里想留说明只能靠字段名。</p>\n",
+        "python": "<p>依赖写在文本或 TOML 里，这里写在 JSON5 里 ——\n都能写注释，这一点比标准 JSON 友好。\n真正的差别在<strong>层次</strong>：Python 的依赖清单是「一个项目一份」，\n多包项目要额外机制；这里的工程与模块天然各有一份清单，\n模块依赖哪份库在模块目录里就能看到。</p>\n",
+        "java": "<p>Java 把依赖写在<strong>构建文件</strong>里（pom.xml / build.gradle），\n声明依赖与声明构建方式是同一份文件；\n这里分成了两个文件：oh-package.json5 管依赖、\nbuild-profile.json5 管构建。好处是两件事互不干扰，\n代价是读一个工程要先知道该翻哪一份。</p>\n"
+      }
+    },
+    "version-constraint": {
+      "lang": "arkts",
+      "code": "// 版本区间的写法与 npm 那一套一致\n{\n  \"dependencies\": {\n    \"a\": \"1.2.3\",        // 精确\n    \"b\": \"^1.2.3\",       // 脱字符：锁主版本，可升到 1.x.x\n    \"c\": \"~1.2.3\",       // 波浪号：锁主次版本，可升到 1.2.x\n    \"d\": \">=1.2.3\",      // 下限\n    \"e\": \"tag:beta\"      // 按标签取\n  }\n}\n\n// ⚠ 发布到中心仓的版本号必须是**三段式**（1.2.3）——\n// ⚠ 带预发布后缀的版本号会被拒绝，不能发布出去\n// 范围匹配时优先选正式版，没有匹配才退到 beta / rc",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本区间的写法与 npm 那一套一致</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">{</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">  \"dependencies\"</span><span style=\"color:var(--shiki-foreground)\">: {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">    \"a\"</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"1.2.3\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-comment)\">        // 精确</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">    \"b\"</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"^1.2.3\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-comment)\">       // 脱字符：锁主版本，可升到 1.x.x</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">    \"c\"</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"~1.2.3\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-comment)\">       // 波浪号：锁主次版本，可升到 1.2.x</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">    \"d\"</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \">=1.2.3\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-comment)\">      // 下限</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-string-expression)\">    \"e\"</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-string-expression)\"> \"tag:beta\"</span><span style=\"color:var(--shiki-token-comment)\">      // 按标签取</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 发布到中心仓的版本号必须是**三段式**（1.2.3）——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 带预发布后缀的版本号会被拒绝，不能发布出去</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 范围匹配时优先选正式版，没有匹配才退到 beta / rc</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 12,
+          "text": "发布到中心仓的版本号必须是**三段式**（1.2.3）——",
+          "tone": "warn"
+        },
+        {
+          "line": 13,
+          "text": "带预发布后缀的版本号会被拒绝，不能发布出去",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>这一格最接近：<code>^</code> 与 <code>~</code> 的含义与那边逐条一致，\n连「0 开头的版本特殊处理」这类细节也同源。\n差别在<strong>发布侧的约束</strong>：这里只接受三段式的版本号，\n预发布后缀不能作为发布版本；那边没有这条限制。</p>\n",
+        "python": "<p>符号体系完全不同：Python 的版本规范里<strong>没有 <code>^</code></strong>，\n「允许升到哪一版」要写兼容子句（<code>~=1.4.2</code>）。\n两个 <code>~</code> 长得像但语义不同 —— 这里的 <code>~1.2.3</code> 允许升到 <code>1.2.x</code>，\n那边的 <code>~=1.2.3</code> 允许升到 <code>1.2.*</code>，看着一样、\n但推导规则来自各自的规范，不能互相套用。</p>\n",
+        "java": "<p>Maven 的版本号<strong>没有语义化版本这回事</strong> —— 官方明说不考虑\n语义化版本所隐含的含义，只按字符串规则比较。\n所以「<code>^1.2</code> 意味着什么」这个问题在两边不是一个问题：\n这里有一套明确的区间运算符，那边是坐标加可选的区间语法，\n语义由 Maven 自己定义。</p>\n"
+      }
+    },
+    "lockfile": {
+      "lang": "arkts",
+      "code": "// oh-package-lock.json5 —— 装完依赖后自动生成在**工程根目录**\n// 记录每个依赖的：精确版本 + 下载地址 + 完整性校验（sha512）\n// 文件头写着 AUTOGENERATED / DO NOT EDIT\n\n// ⚠ 官方建议**入库** —— 别人据此装出同一套依赖\n// 它由安装命令自动维护，不需要（也不应该）手改\n\n// 多模块工程也只有工程根这一份，不在各模块下各放一个",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// oh-package-lock.json5 —— 装完依赖后自动生成在**工程根目录**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 记录每个依赖的：精确版本 + 下载地址 + 完整性校验（sha512）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 文件头写着 AUTOGENERATED / DO NOT EDIT</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 官方建议**入库** —— 别人据此装出同一套依赖</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 它由安装命令自动维护，不需要（也不应该）手改</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 多模块工程也只有工程根这一份，不在各模块下各放一个</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 5,
+          "text": "官方建议**入库** —— 别人据此装出同一套依赖",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边职责相同：锁定精确版本 + 记录完整性校验，都建议入库。\n差别在<strong>位置与份数</strong>：那边是每个 package.json 旁边一个锁文件，\n多包工程里会有好几份；这里是工程根一份。\n另一处是格式：这里是 JSON5，文件里能带说明性注释\n（尽管官方要求不要手改）。</p>\n",
+        "python": "<p>这一格是 Python 生态的老问题：长期没有标准锁文件 ——\n导出已装包的那条命令官方明说<strong>不是</strong>求解结果，\n真正能锁的几套方案都是第三方工具各自的格式；\n直到较新的标准才把锁文件格式定下来，而生态仍在过渡。\n这里从一开始就只有一种锁文件，不存在「你们项目用哪套锁定方案」这个问题。</p>\n",
+        "java": "<p>Maven <strong>默认没有锁文件</strong> —— 版本在每次构建时重新解析，\n因此「今天装的和明天装的」理论上可以不同；\nGradle 有依赖锁定，但要显式开启才有。\n这里是默认就有、且官方建议入库，可复现性是开箱状态。</p>\n"
+      }
+    },
+    "environment-isolation": {
+      "lang": "arkts",
+      "code": "// 依赖装在**工程内**：<工程根>/oh_modules/\n//   ohpm 1.4 起统一放在 oh_modules/.ohpm/ 下，各模块目录里是软链接\n// 用户目录下只有**缓存**（下载过的包），安装落点始终在工程内\n\n// ⚠ 没有「全局装了一个包，所有工程都受影响」这种情况\n// ⚠ 也没有「先激活环境再构建」这一步 —— 进目录就能构建",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 依赖装在**工程内**：&#x3C;工程根>/oh_modules/</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   ohpm 1.4 起统一放在 oh_modules/.ohpm/ 下，各模块目录里是软链接</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 用户目录下只有**缓存**（下载过的包），安装落点始终在工程内</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有「全局装了一个包，所有工程都受影响」这种情况</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 也没有「先激活环境再构建」这一步 —— 进目录就能构建</span></span></code></pre>",
+      "lineCount": 6,
+      "notes": [
+        {
+          "line": 5,
+          "text": "没有「全局装了一个包，所有工程都受影响」这种情况",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "也没有「先激活环境再构建」这一步 —— 进目录就能构建",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都是工程内隔离（各自一个依赖目录），这一点相同。\n差别在<strong>多模块工程的组织</strong>：那边要把多个包的依赖提到顶层共享，\n得引入 workspaces；这里的多模块是工程的原生概念，\n依赖自动集中到工程根、各模块用软链接指过去，\n不需要额外声明。</p>\n",
+        "python": "<p>这是从 Python 过来最省心的一处：那边要先创建并<strong>激活</strong>虚拟环境，\n隔离才成立；这里的隔离是默认状态 —— 依赖就在工程目录里，\n没有激活这一步，也不会出现「忘了激活、装到全局去了」。\n代价是也没有「一个环境跑多个项目」这种用法，隔离是硬的。</p>\n",
+        "java": "<p>落点正好相反：Java 的依赖缓存在<strong>用户目录</strong>（本地仓库），\n全局按坐标存放一份，工程目录里看不到依赖；\n这里依赖装在<strong>工程内</strong>，用户目录只放缓存。\n实际影响很直接：那边「清空本地仓库」是全局动作（影响所有项目），\n这里删掉依赖目录只影响这一个工程，重装也快。</p>\n"
+      }
+    },
+    "publishing": {
+      "lang": "arkts",
+      "code": "// 发布一个供别人依赖的包\n// ohpm publish ./library        // —— 目录、.har 或 .tgz 都行\n// ⚠ 共享包要打成 HAR（静态共享包）或 HSP（动态共享包）：\n// ⚠ HAR 编译期被拷进每个引用它的产物；HSP 运行时共享同一份\n\n// 私仓与作用域仓写在 .ohpmrc 里（用户级或工程级）\n//   registry=https://ohpm.openharmony.cn/ohpm/\n//   @myco:registry=https://my-ohpm.internal/repo/\n// 内网私仓用官方工具 ohpm-repo 自建，认证可用 token 或证书",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 发布一个供别人依赖的包</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ohpm publish ./library        // —— 目录、.har 或 .tgz 都行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 共享包要打成 HAR（静态共享包）或 HSP（动态共享包）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ HAR 编译期被拷进每个引用它的产物；HSP 运行时共享同一份</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 私仓与作用域仓写在 .ohpmrc 里（用户级或工程级）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   registry=https://ohpm.openharmony.cn/ohpm/</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   @myco:registry=https://my-ohpm.internal/repo/</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 内网私仓用官方工具 ohpm-repo 自建，认证可用 token 或证书</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 3,
+          "text": "共享包要打成 HAR（静态共享包）或 HSP（动态共享包）：",
+          "tone": "warn"
+        },
+        {
+          "line": 4,
+          "text": "HAR 编译期被拷进每个引用它的产物；HSP 运行时共享同一份",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都是「传到中心仓、占住版本号」，流程形状一致。\n差别在<strong>发布物的形态</strong>：那边发布源码加元数据，消费方自己打包；\n这里要先把库打成共享包再发布，而且有两种形态可选 ——\n编译期拷贝进去的，和运行时共享同一份的。\n这个选择在那边不存在（模块就是模块）。</p>\n",
+        "python": "<p>Python 也要先构建产物（wheel / 源码包）再上传，这一点相同。\n差别在<strong>共享方式</strong>：那边的包被各自复制进各自的环境，\n同一个库在十个项目里就是十份；这里的动态共享包能做到\n多个模块在运行时用同一份，改一处全局生效。</p>\n",
+        "java": "<p>Java 发布到中央仓要走签名与审核，是几门里最重的一套流程；\n这里一条发布命令就完了。\n私仓那一侧两边都要自建（这里用官方工具，Java 用 Nexus 这类服务），\n差别是这里的私仓配置写在配置文件里、按作用域分流，\nJava 那边则是构建工具与设置文件两处配合。</p>\n"
+      }
+    }
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "lang": "arkts",
+  "section": "model",
+  "group": "errors",
+  "boxes": {
+    "throw-raise": {
+      "lang": "arkts",
+      "code": "throw new Error(\"出错了\");        // 只能抛 Error 及其子类 —— 编译期规则\nthrow new TypeError(\"类型不对\");  // 内建子类表达具体问题\n\nfunction fail(msg: string): void {\n  throw new Error(msg);           // 抛出会打断当前函数，沿调用栈上抛\n}\n\n// 抛出是一次控制流跳转：调用栈上没有 catch 接住，就一直往外抛",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"出错了\"</span><span style=\"color:var(--shiki-foreground)\">);        </span><span style=\"color:var(--shiki-token-comment)\">// 只能抛 Error 及其子类 —— 编译期规则</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"类型不对\"</span><span style=\"color:var(--shiki-foreground)\">);  </span><span style=\"color:var(--shiki-token-comment)\">// 内建子类表达具体问题</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> fail</span><span style=\"color:var(--shiki-foreground)\">(msg</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> string</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> void</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">(msg);           </span><span style=\"color:var(--shiki-token-comment)\">// 抛出会打断当前函数，沿调用栈上抛</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 抛出是一次控制流跳转：调用栈上没有 catch 接住，就一直往外抛</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>抛出机制与 JavaScript 同形：<code>throw</code> 是一次沿调用栈上抛的控制流跳转。\n差别在<strong>能抛什么</strong> —— JavaScript 里 <code>throw 4</code>、<code>throw &quot;出错了&quot;</code> 都合法，\n这里只许抛 <code>Error</code> 及其子类，抛别的直接是编译错误。也就是说\n「拿数字或字符串当异常」这种写法在这里根本写不出来，\n同一段代码搬过来会先被编译器拦住。</p>\n",
+        "python": "<p>Python 的 <code>raise</code> 只接受异常类的实例（或类本身），抛别的当场 TypeError；\nArkTS 的 <code>throw</code> 与这套静态类型系统配合，抛出的值同样要能通过检查。\n两边都是一次打断流程、沿调用栈上抛的跳转，差别在「谁把关」：\nPython 的约束在运行时兑现，ArkTS 在编译期就拒绝不合规的写法。</p>\n",
+        "java": "<p>Java 只能抛 <code>Throwable</code> 的子类，抛别的编译不过，受检异常还要写进方法签名\n的 <code>throws</code>；ArkTS 没有受检异常这一层，方法签名上不体现「会不会抛」，\n抛出的写法也更轻。差别在「会不会抛」看不看得见：Java 把它摊在签名上，\nArkTS 只能靠读代码。</p>\n"
+      }
+    },
+    "try-catch": {
+      "lang": "arkts",
+      "code": "try {\n  risky();\n} catch (e) {\n  // 只有一个 catch 块，要按类型分就自己写 instanceof\n  if (e instanceof TypeError) {\n    handle(e);\n  } else {\n    throw e;                 // 不处理的要原样抛回去\n  }\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  risky</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // 只有一个 catch 块，要按类型分就自己写 instanceof</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (e </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    handle</span><span style=\"color:var(--shiki-foreground)\">(e);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  } </span><span style=\"color:var(--shiki-token-keyword)\">else</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    throw</span><span style=\"color:var(--shiki-foreground)\"> e;                 </span><span style=\"color:var(--shiki-token-comment)\">// 不处理的要原样抛回去</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都是<strong>一个 catch 块</strong>：不分类型，要区分就在块里手写 <code>instanceof</code>\n分支，机制完全同形。ArkTS 没有给「接住错误」这件事加语言级的新东西，\n差别仍落在它整体更严的静态检查上。</p>\n",
+        "python": "<p>Python 的 <code>except</code> 可以按类型写多个分支、从上往下匹配，还多一个 <code>else</code>\n分支；ArkTS 只有一个 catch 块，类型判断全靠手写的 <code>instanceof</code> 链，\n漏掉一种既不报错也不提醒。不处理的异常两边都要原样抛回去。</p>\n",
+        "java": "<p>Java 同样支持多个 <code>catch</code> 按类型分支，而且<strong>编译器会检查顺序</strong>\n（子类写在父类之后直接编译不过）；ArkTS 只有一个 catch 块，\n<code>instanceof</code> 链写反了只是逻辑错，没人提醒。两边不处理的异常都该原样抛出。</p>\n"
+      }
+    },
+    "finally-cleanup": {
+      "lang": "arkts",
+      "code": "try {\n  acquire();\n  doWork();                // ⚠ 即使这里 return，finally 也会执行\n} finally {\n  release();               // 无论正常还是出错，都会执行\n}\n\n// ⚠ finally 里的 return / throw 会吞掉原来的返回值或异常\nfunction f(): number {\n  try { return 1; } finally { return 2; }   // 返回 2\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  acquire</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  doWork</span><span style=\"color:var(--shiki-foreground)\">();                </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 即使这里 return，finally 也会执行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">finally</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  release</span><span style=\"color:var(--shiki-foreground)\">();               </span><span style=\"color:var(--shiki-token-comment)\">// 无论正常还是出错，都会执行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ finally 里的 return / throw 会吞掉原来的返回值或异常</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> f</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; } </span><span style=\"color:var(--shiki-token-keyword)\">finally</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">; }   </span><span style=\"color:var(--shiki-token-comment)\">// 返回 2</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 3,
+          "text": "即使这里 return，finally 也会执行",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "finally 里的 return / throw 会吞掉原来的返回值或异常",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "identical",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><code>finally</code> 的语义与 JavaScript 完全一样 —— 正常返回、抛异常、<code>return</code>\n都会执行，<code>finally</code> 里的 <code>return</code> / <code>throw</code> 同样会吞掉原来的结果。\nArkTS 也没有「可释放对象」式的资源语法，清理只能手写。</p>\n",
+        "python": "<p>两边都会执行收尾代码，也都会在某处 <code>return</code> 时先跑完 finally 再返回结果。\n差别在资源释放的惯用写法：Python 有 <code>with</code> 语句，把清理交给上下文管理器，\n比手写 try/finally 更难写错；ArkTS 只有手写的 finally，没有等价的机制。</p>\n",
+        "java": "<p>Java 的 <code>finally</code> 语义一致，但资源管理有 <strong>try-with-resources</strong>：把资源写进\n<code>try (...)</code> 由编译器生成关闭代码，还会把「关闭时又出错」记成 suppressed、\n不盖掉原始异常；ArkTS 只能手写 finally，关闭时的异常会盖掉原来那个。</p>\n"
+      }
+    },
+    "error-types": {
+      "lang": "arkts",
+      "code": "let e = new Error(\"通用\");    // 基类\nnew TypeError(\"类型错\");\nnew RangeError(\"越界\");\nnew SyntaxError(\"语法错\");\n\ne instanceof Error;           // 内建错误都继承自 Error\ne.message;                    // 人类可读的描述\n\n// ⚠ 标准类型只对应引擎自身抛出的错误 —— 业务错误要自己定义",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> e </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"通用\"</span><span style=\"color:var(--shiki-foreground)\">);    </span><span style=\"color:var(--shiki-token-comment)\">// 基类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"类型错\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> RangeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"越界\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> SyntaxError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"语法错\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">e </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">;           </span><span style=\"color:var(--shiki-token-comment)\">// 内建错误都继承自 Error</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">e</span><span style=\"color:var(--shiki-foreground)\">.message;                    </span><span style=\"color:var(--shiki-token-comment)\">// 人类可读的描述</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 标准类型只对应引擎自身抛出的错误 —— 业务错误要自己定义</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 9,
+          "text": "标准类型只对应引擎自身抛出的错误 —— 业务错误要自己定义",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>错误类型这套与 JavaScript 共用一份 —— 同样是 <code>Error</code> 基类加几个引擎内部\n用的子类，靠 <code>instanceof</code> 分派。ArkTS 没有为业务错误提供新的标准类型，\n差别仍是它更严的静态检查。</p>\n",
+        "python": "<p>Python 的异常体系大得多，而且是<strong>语言的一部分</strong>：所有异常继承 <code>BaseException</code>，\n业务代码继承 <code>Exception</code>，标准库为文件、键、类型等各自定义了具体类型；\nArkTS 的标准错误类型基本只对应引擎自己抛出的那几种，业务错误一律自己定义。</p>\n",
+        "java": "<p>Java 的异常是一棵庞大的标准层级（<code>Throwable</code> → <code>Error</code> / <code>Exception</code> →\n一堆子类），文件、网络、SQL 各有自己的类型；ArkTS 的标准类型只覆盖引擎\n自身的错误，业务错误一律自己定义。两边都靠 <code>instanceof</code> 分派，\n但 Java 还有受检 / 不受检这条语言级的分线，ArkTS 没有。</p>\n"
+      }
+    },
+    "custom-error": {
+      "lang": "arkts",
+      "code": "class ValidationError extends Error {\n  field: string;                       // 字段要写类型\n  constructor(field: string) {\n    super(`字段 ${field} 不合法`);      // 先调 super\n    this.name = \"ValidationError\";      // ⚠ 默认是 \"Error\"，要手动改\n    this.field = field;                 // 可以带上下文\n  }\n}\n\n// 不需要补原型链 —— 原型改写在这里被禁止，静态编译下也没有老目标的问题\nnew ValidationError(\"email\") instanceof ValidationError;   // true",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> ValidationError</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  field</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> string</span><span style=\"color:var(--shiki-foreground)\">;                       </span><span style=\"color:var(--shiki-token-comment)\">// 字段要写类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  constructor</span><span style=\"color:var(--shiki-foreground)\">(field</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> string</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    super</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">`字段 </span><span style=\"color:var(--shiki-token-keyword)\">${</span><span style=\"color:var(--shiki-foreground)\">field</span><span style=\"color:var(--shiki-token-keyword)\">}</span><span style=\"color:var(--shiki-token-string-expression)\"> 不合法`</span><span style=\"color:var(--shiki-foreground)\">);      </span><span style=\"color:var(--shiki-token-comment)\">// 先调 super</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    this</span><span style=\"color:var(--shiki-foreground)\">.name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"ValidationError\"</span><span style=\"color:var(--shiki-foreground)\">;      </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 默认是 \"Error\"，要手动改</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    this</span><span style=\"color:var(--shiki-foreground)\">.field </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> field;                 </span><span style=\"color:var(--shiki-token-comment)\">// 可以带上下文</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 不需要补原型链 —— 原型改写在这里被禁止，静态编译下也没有老目标的问题</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> ValidationError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"email\"</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> ValidationError</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 5,
+          "text": "默认是 \"Error\"，要手动改",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>写法同形：<code>extends Error</code>、先 <code>super(message)</code>、再把 <code>name</code> 改成自己的类名。\n差别在一处：JavaScript 在老编译目标下要补原型链才能让 <code>instanceof</code> 生效，\nArkTS 禁止原型改写，也不需要这一步 —— 它不做「降级到老目标」的那种编译。</p>\n",
+        "python": "<p>Python 继承 <code>Exception</code> 定义自定义异常，不用手动改名字也不用管原型链，\n类名就是类型名；ArkTS 这边要记得把 <code>name</code> 改对，字段还得声明类型\n（<code>field: string</code>），属性不能随手挂。两边都很轻，差别是 ArkTS 多一层静态约束。</p>\n",
+        "java": "<p>Java 定义异常类时<strong>必须选父类</strong>（受检还是不受检），这个选择会影响所有\n调用方的签名；ArkTS 没有受检异常这一层，自定义错误想抛就抛。\n两边都靠 <code>instanceof</code> 分派，但 ArkTS 还得手动把 <code>name</code> 改对，\nJava 的类名本身就是类型名。</p>\n"
+      }
+    },
+    "error-propagation": {
+      "lang": "arkts",
+      "code": "function readConfig(): string {\n  return parse(read(path));       // 不在这里处理，出错自然上抛\n}\n\n// 想加一层语境：抛一个自己定义的错误，把原错误放进字段里\nclass ConfigError extends Error {\n  original: Error;\n  constructor(msg: string, original: Error) {\n    super(msg);\n    this.original = original;     // 保留底层原因\n  }\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> readConfig</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> string</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-function)\"> parse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">read</span><span style=\"color:var(--shiki-foreground)\">(path));       </span><span style=\"color:var(--shiki-token-comment)\">// 不在这里处理，出错自然上抛</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想加一层语境：抛一个自己定义的错误，把原错误放进字段里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> ConfigError</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  original</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  constructor</span><span style=\"color:var(--shiki-foreground)\">(msg</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> string</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> original</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    super</span><span style=\"color:var(--shiki-foreground)\">(msg);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    this</span><span style=\"color:var(--shiki-foreground)\">.original </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> original;     </span><span style=\"color:var(--shiki-token-comment)\">// 保留底层原因</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>传播路径与 JavaScript 完全一致：不接就沿调用栈冒泡，要加一层语境就包一个\n新的错误抛出。ArkTS 用同一套异常机制，差别只在它更严的静态检查上 ——\n错误对象同样得是声明过的类型。</p>\n",
+        "python": "<p>两边都是「不接就自动上抛」，签名上都看不出会不会抛。想加一层语境时，\nPython 用 <code>raise … from e</code> 把原异常记成 <code>__cause__</code>，链显式保留；\nArkTS 的方式是抛一个自己定义的、带原因字段的错误，同样把底层错误留在对象里。</p>\n",
+        "java": "<p>Java 的受检异常会写进方法签名（<code>throws</code>），调用方必须处理或继续声明 ——\n「会不会抛」在 Java 里是签名的一部分，在 ArkTS 里完全看不出来，\n只能靠读代码或文档，好处是中间层不必到处写声明。加一层语境两边都能做：\nArkTS 靠自定义错误的字段，Java 靠把原异常作为 <code>cause</code> 传进构造函数。</p>\n"
+      }
+    }
+  }
+}

@@ -124,7 +124,15 @@ describe('内容不变量（对真实 content/ 目录断言）', () => {
 describe('架构决策的可执行断言', () => {
   it('D-C：默认基准始终是 JavaScript；已启用集合与接入进度一致', () => {
     expect(a.registry.defaultBaseline).toBe('javascript')
-    expect([...a.enabledLanguageIds].sort()).toEqual(['go', 'java', 'javascript', 'python', 'rust'])
+    expect([...a.enabledLanguageIds].sort()).toEqual([
+      'arkts',
+      'go',
+      'java',
+      'javascript',
+      'python',
+      'rust',
+      'typescript',
+    ])
   })
 
   it('基准候选 = JS / Python / Java，全部已启用，且默认基准在候选之中', () => {

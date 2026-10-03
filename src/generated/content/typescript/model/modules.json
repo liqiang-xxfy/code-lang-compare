@@ -1,0 +1,142 @@
+{
+  "lang": "typescript",
+  "section": "model",
+  "group": "modules",
+  "boxes": {
+    "module-unit": {
+      "lang": "typescript",
+      "code": "// 一个 .ts 文件就是一个模块\nconst secret = 1;              // 模块作用域，外部看不见\nexport const shared = 2;       // 只有导出的才可见\n\n// ⚠ 顶层既没有 import 也没有 export 的文件不是模块，而是**全局脚本**\n// 它的顶层名字会进全局作用域，与别的全局脚本重名直接编译报错\n\nexport {};                     // 补一句空导出，就把脚本变回模块\n// .d.ts 是只描述类型的声明文件：同样可以写成模块，也可以写成全局声明",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 一个 .ts 文件就是一个模块</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> secret</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;              </span><span style=\"color:var(--shiki-token-comment)\">// 模块作用域，外部看不见</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> const</span><span style=\"color:var(--shiki-token-constant)\"> shared</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">;       </span><span style=\"color:var(--shiki-token-comment)\">// 只有导出的才可见</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 顶层既没有 import 也没有 export 的文件不是模块，而是**全局脚本**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 它的顶层名字会进全局作用域，与别的全局脚本重名直接编译报错</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-foreground)\"> {};                     </span><span style=\"color:var(--shiki-token-comment)\">// 补一句空导出，就把脚本变回模块</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// .d.ts 是只描述类型的声明文件：同样可以写成模块，也可以写成全局声明</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 5,
+          "text": "顶层既没有 import 也没有 export 的文件不是模块，而是**全局脚本**",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>模块单位的定义两边一字不差：一个文件一个模块、顶层名字默认私有、<code>export</code>\n出去的才可见，模块只在第一次被导入时执行一次。TypeScript 多出来的是\n<strong>编译器的判定</strong> —— 没有 import / export 的文件会被当成全局脚本，顶层名字进了\n全局作用域，与别的脚本重名立刻报错；JavaScript 里同样的代码只会各写各的。\n另一处是 <code>.d.ts</code>：只描述类型、不产出运行时代码的声明文件，JavaScript 没有对应物。</p>\n",
+        "python": "<p>Python 也是「一个文件一个模块」，但顶层名字默认<strong>全公开</strong>，靠下划线表示内部；\nTypeScript 反过来，不导出就是私有。更大的差别在包：Python 用「目录加\n<code>__init__.py</code>」构成包，是多出来的一级作用域；TypeScript 没有「包」这个代码层\n单位，目录只决定文件摆放的位置，分组要靠解析规则去表达。</p>\n",
+        "java": "<p>Java 的模块单位是<strong>类</strong>而不是文件（一个文件可以放多个类），命名空间靠\n<code>package</code> 声明；TypeScript 的单位就是文件本身，文件与模块是同一件事。\nJava 还有一层可选的模块声明（显式列出依赖与对外导出的包），TypeScript 没有\n对应物 —— 依赖关系完全由文件之间的导入导出表达。</p>\n"
+      }
+    },
+    "export-import": {
+      "lang": "typescript",
+      "code": "export const x = 1;                          // 值可以导出\nexport interface Config { retries: number }  // 接口、类型别名同样可以导出\n\nimport { x, Config } from './a';             // 相对路径不写 .ts 扩展名\nimport type { Config as Cfg } from './a';    // 只导入类型：编译后整行消失\nimport { type Config, x } from './a';        // 也可以只给某一个名字加 type\n\nexport type { Config };                      // 类型可以再导出\nexport * from './b';                         // 把 b 的导出整体再导出\n\n// ⚠ 类型不是运行时值；要求保留导入的工具链下，只当类型用的导入要标 type",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> const</span><span style=\"color:var(--shiki-token-constant)\"> x</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;                          </span><span style=\"color:var(--shiki-token-comment)\">// 值可以导出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> interface</span><span style=\"color:var(--shiki-token-function)\"> Config</span><span style=\"color:var(--shiki-foreground)\"> { retries</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\"> }  </span><span style=\"color:var(--shiki-token-comment)\">// 接口、类型别名同样可以导出</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { x</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> Config } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> './a'</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// 相对路径不写 .ts 扩展名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-keyword)\"> type</span><span style=\"color:var(--shiki-foreground)\"> { Config </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> Cfg } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> './a'</span><span style=\"color:var(--shiki-foreground)\">;    </span><span style=\"color:var(--shiki-token-comment)\">// 只导入类型：编译后整行消失</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-foreground)\"> Config</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> x } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> './a'</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// 也可以只给某一个名字加 type</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> type</span><span style=\"color:var(--shiki-foreground)\"> { Config };                      </span><span style=\"color:var(--shiki-token-comment)\">// 类型可以再导出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-constant)\"> *</span><span style=\"color:var(--shiki-token-keyword)\"> from</span><span style=\"color:var(--shiki-token-string-expression)\"> './b'</span><span style=\"color:var(--shiki-foreground)\">;                         </span><span style=\"color:var(--shiki-token-comment)\">// 把 b 的导出整体再导出</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 类型不是运行时值；要求保留导入的工具链下，只当类型用的导入要标 type</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 11,
+          "text": "类型不是运行时值；要求保留导入的工具链下，只当类型用的导入要标 type",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>语法位置与 JavaScript 完全一致：import / export 只能写在顶层，路径必须是字面量。\nTypeScript 加的是<strong>类型也能走这条通道</strong> —— 接口与类型别名可以导出、导入、再导出，\n而它们在编译后什么都不剩，因此没有对应的运行时行为。为了让工具能按文件逐个\n编译，TypeScript 还提供 <code>import type</code> / <code>export type</code> 显式声明「这一行只为类型\n存在」。开启 <code>verbatimModuleSyntax</code>（或只做单文件转译）时，没标 <code>type</code>\n的那一行会被原样保留，于是留下一条指向不存在东西的引用 —— 标注是给这类\n工具链用的。</p>\n",
+        "python": "<p>Python 的 import 是<strong>运行时语句</strong>，会真的把模块执行一遍，也能写在函数里、\n条件执行；TypeScript 的导入是静态声明，写在 <code>if</code> 里直接不合法，依赖图因此\n编译期就完整。另一处是「只取类型」这件事：Python 里被注解引用的名字照样是\n普通导入、照样会执行，想避开得用条件导入那类绕法；TypeScript 用 <code>import type</code>\n直接把这件事写进语言，编译后整行消失。</p>\n",
+        "java": "<p>Java 的 <code>import</code> 只是给类型起短名的<strong>编译期声明</strong>，不加载任何东西，被导入的也\n必须是类这种有运行时身份的东西；TypeScript 的导入两者兼顾 —— 既起短名、也真的\n把模块纳入依赖并执行一次。因此 TypeScript 可以导入一个纯类型（接口、类型别名），\nJava 里没有这种「只存在于编译期」的东西可供导入。</p>\n"
+      }
+    },
+    "default-vs-named": {
+      "lang": "typescript",
+      "code": "// 默认导出：一个模块最多一个\nexport default function make() { return 1; }\n\nexport const named = 1;             // 具名导出可以有多个\nexport type Named = string;         // 类型只能走具名导出\n\n// 导入侧\nimport make2 from './a';            // 默认导出可以随便起名\nimport { named } from './a';\nimport make3, { named as n } from './a';\n\n// ⚠ 具名导入拿到的是**活绑定**：模块里改了，导入方也看得见\n// 给老式「单导出」模块补描述时，还有一套等号形式的写法可用",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 默认导出：一个模块最多一个</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> default</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> make</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> const</span><span style=\"color:var(--shiki-token-constant)\"> named</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// 具名导出可以有多个</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-token-keyword)\"> type</span><span style=\"color:var(--shiki-token-function)\"> Named</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> string</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// 类型只能走具名导出</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 导入侧</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> make2 </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> './a'</span><span style=\"color:var(--shiki-foreground)\">;            </span><span style=\"color:var(--shiki-token-comment)\">// 默认导出可以随便起名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { named } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> './a'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> make3</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> { named </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> n } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> './a'</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 具名导入拿到的是**活绑定**：模块里改了，导入方也看得见</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 给老式「单导出」模块补描述时，还有一套等号形式的写法可用</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 12,
+          "text": "具名导入拿到的是**活绑定**：模块里改了，导入方也看得见",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两种导出形态与 JavaScript 逐条对应：默认导出一个、具名多个，导入方对默认导出\n可以自由起名、对具名导出必须名字对上。TypeScript 把<strong>类型</strong>也放进具名那一侧 ——\n接口与类型别名可以当具名导出，但它们没有运行时形态，当不了默认导出。\n另一处是为老式单导出模块准备的那套写法（<code>export =</code> 与等号形式的导入），\n那是编译期对模块形状的投影，不是运行时事实。</p>\n",
+        "python": "<p>Python 只有具名这一种：模块顶层的名字就是它的全部导出，没有默认导出，\n也没有活绑定 —— 导入时取到值，之后各是各的。TypeScript 两种导出都有，\n默认导出让导入方可以自由起名，具名导入则跟着被导入模块后来的修改走。</p>\n",
+        "java": "<p>Java 没有「导出什么」这个动作：可见性写在每个成员上，<code>public</code> 的谁都能用、\n<code>private</code> 的谁都不能用，也没有默认导出与具名导出之分。TypeScript 在<strong>模块\n层面</strong>列导出清单，单位是名字而不是成员，另有默认导出这种「无名主角」的写法。</p>\n"
+      }
+    },
+    "namespace-alias": {
+      "lang": "typescript",
+      "code": "import * as ns from './a';                     // 整包挂到一个命名空间对象\nns.named;                                      // 默认导出在 ns.default 上\n\nimport { veryLongName as short } from './a';   // 导入时改名\nexport { short as publicName };                // 导出时也能改名\n\nnamespace Geometry {                           // TypeScript 自己的声明\n  export function area(r: number) { return 3.14 * r * r }\n}\nGeometry.area(1);                              // 名字就在本文件的普通作用域里\n\n// ⚠ namespace 是早期「内部模块」的遗留写法，新代码直接模块化即可",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-constant)\"> *</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-foreground)\"> ns </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> './a'</span><span style=\"color:var(--shiki-foreground)\">;                     </span><span style=\"color:var(--shiki-token-comment)\">// 整包挂到一个命名空间对象</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">ns</span><span style=\"color:var(--shiki-foreground)\">.named;                                      </span><span style=\"color:var(--shiki-token-comment)\">// 默认导出在 ns.default 上</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { veryLongName </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> short } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> './a'</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// 导入时改名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">export</span><span style=\"color:var(--shiki-foreground)\"> { short </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> publicName };                </span><span style=\"color:var(--shiki-token-comment)\">// 导出时也能改名</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">namespace</span><span style=\"color:var(--shiki-token-function)\"> Geometry</span><span style=\"color:var(--shiki-foreground)\"> {                           </span><span style=\"color:var(--shiki-token-comment)\">// TypeScript 自己的声明</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  export</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(r</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 3.14</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> r }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Geometry</span><span style=\"color:var(--shiki-token-function)\">.area</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">);                              </span><span style=\"color:var(--shiki-token-comment)\">// 名字就在本文件的普通作用域里</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ namespace 是早期「内部模块」的遗留写法，新代码直接模块化即可</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 12,
+          "text": "namespace 是早期「内部模块」的遗留写法，新代码直接模块化即可",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>别名那一半完全一致：<code>import * as ns</code> 把整个模块收成一个对象、<code>as</code> 在导入与\n导出两侧都能改名，语法与语义逐条对应。TypeScript 多出来的是 <strong><code>namespace</code>\n这个声明</strong> —— JavaScript 里根本没有这个关键字，同样的效果只能手写一个对象\n再往上挂方法。TypeScript 的 namespace 编译后也就是一个对象，今天主要留在\n描述外部形状的声明文件里。</p>\n",
+        "python": "<p>Python 的 <code>import m as alias</code> 与 <code>from m import n as alias</code> 覆盖同样两种需求，\n写法几乎一一对应。差别在通配：Python 的 <code>from m import *</code> 把名字直接摊进\n当前作用域，TypeScript 的 <code>import * as ns</code> 是收进一个对象、不污染本地作用域。\n另一处是分组：Python 靠模块本身，TypeScript 多一个命名空间声明，但它只是\n编译期把一组名字收到一个对象里，与文件位置无关。</p>\n",
+        "java": "<p>Java 没有给类型起别名的手段，同名只能写全限定名；TypeScript 的 <code>as</code> 随手\n就能解决重名。分组单位也不同：Java 靠包与嵌套类，TypeScript 的命名空间形态上\n更接近嵌套类 —— 都是把一组名字收进一个带名字的容器，但 Java 的包名与目录\n结构绑定，命名空间与文件放在哪里没有关系。</p>\n"
+      }
+    },
+    "module-resolution": {
+      "lang": "typescript",
+      "code": "import './sibling';                  // 相对路径：编译期解析到 sibling.ts\nimport { x } from '@app/x';          // 路径别名，由 tsconfig 的 paths 定义\n\n// tsconfig.json\n// {\n//   \"compilerOptions\": {\n//     \"baseUrl\": \".\",\n//     \"paths\": { \"@app/*\": [\"src/*\"] },\n//     \"moduleResolution\": \"bundler\"\n//   }\n// }\n\n// ⚠ 代码里的路径不会被改写成编译后文件的位置\n// ⚠ paths 只作用于编译期：运行时还得让打包器认同一套别名",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-string-expression)\"> './sibling'</span><span style=\"color:var(--shiki-foreground)\">;                  </span><span style=\"color:var(--shiki-token-comment)\">// 相对路径：编译期解析到 sibling.ts</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> { x } </span><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-token-string-expression)\"> '@app/x'</span><span style=\"color:var(--shiki-foreground)\">;          </span><span style=\"color:var(--shiki-token-comment)\">// 路径别名，由 tsconfig 的 paths 定义</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// tsconfig.json</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"compilerOptions\": {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     \"baseUrl\": \".\",</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     \"paths\": { \"@app/*\": [\"src/*\"] },</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     \"moduleResolution\": \"bundler\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 代码里的路径不会被改写成编译后文件的位置</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ paths 只作用于编译期：运行时还得让打包器认同一套别名</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 13,
+          "text": "代码里的路径不会被改写成编译后文件的位置",
+          "tone": "warn"
+        },
+        {
+          "line": 14,
+          "text": "paths 只作用于编译期：运行时还得让打包器认同一套别名",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的解析由路径本身与包清单决定，规则写在代码与清单里，一眼能读懂；\nTypeScript 多了一层<strong>编译期</strong>的解析配置 —— 基准目录、路径别名、按哪种规则\n去找，都在 tsconfig 里声明，能把一个短名字映射到任意位置的文件。这一层编译后\n就不存在了，所以别名必须在运行时那一侧再配一遍，否则编译通过、跑起来找不到。\n另一处是扩展名：JavaScript 的 ESM 要写全 <code>./a.js</code>，TypeScript 通常省掉扩展名。</p>\n",
+        "python": "<p>Python 靠运行时的搜索路径列表逐级找模块，同名模块看谁先被找到，环境变量与\n当前目录都能改变结果；TypeScript 的解析在编译期由显式配置确定，不依赖搜索顺序。\n差别在<strong>层数</strong>：Python 只有运行时这一套解析，TypeScript 编译期与运行时各有一套，\n两边不一致时会出现「编译能过、运行时才报找不到」。</p>\n",
+        "java": "<p>Java 用类路径按顺序搜索，编译与运行各可以给一份，同名谁先生效取决于顺序；\nTypeScript 同样是编译期与运行时两套配置，但解析依据不同 —— 相对路径与别名\n是代码里写死的，不做「按顺序找第一个」的搜索。另一处是绑定强度：Java 的包名\n必须与目录结构对应，TypeScript 的别名可以把任意短名字映射到任意目录。</p>\n"
+      }
+    }
+  }
+}

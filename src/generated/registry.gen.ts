@@ -3,11 +3,11 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml + content/languages/<id>/meta.yaml
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-03T13:28:38.515Z
+ * 生成时间：2026-10-03T15:40:20.017Z
  */
 import type { LanguageMeta } from '../schemas'
 export const allLanguageIds = ['javascript', 'python', 'java', 'go', 'rust', 'typescript', 'arkts', 'kotlin', 'swift', 'dart', 'cpp', 'php'] as const
-export const enabledLanguageIds = ['javascript', 'python', 'java', 'go', 'rust'] as const
+export const enabledLanguageIds = ['javascript', 'python', 'java', 'go', 'rust', 'typescript', 'arkts'] as const
 
 /** 全集：内容源（snippets.yaml）可以引用任意一门，哪怕是尚未启用的语言——这支持「先攒内容后启用」 */
 export type AllLanguageId = (typeof allLanguageIds)[number]

@@ -1,0 +1,182 @@
+{
+  "lang": "arkts",
+  "section": "practice",
+  "group": "toolchain",
+  "boxes": {
+    "compile-run": {
+      "lang": "arkts",
+      "code": "// 构建由 hvigorw 驱动（工程根下有 hvigorw / hvigorw.bat）\n// hvigorw assembleHap            // —— 编译出 HAP（应用安装包）\n\n// 在 DevEco Studio 里点「运行」时，背后就是这条构建命令\n//       加上签名，再用 hdc 装到设备上\n// ⚠ 产物是**方舟字节码**（.abc）打进 HAP，不是原生机器码\n\n// 官方也提供脱离 IDE 的命令行工具（CI 就用它）：\n//       内含构建、依赖、设备调试三套命令，装完即可构建与签名",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 构建由 hvigorw 驱动（工程根下有 hvigorw / hvigorw.bat）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// hvigorw assembleHap            // —— 编译出 HAP（应用安装包）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 在 DevEco Studio 里点「运行」时，背后就是这条构建命令</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//       加上签名，再用 hdc 装到设备上</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 产物是**方舟字节码**（.abc）打进 HAP，不是原生机器码</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 官方也提供脱离 IDE 的命令行工具（CI 就用它）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//       内含构建、依赖、设备调试三套命令，装完即可构建与签名</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 6,
+          "text": "产物是**方舟字节码**（.abc）打进 HAP，不是原生机器码",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 没有编译这一步：改完直接 <code>node app.js</code>。\n这里要先构建成字节码、打包、安装到设备，链路长得多。\n补上这段延迟的是编辑器里的预览器 —— 改完存盘就能看到界面变化，\n不用重新构建安装（但它跑的不是完整应用，见「交互式环境」那一格）。</p>\n",
+        "python": "<p>Python 解释执行、改完重跑，交付的是源码加解释器；\n这里要过一遍构建，交付的是打包好的安装包。\n两边「一次改动到看到结果」的耗时差距，\n取决于预览器能不能顶住 —— 这一点在这里被当成工具链的核心体验在做。</p>\n",
+        "java": "<p>这一格最接近：都要先编译成字节码再由运行时执行\n（那边是虚拟机，这里是方舟运行时，官方描述它有解释器、\n即时编译与预编译三种执行方式）。\n差别在<strong>交付单元</strong>：那边交付的是代码库文件，\n这里交付的是可安装的应用包 —— 里面除了代码还有资源、\n配置与签名，安装器要认它。</p>\n"
+      }
+    },
+    "bundler": {
+      "lang": "arkts",
+      "code": "// 从源码到可安装产物，工序全在构建工具里，没有可挑的环节：\n//   1. .ets / .ts 由编译器编成方舟字节码（.abc）\n//   2. 引用的静态共享包被拷进产物；动态共享包单独产出、运行时共享\n//   3. 资源与配置一起打进 HAP\n\n// 解包一个构建产物能看到 ets/modules.abc\n// ⚠ 没有「挑一个打包器 / 转译器」这一步 —— 工序固定，随工具链自带",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 从源码到可安装产物，工序全在构建工具里，没有可挑的环节：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   1. .ets / .ts 由编译器编成方舟字节码（.abc）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   2. 引用的静态共享包被拷进产物；动态共享包单独产出、运行时共享</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   3. 资源与配置一起打进 HAP</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 解包一个构建产物能看到 ets/modules.abc</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有「挑一个打包器 / 转译器」这一步 —— 工序固定，随工具链自带</span></span></code></pre>",
+      "lineCount": 7,
+      "notes": [
+        {
+          "line": 7,
+          "text": "没有「挑一个打包器 / 转译器」这一步 —— 工序固定，随工具链自带",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>那边的构建是一条<strong>自选流水线</strong>：打包器一个选择、转译器一个选择、\n插件几十个，每个项目一套配置；\n这里的工序是固定的、随工具链自带，一个环节都换不了。\n好处是团队之间不会出现「构建配置各不相同」；\n代价是某一环不合口味时，只能等官方改。</p>\n",
+        "python": "<p>Python 交付源码，编译与打包要么不做、要么靠额外工具\n（构建发行包、打成可执行文件都是单独的课题）；\n这里编译与打包是同一条构建命令里的两步，没有「要不要做」的问题 ——\n不做就出不了可安装的产物。</p>\n",
+        "java": "<p>两边都有编译那一步（源码到字节码），差别在<strong>打包的归属</strong>：\n那边产出代码库文件之后，「做成可安装的东西」还要另找插件；\n这里的构建产物本身就是最终形态 —— 带资源、配置与签名，\n直接装到设备上。少了一层「构建产物再加工」。</p>\n"
+      }
+    },
+    "linter-formatter": {
+      "lang": "arkts",
+      "code": "// Code Linter：工具链自带，配置在工程根的 code-linter.json5\n// {\n//   \"ruleSet\": [\"@typescript-eslint\", \"@security\", \"@performance\"]\n// }\n// 规则集按主题分组：安全、性能、跨设备、代码风格……\n// 命令行也能跑（可进 CI），与编译是**分开的进程**\n\n// ⚠ 关键差别：linter 的结果**不影响编译** ——\n// ⚠ 它报的问题不会让构建失败（类型问题才会，见下一格）\n\n// 格式化在 IDE 里：设置里选代码风格，快捷键格式化当前文件\n// 官方没有独立的命令行格式化器 —— 这一步目前只在 IDE 里",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Code Linter：工具链自带，配置在工程根的 code-linter.json5</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"ruleSet\": [\"@typescript-eslint\", \"@security\", \"@performance\"]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 规则集按主题分组：安全、性能、跨设备、代码风格……</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 命令行也能跑（可进 CI），与编译是**分开的进程**</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 关键差别：linter 的结果**不影响编译** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 它报的问题不会让构建失败（类型问题才会，见下一格）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 格式化在 IDE 里：设置里选代码风格，快捷键格式化当前文件</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 官方没有独立的命令行格式化器 —— 这一步目前只在 IDE 里</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 8,
+          "text": "关键差别：linter 的结果**不影响编译** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "它报的问题不会让构建失败（类型问题才会，见下一格）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>检查那一侧两边的定位接近（都有命令行、都能进 CI），\n格式化那一侧差别明显：那边的格式化是一道<strong>选择题</strong>\n（Prettier / Biome / 不格式化），配置能写一屏；\n这里的格式化是 IDE 内置的一种风格，没有配置文件、\n也没有命令行入口，团队之间不存在「用哪种风格」的分歧。</p>\n",
+        "python": "<p>Python 的格式化工具换过几代，风格分歧至今没完全平息；\n这里 IDE 自带一套、调完即止。\n检查工具的<strong>权力</strong>也不同：Python 的检查器是外部工具，\n可以配成阻断 CI；这里的 Code Linter 是工具链的一部分，\n但官方明确说它<strong>不阻断构建</strong> —— 真正阻断的是类型检查。</p>\n",
+        "java": "<p>Java 的静态检查靠第三方插件，每个项目挑一套、配一份规则；\n这里的检查器随工具链自带，规则集按主题分组、还能外挂扩展。\n严格程度的落点也不一样：那边最硬的是编译器与测试，\n这里最硬的是<strong>类型检查</strong>（连用注释关掉都不允许），\n而 linter 只负责提醒。</p>\n"
+      }
+    },
+    "type-checker": {
+      "lang": "arkts",
+      "code": "// 类型检查是**构建的一部分** —— 类型不过就出不了产物\n// hvigorw assembleHap           // —— 有类型错误会直接失败\n\n// ⚠ 也不能「先跑起来再说」：官方禁止用注释关掉类型检查\n// // @ts-nocheck     // —— ⚠ 编译报错：不允许关闭严格类型检查\n// // @ts-ignore      // —— ⚠ 同上\n\n// 编辑器里同一套检查实时给红线（有时比构建更严）\n// codelinter 负责类型之外的规则，两件事分开",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 类型检查是**构建的一部分** —— 类型不过就出不了产物</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// hvigorw assembleHap           // —— 有类型错误会直接失败</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 也不能「先跑起来再说」：官方禁止用注释关掉类型检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// // @ts-nocheck     // —— ⚠ 编译报错：不允许关闭严格类型检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// // @ts-ignore      // —— ⚠ 同上</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编辑器里同一套检查实时给红线（有时比构建更严）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// codelinter 负责类型之外的规则，两件事分开</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 4,
+          "text": "也不能「先跑起来再说」：官方禁止用注释关掉类型检查",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "编译报错：不允许关闭严格类型检查",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "同上",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>那边的类型检查是<strong>可选的一层</strong>：装了就检查、不装就没有，\n而且可以用一行注释关掉任意一处。\n这里它是编译的前置条件，连关掉它的开关都不存在。\n对从 JavaScript 过来的人，这一条要提前知道：\n写代码时没有「先放着，回头再说」这个选项。</p>\n",
+        "python": "<p>Python 的类型检查是外部工具、可选、运行时不生效；\n这里它是构建的必经环节，而且<strong>不允许局部豁免</strong> ——\n没有「忽略这一行」的注释可用。\n所以「标注写得准不准」在那边是风格与工具链问题，\n在这里是能不能出包的问题。</p>\n",
+        "java": "<p>两边都是编译期强制检查，这一格接近。\n差别在逃逸路径：Java 有基本类型、反射、注解处理器这些口子，\n还有「类型擦除之后运行时看不见」这类松弛；这里把口子堵得很死，\n连注释豁免都不给。\n另一处是检查的时机：两边都是编译期一次性给出结论，\n运行时不再因类型出错（除非绕过检查）。</p>\n"
+      }
+    },
+    "runtime-version": {
+      "lang": "arkts",
+      "code": "// 版本区间写在工程级 build-profile.json5 的 product 下\n// {\n// \"compatibleSdkVersion\": \"5.0.0(12)\",   // —— 最低可安装版本\n// \"targetSdkVersion\": \"5.0.0(12)\"        // —— 目标版本\n// }\n\n// ⚠ 值必须是**字符串**，形式是「版本(API 号)」——\n// ⚠ 写裸数字会构建失败（API 10 起的要求）\n// ⚠ 官方已移除 compileSdkVersion：SDK 随工具链内置，不再由工程声明\n// 两项的关系必须满足：compatibleSdkVersion ≤ targetSdkVersion",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 版本区间写在工程级 build-profile.json5 的 product 下</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// \"compatibleSdkVersion\": \"5.0.0(12)\",   // —— 最低可安装版本</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// \"targetSdkVersion\": \"5.0.0(12)\"        // —— 目标版本</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 值必须是**字符串**，形式是「版本(API 号)」——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 写裸数字会构建失败（API 10 起的要求）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 官方已移除 compileSdkVersion：SDK 随工具链内置，不再由工程声明</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两项的关系必须满足：compatibleSdkVersion ≤ targetSdkVersion</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 7,
+          "text": "值必须是**字符串**，形式是「版本(API 号)」——",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "写裸数字会构建失败（API 10 起的要求）",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "官方已移除 compileSdkVersion：SDK 随工具链内置，不再由工程声明",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>那边项目的运行时版本完全不由代码控制：清单里的版本要求只是建议，\n除非额外开启强制，否则不满足也只是警告。\n这里的版本区间是<strong>安装门槛</strong> —— 设备版本低于兼容版本，\n应用装不上。一个是提醒，一个是能不能装的区别。</p>\n",
+        "python": "<p>Python 项目通常只声明「需要 3.10+」，实际版本靠虚拟环境与流水线保证，\n声明与生效之间隔着好几层；\n这里的区间写进构建配置、由安装器直接执行，\n中间没有「约定」这一段。</p>\n",
+        "java": "<p>两边都有「按某个版本编译」的概念，但落点不同：\n那边用编译参数指定参照的 API 版本，实际运行用哪个运行时\n由环境变量与部署环境决定，不符时往往到运行时才暴露；\n这里的两个版本是<strong>应用清单的一部分</strong>，\n安装器直接据它判断能不能装，问题提前到了安装那一刻。</p>\n"
+      }
+    },
+    "repl": {
+      "lang": "arkts",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>ArkTS <strong>没有交互式求值环境</strong> —— 官方不提供 REPL。\n那边敲一个命令就进提示符、还能直接算表达式；\n这里最接近的是 IDE 的<strong>预览器</strong>：改完存盘即时刷新、\n可以交互，单个组件还能单独预览。\n但预览器解决的是「界面长什么样」，不是「这段逻辑算什么」——\n它是完整度更低的运行，不跑应用的生命周期。\n想验证一段逻辑，这里的正路是写成测试跑一遍。</p>\n",
+        "python": "<p>ArkTS <strong>没有 REPL</strong>，与 Python 那种「打开就能算」的体验相反。\n这不只是少了个工具：那种用法依赖「表达式可以脱离上下文求值」，\n而这里的构建单元是模块、界面要挂在页面上 ——\n没有那个上下文，单条表达式本来就无处可算。\n官方给的替代（预览器）也印证了这一点：它补的是界面反馈，\n不是计算反馈。</p>\n",
+        "java": "<p>ArkTS <strong>没有 REPL</strong>，而 Java 有（JDK 自带的那个交互式工具）。\n那边能做是因为字节码可以逐段加载执行；\n这里的构建单元是模块与页面，脱离它们没有可执行的东西。\n实际影响两边都不大：Java 的交互环境更多用来验证 API 用法，\n这里则连这个场景都交给了测试与预览器。</p>\n"
+      }
+    }
+  }
+}

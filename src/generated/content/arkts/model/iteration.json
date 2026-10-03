@@ -1,0 +1,99 @@
+{
+  "lang": "arkts",
+  "section": "model",
+  "group": "iteration",
+  "boxes": {
+    "generator-yield": {
+      "lang": "arkts",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 <code>function*</code> / <code>yield</code> 能写出「调用时不执行、每次推进到下一个\n暂停点」的生成器；ArkTS <strong>不支持生成器函数</strong>（编译期错误），这段语法在这里\n写不出来。所以「惰性产出一串值」在 ArkTS 里没有语言级的写法 ——\n官方给的替代方向是用 <code>async</code> / <code>await</code> 处理，但那是异步任务、不是可暂停的\n序列：「按需拉取下一个值」这件事本身，这里没有对应机制。</p>\n",
+        "python": "<p>Python 的 <code>yield</code> 让一个普通函数变成生成器，需要时才算出下一个值；ArkTS 没有\n生成器函数，这套写法整体缺席。想在 ArkTS 里逐个产出值，只能先把它们全部算进\n一个数组再用 —— <code>for...of</code> 遍历没有问题，但没有「边算边取、算到用的时候\n才算」的暂停机制，Python 那种能表示无限序列的生成器在这里无从写起。</p>\n",
+        "java": "<p>两边都没有生成器语法，这是它们在这一点上最接近的地方；差别在替代手段。\nJava 有 <code>Stream</code>（配合 <code>Iterator</code> 与 lambda）来表达惰性序列，虽然不能中途\n暂停再恢复，但至少能按需拉取；ArkTS 没有对应的流式抽象，只能先把整个序列\n造出来。要写带状态、可暂停的序列，Java 手写 <code>Iterator</code> 是一条路，ArkTS 连\n这条也没有 —— 缺的正是把状态机写进函数体的那种语法。</p>\n"
+      }
+    },
+    "comprehension": {
+      "lang": "arkts",
+      "code": "class User { id: number = 0; name: string = \"\" }\n\nlet xs: number[] = [1, 2, 3];\n// ⚠ 没有推导式语法 —— 批量构造靠数组方法链\nlet doubles: number[] = xs.map((x: number): number => x * 2);\nlet evens: number[] = xs.filter((x: number): boolean => x % 2 === 0);\n\n// 造映射：Object.fromEntries 被禁用，只能用 Map 逐个填\nlet users: User[] = [];\nlet byId: Map<number, User> = new Map<number, User>();\nfor (const u of users) {\n  byId.set(u.id, u);              // for...of 可用，for...in 不行\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\"> { id</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">; name</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> string</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-string-expression)\"> \"\"</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> xs</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">[] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-foreground)\">];</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有推导式语法 —— 批量构造靠数组方法链</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> doubles</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">[] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> xs</span><span style=\"color:var(--shiki-token-function)\">.map</span><span style=\"color:var(--shiki-foreground)\">((x</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-token-keyword)\"> =></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> evens</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">[] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> xs</span><span style=\"color:var(--shiki-token-function)\">.filter</span><span style=\"color:var(--shiki-foreground)\">((x</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> boolean</span><span style=\"color:var(--shiki-token-keyword)\"> =></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">%</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-keyword)\"> ===</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 造映射：Object.fromEntries 被禁用，只能用 Map 逐个填</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> users</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\">[] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [];</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> byId</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Map</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">number</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Map</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">number</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-foreground)\">>();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> u</span><span style=\"color:var(--shiki-token-keyword)\"> of</span><span style=\"color:var(--shiki-foreground)\"> users) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  byId</span><span style=\"color:var(--shiki-token-function)\">.set</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">u</span><span style=\"color:var(--shiki-foreground)\">.id</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> u);              </span><span style=\"color:var(--shiki-token-comment)\">// for...of 可用，for...in 不行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 4,
+          "text": "没有推导式语法 —— 批量构造靠数组方法链",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都没有推导式。ArkTS 保留了 <code>map</code> / <code>filter</code> 这类数组方法，所以造数组的\n写法与 JavaScript 相近；但两处辅助手段被砍掉了 —— <code>Object.fromEntries</code> 被\n禁用，从键值对造映射只能改用 <code>Map</code> 逐个 <code>set</code>；对象展开 <code>{...obj}</code> 也不支持，\n复制对象得逐字段写。所以「造一个对象映射」这一条在 ArkTS 里明显更长、更啰嗦。</p>\n",
+        "python": "<p>Python 的推导式把「从一个序列造出另一个序列」写成一个表达式，列表 / 字典 /\n集合各有各的写法；ArkTS 没有推导式，全靠数组方法链，造映射还得用一个 <code>Map</code>\n加循环去填。两边都能把常用构造写得比较紧凑，但 Python 是一行表达式，\nArkTS 是一串方法再加一个循环。</p>\n",
+        "java": "<p>Java 用 <code>Stream</code> 管道加 <code>Collectors</code> 批量构造（<code>Collectors.toMap</code> / <code>toSet</code>），\n形态与 ArkTS 的数组方法链相近。差别在惰性与映射容器：Java 的 <code>Stream</code> 是\n惰性的，ArkTS 的每一步都急切求值；造映射两边都归到 <code>Map</code>，这一点一致，\n但 Java 有 <code>Collectors</code> 一步到位，ArkTS 得手写循环去填。</p>\n"
+      }
+    },
+    "lazy-evaluation": {
+      "lang": "arkts",
+      "code": "let xs: number[] = [1, 2, 3, 4];\n// 数组方法全是急切的：每一步都产生一个真实数组\nlet r: number[] = xs.map((x: number): number => x * 2)\n  .filter((x: number): boolean => x > 2);   // 整个数组都跑过，中间数组真实存在\n\n// ⚠ 没有生成器函数，搭不出「算到用的时候才算」的无限序列；\n// 想要惰性，只能自己实现一套逐个取值的迭代协议（手写状态与 next），\n// 没有那种一行写出状态机的写法。\n\n// 所以这里的常态是「先全部算完，再取需要的部分」",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> xs</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">[] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 4</span><span style=\"color:var(--shiki-foreground)\">];</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 数组方法全是急切的：每一步都产生一个真实数组</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> r</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">[] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> xs</span><span style=\"color:var(--shiki-token-function)\">.map</span><span style=\"color:var(--shiki-foreground)\">((x</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-token-keyword)\"> =></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  .filter</span><span style=\"color:var(--shiki-foreground)\">((x</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> number</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> boolean</span><span style=\"color:var(--shiki-token-keyword)\"> =></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// 整个数组都跑过，中间数组真实存在</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有生成器函数，搭不出「算到用的时候才算」的无限序列；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想要惰性，只能自己实现一套逐个取值的迭代协议（手写状态与 next），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有那种一行写出状态机的写法。</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以这里的常态是「先全部算完，再取需要的部分」</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 6,
+          "text": "没有生成器函数，搭不出「算到用的时候才算」的无限序列；",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 里数组方法同样急切，但它有生成器 —— 惰性序列、无限序列都能用\n<code>function*</code> 搭出来。ArkTS 保留了急切的那一半，砍掉了生成器，于是惰性这一半\n整个缺失：没有生成器，也就没有「不取完就不算完」的无限序列。想要类似效果，\n只能手写一套迭代协议，把「走到哪了」记在字段里，长度和易错度都远高于\n一行 <code>function*</code>。</p>\n",
+        "python": "<p>Python 用生成器与 <code>itertools</code> 做惰性：<code>(x for x in xs)</code> 一行得到惰性序列，\n<code>islice</code> / <code>count</code> 直接给出常用算子；ArkTS 没有生成器，这套写法整体缺席，\n只能先把整个序列算成数组再用。差别是根本性的 —— Python 能表达无限序列，\nArkTS 里「无限」无从写起，因为任何数组方法都会先跑完整个输入。</p>\n",
+        "java": "<p>Java 的 <code>Stream</code> 天生惰性：中间操作只记账，直到终止操作才真正跑一遍，\n所以「先筛再取前几个」不会碰完整数组。ArkTS 没有对应的流式抽象，数组方法\n每一步都急切执行、每一步都产出真实数组，<code>map</code> 之后 <code>filter</code> 会把中间的整个\n数组先算出来。遇到大输入或「只要前几个」的场景，这个差别直接决定开销。</p>\n"
+      }
+    },
+    "destructuring": {
+      "lang": "arkts",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的数组解构（<code>const [a, b] = xs</code>）、对象解构（<code>const { x } = obj</code>）、\n剩余元素与默认值，在 ArkTS 里<strong>都不支持</strong> —— 解构变量声明、解构赋值、参数\n解构分别对应三条编译期错误。要取几个值只能逐个写 <code>let a = xs[0]</code> / <code>obj.x</code>，\n交换两个变量还得借一个临时变量。所以从 JavaScript 搬代码时，凡是解构的地方\n都得改写成显式取值。</p>\n",
+        "python": "<p>Python 的元组解包（<code>a, b = pair</code>）与 <code>*rest</code> 是日常写法，ArkTS 没有任何解构\n语法，这套写法整个不在。代价落在取值上：Python 一行拆开，ArkTS 要逐下标 /\n逐字段手动取，交换变量还要临时变量。作为补偿，ArkTS 的类字段是具名的，\n取值时写 <code>obj.field</code> 本身也够直白 —— 但表达力和紧凑度确实少了一截。</p>\n",
+        "java": "<p>Java 与 ArkTS 在这一点上很接近：都没有解构赋值，取多个值都得逐个写\n<code>arr[0]</code> / <code>obj.field</code>。Java 较新的版本给 record 加了模式匹配，能在\n<code>instanceof</code> 与 <code>switch</code> 里一次拆出字段；ArkTS 没有对等的语法，只有逐字段\n访问这一条路。两边都靠具名访问换取静态上的确定性。</p>\n"
+      }
+    }
+  }
+}

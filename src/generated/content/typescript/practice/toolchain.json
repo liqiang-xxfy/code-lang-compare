@@ -1,0 +1,203 @@
+{
+  "lang": "typescript",
+  "section": "practice",
+  "group": "toolchain",
+  "boxes": {
+    "compile-run": {
+      "lang": "typescript",
+      "code": "// 现在可以直接跑 TypeScript —— 纯类型标注不需要构建\n//   node app.ts               // 标注与接口被就地擦掉\n\n// ⚠ 但只支持**可擦除的语法**，下面这些会直接报错：\n// enum Color { Red }                          // —— ⚠ 不支持\n// namespace N { export const x = 1 }          // —— ⚠ 不支持\n// class C { constructor(private x: number) {} }  // —— ⚠ 参数属性不支持\n\n// 传统路线仍然最全：先编译再跑\n//   npx tsc                   // 按配置产出 JavaScript\n//   node dist/app.js\n\n// 直接跑有两个额外要求：导入要带扩展名（./lib.ts），\n// 且不能引用依赖目录里的 .ts",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 现在可以直接跑 TypeScript —— 纯类型标注不需要构建</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   node app.ts               // 标注与接口被就地擦掉</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但只支持**可擦除的语法**，下面这些会直接报错：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// enum Color { Red }                          // —— ⚠ 不支持</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// namespace N { export const x = 1 }          // —— ⚠ 不支持</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// class C { constructor(private x: number) {} }  // —— ⚠ 参数属性不支持</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 传统路线仍然最全：先编译再跑</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   npx tsc                   // 按配置产出 JavaScript</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   node dist/app.js</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 直接跑有两个额外要求：导入要带扩展名（./lib.ts），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 且不能引用依赖目录里的 .ts</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 4,
+          "text": "但只支持**可擦除的语法**，下面这些会直接报错：",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "不支持",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "不支持",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "参数属性不支持",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>这一格最近变了，值得单独记：以前要跑这里写的代码，\n得先过一遍编译；现在<strong>纯类型标注可以直接跑</strong>。\n但两件事仍然要编译 —— 要发布给别人用的库，\n以及用了枚举、装饰器这类<strong>带运行时代码</strong>的语法。\n所以「要不要构建步骤」今天的答案是「看写法」，\n而选写法时多了一条新的权衡：可擦除的语法能省掉整个构建环节。</p>\n",
+        "python": "<p>Python 的标注运行时不生效、代码直接跑；这里现在的处境与那边接近了 ——\n纯标注也能直接跑，不用先编译。\n差别在<strong>检查仍然要另跑一遍</strong>：那边是外部检查器，\n这里是编译器本身加一个「只检查不产出」的开关，\n两边都不是「跑起来就检查过了」。</p>\n",
+        "java": "<p>那边必须先编译成字节码才能跑，没有「直接跑源码」这条路；\n这里有了（限定在可擦除语法内）。这是一处真实的收敛：\n一边是「语言多出来的那层在运行时被忽略」，另一边是「必须过编译」。\n代价是直接跑对运行时版本有要求，而编译产物更独立。</p>\n"
+      }
+    },
+    "bundler": {
+      "lang": "typescript",
+      "code": "// 这里通常分两步，而且**两步可以是两个工具**：\n// 1. 类型检查：tsc --noEmit            // —— 只检查，不产出\n// 2. 转译与打包：交给打包器            // —— 快得多，但**不检查类型**\n\n// ⚠ 这就是「构建成功但类型是错的」的由来 ——\n// ⚠ 打包器只把类型擦掉，对不对它不管\n\n// 配置里有个开关要求代码能被**单文件转译**，\n// 开了它，这种「打包器擦类型 + 另跑检查」的分工才安全",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这里通常分两步，而且**两步可以是两个工具**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 1. 类型检查：tsc --noEmit            // —— 只检查，不产出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 2. 转译与打包：交给打包器            // —— 快得多，但**不检查类型**</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 这就是「构建成功但类型是错的」的由来 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 打包器只把类型擦掉，对不对它不管</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 配置里有个开关要求代码能被**单文件转译**，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 开了它，这种「打包器擦类型 + 另跑检查」的分工才安全</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 5,
+          "text": "这就是「构建成功但类型是错的」的由来 ——",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "打包器只把类型擦掉，对不对它不管",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 项目也可能要打包（浏览器场景），但没有类型这一层。\n这里多了一道<strong>类型检查</strong>，而且它可以与打包分开跑 ——\n这正是「构建通过、类型却报错」这种状态存在的原因，\n在那边不存在这个问题（因为没有东西可报）。</p>\n",
+        "python": "<p>Python 交付源码，转译要么不做、要么靠额外工具；\n这里「转译」是常规工序（浏览器与旧运行时都不认标注），\n而且转译与检查是两件事、两个工具。\n从 Python 过来最容易漏掉的就是这一点：跑起来了不等于类型对。</p>\n",
+        "java": "<p>那边编译与类型检查是<strong>同一个动作</strong> —— 编译器既检查又产出，\n不存在「检查过了但产物是坏的」这种组合。\n这里可以拆开，灵活（打包器快得多），但代价是\n保证「两步都跑过」成了人的责任，而不是工具链替你保证的事。</p>\n"
+      }
+    },
+    "linter-formatter": {
+      "lang": "typescript",
+      "code": "// 检查：ESLint —— 新的扁平配置，配置文件是 eslint.config.js\n//   npx eslint .\n// ⚠ 旧的那套配置文件格式已经走完弃用流程、在新版本里被移除\n// 让检查器看懂类型，要额外接上类型感知的那一套\n\n// 格式化：Prettier，与检查器分开\n//   npx prettier --write .\n\n// 两者职责分明：格式化只管排版，检查只管规则 ——\n// 所以不会出现「格式问题被当成代码问题」的争论\n// 另有把两件事合成一个高速工具的方案，团队里也在用",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 检查：ESLint —— 新的扁平配置，配置文件是 eslint.config.js</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   npx eslint .</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 旧的那套配置文件格式已经走完弃用流程、在新版本里被移除</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 让检查器看懂类型，要额外接上类型感知的那一套</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 格式化：Prettier，与检查器分开</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   npx prettier --write .</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两者职责分明：格式化只管排版，检查只管规则 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以不会出现「格式问题被当成代码问题」的争论</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 另有把两件事合成一个高速工具的方案，团队里也在用</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 3,
+          "text": "旧的那套配置文件格式已经走完弃用流程、在新版本里被移除",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>同一批工具、同一种配置格式，这里是同一套。\n多出来的是<strong>让检查器看懂类型</strong>的那一层：类型感知的规则要先把工程\n整体分析一遍才有结论。收益是能查出「类型层面也可疑」的写法，\n代价是检查变慢，所以大项目常把它放在单独的检查任务里。</p>\n",
+        "python": "<p>两边都是「检查器 + 格式化器」两件套，也都在从多个工具\n向一个高速工具收拢。差别在配置形态：那边是配置文件加插件；\n这里的检查器新版改成了单文件扁平配置，插件以模块形式引入，\n配置就是一段代码 —— 好处是能算、能复用，\n代价是不再是一份纯数据的清单。</p>\n",
+        "java": "<p>那边的静态检查靠第三方插件、与构建工具绑定，检查是构建的一部分；\n这里的检查器是独立的命令行工具，构建根本不关心它 ——\n所以「要不要在构建里卡检查」是团队自己决定的事，\n而不是构建工具替你安排的。</p>\n"
+      }
+    },
+    "type-checker": {
+      "lang": "typescript",
+      "code": "// 类型检查器就是编译器，但可以只检查不产出：\n//   npx tsc --noEmit\n// 编辑器里给红线的也是同一套（语言服务跑的就是它）\n\n// ⚠ 关键分工：**打包器与运行时都不做类型检查** ——\n// ⚠ 打包器只擦类型；运行时直接跑源码时也只擦类型\n// ⚠ 所以「跑起来了」「构建成功了」都不等于类型正确，\n// ⚠ 检查必须作为独立的一步跑\n\n// 想让「只能用可擦除语法」成为硬要求，配置里有个开关可以开",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 类型检查器就是编译器，但可以只检查不产出：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   npx tsc --noEmit</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 编辑器里给红线的也是同一套（语言服务跑的就是它）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 关键分工：**打包器与运行时都不做类型检查** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 打包器只擦类型；运行时直接跑源码时也只擦类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以「跑起来了」「构建成功了」都不等于类型正确，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 检查必须作为独立的一步跑</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想让「只能用可擦除语法」成为硬要求，配置里有个开关可以开</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 5,
+          "text": "关键分工：**打包器与运行时都不做类型检查** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "打包器只擦类型；运行时直接跑源码时也只擦类型",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "所以「跑起来了」「构建成功了」都不等于类型正确，",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "检查必须作为独立的一步跑",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>那边的类型检查是可选的（装了就检查、不装就没有）；\n这里它是项目的核心工具，但仍然<strong>可以只检查不产出</strong>。\n实际工作里这一点很有用：检查跑得比完整构建快，\n可以单独放进提交钩子或流水线的早期阶段。</p>\n",
+        "python": "<p>两边都把类型检查当成<strong>独立的一步</strong>（那边是外部工具，\n这里是编译器加一个开关）。差别在<strong>权威性</strong>：\n这里的检查器就是语言的实现，规则与语言一一对应；\n那边的检查器是第三方实现，各家在推断能力与严格程度上\n有差异，换一个检查器可能报出不同的结果。</p>\n",
+        "java": "<p>那边类型检查是编译的一个环节，通过即产出，\n不存在「只检查」这种模式；这里两种模式都有，\n而且<strong>检查与产出用的是两套工具</strong>（编译器与打包器）。\n这是最容易踩的一处：把打包成功当成检查通过。\n两边都有编辑器实时提示，但这里的提示与命令行是同一套实现，\n所以不会出现「编辑器说没事、命令行报错」。</p>\n"
+      }
+    },
+    "runtime-version": {
+      "lang": "typescript",
+      "code": "// 两个层面，都不硬：\n//   1. 清单里的版本要求字段 —— 默认只是**建议**，不满足只警告\n//   2. 真正的版本切换靠外部工具（版本管理器或流水线镜像）\n// {\n//   \"engines\": { \"node\": \">=20\" }\n// }\n\n// ⚠ 想让它变成硬失败，要另外开启强制选项\n// 仓库里常放一个版本说明文件，版本管理器据此自动切换 ——\n// 那是生态约定，不是官方机制",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两个层面，都不硬：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   1. 清单里的版本要求字段 —— 默认只是**建议**，不满足只警告</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   2. 真正的版本切换靠外部工具（版本管理器或流水线镜像）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   \"engines\": { \"node\": \">=20\" }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 想让它变成硬失败，要另外开启强制选项</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 仓库里常放一个版本说明文件，版本管理器据此自动切换 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 那是生态约定，不是官方机制</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 8,
+          "text": "想让它变成硬失败，要另外开启强制选项",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "identical",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>完全同一套：同一个清单字段、同一批版本管理器、\n连「默认只是建议」这条也一样。类型那一层管不到运行时版本。</p>\n",
+        "python": "<p>两边都是「声明归声明、实际归环境」：那边通常只声明需要某个版本以上，\n实际版本靠虚拟环境与流水线保证。差别在多包工程 ——\n这里的工作区共享同一套运行时要求，那边要每个包各自声明。</p>\n",
+        "java": "<p>Java 有环境变量指向 JDK、还有编译参数约束目标版本，\n运行时不符时报错往往推迟到运行；这里的版本要求字段还要更弱一些\n（默认只警告）。两边都没有「代码说了算」的机制，\n但那边至少有编译期的一道约束，这里完全没有。</p>\n"
+      }
+    },
+    "repl": {
+      "lang": "typescript",
+      "code": "// 交互式环境是运行时自带的那个，但它**不认类型标注**：\n//   node                      // 进提示符\n// const z: number = 3;      // —— ⚠ 语法错误：交互模式不做类型擦除\n// const z = 3;              // —— 这样才行\n\n// 从标准输入喂进去的代码倒是可以带类型（要指明输入类型）\n// ⚠ 想交互式写带类型的代码，得另外装一个能跑它的运行时",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 交互式环境是运行时自带的那个，但它**不认类型标注**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   node                      // 进提示符</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// const z: number = 3;      // —— ⚠ 语法错误：交互模式不做类型擦除</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// const z = 3;              // —— 这样才行</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 从标准输入喂进去的代码倒是可以带类型（要指明输入类型）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 想交互式写带类型的代码，得另外装一个能跑它的运行时</span></span></code></pre>",
+      "lineCount": 7,
+      "notes": [
+        {
+          "line": 3,
+          "text": "语法错误：交互模式不做类型擦除",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "想交互式写带类型的代码，得另外装一个能跑它的运行时",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>同一个交互式环境，差别只有一条：<strong>它不认类型标注</strong>。\n类型擦除那条路只对文件生效，交互模式里写标注会直接报语法错误。\n所以想交互式试这里写的代码，要么去掉标注，\n要么另装一个支持它的运行时。</p>\n",
+        "python": "<p>两边的交互式环境处境不同：Python 的标注本身就是合法表达式，\n在交互模式里照写不误；这里的标注在交互模式里是<strong>语法错误</strong>。\n这正好说明类型那一层属于编译阶段 —— 交互模式没有那个阶段，\n所以多出来的语法无处安放。</p>\n",
+        "java": "<p>那边有官方交互式环境，而且它认完整的语言语法；\n这里的交互式环境认的是<strong>擦除之后</strong>的代码，标注反而成了障碍。\n差别在交互环境与语言的关系：那边它是语言自己的实现，\n这边它是运行时提供的，不认识语言多出来的那一层。</p>\n"
+      }
+    }
+  }
+}

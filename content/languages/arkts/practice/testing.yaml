@@ -1,0 +1,207 @@
+# arkts —— practice / testing
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: testing` 的那批：
+# test-framework / assertions / mocking / parameterized-tests / coverage。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组最该讲清、也最容易漏的是**测试分成两层**：
+# `src/test/` 是本地单元测试（不需要设备，不能测系统能力），
+# `src/ohosTest/` 是上机测试（要真机或模拟器，能测界面与系统接口）。
+# 三个基准都没有这个「要不要设备」的维度，这是本组最实的差别。
+# 另外断言库是 `@ohos/hypium`、打桩是 `@ohos/hamock`，两个包都要写在开发依赖里。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-testing-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  test-framework:
+    code: |
+      import { describe, it, expect } from '@ohos/hypium';
+
+      export default function abilityTest() {
+        describe('计算器', () => {        // @note 套件（官方限制：不能用 async 函数）
+          it('加法', 0, () => {           // @note 用例；中间参数是执行条件过滤
+            expect(add(1, 2)).assertEqual(3);
+          });
+        });
+      }
+
+      // @note! 测试分**两层**，放哪个目录决定了跑法与能力：
+      //   src/test/       本地单元测试 —— 不需要设备，但测不了系统接口
+      //   src/ohosTest/   上机测试 —— 要真机或模拟器，能测界面与系统能力
+      // @note 框架写在开发依赖里（@ohos/hypium），随工程一起带
+    vs:
+      javascript: |
+        那边要挑框架（几套主流方案各有取舍），这里官方给一套、写在开发依赖里。
+        更实的差别是**测试放在哪**：这里按「要不要设备」分成两层 ——
+        不需要设备的本地测试跑得快、能进 CI；要设备的那层能测到
+        界面与系统接口，但得连机器。
+        那边没有这个维度：测试要么跑在进程里，要么另找端到端工具，
+        后者不属于测试框架的范畴。
+      python: |
+        Python 的标准库自带一个测试框架，但多数项目用第三方的那个；
+        这里的框架是官方给的一套，没有「选哪个」。
+        组织方式也不同：Python 靠命名约定发现用例、按文件分散；
+        这里用套件与用例显式组织，且**分成需要设备与不需要设备两层** ——
+        这是 Python 里没有的划分（那边「集成测试」只是组织约定，
+        不是运行方式上的区别）。
+      java: |
+        两边的测试框架都不是语言自带的（那边也是第三方库，靠注解发现用例）；
+        差别在**设备维度**：Java 的测试都跑在虚拟机上，与部署环境无关；
+        这里有一层测试必须装到真实设备上跑，
+        因此能测出系统能力与界面的真实行为 —— 代价是慢，且要连机器。
+        另一处是发现方式：那边靠注解扫描，这里靠显式的套件注册。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  assertions:
+    code: |
+      // 形态是「期望(实际值) + 判断方法(期望值)」
+      expect(add(1, 2)).assertEqual(3);              // @note 值相等
+      expect(list).assertContain(3);                 // @note 包含
+      expect(obj).assertInstanceOf(MyClass);         // @note 类型
+      expect(() => parse("")).assertThrowError();    // @note 抛错
+      expect(x).assertNull();                        // @note 为空
+      expect(a).assertDeepEquals(b);                 // @note 逐层比较
+
+      // @note 还有 assertTrue / assertFalse / assertLarger / assertClose /
+      // @note assertPromiseIsResolved 这一系列，以及取反的写法
+    vs:
+      javascript: |
+        两边形态其实很像（都是期望值加判断方法的链式调用），
+        差别在**命名体系**：那边是自成一套的短名（`toBe` / `toEqual` / `toThrow`），
+        这里是 `assert` 前缀加直白的动词（`assertEqual` / `assertThrowError`）——
+        更接近 JUnit 那一系的命名习惯，从那边过来的人反而更好猜。
+      python: |
+        那边的两个流派差别很大：一个用**裸断言语句加表达式**，
+        框架重写断言后给出详细的差异对比；另一个用断言方法。
+        这里走的是后一条路（期望值 + 判断方法），
+        所以没有「一句话断言、失败时自动告诉你哪里不一样」那种体验 ——
+        比对失败时的信息要朴素一些。
+      java: |
+        两边都是断言方法调用，这一格接近。差别在**参数顺序**：
+        JUnit 是「期望值在前、实际值在后」，这里是「先写实际值、
+        再写期望值」。
+        顺序反过来之后，那个经典陷阱就消失了 ——
+        在 JUnit 里把两个参数写反，失败信息会完全误导人（它会把实际值
+        当成期望值报出来）；这里实际值一开头就绑定了，写反的可能性更低。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  mocking:
+    code: |
+      import { MockKit, when } from '@ohos/hamock';   // @note 官方打桩框架
+
+      const mocker: MockKit = new MockKit();
+      mocker.mockFunc(obj, obj.fetchData);            // @note 把这个方法换成假的
+
+      when(obj.fetchData)(1).afterReturn("结果");     // @note 指定入参 → 返回值
+      // @note 还有：afterThrow（改成抛错）、afterAction（执行自定义逻辑）、
+      // @note 参数匹配器（任意值 / 任意字符串 / 任意数字）、
+      // @note 以及 verify(...).times() 这类调用次数校验
+    vs:
+      javascript: |
+        两边都能「把方法换成假的、指定返回值」，能力接近。
+        差别在**能替换的范围**：那边的对象结构是运行时可变的，
+        mock 能在模块加载时整个替换掉一个模块；
+        这里的对象结构在编译期就定下来了，
+        打桩只能针对具体对象的具体方法，没有「替换整个模块」这一路。
+      python: |
+        那边能在运行时给任何属性打补丁，连模块里的自由函数都能按名字换掉；
+        这里的打桩对象是「某个对象的方法」——
+        没有「按名字找到模块里的函数再替换」这种入口。
+        两边都能校验调用次数与参数，这一点是一致的。
+      java: |
+        两边是同一套路（指定入参对应的返回值、校验调用次数），
+        形态几乎对得上。差别在**实现方式**：那边的打桩库靠动态代理
+        与字节码增强，因此能给一个只有接口、没有实现的类型生成替身；
+        这里只能对已经有实现的对象方法打桩，
+        所以「先写接口、测试时换上假实现」这条路在这里不成立，
+        得先有一个真的对象。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  parameterized-tests:
+    code: |
+      // 用例数据放在**测试文件同目录**的 data.json 里
+      // {
+      //   "suites": [{ "describe": "解析", "params": [{ "name": "正整数" }] }],
+      //   "items":  [{ "it": "parse", "params": [
+      //                  { "input": "42", "want": 42 },
+      //                  { "input": "-7", "want": -7 }] }]
+      // }
+
+      // @note 官方的说法是「数据驱动」：代码写一次，数据在文件外
+      // @note! 用例签名有顺序约束 —— 用回调参数时它在前、数据在后
+      // it('parse', 0, (done: Function, data: ...) => { … });
+    vs:
+      javascript: |
+        同一件事两种摆法：那边把用例表格写在**测试文件里**，
+        框架负责展开成多个用例；这里把数据放到**独立的 JSON 文件**，
+        与测试代码分开。
+        实际差别在改用例的成本：那边改数据要动代码、走一次代码评审；
+        这里改的是一个数据文件 —— 代价是数据是弱类型的，
+        写错了要跑起来才知道。
+      python: |
+        Python 用装饰器声明参数组合，用例数据仍然是代码的一部分
+        （可以调用函数生成），表达力更强；
+        这里的数据源是静态的 JSON 文件，表达力弱一些，
+        换来的是「不改代码就能增删用例」。
+        两边都能给每个用例命名、都能单独跑某一个，这一点相同。
+      java: |
+        两边都能声明一组用例并逐个报告结果。差别在**数据能不能算出来**：
+        JUnit 的用例来源可以指向一个方法，因此用例可以由代码动态生成；
+        这里的数据源是 JSON 文件，是静态的。
+        用例独立报告、可单独运行这些方面两边一致；
+        JUnit 那条路更适合「组合爆炸」的场景，这里的文件更适合
+        「一堆固定的输入输出对照」。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  coverage:
+    code: |
+      // 命令行产出覆盖率（工程级，多模块会整合成一份报告）
+      //   hvigorw collectCoverage
+      //   或 hvigorw test -p module=entry -p coverage=true
+
+      // @note IDE 里是「用覆盖率方式运行」，产物同样是报告
+      // @note 报告是 HTML，按函数与分支统计
+      // @note! 目前不支持增量覆盖率 —— 每次都是全量统计
+      // @note 因为测试分两层，覆盖率也只覆盖跑过的那一层
+    vs:
+      javascript: |
+        两边都靠测试运行器产出覆盖率、都能出 HTML 报告、都能进流水线。
+        差别在**可调的余地**：那边是独立的覆盖率工具，能换统计引擎、
+        设阈值、按文件排除；这里是构建命令的一个开关，
+        口径固定（函数与分支），配置空间小。
+      python: |
+        Python 的覆盖率是第三方工具，配置细、能设阈值让流水线按覆盖率失败；
+        这里同样是构建工具自带的一条命令，但可调项少。
+        共同点是两边都把覆盖率报告当成流水线的产物，
+        而不是开发时随手看一眼的东西。
+      java: |
+        Java 的覆盖率要靠插件接进构建工具才有报告，还要配输出目录与阈值；
+        这里构建命令自带这个能力。
+        根源与前面几格一致：那边的能力靠插件拼装、可替换；
+        这里常用能力直接做进构建命令，省事但没得挑。
+        两边都能出 HTML 报告，都能按函数与分支统计。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
