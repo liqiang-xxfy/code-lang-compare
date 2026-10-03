@@ -1,0 +1,129 @@
+# cpp —— express / strings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: strings` 的那批。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是**「字符串」在这门语言里有三层东西** ——
+# 字面量（`const char*`，是指针）、`std::string`（拥有内存的对象）、
+# `std::string_view`（不拥有的视图），三者**不等于**。
+# 三处实跑确认：`"a" + "b"` 是**编译错误**（指针相加）；
+# `size()` 数的是**字节**（`"你好ab"` 是 8）；
+# 没有内建字符串插值 —— C++20 的 `std::format` 是标准库提供的。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  string-literals:
+    code: |
+      auto a = "文本";                    // @note! 类型是 const char*（指针），不是字符串对象
+      auto s = std::string{"文本"};        // @note 这才是「一个字符串」
+
+      auto raw  = R"(原样 \n 不转义)";      // @note 原始字符串（C++11）
+      auto utf8 = u8"文本";                // @note char8_t（C++20）
+      auto wide = L"文本";                 // @note wchar_t
+
+      auto joined = "AB" "CD";             // @note 相邻字面量编译期拼起来 → "ABCD"
+
+      // @note! 没有字符串插值 —— 拼接只有三条路：
+      std::string byPlus = std::string{"x="} + std::to_string(1);   // ① operator+
+      std::string byFmt  = std::format("x={}", 1);                  // ② std::format（C++20）
+      printf("x=%d\n", 1);                                          // ③ 老式的格式化函数
+
+      // @note! `"a" + "b"` 是**编译错误** —— 两个指针不能相加
+      // @note 至少要有一边是 std::string，`std::string{"a"} + "b"` 才成立
+
+      // @note 多行字符串靠相邻字面量或原始字符串换行，没有专门的三引号语法
+    vs:
+      javascript: |
+        两边都写 `"文本"`，但**这个字面量的类型完全不同**：
+        JavaScript 的字符串字面量就是一个不可变字符串值，随手 `.length` / 模板串；
+        C++ 的 `"文本"` 是一个**指向只读字符数组的指针** ——
+        所以 `"a" + "b"` 在 C++ 里是编译错误（指针相加），
+        必须至少有一边先变成字符串对象。另一处是插值：
+        JavaScript 有模板串 `` `${x}` ``，C++ 完全没有内建插值，
+        要么用 `std::format`，要么把每段都转成字符串再拼。
+        多行字符串 C++ 也没有专用语法，靠相邻字面量或原始字符串。
+      python: |
+        两边的字面量形态都很丰富（Python 有 f-string、三引号、前缀组合），
+        C++ 有原始字符串和编码前缀，但**没有插值**这一项 ——
+        这是从 Python 过来最直接的失落：`f"{x}"` 要改成
+        `std::format("{}", x)` 或者手动把每段转字符串。
+        另一处更根本：Python 的字符串是**对象**，切片、方法都在上面；
+        C++ 的 `"文本"` 是**指针**，加一个 `std::string{...}` 才是对象，
+        这两层在 C++ 里要自己分清楚（见下一格）。
+      java: |
+        两边的字面量处境很像（都是不可变字符串对象、都没有插值），
+        这一格最接近。差别在 Java 的字符串**天生就是对象**，
+        而 C++ 的 `"文本"` 是 `const char*`，要用得先构造 `std::string` ——
+        也就是说 C++ 多一道「把指针变成对象」的手续，
+        也正是这道手续让 `"a" + "b"` 编译不过（Java 里 `"a" + "b"` 合法）。
+        另一处是 C++ 有 `std::format`（C++20），占位符是花括号而不是
+        `%s` 那一套，而且**不做类型转换** —— 格式串和实参对不上是编译错误，
+        比 Java 的 `String.format`（对不上要等到运行期抛异常）早一步拦住。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  string-common-ops:
+    code: |
+      std::string s = "你好ab";
+
+      s.size();                  // @note! 8 —— 数的是**字节**，不是字符
+      s.length();                // @note 与 size() 等价
+      s.empty();                 // @note 判空用这个（不是比 null）
+
+      s.substr(0, 3);            // @note "你" —— 按**字节**切，中文一个字三字节
+      s.find("ab");              // @note 6；找不到返回 std::string::npos
+      s.contains("ab");          // @note C++23：不必再比 npos
+      s.starts_with("你");       // @note C++20
+      s + "!";                   // @note 拼接（返回新字符串）
+      s += "!";                  // @note 原地追加
+      std::to_string(42);        // @note 数字 → 字符串
+      std::stoi("42");           // @note 字符串 → 数字，失败抛异常
+
+      // @note! 大小写**没有成员函数** —— 要自己写循环或用算法库
+      // @note! 也没有 split —— 得配 std::stringstream 或 C++20 的 views::split
+
+      // @note std::string_view：不拥有内存的视图（sizeof 16 字节）
+      std::string_view sv = s;   // @note 不拷贝，但原字符串一改就可能悬垂
+    vs:
+      javascript: |
+        **最需要记住的一条是「长度数的是字节」**：JavaScript 的 `length`
+        数 UTF-16 码元（对基本汉字倒是 1），C++ 的 `size()` 数**字节** ——
+        「你好ab」在 C++ 里是 8、在 JavaScript 里是 4。
+        所以按长度切、按下标取，两边得到的完全不是一回事，
+        而且 C++ 这边切在字符中间会得到**不合法的字节序列**（不报错）。
+        另一处是常用操作：JavaScript 的方法一应俱全（`toUpperCase` /
+        `split` / `includes`），C++ 的大小写转换和 split 都**不在成员里**，
+        要自己写或者用算法库。
+      python: |
+        两边都能切片、查找、拼接，但**切片的单位不同**：
+        Python 的字符串是字符序列，`s[0:1]` 拿到的是完整的「你」；
+        C++ 的 `substr` 按字节，`s.substr(0,1)` 拿到的是「你」的第一个字节，
+        打印出来是乱码且**不报错**。另一处是 Python 的字符串方法很全
+        （`upper` / `split` / `strip`），C++ 的 `std::string` 只有少数成员，
+        大小写与切分要自己写或用算法 —— 所以「语言自带的字符串能力」
+        两边差一个量级。共同点是都有不可变视角的替代品（视图 / 切片）。
+      java: |
+        两边都是 UTF-16/字节层面上要小心的语言，但**数的单位不同**：
+        Java 的 `length()` 数 UTF-16 码元、`charAt` 按码元取，
+        C++ 的 `size()` 数字节、下标按字节取 —— 对中文来说
+        Java 一个汉字算 1、C++ 算 3。另一处是 Java 的字符串方法更全
+        （`toUpperCase` / `split` / `trim` 都在），C++ 的 `std::string`
+        把大小写转换和切分留给了算法库与别的库类型。
+        共同点是两边都提供「不拷贝的视图」（`string_view` ↔ 没有直接对应，
+        Java 那边要靠 `CharSequence` 或手动管理区间）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

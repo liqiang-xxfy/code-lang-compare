@@ -1,0 +1,252 @@
+{
+  "lang": "swift",
+  "section": "mechanism",
+  "group": "async",
+  "boxes": {
+    "event-loop": {
+      "lang": "swift",
+      "code": "// ⚠ Swift **不把事件循环作为编程概念暴露出来** ——\n// ⚠ 运行时底下当然有调度器，但你写代码时面对的是 **任务**，不是循环\n\n// 你写的是：\nTask {\n  await fetch()          // 「在这里等」，控制权还给调度器\n}\n// 「等的时候谁在跑」由运行时决定，你不用管也不用启动\n\n// 与别的语言最不一样的三点：\n// ⚠ ① **没有 `runLoop.run()` 这种入口** ——\n// ⚠ 异步能力是运行时自带的；只有命令行程序需要\n// ⚠ `await` 顶层代码或显式等待任务结束\n// ⚠ ② **没有「主循环」这个概念要你自己维护** ——\n// ⚠ 想跑在主线程上标 `@MainActor` 就行\n// ⚠ ③ 任务不是「回调队列里的一个回调」，而是一个**有寿命的对象**：\n// ⚠ 能被取消、能被等待、能组成父子关系\n\n// 主 actor 是唯一「像事件循环」的东西：\n// 它串行地跑主线程上的活儿，界面相关的代码都在它上面\n@MainActor func updateUI() { }\n\n// 命令行工具里想让异步跑完，通常要显式等：\n// await task.value  或者用顶层 await（脚本式写法）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Swift **不把事件循环作为编程概念暴露出来** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 运行时底下当然有调度器，但你写代码时面对的是 **任务**，不是循环</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 你写的是：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">Task</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-comment)\">          // 「在这里等」，控制权还给调度器</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 「等的时候谁在跑」由运行时决定，你不用管也不用启动</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与别的语言最不一样的三点：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ① **没有 `runLoop.run()` 这种入口** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 异步能力是运行时自带的；只有命令行程序需要</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `await` 顶层代码或显式等待任务结束</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ② **没有「主循环」这个概念要你自己维护** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 想跑在主线程上标 `@MainActor` 就行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ③ 任务不是「回调队列里的一个回调」，而是一个**有寿命的对象**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 能被取消、能被等待、能组成父子关系</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 主 actor 是唯一「像事件循环」的东西：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 它串行地跑主线程上的活儿，界面相关的代码都在它上面</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">@MainActor</span><span style=\"color:var(--shiki-token-keyword)\"> func</span><span style=\"color:var(--shiki-token-function)\"> updateUI</span><span style=\"color:var(--shiki-foreground)\">() { }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 命令行工具里想让异步跑完，通常要显式等：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// await task.value  或者用顶层 await（脚本式写法）</span></span></code></pre>",
+      "lineCount": 24,
+      "notes": [
+        {
+          "line": 1,
+          "text": "Swift **不把事件循环作为编程概念暴露出来** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 2,
+          "text": "运行时底下当然有调度器，但你写代码时面对的是 **任务**，不是循环",
+          "tone": "warn"
+        },
+        {
+          "line": 11,
+          "text": "① **没有 `runLoop.run()` 这种入口** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "异步能力是运行时自带的；只有命令行程序需要",
+          "tone": "warn"
+        },
+        {
+          "line": 13,
+          "text": "`await` 顶层代码或显式等待任务结束",
+          "tone": "warn"
+        },
+        {
+          "line": 14,
+          "text": "② **没有「主循环」这个概念要你自己维护** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 15,
+          "text": "想跑在主线程上标 `@MainActor` 就行",
+          "tone": "warn"
+        },
+        {
+          "line": 16,
+          "text": "③ 任务不是「回调队列里的一个回调」，而是一个**有寿命的对象**：",
+          "tone": "warn"
+        },
+        {
+          "line": 17,
+          "text": "能被取消、能被等待、能组成父子关系",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>两边的抽象层次不同</strong>：JavaScript 直接把「事件循环」这个概念\n交给开发者（所有异步都绕着它转，<code>Promise</code> 是它的产物），\n单线程靠不阻塞来同时应付很多等待；\nSwift 把它藏起来了 —— 你面对的是 <code>Task</code> 与 <code>await</code>，\n「谁来调度」不是你要操心的事，而且任务可以真的并行。\n另一处是主线程：JavaScript 主线程就是唯一的执行流；\nSwift 里「跑在主线程」是一个可以标注的隔离域（<code>@MainActor</code>），\n其余代码可以跑在别的线程上。\n也就是说两边都有「等的时候别占着」这个思想，\n但一个显式、一个隐式。</p>\n",
+        "python": "<p>两边的落差在于<strong>要不要自己起循环</strong>：Python 的 <code>asyncio</code>\n要求你显式启动并活在里面（<code>asyncio.run</code>），\n整个程序通常绕着它转；Swift 的异步是运行时自带的，\n<code>Task {}</code> 随手写、<code>await</code> 随手用，不需要「启动事件循环」这一步。\n另一处是主线程的概念：Python 的 asyncio 是单线程的，\nSwift 有 <code>@MainActor</code> 这样的隔离域，其余任务可以并行。\n共同点是两边都会在等待时把控制权交出去（不占线程）。</p>\n",
+        "java": "<p>两边<strong>都没有把事件循环做进语言</strong>，都得靠框架或运行时 ——\n但方向不同：Java 用虚拟线程把阻塞写回同步的样子\n（不需要改写法、不需要 await），Swift 用 <code>async</code> / <code>await</code>\n加结构化并发。另一处是 Java 的 <code>CompletableFuture</code>\n要自己组合、自己等；Swift 的 <code>Task</code> 是语言层面的任务对象，\n能取消、能组队、有父子关系。\n共同点是两边都承认「异步需要一套任务模型」，\n只是一个选择了「让阻塞变便宜」，一个选择了「改写法」。</p>\n"
+      }
+    },
+    "callback": {
+      "lang": "swift",
+      "code": "// 老式回调（很多框架 API 还是这个形态）\nloadData { result in\n  print(result)                 // 在别的线程/队列上跑，注意线程安全\n}\n\n// ⚠ 现代写法是把回调**包成 async 函数** —— 这是主要迁移路径\nfunc loadData() async -> String {\n  await withCheckedContinuation { cont in    // 把回调桥接成 await\n    legacyLoad { value in cont.resume(returning: value) }\n  }\n}\n\n// 于是调用点变成一行\nlet data = await loadData()\n\n// ⚠ 回调式 API 在这门语言里要留意几件事（与别处一样）：\n// ① 回调跑在哪个线程/actor 上？共享状态要不要隔离？\n// ② 闭包里引用 `self` 要显式写（逃逸闭包）\n// ③ 类实例里的闭包容易形成引用环（用 [weak self]）\n// 换成 async/await 之后，①② 由 actor 与 Sendable 管住，\n// ③ 仍然要靠捕获列表 —— 这一点没被解决\n\n// 官方也提醒：桥接回调时**必须保证只 resume 一次**\n// （用 withCheckedContinuation 会在重复 resume 时帮你报错）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 老式回调（很多框架 API 还是这个形态）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">loadData</span><span style=\"color:var(--shiki-foreground)\"> { result </span><span style=\"color:var(--shiki-token-keyword)\">in</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  print</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">result</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">                 // 在别的线程/队列上跑，注意线程安全</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 现代写法是把回调**包成 async 函数** —— 这是主要迁移路径</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> loadData</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> -></span><span style=\"color:var(--shiki-token-constant)\"> String</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-token-function)\"> withCheckedContinuation</span><span style=\"color:var(--shiki-foreground)\"> { cont </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-comment)\">    // 把回调桥接成 await</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    legacyLoad</span><span style=\"color:var(--shiki-foreground)\"> { value </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> cont.</span><span style=\"color:var(--shiki-token-function)\">resume</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">returning</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-function)\"> value</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 于是调用点变成一行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> data </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> loadData</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 回调式 API 在这门语言里要留意几件事（与别处一样）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ① 回调跑在哪个线程/actor 上？共享状态要不要隔离？</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ② 闭包里引用 `self` 要显式写（逃逸闭包）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ③ 类实例里的闭包容易形成引用环（用 [weak self]）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 换成 async/await 之后，①② 由 actor 与 Sendable 管住，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ③ 仍然要靠捕获列表 —— 这一点没被解决</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 官方也提醒：桥接回调时**必须保证只 resume 一次**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// （用 withCheckedContinuation 会在重复 resume 时帮你报错）</span></span></code></pre>",
+      "lineCount": 24,
+      "notes": [
+        {
+          "line": 6,
+          "text": "现代写法是把回调**包成 async 函数** —— 这是主要迁移路径",
+          "tone": "warn"
+        },
+        {
+          "line": 16,
+          "text": "回调式 API 在这门语言里要留意几件事（与别处一样）：",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都在从回调往 <code>async</code> / <code>await</code> 迁移，连形态都对得上\n（<code>Promise</code> 包装 ↔ <code>withCheckedContinuation</code>）。\n差别在<strong>要操心的事</strong>：JavaScript 的回调跑在同一个事件循环上，\n「在哪个线程」不是问题；Swift 的回调可能在别的线程或 actor 上，\n所以线程安全与隔离是真实要处理的。\n另一处是引用环：Swift 的闭包强引用 <code>self</code> 会形成环，\n要用 <code>[weak self]</code>；JavaScript 的 GC 能收环，不用管 ——\n这是 Swift 里回调式代码比那边更容易出问题的地方。\n共同点是两边都认为「回调难读」，都在往 await 迁。</p>\n",
+        "python": "<p>两边都能把回调桥接成协程式写法，思路一致。\n差别在<strong>线程与生命周期</strong>：Python 的回调通常在同一个事件循环里，\n而且闭包捕获的对象由引用计数保活（加上 GC 收环）；\nSwift 的回调可能在别的 actor 上（要满足 Sendable），\n闭包强引用 <code>self</code> 会形成环，得用 <code>[weak self]</code> 打破。\n也就是说同一个迁移动作，Swift 这边多两件要处理的事。\n共同点是两边都推荐新代码直接用 async/await。</p>\n",
+        "java": "<p>两边都有把回调转成可等待形态的手法\n（Java 的 <code>CompletableFuture</code> ↔ Swift 的 <code>withCheckedContinuation</code>），\n而且都要注意「在哪根线程上跑」—— 这一层很像。\n差别在<strong>组合能力</strong>：Java 的 <code>CompletableFuture</code> 能链式组合\n（<code>thenCompose</code> / <code>allOf</code>），Swift 的组合靠 <code>async let</code>\n与任务组 —— 写法上 Swift 更像普通代码、Java 更像拼装。\n另一处是 Swift 的回调转 await 要求「只 resume 一次」，\nJava 里没有这个约束（但有「只完成一次」的语义）。</p>\n"
+      }
+    },
+    "promise-future": {
+      "lang": "swift",
+      "code": "// Swift 里「将来会有一个值」的东西就是 **Task**\nlet task = Task { await compute() }        // 立刻开始跑\n\nlet value = await task.value                // 要值的时候等\n// ⚠ `task.value` 只能取一次？—— 实际上可以多次 await，\n// ⚠ 拿到的是同一个结果（任务只跑一遍）\n\n// 并发跑一批：任务组（结果随到随收）\nlet results = await withTaskGroup(of: Int.self) { group in\n  for i in 0..<3 { group.addTask { await work(i) } }\n  var acc: [Int] = []\n  for await r in group { acc.append(r) }     // 先完成的先出来\n  return acc\n}\n\n// 只想并发两三个、想按位置取结果：用 async let\nasync let a = fetch(1)\nasync let b = fetch(2)\nlet (x, y) = await (a, b)                    // 两个一起等\n\n// ⚠ 三处与别的语言不同的取舍：\n// ⚠ ① **没有 `.then` 式链** —— 组合靠「顺序写 await」或者结构化并发，\n// ⚠ 所以不像有的语言那样有一整套组合子 API\n// ⚠ ② **任务有父子关系**：父任务取消会连带取消子任务\n// ⚠ ③ **失败的处理**：任务里抛的错误在 `await` 处重新抛出，\n// ⚠ 所以 `try await` 是常见写法，不会静默丢掉\n\n// 想让「可能失败」变成值，标准库有 Result（见 model/errors）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Swift 里「将来会有一个值」的东西就是 **Task**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> task </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Task</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-foreground)\"> }        </span><span style=\"color:var(--shiki-token-comment)\">// 立刻开始跑</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> value </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-foreground)\"> task.</span><span style=\"color:var(--shiki-token-constant)\">value</span><span style=\"color:var(--shiki-token-comment)\">                // 要值的时候等</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `task.value` 只能取一次？—— 实际上可以多次 await，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 拿到的是同一个结果（任务只跑一遍）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 并发跑一批：任务组（结果随到随收）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> results </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> withTaskGroup</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">of</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-constant)\"> Int</span><span style=\"color:var(--shiki-token-function)\">.</span><span style=\"color:var(--shiki-token-keyword)\">self</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> { group </span><span style=\"color:var(--shiki-token-keyword)\">in</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-keyword)\">..&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\"> { group.</span><span style=\"color:var(--shiki-token-function)\">addTask</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-function)\"> work</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">i</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> } }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  var</span><span style=\"color:var(--shiki-foreground)\"> acc: [</span><span style=\"color:var(--shiki-token-constant)\">Int</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> []</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> group { acc.</span><span style=\"color:var(--shiki-token-function)\">append</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">r</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> }     </span><span style=\"color:var(--shiki-token-comment)\">// 先完成的先出来</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-foreground)\"> acc</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只想并发两三个、想按位置取结果：用 async let</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> let</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> let</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-token-punctuation)\"> (</span><span style=\"color:var(--shiki-token-function)\">x, y</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-punctuation)\"> (</span><span style=\"color:var(--shiki-token-function)\">a, b</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">                    // 两个一起等</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 三处与别的语言不同的取舍：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ① **没有 `.then` 式链** —— 组合靠「顺序写 await」或者结构化并发，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以不像有的语言那样有一整套组合子 API</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ② **任务有父子关系**：父任务取消会连带取消子任务</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ③ **失败的处理**：任务里抛的错误在 `await` 处重新抛出，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以 `try await` 是常见写法，不会静默丢掉</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想让「可能失败」变成值，标准库有 Result（见 model/errors）</span></span></code></pre>",
+      "lineCount": 28,
+      "notes": [
+        {
+          "line": 5,
+          "text": "`task.value` 只能取一次？—— 实际上可以多次 await，",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "拿到的是同一个结果（任务只跑一遍）",
+          "tone": "warn"
+        },
+        {
+          "line": 21,
+          "text": "三处与别的语言不同的取舍：",
+          "tone": "warn"
+        },
+        {
+          "line": 22,
+          "text": "① **没有 `.then` 式链** —— 组合靠「顺序写 await」或者结构化并发，",
+          "tone": "warn"
+        },
+        {
+          "line": 23,
+          "text": "所以不像有的语言那样有一整套组合子 API",
+          "tone": "warn"
+        },
+        {
+          "line": 24,
+          "text": "② **任务有父子关系**：父任务取消会连带取消子任务",
+          "tone": "warn"
+        },
+        {
+          "line": 25,
+          "text": "③ **失败的处理**：任务里抛的错误在 `await` 处重新抛出，",
+          "tone": "warn"
+        },
+        {
+          "line": 26,
+          "text": "所以 `try await` 是常见写法，不会静默丢掉",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都有「将来的值」，但<strong>组合方式差得很远</strong>：\nJavaScript 的 Promise 有一整套组合子（<code>all</code> / <code>race</code> /\n<code>allSettled</code> / <code>any</code>）加链式 <code>then</code>；\nSwift 的组合靠 <code>async let</code> 与任务组 ——\n<strong>写法上更像普通代码</strong>（顺序写 await），\n但没有一组专门的组合函数。\n另一处是任务关系：Swift 的任务有<strong>父子结构</strong>\n（父被取消会连累子），JavaScript 的 Promise 是平的，\n取消要自己用 <code>AbortController</code> 传。\n还有一处是错误传播：Swift 的 <code>try await</code> 会把错误带回来，\nJavaScript 的 Promise 拒绝也类似，这一层一致。</p>\n",
+        "python": "<p>两边都有「并发跑一批」的工具（<code>gather</code> ↔ 任务组），\n但<strong>取结果的形态不同</strong>：Python 的 <code>gather</code> 按<strong>传入顺序</strong>\n返回一个列表；Swift 的任务组是<strong>异步序列</strong>，\n先完成的先出来（顺序不保证）—— 想要按位置取结果\n得用 <code>async let</code> 加元组解构。\n另一处是父子关系：Swift 的任务组把子任务绑在作用域上，\n出作用域必然收敛；Python 的 <code>create_task</code> 创建的任务\n可以飘在外面（要自己保存引用、自己等）。\n共同点是两边都能并发、都能把错误带回等待方。</p>\n",
+        "java": "<p><strong>两边概念对得上、能力侧重不同</strong>：Java 的 <code>CompletableFuture</code>\n擅长组合（一长串 <code>thenApply</code>），Swift 擅长<strong>结构化</strong>\n（任务有父子、有作用域）。也就是说那边「拼装流水线」方便，\n这边「管理一批并发任务的寿命」更清晰。\n另一处是取消：Swift 的父任务取消会<strong>自动传给子任务</strong>，\nJava 的 <code>CompletableFuture</code> 没有这个树形结构\n（取消要一个个管）。共同点是两边都能并发等一批结果，\n也都能把异常传回等待方。</p>\n"
+      }
+    },
+    "async-await": {
+      "lang": "swift",
+      "code": "func fetch(_ id: Int) async throws -> String {\n  try await Task.sleep(for: .milliseconds(100))\n  return \"数据 \\(id)\"\n}\n\nfunc run() async throws {\n  let a = try await fetch(1)      // 顺序执行：一个一个来\n  let b = try await fetch(2)\n\n  // 循环里可以 await —— 但那是**串行**的\n  for i in 0..<3 { try await fetch(i) }\n\n  // 想并发：async let（固定几个）或者任务组（数量不定）\n  async let p = fetch(1)\n  async let q = fetch(2)\n  let pair = try await (p, q)\n\n  // ⚠ 标了 `async` 的函数**不能直接调用** —— 必须在异步上下文里 await\n  // ⚠ 这一条是编译器强制的（与别处一样），\n  // ⚠ 不像有的语言那样「调了但忘记等」能编过\n\n  // 一个函数可以是 async 且 throws（顺序随意写：`async throws`）\n  // 也可以只 async 不抛（那就没有 try）\n\n  // `@MainActor` 能让某个函数跑在主线程上；\n  // 在 async 函数里跳回主 actor 时会**隐式切换**（不用手写调度）\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">_</span><span style=\"color:var(--shiki-token-parameter)\"> id</span><span style=\"color:var(--shiki-foreground)\">: </span><span style=\"color:var(--shiki-token-constant)\">Int</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> throws</span><span style=\"color:var(--shiki-token-keyword)\"> -></span><span style=\"color:var(--shiki-token-constant)\"> String</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  try</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-foreground)\"> Task.</span><span style=\"color:var(--shiki-token-function)\">sleep</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">for</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-function)\"> .milliseconds</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">100</span><span style=\"color:var(--shiki-token-punctuation)\">))</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-string-expression)\"> \"数据 </span><span style=\"color:var(--shiki-token-string-expression)\">\\(id)</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> run</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> throws</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> try</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">      // 顺序执行：一个一个来</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> try</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // 循环里可以 await —— 但那是**串行**的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-keyword)\">..&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">i</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // 想并发：async let（固定几个）或者任务组（数量不定）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  async</span><span style=\"color:var(--shiki-token-keyword)\"> let</span><span style=\"color:var(--shiki-foreground)\"> p </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  async</span><span style=\"color:var(--shiki-token-keyword)\"> let</span><span style=\"color:var(--shiki-foreground)\"> q </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  let</span><span style=\"color:var(--shiki-foreground)\"> pair </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> try</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-punctuation)\"> (</span><span style=\"color:var(--shiki-token-function)\">p, q</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // ⚠ 标了 `async` 的函数**不能直接调用** —— 必须在异步上下文里 await</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // ⚠ 这一条是编译器强制的（与别处一样），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // ⚠ 不像有的语言那样「调了但忘记等」能编过</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // 一个函数可以是 async 且 throws（顺序随意写：`async throws`）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // 也可以只 async 不抛（那就没有 try）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // `@MainActor` 能让某个函数跑在主线程上；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // 在 async 函数里跳回主 actor 时会**隐式切换**（不用手写调度）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 27,
+      "notes": [
+        {
+          "line": 18,
+          "text": "标了 `async` 的函数**不能直接调用** —— 必须在异步上下文里 await",
+          "tone": "warn"
+        },
+        {
+          "line": 19,
+          "text": "这一条是编译器强制的（与别处一样），",
+          "tone": "warn"
+        },
+        {
+          "line": 20,
+          "text": "不像有的语言那样「调了但忘记等」能编过",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>形状几乎一样（<code>async</code> / <code>await</code> 名字都对得上），\n而且<strong>在循环里 await 两边都合法、都是串行</strong> —— 这一格最接近。\n差别在<strong>并发怎么写</strong>：JavaScript 要 <code>Promise.all</code> 显式收集；\nSwift 用 <code>async let</code> 或任务组 —— 后者带作用域与父子关系。\n另一处是<strong>主线程</strong>：JavaScript 里代码天然在主线程，\n回到主线程不需要额外动作；Swift 里主线程是一个可以标注的\n隔离域（<code>@MainActor</code>），跳过去是显式或半显式的一步。\n共同点是两边都强制「异步函数只能在异步上下文里 await」。</p>\n",
+        "python": "<p>两边的写法与「循环里可以 await，而且是串行」这条都一致，\n可以逐条对应。差别在<strong>异常传播的方向</strong>：Swift 用\n<code>try await</code>，错误会在 await 处重新抛出（很直白）；\nPython 的 <code>gather</code> 默认一有异常就立刻向等待方抛出\n（其余任务不被取消、继续跑）—— 两边在「其余任务怎么办」\n上的取舍不同（Swift 的任务组会取消兄弟任务）。\n另一处是 Python 没有 <code>async let</code> 这种「并发的局部绑定」，\n要并发得显式创建任务。</p>\n",
+        "java": "<p><strong>Java 没有 <code>async</code> / <code>await</code> 这套语法</strong> —— 异步要么用\n<code>CompletableFuture</code> 链式组合，要么用虚拟线程写阻塞式代码。\nSwift 的 <code>await</code> 让异步代码看起来是顺序的，这是 Java 那边\n写不出来的形态。另一处是「阻塞式」这条路：Java 有虚拟线程\n能把异步写回同步的样子；Swift 没有对应能力，\n它的方式始终是 <code>async</code> + <code>await</code> 加结构化并发。\n共同点是两边都需要显式表达「这里会等」——\n一个靠 await，一个靠返回 future 或阻塞调用。</p>\n"
+      }
+    },
+    "cancellation": {
+      "lang": "swift",
+      "code": "// ⚠ **取消是协作式的** —— 官方原话就是这个意思：\n// ⚠ 「每个任务在合适的点上自己检查有没有被取消」\n\nlet task = Task {\n  for i in 0..<1000 {\n    // ⚠ 必须自己查 —— 没人会强行停你\n    if Task.isCancelled { return }              // 或者直接 return\n    try Task.checkCancellation()                // 被取消就抛 CancellationError\n    await step(i)\n  }\n}\n\ntask.cancel()                  // ⚠ 只是**设一个标志** ——\n                               // ⚠ 任务不检查就一直跑完\n\n// 有一批操作**会自动检查取消**（因为它们是标准库/框架提供的）：\n// Task.sleep、网络请求（URLSession）、for await 迭代任务组……\n// 也就是说挂在 `await` 上的等待通常会被取消唤醒\n\n// 想在取消发生时立刻做清理，用 withTaskCancellationHandler\nawait withTaskCancellationHandler {\n  await work()\n} onCancel: {\n  cleanup()                  // 取消一瞬间就跑，不等到下一个检查点\n}\n\n// ⚠ 还有一条别处也一样的现实：**没有「超时即取消」的内建组合** ——\n// 「等一会儿不要了」与「把那件事停掉」是两件事，\n// 前者靠 `Task.sleep` 加 race、后者靠 cancel + 协作",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ **取消是协作式的** —— 官方原话就是这个意思：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 「每个任务在合适的点上自己检查有没有被取消」</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> task </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Task</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-keyword)\">..&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">1000</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">    // ⚠ 必须自己查 —— 没人会强行停你</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-foreground)\"> Task.isCancelled { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> }              </span><span style=\"color:var(--shiki-token-comment)\">// 或者直接 return</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    try</span><span style=\"color:var(--shiki-foreground)\"> Task.</span><span style=\"color:var(--shiki-token-function)\">checkCancellation</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-comment)\">                // 被取消就抛 CancellationError</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    await</span><span style=\"color:var(--shiki-token-function)\"> step</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">i</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">task.</span><span style=\"color:var(--shiki-token-function)\">cancel</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-comment)\">                  // ⚠ 只是**设一个标志** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">                               // ⚠ 任务不检查就一直跑完</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 有一批操作**会自动检查取消**（因为它们是标准库/框架提供的）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Task.sleep、网络请求（URLSession）、for await 迭代任务组……</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 也就是说挂在 `await` 上的等待通常会被取消唤醒</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想在取消发生时立刻做清理，用 withTaskCancellationHandler</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-function)\"> withTaskCancellationHandler</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-token-function)\"> work</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-function)\">onCancel</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  cleanup</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-comment)\">                  // 取消一瞬间就跑，不等到下一个检查点</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 还有一条别处也一样的现实：**没有「超时即取消」的内建组合** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 「等一会儿不要了」与「把那件事停掉」是两件事，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 前者靠 `Task.sleep` 加 race、后者靠 cancel + 协作</span></span></code></pre>",
+      "lineCount": 29,
+      "notes": [
+        {
+          "line": 1,
+          "text": "**取消是协作式的** —— 官方原话就是这个意思：",
+          "tone": "warn"
+        },
+        {
+          "line": 2,
+          "text": "「每个任务在合适的点上自己检查有没有被取消」",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "必须自己查 —— 没人会强行停你",
+          "tone": "warn"
+        },
+        {
+          "line": 13,
+          "text": "只是**设一个标志** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 14,
+          "text": "任务不检查就一直跑完",
+          "tone": "warn"
+        },
+        {
+          "line": 27,
+          "text": "还有一条别处也一样的现实：**没有「超时即取消」的内建组合** ——",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都是协作式取消，而且都要<strong>显式传一个信号</strong>，\n这一层处境相同（<code>AbortController</code> ↔ <code>Task.cancel()</code>）。\n差别在<strong>信号的归属</strong>：Swift 的取消标志<strong>长在任务自己身上</strong>\n（<code>Task.isCancelled</code>），所以任何一层都能查、也会自动传给孩子；\nJavaScript 要手动把 signal 传进每一层函数。\n另一处是标准库的配合度：Swift 的 <code>Task.sleep</code>、<code>for await</code>\n这些会在取消时抛错唤醒；JavaScript 的生态里\n<code>fetch</code> 认 signal，但别的库未必。\n共同点是两边都必须<strong>在代码里留检查点</strong>，否则取消只是空转。</p>\n",
+        "python": "<p><strong>这一格两边相反</strong>：Python 的 <code>asyncio.Task</code> <strong>可以取消</strong> ——\n<code>task.cancel()</code> 会让协程在下一个挂起点收到 <code>CancelledError</code>，\n是能真正打断控制流的；Swift 的 <code>Task.cancel()</code> 只设标志，\n任务必须自己查，否则一路跑完。\n所以那边「取消了就是取消了」，这边「取消了要你配合」——\n从 Python 过来最容易犯的错是「以为调了 cancel 就停了」。\n共同点是两边都会在挂起点检查和传播取消。</p>\n",
+        "java": "<p>两边都是协作式、都能设标志，思路一致\n（Java 的 <code>Thread.interrupt()</code> ↔ Swift 的 <code>Task.cancel()</code>）。\n差别在<strong>打断阻塞操作的能力</strong>：Java 的 <code>interrupt</code> 能让\n睡眠、等待等阻塞调用抛 <code>InterruptedException</code> ——\n线程真的会被唤醒去看那个标志；Swift 的取消同样能唤醒\n「挂在 await 上的等待」（<code>Task.sleep</code> 会抛 CancellationError），\n这一点两边反而很像。\n另一处是 Swift 的取消有<strong>父子传递</strong>（父取消连带子任务），\nJava 的线程没有这层结构，要自己一个个中断。</p>\n"
+      }
+    }
+  }
+}

@@ -1,0 +1,390 @@
+# swift —— model / errors
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: errors` 的那批：
+# throw-raise / try-catch / finally-cleanup / error-types /
+# custom-error / error-propagation。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组三处要写准 ——
+# ① **没有 `finally`**：清理靠 `defer`（它按 LIFO 执行、抛错时也执行）；
+# ② **错误值的类型必须遵守 `Error` 协议**，但 `throws` 本身**不指定类型**
+#    （默认是 `any Error`，想限定类型要用 typed throws）；
+# ③ **`try?` 把错误变成 nil**、**`try!` 失败直接崩** ——
+#    这两个简写是这门语言的特色，读代码时一眼能看出「这里把错误丢了」。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  throw-raise:
+    code: |
+      // @note! 抛出去的东西**必须遵守 Error 协议** —— 这点比很多语言严
+      enum NetworkError: Error {
+        case timeout
+        case badStatus(Int)
+      }
+
+      throw NetworkError.timeout        // @note 抛
+      throw NetworkError.badStatus(500) // @note 带数据
+
+      // @note 能抛错的函数要标 `throws`
+      func fetch(_ url: String) throws -> Data { Data() }
+
+      // @note! 调用时必须写 `try` —— 不写是编译错误
+      let d = try fetch("https://x")
+
+      // @note! 但 `throws` **不说明抛什么类型** —— 默认是 `any Error`，
+      // @note! 调用方只知道「可能抛」，不知道抛哪一种。
+      // @note 想限定类型得显式写（typed throws）：
+      func parse(_ s: String) throws(NetworkError) -> Int { 0 }
+      // @note 官方自己也说「多数代码不指定错误类型」
+
+      // @note `rethrows`：只有当**传入的函数参数**抛错时才抛
+      func apply(_ f: () throws -> Void) rethrows { try f() }
+    vs:
+      javascript: |
+        两边都能抛，但**能抛什么**不同：JavaScript 抛任何值
+        （`throw 42` 都合法）；Swift 要求抛出去的东西**遵守 Error 协议**，
+        所以「错误是一个有类型的对象」这件事在这边是强制的 ——
+        好处是 `catch` 时类型是已知的，坏处是随手包一个对象当错误不行。
+        另一处是**调用点的标记**：Swift 的 `try` 是强制的
+        （不写编译不过），读代码时一眼看出这一行可能失败；
+        JavaScript 里 `throw` 完全隐式，一个函数会不会抛只有读实现才知道。
+        还有一处是 `try?` / `try!` 这两个简写，
+        JavaScript 里要靠 `.catch(() => null)` 之类的写法模拟。
+      python: |
+        两边的错误都是对象，但**约束强度不同**：Python 的异常要能被
+        `except Exception` 接住才算是「常规错误」（否则会穿透），
+        所以实际有一套内建层级；Swift 的错误必须遵守 `Error` 协议，
+        而 `catch` 是穷尽的（要写 `catch` 兜底或者逐类型写全）。
+        另一处是调用点：Swift 强制写 `try`，Python 什么都不用写 ——
+        也就是说「这一行可能抛」在 Swift 里是**看得见的**。
+        还有一处是 Swift 的 `throws` 不指定类型（要知道抛什么
+        得看文档或用 typed throws），Python 里通常靠文档。
+      java: |
+        **两边差别最大的一格**：Java 有受检异常 —— 方法签名必须列出
+        可能抛的受检异常，调用方必须处理或继续声明；
+        Swift 的 `throws` 只是「可能抛」的一个开关，**不说明抛什么类型**
+        （默认 `any Error`），所以编译器不帮你追错误传播路径。
+        另一处是调用点的强度：Java 的受检异常必须 try 或声明，
+        Swift 的 `try` 是强制的但**不强制你处理**（可以一路往上抛）——
+        也就是说 Swift 保证「你知道这里可能出错」，
+        但不保证「你处理了它」。
+        共同点是两边都能用 `Result` 式的返回值代替异常，各有各的库。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  try-catch:
+    code: |
+      do {
+        let d = try fetch("https://x")
+        print(d)
+      } catch NetworkError.timeout {          // @note 按**模式**匹配
+        print("超时")
+      } catch NetworkError.badStatus(let code) {   // @note 还能绑定数据
+        print("状态码 \(code)")
+      } catch {
+        print("其它错误：\(error)")            // @note! `catch` 不带模式就是兜底，
+      }                                        // @note! 而且**必须有一个兜底的**
+
+      // @note! 因为 `throws` 不指定类型，编译器无法判断你写全了没有，
+      // @note! 所以 do-catch **必须穷尽** —— 最后那个裸 `catch` 是必需的
+      // @note （除非你用 typed throws 把类型限定了）
+
+      // @note `try` 的位置有讲究：它标的是**哪个表达式**可能抛
+      let x = try a() + b()                    // @note 只有 a() 可能抛
+      let y = try? risky()                     // @note 失败得 nil（类型变可选）
+      let z = try! risky()                     // @note! 失败直接崩
+
+      // @note 一个 do-catch 里可以有多个 try，catch 会接住其中任何一个
+    vs:
+      javascript: |
+        两边的 `try` / `catch` 形态像，但**能不能按类型分支**不同：
+        JavaScript 只有一个 `catch (e)`，要按类型分得在块里自己判断
+        （`instanceof` 或看 `e.name`）；Swift 可以直接写多个 `catch`
+        子句按模式匹配，还能绑定关联值 —— 表达力强得多。
+        另一处是**穷尽要求**：Swift 的 do-catch 必须有兜底
+        （因为 `throws` 不指定类型，编译器不知道你写全没有），
+        JavaScript 的 catch 本来就是兜底的。
+        还有一处是 Swift 的 `try?` / `try!` 两个简写，
+        让「把错误变成 nil」或「出事就崩」变成一行 —— JavaScript 里要绕。
+      python: |
+        两边都能写多个 `except` / `catch` 子句按类型匹配，
+        而且都能绑定异常对象 —— 这一层对应得上。
+        差别在**穷尽性**：Python 的 `except` 可以不写兜底
+        （没接住的异常会往上冒），Swift 的 do-catch **必须**有兜底
+        （因为错误类型是宽的，编译器没法判断）。
+        另一处是 Python 有 `else` 子句（没出错时执行），
+        Swift 没有对应写法，要写在 `do` 块里的末尾。
+        还有一处是 Swift 的 `try?` / `try!` 很显眼地表达了「我不管错误」，
+        Python 里对应的是裸 `except: pass`（更隐蔽）。
+      java: |
+        两边**高度对应**：`do-catch` / `try-catch`、
+        按类型写多个 catch、catch 里能拿到异常对象 —— 这一层很像。
+        差别在**穷尽性**：Java 的 catch 不要求兜底（受检异常由编译器
+        在别处保证，运行时异常可以不接）；Swift 要求必须有兜底，
+        因为 `throws` 没告诉编译器错误类型。
+        另一处是 Java 的 catch 顺序有意义（先窄后宽，写反是编译错误），
+        Swift 的 catch 是按模式匹配、顺序也有意义但换成了模式语义
+        （`catch NetworkError.timeout` 比裸 `catch` 具体）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  finally-cleanup:
+    code: |
+      // @note! Swift **没有 finally** —— 对应的是 `defer`
+
+      func process() throws {
+        let file = open()                  // @note 拿到就代表打开成功
+        defer { close(file) }              // @note 离开作用域时一定执行
+
+        try risky()                        // @note 这里抛了，defer 照样跑
+      }
+
+      // @note defer 的几条规则：
+      // @note   ① **LIFO**：多个 defer 按书写顺序**倒着**执行
+      // @note   ② 无论怎么离开作用域都执行（正常返回、抛错、break、return）
+      // @note   ③ 按**作用域**生效，不按对象生命周期 ——
+      // @note      写在 if 块里的 defer 在离开那个块时就跑
+
+      func ordering() {
+        defer { print("一") }
+        defer { print("二") }
+        // @note 输出是 二 然后 一
+      }
+
+      // @note! `defer` 与「资源随对象释放」是两回事：
+      // @note 值类型没有析构，清理必须显式写 defer；
+      // @note 类有 deinit，但那个时机由 ARC 决定（不等于离开作用域）
+
+      // @note 较新版本还允许在 defer 里 await（这是后加的能力）
+    vs:
+      javascript: |
+        两边都有「无论如何都要执行的那段」，但**写法与作用域不同**：
+        JavaScript 用 `try / finally`（绑在 try 块上），
+        或者较新的 `using` 声明；Swift 用 `defer`，
+        它是**按作用域**生效的、可以写在任何地方（不只是 try 旁边）。
+        所以 Swift 里「这个块里我开了什么、就 defer 关什么」
+        是一种很自然的写法，JavaScript 的 finally 必须先有个 try。
+        另一处是执行顺序，两边一样（多个清理按倒序跑）。
+        还有一处是 Swift 的 defer 与对象生命周期解耦 ——
+        即使是有 deinit 的类，defer 仍然是显式写出来的。
+      python: |
+        两边的差别就是 `finally` 与 `defer`：Python 有 `finally`，
+        还有 `with` 语句把「进入/退出必做」写成协议（`__enter__` / `__exit__`）；
+        Swift 没有 `finally` 也没有 `with`，对应物是 `defer`。
+        差别在**触发条件**：Python 的 `with` 只对实现了协议的对象可用，
+        而且退出动作由那个对象定义；Swift 的 `defer` 是一段**你写的代码**，
+        任何作用域都能用、也不要求对象配合。
+        另一处是顺序：两边的多个清理都按倒序执行。
+      java: |
+        **两边差别明显**：Java 有 `finally`（绑在 try 上），
+        还有 try-with-resources（绑在资源对象上）；
+        Swift **没有 finally**，只有 `defer`。
+        好处是 defer 不要求先有一个 try —— 一个普通函数里
+        也能「打开什么就推迟关什么」，而且无论从哪条路出去都会执行
+        （包括提前 return）。
+        另一处是 Java 的 try-with-resources 要求资源实现
+        `AutoCloseable`，Swift 的 defer 不要求任何协议。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  error-types:
+    code: |
+      // @note! 只有一个硬约束：错误必须遵守 `Error` 协议
+      // @note 实际写起来最常用的是**枚举**（能表达「只有这几种错」）
+
+      enum ParseError: Error {
+        case empty
+        case badFormat(line: Int)          // @note 带关联值：错误可以携带上下文
+      }
+
+      // @note 标准库里的一些现成错误类型
+      //   DecodingError / EncodingError   —— 编解码
+      //   URLError                        —— 网络
+      //   CocoaError                      —— 文件与系统
+
+      // @note 想让错误带上「给用户看的说明」与「给开发者看的调试信息」，
+      // @note 再遵守两个可选的协议：
+      struct AppError: Error, LocalizedError {
+        var errorDescription: String? { "出错了" }        // @note 给用户看的
+        var failureReason: String? { "因为……" }
+      }
+
+      // @note! 还有一条完全不同的路：把错误当**值**返回
+      // @note `Result<Success, Failure>` 是个枚举（成功/失败两分支）
+      func load() -> Result<Data, ParseError> { .failure(.empty) }
+
+      switch load() {
+      case .success(let d): print(d)
+      case .failure(let e): print(e)
+      }
+      // @note 什么时候用 Result 而不是 throws：
+      // @note 需要把「可能失败」当成一个值存起来、传递、组合的时候
+    vs:
+      javascript: |
+        两边都不限制错误的层级，但**约束的方向不同**：
+        JavaScript 的 `Error` 有 `name` / `message` / `stack` 三个约定字段，
+        子类化靠自定义 class，还有 `cause` 链；
+        Swift 的错误必须遵守 `Error` 协议（通常是个枚举），
+        结构上更自由（想带什么带什么），
+        但**没有内建的原因链**，要用户可读的说明得再遵守
+        `LocalizedError` 这类协议。
+        另一处是 Swift 有 `Result` 这个标准库类型把错误当值返回，
+        JavaScript 里只能靠约定（`{ok, value}` 这种形状）。
+      python: |
+        两边都有层次化的异常，但**形态不同**：
+        Python 的异常是类（继承 `Exception`），实例带任意属性；
+        Swift 的错误通常是**枚举**（带关联值），
+        所以「有哪几种错」是类型里写死的、能被 `switch` 穷尽 ——
+        这是 Python 给不了的保证（那边新增一种异常不影响任何调用方）。
+        另一处是 Python 的异常自带 traceback，Swift 的错误对象
+        不带调用栈（要单独抓）。
+        共同点是两边都能给错误挂上下文（Python 靠属性，Swift 靠关联值）。
+      java: |
+        两边都有一棵「常规错误」的树，但**组织方式相反**：
+        Java 用**继承**（异常类层层继承，靠类型层级分类）；
+        Swift 用**枚举**（一个枚举列出所有情况，靠 case 分类）——
+        所以 Swift 的 `switch` 能穷尽所有错误情况，
+        Java 的 catch 只能按类型由宽到窄拦。
+        另一处是 Java 的异常自带栈轨迹（`printStackTrace`），
+        Swift 的错误不带 —— 要栈得在抛出点自己抓。
+        共同点是两边都能用 `Result` / `Optional` 式的返回值
+        代替异常（Java 靠库，Swift 的标准库就有 `Result`）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  custom-error:
+    code: |
+      // @note 最常用的形态：枚举 + 关联值
+      enum FileError: Error {
+        case notFound(path: String)
+        case permissionDenied
+        case tooLarge(size: Int, limit: Int)   // @note 想带几个带几个
+      }
+
+      throw FileError.notFound(path: "/tmp/x")
+
+      do { } catch FileError.notFound(let path) {
+        print("找不到 \(path)")            // @note 接的时候按模式把数据解出来
+      } catch { }
+
+      // @note 需要「给用户看的文案」时再挂上协议：
+      enum FormError: LocalizedError {
+        case tooShort(min: Int)
+        var errorDescription: String? {
+          switch self {
+          case .tooShort(let m): return "至少要 \(m) 个字"
+          }
+        }
+      }
+
+      // @note 类也能当错误（遵守 Error 即可），但枚举更常见 ——
+      // @note 因为枚举能穷尽、能 switch、天然表达「只有这几种」
+      // @note 想让错误可比较，再遵守 Equatable（枚举能自动合成）
+    vs:
+      javascript: |
+        两边的做法对应得上（自定义一个类型、带上下文），这一层很像。
+        差别在**分类方式**：JavaScript 用类继承
+        （`class MyError extends Error`），可以一层层派生；
+        Swift 更常用**枚举**，它表达的是「这个操作只有这几种失败方式」——
+        而且能被 `switch` 穷尽。也就是说那边「错误是一棵类型树」，
+        这边「错误是一个封闭集合」。
+        另一处是 Swift 有 `LocalizedError` 这种标准协议，
+        把「给用户看的说明」变成接口的一部分，JavaScript 没有对应约定。
+      python: |
+        两边的自定义错误都带上下文，但**形态不同**：
+        Python 靠类（继承 `Exception`，属性随便挂、能在类里加方法）；
+        Swift 靠枚举（关联值携带数据、`switch` 能穷尽）。
+        所以 Python 里「新增一种错误」不影响任何现有代码，
+        Swift 里新增一个 case 会让所有穷尽的 switch 变成编译错误 ——
+        这是两边对「错误集合封不封闭」的不同取舍。
+        另一处是 Swift 能把错误与「用户可读文案」绑成协议，
+        Python 靠 `str(e)` 约定。
+      java: |
+        两边都继承一个基类加字段，写法高度对应 —— 这一层很像。
+        差别在**受检与否**：Java 的自定义异常继承 `Exception` 就是受检的、
+        继承 `RuntimeException` 就不受检，这个选择影响所有调用方；
+        Swift 没有受检这一说（`throws` 就是全部），
+        所以「这个错误要不要强制处理」在 Swift 里不是类型层面的决定。
+        另一处是 Swift 更常用枚举 —— 那意味着错误集合是封闭的、
+        能被穷尽；Java 的异常类可以随时被第三方继承扩展。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  error-propagation:
+    code: |
+      // @note 不想处理就**继续声明 throws**，错误自动往上走
+      func a() throws { try b() }
+      func b() throws { try c() }
+      func c() throws { throw NetworkError.timeout }
+
+      // @note 想「包一层、保留原因」得自己写：
+      do { try b() }
+      catch {
+        throw WrapperError.failed(underlying: error)   // @note! 标准库没有原因链，
+      }                                                // @note! 但你能**自己**把旧错误存进去
+
+      // @note! 对比一下：裸 `throw` 一个**新的**错误会把原因丢掉
+      catch { throw WrapperError.failed }              // @note! 原来的错误信息就此消失
+
+      // @note 另一条路是根本不抛，把结果放进返回值：
+      //   Result<Success, Failure> —— 调用方自己决定什么时候看错误
+      // @note 这条路的代价是每层都要往回传、每一层都要检查
+
+      // @note 三个简写值得单列，它们决定「错误在哪消失」：
+      //   try?   把错误变成 nil —— 想知道为什么失败就没门了
+      //   try!   失败即崩 —— 只在「我确信不会失败」时用
+      //   try    往上抛
+    vs:
+      javascript: |
+        两边的传播都是「不接就往上走」，这一层一致。
+        差别在**保留原因的方式**：JavaScript 的
+        `new Error(msg, { cause: e })` 从 ES2022 起是标准写法，
+        打印时整条链都显示；Swift 的标准错误**没有原因链** ——
+        得自己定义错误类型并把旧错误存进去，否则包一层就丢了。
+        另一处是 Swift 的 `try?` / `try!` 两个简写让「吞掉错误」
+        变成一行、非常显眼；JavaScript 里要写 `.catch(() => null)`，
+        意图没那么直白。
+      python: |
+        两边都能「重抛」与「包一层」，但**保留原因的成本不同**：
+        Python 的 `raise NewError(...) from e` 一句话完成了
+        「抛新异常 + 保留原因 + 打印时两层都显示」；
+        Swift 要自己把旧错误存进新错误里，标准库不代劳。
+        另一处是裸重抛：Python 用裸 `raise`，
+        Swift 用 `throw error`（把 catch 到的变量重新抛出去），
+        两边都有对应写法。
+        还有一处是 Swift 的 `try?` 会**静默吞掉**错误信息，
+        Python 里对应的是裸 `except: pass`（也是坏味道但更少见）。
+      java: |
+        两边都有「包一层」的写法，但 Java 的
+        `new RuntimeException(msg, cause)` 是标准构造函数，
+        原因链是一等公民（`getCause()` 能一路翻）；
+        Swift 的标准错误没有这个机制，得自己定义类型存起来 ——
+        所以「原始错误没丢」这件事在 Java 里是顺手就有的，
+        在 Swift 里是要刻意做的。
+        另一处是 Java 的受检异常逼着你在签名里声明传播路径，
+        「这个错误会飘到哪」静态可查；Swift 完全没有这层信息，
+        只能靠 `try` 标记知道「这里可能出错」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

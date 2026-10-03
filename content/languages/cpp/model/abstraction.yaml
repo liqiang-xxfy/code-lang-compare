@@ -1,0 +1,246 @@
+# cpp —— model / abstraction
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: abstraction` 的那批：
+# interface / abstract-class / mixin-trait / duck-typing。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：C++ 在这四格上的答案都不是「有个关键字」，而是**用已有机制拼**：
+# 接口 = 全是纯虚函数的抽象类；混入 = 多继承或 CRTP（把派生类当模板参数传回去）；
+# 结构化约束 = `concept`（只作用于模板参数）。实跑确认 CRTP 能给
+# `Money` 补出 `!=`、`concept` 不满足时是**编译错误**（不是运行期检查）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  interface:
+    code: |
+      // @note! C++ **没有 `interface` 关键字** —— 接口就是
+      // @note! 「一个全是纯虚函数、没有数据成员的抽象类」
+
+      struct Drawable {
+        virtual void draw() const = 0;      // @note 纯虚：只声明，不给实现
+        virtual double bounds() const = 0;
+        virtual ~Drawable() = default;      // @note! 别忘了虚析构
+      };
+
+      struct Circle : Drawable {
+        double r;
+        void draw() const override { }
+        double bounds() const override { return 2 * r; }
+      };
+
+      void render(const Drawable& d) { d.draw(); }   // @note 按**引用**接，避免切片
+
+      // @note 与别的语言不同，C++ 的「接口」可以带实现（纯虚函数也能给函数体，
+      // @note 但派生类仍然必须重写）、可以有数据成员（那就不纯了，但语法允许）
+      // @note 也就是说这里没有「接口」与「抽象类」的语法分界，全靠约定
+
+      // @note 还有一条完全不同的路子：编译期的接口 —— concept（见 duck-typing）
+    vs:
+      javascript: |
+        **两边「接口」的落实层级不同**：JavaScript 没有接口这个概念，
+        「能做什么」靠文档与运行时检查（或者类型检查器的 `.d.ts`）；
+        C++ 有真的接口 —— 抽象类会被编译器强制（派生类不实现就
+        还是抽象的、不能实例化），调用方按基类引用接。
+        代价是 C++ 的接口必须**显式继承**：一个类没写 `: Drawable`
+        就不算实现了它，哪怕方法一模一样（这跟下面 duck-typing 那一格呼应）。
+        另一处是 C++ 的抽象类还占着对象布局（虚表指针），
+        JavaScript 的「接口」不占任何运行时空间。
+      python: |
+        两边都有「只描述能做什么」的机制，但**强制时机不同**：
+        Python 的抽象基类（`abc.ABC` + `@abstractmethod`）在
+        **实例化时**检查（不实现就抛 TypeError），运行期才拦；
+        C++ 的纯虚函数在**编译期**就拦（派生类没实现就编不过）。
+        另一处是 Python 还有 `Protocol` 这个**结构化**的接口
+        （形状对就算实现，不用显式继承），C++ 没有对应物 ——
+        C++ 的接口一律是名义的（必须写继承）。
+      java: |
+        两边都能表达接口，写法高度对应（都是「只有签名没有实现」），
+        但 **C++ 没有 `interface` 这个关键字**，得用一个纯虚的抽象类代替，
+        而且这个替代品可以夹带数据成员与实现 —— 语言不拦。
+        另一处是 Java 有「一个类只能单继承但能实现多个接口」的明确分工，
+        C++ 里类本来就能多继承，所以「接口」这个角色是**约定出来**的，
+        不是语法保证的。共同点是两边都要写虚析构 / 注意多态只能走引用与指针。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  abstract-class:
+    code: |
+      // @note C++ 里**只要有纯虚函数就是抽象类**，没有单独的 `abstract` 关键字
+      struct Shape {
+        virtual double area() const = 0;         // @note 纯虚
+        virtual const char* name() const { return "形状"; }  // @note 可以有实现
+        virtual ~Shape() = default;
+      protected:
+        double cached_ = 0;                       // @note 抽象类可以有数据
+      };
+
+      // Shape s;                    // @note! 编译错误：抽象类不能实例化
+
+      struct Circle : Shape {
+        double r;
+        explicit Circle(double x) : r(x) { }
+        double area() const override { return 3.14 * r * r; }
+      };
+
+      // @note 抽象类与接口在 C++ 里**没有语法分界** ——
+      // @note 全靠「有没有数据成员 / 有没有带实现的函数」来约定
+
+      // @note 还有一条现代路线：与其搞继承层次，不如用 concept 做约束 ——
+      // @note 那样连虚函数表都不需要（编译期就定下来调谁）
+    vs:
+      javascript: |
+        两边都没有真正的「抽象类」强制力：JavaScript 可以用一个
+        抛异常的基类方法模拟「必须实现」，但那要**运行时**才炸；
+        C++ 的纯虚函数是编译期约束 —— 派生类不实现，它自己也变成抽象类，
+        `new` 它直接编译不过。另一处是 C++ 的抽象类还**管着对象布局**
+        （可以带数据成员、带实现），JavaScript 里没有「只给派生类用」
+        的数据这一层（`protected` 是约定）。
+      python: |
+        两边都有「半成品的类」，而且都可以带实现 —— 这一层对应得上
+        （`abc.ABC` + `@abstractmethod` ↔ 抽象类 + 纯虚函数）。
+        差别同样在**检查时机**：Python 是实例化时抛 TypeError，
+        C++ 是编译期错误。另一处是 C++ 的抽象类还承担**存储**职责
+        （可以有数据成员、构造基类子对象），Python 的基类也可以，
+        但 C++ 里这会影响对象大小与布局，Python 里只是多一个字典项。
+      java: |
+        两边**几乎是同一个概念**：都叫抽象类、都可有抽象方法与具体方法、
+        都不能实例化、派生类必须实现抽象方法 —— 这一格可以逐条对应。
+        差别在 C++ 没有 `abstract` 关键字（有纯虚函数就是抽象类），
+        而且 C++ 的抽象类还能被**多继承**（Java 只能继承一个）。
+        另一处是 C++ 里「抽象类」与「接口」的边界模糊
+        （抽象类可以有纯虚函数之外的一切），Java 有 `interface` 这个
+        独立关键字来划清界限。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  mixin-trait:
+    code: |
+      // @note C++ 没有 `mixin` 关键字，横向复用实现有两条路：
+
+      // ① 多继承：把「一份实现」做成一个基类，谁要谁继承（可继承多个）
+      struct Loggable {
+        void log(const std::string& s) const { std::printf("[log] %s\n", s.c_str()); }
+      };
+      struct Serializable {
+        virtual std::string toJson() const = 0;
+      };
+      struct User : Loggable, Serializable {         // @note 同时拿到两样
+        std::string name;
+        std::string toJson() const override { return "{}"; }
+      };
+
+      // ② CRTP：编译期的混入 —— 基类把**派生类**当模板参数
+      template <typename D>
+      struct Comparable {
+        bool operator!=(const D& o) const {
+          return !(static_cast<const D&>(*this) == o);    // @note 用派生类的 ==
+        }
+      };
+      struct Money : Comparable<Money> {
+        int v{};
+        bool operator==(const Money& o) const { return v == o.v; }
+      };
+      // 实跑：`a != b` 走的就是 Comparable 里的实现（得到 1）
+
+      // @note! CRTP 的代价：`Money` 与 `Comparable<Money>` 是**两个不同的类型**，
+      // @note! 多继承一层就多一份基类子对象；编译错误信息也会变长
+    vs:
+      javascript: |
+        **这一格 JavaScript 基本是空白**：语言只有一条原型链，
+        没有「横向拿一份实现」的机制 —— 要复用只能把函数挂上去
+        （`Object.assign` 或混入函数），而且是**每个实例各挂一份**，
+        没有编译期保证、也没有类型上的记录。
+        C++ 的两条路（多继承、CRTP）都是编译期定下的：
+        派生类真的带上了那份实现，方法调用是直接调用不是查找。
+        所以那边「混入」是运行期的抄一份，这边是编译期的组合。
+      python: |
+        两边都能横向复用实现，机制对应得上：Python 的 mixin 就是
+        **多继承一个没有实例状态的类**，按 MRO 决定同名方法听谁的 ——
+        C++ 的多继承路子几乎一样，只是菱形时要用虚继承去重。
+        另一处是 C++ 独有 CRTP 这条**编译期**的路（Python 里没有
+        对应的「把派生类当参数传给基类」的机制），
+        它换来的是零运行时开销，代价是类型层级变得复杂。
+      java: |
+        **两边机制不同、效果相近**：Java 用 `interface` 的 `default` 方法
+        做横向复用（而且能多实现好几个），C++ 用多继承一个小基类 ——
+        目的一样，但 Java 的接口不占对象布局、不引入菱形问题，
+        C++ 的基类子对象是真的嵌在对象里的。
+        另一处是 Java 没有 CRTP 式的编译期混入（泛型是擦除的，
+        没法在基类里拿派生类的具体类型去调方法），
+        C++ 的 CRTP 正是靠模板单态化才成立。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  duck-typing:
+    code: |
+      // @note C++ 的对象类型是**名义**的（看名字、看继承），
+      // @note 但**模板参数**上是结构化的 —— 这是 C++ 唯一「看形状」的地方
+
+      // 没有 concept 的写法：编译期鸭子类型，错在模板体里才报
+      template <typename T>
+      void bad(T& t) { t.quack(); }        // @note 只要有 quack() 就能编过
+
+      // 有 concept 的写法（C++20）：约束写在签名上，错在调用点就报
+      #include <concepts>
+      template <typename T>
+      concept Quacker = requires(T t) {
+        { t.quack() } -> std::convertible_to<const char*>;
+      };
+
+      void good(Quacker auto& t) { t.quack(); }
+
+      struct Duck { const char* quack() const { return "嘎"; } };
+      struct Rock { };
+      // good(rock);                        // @note! 编译错误（实跑确认）：
+      //                                    //   candidate requires Quacker<Rock>
+      //                                    //   template argument deduction/substitution failed
+
+      // @note! 但这一切**只对模板参数有效** ——
+      // @note! 一个普通函数参数仍然必须写成具名类型，没法说「任何有 quack 的」
+      // @note! 也没有运行期的「形状检查」：类型是谁编译期就定了
+    vs:
+      javascript: |
+        **两边的鸭子类型在不同的时间上生效**：JavaScript 的鸭子类型
+        在**运行期**（调用那一刻看有没有那个方法，没有就抛 TypeError）；
+        C++ 的「看形状」在**编译期**（`concept` 不满足直接编译不过，
+        实跑的错误信息里能看到 `requires Quacker<Rock>`）。
+        另一处是覆盖范围：JavaScript 的鸭子类型是**全局**的
+        （任何值、任何位置都适用），C++ 的只对**模板参数**有效 ——
+        普通函数参数、类成员都必须是具名类型。
+      python: |
+        两边都有「看形状不看名字」的能力，但落点不同：
+        Python 的鸭子类型是**运行时默认行为**（不写 Protocol 也能调用），
+        `Protocol` 只是给类型检查器看的可选标注；
+        C++ 没有运行时鸭子类型这一层 —— 要么在模板参数上用 `concept`
+        （编译期），要么老老实实写继承。所以那边「不写类型也能跑」
+        在这边完全不成立。另一处是 C++ 的 concept 能表达
+        「返回值要能转成某个类型」这种细节要求，Python 的 Protocol 也能，
+        但检查强度不同（一个编译不过、一个只是提示）。
+      java: |
+        **这一格两边几乎相反**：Java 的类型相容完全看名字
+        （类必须显式实现接口，形状相同不算数），
+        而且泛型是**擦除**的 —— 类型参数上做不了「有没有这个方法」的检查；
+        C++ 的模板参数上恰恰能做（`concept` 就是干这个的），
+        因为模板是编译期单态化的，每个实参类型都生成一份代码。
+        所以 C++ 能表达「任何长得像 X 的类型」，Java 只能表达
+        「任何 X 的子类型」。另一处是两者都**没有**运行期的形状检查能力。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

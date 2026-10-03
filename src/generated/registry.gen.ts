@@ -3,11 +3,11 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml + content/languages/<id>/meta.yaml
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-03T16:30:43.911Z
+ * 生成时间：2026-10-03T17:34:12.785Z
  */
 import type { LanguageMeta } from '../schemas'
 export const allLanguageIds = ['javascript', 'python', 'java', 'go', 'rust', 'typescript', 'arkts', 'kotlin', 'swift', 'dart', 'cpp', 'php'] as const
-export const enabledLanguageIds = ['javascript', 'python', 'java', 'go', 'rust', 'typescript', 'arkts', 'kotlin', 'dart'] as const
+export const enabledLanguageIds = ['javascript', 'python', 'java', 'go', 'rust', 'typescript', 'arkts', 'kotlin', 'swift', 'dart', 'cpp'] as const
 
 /** 全集：内容源（snippets.yaml）可以引用任意一门，哪怕是尚未启用的语言——这支持「先攒内容后启用」 */
 export type AllLanguageId = (typeof allLanguageIds)[number]
@@ -367,7 +367,7 @@ export const languageMeta: LanguageMeta[] = [
       "swift5",
       "swiftui"
     ],
-    "version": "6.0",
+    "version": "6.4",
     "fileExtension": ".swift",
     "comment": {
       "line": "//",
@@ -444,7 +444,7 @@ export const languageMeta: LanguageMeta[] = [
       "cpp",
       "cplusplus"
     ],
-    "version": "20",
+    "version": "23",
     "fileExtension": ".cpp",
     "comment": {
       "line": "//",

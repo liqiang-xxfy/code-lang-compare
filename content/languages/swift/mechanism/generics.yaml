@@ -1,0 +1,273 @@
+# swift —— mechanism / generics
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: generics` 的那批：
+# generic-declaration / generic-constraint / variance / type-erasure。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：**这一格推翻了轮 ③ 原本的对比轴一半的前提**。
+# 计划里写的是「Swift 与 C++ 都是单态化泛型」—— 实际上
+# **Swift 的泛型默认是「一份泛型实现 + 运行期类型元数据」的动态派发**，
+# 优化器再做**特化**（那是性能优化，不是语义）。
+# 所以这条轴要重写成：**擦除（一边）↔ 动态元数据 + 可选特化（这边）↔ 纯单态化（另一边）**。
+# 另外两条要写准：泛型参数在运行期**是拿得到的**（`T.self` 能用）；
+# `some`（不透明，保留类型身份）与 `any`（存在类型，多一层装箱）是两件事。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  generic-declaration:
+    code: |
+      func firstOf<T>(_ items: [T]) -> T? { items.first }     // @note 泛型函数
+
+      struct Box<T> {                                          // @note 泛型类型
+        var value: T
+      }
+
+      func pair<A, B>(_ a: A, _ b: B) -> (A, B) { (a, b) }     // @note 多个参数
+
+      // @note 实参通常能从上下文推出来
+      let b = Box(value: 42)                                   // @note Box<Int>
+      firstOf([1, 2])                                          // @note T = Int
+
+      // @note 类型参数也能显式写
+      let e = Box<String>(value: "x")
+
+      // @note! 协议带关联类型时不需要写类型参数（见 generic-constraint）
+      // @note 简化语法：`some` 坐落在返回位置，隐藏具体类型
+      func makeBox() -> some Equatable { 42 }                  // @note 调用方不知道是 Int
+
+      // @note! 关键事实：**类型参数在运行时是拿得到的** ——
+      // @note! 泛型函数里可以写 `T.self`、可以 `T.self == Int.self`
+      // @note! 这一点与「擦除式泛型」根本不同
+      func nameOf<T>(_ x: T) -> String { "\(T.self)" }
+      nameOf(1)                                                // @note "Int"
+    vs:
+      javascript: |
+        **这一格是「有没有类型参数」的直接对比**：JavaScript 完全没有 ——
+        想写通用的 `firstOf` 只能靠运行时判断或者干脆不管，
+        函数体里看不见元素类型。Swift 的泛型把类型写进签名、
+        由编译器检查，而且**运行时还拿得到**（`T.self`），
+        所以「按类型做点判断」写得出来。
+        另一处是写法：JavaScript 里同名函数只能有一个，
+        要按类型分派得在体内判断；Swift 可以靠泛型约束做重载。
+        代价是 Swift 那边类型参数要一层层写在签名里，代码更长。
+      python: |
+        两边都能写「通用的函数」，但**一个只在检查器里、一个真的被编译器用**：
+        Python 的 `TypeVar` 是给类型检查器看的标注，运行期不存在；
+        Swift 的泛型是编译器的一部分，而且**运行期元数据会传下去** ——
+        泛型函数里能直接问 `T.self`。
+        另一处是 Python 里函数不标注也能跑（检查器只是提示），
+        Swift 里类型参数写错直接编译不过。
+        共同点是两边都在往「用类型参数表达关系」的方向走。
+      java: |
+        两边都能写泛型类型与泛型函数，写法也像（`<T>` ↔ `<T>`），
+        但**运行期信息量差别很大**：Java 的泛型**擦除**，
+        `Box<String>` 与 `Box<Int>` 运行期是同一个类，问不出实参；
+        Swift 的泛型参数**运行期拿得到**（`T.self` 能用），
+        所以「按实参类型分支」这件事在这边写得出来、在那边写不出来。
+        另一处是 Java 有通配符（`? extends` / `? super`）在调用点表达型变，
+        Swift 没有通配符，靠 `some` / `any` 与约束。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  generic-constraint:
+    code: |
+      // @note 约束写在类型参数后面
+      func maxOf<T: Comparable>(_ a: T, _ b: T) -> T { a > b ? a : b }
+
+      // @note 多个约束用 & 连
+      func show<T: CustomStringConvertible & Equatable>(_ x: T) { }
+
+      // @note `where` 子句能表达更细的关系（含「关联类型相等」）
+      func merge<C: Collection>(_ c: C) -> [C.Element]
+        where C.Element: Comparable { [] }
+
+      // @note! **协议可以有「关联类型」** —— 这是泛型约束里最特别的一处：
+      protocol Container {
+        associatedtype Item                    // @note 不写具体类型
+        var items: [Item] { get }
+      }
+      func count<C: Container>(_ c: C) -> Int { c.items.count }
+
+      // @note 带关联类型的协议**也可以当类型用**（较新版本起所有协议都放开了）：
+      // @note   老版本会报「这个协议只能当泛型约束」—— 那是早期实现
+      // @note   恢复不出关联类型元数据的遗留限制，现在已经解决
+      // @note   但**必须显式选一种**：
+      // @note   `any Container`     —— 存在类型：装箱，运行期才知道 Item
+      // @note   `some Container`    —— 不透明类型：编译器知道，调用方不知道
+      // @note   在 Swift 6 语言模式下裸写 `Container` 是**错误**，必须写 any 或 some
+
+      // @note 默认约束可以省略（不写 `T: Any` 之类）
+      // @note 类型参数默认没有上界，任何类型都行 —— 这一点与「默认有个 Object 上界」不同
+    vs:
+      javascript: |
+        JavaScript 没有约束这一层，函数里对参数的假设只能靠文档
+        或运行时判断；Swift 的 `T: Comparable` 把「必须能比较」
+        写进签名，函数体里就敢直接调 `>`，写错了是编译错误。
+        另一处是**关联类型**（`associatedtype`）这个能力 ——
+        JavaScript 完全没有对应物：它让「容器」这样的概念
+        能说「我的元素类型是某个东西」，而在调用点再定下来。
+        代价是约束会往上传：调用方要满足约束，泛型参数一层层跟着走。
+      python: |
+        Python 用 `TypeVar('T', bound=Comparable)` 表达约束，
+        但那只对类型检查器有意义、运行时不强制；
+        Swift 的 `T: Comparable` 是编译器的硬要求。
+        另一处是 Python 有 `Protocol` 与泛型协议，两边形态在靠近；
+        但 Swift 的关联类型在调用点由编译器推导，
+        而 Python 的 `TypeVar` 要显式绑。
+        共同点是两边都让「函数对参数的要求」成了能写下来的东西。
+      java: |
+        两边都有上界约束（`<T extends Comparable<T>>` ↔ `T: Comparable`），
+        而且都能写递归式约束，这一层很接近。
+        差别在两处：① Java 能写**下界**（`? super T`）表达
+        「接受某类型的父类型」，Swift **只有上界**，没有对应能力；
+        ② Swift 有关联类型（`associatedtype`）让协议能
+        「等调用点再定类型参数」，Java 里要靠额外的类型参数模拟
+        （`interface Container<Item>`），写法更啰嗦。
+        还有一处是带关联类型的协议要当类型用得写 `any` / `some`，
+        Java 的接口引用没有这层区分。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  variance:
+    code: |
+      // @note! Swift 的类型参数在**自定义类型上是不变的**
+      class Box<T> { }
+      class Animal { }
+      class Dog: Animal { }
+      // let b: Box<Animal> = Box<Dog>()      // @note! 编译错误：Box<Dog> 不是 Box<Animal>
+
+      // @note! 但是**标准库的容器是特例 —— 它们支持协变赋值**：
+      let dogs: [Dog] = []
+      let animals: [Animal] = dogs            // @note 这个可以（Array 协变）
+      let maybeDog: Dog? = Dog()
+      let maybeAnimal: Animal? = maybeDog     // @note Optional 也协变
+
+      // @note 也就是说「能不能这样赋值」取决于类型是谁定义的：
+      // @note   标准库的 Array / Dictionary / Optional → 特例，允许协变
+      // @note   你自己写的泛型类型 → 不变，一个都不许
+
+      // @note! 这与「容器本身可写」的关系要留意：
+      // @note   因为 Array 是**值类型**，协变赋值本身是安全的
+      // @note   （赋值就是拷贝语义，不存在「写进去一个不匹配的」）
+      // @note   这也是它敢协变的原因
+
+      // @note Swift **没有声明处型变**（不像有的语言能写 `<out T>` / `<in T>`）
+      // @note 也没有使用处通配符（没有 `? extends` 那套）
+      // @note 要「接受任何元素类型的序列」只能上泛型约束
+    vs:
+      javascript: |
+        两边都「没有型变」这个概念，但原因不同：JavaScript 根本没有
+        元素类型（数组里什么都能放），所以「能不能那样赋值」
+        这个问题不存在；Swift 有元素类型，而且**自定义泛型类型是不变的**
+        （`Box<Dog>` 不能当 `Box<Animal>` 用），只有标准库容器
+        被开了协变的口子。
+        另一处是 Swift 的协变之所以安全，靠的是容器是**值类型** ——
+        赋值即拷贝，不存在「把一个 Dog 写进 Animal 容器后
+        读出来是 Dog」的问题。JavaScript 里没有这层考虑。
+      python: |
+        两边的处境不同：Python 的类型检查器把列表当**不变**
+        （`list[int]` 不是 `list[float]`），但那是检查器的选择、
+        运行时不检查；Swift 的自定义泛型类型**真的不变**（编译错误），
+        而标准库容器**真的协变**（编译通过）——
+        所以「哪些能协变」在这边是编译器定死的清单，在那边是检查器的规则。
+        另一处是 Swift 没有声明处型变（写不出 `<out T>`），
+        Python 也没有，两边都靠约束绕。
+      java: |
+        **两边结果像、原因不同**：Java 的泛型是**不变**的
+        （`List<Integer>` 不是 `List<Number>`），因为它**擦除** ——
+        运行期分不出来，编译器必须从严；Swift 的自定义泛型也不变，
+        但标准库容器**允许协变**（`[Dog]` 能赋给 `[Animal]`）。
+        另一处差别很大：Java 有**通配符**（`? extends` / `? super`）
+        让你在调用点表达协变与逆变，Swift **完全没有** ——
+        想写「接受任何元素类型的序列」只能上泛型约束。
+        也就是说这方面 Java 的表达力更强。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-erasure:
+    code: |
+      // @note! Swift 的泛型**不擦除** —— 类型参数在运行期是拿得到的
+
+      func describe<T>(_ x: T) -> String {
+        "\(T.self)"                    // @note 实参类型真的可问
+      }
+      describe(1)                      // @note "Int"
+      describe("a")                    // @note "String"
+
+      // @note 判断也能做（把实参类型当值比）
+      func isInt<T>(_ x: T) -> Bool { T.self == Int.self }
+
+      // @note 所以「按实参类型分支」这件事写得出来
+      func kind<T>(_ x: T) -> String {
+        switch T.self {
+        case is Int.Type: return "整数"
+        default: return "别的"
+        }
+      }
+
+      // @note! 但**默认的派发方式**不是「每个实参生成一份代码」——
+      // @note! 官方模型是「一份泛型实现 + 运行期传类型元数据」，
+      // @note! 也就是把类型信息当参数传下去（witness table 那一套）
+      // @note! 优化器会做**特化**（按实参生成专门版本）作为性能优化，
+      // @note! 较新版本还给了显式控制的属性 ——
+      // @note! 但官方明确说过那**只影响性能、不改变语义**
+
+      // @note 想主动擦除类型也可以（那是设计选择）：
+      // @note   `any Protocol`   —— 存在类型：装箱，运行期才知道具体类型
+      // @note   `Any`            —— 最宽的类型，配合 `as?` 转回来
+      func store(_ items: [any Drawable]) { }   // @note 元素类型被擦成「某个 Drawable」
+
+      // @note `some` 与 `any` 的差别（很重要）：
+      // @note   some  不透明类型：**保留类型身份**，编译器知道具体是什么
+      // @note   any   存在类型：**不保留类型身份**，运行期才知道，多一层装箱
+      func make1() -> some Drawable { Circle(r: 1) }   // @note 编译器知道是 Circle
+      let x: any Drawable = Circle(r: 1)               // @note 只知道是 Drawable
+    vs:
+      javascript: |
+        两边都能在运行期问类型（`typeof` / `T.self`），
+        但**来源不同**：JavaScript 的类型本来就跟着值走，
+        随时能问；Swift 的类型信息是**泛型把元数据传下去**才有的 ——
+        也就是说「泛型实参可查」是语言特意保留的能力，
+        而不是「运行时只有对象本身」。
+        另一处是 Swift 有 `any` 这个**显式的装箱语法** ——
+        你能一眼看出「这里类型被擦掉了，多了一层间接」；
+        JavaScript 里没有这个概念（一切本来就是动态的）。
+        共同点是两边都能写出「先当宽类型存、用的时候转回来」的代码。
+      python: |
+        **两边都能在运行期看到泛型实参，但方式不同**：
+        Python 靠 `list[int].__args__` 去翻类型对象的属性，
+        而且那个 `list[int]` 只是一个能用在标注里的对象；
+        Swift 把实参**作为值传下去**，泛型函数里直接写 `T.self` ——
+        一个是「类型对象上有记录」，一个是「值本身带着类型」。
+        另一处是 Swift 有显式的擦除语法（`any`），
+        Python 里擦除是隐式的（不写标注就没有类型信息）。
+      java: |
+        **这一格正是两边分野最清楚的地方**：Java 的泛型**擦除** ——
+        运行期 `List<String>` 与 `List<Integer>` 是同一个类，
+        `x instanceof List<String>` 根本写不出来；
+        Swift 的泛型参数**运行期拿得到**（`T.self` 可问、可比较），
+        所以「按实参类型分支」在这边写得出来。
+        另一处是 Swift 把「擦除」做成了一件**显式的事**：
+        写 `any Drawable` 就是装箱，读代码时看得见；
+        Java 里擦除是默认的、无处不在的。
+        共同点是两边都能用「宽类型 + 转换」模拟动态行为。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

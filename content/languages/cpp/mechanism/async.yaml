@@ -1,0 +1,299 @@
+# cpp —— mechanism / async
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: async` 的那批：
+# event-loop / callback / promise-future / async-await / cancellation。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组要写准的一件大事是 **C++ 的「异步」不是一条路，是好几条平行的路**：
+# ① 线程 + `std::future`（标准库给了 `std::async` / `promise` / `future`，
+#    但 **future 没有 `then`**，没有链式组合 —— 实跑确认）；
+# ② C++20 协程（`co_await`）—— 语言给了挂起机制，**不给调度器、也不给标准任务类型**；
+# ③ 自己的事件循环 / 第三方库（Asio 那一类）。
+# 取消是协作式的：`std::stop_source::request_stop()` 只设标志（实跑确认）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  event-loop:
+    code: |
+      // @note! C++ **没有事件循环** —— 标准库、语言层面都没有这个东西
+
+      // 想要一个「单线程跑很多等待」的模型，只有三条路：
+      //   ① 引第三方库自己搭（Asio 那一类网络库提供 io_context）
+      //   ② 用某个框架自带的循环（图形界面、游戏引擎一般都有）
+      //   ③ 自己写一个（选择器 + 回调队列 + 定时器堆）
+      //      —— 教学项目常见，生产代码基本都用现成库
+
+      // @note 标准库给的最接近的东西是 std::future 加线程：
+      // @note   一个线程等结果，别的线程干活 —— 但那是**多线程**模型，
+      // @note   不是「单线程事件循环」
+
+      // @note! 所以从有事件循环的语言过来，最大的变化是
+      // @note! 「异步」在 C++ 里不是一个语言特性，而是一个**架构选择**：
+      // @note! 你选了哪个库，就得到了哪一套模型
+
+      // @note 另有一条完全不同的路：C++20 的无栈协程 ——
+      // @note 它给的是「怎么挂起」，不是「谁来调度」（见 async-await 那一格）
+    vs:
+      javascript: |
+        **这一格是直接的能力缺口**：JavaScript 的运行时**本身就是**一个事件循环，
+        所有异步都绕着它转，不需要选、不需要搭；C++ 里这件事
+        既不在语言里也不在标准库里 —— 得挑一个第三方库，
+        而不同的库给的模型不一样。
+        另一处是**并发模型的分野**：JavaScript 的单线程事件循环
+        靠「不阻塞」来同时应付很多等待；C++ 的默认做法是
+        **开线程真并行**（`std::async` / `std::thread`），
+        事件循环反而是要额外引入的东西。也就是说两边的「异步」
+        从起点就不是一回事。
+      python: |
+        两边都有事件循环这条路，但**它在语言里的地位不同**：
+        Python 的 `asyncio` 是标准库的一部分，`asyncio.run` 起一个循环、
+        `async` / `await` 是语法关键字；C++ 的事件循环要引第三方库，
+        标准库里有的是 `std::future` 加线程（另一套模型）。
+        所以 Python 里「写异步」是选一种写法，C++ 里「写异步」是选一个架构。
+        另一处是 C++ 没有 GIL，异步的价值主要体现在**大量 IO**
+        而不是「绕开解释器锁」。
+      java: |
+        两边都很像：**标准库里都没有事件循环**，也都得引框架
+        （Java 的 Netty / 反应式库，C++ 的 Asio 那一类）。
+        差别在标准库给的默认模型：Java 的 `CompletableFuture`
+        是**可组合**的（一串 `thenApply` / `thenCompose`），
+        C++ 的 `std::future` **连 `then` 都没有** ——
+        所以 Java 那边能用标准库写出像样的异步流水线，
+        C++ 这边基本一上来就得选库。另一处是 Java 有虚拟线程
+        把「大量并发」变得便宜，C++ 没有对应物。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  callback:
+    code: |
+      // @note 回调在这门语言里就是「传一个可调用物」
+      void loadAsync(std::function<void(std::string)> onDone) {
+        std::thread([onDone]{
+          std::this_thread::sleep_for(100ms);
+          onDone("数据");                 // @note 在自己的线程上回调 —— 注意线程安全
+        }).detach();
+      }
+
+      loadAsync([](std::string s) { std::cout << s; });
+
+      // @note! 回调在 C++ 里有几个别处没有的麻烦：
+      // @note! ① **线程**：回调在哪根线程跑？谁负责同步共享数据？
+      // @note! ② **生命周期**：回调里引用的对象可能已经被销毁了（悬垂）
+      // @note! ③ **异常**：从回调里抛出去的异常没人接 → std::terminate
+
+      // @note 因此 C++ 里写回调时常见两种自我约束：
+      // @note   把捕获改成值捕获（拷贝一份，不受原对象生死影响）
+      // @note   或者用 shared_ptr 保活（回调持有一份，用完自动释放）
+
+      // @note C++23 起回调还能是 `std::move_only_function`（可移动、不必可拷贝）
+    vs:
+      javascript: |
+        两边的回调形态一样（传函数），但**要操心的事差一个量级**：
+        JavaScript 的回调跑在同一个事件循环上（谁调的一清二楚），
+        闭包捕获的变量由引擎保活 —— 所以「回调里的变量会不会失效」
+        这个问题在那边不存在；C++ 的回调可能在**另一根线程**上跑，
+        捕获的东西可能已经销毁，而且回调里抛异常会直接终止进程。
+        也就是说那边写回调只用想「什么顺序」，这边还要想
+        「在哪根线程、活多久、抛了怎么办」。
+      python: |
+        两边的回调都可能是函数、lambda 或可调用对象，形态一致。
+        差别在**生命周期与线程**：Python 的闭包捕获的变量
+        由引用计数保活，回调里用到的对象不会凭空消失；
+        C++ 的回调如果按引用捕获，原对象一销毁就悬垂，
+        而且**没有任何提示**（这是 C++ 里回调最常见的 bug）。
+        另一处是 C++ 可以从回调里抛异常然后 terminate，
+        Python 的异常至少会往上打到线程的顶层并被打印出来。
+      java: |
+        两边的回调都是「传一个函数式接口 / 可调用物」，
+        而且都要注意**在哪根线程上跑** —— 这一层很像。
+        差别在**捕获限制**：Java 的 lambda 只能捕获事实上的最终变量，
+        所以「共享可变状态」必须绕（数组或包装类），
+        这反而挡住了一部分生命周期错误；C++ 捕获得更自由
+        （值捕获、引用捕获都行），代价是悬垂要自己管。
+        另一处是 C++ 的回调有拷贝成本（`std::function` 要能拷贝），
+        Java 的 lambda 是对象引用，没有这个问题。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  promise-future:
+    code: |
+      #include <future>
+
+      // @note `std::async` 是最省事的入口：启动一个任务，拿一个 future
+      std::future<int> f = std::async(std::launch::async, []{ return 42; });
+      // @note 不写 launch 策略时，实现**可以**选择延迟执行 —— 想真异步就写清楚
+      int v = f.get();                  // @note 阻塞直到有值；get 只能调一次
+
+      // @note 手动搭一个「将来会有值」：promise 写、future 读
+      std::promise<std::string> p;
+      auto fut = p.get_future();
+      std::thread t([&p]{ p.set_value("好了"); });
+      std::cout << fut.get();
+      t.join();
+
+      // @note! 这套东西的关键缺口：**没有组合，也没有延续**
+      // @note!   `future` 上没有 `then` / `map` / `wait_all` 这类东西
+      // @note 想「等一批全部完成」要自己写循环 get —— 而且顺序还是你指定的
+      // @note 想链式组合得引第三方库，或者等 C++26 的 sender/receiver
+
+      // @note 异常也能通过 promise 传：set_exception，get 的时候重新抛出
+      // @note 这一点比别的语言好 —— 异步任务里抛的异常不会静默丢掉
+    vs:
+      javascript: |
+        **两边差别集中在「能不能组合」**：JavaScript 的 Promise
+        有一整套组合工具（`all` / `race` / `allSettled` / `any`），
+        链式 `then` 随便接；C++ 的 `std::future` **只有 `get` 与 `wait`** ——
+        没有 `then`、没有等一批的现成函数（实跑确认 `then` 不存在）。
+        所以那边「把三个请求并发起来一起等」是一行，
+        这边要自己攒 vector 加循环 get。
+        另一处是 C++ 的 `get()` 只能调一次，而且会阻塞到有值为止 ——
+        语义比 Promise 更「一次性」。
+      python: |
+        两边的对应关系比较松：Python 的 `asyncio.Future` 是**协程调度器
+        的一部分**（必须在事件循环里跑），C++ 的 `std::future`
+        与线程绑定（可以跨线程、可以在没有任何循环的情况下用）。
+        所以那边 future 是异步语法的基础设施，这边 future 是
+        「跨线程传一次结果」的工具。另一处是组合能力：
+        Python 有 `gather` / `wait`，C++ 基本什么都没有 ——
+        想并发等一批要自己写。
+      java: |
+        **两边概念对得上、能力差一大截**：Java 的 `CompletableFuture`
+        既能等（`join` / `get`）又能组合（`thenApply` / `thenCompose` /
+        `allOf` / `anyOf`），是完整的异步流水线工具；
+        C++ 的 `std::future` 只有「等一次结果」——
+        **没有 `then`，也没有等一批的函数**（实跑确认）。
+        所以从 Java 过来最明显的感觉是「少了一半的工具」：
+        C++ 这边想写链式异步，必须引库（或者用协程自己搭）。
+        共同点是两边都能把异常从异步任务传回等待方。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  async-await:
+    code: |
+      // @note! C++ 的 `co_await` **不是**别的语言的 `await` —— 差别在这里：
+
+      Task<int> compute() {
+        int x = co_await step1();      // @note 挂起，把控制权还给调用方
+        int y = co_await step2(x);
+        co_return x + y;
+      }
+
+      // @note! ① 语言只给**挂起原语**，不给调度器 ——
+      // @note!    「挂起之后谁来恢复、什么时候恢复」是你的事
+      // @note!    （`await_suspend` 里自己安排，或者交给某个库的调度器）
+      // @note! ② **没有标准的任务类型** —— `Task<T>` 得自己写 promise_type，
+      // @note!    标准库只给了 `std::suspend_always` / `std::suspend_never`
+      // @note!    C++23 的 `std::generator` 是**同步**生成器，不是异步任务
+      // @note! ③ 协程是**无栈**的（挂起时数据存在协程帧里，不占线程栈）
+      // @note! 真正的标准异步任务类型要等到 C++26 的 sender/receiver
+
+      // @note 所以「写一个 co_await 的函数」在 C++ 里通常是
+      // @note 「用某个库提供的任务类型 + 某个库提供的调度器」，
+      // @note 而不是「直接用标准库」
+
+      // @note 唯一开箱能用的场景是生成器 —— 那个真的能跑（见 model/iteration）
+    vs:
+      javascript: |
+        **同样是 `await` 这个写法，两边的完整度差一个时代**：
+        JavaScript 的 `async` / `await` 背后有整个运行时（事件循环、
+        微任务队列、调度器），写个 `async function` 就直接能用；
+        C++ 的 `co_await` 只是**挂起机制** —— 没有调度器、
+        没有标准任务类型，你得先用某个库把「谁来恢复我」这件事搭起来。
+        另一处是 `async fn` 在 JavaScript 里返回 Promise（有类型），
+        C++ 要自己定义一个返回类型并实现它的整套协议。
+      python: |
+        两边的落差同样大：Python 的 `async def` / `await` 有完整的事件循环
+        支撑（`asyncio` 是标准库），而且语法上就写明了「这是个协程」；
+        C++ 的 `co_await` 只解决「怎么挂起」，调度要外部安排，
+        标准库里连一个能用的任务类型都没有。
+        另一处是 Python 的异步函数**不能直接调用**（要 await 或包成 Task），
+        这个约束是语言强制的；C++ 里没有这层约束 ——
+        能不能直接调取决于你那个任务类型怎么设计的。
+      java: |
+        **Java 一直没有 `await` 这个语法**（虚拟线程是另一条路：
+        把阻塞代码写回同步的样子，不需要改写法）；
+        C++ 有 `co_await`，但配套的基础设施几乎是空的 ——
+        没有调度器、没有标准任务类型，实际项目里依赖库。
+        所以两边其实是两种不同的解法：Java 用「让阻塞变便宜」
+        来回避异步改写，C++ 用「协程原语 + 库」来搭异步 ——
+        前者写起来简单、后者控制力强但门槛高。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  cancellation:
+    code: |
+      // @note C++ 的取消是**协作式**的，而且标准库的工具很新（C++20）
+
+      // ① std::jthread 自带停止令牌
+      std::jthread worker([](std::stop_token tok) {
+        while (!tok.stop_requested()) {     // @note 自己检查，没人会强行停你
+          doOneChunk();
+        }
+      });
+      // @note jthread 析构时会自动 request_stop + join
+
+      // ② 手动控制：stop_source 发信号，stop_token 收信号
+      std::stop_source src;
+      std::stop_callback cb(src.get_token(), []{ /* 收到请求时跑的清理 */ });
+      src.request_stop();                   // @note! 只是**设一个标志** —— 实跑确认
+                                            // @note! 任务自己不看就永远不停
+      // ③ 还会等你 / 打断阻塞操作：
+      //    std::condition_variable_any::wait(lock, token)
+
+      // @note! 标准库**没有**「超时就取消」的现成工具 ——
+      // @note! `std::future` 有 wait_for，但那只管「我不等了」，
+      // @note! 底层任务照样跑到底（和别的语言里的取舍一样）
+      // @note C++20 的 std::stop_token 与 std::atomic 的 wait/notify 配合，
+      // @note 是标准库给出的「轻量取消 + 唤醒」组合
+
+      // @note 结论：取消在这门语言里**永远是协作的**，而且你手上
+      // @note 的工具比别处更原始 —— 设标志、自己查、自己退出
+    vs:
+      javascript: |
+        两边都是协作式取消、都没有「强行停掉」的能力，这一层一致。
+        差别在**工具的形态**：JavaScript 用 `AbortController` 传一个信号对象，
+        整个生态（fetch、流、定时器）都认这个信号；C++ 的
+        `std::stop_token` 是 C++20 才有的，而且是**纯手动的** ——
+        标准库的操作（除了少数几个）不会自动响应它，
+        你得在循环里自己查。
+        另一处是 C++ 的 `future` 等超时后底层任务还在跑，
+        这一点两边相同。
+      python: |
+        **这一格两边相反**：Python 的 `asyncio.Task` **可以取消**
+        （`task.cancel()` 会让协程在下一个挂起点收到 CancelledError，
+        是能真的中断控制流的）；C++ 的取消完全是标志位协作 ——
+        标准库不会替你把控制流打断，你得在循环里自己检查
+        （实跑确认：`request_stop` 之后任务继续跑到自己看见标志为止）。
+        所以 Python 那边「任务被取消了」是一等事件，
+        C++ 这边只是一个你可能会错过的查询。
+      java: |
+        两边都是协作式、都能设标志，思路一致
+        （Java 的 `Thread.interrupt()` ↔ C++ 的 `stop_token`）。
+        差别在**打断阻塞操作的能力**：Java 的 `interrupt` 能让
+        睡眠、等待等阻塞调用抛 `InterruptedException` ——
+        也就是说线程真的会被唤醒去看那个标志；
+        C++ 的 `stop_token` 本身不会打断任何阻塞调用，
+        想让它唤醒条件变量得用 `condition_variable_any` 的
+        token 版本，其余阻塞（比如 sleep）要自己分段睡。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

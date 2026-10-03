@@ -1,0 +1,259 @@
+# swift —— express / control-flow
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: control-flow` 的那批：
+# conditionals / loops / iteration-protocol / switch-and-match。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是 **`switch` 在这门语言里是模式匹配器，不是跳转表** ——
+# ① 不需要 `break`、**默认不贯穿**（想贯穿要显式写 `fallthrough`）；
+# ② **必须穷尽**（漏一种情况编译不过）；
+# ③ 能匹配范围、元组、`where` 条件，还能绑定值。
+# 另一处是循环：**没有 C 风格的三段式 for**，只有 `for-in`，
+# 要按步长走用 `stride`。还有一处是 `repeat-while`（不是 do-while）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  conditionals:
+    code: |
+      if x > 0 { } else if x == 0 { } else { }
+
+      // @note! 条件**必须**是 Bool —— 没有真值/假值那套
+      if !items.isEmpty { }         // @note 不能写 if items.count
+      if let v = optional { }       // @note 可选绑定也算一种条件
+      if case .some(let v) = opt { }    // @note 还能用模式匹配当条件
+
+      // @note 三元运算符是表达式
+      let s = x > 0 ? "正" : "非正"
+
+      // @note `guard` 是「不满足就提前退出」的写法，else 必须退出
+      func f(_ n: Int?) {
+        guard let n = n, n > 0 else { return }   // @note 多个条件用逗号串
+        print(n)                                  // @note 这里 n 已经解包好了
+      }
+
+      // @note 没有 `switch` 之外的多路分支语法，也没有 goto
+    vs:
+      javascript: |
+        两边的 `if` 形态一样，但**条件允许什么**差得很远：
+        JavaScript 有一整套真值/假值（空字符串、0、NaN、null 都算假），
+        `if (name)` 是很常见的写法；Swift 的条件必须是 `Bool`，
+        `if items.count` 直接编译不过，得写 `if !items.isEmpty`。
+        另一处是「提前退出」的写法：JavaScript 里通常写
+        `if (!name) return;`，Swift 用 `guard let ... else { return }`
+        —— 后者把「解包」与「退出」合成了一步，而且解包后的名字
+        在 guard 之后一直可用。还有一处是 Swift 有 `if case` 这种
+        用模式匹配当条件的能力，JavaScript 没有。
+      python: |
+        两边的对象在条件里的地位相反：Python 的对象自己说了算
+        （`__bool__`，空容器为假），`if arr:` 是标准写法；
+        Swift 要求条件必须是 `Bool`，容器不能直接当条件。
+        另一处是「不满足就退出」的模式：Python 靠 `if not x: return`
+        加提前返回，Swift 用 `guard` —— 它带一个**必须**退出的 else，
+        编译器保证你不会忘。还有一处是 Python 的 `match` 语句
+        能做结构匹配，Swift 的对应能力在 `switch` 里（见后两格），
+        而 `if case` 是把那套能力用在单分支上。
+      java: |
+        两边**几乎完全一致**：条件必须是 `boolean`、
+        `if` / `else if` / `else` 形态相同、三元运算符也同名同义
+        —— 这一格可以直接平移。差别在 Swift 多出来的两种条件形式：
+        可选绑定（`if let`）与模式匹配（`if case`），
+        Java 要到较新版本才有模式匹配，而且只在 `instanceof` 与 `switch` 上。
+        另一处是 `guard` —— Java 里「不满足就返回」只能靠
+        `if (...) { return; }`，没有专门语法来保证 else 一定退出。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  loops:
+    code: |
+      // @note! Swift **没有 C 风格的三段式 for** —— 只有 for-in
+      for i in 0..<n { }             // @note ..< 左闭右开：0 到 n-1
+      for i in 1...n { }             // @note ... 闭区间：1 到 n
+      for x in array { }             // @note 直接遍历元素
+      for (i, x) in array.enumerated() { }   // @note 要下标就显式要
+
+      // @note 按步长走用 stride（没有 for(;;i+=2) 这种写法）
+      for i in stride(from: 0, to: 10, by: 2) { }      // @note 0,2,4,6,8
+      for i in stride(from: 10, through: 0, by: -2) { } // @note 含 10，倒着走
+
+      while cond { }
+      repeat { } while cond          // @note! 关键字是 repeat，不是 do
+
+      // @note 中断与跳过：break / continue，而且支持**带标签**跳多层
+      outer: for i in 0..<3 {
+        for j in 0..<3 {
+          if j == 1 { continue outer }    // @note 跳到外层循环的下一次
+          if i == 2 { break outer }       // @note 直接跳出外层
+        }
+      }
+
+      // @note 不需要变量名就用 `_`
+      for _ in 0..<3 { }
+    vs:
+      javascript: |
+        两边都能遍历序列，但**循环的形态差一层**：JavaScript 有三段式
+        `for (;;)`（最常用的计数循环）、`for...of`、`for...in` 三种；
+        Swift 只有 `for-in` 一种，计数循环写成 `for i in 0..<n`，
+        要步长得用 `stride` —— 也就是说「怎么走」是用一个**序列**表达的，
+        不是用三个子句表达的。另一处是结束条件：
+        JavaScript 的 `for...of` 可以用 `break` / `continue`，
+        但要跳出多层得用标签；Swift 也有标签循环，写法几乎一样。
+        还有一处是 `for...in` 在 JavaScript 里遍历的是**键**，
+        在 Swift 里遍历的是**元素** —— 同一个词两个意思。
+      python: |
+        两边的循环写法差别比看上去大：Python 的 `for x in seq` 遍历元素，
+        要下标用 `enumerate` —— 这一层与 Swift 一致
+        （`array.enumerated()`）。差别在**计数循环**：
+        Python 用 `range(n)`，Swift 用 `0..<n` 这个区间运算符；
+        而且 Swift 没有 `while ... else`，`while` 就是 `while`、
+        `repeat-while` 对应 Python 的「至少执行一次」需求（Python 没有专门语法）。
+        另一处是 Python 的 `for...else` 在 Swift 里没有对应物。
+      java: |
+        两边**高度对应**：增强 `for` ↔ `for-in`、`while`、`do-while` ↔
+        `repeat-while`（关键字不同但语义一样），也都有带标签的
+        `break` / `continue` 跳多层 —— 这一格可以逐条对上。
+        差别在计数循环：Java 保留了 C 风格的三段式 `for`，
+        Swift **移除了它**，只能写 `for i in 0..<n`，
+        要步长换成 `stride`（不能改循环变量、也不能自定义递增方式）。
+        也就是说 Swift 用「区间 + stride」表达了 Java 用三个子句表达的东西。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  iteration-protocol:
+    code: |
+      // @note! `for-in` 背后是 **Sequence 协议**（不是语言内置的遍历）
+      // @note 一个类型要能被 for-in 遍历，只要遵守 Sequence：
+      // @note   提供一个 makeIterator()，返回遵守 IteratorProtocol 的东西
+      struct Countdown: Sequence, IteratorProtocol {
+        var n: Int
+        mutating func next() -> Int? {        // @note 返回 nil 就结束
+          guard n > 0 else { return nil }
+          defer { n -= 1 }
+          return n
+        }
+      }
+      for i in Countdown(n: 3) { print(i) }    // @note 3 2 1
+
+      // @note 标准库给了很多现成的适配器（都是惰性的）
+      array.map { $0 * 2 }
+      array.filter { $0 > 0 }
+      array.lazy.map { heavy($0) }             // @note lazy 之后才真的惰性
+      array.prefix(3)                          // @note 取前几个
+      stride(from: 0, to: 100, by: 5)          // @note 本身就是个序列
+
+      // @note! 注意区分「序列」与「集合」：
+      // @note   Sequence 只能遍历一次（可能）；Collection 可以反复遍历、能取 count
+      // @note   `AnySequence` / `AnyIterator` 用来擦除具体类型
+    vs:
+      javascript: |
+        两边的「能被遍历」判据不同：JavaScript 靠**语言定义的协议**
+        （对象上有没有 `Symbol.iterator` 那个特定方法）；
+        Swift 靠**遵守一个协议**（`Sequence`）—— 名字是具名的，
+        而且编译器知道谁遵守了它。另一处是适配器的惰性：
+        JavaScript 的 `map` / `filter` 立刻返回新数组，
+        要惰性得自己写生成器；Swift 默认也是立刻求值的，
+        但加一个 `.lazy` 就变成惰性链 —— 惰性与非惰性在同一个 API 上，
+        只差一个词。还有一处是 Swift 把「能遍历一次」与
+        「能反复遍历」分成了两个协议（Sequence / Collection），
+        JavaScript 里没有这层区分。
+      python: |
+        两边的迭代协议名字一样、位置不同：Python 靠 `__iter__` 与
+        `__next__`（拿到迭代器、不断 `next`，终止靠 `StopIteration` 异常）；
+        Swift 靠 `Sequence` 与 `IteratorProtocol`（`makeIterator()` 加
+        `next() -> Element?`，终止靠**返回 nil**）——
+        一个用异常、一个用可选值，这是两边很典型的风格差别。
+        另一处是惰性：Python 的生成器天生惰性，`map` / `filter` 返回迭代器；
+        Swift 的 `map` / `filter` 立刻求值，要惰性得显式写 `.lazy` ——
+        默认值正好相反，从 Python 过来很容易多算一遍。
+      java: |
+        两边的模型不同：Java 的增强 `for` 吃 `Iterable`，
+        而且必须实现那个接口（接口是名义的）；Swift 的 `for-in`
+        也是要求遵守 `Sequence` —— 这一层很像。
+        差别在**终止的表示**：Java 的 `Iterator.hasNext()` 与 `next()`
+        是两个方法（先问有没有、再取），Swift 的 `next()` 一个方法
+        返回值或 nil（取不到就是结束）—— 后者不容易写错
+        （Java 里忘了判断 hasNext 会抛异常）。
+        另一处是 Swift 用 `.lazy` 表达惰性链，Java 用 Stream（一次性）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  switch-and-match:
+    code: |
+      enum Shape { case circle(Double), square(Double) }
+
+      // @note! 三件事同时成立：
+      // @note! ① 不需要 break —— 每个分支各自独立，**默认不贯穿**
+      // @note! ② **必须穷尽** —— 漏一种情况直接编译不过
+      // @note! ③ 能绑定值、能加 where 条件、能匹配范围与元组
+      func area(_ s: Shape) -> Double {
+        switch s {
+        case .circle(let r):        return 3.14 * r * r
+        case .square(let side):     return side * side
+        }
+        // @note 没有 default —— 因为两种情况都写全了，编译器认账
+      }
+
+      switch count {
+      case 0:            print("零")
+      case 1...9:        print("个位数")       // @note 匹配区间
+      case let n where n < 0: print("负数")    // @note 绑定 + 条件
+      default:           print("其它")         // @note 不穷尽时才需要
+      }
+
+      switch (a, b) {                            // @note 匹配元组
+      case (0, 0):       print("原点")
+      case (let x, 0):   print("x 轴上 \(x)")    // @note 部分绑定
+      case (_, _):       print("其它")
+      }
+
+      // @note 想「贯穿」要显式写 fallthrough（很少用）
+      // @note 空分支要写 `break`，否则编译错误 —— 空的 case 会被当成错误
+    vs:
+      javascript: |
+        **两边差别很大**：JavaScript 的 `switch` 用 `===` 比较任意值、
+        每支**必须**自己 `break`（否则贯穿）、漏掉情况没人提醒；
+        Swift 的 `switch` 不需要 break、**默认不贯穿**（想贯穿要显式
+        写 `fallthrough`）、而且**必须穷尽** —— 少一种情况编译不过。
+        另一处是匹配能力：JavaScript 的 `case` 只能比具体值，
+        Swift 的 `case` 能匹配区间、元组、还能绑定值加 `where` 条件，
+        这是两边的分水岭（一个跳转表、一个模式匹配器）。
+        还有一处是空分支：JavaScript 的空 case 是常态，
+        Swift 里必须写 `break` 才合法。
+      python: |
+        两边的 `match` / `switch` 都能做结构匹配，这是最接近的一对。
+        差别在三处：① Swift 的 `switch` **必须穷尽**（漏一种编译不过），
+        Python 的 `match` 不强制（漏了静默掠过）；
+        ② Swift 默认**不贯穿**（`fallthrough` 是显式选择），
+        Python 的 `case` 本来就不贯穿 —— 这一层一致；
+        ③ 两边都能绑定值，但 Python 把守卫写成 `if` 子句、
+        Swift 写在 `case` 后面加 `where`，形态不同。
+        共同点是都能匹配元组/序列结构，都比「一串 if」读起来清楚。
+      java: |
+        **这一格两边位置相近、但成熟度不同**：Java 的 `switch`
+        支持字符串、较新版本支持模式匹配与 `sealed` 类型上的穷尽检查、
+        还有箭头写法（`case X ->` 不贯穿）；
+        Swift 的 `switch` 从设计之初就是模式匹配器 ——
+        **默认不贯穿**、**必须穷尽**、能匹配区间与元组、能绑定值，
+        不需要最近几个版本才补上。
+        差别在写法：Java 用 `->` 表示不贯穿（`:` 会贯穿），
+        Swift 全部不贯穿、想贯穿写 `fallthrough`（正好相反）。
+        共同点是两边都能对封闭类型做穷尽检查。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

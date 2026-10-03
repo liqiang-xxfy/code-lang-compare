@@ -1,0 +1,213 @@
+{
+  "lang": "cpp",
+  "section": "model",
+  "group": "errors",
+  "boxes": {
+    "throw-raise": {
+      "lang": "cpp",
+      "code": "throw std::runtime_error(\"出事了\");     // 抛一个**任意类型的值**\nthrow 42;                                // ⚠ 合法 —— 连整数都能抛（别这么干）\n\n// ⚠ C++ **没有 checked exception**：函数签名里不写「我可能抛什么」，\n// ⚠ 调用方也不需要标注。抛什么、抛不抛，编译器都不管\n\n// 想声明「不抛」才要写，而且它是承诺、不是检查\nvoid safe() noexcept;             // 抛了就 terminate（见下）\n\n// 从构造函数里抛是标准做法：对象没构造完，析构不会跑\n// 从析构函数里抛很危险：析构默认 noexcept，展开期间再抛就 terminate",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">runtime_error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"出事了\"</span><span style=\"color:var(--shiki-foreground)\">);</span><span style=\"color:var(--shiki-token-comment)\">     // 抛一个**任意类型的值**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-constant)\"> 42</span><span style=\"color:var(--shiki-foreground)\">;</span><span style=\"color:var(--shiki-token-comment)\">                                // ⚠ 合法 —— 连整数都能抛（别这么干）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ C++ **没有 checked exception**：函数签名里不写「我可能抛什么」，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 调用方也不需要标注。抛什么、抛不抛，编译器都不管</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想声明「不抛」才要写，而且它是承诺、不是检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> safe</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">noexcept</span><span style=\"color:var(--shiki-foreground)\">;</span><span style=\"color:var(--shiki-token-comment)\">             // 抛了就 terminate（见下）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 从构造函数里抛是标准做法：对象没构造完，析构不会跑</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 从析构函数里抛很危险：析构默认 noexcept，展开期间再抛就 terminate</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 2,
+          "text": "合法 —— 连整数都能抛（别这么干）",
+          "tone": "warn"
+        },
+        {
+          "line": 4,
+          "text": "C++ **没有 checked exception**：函数签名里不写「我可能抛什么」，",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "调用方也不需要标注。抛什么、抛不抛，编译器都不管",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都是「抛一个值」，但 C++ 抛的<strong>可以是任何类型</strong>（连 <code>int</code> 都行），\n所以「处理错误」在这边先得回答「谁来定义错误的形态」——\n靠约定使用标准异常类（<code>std::runtime_error</code> 等）。\n另一处差别在声明：JavaScript 也没有 checked exception，\n这一层两边一致；但 C++ 有 <code>noexcept</code> 这个<strong>反向承诺</strong>\n（声明「我不抛」），写错了直接终止进程，不是抛异常。\n还有一处是 C++ 从构造函数里抛是常见写法（对象没建成，析构不会跑），\n而构造过程本身没有「半成品」这回事。</p>\n",
+        "python": "<p>两边都能抛任意对象，也都没有 checked exception，这一层很像。\n差别在<strong>异常类必须继承什么</strong>：Python 的异常要能被 <code>except Exception</code>\n接住才算「常规错误」（否则会穿透），所以有一套内建的层级；\nC++ 的 <code>catch (...)</code> 能接住任何东西，不存在「必须继承某个基类」\n的约束，于是「只接我认识的错误、其余放走」这件事两边写法不同。\n另一处是 C++ 的 <code>noexcept</code> 在 Python 里没有对应物\n（Python 没有「声明不抛」的语法）。</p>\n",
+        "java": "<p><strong>这是两边差别最大的一格</strong>：Java 有 checked exception ——\n方法签名里必须列出可能抛的受检异常，调用方必须处理或继续声明；\nC++ 完全没有这一层，抛什么、谁要处理，编译器一句都不问。\n所以从 Java 过来最大的变化是<strong>编译器不再帮你追错误传播路径</strong>，\n文档与类型要自己补（比如用 <code>std::expected</code> 把错误写进返回值）。\n另一处是 Java 的 <code>throw</code> 只能抛 <code>Throwable</code> 的子类，\nC++ 什么都能抛 —— 后者更自由，也更难靠类型统一处理。</p>\n"
+      }
+    },
+    "try-catch": {
+      "lang": "cpp",
+      "code": "try {\n  risky();\n}\ncatch (const std::invalid_argument& e) {   // ⚠ 按**引用**接（值接会切片）\n  std::puts(e.what());\n}\ncatch (const std::exception& e) {          // 基类兜住其余标准异常\n  std::puts(e.what());\n}\ncatch (...) {                              // 兜底，什么都能接\n  std::puts(\"未知错误\");\n}\n\n// ⚠ 顺序要紧：**先窄后宽** —— 基类写在前面会把派生类全吃掉\n// ⚠ 按值接会**对象切片**（派生类信息被切掉），一定要用引用\n\n// 没有 finally（见 finally-cleanup 那一格），\n// 也没有「捕获即绑定变量」以外的花样",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  risky</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">invalid_argument</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\"> e) {</span><span style=\"color:var(--shiki-token-comment)\">   // ⚠ 按**引用**接（值接会切片）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">puts</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">e</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">what</span><span style=\"color:var(--shiki-foreground)\">());</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">exception</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\"> e) {</span><span style=\"color:var(--shiki-token-comment)\">          // 基类兜住其余标准异常</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">puts</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">e</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">what</span><span style=\"color:var(--shiki-foreground)\">());</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (...) {</span><span style=\"color:var(--shiki-token-comment)\">                              // 兜底，什么都能接</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">puts</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"未知错误\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 顺序要紧：**先窄后宽** —— 基类写在前面会把派生类全吃掉</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 按值接会**对象切片**（派生类信息被切掉），一定要用引用</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有 finally（见 finally-cleanup 那一格），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 也没有「捕获即绑定变量」以外的花样</span></span></code></pre>",
+      "lineCount": 18,
+      "notes": [
+        {
+          "line": 4,
+          "text": "按**引用**接（值接会切片）",
+          "tone": "warn"
+        },
+        {
+          "line": 14,
+          "text": "顺序要紧：**先窄后宽** —— 基类写在前面会把派生类全吃掉",
+          "tone": "warn"
+        },
+        {
+          "line": 15,
+          "text": "按值接会**对象切片**（派生类信息被切掉），一定要用引用",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的 <code>try</code> / <code>catch</code> 形态像，但<strong>能不能按类型分支</strong>不同：\nJavaScript 只有一个 <code>catch (e)</code>，要按类型分得在块里自己判断\n（<code>instanceof</code> 或看 <code>e.name</code>）；C++ 可以直接写多个 <code>catch</code> 子句\n按类型匹配，而且顺序有语义（先窄后宽）。\n另一处是 C++ 必须注意<strong>按引用接</strong>，写成按值接会发生对象切片 ——\n拿到的是一个残缺的基类对象，派生类的信息全丢了，而编译器不报错。</p>\n",
+        "python": "<p>两边都能写多个 <code>except</code> / <code>catch</code> 子句按类型匹配，这一层对应得上。\n差别在<strong>接住的东西是什么</strong>：Python 的 <code>except E as e</code> 正常就是引用，\n没有切片问题；C++ 写成按值接会切片，是个要<strong>刻意记住</strong>的坑。\n另一处是 C++ 的 <code>catch (...)</code> 与 Python 的裸 <code>except:</code> 都表示兜底，\n但 C++ 的兜底<strong>拿不到任何信息</strong>（连类型都问不出来），\nPython 至少还能 <code>sys.exc_info()</code>。</p>\n",
+        "java": "<p>两边的形态<strong>几乎完全一致</strong>（多个 catch、按类型匹配、顺序先窄后宽），\n这一格最接近。差别在编译器管不管：Java 的 catch 子句会被检查\n「这个异常真的可能被抛出吗」（不可能抛的 catch 是编译错误），\nC++ 完全不检查 —— 写一个永远不会触发的 <code>catch</code> 毫无提示。\n另一处是 C++ 要小心对象切片（按引用接），Java 的异常天生是引用，\n不存在这个问题。</p>\n"
+      }
+    },
+    "finally-cleanup": {
+      "lang": "cpp",
+      "code": "// ⚠ **C++ 没有 finally** —— 这件事交给「析构函数一定会跑」\n\nstruct File {\n  FILE* fp;\n  File(const char* p) { fp = fopen(p, \"r\"); if (!fp) throw std::runtime_error(\"打不开\"); }\n  ~File() { if (fp) fclose(fp); }        // 离开作用域就关，无论怎么离开\n};\n\nvoid work() {\n  File f(\"data.txt\");                    // 拿到就代表打开成功\n  risky();                               // 这里抛了，f 的析构照样跑\n}                                        // 正常返回也一样跑\n\n// 实跑确认的执行顺序：异常抛出 → **先跑局部对象析构** → 再进 catch\n// 所以「出了异常也要执行的那段收尾」在这门语言里是**免费**的\n\n// 实在要写「块结束就跑」的一段代码，可以用一个带析构的小对象包住\n// （标准库的 lock_guard 就是这个套路）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ **C++ 没有 finally** —— 这件事交给「析构函数一定会跑」</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> File</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  FILE</span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> fp;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  File</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-keyword)\"> char*</span><span style=\"color:var(--shiki-foreground)\"> p) { fp </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> fopen</span><span style=\"color:var(--shiki-foreground)\">(p</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"r\"</span><span style=\"color:var(--shiki-foreground)\">); </span><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">!</span><span style=\"color:var(--shiki-foreground)\">fp) </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">runtime_error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"打不开\"</span><span style=\"color:var(--shiki-foreground)\">); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  ~File</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (fp) </span><span style=\"color:var(--shiki-token-function)\">fclose</span><span style=\"color:var(--shiki-foreground)\">(fp); }</span><span style=\"color:var(--shiki-token-comment)\">        // 离开作用域就关，无论怎么离开</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> work</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  File </span><span style=\"color:var(--shiki-token-function)\">f</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"data.txt\"</span><span style=\"color:var(--shiki-foreground)\">);</span><span style=\"color:var(--shiki-token-comment)\">                    // 拿到就代表打开成功</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  risky</span><span style=\"color:var(--shiki-foreground)\">();</span><span style=\"color:var(--shiki-token-comment)\">                               // 这里抛了，f 的析构照样跑</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span><span style=\"color:var(--shiki-token-comment)\">                                        // 正常返回也一样跑</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 实跑确认的执行顺序：异常抛出 → **先跑局部对象析构** → 再进 catch</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以「出了异常也要执行的那段收尾」在这门语言里是**免费**的</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 实在要写「块结束就跑」的一段代码，可以用一个带析构的小对象包住</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// （标准库的 lock_guard 就是这个套路）</span></span></code></pre>",
+      "lineCount": 18,
+      "notes": [
+        {
+          "line": 1,
+          "text": "**C++ 没有 finally** —— 这件事交给「析构函数一定会跑」",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>这一格是两门语言资源管理的分水岭</strong>：JavaScript 靠\n<code>try / finally</code>（或 <code>using</code> 声明）显式写出「无论如何都要执行的那段」，\n所以要<strong>记得写</strong>；C++ 根本没有 <code>finally</code> ——\n因为局部对象的析构函数在离开作用域时（包括异常展开时）一定会跑，\n「打开就配对关闭」这件事由类型自己负责，写代码的人不用记。\n代价是 C++ 里「资源」必须包成一个类型（这就是 RAII），\n裸资源（<code>fopen</code> 返回的指针）没有任何保证。</p>\n",
+        "python": "<p>两边的差别就是 <code>finally</code> 与析构：Python 有 <code>finally</code>，\n而且 <code>with</code> 语句把「进入/退出必做」写成了协议（<code>__enter__</code> / <code>__exit__</code>）；\nC++ 没有 <code>finally</code> 也没有 <code>with</code>，对应物是<strong>析构函数</strong> ——\n只要是栈上的对象，退出作用域必然会析构（异常也照跑）。\n所以 Python 的 <code>with</code> 是显式语句、只能用在实现了协议的对象上；\nC++ 的析构是<strong>隐含的</strong>，任何类型都有，代价是「什么时候析构」\n由对象住哪决定（<code>new</code> 出来的就不会自动跑）。</p>\n",
+        "java": "<p>两边都有 <code>try / catch / finally</code> 的形态？<strong>C++ 其实没有 <code>finally</code></strong> ——\n这是从 Java 过来最容易找不到的一处。Java 的 <code>finally</code> 承担\n「关闭资源」的职责，C++ 把这件职责交给了析构函数（RAII），\n而且好处是<strong>不用记得写</strong>：只要对象活过作用域就会被清理，\n连「多个资源、其中一个打开失败」这种边角情况都自动正确\n（已构造的部分会被逆序析构）。Java 的 try-with-resources 思路最接近，\n但它是显式语句，C++ 是类型的默认行为。</p>\n"
+      }
+    },
+    "error-types": {
+      "lang": "cpp",
+      "code": "// C++ **没有规定错误必须是什么类型** —— 抛什么都行\n// 标准库给了一棵自己的异常树，实际项目都按它来\n\nstd::exception                    // 标准异常的根\n  ├─ std::logic_error             // 逻辑错误：本可以避免\n  │    ├─ std::invalid_argument\n  │    ├─ std::out_of_range\n  │    └─ std::domain_error\n  └─ std::runtime_error           // 运行期错误：外部条件导致\n       ├─ std::range_error\n       └─ std::overflow_error\n\nstd::exception::what();           // 唯一统一的接口：一个 const char*\n\n// ⚠ 还有完全不抛异常的一条路：错误码与 std::expected\nstd::expected<int, std::error_code> parse(...);   // C++23\n// 这条路上的「错误」是个值，不是控制流",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// C++ **没有规定错误必须是什么类型** —— 抛什么都行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 标准库给了一棵自己的异常树，实际项目都按它来</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">exception</span><span style=\"color:var(--shiki-token-comment)\">                    // 标准异常的根</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  ├─ std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">logic_error</span><span style=\"color:var(--shiki-token-comment)\">             // 逻辑错误：本可以避免</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  │    ├─ std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">invalid_argument</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  │    ├─ std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">out_of_range</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  │    └─ std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">domain_error</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  └─ std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">runtime_error</span><span style=\"color:var(--shiki-token-comment)\">           // 运行期错误：外部条件导致</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">       ├─ std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">range_error</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">       └─ std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">overflow_error</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">exception</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">what</span><span style=\"color:var(--shiki-foreground)\">();</span><span style=\"color:var(--shiki-token-comment)\">           // 唯一统一的接口：一个 const char*</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 还有完全不抛异常的一条路：错误码与 std::expected</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">expected</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">error_code</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-function)\">parse</span><span style=\"color:var(--shiki-foreground)\">(...);</span><span style=\"color:var(--shiki-token-comment)\">   // C++23</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这条路上的「错误」是个值，不是控制流</span></span></code></pre>",
+      "lineCount": 17,
+      "notes": [
+        {
+          "line": 15,
+          "text": "还有完全不抛异常的一条路：错误码与 std::expected",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都「能抛任何东西」，但 C++ 的<strong>标准异常树更结构化</strong>：\nJavaScript 的 <code>Error</code> 有 <code>name</code> / <code>message</code> / <code>stack</code> 三个约定字段，\n子类化靠自定义 class；C++ 的 <code>std::exception</code> 只强制一个\n<code>what()</code> 返回 <code>const char*</code>，信息量更少\n（要带上下文得自己定义类），但换来的是「任何标准异常都能\n用一个接口处理」。另一处是 C++ 有 <code>std::expected</code> 这条\n<strong>不抛异常</strong>的路线，把错误放进返回值里 —— 这在 JavaScript 里\n只能靠约定（返回 <code>{ok, value}</code> 这种形状）。</p>\n",
+        "python": "<p>两边都有层次化的异常树（<code>BaseException</code> → <code>Exception</code> → 具体异常\n↔ <code>std::exception</code> → <code>logic_error</code> / <code>runtime_error</code> → 具体异常），\n形状很像。差别在<strong>信息载体</strong>：Python 的异常是带任意属性的对象\n（可以塞任何上下文），而且 <code>str(e)</code> 与 <code>repr(e)</code> 都有用；\nC++ 的 <code>std::exception</code> 只有 <code>what()</code> 那一个字符串接口，\n想带结构化信息必须自己定义类并继承它。\n另一处是 C++ 有 <code>std::expected</code> 这种「错误当返回值」的选项，\nPython 里通常还是抛异常。</p>\n",
+        "java": "<p>两边都有一棵分层的异常树，也都分「逻辑错误」与「运行期错误」，\n这一层高度对应（<code>logic_error</code> / <code>runtime_error</code> 几乎就是\n「受检 / 不受检」的那条分界，但<strong>强制力完全不同</strong>：\nJava 用编译器强制 checked exception 必须处理，\nC++ 只是把这两个名字用来分类，没有任何强制）。\n另一处是 Java 的异常带栈轨迹（<code>printStackTrace</code>），\nC++ 的 <code>what()</code> 只有消息 —— 要栈得用 C++23 的 <code>std::stacktrace</code>\n自己抓，而且那也不是异常自带的。</p>\n"
+      }
+    },
+    "custom-error": {
+      "lang": "cpp",
+      "code": "class HttpError : public std::runtime_error {\npublic:\n  int status;\n  HttpError(int s, const std::string& msg)\n    : std::runtime_error(msg), status(s) {}     // 初始化基类\n};\n\nthrow HttpError(404, \"没找到\");\n\ncatch (const HttpError& e) {\n  std::printf(\"%d %s\\n\", e.status, e.what());\n}\n\n// ⚠ 继承标准异常有两个必须记住的点：\n// ⚠ ① 要能按引用接住并不被切片 —— 所以别按值接\n// ⚠ ② `what()` 返回的是 `const char*`，字符串的生命周期要自己管住\n// 惯例：从 `std::runtime_error`（而不是 `std::exception`）继承，\n// 因为它自带了「存一个字符串」的实现\n\n// 析构函数别抛异常 —— 它是 noexcept 的，抛了就 terminate",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> HttpError</span><span style=\"color:var(--shiki-token-punctuation)\"> :</span><span style=\"color:var(--shiki-token-keyword)\"> public</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">runtime_error</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">public</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  int</span><span style=\"color:var(--shiki-foreground)\"> status;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  HttpError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> s</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> const</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">string</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\"> msg)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">    :</span><span style=\"color:var(--shiki-foreground)\"> std::</span><span style=\"color:var(--shiki-token-function)\">runtime_error</span><span style=\"color:var(--shiki-foreground)\">(msg)</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> status</span><span style=\"color:var(--shiki-foreground)\">(s) {}</span><span style=\"color:var(--shiki-token-comment)\">     // 初始化基类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-function)\"> HttpError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">404</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"没找到\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> HttpError</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\"> e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">printf</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-constant)\">%d</span><span style=\"color:var(--shiki-token-constant)\"> %s</span><span style=\"color:var(--shiki-token-string-expression)\">\\n\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> e</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-foreground)\">status</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> e</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">what</span><span style=\"color:var(--shiki-foreground)\">());</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 继承标准异常有两个必须记住的点：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ① 要能按引用接住并不被切片 —— 所以别按值接</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ② `what()` 返回的是 `const char*`，字符串的生命周期要自己管住</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 惯例：从 `std::runtime_error`（而不是 `std::exception`）继承，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 因为它自带了「存一个字符串」的实现</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 析构函数别抛异常 —— 它是 noexcept 的，抛了就 terminate</span></span></code></pre>",
+      "lineCount": 20,
+      "notes": [
+        {
+          "line": 14,
+          "text": "继承标准异常有两个必须记住的点：",
+          "tone": "warn"
+        },
+        {
+          "line": 15,
+          "text": "① 要能按引用接住并不被切片 —— 所以别按值接",
+          "tone": "warn"
+        },
+        {
+          "line": 16,
+          "text": "② `what()` 返回的是 `const char*`，字符串的生命周期要自己管住",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的做法几乎一样（继承基类、加自己的字段），这一格很接近。\n差别在<strong>基类的约束强度</strong>：JavaScript 的 <code>class MyError extends Error</code>\n有语言配合（<code>instanceof</code>、<code>stack</code> 自动带上），\nC++ 继承 <code>std::runtime_error</code> 主要是为了<strong>复用一个存字符串的实现</strong>，\n其余全靠约定。另一处是 C++ 要操心生命周期：\n<code>what()</code> 返回的是裸指针，如果构造时传的是临时字符串的\n<code>c_str()</code>，那个指针可能已经悬垂 —— JavaScript 没有这一层。</p>\n",
+        "python": "<p>两边都是「继承一个基类、加字段」，形态一致。\n差别在<strong>抛的时候</strong>：Python 的 <code>raise HttpError(404, &quot;...&quot;)</code> 里\n那个括号是构造，异常对象一路带着走，属性随时可取；\nC++ 的 <code>throw HttpError(404, &quot;...&quot;)</code> 会<strong>拷贝</strong>一份异常对象\n（所以异常类型要能拷贝），接住的是那个副本 ——\n所以带大对象的异常在 C++ 里有拷贝成本，\n这也是老代码里常见「抛指针」的原因（现在不推荐）。</p>\n",
+        "java": "<p>两边都继承基类加字段，写法高度对应（构造函数转发消息给基类）。\n差别在<strong>受检与否</strong>：Java 的自定义异常继承 <code>Exception</code> 就是受检的、\n继承 <code>RuntimeException</code> 就不受检，这个选择会影响所有调用方；\nC++ 没有受检这一说，继承 <code>std::runtime_error</code> 只是拿它的实现，\n不会给调用方任何强制。另一处是 C++ 的异常对象会被拷贝，\nJava 的异常对象是引用传递，成本模型不同。</p>\n"
+      }
+    },
+    "error-propagation": {
+      "lang": "cpp",
+      "code": "// C++ 的传播**不需要任何标注** —— 不接就自动往上走\nvoid deep() { throw std::runtime_error(\"底层出事了\"); }\nvoid mid()  { deep(); }              // 什么都没写，异常直接穿过\nvoid top()  { try { mid(); } catch (const std::exception& e) { /* 处理 */ } }\n\n// 想「包一层、保留原因」：标准库给了 nested_exception\ntry { mid(); }\ncatch (const std::exception& e) {\n  std::throw_with_nested(std::runtime_error(\"上下文\"));   // 把当前异常套进新的\n}\n// 接的时候用 rethrow_if_nested 一层层翻\ncatch (const std::exception& e) {\n  try { std::rethrow_if_nested(e); }\n  catch (const std::exception& inner) { /* 原始的那层 */ }\n}\n// ⚠ 但这套是**手动的** —— 得记得包、记得翻，而且异常类型也要配合\n// ⚠ 忘了包一层，原因就丢了且没有任何提示（对比下一格的基准侧）\n\n// 另一条路：把错误放进返回值，一路顺着传（见 error-types）\nstd::expected<int, std::string> step();\n// 调用方检查 !r，再决定是继续往上返回还是就地处理\n\n// ⚠ 还要小心裸的 `throw;`（重抛当前异常）：\n// ⚠ 它在 catch 块**外面**照样编译通过（实测 -Wall -Werror 也不报），\n// ⚠ 而在没有活动异常时执行它会直接 `std::terminate`",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// C++ 的传播**不需要任何标注** —— 不接就自动往上走</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> deep</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">runtime_error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"底层出事了\"</span><span style=\"color:var(--shiki-foreground)\">); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> mid</span><span style=\"color:var(--shiki-foreground)\">()  { </span><span style=\"color:var(--shiki-token-function)\">deep</span><span style=\"color:var(--shiki-foreground)\">(); }</span><span style=\"color:var(--shiki-token-comment)\">              // 什么都没写，异常直接穿过</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> top</span><span style=\"color:var(--shiki-foreground)\">()  { </span><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">mid</span><span style=\"color:var(--shiki-foreground)\">(); } </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">exception</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\"> e) {</span><span style=\"color:var(--shiki-token-comment)\"> /* 处理 */</span><span style=\"color:var(--shiki-foreground)\"> } }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想「包一层、保留原因」：标准库给了 nested_exception</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">mid</span><span style=\"color:var(--shiki-foreground)\">(); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">exception</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\"> e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">throw_with_nested</span><span style=\"color:var(--shiki-foreground)\">(std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">runtime_error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"上下文\"</span><span style=\"color:var(--shiki-foreground)\">));</span><span style=\"color:var(--shiki-token-comment)\">   // 把当前异常套进新的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 接的时候用 rethrow_if_nested 一层层翻</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">exception</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\"> e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  try</span><span style=\"color:var(--shiki-foreground)\"> { std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">rethrow_if_nested</span><span style=\"color:var(--shiki-foreground)\">(e); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  catch</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-foreground)\">exception</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\"> inner) {</span><span style=\"color:var(--shiki-token-comment)\"> /* 原始的那层 */</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但这套是**手动的** —— 得记得包、记得翻，而且异常类型也要配合</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 忘了包一层，原因就丢了且没有任何提示（对比下一格的基准侧）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 另一条路：把错误放进返回值，一路顺着传（见 error-types）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">expected</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">string</span><span style=\"color:var(--shiki-foreground)\">> </span><span style=\"color:var(--shiki-token-function)\">step</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 调用方检查 !r，再决定是继续往上返回还是就地处理</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 还要小心裸的 `throw;`（重抛当前异常）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 它在 catch 块**外面**照样编译通过（实测 -Wall -Werror 也不报），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 而在没有活动异常时执行它会直接 `std::terminate`</span></span></code></pre>",
+      "lineCount": 25,
+      "notes": [
+        {
+          "line": 16,
+          "text": "但这套是**手动的** —— 得记得包、记得翻，而且异常类型也要配合",
+          "tone": "warn"
+        },
+        {
+          "line": 17,
+          "text": "忘了包一层，原因就丢了且没有任何提示（对比下一格的基准侧）",
+          "tone": "warn"
+        },
+        {
+          "line": 23,
+          "text": "还要小心裸的 `throw;`（重抛当前异常）：",
+          "tone": "warn"
+        },
+        {
+          "line": 24,
+          "text": "它在 catch 块**外面**照样编译通过（实测 -Wall -Werror 也不报），",
+          "tone": "warn"
+        },
+        {
+          "line": 25,
+          "text": "而在没有活动异常时执行它会直接 `std::terminate`",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的传播都是「不接就往上走」，这一层一致。\n差别在<strong>保留原因的方式，而且一个是默认、一个是手动</strong>：\nJavaScript 的 <code>new Error(msg, {cause: e})</code> 从 ES2022 起是标准写法，\n打印时整条链都显示；C++ 也有对应机制（<code>std::throw_with_nested</code>\n加 <code>rethrow_if_nested</code>），但<strong>要手动包、手动翻</strong> ——\n忘了包一层原因就丢了，而且没有任何提示。\n也就是说那边「原因链」是异常的默认属性，这边是一个可选动作。\n另一处是 JS 的 <code>throw e</code> 会保留栈、C++ 里连「栈」这个概念\n都不在异常对象上（要 C++23 的 <code>std::stacktrace</code> 另外抓）。</p>\n",
+        "python": "<p>两边都有「重抛」与「包一层」两件事，但<strong>凑在一起的代价不同</strong>：\nPython 的 <code>raise NewError(...) from e</code> 一句话就完成了\n「抛新异常 + 保留原因 + 打印时两层都显示」；\nC++ 要包一层得调 <code>std::throw_with_nested</code>，要读原因得再调\n<code>rethrow_if_nested</code> 并自己套一层 try —— 能力有，但是散装的。\n另一处是裸重抛：C++ 的 <code>throw;</code> 与 Python 的裸 <code>raise</code> 都表示\n「重抛当前异常」，但 C++ 的 <code>throw;</code> 写在 catch 外面\n<strong>编译器不拦</strong>，运行到那里直接终止进程。</p>\n",
+        "java": "<p>两边都有「包一层」的写法，但 Java 的 <code>new RuntimeException(msg, cause)</code>\n是<strong>标准构造函数</strong>，原因链是一等公民（<code>getCause()</code> 能一路翻）；\nC++ 的标准异常没有这个参数，得自己定义类型存起来。\n另一处差别很大：Java 的受检异常逼着你在签名里声明传播路径，\n所以「这个异常会飘到哪」是能静态看出来的；C++ 完全没有这层信息，\n只能靠文档，或者改用返回值传错误。</p>\n"
+      }
+    }
+  }
+}

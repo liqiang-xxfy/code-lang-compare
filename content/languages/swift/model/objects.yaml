@@ -1,0 +1,409 @@
+# swift —— model / objects
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: objects` 的那批：
+# class-declaration / constructor / fields-and-properties /
+# methods-and-receiver / inheritance / access-control。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组四条硬事实 ——
+# ① **struct 是值类型、class 是引用类型**，而 Swift 的默认选择是 struct；
+# ② struct **不能继承**，复用靠协议与扩展（这是与别的面向对象语言最大的不同）；
+# ③ `private` **不是文件级** —— 它是「声明所在作用域 + 同文件扩展」，
+#    文件级的是 `fileprivate`；
+# ④ `public` 类型的成员**默认是 internal**（不是 public），
+#    而想让别的模块能继承/重写还得用 `open`。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-objects-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  class-declaration:
+    code: |
+      struct Point {                 // @note 值类型：赋值/传参都是拷贝
+        var x = 0.0, y = 0.0
+      }
+
+      class Account {                // @note 引用类型：赋值共享同一个实例
+        var balance = 0.0
+      }
+
+      enum Shape {                   // @note 枚举也能带方法、有关联值
+        case circle(Double)
+        case square(Double)
+        func area() -> Double {
+          switch self {
+          case .circle(let r): return 3.14 * r * r
+          case .square(let s): return s * s
+          }
+        }
+      }
+
+      actor Counter { }              // @note 并发安全引用类型（见 mechanism/concurrency）
+
+      protocol Drawable { }          // @note 协议（见 abstraction）
+
+      // @note! **该用哪个？**官方倾向是「默认 struct，需要时才 class」：
+      // @note   要值语义（拷贝）、不要继承 → struct
+      // @note   要共享同一个实例、要继承、要 deinit → class
+      // @note   要「只有这几种」→ enum（Swift 的 enum 比别处强得多）
+
+      // @note! struct 与 class 的关键差别：**struct 不能继承**
+    vs:
+      javascript: |
+        **两边都有 class，但地位不同**：JavaScript 的 `class` 是唯一的
+        「定义类型」手段（其余靠对象字面量）；Swift 有四种
+        （struct / class / enum / actor），而且**默认推荐 struct** ——
+        也就是说从 JavaScript 过来，「定义一个东西」的第一个决定
+        不是「怎么写」而是「要值语义还是引用语义」。
+        另一处是**枚举的重量级差别**：JavaScript 没有真正的枚举，
+        Swift 的 `enum` 能带关联值、能带方法、能做模式匹配 ——
+        它是一门完整的类型定义手段，不是常量的集合。
+        还有一处是 struct 不能继承，复用靠协议（见 abstraction 那一组）。
+      python: |
+        两边都能定义带方法的类型，但**默认语义相反**：
+        Python 的类实例是引用（赋值共享），要值语义得自己实现
+        `__eq__` / 拷贝；Swift 的 `struct` 是值语义（赋值拷贝），
+        而它才是**默认选择** —— 所以从 Python 过来最容易犯的错
+        是「以为传进去的是同一个对象」。
+        另一处是 Python 没有「不能继承的类型定义」这一档，
+        Swift 的 struct 就是不能继承的（复用靠协议加扩展）。
+        还有一处是 Swift 的 enum 能带数据与方法，Python 的 `Enum`
+        只是命名常量。
+      java: |
+        两边最接近的一对是 Swift 的 `class` 与 Java 的 `class`
+        （引用类型、能继承、有 deinit/终结器）。差别在
+        **Swift 还有 struct，而且它是默认选择** ——
+        值语义、不能继承、自动生成逐成员构造器。
+        Java 没有值类型（较新版本才在实验），所以那边「所有对象都在堆上、
+        赋值都是共享」是唯一的现实；Swift 里两种都有、要选。
+        另一处是 Swift 比 Java **多一种类型定义手段的强度**：
+        `enum` 能带关联值与方法，Java 的枚举也能有方法但
+        不能带「每种情况不同的数据」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  constructor:
+    code: |
+      struct Point {
+        var x: Double, y: Double
+      }
+      // @note! struct **自动生成逐成员构造器**（不写 init 就有）
+      Point(x: 1, y: 2)
+
+      // @note 自己写了 init，那个自动生成的就没有了
+      // @note （例外：把 init 写在**扩展**里，自动生成的会保留）
+      struct Size {
+        var w: Double
+        init(square: Double) { w = square }
+      }
+
+      class Account {
+        var balance: Double
+        let owner: String
+
+        init(balance: Double, owner: String) {     // @note 指定构造器
+          self.balance = balance
+          self.owner = owner
+        }
+
+        convenience init(owner: String) {          // @note 便利构造器：必须调本类的指定构造器
+          self.init(balance: 0, owner: owner)
+        }
+
+        init?(raw: String) {                       // @note 可失败构造器：失败给 nil
+          guard let v = Double(raw) else { return nil }
+          self.balance = v; self.owner = "?"
+        }
+
+        deinit { }                                 // @note! 只有类有 deinit，struct 没有
+      }
+
+      // @note 子类构造器要满足规矩（指定构造器必须调父类的指定构造器），
+      // @note 而且父类的属性在调用父类 init 之前不能碰
+    vs:
+      javascript: |
+        两边的构造函数形态像（都有 `constructor` / `init`），
+        但 Swift 这边**多了好几档**：struct 自动生成逐成员构造器、
+        类有指定构造器与便利构造器的区分、还有可失败构造器
+        （`init?`，失败返回 nil 而不是抛异常）。
+        另一处是「必须初始化所有属性」这条是编译器强制的 ——
+        写 `init` 时漏掉一个属性直接编译不过；
+        JavaScript 的 `constructor` 里什么都不做也行。
+        还有一处是 `deinit` 只有类有（struct 是值类型，没有「销毁」这回事），
+        而它的时机由 ARC 决定，不是「离开作用域」。
+      python: |
+        两边的构造写法不同名（`__init__` ↔ `init`），概念对得上。
+        关键差别是 **Swift 强制所有属性在构造完成时都有值** ——
+        漏一个就编译不过；Python 的属性可以事后随手挂，
+        `__init__` 里什么都不做也能创建一个「空壳对象」。
+        另一处是 Swift 有可失败构造器（`init?`）明确的失败通道，
+        Python 里靠抛异常。
+        还有一处是 Swift 的 struct **自动生成**一个带全部字段的构造器，
+        而 Python 要写 `dataclass` 才有类似效果。
+      java: |
+        两边**高度对应**：都有与类型同名的构造器、都能重载、
+        都要在构造器最前面处理父类初始化。差别在两处：
+        ① Swift 有**便利构造器**（`convenience init`，必须委托给
+        本类的指定构造器），Java 用 `this(...)` 表达同样的事；
+        ② Swift 的 struct 会自动生成逐成员构造器，
+        Java 的记录类也有类似能力但普通类没有。
+        另一处是 Swift 有可失败构造器（`init?`），
+        Java 的构造器失败只能抛异常 —— 一个给 nil、一个必须抛。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  fields-and-properties:
+    code: |
+      class Account {
+        var balance = 0.0                       // @note 存储属性
+        let id = UUID()                         // @note 常量属性
+        static let bankName = "示例银行"          // @note 类型属性（属于类，不属于实例）
+
+        // @note 计算属性：不存值，每次访问算一遍
+        var isOverdrawn: Bool { balance < 0 }
+
+        var display: String {                   // @note 带 get/set 的计算属性
+          get { "余额 \(balance)" }
+          set { balance = Double(newValue) ?? 0 }
+        }
+
+        // @note 属性观察器：值变化前后各跑一段
+        var limit = 1000.0 {
+          willSet { print("要变成 \(newValue)") }
+          didSet { print("从 \(oldValue) 变成 \(limit)") }
+        }
+
+        // @note 惰性存储属性：第一次访问才算（只能用于 var）
+        lazy var history: [String] = loadHistory()
+
+        private(set) var auditCount = 0          // @note 读公开、写私有
+      }
+
+      // @note struct 里改属性要方法标 mutating；class 不用
+      // @note 属性观察器在初始化时**不触发**（只在之后赋值时触发）
+    vs:
+      javascript: |
+        **这一格两边差别很大**：JavaScript 的属性就是属性，
+        随时可加可删，想「读取时算一下」用 `get` / `set` 访问器
+        （语言内建，而且用法看着还是属性访问）；
+        Swift 把存储属性与计算属性分成两种**声明形态**，
+        而且多出属性观察器（`willSet` / `didSet`）、
+        惰性属性（`lazy var`）、访问级别收窄（`private(set)`）
+        这些 JavaScript 没有的东西。
+        另一处是 Swift 的属性必须在**编译期**全部声明好、
+        不能动态增删 —— 想「给对象挂个字段」在这边做不到。
+      python: |
+        两边都能「把数据藏起来、用方法访问」，而且都有属性语法
+        （Python 的 `@property` ↔ Swift 的计算属性）——
+        这一层对应得上。差别在**附加能力**：
+        Swift 有属性观察器（值变化自动跑一段）、惰性属性、
+        `private(set)`（读公开写私有）—— Python 里这些都要自己写；
+        而 Python 有 `__getattr__` 这种「访问不存在的属性时兜底」，
+        Swift 完全没有（属性集合是编译期定死的）。
+        另一处是 Swift 的属性在 struct 里改自己需要 `mutating` 方法，
+        Python 里随手就改。
+      java: |
+        两边都区分「字段」与「方法」，Java 靠 getter/setter 惯例暴露，
+        Swift 有 `private(set)` 与计算属性让这件事更简洁 ——
+        这一层可以对应。差别在 Swift 多出来的两样：
+        属性观察器（`didSet`，自动在值变化时跑）与惰性属性
+        （`lazy var`，第一次访问才算）—— Java 里前者要自己写
+        setter，后者要靠 `Supplier` 或双重检查。
+        另一处是 Swift 的类型属性（`static let`）很常用，
+        而且**struct 与 enum 也能有**（Java 的 enum 也能，但表达力弱）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  methods-and-receiver:
+    code: |
+      struct Counter {
+        var n = 0
+        func current() -> Int { n }              // @note 只读方法
+        mutating func bump() { n += 1 }          // @note! 值类型改自己必须标 mutating
+
+        static func zero() -> Counter { Counter() }   // @note 类型方法
+      }
+
+      class Node {
+        var value = 0
+        func update() { value += 1 }             // @note 引用类型不用 mutating
+
+        func chain() -> Self {                   // @note 返回自身做链式调用
+          value += 1
+          return self                            // @note self 就是当前实例
+        }
+      }
+
+      // @note! 值类型方法里的 self 是「值本身」，标了 mutating 才能改；
+      // @note! 引用类型方法里的 self 是「指向实例的引用」，随手能改
+      // @note 枚举方法也能标 mutating（改 self 到另一个 case）
+
+      // @note 方法里的 `self` 在闭包中被捕获时要注意引用环（见 closures 那格）
+    vs:
+      javascript: |
+        两边的 `this` / `self` 都指当前对象，但**取值方式与可变性不同**：
+        JavaScript 的 `this` 是**绑定时决定的**（调用方式决定，
+        所以箭头函数与普通函数不同）；Swift 的 `self` 是
+        编译期确定的当前实例，不存在丢失绑定。
+        另一处是 Swift 的 **`mutating`**：值类型的方法想改自己必须标，
+        编译器据此知道「这个方法会改变值」；JavaScript 里没有值类型，
+        也就没有这个概念。
+        还有一处是 Swift 有类型方法（`static func`），
+        JavaScript 用 `static` 但语义不同（那边没有值/引用之分）。
+      python: |
+        两边都有「当前对象」，但**显式程度不同**：Python 的 `self`
+        是参数列表里写出来的第一个参数；Swift 的 `self` 是隐式的、
+        不用声明（除非被闭包捕获，那时要显式写）。
+        另一处是 Swift 的 `mutating` —— 值类型的方法改自己要标记，
+        这是 Python 完全没有的一层（Python 的对象都是引用，
+        改 `self.x` 随时可以）。
+        还有一处是 Swift 的 `Self` 类型（返回自身类型）对链式调用很有用，
+        Python 里通常直接返回 `self`，类型上没有这层表达。
+      java: |
+        两边**几乎一样**：`this` / `self` 都是隐式的当前对象，
+        都能返回自身做链式调用，都有静态方法、静态属性。
+        差别在**值类型的方法**：Swift 的 struct 方法改自己要 `mutating`，
+        Java 里没有值类型也就没有这个关键字；
+        另一处是 Swift 的 `Self` 类型（返回「当前这个具体类型」）
+        在继承体系里比 Java 的返回类型更灵活。
+        共同点是两边的方法都能重载、都能被重写（类的话）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  inheritance:
+    code: |
+      class Animal {                             // @note 只有**类**能继承
+        var name = ""
+        func speak() -> String { "..." }
+      }
+
+      class Dog: Animal {                        // @note 单继承
+        override func speak() -> String { "汪" }  // @note 重写要写 override
+      }
+
+      final class Cat: Animal { }                // @note final：不许再被继承
+
+      // @note! struct **不能继承** —— 复用靠**协议 + 扩展**（见 abstraction）
+      // @note! 这一点与多数面向对象语言差别很大
+
+      // @note 子类构造器要先初始化自己的属性、再调父类构造器
+      class Puppy: Dog {
+        var age: Int
+        init(age: Int) {
+          self.age = age
+          super.init()                           // @note super 调父类
+        }
+      }
+
+      // @note 想调父类被重写的方法用 super.speak()
+      // @note 多态：类实例按父类类型引用时走的是**动态派发**（默认就是虚的）
+      let a: Animal = Dog()
+      a.speak()                                  // @note "汪"
+    vs:
+      javascript: |
+        两边都有继承，但**Swift 的继承只属于 class 一档** ——
+        struct 完全不能继承，`Dog: Animal` 这种写法在 struct 上不存在。
+        所以那边「给一个类型加能力」的默认手段是**协议加扩展**，
+        而 JavaScript 里主要靠原型链。
+        另一处是多态：Swift 的类方法**默认就是虚的**（走动态派发），
+        想禁止要标 `final`；JavaScript 的方法也都是动态查找。
+        还有一处是 Swift 的重写要显式写 `override`（写错会报错），
+        JavaScript 里重写就是定义一个同名方法，没有标记。
+      python: |
+        两边差别很大：Python **支持多继承**，而且有明确的 MRO
+        决定同名方法听谁的；Swift **只有单继承**（类是单继承的），
+        多能力复用靠协议。
+        另一处是 Swift 的重写要显式写 `override` 关键字，
+        写错了编译器会报错（比如父类其实没有这个方法）；
+        Python 里重写就是同名覆盖，没有标记也没有检查。
+        共同点是两边都能用 `super` 调父类实现。
+      java: |
+        两边**结构上最像**：都是单继承、都能重写、
+        都有 `super`、都能在子类构造器里调父类构造器。
+        差别在两处：① Java 的方法**默认就是虚的**（除非 final/static/private），
+        Swift 的类方法也是默认动态派发，但 Swift 有 `final` 与
+        `open` 两个层次控制「能不能被继承/重写」（`open` 才允许跨模块）；
+        ② Swift 的 struct 不能继承，而 Java 没有值类型 ——
+        所以「用组合代替继承」这件事在 Swift 里是**被迫**的常态，
+        在 Java 里是一种设计建议。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  access-control:
+    code: |
+      // @note! Swift 有**六个**级别（比通常说的五级多一个 package）
+      //   open         跨模块可继承可重写
+      //   public       跨模块可见，但**不能**继承/重写
+      //   package      同一个包内可见（较新加入的级别）
+      //   internal     同一个模块内可见 —— **默认值**
+      //   fileprivate  同一个文件内可见
+      //   private      声明所在作用域 + **同文件的扩展**
+
+      struct Config {
+        public var host = "localhost"      // @note 显式公开
+        var port = 8080                    // @note! 默认是 internal
+        fileprivate var token = "x"        // @note 本文件可见
+        private var secret = "y"           // @note! 本作用域 + 同文件扩展可见，
+      }                                    // @note! **不是**文件级 —— 同文件里别的类型看不到
+
+      public class Service {
+        public func a() { }                // @note! 注意：public 类型的成员**默认 internal**
+        func b() { }                       // @note! 这个就是 internal，即使类型是 public
+      }
+
+      open class Base { open func f() { } }         // @note open 才允许外部继承/重写
+      public class Sealed { public func g() { } }   // @note! 外部不能继承它
+
+      // @note! 两处最容易记错：
+      // @note! ① `private` 不是文件级（那是 fileprivate）
+      // @note! ② public 类型的成员不会自动 public
+    vs:
+      javascript: |
+        两边都在做「谁能看见」，但**强制力差别很大**：
+        JavaScript 的可见性靠约定（前导下划线）或私有字段 `#x`
+        （那个是真的强制，但只看类不看文件）；Swift 有六档、
+        编译期强制、而且分「模块内 / 文件内 / 声明内」三层。
+        所以那边「文件里只有这一个类、所以 private 差不多等于文件级」
+        这种推理在 Swift 里是错的 —— 想文件级必须写 `fileprivate`。
+        另一处是 Swift 的 `open` 与 `public` 分开
+        （跨模块能不能继承）；JavaScript 里没有「跨模块继承」这个概念。
+      python: |
+        两边的姿态相反：Python 的可见性**基本是约定**
+        （`_x` 表示内部用，`__x` 做名字改写但仍然能绕），
+        运行期想访问都能访问到；Swift 的级别是编译期强制的。
+        另一处是 Swift 的 `private` 比多数语言的 private **更宽**
+        （同文件的扩展也能访问，是为了把类型拆到多个 extension 里写的惯用法），
+        Python 里没有「扩展」这一层，也就没有这个设计。
+        共同点是两边都有「公开 / 内部」这个粗分，只是强制力不同。
+      java: |
+        两边都能分层控制可见性，但**阶梯不同**：
+        Java 是 私有 / 包私有（默认）/ 受保护 / 公开；
+        Swift 是 private / fileprivate / internal / package /
+        public / open。也就是说 Java 的默认是**包私有**，
+        Swift 的默认是**模块内可见** —— 粒度粗一档（没有「包」这一层）。
+        另一处是 Swift 把 public 拆成了 public 与 open
+        （能否跨模块继承），Java 用 `final` 表达「不能继承」但
+        没有「能看见但不能继承」这一档。
+        共同点是两边都有「读公开、写私有」的需求。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

@@ -1,0 +1,337 @@
+# cpp —— model / objects
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: objects` 的那批：
+# class-declaration / constructor / fields-and-properties /
+# methods-and-receiver / inheritance / access-control。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组有三处实跑确认的硬事实，都值得反复交代 ——
+# ① **对象切片**：派生类对象按值传给基类参数时，派生部分被切掉、
+#    调的是基类版本（实跑：调 `Base::f` 而不是 `Derived::f`）；
+# ② **基类析构不写 virtual 就泄漏**：`delete` 一个基类指针时
+#    派生类析构**不跑**（实跑只看到 `~B2`）；
+# ③ `struct` 与 `class` 的**唯一差别是默认可见性**（public / private）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-objects-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  class-declaration:
+    code: |
+      struct Point {                 // @note struct：默认成员**公开**
+        double x = 0, y = 0;
+      };
+
+      class Account {                // @note class：默认成员**私有**
+      public:                        // @note 想公开得显式开一段
+        double balance() const { return bal_; }
+      private:
+        double bal_ = 0;
+      };
+
+      // @note! `struct` 与 `class` 的**唯一差别就是默认可见性** ——
+      // @note! 没有别的语义差异，连继承的默认可见性也按这个规则走
+      // @note! 惯例：纯数据用 struct，有不变式要守的用 class
+
+      // @note 类定义放头文件、成员函数实现可以放源文件：
+      double Account::balance2() const;   // @note 声明与定义分家
+
+      // @note 还有一个常用形态：聚合体
+      struct Config { int port; bool debug; };
+      Config c{8080, true};               // @note 没写构造也能大括号初始化
+    vs:
+      javascript: |
+        **两边的「类」在用途上差一个数量级**：JavaScript 的 `class`
+        主要是组织方法，字段随便挂、可见性靠约定（`#` 是后来的）；
+        C++ 的 `class` / `struct` 同时定义了**内存布局**与
+        **不变式**（哪些东西私有、谁能改），而且是编译期强制的。
+        另一处是 C++ 里 `struct` 与 `class` 几乎是同义词（只差默认可见性），
+        这会让 JavaScript 的人意外 —— 那边 `struct` 根本不存在。
+        还有一处是 C++ 的对象**默认住在栈上**，什么时候销毁是确定的。
+      python: |
+        两边都能定义带方法的类型，但**类型定义的重量不同**：
+        Python 的 `class` 是运行期执行的一段代码，类本身是个对象，
+        随时能往里加属性；C++ 的 `class` 是编译期的布局说明，
+        运行期没有「类对象」这回事（除了一小撮 RTTI）。
+        另一处是可见性：Python 靠前导下划线的**约定**
+        （`_x` 表示内部用，但没人拦），C++ 的 `private` 是
+        编译器强制的 —— 越界访问直接编译不过。
+      java: |
+        两边**几乎完全对应**：`class` 与 `struct` 都是类型定义、
+        成员有可见性修饰、可以有构造函数与成员函数。
+        两处实质差别：① Java 只有 `class`（加 `record` / `interface`），
+        C++ 的 `struct` 与 `class` 是同一个东西的两种默认可见性；
+        ② Java 的对象**只在堆上**（`new` 出来），C++ 的对象常在栈上 ——
+        `Point p;` 一行就建好了，不用 `new`，也不需要 GC 来收。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  constructor:
+    code: |
+      class Account {
+        double bal_;
+        std::string owner_;
+      public:
+        Account() : bal_(0), owner_("匿名") { }        // @note 成员初始化列表
+        Account(double b) : Account() { bal_ = b; }     // @note 委托构造（C++11）
+        explicit Account(std::string o) : owner_(std::move(o)) { }  // @note 禁止隐式转换
+        ~Account() { }        // @note 析构：清理资源放这里（RAII 的落点）
+      };
+
+      // @note! 初始化列表是**真的初始化**，构造函数体里赋值是「先默认初始化再赋值」——
+      // @note! 对 const 成员、引用成员、没有默认构造的成员，只能在列表里初始化
+
+      // @note 拷贝与移动构造也归这一族（编译器会隐式生成）
+      Account a{100.0};
+      Account b = a;                 // @note 拷贝构造
+      Account c = std::move(a);      // @note 移动构造
+
+      // @note! 写错的地方：从构造函数里**虚调用**只会调到自己那层
+      // @note! 因为派生部分还没构造 —— 这是语言规则，不是 bug
+    vs:
+      javascript: |
+        两边的构造函数形态像（都有 `constructor` / 同名函数），
+        但 C++ 的构造**要管的事多得多**：成员初始化列表的**顺序**
+        按声明顺序走（不是按列表书写顺序），没写的成员按各自规则初始化，
+        基类先构造、成员再按声明序构造、最后进函数体 ——
+        这一整套顺序是语言规定的，写错就出错。
+        JavaScript 那边对象属性只是赋值，没有「初始化」与「赋值」的区分。
+        另一处是 C++ 有析构函数（对象消失时自动跑），JavaScript 没有。
+      python: |
+        两边的构造写法不同名（`__init__` ↔ 构造函数），概念对得上。
+        关键差别是 C++ 多了**初始化的时机**这件事：`__init__` 之前
+        对象已经由 `__new__` 造好了，所以 `__init__` 里全是赋值；
+        C++ 的成员初始化列表是**真正在构造它们**，而且顺序由声明位置决定，
+        在函数体里赋值是「先默认构造、再改」—— 对常量成员和引用成员，
+        后者根本写不出来。另一处是 C++ 有析构、Python 靠 `__del__`（不保证时机）。
+      java: |
+        两边**高度对应**：都有与类同名的构造、都能重载、
+        都要在构造函数最前面处理基类初始化。差别在两处：
+        ① Java 用 `super(...)` 显式调基类构造、`this(...)` 委托，
+        C++ 把基类构造写在**成员初始化列表**里（没有 `super` 这个关键字）；
+        ② C++ 有**初始化列表 vs 函数体赋值**的重要区分，
+        Java 里字段初始化是写在声明处或构造函数里，没有等价的区分。
+        另一处是 C++ 有 `explicit` 挡隐式转换，Java 没有对应关键字。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  fields-and-properties:
+    code: |
+      class Account {
+        double bal_ = 0;              // @note 成员可以有默认初始化
+        static int count;             // @note 静态成员：属于类，不属于实例
+        inline static int shared = 0; // @note C++17 起能就地定义静态成员
+        mutable int cache_ = 0;       // @note 例外：const 成员函数里也能改
+      public:
+        double balance() const { return bal_; }   // @note 成员函数当访问器
+
+        // @note! C++ **没有 property** —— 想「读取时算一下」得写函数：
+        // @note   把数据成员私有 + 加一对 getter/setter 是标准做法
+        // @note! 所以 C++ 的接口演进比别的语言稳：从数据成员换成函数
+        // @note! 会破坏源码兼容（Java 从字段换方法也是同样的问题）
+      };
+
+      // @note 静态成员的定义要在类外（C++17 之前）：
+      int Account::count = 0;
+
+      // @note 对象成员的初始化顺序 = **声明顺序**，与初始化列表的书写顺序无关
+    vs:
+      javascript: |
+        **这一格差得比较远**：JavaScript 的属性就是属性，
+        随时可加、随时可删，读取时想算一下用 `get` / `set` 访问器
+        （语言内建）；C++ 没有访问器语法，也没有「动态属性」——
+        类的成员在编译期就定死了，想「读取时算一下」只能写函数，
+        而且调用方写成 `obj.balance()` 而不是 `obj.balance`。
+        另一处是 C++ 有静态成员与成员初始化顺序这两层概念，
+        JavaScript 的静态字段是后加的、也没有「初始化顺序」的问题。
+      python: |
+        两边都能「把数据藏起来、用方法访问」，但 Python 的
+        `@property` 让这件事**看起来还像属性访问**（`obj.balance`），
+        而 C++ 必须写成函数调用 `obj.balance()`。
+        另一处更根本：Python 的实例属性存在一个字典里，
+        可以随时加、可以反射出来；C++ 的成员是内存里的固定偏移，
+        运行期既不能加也不能列出来（要列得编译期生成）。
+        所以那边「给对象临时挂一个字段」在这边做不到。
+      java: |
+        两边**基本一致**：字段私有、用 getter/setter 暴露、
+        静态成员属于类 —— 这一层可以逐条对应，连「从字段换成方法
+        会破坏兼容」这个痛点都一样。两处差别：
+        ① Java 有 `final` 字段（构造后不能改），C++ 对应的是
+        `const` 成员（必须在初始化列表里给初值）；
+        ② C++ 有 `mutable`，允许 const 成员函数里改某个成员 ——
+        Java 没有这个概念（`final` 字段改不了就是改不了）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  methods-and-receiver:
+    code: |
+      class Account {
+        double bal_ = 0;
+      public:
+        double balance() const { return bal_; }      // @note const 成员函数：承诺不改
+
+        void deposit(double x) { bal_ += x; }         // @note 非 const
+
+        // @note this 是**指针**，不是引用 —— 所以要写 this->x 或 (*this).x
+        Account& add(double x) { bal_ += x; return *this; }   // @note 链式调用
+        Account twice() { return *this; }              // @note *this 是**对象本身**（拷贝）
+
+        static int total();                            // @note 静态成员函数：没有 this
+      };
+
+      // @note this 与 *this 的区别很实际：
+      // @note   this  → 指针，可能为空（虽然成员函数里通常不为空）
+      // @note   *this → 对象，返回它就发生一次**拷贝**（除非返回引用）
+    vs:
+      javascript: |
+        两边的 `this` 都指当前对象，但**取值方式差得远**：
+        JavaScript 的 `this` 是**绑定时决定的**（调用方式决定，
+        所以箭头函数与普通函数行为不同），C++ 的 `this` 是
+        编译期确定的隐式指针，永远指向「这个成员函数被调用的那个对象」，
+        不存在丢失绑定这回事。另一处是 C++ 的 `const` 成员函数
+        会把 `this` 变成指向常量的指针（承诺不改），
+        JavaScript 没有这一层，也没有静态成员函数与实例方法的分野。
+      python: |
+        两边都有「当前对象」，但**显式程度不同**：
+        Python 的 `self` 是参数列表里写出来的第一个参数，
+        所以「它从哪来」很直白（调用时自动补上）；
+        C++ 的 `this` 是隐式的、不用声明，而且是**指针**不是引用 ——
+        所以要写 `this->x` 而不是 `self.x`。
+        另一处是 C++ 的 `const` 成员函数是签名的一部分
+        （参与重载、`const` 对象只能调这一类），Python 的方法
+        没有「承诺不改」这个维度，只能靠约定。
+      java: |
+        两边**几乎一样**：`this` 都是隐式的当前对象引用，
+        都能用它返回自身做链式调用，静态方法都没有 `this`。
+        差别在**是不是指针**：C++ 的 `this` 可以解引用、取地址、
+        甚至（在旧代码里）判空；Java 的 `this` 就是个引用，
+        没有这些操作。另一处是 C++ 的 `const` 成员函数
+        （`double balance() const`）是 Java 没有的能力 ——
+        它让「这个方法不修改对象」变成编译器能检查的承诺。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  inheritance:
+    code: |
+      struct Base {
+        virtual ~Base() = default;          // @note! 基类必须有**虚析构**，否则派生部分不析构
+        virtual void f() { }                 // @note virtual 才有多态
+        void g() { }                         // @note 非虚：编译期按静态类型选
+      };
+
+      struct Derived : Base {                // @note 单继承
+        void f() override { }                // @note override 是检查，不是必须
+      };
+
+      struct A { }; struct B { };
+      struct C : A, B { };                   // @note! 支持**多继承**（别的语言少见）
+
+      // 虚继承（菱形继承时避免基类有两份）
+      struct D : virtual A { };
+
+      // @note! 三处 C++ 特有的坑，都实跑验过：
+      // @note! ① **对象切片** —— 派生对象按值传给基类参数，派生部分被切掉，
+      // @note!    调的是基类版本（实跑：调 `Base::f`）
+      // @note! ② 基类析构不写 `virtual`，`delete` 基类指针时
+      // @note!    派生类析构**不跑**（实跑只看到基类的析构输出）
+      // @note! ③ 多态只在**指针与引用**上生效，对象本身不行
+    vs:
+      javascript: |
+        两边都有继承，但 C++ 多出两件事：**多继承**（一个类型能同时是
+        好几条血脉，JavaScript 只能一层原型链）与**虚函数**
+        （要不要多态是**每个方法各自决定**的，JavaScript 的方法
+        默认就是动态查找）。另一处是继承的代价不同：C++ 的继承
+        会影响对象布局（虚表指针），而且有多重继承的菱形问题；
+        JavaScript 的原型链只是查找路径，没有布局问题。
+        最后是 C++ 的对象切片 —— 按值传基类参数会静默丢掉派生部分，
+        JavaScript 里没有这回事。
+      python: |
+        两边都支持多继承，但**冲突解决方式不同**：Python 有明确的
+        MRO（方法解析顺序，C3 线性化）来定「同名方法听谁的」；
+        C++ 的多继承在菱形时**基类会有两份**，要用虚继承才能合一，
+        而且名字冲突要显式限定（`A::f()` / `B::f()`）。
+        另一处是 C++ 的多态必须显式标 `virtual`（不标就没有），
+        Python 的方法天生就是动态查找 —— 所以那边「忘了写 virtual」
+        这个经典坑在 C++ 里存在，在 Python 里不存在。
+      java: |
+        两处**关键差别**：① Java 只有单继承加多接口实现，
+        C++ 是**类也能多继承**（这也是它复杂度的主要来源之一）；
+        ② Java 的实例方法**默认就是虚的**（除非 `final` / `static` / `private`），
+        C++ 必须显式写 `virtual` —— 所以 C++ 里「忘了写 virtual
+        导致多态不生效」是个常见 bug，Java 里不存在。
+        另外 C++ 的对象切片在 Java 里也没有（Java 的对象永远是引用）。
+        共同点是两边都能重写、都能用 `override` 标注让编译器检查。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  access-control:
+    code: |
+      class Account {
+      public:                        // @note 谁都能用
+        void deposit(double);
+      protected:                     // @note 自己与派生类能用
+        double bal_;
+      private:                       // @note 只有自己能用（**派生类也不行**）
+        void audit();
+
+        friend class Auditor;        // @note! friend：点名某个类/函数可以碰私有成员
+        friend void peek(const Account&);
+      };
+
+      // @note 三种可见性还按**继承方式**再变一次：
+      struct D1 : public Base { };    // @note public 继承：保持原样（最常用）
+      struct D2 : protected Base { }; // @note protected 继承：公开的变 protected
+      struct D3 : private Base { };   // @note private 继承：全都变私有
+      // @note! `class` 的默认继承方式是 private，`struct` 是 public ——
+      // @note! 所以 `class D : Base` 与 `struct D : Base` 含义不同
+
+      // @note 还有一个「同一编译单元可见」的层级：匿名命名空间 / static
+      // @note C++ 没有「包私有」这个概念（Java 有）
+    vs:
+      javascript: |
+        两边都在做「谁能看见」这件事，但**强制力差别很大**：
+        JavaScript 的可见性靠约定（前导下划线）或较新的私有字段 `#x`
+        （那个是真的强制），而 `#x` 是**每个对象自己的**、连子类都看不到；
+        C++ 的三种可见性是编译期强制的，而且**不是「不能看」，
+        是「不能通过这个名字访问」** —— 拿到指针照样能绕（`reinterpret_cast`）。
+        另一处是 C++ 有 `friend`，能点名给某段代码开后门，
+        JavaScript 里没有「定向开放」这种机制。
+      python: |
+        两边的姿态相反：Python 的可见性**基本是约定**
+        （`_x` 表示内部用，`__x` 会做名字改写但仍然能绕），
+        运行期想访问都能访问到；C++ 的 `public` / `protected` / `private`
+        是编译期强制的，越界直接编译错误。
+        另一处是 C++ 的 `protected` 意味着「派生类能碰」，
+        而 Python 里根本没有这一层（子类与外部一样按约定行事）。
+        还有一处是 C++ 有 `friend` 这样的定向豁免，Python 靠约定不需要它。
+      java: |
+        两边**高度对应**：三种可见性、`protected` 的含义、
+        都默认「同一个类里能随便访问」—— 这一层可以逐条对上。
+        差别在三处：① Java 有**包私有**（不写修饰符时的默认值，
+        整个包可见），C++ 没有包的概念，对应的是命名空间（但命名空间
+        不提供可见性控制），要用匿名命名空间或 `static` 做文件级私有；
+        ② C++ 的 `friend` 是 Java 完全没有的机制；
+        ③ C++ 的继承方式（public / protected / private 继承）
+        会再改一次成员可见性，Java 只有一种继承方式。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

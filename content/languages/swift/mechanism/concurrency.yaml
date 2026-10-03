@@ -1,0 +1,328 @@
+# swift —— mechanism / concurrency
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: concurrency` 的那批：
+# concurrency-unit / shared-state / lock-mutex / channel / atomicity。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是 **Swift 6 把「数据竞争」提升成了编译期错误** ——
+# 官方措辞是「检测并阻止数据竞争，多数数据竞争产生编译期错误」，
+# 拦不住的那些在运行时**直接终止程序**。
+# 手段是 **actor（隔离）+ Sendable（可安全跨并发域传递）**，
+# 而不是靠人记得加锁。所以这一组的重点不是「怎么加锁」，
+# 而是「怎么让编译器知道你是安全的」。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-concurrency-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  concurrency-unit:
+    code: |
+      // @note Swift 的并发有两代工具并存
+
+      // ① 传统线程（来自 Foundation）
+      let t = Thread { print("在另一根线程上") }
+      t.start()
+
+      // ② 结构化并发（Swift 5.5 起，这是现在的正统写法）
+      Task {                              // @note 一个异步任务
+        await doWork()
+      }
+
+      await withTaskGroup(of: Int.self) { group in     // @note 任务组：并发跑一批
+        for i in 0..<3 {
+          group.addTask { await compute(i) }
+        }
+        for await r in group { print(r) }              // @note 结果随到随收
+      }
+
+      // @note! 「结构化」的意思是：子任务的寿命被**限制在**它在的那个作用域里 ——
+      // @note! 作用域结束前所有子任务都会完成或被取消，
+      // @note! 所以不会出现「任务飘走了没人管」的情况
+
+      // @note actor 是并发安全类型（见 shared-state 那一格）
+      actor Counter { var n = 0 }
+
+      // @note! 关键差别：`Task {}` 里的代码**不一定在别的线程上** ——
+      // @note! 它只是「一个可以挂起的工作单元」，跑在哪由调度器决定
+      // @note! 所以「并发」与「并行」在这门语言里是分开的两件事
+    vs:
+      javascript: |
+        两边都有「并发单元」，但**能共享什么**完全不同：
+        JavaScript 的主线程只有一个执行流（Worker 之间不共享内存），
+        所以 `Promise` / 任务之间天然没有竞争；
+        Swift 的任务**可以共享内存**（同一个进程、同一块堆），
+        所以需要一个机制来保证安全 —— 那就是 actor 与 Sendable。
+        另一处是并行：JavaScript 的 Worker 真并行但要消息传递；
+        Swift 的 `Task` 默认只是「可挂起的工作单元」，
+        真并行由调度器决定，而线程是真并行。
+        还有一处是 Swift 的「结构化并发」把子任务的寿命钉在作用域内，
+        JavaScript 的 Promise 没有这个约束（跑完为止，没人等）。
+      python: |
+        两边都有「协程式并发 + 线程」两套，但**安全模型不同**：
+        Python 有全局解释器锁，所以很多竞争被掩盖了（代价是没有真并行）；
+        Swift 用 actor 与 Sendable 在**编译期**拦数据竞争 ——
+        也就是说那边靠运行时锁兜底（还常常忘），
+        这边靠类型系统。另一处是 Swift 的 actor 是语言/标准库级别的隔离机制，
+        Python 的 `asyncio` 里没有对应物（要自己保证不共享状态）。
+        共同点是两边的异步任务都能挂起、都跑在调度器上。
+      java: |
+        两边都有真线程、都能真并行，但**安全手段的层次不同**：
+        Java 靠 `synchronized` / `Lock` 加人工纪律，编译器不检查；
+        Swift 6 靠 actor 隔离 + Sendable，**多数数据竞争是编译期错误**。
+        也就是说同一个「共享可变状态」的问题，一边是「你要记得加锁」，
+        另一边是「你没标明安全就编不过」。
+        另一处是 Java 有虚拟线程把大量并发变便宜，
+        Swift 的结构化并发（Task / TaskGroup）是另一个方向：
+        它管的是「任务的寿命与取消」，不是「线程有多便宜」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  shared-state:
+    code: |
+      // @note! Swift 6 的核心主张：**数据竞争在多数情况下是编译期错误**
+
+      class NotSendable { var v = 0 }
+
+      // 把可变状态放进 actor：所有访问都要经过隔离
+      actor Bank {
+        private var balance = 0
+        func deposit(_ x: Int) { balance += x }      // @note 同一时刻只有一个任务能进来
+        func current() -> Int { balance }
+      }
+
+      let bank = Bank()
+      await bank.deposit(100)                          // @note 跨隔离边界的调用要 await
+      let b = await bank.current()
+
+      // @note! 跨并发域传递的值必须标 **Sendable**：
+      // @note   值类型（全是 Sendable 成员的 struct）自动满足
+      // @note   类要显式标 `final class X: Sendable` 并保证内部不可变
+      // @note   `@MainActor` 的类也算（它被主 actor 保护着）
+
+      // @note! 编译器拦不住的（比如通过 Unsafe 指针绕过去），
+      // @note! 运行时会**直接终止程序** —— 官方明说了这一点，
+      // @note! 不是「结果不确定」，是当场停
+
+      // @note 所以「怎么加锁」在这门语言里退居次席 ——
+      // @note 先让编译器认账，剩下的场景才轮到手写同步
+    vs:
+      javascript: |
+        **这一格的对比最极端**：JavaScript 的 Worker 不共享内存，
+        所以「数据竞争」这个问题**根本不存在**；
+        Swift 的任务共享同一个地址空间，所以必须用
+        actor 隔离与 Sendable 来证明安全，而且**编译器会拦**。
+        也就是说那边不用想这件事是因为问题被设计掉了，
+        这边必须想是因为共享是默认、而语言给了工具来管住它。
+        另一处是 Swift 的违反后果很硬：编译期不报的那些，
+        运行时会直接终止程序 —— 不是「结果可能不对」。
+      python: |
+        两边的差別在**谁来保证**：Python 因为全局解释器锁，
+        单条字节码是原子的，很多竞争被掩盖（但也换来了没有真并行）；
+        Swift 没有这层保护，所以它把安全做进了类型系统 ——
+        actor 隔离、Sendable 检查，过不了就编译不过。
+        也就是说那边「靠运行时兜底、还常常兜不住」，
+        这边「靠编译期证明」。
+        另一处是 Python 的 `asyncio` 里共享状态全靠自觉，
+        Swift 的 actor 是强制隔离的。
+      java: |
+        两边都有共享内存与数据竞争，但**拦截的时机不同**：
+        Java 的内存模型规定得比较细（volatile、final 的初始化安全），
+        但**编译器不检查你是否正确同步** —— 一切靠纪律与工具；
+        Swift 6 把「可安全跨并发域传递」变成了类型上的要求
+        （Sendable），大多数错误在编译期就报。
+        另一处是隔离机制：Java 的 `synchronized` 是「保护一段代码」，
+        Swift 的 actor 是「保护一个对象」—— 后者的粒度更粗但更难写错。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lock-mutex:
+    code: |
+      // @note! Swift 的正统答案是 actor —— 先问「能不能不用锁」
+      actor Counter {
+        private var n = 0
+        func bump() { n += 1 }
+        func value() -> Int { n }
+      }
+      // @note 用 actor 时你**写不出**「忘了解锁」这种错 —— 隔离是类型层面的
+
+      // @note 确实需要锁的时候（比如要保护的不是一个 actor 的状态），
+      // @note 可以用：
+      //   NSLock（Foundation）—— 老牌，要记得成对 lock/unlock
+      //   os_unfair_lock（平台相关，性能更好，但生命周期要小心）
+      //   Mutex（Swift 6 起工具链里的 Synchronization 模块）
+      //      —— 用 withLock 包一段，作用域结束自动解锁
+
+      // @note! 与别的语言一样，锁的经典错误这里全都有：
+      // @note   忘记解锁、在持锁时调用会再取同一把锁的代码（死锁）、
+      // @note   加锁顺序不一致（ABBA 死锁）
+      // @note 所以官方更推 actor：**让编译器帮你排除这一类错误**
+
+      // @note `@MainActor` 是另一层：它保证代码跑在主线程上，
+      // @note 用来保护界面状态 —— 这不是「锁」，而是「隔离到特定执行器」
+
+      // @note 只读共享时 actor 仍会串行化，想并行读要别的方案
+    vs:
+      javascript: |
+        **这一格 JavaScript 基本上用不上** —— 没有共享内存就不需要锁，
+        所以那边根本没有互斥量这个日常概念。Swift 里 actor 是
+        语言推荐的用法（比锁更安全，因为隔离由类型系统保证），
+        锁只在 actor 不适合的场景才出手。
+        也就是说两边对「互斥」这件事的距离完全不同：
+        一边是「没有这个问题」，一边是「有，但优先用类型解决」。
+        共同点是两边都不推荐「手写锁」这条路
+        （JavaScript 那边是因为不需要，Swift 是因为有更好的）。
+      python: |
+        两边都有锁，而且 Python 的 `with lock:` 与 Swift 的
+        `withLock { }` 是一个思路（块结束自动释放）—— 这一层可以对应。
+        差别在**首选方案**：Python 里锁就是主要手段（
+        `asyncio.Lock` / `threading.Lock`）；Swift 里首选 actor，
+        锁是退路 —— 因为 actor 的隔离是编译期检查的，
+        而锁完全靠人记得用对。
+        另一处是 Swift 的 `@MainActor` 是「隔离到某个执行器」，
+        Python 的 asyncio 里没有直接对应（靠单线程事件循环保证）。
+      java: |
+        两边**高度对应**：`synchronized` / `ReentrantLock` ↔
+        `NSLock` / `Mutex`，`ReadWriteLock` ↔ Swift 里没有内建的读写锁
+        （要自己搭或用别的方案）。连「用手作用域保证解锁」这个模式
+        两边都一样。
+        差别在**首选方案**：Java 6 之后有 `java.util.concurrent`
+        一整套（并发集合、原子类、线程池），但共享可变状态
+        仍然靠人工纪律；Swift 6 优先用 actor 隔离 + Sendable 检查，
+        目标是**让编译器把这一类错误挡在门外**。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  channel:
+    code: |
+      // @note Swift 里「通道」这件事有几种形态，而且都不是内建的关键字
+
+      // ① AsyncStream：生产者往流里塞值，消费者 for-await 收
+      let stream = AsyncStream<Int> { continuation in
+        continuation.yield(1)
+        continuation.yield(2)
+        continuation.finish()                 // @note 结束要显式说
+      }
+      for await v in stream { print(v) }
+
+      // ② actor + 队列：标准库没有现成的阻塞队列，
+      //    要么自己用 actor 包一个，要么引第三方（swift-async-algorithms
+      //    提供 AsyncChannel 这类）
+
+      // ③ 任务组也是一种「汇聚结果」的手段（见 concurrency-unit 那一格）
+      //    它把「并发跑一批、收集结果」写得比通道更直接
+
+      // @note! 与别的语言差别最大的一点：**消费是异步的（for await）**，
+      // @note! 所以「等一个消息」不会阻塞线程 —— 它挂起当前任务
+
+      // @note 不过 `AsyncStream` 的缓冲策略要留意（默认无界，
+      // @note 生产者太快会一直堆在内存里）
+
+      // @note 想跨进程/跨设备通信得用别的框架（Distributed actor 那一套）
+    vs:
+      javascript: |
+        **两边的「消息传递」位置正好相反**：JavaScript 的 Worker 之间
+        **只有**消息传递（`postMessage` 是唯一通道），共享内存反而是特例；
+        Swift 的并发任务默认共享内存，消息传递（AsyncStream）
+        是**额外搭出来的一种模式**。
+        也就是说一边「不共享、改用通信」是唯一的路，
+        另一边它是若干方案之一。
+        另一处是消费方式：两边都能异步消费（`for await` ↔
+        `for await...of`），形态出奇地像 —— 这是两边最接近的一处。
+      python: |
+        两边都能做消息传递，而且现在的写法有几分像
+        （Python 的 `async for` ↔ Swift 的 `for await`）。
+        差别在**开箱程度**：Python 的 `asyncio.Queue` 是标准库现成的，
+        Swift 的 `AsyncStream` 是**流**（一次性、有结束），
+        想要「可反复读写的队列」标准库没有，得自己用 actor 包一个
+        或者引第三方。另一处是 Swift 的 actor 让「自己搭一个队列」
+        比 Python 里简单（隔离由语言保证）。
+      java: |
+        两边**基本对应**：Java 的 `BlockingQueue` 提供现成的阻塞队列，
+        Swift 的 `AsyncStream` 提供流式的值传递 ——
+        但两者不完全是同一件事：`BlockingQueue` 是**阻塞式**的
+        （拿不到就阻塞线程），`AsyncStream` 是**挂起式**的
+        （拿不到就挂起任务、不占线程）。
+        所以 Swift 的方式更省线程，但表达力上少了「可反复读写的队列」
+        这个现成类型。另一处是 Java 的 `CompletableFuture` 与
+        Swift 的任务组在「收集一批结果」上作用相近。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  atomicity:
+    code: |
+      // @note! 「一条语句」在 Swift 里**不等于一步** ——
+      // @note! `n += 1` 是读、加、写三步，跨任务共享时会被插队
+
+      // @note 正统解法仍然是**别共享**：把状态放进 actor，
+      // @note 让编译器保证同一时刻只有一个任务在动它
+
+      // 真需要底层原子操作时（Swift 6 起工具链里有 Synchronization 模块）：
+      import Synchronization
+      let counter = Atomic<Int>(0)
+      counter.wrappingAdd(1, ordering: .relaxed)      // @note 显式指定内存序
+      counter.load(ordering: .acquiring)
+
+      // @note 与别的语言一样，内存序写错不会报错，
+      // @note 只会在某些机器上偶尔出错 —— 不确定就用默认的顺序一致
+
+      // 老代码里能见到的替代品：
+      //   OSAtomic 系列（已废弃）
+      //   NSLock 包一段临界区
+      //   @MainActor（把访问都安排到主线程上，串行化）
+
+      // @note! 还有一条要记牢：**`volatile` 不是 Swift 的东西** ——
+      // @note! 这门语言里没有这个关键字（它属于别的语言的工具箱）
+
+      // @note 值类型天然没有原子性问题（拷贝语义），
+      // @note 需要原子的地方一定是「共享的可变引用类型或全局变量」
+    vs:
+      javascript: |
+        两边都有原子操作，但**位置不同**：JavaScript 的 `Atomics`
+        是给 `SharedArrayBuffer` 配套的**特例工具**
+        （因为默认不共享，想共享反而要显式申请一块共享内存）；
+        Swift 的 `Atomic` 是给共享状态用的常规工具
+        （因为默认就共享）。
+        另一处是**首选方案**：Swift 优先用 actor 把问题从根上避免，
+        原子操作是底层退路；JavaScript 那边因为没有共享，
+        平时根本不会碰到这个话题。
+        还有一处是 Swift 的原子操作要显式指定内存序
+        （与 C 系语言一致），JavaScript 只给了顺序一致这一档。
+      python: |
+        两边的原子性层次完全不同：Python 有全局解释器锁，
+        **单条字节码**天然是原子的，所以很多操作不需要显式原子类型；
+        Swift 里连一次自增都不是一步，必须用 actor 隔离
+        或者显式的原子类型。另一处是 Python 的 `threading` 里
+        没有语言级的原子类型（要做就靠锁），
+        Swift 较新的工具链里有 `Atomic` 与 `Mutex`。
+        共同点是两边都会遇到「看起来对、偶尔错」的并发 bug。
+      java: |
+        两边**非常接近**：`AtomicInteger` / `AtomicLong` ↔
+        Swift 的 `Atomic<T>`，都能指定内存序
+        （Java 的 `VarHandle` 提供 acquire/release/opaque 等访问模式），
+        都有「原子但不管顺序」的档位。
+        差别在**首选方案与默认值**：Java 的 `volatile` 语义清晰、
+        使用门槛低，共享可变状态是常态；
+        Swift 6 优先用 actor 把共享挡在类型系统外面，
+        原子操作是少数场景才用的底层工具 ——
+        也就是说同一个问题上，一边默认「用原子/volatile」，
+        一边默认「用隔离」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

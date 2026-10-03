@@ -1,0 +1,249 @@
+# cpp —— express / functions
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: functions` 的那批。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组四条主线 ——
+# ① **声明与定义分家**（头文件放声明、源文件放定义），这是 C++ 独有的编译模型产物；
+# ② 参数传递**默认是拷贝**，要改调用方必须显式写引用或指针；
+# ③ **可变参数有两套**：老式的 `...` 不做类型检查（实跑：传 double 按 int 读，
+#    编译通过、值是垃圾），新式的变参模板是类型安全的；
+# ④ **没有多返回值**，要用 `std::tuple` 加结构化绑定，或者用出参引用。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  function-declaration:
+    code: |
+      int add(int a, int b);            // @note 声明（原型）：只说签名
+      int add(int a, int b) { return a + b; }   // @note 定义：给实现
+
+      // @note 名字可以先声明、后定义，而且定义能放在**别的文件**里 ——
+      // @note 这就是头文件存在的原因（见 model/modules 那一组）
+
+      auto mul(int a, int b) -> int { return a * b; }   // @note 尾置返回类型
+      inline int fast() { return 1; }                   // @note 建议内联（现在只是提示）
+
+      struct S { int v; int get() const { return v; } };   // @note 成员函数
+      // @note 函数重载：同名不同参数，靠参数列表区分（返回值不算）
+      double add(double a, double b) { return a + b; }
+      // @note! 只有返回值不同**不算**重载，是编译错误
+
+      // @note 还有几种「能调用的东西」，见 closures 那一格
+    vs:
+      javascript: |
+        最本质的差别是**声明与定义分不分家**：JavaScript 一个函数写完就是全部，
+        顶多把定义搬个位置；C++ 可以只写 `int add(int, int);` 就算「让编译器认识了」，
+        实现放在任意一个源文件里、编译时再拼起来 —— 所以 C++ 项目里
+        同一个函数常常出现两次（头文件里的声明、源文件里的定义）。
+        另一处是重载：JavaScript 同名函数只会覆盖，要按类型分派得自己判断；
+        C++ 按参数列表在编译期选中一个，选不中就是编译错误。
+      python: |
+        两边都支持默认参数与关键字，但 C++ 没有关键字实参 ——
+        调用只能按位置（默认参数从右往左给）。另一处是**重载**：
+        Python 里同名函数后写的盖掉先写的（要分派得自己写判断），
+        C++ 靠参数列表在编译期选，所以能同时存在 `add(int,int)` 与
+        `add(double,double)`，而且调用处写哪个类型就进哪个。
+        还有一处是 C++ 的 `const` 成员函数：`int get() const` 是一个
+        参与重载的签名部分，Python 的 `self` 上没有对应写法。
+      java: |
+        两边**非常接近**：都要写返回类型与参数类型、都支持重载与默认参数
+        （Java 没有默认参数，靠重载模拟，这是 C++ 更方便的地方）、
+        都有成员函数与静态函数。差别在声明与定义分开这件事 ——
+        Java 一个方法只有一处，C++ 有声明与定义两处，
+        而且声明必须让每个使用它的编译单元都看见。
+        另一处是 C++ 有尾置返回类型与 `inline`，Java 没有对应写法。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  parameters:
+    code: |
+      void byValue(int x) { x = 99; }              // @note! 默认是**拷贝**，改不到调用方
+      void byRef(int& x) { x = 99; }               // @note 引用：能改，且不能传空
+      void byConstRef(const std::string& s) { }    // @note 大对象的标准写法：只读引用
+      void byPtr(int* x) { if (x) *x = 99; }       // @note 指针：能传空，要自己判
+
+      int add(int a, int b = 10);                  // @note 默认参数，只能从右边开始给
+
+      template <typename T> void sink(T&& v);      // @note 转发引用（万能引用）
+
+      // @note! 数组参数会**退化成指针** —— 拿不到长度，要额外传
+      void takesArray(int arr[]) { sizeof(arr); }   // @note sizeof 得到的是指针大小
+      // @note 标准做法是传 std::span / 传首尾指针 / 传容器引用
+    vs:
+      javascript: |
+        **这一格是两门语言最根本的差别之一**：JavaScript 的参数永远是按值传
+        （对象传的是引用的拷贝，所以改属性看得见、改绑定看不见）；
+        C++ 默认是**拷贝**，`void f(std::string s)` 会真的复制整个字符串 ——
+        要避免就得写引用。也就是说 JavaScript 那边「传对象就是共享」的默认，
+        在 C++ 里要显式写 `&` 才成立，而且写不写影响的是**性能与能否修改**
+        两件事。另一处是 C++ 还有指针这一层（可以传空、可以为空做检查）。
+      python: |
+        两边都有「传进去改了看得见」的现象，但机制不同：Python 是
+        「名字绑到同一个对象上」（所以不可变对象改不了、可变对象能改），
+        C++ 是「默认拷贝一份，写 `&` 才真的共享」——
+        也就是说 C++ 把「共享还是拷贝」变成写在签名里的一件显式的事，
+        Python 把它变成按对象类型自动决定的。
+        另一处是 C++ 有真正的常量引用（`const T&`：不拷贝也不许改），
+        Python 里没有「只读参数」这个类型层面的保证。
+      java: |
+        两边对**基本类型**完全一致（都是值传递），对**对象**看起来也像
+        （传的都是引用）—— 但 C++ 是把对象**直接放在栈上**的，
+        所以「传对象」默认就是拷贝整个对象，要共享得写 `&`；
+        Java 的对象永远在堆上，传的一直是引用，不存在「拷贝选项」。
+        所以 Java 里调 `f(obj)` 是共享，C++ 里调 `f(obj)` 是复制，
+        同一个写法后果不同 —— 这是从 Java 过来最容易低估的一处。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  variadic:
+    code: |
+      // @note! C++ 有**两套**可变参数，性质完全不同
+
+      // ① 老式的：C 传下来的，**不做类型检查**
+      #include <cstdarg>
+      void old(int n, ...) {
+        va_list ap; va_start(ap, n);
+        int x = va_arg(ap, int);             // @note! 你说是 int 就是 int，编译器不管
+        va_end(ap);
+      }
+      // old(1, 3.14);                          // @note! 编译通过，读出来是垃圾
+
+      // ② 新式的：变参模板，类型安全
+      template <typename... Ts>
+      auto sum(Ts... xs) { return (xs + ...); }   // @note 折叠表达式（C++17）
+
+      // @note 标准库的 printf 系列就是老式的那套 —— 格式化串写错编译器管不了
+      // @note 新代码优先用变参模板，或者 C++20 的 std::format
+    vs:
+      javascript: |
+        两边的可变参数都能收「不定个数」，但**检查强度是两个世界**：
+        JavaScript 靠 `arguments` 或剩余参数 `...args`，收到的永远是一个数组，
+        类型错了到运行时才知道；C++ 的老式 `...` 连个数和类型都不传递，
+        读的时候按你声明的类型硬取（实测：传 `double` 进去按 `int` 读，
+        编译通过、值是一串垃圾数字），新式的变参模板才是类型安全的，
+        但它是编译期展开的，写法完全另一套。
+      python: |
+        两边的写法对应得上（Python 的 `*args` / `**kwargs` ↔ C++ 的
+        `...` 或模板参数包），差别在**谁检查**：Python 收到的是普通的元组和字典，
+        运行期能随便检查；C++ 的老式 `...` 什么信息都不带，
+        类型完全靠调用方和函数体的约定（写错不报错），
+        新式的模板版本在编译期就知道每一种实参类型。
+        另一处是 C++ 没有关键字实参的等价物，Python 的 `**kwargs` 在这里无对应。
+      java: |
+        两边都用老式的 C 风格可变参数，而且都有**类型不安全**的隐患，
+        这一层处境相同（Java 的 `Object...` 至少是装箱后的类型）。
+        差别在 Java 的可变参数是**语法糖**：编译期就变成一个数组，
+        运行时能拿到长度与每个元素；C++ 的 `...` 是真的什么都不给 ——
+        既没有长度也没有类型，全靠调用方额外传一个计数或用格式化串解析。
+        另一处是 C++ 有模板版的类型安全替代品，Java 只能靠重载。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  return-values:
+    code: |
+      int one() { return 1; }
+      void nothing() { }                   // @note 没有返回值
+
+      // @note! C++ 的函数**只有一个返回值** —— 想返回多个得绕
+      std::tuple<int, std::string> two() { return {1, "ok"}; }
+      auto [n, s] = two();                 // @note 结构化绑定接住
+
+      // 另一条路：出参引用（调用方先准备好变量）
+      void divide(int a, int b, int& q, int& r) { q = a / b; r = a % b; }
+
+      // @note 较新标准还有 std::pair / std::optional / std::expected
+      std::optional<int> parse(const std::string& s);   // @note 「可能失败」用 optional
+      // @note! 返回值是**拷贝出来的**（或者靠 RVO / 移动省掉），
+      // @note 所以返回局部变量的引用是悬垂 —— `int& f() { int x; return x; }` 是 UB
+    vs:
+      javascript: |
+        两边的函数都只返回一个值，但**怎么凑出多个**的代价不同：
+        JavaScript 顺手写个对象字面量就行（`return {q, r}`），
+        调用方解构一下；C++ 要包成 `std::tuple` 再靠结构化绑定接住，
+        或者改成出参 —— 因为 C++ 的返回值涉及拷贝/移动，
+        顺手造一个聚合结构不像那边那么随便。
+        另一处是「失败」的表达：JavaScript 常靠返回 `null` 或抛异常，
+        C++ 多了一个 `std::optional` 把「可能没有」写进类型。
+      python: |
+        两边的差别集中在**多返回值**上：Python 直接 `return q, r`
+        就是返回一个元组，调用方 `q, r = f()` 接住 —— 这是语言内置的写法；
+        C++ 要显式写 `std::tuple<...>` 加结构化绑定，是标准库提供的，
+        而且元组元素的类型必须都写在签名里。所以那边「顺手多返回一个」
+        在这边是一次接口设计。另一处是 C++ 返回的是拷贝（虽有优化），
+        Python 返回的是对象引用，代价模型完全不同。
+      java: |
+        两边都只有一个返回值、都没有元组（较新版本之前），
+        这一层最接近 —— 多返回值两边都要包一个类型或者用出参。
+        差别在出参的形态：Java 靠可变对象或单元素数组兜，
+        C++ 直接写 `int&` 引用，语法上更轻，但也更容易看不出来
+        「这个参数是被写的」。另一处是 C++ 有 `std::optional`
+        表达「可能没有值」，是 Java 的 `Optional` 的对应物。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  closures:
+    code: |
+      // @note 「能调用的东西」有好几种：函数、函数指针、仿函数、lambda
+      int square(int x) { return x * x; }
+      std::function<int(int)> f = square;          // @note 类型擦除，有开销
+
+      struct Times { int n; int operator()(int x) const { return x * n; } };  // @note 仿函数
+      Times triple{3};
+
+      // @note lambda：就地写一个能捕获外部变量的「函数」
+      int outside = 7;
+      auto byCopy = [outside](int x) { return x + outside; };   // @note 值捕获：拷贝一份
+      auto byRef  = [&outside](int x) { return x + outside; };  // @note 引用捕获：共享
+      auto all    = [=] { return outside; };                    // @note 全值捕获
+      auto allRef = [&] { return outside; };                    // @note 全引用捕获
+
+      outside = 8;
+      // byCopy(0) 仍是 7（捕获那一刻的拷贝），byRef(0) 变成 8（共享同一个变量）
+
+      // @note! 引用捕获活不过被捕获变量的生命周期 —— 返回带引用捕获的 lambda 会悬垂
+      // @note C++ 的闭包是**值**（可以拷贝、可以存进容器），不是语言内建的对象
+    vs:
+      javascript: |
+        **这一格的核心差别是「捕获是显式的」**：C++ 的 lambda 必须写出
+        捕获列表（`[x]` / `[&x]` / `[=]` / `[&]`），而且要自己决定
+        按值还是按引用 —— 按引用的那个活不过变量本身，是真实的悬垂风险；
+        JavaScript 的闭包按语言规则自动捕获变量（活多久由引擎管），
+        写代码时不用做这个选择。另一处是 C++ 的 lambda 每个都有
+        **独一无二的类型**，想存进容器或当参数传得靠 `std::function`
+        做类型擦除（有间接调用开销），JavaScript 的函数天生就是普通值。
+      python: |
+        两边都靠「把外部名字记下来」实现闭包，但**记的方式不同**：
+        Python 的闭包捕获的是**变量本身**（所以 `nonlocal` 能改、
+        晚绑定的坑也来自这里），而 C++ 的捕获列表明确区分
+        「拷贝一份值」还是「共享那个变量」—— 前者之后改名也不影响闭包。
+        另一处是 C++ 的 lambda 是一个**对象**，有大小、能拷贝、
+        类型是编译器生成的；Python 的函数是普通对象，写法上更统一。
+      java: |
+        两边都要求「捕获的东西必须是有效不变的」：Java 的 lambda
+        只能捕获**事实上的最终变量**，想绕开得用长度为 1 的数组或包装类；
+        C++ 没有这个限制 —— 值捕获可以捕获任何东西（拷贝一份），
+        引用捕获甚至能改外部的变量。所以 Java 那边「想改外部变量」
+        要绕一下，C++ 这边换个捕获写法就解决了（代价是悬垂风险要自己管）。
+        另一处是 C++ 的 lambda 是值类型、Java 的是对象，都靠接口接收。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

@@ -1,0 +1,200 @@
+# cpp —— express / operators
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: operators` 的那批。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组最值得写的是**整数除法向零截断**（`-7/2 = -3`，不是向下取整的 -4）、
+# **有符号溢出是 UB 而无符号回绕是确定的**，以及 C++20 的 `<=>` 一行生成六个比较。
+# 两处实跑确认的细节：`1u > -1` 是 **false**（无符号把负数吃掉了）；
+# `i++ + i++` 在 GCC 下**会给 `-Wsequence-point` 警告**（不是完全静默）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  arithmetic:
+    code: |
+      int a = 7, b = 2;
+      a / b;                      // @note! 3 —— 整数除法**向零截断**
+      -7 / 2;                     // @note! -3 —— 不是向下取整的 -4
+      7 % 2;                      // @note 1
+      -7 % 2;                     // @note! -1 —— 余数的符号跟着**被除数**
+      7 / 2.0;                    // @note 3.5：有一个是浮点就按浮点算
+
+      ++a;  a++;  --a;  a--;      // @note 自增自减都在，前缀后缀含义有别
+
+      int big = INT_MAX;
+      // big + 1;                 // @note! 有符号溢出是 UB，不是回绕
+
+      unsigned u = 0;
+      u - 1;                      // @note 无符号回绕**是确定的**：得到 4294967295
+
+      // @note! 求值顺序大多未指定 —— `i++ + i++` 是 UB
+      // @note GCC 会提醒（-Wsequence-point），但那只是一个警告
+    vs:
+      javascript: |
+        除法差别最大：JavaScript 的 `/` 一律给浮点（`7/2` 是 3.5），
+        要整除得自己写 `Math.floor`；C++ 的 `/` 看操作数类型 ——
+        两个整数就是整除，而且是**向零截断**（`-7/2` 得 -3，不是 -4）。
+        取余同理由操作数类型决定，`-7 % 2` 在 C++ 里是 -1。
+        另一处是溢出：JavaScript 的数字是浮点，超出安全范围只是丢精度；
+        C++ 的有符号溢出是**未定义行为**（编译器可以当你没溢出过），
+        无符号才保证回绕 —— 两种数的命运不一样。
+      python: |
+        两边都有整除和取余，但**负数上的行为是反的**：Python 的 `//` 向下取整
+        （`-7 // 2` 是 -4）、`%` 的结果跟着除数（`-7 % 2` 是 1）；
+        C++ 的 `/` 向零截断（-3）、`%` 跟着被除数（-1）。
+        所以从 Python 过来的代码里只要出现负数和除法，结果就会不一样，
+        而且两边都不报错。另一处是溢出：Python 的整数任意精度、根本不会溢出，
+        C++ 的有符号溢出是未定义行为、无符号才是回绕。
+      java: |
+        整数除法的行为**两边一致**（都向零截断、余数跟着被除数），
+        这一层不用重新学。差别在溢出：Java 的整数溢出定义明确 ——
+        就是回绕，结果可预测；C++ 的**有符号**溢出是未定义行为
+        （编译器甚至能据此优化掉你的检查），只有**无符号**才保证回绕。
+        另一处是自增：两边都有前缀后缀，Java 的求值顺序有明确规定，
+        C++ 里 `i++ + i++` 这种写法是 UB。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  equality:
+    code: |
+      int a = 1, b = 1;
+      a == b;                     // @note 内建类型的 == 就是比内容
+
+      int* p = &a; int* q = &b;
+      p == q;                     // @note! 指针的 == 比**地址**，不是比指向的值
+
+      std::string s1 = "ab", s2 = "ab";
+      s1 == s2;                   // @note 标准库类型重载了 ==，比内容
+
+      const char* c1 = "ab"; const char* c2 = "ab";
+      c1 == c2;                   // @note! 比地址 —— 结果由实现决定，别这么写
+
+      // @note C++ **没有 ===** —— 想比同一性就直接比地址（指针的 ==）
+      // @note C++20 起可以一行生成整套比较（见 operator-overloading）
+      struct Q { int x; bool operator==(const Q&) const = default; };
+      struct P { int x; auto operator<=>(const P&) const = default; };
+    vs:
+      javascript: |
+        两边都有 `==`，但 C++ 的 `==` **不做隐式类型转换**（除了重载决议允许的
+        那几种），`1 == "1"` 直接编译不过；JavaScript 的 `==` 会先把两边转成
+        同一类型再比，所以才有 `===` 这个「不转换」的版本。
+        C++ 里没有第二个运算符：要比同一性就比指针（地址），
+        要比内容就靠类型重载 —— 两件事在写法上分得很开。
+        另一处是 C++ 的 `==` 可以是**用户定义的**，所以它的行为取决于类型作者。
+      python: |
+        两边的 `==` 都是「可被类型作者定义的内容比较」，这一层一致。
+        差别在没有第二个运算符：Python 的 `is` 比同一性、`==` 比内容，
+        两个都在语言里；C++ 只有 `==` 一个符号，
+        「比同一性」要落到指针的比较上 —— 也就是说，
+        只有当你手里拿的是指针时，「是不是同一个对象」才问得出来。
+        另一处是 Python 的 `__eq__` 和 `__hash__` 有配套约定，C++ 里没有内建哈希要求。
+      java: |
+        两边最像的一对：`==` 对基本类型比内容、对引用比地址，
+        要比内容得靠 `equals` 或类型自己的比较方法 —— C++ 是同一个符号
+        `==`，但作用在内建类型上比内容、作用在指针上比地址、作用在类类型上
+        看有没有重载。所以 Java 的规则是「看是基本类型还是引用」，
+        C++ 的规则是「看这个类型有没有重载、以及你手里是指针还是对象本身」。
+        另一处是 C++ 的对象**通常是值**，`s1 == s2` 就是真的比两个对象。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  logical:
+    code: |
+      bool t = true;
+      t && other();               // @note 短路：左边为假就不算右边
+      t || other();               // @note 短路：左边为真就不算右边
+      !t;
+
+      // @note 「取默认值」在 C++ 里没有运算符，靠不同的写法
+      int v = opt.value_or(0);            // @note std::optional：空时给默认值
+      std::string s = maybeEmpty ? maybeEmpty : "默认";   // @note 三元运算符
+      if (auto* p = find(); p) { }        // @note 条件里声明 + 判断（C++ 起支持）
+
+      // @note! 有一处与别的语言**正好相反**：`||` 不返回操作数，只返回 bool
+      auto r = 0 || 5;            // @note r 是 true，不是 5
+      auto r2 = 3 && 0;           // @note r2 是 false
+    vs:
+      javascript: |
+        **这一格的重点是「逻辑运算符返回什么」**：JavaScript 的 `&&` 与 `||`
+        返回**操作数本身**，所以 `0 || 5` 得到 5、`a || b` 就是「取默认值」的常用写法；
+        C++ 的这两个运算符只返回 `bool`，`0 || 5` 得到的是 `true` ——
+        照搬那个习惯会静默出错（类型变了、值也没了）。
+        要「取默认值」在 C++ 里得写三元运算符或者 `value_or`。
+        短路的副作用两边一致，这一层不用重新学。
+      python: |
+        两边的短路行为一致，差别同样在**返回什么**：Python 的 `or` / `and`
+        返回操作数（`0 or 5` 得 5），C++ 只返回 `bool`（得 `true`）。
+        所以 Python 里那些「用 or 给默认值」的写法在 C++ 里全部要改写成
+        三元运算符或者 `value_or`。另一处是 C++ 没有 `not` / `and` / `or`
+        这类关键字写法，只有符号；而且 C++ 支持在条件里声明变量
+        （`if (auto* p = ...; p)`），Python 的赋值表达式是另一个东西。
+      java: |
+        两边**完全一致**：`&&` / `||` 短路且只返回 `boolean`，
+        `!` 取反 —— 这一格可以直接平移，没有需要改的习惯。
+        差别在「取默认值」的写法：Java 靠三元运算符或 `Optional.orElse`，
+        C++ 也靠这两样（三元运算符与 `value_or`），几乎一样。
+        另一处是 C++ 允许指针和整数直接当条件用（非零为真），
+        Java 要求条件必须是 `boolean`，写法上更严一点。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  operator-overloading:
+    code: |
+      struct Vec {
+        double x, y;
+        Vec operator+(const Vec& o) const { return {x + o.x, y + o.y}; }
+        Vec& operator+=(const Vec& o) { x += o.x; y += o.y; return *this; }
+        double operator[](int i) const { return i == 0 ? x : y; }
+        bool operator==(const Vec& o) const { return x == o.x && y == o.y; }
+      };
+
+      // @note C++20 起还能一行生成整套比较
+      struct P { int x; auto operator<=>(const P&) const = default; };
+      // @note `<=>` 一个运算符带出 < <= > >= 与 ==（`==` 需单独 default）
+
+      // @note! 有的运算符**不能**重载：`::`、`.`、`.*`、`?:`、`sizeof`
+      // @note 也不能发明新运算符，更不能改内建类型的运算符含义
+      // @note 惯例：`+` 与 `+=` 成对、比较运算成套、`<<` 留给输出流
+    vs:
+      javascript: |
+        这是**直接的有无之分**：JavaScript 没有运算符重载 ——
+        自定义类型只能用方法名（`.plus()` / `.equals()`），
+        所以读代码时 `a + b` 的行为永远是语言定义的。
+        C++ 里 `a + b` 可能是这个类型作者写的任何一个函数，
+        好处是自定义数值类型（矩阵、复数、金额）写起来像内建类型，
+        代价是「这个 `+` 到底做了什么」要跳进去看。
+        两边都能给类型定义方法，差的是能不能占用运算符。
+      python: |
+        两边都有运算符重载，连实现方式都对应得上
+        （Python 的 `__add__` ↔ C++ 的 `operator+`，`__eq__` ↔ `operator==`）。
+        差别在**能不能发明新的**：Python 可以定义 `@`（矩阵乘）这类
+        新增的运算符；C++ 只能重载已有运算符，不能创造。
+        另一处是 C++ 有生成式的比较（`<=>` 与 `= default`），
+        一行搞定六个；Python 要一个个写 `__lt__` / `__le__` 等。
+      java: |
+        **两边相反**：Java 不支持运算符重载（只有字符串拼接这一个特例），
+        自定义类型一切靠方法名 —— `BigDecimal.add()` 而不是 `a + b`；
+        C++ 全面支持，连下标、函数调用、类型转换都能重载。
+        所以从 Java 过来最容易低估的是这件事的**改变面**：
+        C++ 里看到 `*p`、`a[i]`、`static_cast<T>(x)` 都可能是作者写的函数，
+        读代码时不能默认它们是语言行为。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

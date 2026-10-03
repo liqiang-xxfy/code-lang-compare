@@ -1,0 +1,357 @@
+# swift —— practice / toolchain
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: toolchain` 的那批：
+# compile-run / bundler / linter-formatter / type-checker /
+# runtime-version / repl。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组按**当前工具链**（Swift 6.4）写，三处容易写错的 ——
+# ① `swift-format` **已随工具链分发**（Swift 6 起），命令是 `swift format`
+#    （中间是空格），不是「要自己单独装」；
+# ② **断言三兄弟语义完全不同**：`assert` 只在调试构建检查、
+#    `precondition` 在发布构建**也**检查（只有 `-Ounchecked` 才关）、
+#    `fatalError` 永远生效；
+# ③ **没有独立的静态分析器** —— 最接近的官方入口是 `swift-format lint`。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-toolchain-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  compile-run:
+    code: |
+      swift build                    // @note 默认是 **debug**（-Onone -g -enable-testing）
+      swift build -c release         // @note 发布构建（-O 加整模块优化）
+      swift run                      // @note 构建并跑可执行目标
+      swift run MyApp -- --flag      // @note 给程序传参要加 -- 分隔
+
+      swift test                     // @note 跑测试
+      swift package clean            // @note 清掉构建产物
+
+      // @note 也能直接跑单个文件（脚本式）
+      swift hello.swift              // @note 解释执行，适合试一小段
+
+      // @note 直接调编译器（绕过包管理）：
+      swiftc hello.swift -o hello && ./hello
+
+      // @note! 断言三兄弟的开关**完全不同**，这是最容易写错的一处：
+      // @note   assert        只在 debug 检查（release 下**条件都不求值**）
+      // @note   precondition  debug 与 release **都检查**
+      // @note                 只有 `-Ounchecked` 才不检查
+      // @note   fatalError    **永远生效**，无视优化设置
+      // @note 也就是说 release 之后 assert 会消失、precondition 不会 ——
+      // @note 「校验用户输入」要用 precondition 或自己抛错，不能用 assert
+    vs:
+      javascript: |
+        两边的反馈循环差别很大：JavaScript 改完直接跑，
+        没有编译这一步；Swift 要 `swift build`（首次会很慢，
+        因为依赖是源码、要一起编），然后才能跑。
+        另一处是**构建配置会改变行为**：Swift 的 debug 与 release
+        不只是优化开关 —— `assert` 在 release 下会被移除，
+        所以「调试时好好的、发布后不检查了」是真实存在的差别；
+        JavaScript 里没有「同一份代码两种行为」这层。
+        还有一处是 Swift 有 `precondition` 这个「发布构建里也检查」的档位，
+        用来表达「这不是调试断言，是真正的契约」。
+      python: |
+        两边的断言默认值相反、语义也不同：Python 的 `assert`
+        默认**是开的**（`-O` 才关），而且失败抛 AssertionError
+        （能接住）；Swift 的 `assert` 只在 debug 检查、
+        失败**直接终止程序**（接不住）。
+        另一处是 Swift 有三个档位（assert / precondition / fatalError）
+        分别对应「调试检查 / 生产契约 / 永不返回」，
+        Python 基本只有 assert 一种。
+        还有一处是 Swift 要显式编译（首次很慢），
+        Python 保存即运行 —— 反馈循环长度差一个量级。
+      java: |
+        两边都要先编译再跑（结构上最像），而且都有 debug / release
+        两种配置。差别在**断言的语义**：Java 的 `assert` **默认是关的**
+        （要 `-ea` 打开）；Swift 的 `assert` **默认是开的**
+        （release 构建才移除）—— 默认值相反。
+        另一处是 Swift 多两档：`precondition`（发布也检查）与
+        `fatalError`（永远生效且不返回），表达力更细。
+        还有一处是 Swift 的构建配置还带**整模块优化**
+        （release 默认开），这会影响编译时间与调试体验。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  bundler:
+    code: |
+      // @note Swift 的「打包」就是 SwiftPM 的构建 —— 一条命令，不是一套配置
+
+      swift build -c release
+      // 产物在 .build/release/ 下：
+      //   可执行文件（如果 target 是可执行的）
+      //   动态库 / 静态库（如果声明成库产品）
+
+      // @note 分发形态取决于你构建什么：
+      //   · 可执行文件 —— 直接拷走（依赖系统里的 Swift 运行时）
+      //   · 静态链接的 Linux 可执行文件 —— 用官方 Static Linux SDK
+      //     （基于 musl，除系统调用外**没有任何依赖**）
+      //   · Apple 平台 —— 打成 app bundle / framework，走 Xcode 的工具链
+
+      // @note Static Linux SDK 的用法（官方文档里的形态）：
+      swift sdk install <url> --checksum <...>
+      swift build -c release --swift-sdk x86_64-swift-linux-musl
+
+      // @note! 两处限制：
+      // @note! ① Static Linux SDK **不能用 Xcode 自带工具链**，
+      // @note!    而且 toolchain 版本必须与 SDK 版本匹配
+      // @note! ② **Apple 平台没有等价的静态 SDK** ——
+      // @note!    官方说明是 Darwin 的系统调用表不属于 ABI，
+      // @note!    必须经过 libsystem，所以做不到完全静态
+
+      // @note 交叉编译是「换一套 SDK」而不是加个 flag
+    vs:
+      javascript: |
+        两边「打包」的意思差得很远：JavaScript 打包是为了
+        **浏览器**（合并模块、降级语法、压体积），产物仍然要运行时；
+        Swift 的构建产出**机器码**，可执行文件可以直接跑
+        （Apple 平台上运行时随系统来，Linux 上要么静态链、
+        要么带上 Swift 运行时库）。
+        另一处是「静态链接」这件事：JavaScript 里没有这个概念
+        （一切运行时加载），Swift 里可以用 Static Linux SDK
+        做出「除系统调用外零依赖」的单文件 —— 这是部署上的实质差别。
+      python: |
+        两边都想解决「让对方不装环境也能跑」，但手段不同：
+        Python 靠打包器（PyInstaller 那类，把解释器也塞进去），
+        生态碎、各自的坑不少；Swift 的 `swift build -c release`
+        是官方工具链里的一条命令，产出的就是原生可执行文件。
+        另一处是**依赖运行时**的程度：Python 打包后体积动辄几十兆
+        （带着解释器），Swift 的静态链接产物小得多。
+        共同点是两边都要为「目标平台」单独构建。
+      java: |
+        两边都要先编译再分发（结构上最像），但**交付物**不同：
+        Java 发的是 JAR（字节码），要对方装 JVM；
+        Swift 发的是**原生二进制**，可以直接跑。
+        所以「要不要对方装运行时」这件事上两个语言选了不同的边 ——
+        而且 Swift 能在 Linux 上做成完全静态的单文件，
+        Java 的等价做法（GraalVM 原生镜像）是另一条较重的路。
+        另一处是 Swift 的构建配置就是 SwiftPM，
+        Java 那边构建工具（Maven/Gradle）与运行时是两件事。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  linter-formatter:
+    code: |
+      // @note! `swift-format` 是**官方工具，而且随工具链分发**
+      // @note! （Swift 6 起就有了）—— 不需要单独装
+
+      swift format --in-place --recursive Sources/     // @note 子命令形式（中间是空格）
+      swift format lint --recursive Sources/           // @note 只检查不改，违规就非零退出
+
+      // @note 也能用独立可执行文件的形态调用
+      swift-format format --in-place Sources/
+
+      // @note 配置写在 `.swift-format` 文件里（JSON）
+      // @note 不写配置就用官方默认风格 —— 这也是「约定优于配置」的一处
+
+      // @note! 关于「静态分析」要说清一件事：
+      // @note! Swift **没有独立的官方静态分析器产品** ——
+      // @note! 最接近的官方入口就是 `swift-format lint`
+      // @note! （管风格）加上编译器自己的告警。
+      // @note! 想要更深的静态检查要走第三方工具（不是官方那一套）。
+
+      // @note 另外编译器告警本身就是主要的一道防线：
+      // @note   未使用变量、类型不匹配、并发安全检查、
+      // @note   switch 不穷尽 —— 这些都在编译期报，不用额外工具
+    vs:
+      javascript: |
+        **两边「官方到什么程度」差别很大**：JavaScript 的检查与格式化
+        几乎都是外挂工具（ESLint / Prettier，要装、要配、要接进编辑器）；
+        Swift 把格式化器做进了工具链（`swift format`），
+        配置一份、默认风格统一。
+        另一处是**静态检查的来源**：JavaScript 靠 ESLint 的规则集；
+        Swift 主要靠**编译器的告警**（类型、并发安全、穷尽性）
+        加上 `swift-format lint` 管风格 —— 也就是说
+        它把「能编译」当成第一道防线，而不是先格式化再检查。
+      python: |
+        两边都有「格式化器加检查器」的组合（`ruff format` / `ruff check` ↔
+        `swift format` / `swift-format lint`），这一层越来越像。
+        差别在**归属**：Python 的那些是第三方工具（生态收敛出来的），
+        Swift 的是官方随工具链发的。
+        另一处是 Swift 的编译器本身承担了大量检查
+        （类型、并发安全、`switch` 穷尽性），
+        Python 的编译器（解释器）几乎不检查 ——
+        所以那边对工具链的依赖更重。
+      java: |
+        两边都有成熟的工具，形态也对应（格式化器 + 检查器）。
+        差别在**默认有多强**：Java 项目通常要自己裁一版检查规则集
+        （Checkstyle / SpotBugs 都要配），格式化有事实标准
+        （google-java-format）；
+        Swift 反过来 —— 格式化器是官方自带的、默认风格就是标准，
+        但**没有官方的深入静态分析器**，深度检查得靠第三方。
+        共同点是两边的编译器都承担了主要的类型检查。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  type-checker:
+    code: |
+      // @note! Swift 的类型检查**就是编译** —— 没有独立的「只检查」命令
+
+      swift build                    # 类型错误在这一步报，编不过就没有产物
+      swiftc -typecheck file.swift   // @note 最接近「只检查」的口子：不产出任何东西
+
+      // @note 类型检查在这门语言里不只是「类型对不对」，还包含：
+      // @note   · 可选值有没有被正确处理
+      // @note   · switch 有没有穷尽
+      // @note   · **并发安全**：Sendable 与 actor 隔离（这是别处少见的）
+      // @note   · 泛型约束满不满足、重载二义性
+      // @note 所以「编过」在这门语言里的含金量比多数语言高
+
+      // @note 空安全与并发安全都是**类型系统的一部分**：
+      // @note   前者从 Swift 早期就有，后者是 Swift 6 语言模式的重点
+
+      // @note 想调严格程度：语言模式（v5 / v6）与各条诊断的开关
+      // @note 包级还能在 Package.swift 里按 target 指定语言模式
+      // @note   .swiftLanguageMode(.v5)   —— 老代码平滑迁移用
+
+      // @note Swift 没有「宽松模式」可以关掉类型检查 —— 它是编译的一部分
+    vs:
+      javascript: |
+        **两边差别很大**：JavaScript 本身不做类型检查，要另装一个检查器、
+        另跑一遍（而且可以无视它）；Swift 的类型检查**内建在编译里**，
+        类型不对根本编不出东西。
+        另一处是检查的**覆盖面**：Swift 把可选值处理、
+        `switch` 穷尽性、并发安全（Sendable 与 actor 隔离）
+        全做进了类型系统 —— 也就是说「能编译」在这门语言里
+        意味着比别处多得多的东西。
+        JavaScript 那边要靠检查器加 lint 规则凑出类似覆盖，而且永远不是强制的。
+      python: |
+        两边的姿态相反：Python 的类型检查是**额外的可选步骤**
+        （装检查器、单独跑，结论不影响程序能不能跑）；
+        Swift 的类型检查是编译的一部分，而且覆盖面更宽
+        （可选值、穷尽性、并发安全都在里面）。
+        另一处是 Swift 有「语言模式」这一层（v5 / v6），
+        可以按 target 逐步收紧 —— 这让老代码能平滑迁移，
+        而 Python 的类型检查器是外挂的，没有「模式」这个概念。
+      java: |
+        两边都内置类型检查，而且都是编译的一部分，这一层很像。
+        差别在**检查的广度**：Java 的类型检查管类型与受检异常；
+        Swift 还管**可空性**（可选值必须显式解包）与
+        **并发安全**（Sendable / actor 隔离）—— 这两块在 Java 里
+        要么靠库（`Optional`，不强制）、要么靠人工纪律。
+        另一处是 Swift 有语言模式可以逐 target 收紧，
+        Java 的语言版本是整体切换的。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  runtime-version:
+    code: |
+      // @note Swift 管两件版本：**工具链**与**语言模式**
+
+      swift --version                // @note 当前工具链（例如 6.4.0）
+
+      // @note 工具链怎么装/换：
+      // @note   · 官方安装包（各平台都有）
+      // @note   · Windows 上可以用 winget 装官方工具链
+      // @note   · 多版本共存靠装多套工具链，用路径或工具链管理器切换
+      // @note   没有「切一下版本」的单条命令
+
+      // @note! 语言模式是另一层 —— **同一个编译器可以按不同版本解释源码**：
+      // @note   清单里写 `// swift-tools-version:6.0` 会给该包所有 target
+      // @note   打开 Swift 6 语言模式（更严的并发检查）
+      // @note   可以按包覆盖（`swiftLanguageModes`），
+      // @note   也能按 target 覆盖（`.swiftLanguageMode(.v5)`）
+      // @note   命令行也能给（`-swift-version 6`）
+      // @note 所以「升级工具链」不等于「代码立刻变严格」——
+      // @note 语言模式是包自己声明的，可以一个包一个包地迁
+
+      // @note 工具链版本还决定能用哪些语法与新标准库能力，
+      // @note 而且**下限写在清单第一行**（tools-version）里
+    vs:
+      javascript: |
+        两边都管版本，但**管的对象不同**：JavaScript 管的是**运行时**
+        （Node 版本，靠版本管理器切换，代码不用重编）；
+        Swift 管的是**工具链版本 + 语言模式**两件，而且换版本
+        意味着**重新编译**。
+        另一处是语言模式这个机制：Swift 能「同一个编译器按不同版本
+        解释源码」，所以升级工具链不会让老代码突然变严格 ——
+        JavaScript 里运行时升级确实可能改变行为，没有这层缓冲。
+        共同点是两边都要在「用新特性」与「兼容旧环境」之间选位置。
+      python: |
+        两边都有「版本决定能用什么」这一层，但 Swift 是**两个维度**
+        （工具链版本 + 语言模式），Python 只有解释器版本一个 ——
+        而且 Python 升级解释器可能直接让旧语法失效，
+        Swift 因为语言模式由包声明，升级工具链不会立刻改变语义。
+        另一处是切换成本：Python 有虚拟环境与版本管理器，
+        切版本是一行命令；Swift 要装多套工具链，切换靠路径。
+        共同点是两边都能渐进升级（一个是按包、一个是按环境）。
+      java: |
+        两边都有「语言版本与运行时版本」这层关系，Java 用
+        `--release` 指定目标版本、由 JDK 保证兼容；
+        Swift 用工具链版本加**语言模式**表达同样的事。
+        差别在**兼容保证**：Java 的字节码是稳定的中间格式、
+        「编一次到处跑」；Swift 直接产出平台机器码，
+        而且跨平台要各自构建（Linux 上还要挑静态 SDK 或动态运行时）。
+        另一处是 Swift 有 `#available` 这种运行时平台版本判断，
+        Java 没有对应语法（靠反射或构建配置）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  repl:
+    code: |
+      // @note Swift **有官方 REPL**
+      swift repl                     // @note 官方命令（man 页里的第一项）
+
+      // @note 直接敲 `swift` 不带参数也会进 REPL（官方博客里说的）
+      swift
+
+      // @note! 有一条要留意：真正的 REPL 是由 **LLDB** 提供的，
+      // @note! 官方要求编译器与调试器是「同一份源码构建出来的配对」——
+      // @note! 也就是说自己拼两个来路不同的组件可能用不了
+
+      // @note 平台状况要说清：
+      // @note   · macOS / Linux —— 官方文档里都在讲 REPL 的用法
+      // @note   · **Windows —— 官方没有明确说 REPL 支持到什么程度**
+      // @note     （查不到官方出处，所以别在这件事上做承诺）
+
+      // @note 试一小段代码还有别的路：
+      // @note   swift hello.swift      直接跑一个文件（脚本式，不产出产物）
+      // @note   swift test             用测试当试验台（改一次跑一次）
+      // @note   在线 Playground        官方站上就有
+    vs:
+      javascript: |
+        两边都有交互环境，而且都是一等工具 —— 这一格反而很接近。
+        差别在**可靠性**：JavaScript 的 REPL 是运行时自带的一部分，
+        到处都能用；Swift 的 REPL 依赖 LLDB，而且要求编译器与调试器
+        是配对的一组，跨平台的支持程度也不一样（Windows 上官方没明说）。
+        另一处是脚本式执行：两边都能直接跑一个文件
+        （`node x.js` ↔ `swift x.swift`），而且都不产出中间产物。
+        共同点是两边都把「随手试一段」当成日常手段。
+      python: |
+        两边的处境**很接近**：Python 与 Swift 都有官方交互环境
+        （`python` ↔ `swift repl`），而且都能直接跑单个文件
+        （`python x.py` ↔ `swift x.swift`）—— 这是两边最像的一处。
+        差别在依赖：Python 的 REPL 是解释器自带的；
+        Swift 的 REPL 依赖 LLDB，而且要求工具链内部配对一致，
+        平台覆盖也不如 Python 均匀。
+        共同点是两个 REPL 都支持多行输入与历史。
+      java: |
+        两边都有**官方**交互环境（较新版本的 Java 有 `jshell`，
+        Swift 有 `swift repl`），这一点比很多编译型语言强。
+        差别在**依赖与平台**：jshell 随 JDK 分发、跨平台一致；
+        Swift 的 REPL 由 LLDB 提供，要求编译器与调试器配对，
+        平台支持状况还不完全一致。
+        共同点是两边都能「敲一行看结果」，也都适合验证语法与库行为，
+        不适合跑完整的程序。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous

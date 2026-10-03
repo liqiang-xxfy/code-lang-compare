@@ -1,0 +1,297 @@
+# cpp —— mechanism / memory
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: memory` 的那批：
+# value-vs-reference / garbage-collection / ownership-borrow /
+# lifetime / weak-reference。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：**这一组是轮 ③ 的对比轴（确定性析构）**，四条实跑确认的硬事实：
+# ① **值语义是默认**：`std::vector<int> b = a;` 是真的深拷贝，两份互不影响；
+# ② **没有 GC**，回收靠「离开作用域」或「手动 delete」——
+#    `shared_ptr` 的引用计数是原子操作，但**互相指着就永不回收**
+#    （实跑：两个 shared_ptr 互指，作用域结束后两个析构都不跑；
+#    一头换成 weak_ptr 就正常了）；
+# ③ **悬垂不报错**：`v.push_back` 之后旧迭代器指向的是垃圾（实跑拿到 2025859584）；
+# ④ `unique_ptr` 与裸指针同为 8 字节（零开销），`shared_ptr` 是 16 字节。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  value-vs-reference:
+    code: |
+      // @note! C++ 里**默认是值语义** —— 声明一个对象就是拥有一块存储
+      int a = 1;
+      int b = a;                  // @note 拷贝，两份互不影响
+
+      std::vector<int> v1{1,2,3};
+      std::vector<int> v2 = v1;   // @note! 深拷贝 —— v2 是独立的一份（实跑确认）
+      v2.push_back(4);            // @note v1 还是三个元素
+
+      // 想共享同一份，要显式写引用或指针：
+      int& r = a;                 // @note 引用：别名，不能改绑
+      int* p = &a;                // @note 指针：可以改指、可以为空
+      void f(std::vector<int>& v);   // @note 传引用才看得见改动
+
+      // @note 编译器会给每个类隐式生成拷贝构造与拷贝赋值 —— 默认是「逐成员拷贝」
+      // @note! 成员里有裸指针时，逐成员拷贝就是「浅拷贝」：两个对象指着同一块内存，
+      // @note! 谁先析构谁把它还了，另一个就悬垂（这就是「三法则」要解决的问题）
+
+      // @note 还有移动语义：`std::move(x)` 本身**不移动任何东西**，
+      // @note 它只是一个 cast（把 x 变成右值），真正搬东西的是随后的移动构造
+    vs:
+      javascript: |
+        **两边默认完全相反**：JavaScript 的变量装的都是「对对象的引用」，
+        `const b = a` 之后改 `b` 就是改 `a`；C++ 的变量装的是**对象本身**，
+        `auto b = a` 是真的复制一份。所以那边「不小心共享了」是常见 bug，
+        这边「不小心拷贝了」是常见性能问题 —— 方向正好反。
+        另一处是「共享」的表达：JavaScript 什么都不用写就是共享；
+        C++ 要显式写 `&`（引用）或 `*`（指针），而且写不写会影响性能与能否修改。
+        还有一处是 C++ 的引用**不能改绑也不能为空**，比指针更安全一点。
+      python: |
+        两边同样是相反的默认：Python 的赋值是**绑到同一个对象**
+        （不可变对象看不出来，可变对象立刻显形）；C++ 的赋值是深拷贝，
+        两份独立。另一处是「谁拥有这块内存」这件事：
+        Python 有 GC 兜底，谁都不拥有也没关系；C++ 里每个对象都有明确的
+        主人（栈上的随作用域、堆上的靠智能指针），
+        所以「这个对象归谁」在这边是必须回答的设计问题。
+        还有一处是 C++ 的拷贝是**编译器隐式生成的**，
+        写一个类就可能自动有拷贝语义，而它未必是你想要的。
+      java: |
+        **这一格是从 Java 过来最容易低估的**：Java 里
+        「基本类型按值、对象按引用」这条规则很清晰；
+        C++ 里**对象也是值** —— `std::vector<int> v2 = v1;` 是深拷贝，
+        而 Java 的 `List<Integer> l2 = l1;` 是共享同一个列表。
+        同一个赋值写法，两边后果相反。另一处是 Java 的对象永远在堆上、
+        由 GC 管；C++ 的对象**默认住栈上**（`Point p;` 就建好了），
+        什么时候销毁是确定的 —— 这也是 C++ 不需要 GC 的原因之一。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  garbage-collection:
+    code: |
+      // @note! C++ **没有垃圾回收** —— 回收是确定的、也是你的责任
+
+      {
+        std::vector<int> v{1,2,3};
+      }                            // @note 离开作用域：立刻析构、立刻还内存
+
+      // 堆上分配（`new`）就要自己负责
+      auto* p = new Widget();
+      delete p;                    // @note! 忘了这句就是泄漏（没有东西会替你收）
+
+      // 所以实际代码里几乎不写裸 new —— 用智能指针
+      auto up = std::make_unique<Widget>();   // @note 独占：出作用域就 delete
+      auto sp = std::make_shared<Widget>();   // @note 共享：最后一个引用消失时 delete
+
+      // @note `delete` 之后指针还指着老地方（悬垂）—— 好习惯是立刻置空
+      // @note 用已释放的内存是**未定义行为**，可能什么都不发生（这更糟）
+
+      // @note! 在 C++ 里「什么时候释放」是**类型写在接口上的信息**：
+      // @note 看到 `Widget` 就知道是值、看到 `unique_ptr<Widget>` 就知道有主、
+      // @note 看到 `Widget*` 就知道「不知道谁管」
+    vs:
+      javascript: |
+        **这一格是「有没有 GC」的直接分野**：JavaScript 的对象活到没人引用为止，
+        引擎什么时候扫、什么时候收，你既不知道也不用管；
+        C++ 里没有这个过程 —— 栈上的对象**在作用域结束那一刻**就没了，
+        堆上的要你（或智能指针）显式释放。所以那边「忘了释放」不构成 bug，
+        这边「忘了释放」是内存泄漏，而且是**沉默的**（不会报错，只会慢慢涨）。
+        另一处是反过来：JavaScript 那边「什么时候回收」不可预测，
+        C++ 这边**完全可预测**，这是 RAII 能成立的基础。
+      python: |
+        两边都没有「手动释放」的日常（Python 有 GC），
+        但 C++ 的回收时机是**确定的**：离开作用域就走析构，
+        所以「在对象消失时做点什么」是可靠的（关文件、放锁、减计数）。
+        Python 靠引用计数（CPython 实现细节）加循环回收，
+        时机不如 C++ 确定（尤其有循环引用时）。
+        另一处是 C++ 里「谁负责释放」是类型的一部分，
+        Python 里不需要回答这个问题 —— 这也是 C++ 代码更啰嗦、但也更可控的地方。
+      java: |
+        **两边是两种内存管理哲学**：Java 有 GC，对象永远在堆上，
+        `new` 之后就不管了，代价是回收时机不可控、暂停不可控；
+        C++ 没有 GC，回收是**确定的**（作用域退出、或引用计数归零），
+        代价是「谁负责」必须自己说清楚（智能指针就是把这个说清楚的工具）。
+        另一处是 Java 的局部变量只是引用，C++ 的局部对象**本身就住在那块栈上** ——
+        所以 C++ 里 `{ Widget w; }` 这种写法是真的在栈上造了个对象，
+        Java 里同样写法只是在栈上放了个引用，对象还在堆上。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  ownership-borrow:
+    code: |
+      // @note! C++ **没有语言级的所有权和借用检查** ——
+      // @note! 没有借用检查器，编译器不会拦「同时有可变和不可变借用」
+
+      // 所有权靠**惯例 + 标准库工具**表达：
+      Widget        w;              // @note 值：我拥有它，作用域就是它的寿命
+      std::unique_ptr<Widget> up;   // @note 独占所有权：不能拷贝，只能移动
+      std::shared_ptr<Widget> sp;   // @note 共享所有权：引用计数
+      std::weak_ptr<Widget>   wp;   // @note 不拥有：只是「可能还活着」的观察者
+      Widget*         raw;          // @note! 裸指针：没说谁拥有（现代代码里只用来「借用」）
+
+      // @note 借用就是「传引用 / 传指针」—— 但**没有任何静态检查**
+      void look(const Widget& w);   // @note 不可变借用（约定）
+      void touch(Widget& w);        // @note 可变借用（约定）
+
+      // @note! 后果：可以同时拿到一个可变引用和一个不可变引用，
+      // @note! 也可以让引用活得比对象久 —— 编译器不拦，运行期是 UB
+      // @note 也就是说「借用规则」在这门语言里**是纪律，不是机制**
+    vs:
+      javascript: |
+        两边都没有「所有权」这一层，但原因不同：JavaScript 的世界里
+        谁都能引用任何对象，回收交给 GC，所以不需要谈论所有权；
+        C++ 里所有权**客观存在**（总得有人负责释放），
+        语言不检查、但标准库给了工具把它表达出来
+        （`unique_ptr` 独占 / `shared_ptr` 共享 / 裸指针「不知道」）。
+        另一处是 C++ 的裸引用没有生命周期保护 —— 那边也没有，
+        但那边 GC 保证对象不会在你手里消失；这边会，而且是 UB。
+      python: |
+        两边都没有所有权检查，但**代价的形态不同**：Python 引用计数
+        保证「只要你还拿着，对象就活着」，所以不存在悬垂；
+        C++ 里对象可以比引用先死，之后用它就是未定义行为 ——
+        也就是 Python 那边不可能发生的错误，这边是日常风险。
+        另一处是 C++ 用类型表达所有权（`unique_ptr` / `shared_ptr`），
+        Python 里没有对应写法（因为不需要）—— 这一点让 C++ 的签名
+        信息量更大，代价是类型更长、还得想清楚。
+      java: |
+        两边都没有所有权检查，但 Java 有 GC 兜底（对象不会提前消失），
+        C++ 没有 —— 所以 C++ 必须自己回答「谁负责释放」，
+        智能指针就是那个答案的载体。另一处是「独占」这件事：
+        Java 里表达「这个对象只归我」只能靠约定（或干脆不管），
+        C++ 的 `std::unique_ptr` 是**类型系统强制的**（不能拷贝、
+        只能移动，编译器盯着）—— 这是 C++ 用库把纪律变成机制的一处。
+        共同点是两边都没有借用检查器那层东西。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lifetime:
+    code: |
+      // @note! C++ **没有生命周期标注** —— 没有地方能写「这个引用活得和那个一样久」
+
+      // @note 编译器只做两件最基本的事：
+      // @note   ① 局部对象的寿命 = 作用域（这个有保证）
+      // @note   ② 临时对象活到**完整表达式**结束（这个也有保证）
+
+      // @note! 除此之外全靠人：
+      int& bad() { int x = 1; return x; }        // @note! 悬垂引用 —— 编译能过（有警告）
+      auto  bad2() { std::vector<int> v{1}; return v; }   // @note 这个没事：返回值优化/移动
+
+      // 视图类的东西必须看住源头：
+      std::string_view sv = std::string("临时");   // @note! 语句一结束源字符串就没了 → 悬垂
+      std::span<int> sp = v;                        // @note! v 一扩容或销毁，sp 就废了
+
+      // @note 迭代器也一样：容器结构一变（push_back 可能扩容），旧迭代器全失效
+      auto it = v.begin();
+      v.push_back(4);
+      *it;                                          // @note! 实跑：读到的是垃圾值
+
+      // @note 唯一能让编译器帮你盯一点的是**常量引用延长临时对象寿命**：
+      const std::string& s = std::string("活得久一点");   // @note 合法，直到 s 出作用域
+    vs:
+      javascript: |
+        两边的「引用」都不是语言要操心的事：JavaScript 的对象由 GC 保活，
+        只要你还拿着引用就不会消失 —— 所以「悬垂」这个概念在那边不存在。
+        C++ 里对象**可以比引用先死**，而且编译器基本不拦
+        （返回局部引用只给个警告，视图绑临时对象连警告都没有）。
+        另一处是 C++ 有「临时对象活到完整表达式结束」这条规则，
+        它解释了为什么 `std::string_view sv = std::string("x");` 是坏的，
+        而 `const std::string& s = std::string("x");` 却是好的 ——
+        同一件事在两种写法下结论相反，这是 C++ 特有的。
+      python: |
+        两边都不写生命周期，但**保证的方向相反**：Python 的引用计数
+        保证「只要我拿着，它就活着」，所以不会悬垂（代价是循环引用要靠 GC 收）；
+        C++ 完全没有这层保证 —— 对象在作用域结束就没了，
+        之后拿它做任何事都是未定义行为，而且**可能什么都不发生**（更难查）。
+        另一处是 Python 的迭代器在字典/列表被改时通常会抛
+        RuntimeError（明确报错），C++ 的迭代器失效是静默的 UB ——
+        出错时你得到的是垃圾数据而不是异常。
+      java: |
+        **两边差别很清楚**：Java 的 GC 保证对象不会提前消失，
+        所以 Java 里的引用（除弱引用外）天然不会悬垂；
+        C++ 里悬垂是最主要的内存错误来源，而且**运行期不报错**。
+        另一处是 Java 的集合有「快速失败」机制
+        （遍历时改动抛 ConcurrentModificationException），
+        C++ 的迭代器失效是静默的未定义行为 ——
+        一个明确报错、一个给你垃圾数据，这是从 Java 过来要认真适应的一处。
+        共同点是两边都得记住「改容器会让迭代器失效」，只是代价不同。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  weak-reference:
+    code: |
+      struct Node {
+        std::string name;
+        std::shared_ptr<Node> next;      // @note! 强引用：两个节点互相指着
+        ~Node() { std::printf("%s 析构\n", name.c_str()); }
+      };
+
+      {
+        auto a = std::make_shared<Node>(); auto b = std::make_shared<Node>();
+        a->name = "A"; b->name = "B";
+        a->next = b; b->next = a;         // @note 引用计数各变成 2
+      }
+      // @note! 实跑：作用域结束后**两个析构都不跑** —— 内存泄漏了
+      // @note 因为 a 的计数还要等 b 放、b 的又要等 a 放，谁都不先放手
+
+      // 解法：把其中一头改成 weak_ptr
+      struct WNode {
+        std::string name;
+        std::weak_ptr<WNode> next;        // @note 不增加计数
+        ~WNode() { std::printf("%s 析构\n", name.c_str()); }
+      };
+      // @note 实跑：换成 weak 之后两个都正常析构（B 先、A 后）
+
+      // @note weak_ptr 的用法是「先升级成 shared_ptr 再判断」：
+      std::shared_ptr<WNode> locked = wp.lock();   // @note 空 = 对象已经没了
+      if (locked) { /* 安全使用 */ }
+
+      // @note 尺寸差异：unique_ptr 与裸指针同为 8 字节（零开销），
+      // @note shared_ptr 是 16 字节（对象指针 + 控制块指针）
+    vs:
+      javascript: |
+        两边都有「循环引用回收不掉」这个问题，但**后果完全不同**：
+        JavaScript 里两个对象互相引用**不影响回收** ——
+        标记清除算法能识别出「整组都够不着了」，一组一起收；
+        C++ 的引用计数只看**单个对象的计数**，互相指着就让计数永不归零，
+        于是永远不回收、静默泄漏。所以那边不需要为循环引用做任何事，
+        这边必须主动打破（`weak_ptr`）。
+        另一处是 C++ 有 `unique_ptr` 这个「零开销的独占指针」，
+        JavaScript 没有对应概念（那边不需要表达所有权）。
+      python: |
+        两边的处境更接近：CPython 也是**引用计数**（加一个循环回收器），
+        所以循环引用同样是问题 —— 但 CPython 有 GC 兜底，
+        够不着的循环最终会被回收；C++ 的 `shared_ptr` **没有兜底**，
+        循环就是永久泄漏。所以 Python 里「随手造循环」通常没事，
+        C++ 里必须一开始就设计好谁持有谁。
+        另一处是 C++ 的 `weak_ptr` 要显式 `lock()` 成强引用再用，
+        判空与使用是两步 —— Python 的弱引用也有 `()` 调用来取对象，
+        形态相近但 C++ 这边多一层类型上的强约束。
+      java: |
+        **这一格 Java 的处境更好**：Java 的 `WeakReference` 也是弱引用，
+        但 Java 的普通引用**有 GC 兜底** —— 循环引用由标记清除处理，
+        不会泄漏；C++ 的 `shared_ptr` 循环就是真的收不回来。
+        所以 Java 里用弱引用主要是为了「不影响生命周期」的语义
+        （或者做缓存），而 C++ 里用 `weak_ptr` 往往是**为了不泄漏** ——
+        动机不同。另一处是 C++ 的 `shared_ptr` 计数是原子的
+        （多线程里安全递增递减），`weak_ptr` 也参与同一个控制块。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

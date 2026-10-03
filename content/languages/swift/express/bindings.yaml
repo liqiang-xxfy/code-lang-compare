@@ -1,0 +1,345 @@
+# swift —— express / bindings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: bindings` 的那批。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的落点几乎全在「`let` 与 `var` 分工」这一件事上。
+# 三处要写准的：
+# ① **局部变量必须先初始化**（用了没赋值的变量是编译错误），
+#    而**全局/静态变量会被自动初始化** —— 同一个写法在两种位置结论不同；
+# ② **没有提升**：名字必须先出现；
+# ③ Swift 的 `private` **不是文件级** —— 它是「声明所在作用域 + 同文件的扩展」，
+#    文件级的是 `fileprivate`。这一条与大多数语言的直觉相反，也是本组最该记住的。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-bindings-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  declaration:
+    code: |
+      let name = "Ada"            // @note let：绑定之后不能再指向别的值
+      var count = 0               // @note var：可以重新赋值
+      count += 1
+
+      let total: Int = 0          // @note 有初值就能推断，类型通常省掉
+
+      var pending: String         // @note 局部变量可以先声明、后赋值（编译器追踪「确定初始化」）
+      pending = "待定"             // @note 在这行之前读它才是编译错误 —— 只是「还没轮到」
+
+      // @note! 但**全局变量必须在声明处给初值** —— 顶层写 `var x: Int` 直接编不过
+      // @note! （官方理由很实际：没法证明谁先访问它）
+      // @note 也就是说「`var x: Int` 能不能写」取决于它写在哪儿，**方向与直觉相反**：
+      // @note 局部松、全局严
+
+      // 一次引出多个名字：元组解构
+      let (a, b) = (1, 2)
+
+      // 类型别名
+      typealias Id = Int
+
+      // @note 可选类型是类型的一部分：String 与 String? 是两个类型
+      var nickname: String? = nil
+    vs:
+      javascript: |
+        两边都用「关键字加名字」引入绑定，但有三处实质差别：
+        ① Swift 的**全局变量必须在声明处给初值** —— 顶层写 `var x: Int`
+        直接编译不过（局部变量反而可以先声明后赋值），
+        而那边的 `let x` 未赋值只是个 `undefined`；
+        ② Swift 的 `let` / `var` 是**语言强制**的分工（能不能改写在类型层面），
+        JavaScript 只有 `const` 一种冻结，`var` / `let` 都能随便改；
+        ③ Swift 的 `String?` 让「可能没有」成为类型的一部分，
+        JavaScript 里任何变量都可能是 `null`。
+        另一处是类型标注两边都写 `名字: 类型`，但只有一边当真。
+      python: |
+        两边标注的写法几乎一样（名字后面 `: 类型`），差别在谁把它当真：
+        Python 的标注运行时不检查、写错代码照跑，Swift 的标注是
+        编译器的输入，写错就编译不过。另一处更实际：
+        Swift 里**局部变量必须先初始化**（`var x: Int` 单独一行是编译错误），
+        Python 里名字没绑定就是 `NameError`（要到运行时才炸）。
+        还有一处是 `let` / `var` 区分「之后能不能改」，
+        Python 里没有对应写法 —— 那边所有名字都能重新绑定。
+      java: |
+        两边都必须写类型（或靠推断），也都有「之后不能改」的声明。
+        差别在于**没给初值会怎样**：Java 的局部变量不赋值只是「不能用」，
+        字段与静态变量却会自动拿到默认值（0 / false / null）；
+        Swift **不自动填任何默认值** —— 局部变量可以先声明、后赋值
+        （用之前赋上就行），而**全局变量必须在声明处给初值**。另一处是
+        Swift 的 `let` 对应不了 Java 的 `final`（含义相近但
+        参与类型系统的方式不同），以及 Swift 的可空是类型的一部分
+        （`String?`），Java 只能靠库里的 `Optional`。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  mutability:
+    code: |
+      var a = 1
+      a = 2                       // @note var 可以改
+
+      let b = 3                   // @note let 之后不能再赋值
+      // b = 4                    // @note! 编译错误
+
+      // @note! 关键区分：`let` 冻结的是**绑定**，不是对象内部
+      // @note 对值类型（struct / enum / 集合）来说，冻结绑定就等于全冻结
+      var arr = [1, 2, 3]
+      arr.append(4)               // @note var 的数组能改
+      let fixed = [1, 2, 3]
+      // fixed.append(4)          // @note! 编译错误 —— 连内容都不能改
+
+      struct Counter { var n = 0 }
+      var c1 = Counter(); c1.n = 1        // @note 可以
+      let c2 = Counter()
+      // c2.n = 1                 // @note! 编译错误：let 的 struct 连字段都不能改
+
+      class Box { var v = 0 }
+      let b1 = Box(); b1.v = 1            // @note! 这个可以 —— 类实例的字段不受 let 约束
+      // @note 因为 Box 是引用类型：let 只冻住了「b1 指向谁」
+    vs:
+      javascript: |
+        **这一格两边差别很大**：JavaScript 的 `const` 只冻结绑定，
+        对象里的属性照样能改（这正是常见的坑）；Swift 的 `let`
+        **对值类型是彻底冻结的** —— `let` 的数组、结构体连字段都不能改，
+        编译器按类型拒绝。所以那边「名义上只读、实际能改」的口子，
+        在这边要靠把类型换成类（引用类型）才开得出来。
+        另一处是这层区别在 Swift 里是**写在类型的性质上**的
+        （值类型 vs 引用类型），不是靠调用方猜。
+      python: |
+        Python 根本没有「不能改的名字」，只有「不能改的对象」
+        （元组、冻结集合这类）；Swift 走的是另一条路 ——
+        `let` 冻结绑定，而因为多数类型是**值类型**，
+        冻结绑定就等于冻结了那份数据。所以两边都有「不能改」这个概念，
+        但一个落在对象类型上、一个落在名字上，而且 Swift 这边
+        还有一层例外：如果是**类**的实例，`let` 冻不住它的字段。
+        另一处是 Python 的 `nonlocal` / `global` 这类改写名字的语法
+        在 Swift 里没有对应物（闭包捕获的是引用，能直接改）。
+      java: |
+        两边最接近的一对是 Swift 的 `let` 与 Java 的 `final`，
+        但**冻结的粒度又一次不同**：Java 的 `final` 冻住引用，
+        对象内容照改（`final List` 还能 `add`）；
+        Swift 的 `let` 对值类型是**连内容一起冻**的，
+        只有类实例才表现得像 Java 的 `final`。
+        另一处是 Swift 里这个差别取决于「这个类型是值类型还是引用类型」，
+        所以读代码时要先认出类型 —— Java 里对象永远是引用类型，
+        规则只有一条，反而更简单。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  scope:
+    code: |
+      // @note Swift 的作用域按 `{}` 划分，函数/闭包/分支各成一层
+
+      let global = 0              // @note 全局（文件级 + 模块内可见）
+
+      func f() {
+        let local = 1
+        if true {
+          let inner = 2           // @note 只活在 if 块里
+          print(inner)
+        }
+        // print(inner)          // @note! 编译错误
+      }
+
+      // @note 类的成员、协议的成员各是一层；扩展（extension）也是
+      // @note! Swift 没有命名空间这个独立机制 —— 模块（target）就是作用域单位，
+      // @note! 想细分只能靠「用类型当容器」（把静态成员挂在一个 enum 上，是常见手法）
+      enum Namespace {
+        static let version = "1.0"      // @note 用枚举当命名空间是惯用法
+      }
+      Namespace.version
+
+      // @note 可见性由访问控制关键字决定（见 model/objects 的 access-control）
+    vs:
+      javascript: |
+        两边都有块作用域，也都把「模块」当作顶层边界。
+        差别在**有没有命名空间这一层**：JavaScript 靠模块文件划分，
+        一个文件就是一个作用域；Swift 的作用域单位是**模块**
+        （一个 target 编译出的东西），模块内的名字互相可见，
+        所以想在模块内再分组，惯用法是拿一个空枚举当容器
+        （`enum Namespace { static let ... }`）。
+        另一处是 Swift 的闭包有独立的捕获作用域，而且捕获规则
+        比 JavaScript 更显式（逃逸闭包要写 `self.`）。
+      python: |
+        两边的分层思路不同：Python 的作用域由**函数**划分，
+        类体只是执行一遍就丢掉的临时命名空间，模块是文件；
+        Swift 按 `{}` 划分，一个 `if` 的分支各自是一层，
+        而且**模块**是最外层作用域（不是一个文件）。
+        另一处是 Python 用 `nonlocal` / `global` 声明要改外层名字，
+        Swift 里没有对应语法 —— 闭包捕获的是引用，直接改就行；
+        反过来 Swift 的逃逸闭包要求显式写 `self.`，Python 没有这一层。
+      java: |
+        两边都按块分层，规则很接近。差别在**分组机制**：
+        Java 用包（与目录结构绑定，还有包私有可见性）；
+        Swift 没有包这一层 —— 模块是最外层，模块内一切都可见
+        （默认 `internal`），想分组只能靠类型容器或文件级私有。
+        另一处是 Java 的静态成员可以直接挂在类上，
+        Swift 也支持（`static let`），但实践中更常见的是
+        用一个 `enum` 当命名空间容器（因为 enum 不能被实例化）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  hoisting:
+    code: |
+      // @note! Swift **没有提升** —— 名字必须先出现
+      // print(x)                 // @note! 编译错误：cannot find 'x' in scope
+      // let x = 1
+
+      // @note 函数与类型也一样：要先用后定义就得先写声明？—— 不需要，
+      // @note! 因为 Swift **文件内的顶层声明整体可见**（类型与函数不分先后）
+      func caller() { callee() }   // @note callee 在后面定义 —— 合法
+      func callee() { print("hi") }
+
+      // @note 类/结构体成员之间也不分先后：
+      struct S {
+        func f() -> Int { return later }    // @note later 在后面声明 —— 合法
+        let later = 42
+      }
+
+      // @note! 但**局部变量没有这个待遇** —— 块内是一行行按顺序执行的
+      func g() {
+        // print(a)              // @note! 编译错误：a 还没声明
+        let a = 1
+        print(a)
+      }
+    vs:
+      javascript: |
+        **两边恰好相反**：JavaScript 的声明会被扫一遍先建好名字
+        （`var` 提升成 `undefined`、函数声明整个可用、`let` 有暂时性死区），
+        所以「语句执行前名字就存在」；Swift 里名字**在声明点之后才存在**，
+        没有提升也没有死区 —— 压根没有「声明前的那段时间」。
+        另一处是 Swift 的**类型与函数**在文件内不分先后
+        （`caller` 能调用后面定义的 `callee`），JavaScript 的函数声明
+        也这样，但是因为提升，机制完全不同。
+      python: |
+        两边在「局部变量必须先用后声明」这一层一致（都要先赋值）。
+        差别在**报错时机**：Python 要到函数被调用时才报
+        `UnboundLocalError`；Swift 在编译期就报「找不到这个名字」。
+        另一处是 Swift 的类型与函数**在文件内不分先后**（可以互相引用），
+        Python 的类体是按顺序执行的，函数在定义前调用会 NameError；
+        而 Swift 的 `struct` 成员之间也不分先后，Python 的类体要求先定义。
+      java: |
+        两边都没有提升，都要求局部变量先声明后使用 —— 这一格很接近。
+        连「类成员可以互相引用、不分先后」这条也一样
+        （Swift 的 `struct` 里方法能引用后面声明的字段，Java 的字段也是）。
+        差别在报错的清晰度：Swift 说「cannot find 'x' in scope」，
+        Java 说「cannot find symbol」；两边都把「不存在」和
+        「用早了」报成同一类错误。另一处是 Swift 没有
+        `let` 的死区问题（没有提升就没有死区）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  shadowing:
+    code: |
+      let x = 100
+
+      func f() {
+        let x = 1                   // @note 遮蔽外层的 x —— 合法
+        if true {
+          let x = 2                 // @note 还能再遮一层
+          print(x)                  // @note 2
+        }
+        print(x)                    // @note 1
+      }
+
+      // @note! 与很多语言不同的一点：`if let` / `guard let` 的绑定
+      // @note! 是**有意**用同名遮蔽 —— 这是惯用法，不是坏味道
+      func greet(_ name: String?) {
+        guard let name = name else { return }    // @note 解包后同名，之后的 name 是非可选
+        print("你好，\(name)")
+      }
+
+      // @note 遮蔽默认不报警告，编译器也不提供「全局变量前缀」这类救急语法
+    vs:
+      javascript: |
+        两边都允许遮蔽，规则也像。差别在**有没有恢复外层的手段**：
+        JavaScript 遮蔽之后要靠换个名字或绕道模块顶层才能拿回外层值；
+        Swift 也一样没有「全局前缀」这样的写法 —— 这一点两边一致。
+        另一处是 Swift 把遮蔽**当成惯用法**用在可选值解包上
+        （`guard let name = name`），JavaScript 里没有可空类型，
+        也就没有这个场景。所以同样的语法现象，一边是常态、一边是要小心的事。
+      python: |
+        两边的默认姿态相反：Python 的函数作用域是**整块的** ——
+        函数里任何一个赋值都让这个名字从此属于局部，
+        函数内没有「内层遮蔽外层」这回事（只有嵌套函数才有）。
+        Swift 按 `{}` 一层层分，`if` 分支里就能遮出一个新名字，
+        出了分支就恢复。另一处是 Swift 的 `guard let name = name`
+        这种**故意同名**的写法是标准做法，Python 里没有对应场景。
+      java: |
+        两边都按块分层，但有一处很实际的区别：
+        Java **不允许**在同一个方法里用一个内层块去遮蔽局部变量
+        （编译错误「variable x is already defined」），
+        Swift 允许。另一处是 Java 的字段被局部变量遮住时
+        可以用 `this.x` 往回收，静态字段则只能改名；
+        Swift 里同样有 `self.x`，但局部变量遮住全局变量时
+        没有 `::` 那样的直达写法（要用模块名限定）。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  naming-convention:
+    code: |
+      // @note Swift 的命名约定是**官方文档写下来的**，不是社区口味：
+      //   类型与协议          UpperCamelCase（`UserProfile` / `Equatable`）
+      //   函数/变量/属性/枚举分支  lowerCamelCase（`fetchUser` / `case notFound`）
+      //   类型参数            UpperCamelCase（`T` / `Element`）
+      //   常量                也是 lowerCamelCase —— 与很多语言的惯例相反
+
+      let maximumRetryCount = 3     // @note! 不是 MAXIMUM_RETRY_COUNT
+
+      // @note 但有一处是**编译器认的约定**（不是纯风格）：
+      // @note! 在**参数标签的位置**写 `_`，表示调用时省略这个标签
+      func move(to point: Int, _ speed: Int) { }
+      move(to: 1, 2)                // @note 第二个参数不用写标签
+
+      // @note 参数标签本身也是 Swift 特有的命名维度：
+      func insert(_ element: Int, at index: Int) { }
+      insert(5, at: 0)              // @note 调用点读起来像句子
+
+      // @note 下划线还能当「占位、不要这个名字」用：
+      for _ in 0..<3 { }
+      let (_, second) = (1, 2)
+    vs:
+      javascript: |
+        两边都有命名约定，但**分量不同**：JavaScript 的驼峰约定是
+        社区口味（不影响任何东西）；Swift 的约定写在官方文档里，
+        而且有一处**编译器会读**：参数名前面的 `_` 表示调用时省略标签。
+        另一处是 Swift 有「参数标签」这一整个命名维度
+        （定义处叫 `at index`、调用处写 `at: 0`），
+        JavaScript 没有这个概念 —— 那边参数只有位置。
+        常量命名两边也不同：JavaScript 习惯全大写，Swift 一律小驼峰。
+      python: |
+        两边的风格差异明显：Python 用 snake_case（函数与变量）、
+        PascalCase（类），Swift 一律驼峰（类型大驼峰、其余小驼峰），
+        所以同一段逻辑换语言时**所有名字都要改**。
+        另一处是「带含义的命名」在两边的位置不同：
+        Python 用前导下划线表示「内部用」（约定），
+        双下划线做名字改写（机制）；Swift 的前导下划线是
+        **参数标签省略**（编译器读的），含义完全不一样。
+      java: |
+        两边的类名约定一致（大驼峰），其余差别不小：
+        Java 的常量是全大写下划线（`MAX_RETRY_COUNT`），
+        Swift 的常量是小驼峰（`maximumRetryCount`）——
+        这条最容易带错。另一处是 Java 的方法名是动词开头、
+        参数只有位置；Swift 的参数有**标签**，
+        调用点读起来像句子（`insert(5, at: 0)`），
+        这是 Java 没有的命名维度。共同点是两边的命名都影响可读性
+        但不影响编译（除了 Swift 那个 `_` 标签）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

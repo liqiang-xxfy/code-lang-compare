@@ -1,0 +1,120 @@
+# cpp —— express / containers
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: containers` 的那批。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：C++ 的容器**不是「一种列表加一种字典」，而是一整排可选项**，
+# 每一格都要交代「为什么有这么多」—— 因为所有权与内存布局都摆在台面上。
+# 三处实跑确认：`std::vector` 是 24 字节（三个指针）、`std::array` 零开销（12 字节）、
+# `std::map` **遍历有序**而 `std::unordered_map` 的遍历顺序
+# **随插入顺序变化**（实测同一个程序换一个插入序，迭代序完全不同）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-containers-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  arrays:
+    code: |
+      // @note C++ 的「数组」是一排东西，选哪个取决于你要什么
+
+      int c[3] = {1, 2, 3};        // @note C 数组：定长，但会**退化成指针**（拿不到长度）
+
+      std::array<int, 3> a{1,2,3}; // @note 定长但知道自己多大，零开销（sizeof = 12）
+      a.size();                    // @note 3
+
+      std::vector<int> v{1,2,3};   // @note 动态数组（默认选择），sizeof = 24（三个指针）
+      v.push_back(4);              // @note 摊还 O(1)，但可能**让所有迭代器失效**
+      v.size();  v.capacity();     // @note size 是元素数，capacity 是已分配容量
+      v.reserve(100);              // @note 预分配，避免反复搬家
+      v[0];                        // @note! 不检查越界 —— 越界是 UB
+      v.at(0);                     // @note 会检查，越界抛 std::out_of_range
+
+      // @note! 元素是「按值存」的：放进去的是拷贝（或移动），拿出来也是
+      // @note 要放「多态的东西」得放指针/智能指针，不能放基类值（会被切开）
+    vs:
+      javascript: |
+        最大的差别是**「一个数组」在这里是一排可选项**：JavaScript 只有数组
+        一种（外加类型化数组），长度随便变、越界读得到 `undefined`；
+        C++ 要你先回答「定长还是变长、要不要知道自己多大、放栈上还是堆上」，
+        于是有 C 数组、`std::array`、`std::vector` 三种。
+        另一处是越界：JavaScript 越界读是 `undefined`、越界写会静默扩长数组；
+        C++ 的 `v[i]` 越界是**未定义行为**，索引运算一律不检查
+        （要检查得显式写 `v.at(i)`，代价是抛异常）。
+      python: |
+        两边都只有「一种列表」，但 C++ 的列表**元素是内联存放的** ——
+        `std::vector<int>` 里就是连续的一排 int，元素被拷贝进去；
+        Python 的列表存的是指向对象的指针，放进去的是引用。
+        所以 Python 里「改列表里的对象，外面也变」在这边不成立
+        （放进去的是副本）—— 想共享得显式放指针或引用包装。
+        另一处是 Python 的负数下标、切片、`in` 判断在 C++ 里都没有，
+        长度与容量还分成两个概念，要自己管。
+      java: |
+        两边都用「动态数组」当默认选择（`ArrayList` ↔ `std::vector`），
+        语义很接近 —— 连「扩容会让迭代器失效」这条都一样
+        （Java 的迭代器会抛 ConcurrentModificationException，
+        C++ 干脆不检查、行为未定义，所以 C++ 这边更危险一点）。
+        差别在 C++ 还保留了「定长数组」这一档可选
+        （`std::array` / C 数组，零开销、在栈上），
+        Java 没有值类型的容器，所有东西都在堆上。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  maps:
+    code: |
+      // @note 同样是一排可选项，而且**有序与无序是两个不同的类型**
+
+      std::map<std::string, int> ordered;      // @note 红黑树，遍历**按 key 有序**
+      std::unordered_map<std::string, int> hashed;   // @note 哈希表，遍历顺序**未指定**
+
+      ordered["a"] = 1;                        // @note 不存在就插入
+      ordered.at("a");                         // @note 不存在抛异常
+      ordered.contains("a");                   // @note C++20 起
+      ordered.find("a");                       // @note 返回迭代器，没有就是 end()
+
+      // @note! `m[key]` 有副作用：key 不存在会**插进去一个默认值** ——
+      // @note! 只想查的时候用 find / at / contains，别用 []
+
+      // @note! unordered_map 的遍历顺序**不保证稳定**：
+      // @note! 实测换个插入顺序，迭代出来的次序完全不同；
+      // @note! 同一实现同一插入序才是可复现的（不是标准保证）
+      // @note 没有「保持插入顺序」的映射 —— 想要得自己配一个 vector 记 key
+
+      std::set<int> s{3,1,2};                  // @note set 也是**有序**的
+      std::unordered_set<int> us{3,1,2};       // @note 这个无序
+    vs:
+      javascript: |
+        **遍历顺序是这一格的核心差别**：JavaScript 的对象与 `Map`
+        都有**规定的**迭代顺序（`Map` 按插入序，对象是「整数键升序 + 其余插入序」），
+        所以「按顺序遍历」是能指望的；C++ 里 `std::map` 按 key 排序、
+        `std::unordered_map` **完全不保证顺序**（实测换个插入顺序结果就变），
+        而且没有一个「保持插入序」的映射类型 —— 想要这个语义得自己维护一个键列表。
+        另一处是 `m[key]` 会顺手插入默认值，JavaScript 读不存在的键只是 `undefined`。
+      python: |
+        两边的字典**都保证按插入顺序遍历**（Python 3.7 起是语言保证），
+        但 C++ 把「有序」拆成了两个类型：`std::map` 是**按 key 排序**的
+        （不是插入序），`std::unordered_map` 是无序的。
+        所以 Python 里 `d.keys()` 那个确定的顺序，在 C++ 里
+        要么选排序（换一个顺序）、要么接受无序、要么自己记一份键。
+        另一处是 Python 的 `d[k]` 不存在抛 KeyError（读操作无副作用），
+        C++ 的 `m[k]` 会**插入**一个默认值 —— 这个副作用很容易埋雷。
+      java: |
+        两边**几乎一一对应**：`HashMap` ↔ `unordered_map`（都无序）、
+        `TreeMap` ↔ `std::map`（都按 key 排序）、`LinkedHashMap` ↔
+        **C++ 没有对应物**（这是 Java 更方便的一处）。
+        差别在「读不存在键」的行为：Java 的 `get` 返回 `null`（无副作用），
+        C++ 的 `operator[]` 会插入默认值，想只查得用 `find` / `at` / `contains`。
+        另一处是 C++ 的 `[]` 要求 key 能被默认构造，Java 没有这个约束。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

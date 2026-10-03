@@ -1,0 +1,262 @@
+# swift —— express / values
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: values` 的那批：
+# literals / type-inference / null-and-undefined / type-conversion。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组两条硬事实 ——
+# ① **没有隐式数值转换**：`Double` 与 `Int` 之间必须显式转，
+#    这一点与大多数静态语言不同，也是从别处过来最容易踩的一处；
+# ② **整数溢出默认是陷阱**：溢出会当场崩，不是静默回绕 ——
+#    想回绕必须显式写 `&+` / `&-` / `&*`。
+# 另外可选值在这门语言里是**枚举**（`Optional<Wrapped>` 的两个 case 是
+# `none` 与 `some(Wrapped)`），`Int?` 只是它的语法糖 —— 这解释了
+# 为什么它能被 `switch` 匹配、为什么 `!` 本质上是 fatalError 的短写。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-values-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  literals:
+    code: |
+      let i = 42                    // @note 整数默认 Int
+      let d = 3.14                  // @note 浮点默认 Double
+      let f: Float = 3.14           // @note 要 32 位得显式标
+      let b = true
+      let s = "文本"
+      let ch: Character = "好"      // @note 单字符是 Character，与 String 是两个类型
+
+      // @note 数字字面量的前缀与分隔符
+      let binary = 0b1010
+      let octal  = 0o17
+      let hex    = 0xFF
+      let big    = 1_000_000        // @note 下划线分隔，纯可读性
+
+      // @note 多行字符串用三个双引号
+      let text = """
+        第一行
+        第二行
+        """
+
+      // @note 原始字符串：用 # 包起来，让转义失效
+      let raw = #"这里 \n 不是换行"#
+
+      // @note 数组与字典字面量
+      let arr = [1, 2, 3]
+      let dict = ["a": 1, "b": 2]   // @note 空字典要写类型：[:] 会有歧义
+      let empty: [String: Int] = [:]
+    vs:
+      javascript: |
+        两边的字面量都很丰富，Swift 多出来的是一层**类型默认**：
+        `3.14` 在 Swift 里是 `Double`、`42` 是 `Int`，
+        而 `Float` 与 `Double` 是两个真正不同的类型（要显式标）；
+        JavaScript 只有 `number` 一种，没有这个选择。
+        另一处是字面量的写法：Swift 有数字分隔符（`1_000_000`）、
+        原始字符串（`#"..."#`）、多行三引号 —— JavaScript 里
+        对应的能力要靠模板串或者干脆没有。
+        还有一处是空字典：Swift 里 `[:]` 会因为推不出类型而报错，
+        必须写 `[String: Int] = [:]`，JavaScript 里 `{}` 就行。
+      python: |
+        两边的字面量形态都很全（多行、原始字符串、进制前缀），
+        这一层对应得上 —— 连数字分隔符（`1_000_000`）两边都有。
+        差别在**类型的默认与唯一性**：Python 的 `3.14` 是 `float`、
+        整数是任意精度；Swift 的浮点默认 `Double`、整数是定长且
+        **溢出会崩**（不是变成大整数）。另一处是字符：
+        Swift 的 `Character` 与 `String` 是两个类型
+        （`"好"` 默认是 String，要 Character 得显式标），
+        Python 里没有字符这个独立类型。
+      java: |
+        两边的字面量写法很接近（进制前缀、下划线分隔 Java 也有），
+        这一层可以对应。差别在两处：① Java 的字符用单引号
+        （`'A'`）且是数值类型，Swift 用双引号且 `Character` 是
+        真正的文本单位 —— 单引号在 Swift 里根本不存在；
+        ② Swift 的原始字符串（`#"..."#`）与多行字符串是三引号，
+        Java 要到较新版本才有文本块，且没有原始字符串那层。
+        另一处是 Swift 的空集合字面量必须带上类型标注。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  type-inference:
+    code: |
+      let x = 1                     // @note 推断为 Int
+      let y = 1.5                   // Double
+      var z: Int = 1                // 显式标注
+
+      // @note 推断出来的类型此后**固定不变**
+      var n = 1
+      // n = "文本"                 // @note! 编译错误
+
+      // @note 函数与闭包的签名里**类型必须写**（除非是闭包表达式，可以推）
+      func area(r: Double) -> Double { 3.14 * r * r }
+
+      // @note 集合字面量靠元素推：空集合必须显式标类型
+      let a = [1, 2, 3]             // [Int]
+      let b: [Double] = [1, 2, 3]   // 标注之后元素被当成 Double
+      let c: [String: Int] = [:]
+
+      // @note 泛型实参也能推
+      let box = Box(value: 1)       // Box<Int>
+
+      // @note 类型转换**不能靠推断悄悄发生**：
+      let d = 1
+      // let e: Double = d          // @note! 编译错误：值类型之间从不隐式转换
+      let e: Double = Double(d)     // @note 必须显式转
+    vs:
+      javascript: |
+        两边的推断看起来像，分量完全不同：JavaScript 的变量没有类型，
+        「推不推」只影响工具怎么提示；Swift 的推断是编译器**算出一个类型
+        然后当成写死的一样用** —— 推出来之后就不能再装别的类型，
+        而且所有重载决议、协议匹配都按它走。
+        另一处是数量级：Swift 的 `let x = 1` 之后 `x` 就是 `Int`，
+        `x = 1.5` 编译不过；JavaScript 里改类型是家常便饭。
+        还有一处是 Swift **没有隐式数值转换** —— 要把 `Int` 当 `Double`
+        用必须写 `Double(...)`，这在 JavaScript 里是自动的。
+      python: |
+        两边的推断都只是「让编译器/检查器替你写类型」，
+        但只有 Swift 那边**推断结果会被强制执行**：
+        Python 的 `x = 1` 之后照样能赋字符串（检查器顶多给个提示），
+        Swift 里直接编译不过。另一处是 Swift 的数值转换必须显式
+        （`Double(d)`），Python 里 `1 + 1.5` 自动变浮点 ——
+        也就是说 Swift 把「类型之间的转换」变成了一件要写出来的事，
+        读代码时能看见每一处转换。
+      java: |
+        两边都能推断、也都在推断之后把类型钉死，这一层对应得上
+        （`var` ↔ `let` / `var` 加推断）。差别在两处：
+        ① Swift 的推断用得更广（集合字面量、泛型实参都推），
+        Java 的 `var` 只用在局部变量；
+        ② **数值转换**的态度相反：Java 允许加宽隐式转换
+        （`double d = 1;` 合法），Swift **一律不允许**，
+        必须 `Double(1)` —— 这条是从 Java 过来最容易踩的，
+        因为写惯了 `double d = 1;` 会直接编译不过。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  null-and-undefined:
+    code: |
+      // @note! Swift 的「空」只有一种：`nil`，而且它是**类型的一部分**
+      var a: String = "hi"
+      // a = nil                     // @note! 编译错误：非可选类型不能是 nil
+
+      var b: String? = nil           // @note 只有可选类型才能是 nil
+      // @note `String?` 就是 `Optional<String>` —— 它是一个**枚举**：
+      // @note   枚举有两个分支：`.none`（没有值）与 `.some(值)`
+      // @note 所以它能被 switch 匹配，也能用 ?? 给默认值
+
+      print(b?.count)                // @note 可选链：为 nil 时整个表达式得 nil，不崩
+      // print(b!.count)             // @note! 强制解包：为 nil 直接崩（等于 fatalError）
+      print(b ?? "默认")             // @note nil 时取右边
+
+      if let s = b { print(s.count) }        // @note if let：成功才进分支
+      guard let s = b else { return }        // @note guard let：失败就提前退出
+
+      while let next = iterator.next() { }   // @note while let：一直解到 nil 为止
+
+      // @note 可选链还能连着写：a?.b?.c —— 中间任一环为 nil，整条链就是 nil
+      // @note 注意区别：`nil ?? nil` 的左侧类型必须是可选，`??` 的类型规则很严格
+    vs:
+      javascript: |
+        **两边都有「空」，但性质完全不同**：JavaScript 有 `null` 与
+        `undefined` **两个**空值，而且任何变量都能装它们，
+        读属性时才抛 TypeError；Swift 只有一个 `nil`，
+        而且「可能为 nil」必须写进类型（`String?`），
+        用之前必须先解包 —— 漏写一个 `?.` 在 Swift 里根本编译不过。
+        另一处是 Swift 的 `Optional` 是个**普通枚举**，
+        能被 `switch` 匹配、能当值传（JavaScript 的 `null` 没有这层结构）。
+        最后是崩溃方式：`!` 解包 nil 是明确的陷阱（当场崩并报位置），
+        不是未定义行为。
+      python: |
+        两边的「空」都是一句话能说清，但**检查时机相反**：
+        Python 的 `None` 是普通值、任何名字都能装它，出错时
+        （`x.y` 而 x 是 None）到运行时才抛 AttributeError；
+        Swift 把这件事提到编译期拦下。
+        另一处是 `??` 与 `or` 的语义差别很实际：
+        Python 的 `x or "默认"` 对空字符串、0、空列表都会取右边，
+        Swift 的 `??` **只认 nil** —— `0 ?? 5` 得 0，`0 or 5` 得 5。
+        还有一处是 Swift 的可选链 `?.` 与 Python 的 `getattr` 兜底思路相近，
+        但前者有编译器强制。
+      java: |
+        **两边差别最大的一格之一**：Java 的 `null` 能赋给任何引用类型，
+        解引用就是 NPE，编译器一句都不说；Swift 在编译期就要求
+        把「可能为空」写进类型，用之前必须先解包。
+        Java 的对策是库层面的 `Optional`，但它只覆盖返回值，
+        字段、参数、局部变量都用不上，套上之后写法还变重；
+        Swift 的可空性是类型系统的一等公民，字段和参数一样能标。
+        另一处是 `Optional` 在 Swift 里是个**枚举**（能被 switch 匹配），
+        在 Java 里只是个容器类 —— 这也解释了为什么
+        Swift 的 `if let` / `guard let` 那么自然。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-conversion:
+    code: |
+      // @note! **Swift 从不隐式转换数值类型** —— 每一次都要写出来
+
+      let i = 1
+      let d = 3.14
+      // let x = i + d              // @note! 编译错误：Int 与 Double 不能相加
+      let y = Double(i) + d          // @note 必须显式转
+
+      // @note 数值转换会**截断**（向零），不是四舍五入
+      Int(3.9)                       // @note 3
+      Int(-3.9)                      // @note -3
+      Double(3)                      // @note 3.0
+
+      // @note 字符串与数字互转：靠构造器，**失败返回 nil 而不抛异常**
+      Int("42")                      // @note 42（类型是 Int?）
+      Int("abc")                     // @note nil
+      String(42)                     // @note "42"
+      Double("3.14")                 // @note 3.14
+
+      // @note 整数溢出**默认是陷阱**（当场崩），不是回绕
+      var big = Int.max
+      // big + 1                     // @note! 运行时崩溃：arithmetic overflow
+      big &+ 1                       // @note 想回绕得显式用溢出运算符
+
+      // @note 类型检查与转型是另一套语法（is / as? / as!，见 mechanism/types）
+    vs:
+      javascript: |
+        **这一格两边几乎是相反的**：JavaScript 的转换大多是隐式的
+        （运算符自己决定怎么转，`1 + "1"` 得 `"11"`），失败给 `NaN`
+        而不是报错；Swift **一次隐式转换都没有** ——
+        `Int` 与 `Double` 相加直接编译不过，必须写 `Double(i)`。
+        好处是读代码时每一处转换都看得见，代价是写起来更啰嗦。
+        另一处是溢出：JavaScript 的数字是浮点、超出安全范围只是丢精度；
+        Swift 的整数溢出会**当场崩**，要回绕得显式写 `&+` ——
+        两边都不会静默给你一个错的值，但方式完全不同。
+      python: |
+        两边的姿态相反：Python 的 `1 + 1.5` 自动把整数提升成浮点，
+        而且整数是任意精度、根本不会溢出；Swift 里数值类型之间
+        **从不隐式转换**，而且整数溢出会崩。
+        所以那边「随手混着算」在这边完全行不通，
+        每一处都要写 `Double(...)` —— 这是从 Python 过来最需要适应的一处。
+        另一处是字符串转数字，**两边失败的处理方式相反**：
+        Python 的 `int("abc")` 抛 ValueError（要 try 接），
+        Swift 的 `Int("abc")` 返回 `nil`（要解包）——
+        也就是说那边「解析失败」走异常，这边走可选值。
+      java: |
+        两边都区分加宽与窄化，但**默认行为相反**：
+        Java 的 `double d = 1;` 合法（隐式加宽），
+        `int n = (int) 3.9;` 要显式窄化；Swift **两个方向都必须显式**
+        （`Double(1)` 与 `Int(3.9)`）—— 也就是说连加宽都不给免费。
+        另一处是溢出：Java 的整数溢出是**回绕**（结果可预测），
+        Swift 的溢出是**崩溃** —— 两边都不是 UB，但一个静默、
+        一个响亮。共同点是字符串解析失败都会明确报告
+        （Java 抛 NumberFormatException，Swift 返回 nil）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

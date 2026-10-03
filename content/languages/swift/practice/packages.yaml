@@ -1,0 +1,365 @@
+# swift —— practice / packages
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: packages` 的那批：
+# package-manager / dependency-declaration / version-constraint /
+# lockfile / environment-isolation / publishing。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：Swift 的包管理是 **SwiftPM**（随工具链分发，官方那一套），
+# 所以「谁是官方那个」这个问题在这门语言里有明确答案 —— 这一点与其他语言不同。
+# 三条要写准的：① 清单文件是 `Package.swift`，而它是**一份 Swift 代码**
+# （不是声明式的 JSON / TOML），所以能写逻辑；② 第一行是注释式指令
+# `// swift-tools-version:`，**版本低于 6.0 时必须在第一行**；
+# ③ `swift package init --type` 有**七种**模板（默认是 library）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  package-manager:
+    code: |
+      // @note! Swift 有**官方**包管理器：SwiftPM，随工具链一起装
+      // @note 所以「该用哪个」这个问题在这门语言里没有歧义
+
+      swift package init --type library     // @note 建一个新包（默认就是 library）
+      swift package resolve                 // @note 取依赖
+      swift build                           // @note 构建（会顺带解析依赖）
+      swift package show-dependencies       // @note 看依赖树
+      swift package update                  // @note 按约束升到新版本
+
+      // @note `swift package init --type` 有**七种**模板：
+      // @note   library（默认）/ executable / tool /
+      // @note   build-tool-plugin / command-plugin / macro / empty
+      // @note 最后那个 empty 只生成一份 Package.swift
+
+      // @note 依赖按**源码**分发（不是预编译二进制）：
+      // @note SwiftPM 会把依赖拉下来**和你的代码一起编**
+      // @note 好处是跨平台不会有 ABI 问题，代价是首次构建慢
+
+      // @note 包可以是「远程 git 仓库」也可以是本地路径依赖
+      // @note 私有源就是私有 git 仓库 —— SwiftPM 不区分
+    vs:
+      javascript: |
+        两边都有官方包管理器（npm ↔ SwiftPM），这一层结构一样。
+        差别在**分发形态**：npm 装的是**打包好的产物**
+        （谁都能用的 JS 文件），装完就能跑；
+        SwiftPM 拉的是**源码**，要跟你的代码一起编译 ——
+        所以首次构建时间长得多，但换来的是没有 ABI 兼容问题。
+        另一处是**仓库的归属**：JavaScript 有中心化的 npm registry
+        （`npm publish` 一条命令发出去）；Swift 的包就是 git 仓库本身，
+        没有中心仓库，靠 URL 引用 —— 也就没有「包名被抢注」这类问题，
+        但发现和搜索难得多。
+      python: |
+        两边都有官方包管理器（pip ↔ SwiftPM），但**装的是什么**不同：
+        Python 从 PyPI 下的是 wheel（预编译）或 sdist，
+        装完 import 就能用；Swift 下的是源码，要参与编译。
+        另一处是**清单的形态**：Python 的 `pyproject.toml` 是声明式的
+        （TOML），工具读它就行；Swift 的 `Package.swift` 是
+        **一段可执行的 Swift 代码** —— 能写 if/循环、
+        能按平台算依赖，灵活但也意味着「看清单要会读代码」。
+      java: |
+        两边都有事实上的标准（Maven Central ↔ SwiftPM），
+        但**中心化程度差很多**：Java 有 Maven Central 这个巨大的中央仓库，
+        坐标一发布全世界能拉、还有签名与镜像；
+        Swift 没有中央仓库 —— 依赖就是一个 git URL，
+        「发布」等于「把仓库公开」，没有统一的索引。
+        另一处是 Java 依赖工具与构建工具常常是两家
+        （Maven/Gradle 各自解析依赖），Swift 是**同一套**
+        （SwiftPM 既是包管理器也是构建系统）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  dependency-declaration:
+    code: |
+      // @note! 依赖写在 **Package.swift** 里 —— 而它是一份 Swift 代码
+      // swift-tools-version:6.4        ← 第一行是注释式指令
+
+      import PackageDescription
+
+      let package = Package(
+        name: "MyApp",
+        dependencies: [
+          .package(url: "https://github.com/apple/swift-argument-parser.git",
+                   from: "1.3.0"),
+          .package(path: "../LocalLib"),              // @note 也能依赖本地路径
+        ],
+        targets: [
+          .target(name: "MyLib"),
+          .executableTarget(name: "MyApp",
+                            dependencies: ["MyLib",
+                                           .product(name: "ArgumentParser",
+                                                    package: "swift-argument-parser")]),
+          .testTarget(name: "MyLibTests", dependencies: ["MyLib"]),
+        ]
+      )
+
+      // @note! 三处与声明式清单不同的地方：
+      // @note   ① **它是代码** —— 能写条件、能按平台给不同依赖
+      // @note   ② 第一行必须是注释式的版本指令（版本低于 6.0 时**必须在第一行**；
+      // @note      从 6.0 起可以出现在后面的行）
+      // @note   ③ 依赖是**按 target 声明的** —— 哪个 target 用哪个包要写清楚，
+      // @note      不像别处那样「装了就是全局可见」
+
+      // @note 用起来还是 `import MyLib` —— 依赖的获取与使用是两件事
+    vs:
+      javascript: |
+        两边都得声明依赖，但**清单的性质完全不同**：
+        JavaScript 的 `package.json` 是**数据**（JSON），
+        工具读它就够了；Swift 的 `Package.swift` 是**可执行代码** ——
+        能写 if、能循环、能按平台算。灵活，但也意味着
+        清单的正确性要跑一遍才知道（而不是像 JSON 那样
+        结构错了立刻报）。
+        另一处是**依赖的可见范围**：npm 装了包就是整个项目可见；
+        SwiftPM 的依赖是**按 target 声明**的，写清楚哪个模块用哪个 ——
+        也就是说「这个文件能用什么」在 Swift 里是显式的。
+      python: |
+        两边的清单形态差别明显：Python 的 `pyproject.toml` 是
+        声明式的 TOML（PEP 621 标准化了字段名），工具直接读；
+        Swift 的 `Package.swift` 是 Swift 代码，读它要会这门语言。
+        另一处是**粒度**：Python 的依赖是项目级的（装了全局可用），
+        Swift 按 target 声明依赖，模块边界更清楚。
+        共同点是两边都用 `import` 使用依赖（获取与使用分开），
+        而且都能依赖本地路径的包。
+      java: |
+        两边都用「构建工具的清单」声明依赖，但**形态不同**：
+        Java 的 `pom.xml`（纯声明式 XML）或 `build.gradle`（基于 JVM 语言的构建脚本）
+        —— Gradle 也是代码（所以两边在这一点上反而像），
+        而 Maven 是纯声明；
+        Swift 只有 SwiftPM 一种，清单就是 Swift 代码。
+        另一处是**坐标**：Java 用 `groupId:artifactId:version`
+        这个全局坐标；Swift 用 **git URL + 版本**，
+        没有中心仓库的坐标体系 —— 这也是两边生态规模差异的原因之一。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  version-constraint:
+    code: |
+      // @note SwiftPM 用的是**语义化版本**，写法有几种：
+      .package(url: "...", from: "1.3.0")           // @note 等价于 1.3.0..<2.0.0
+      .package(url: "...", exact: "1.3.0")          // @note 钉死
+      .package(url: "...", branch: "main")          // @note 跟分支（不稳）
+      .package(url: "...", revision: "abc123")      // @note 钉 commit（最保险）
+      .package(url: "...", "1.3.0"..<"2.0.0")       // @note 显式区间
+
+      // @note! `from:` 的含义是**次版本号兼容** —— 这是 SwiftPM 的默认推荐，
+      // @note! 意思是「同一个主版本内尽量升」，与「语义化版本」的承诺绑在一起
+
+      // @note 依赖之间版本冲突时：SwiftPM 会**解算出一组满足所有约束的版本**，
+      // @note 解不出来就报错要求你放宽某个约束
+
+      // @note 实际项目里常见两种风格：
+      // @note   库 —— 用 `from:` 放宽（让别人容易用）
+      // @note   应用 —— 用 `exact:` 或 revision 钉死（结果可复现）
+    vs:
+      javascript: |
+        两边的版本号都是语义化版本，也都有「钉死 / 放宽」的写法，
+        这一层很像（`^1.3.0` ↔ `from: "1.3.0"` 的含义基本一致）。
+        差别在**来源**：npm 从注册表取包（版本号是注册表里的记录），
+        SwiftPM 从 git 仓库取（版本号是 **git tag**）——
+        所以「这个版本存在吗」在 Swift 里等于「这个 tag 在不在」。
+        另一处是 SwiftPM 明确支持按 **branch / commit** 依赖，
+        这在 npm 里是要绕的写法。
+      python: |
+        两边的约束语法成熟度不同：Python 有 PEP 440 规范版本号、
+        PEP 508 规范约束（`>=1.2,<2.0`），所有工具都按它解析；
+        SwiftPM 的约束是**它自己的 API**（`from:` / `exact:` /
+        区间），别的工具不认。
+        另一处是「版本兼容」的默认：Python 的 `~=` 与
+        SwiftPM 的 `from:` 都表达「同主版本内升级」，含义接近。
+        共同点是两边都会做依赖解算，解不出来就报错。
+      java: |
+        两边的版本写在清单里、都由工具解算，这一层对应得上。
+        差别在**版本号的意义**：Java 的 Maven 坐标里版本是
+        中心仓库里的记录；Swift 的版本是 **git tag** ——
+        所以「发布一个版本」在 Swift 里就是「打个 tag」，
+        没有中心仓库的审核或校验。
+        另一处是 Java 的依赖冲突有「最近者优先」这类明确策略，
+        SwiftPM 是「找一组满足所有约束的版本」，解不出来就报错
+        （要求你手工调整）—— 一个自动裁决、一个交回给开发者。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  lockfile:
+    code: |
+      // @note SwiftPM **有锁文件**：`Package.resolved`
+      // @note 它记录每个依赖最终解析到的**精确版本与提交**
+
+      // {
+      //   "pins": [
+      //     {
+      //       "identity": "swift-argument-parser",
+      //       "location": "https://github.com/apple/swift-argument-parser.git",
+      //       "state": { "revision": "...", "version": "1.3.0" }
+      //     }
+      //   ]
+      // }
+
+      // @note 行为：
+      // @note   swift build        有锁文件就照着锁文件来（可复现）
+      // @note   swift package update   忽略锁文件重新解算，然后**重写锁文件**
+      // @note   swift package resolve  按清单解算并写锁文件
+
+      // @note! 锁文件要**入库**（提交到版本库）—— 这是保证
+      // @note! 「别人的机器装出同一套依赖」的关键
+
+      // @note 与别处不同的是：因为依赖是 git 仓库，
+      // @note 锁文件里钉的是**提交哈希** —— 比「版本号 + 校验和」更硬，
+      // @note 因为 git 的哈希本身保证内容一致
+    vs:
+      javascript: |
+        两边都有锁文件（`package-lock.json` ↔ `Package.resolved`），
+        用途一样、都应该入库 —— 这一层可以对应。
+        差别在**钉住的东西**：npm 钉的是版本号加**内容哈希**；
+        SwiftPM 钉的是 git 的**提交哈希** ——
+        因为依赖本来就是 git 仓库，提交哈希天然保证了内容一致。
+        另一处是 npm 还有 `npm ci` 这种「严格照锁文件装」的命令，
+        SwiftPM 的行为是默认就照锁文件走（`swift package update`
+        才重新解算）—— 默认值相反。
+      python: |
+        两边的可复现性来源不同：Python 用 `requirements.txt`
+        或 `uv.lock` / `poetry.lock` 记下精确版本与哈希；
+        SwiftPM 的 `Package.resolved` 钉的是 git 提交 ——
+        也就是说 Swift 这边「可复现」是**天然更强**的
+        （提交哈希保证内容），而 Python 靠哈希校验来达到同样效果。
+        另一处是 Python 的锁文件生态有好几种格式（pip-tools / uv / poetry），
+        Swift 只有 SwiftPM 一种 —— 这一点简单得多。
+      java: |
+        两边的处境差得比较多：Java 的 Maven 用**固定版本号**
+        （写死了就是写死了，不太需要锁文件），
+        Gradle 有依赖锁定；SwiftPM 默认就生成并使用
+        `Package.resolved`。
+        另一处是「钉什么」：Java 钉的是坐标版本，
+        Swift 钉的是 git 提交哈希 —— 后者更强，
+        因为 git 的内容寻址保证同一个哈希必然是同一份代码。
+        共同点是两边都把「可复现」当作正经需求，各有各的机制。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  environment-isolation:
+    code: |
+      // @note! Swift **没有虚拟环境这个概念** —— SwiftPM 的隔离是
+      // @note! 由「每个包有自己的构建目录与依赖解析」天然带来的
+
+      // .build/           每个包一份构建产物与取下来的依赖源码
+      // Package.resolved  每个包一份锁定
+      // .swiftpm/         每个包一份本地配置
+
+      // @note 所以「两个项目用同一个库的不同版本」是**天然可行**的：
+      // @note 各自的 .build 目录里各有一份源码、各编一份
+
+      // @note! 但也因此：**改一次依赖就要重新编译一遍**（依赖是源码）
+      // @note 想在机器上共享编译结果，得靠 SwiftPM 的缓存机制
+      // @note 或者自己搭一个制品缓存（CI 里常见）
+
+      // @note 全局层面只有工具链版本：
+      // @note   swift --version
+      // @note   多版本共存靠装不同的工具链（或者用工具链管理器），
+      // @note   没有「切一下版本」的单个命令
+
+      // @note 包级还能锁定**语言模式**（swiftLanguageModes）——
+      // @note 那是「按哪个语言版本解释源码」，与依赖隔离是两件事
+    vs:
+      javascript: |
+        两边的隔离层次不同：JavaScript 的 `node_modules`
+        **天然是项目级**的（每个项目一份），装的是打包产物、装完就能用；
+        SwiftPM 的隔离来自「每个包自己解析依赖、自己编」——
+        依赖是源码，所以隔离更彻底但也更贵（每个项目都要编一遍）。
+        另一处是 JavaScript 有版本管理器切换运行时版本
+        （nvm 那类）；Swift 的工具链版本切换要装多套工具链，
+        没有 `nvm use` 那样的一行命令。
+        共同点是两边都不需要「虚拟环境」这种额外机制。
+      python: |
+        两边的隔离哲学差别明显：Python 用**虚拟环境**
+        （`venv` 造一个独立目录，依赖装在里头），
+        切项目就是切环境；Swift **没有这个机制** ——
+        隔离是「每个包的构建目录各一份」自然形成的，
+        不需要（也没法）显式创建一个环境。
+        另一处是 Python 的隔离之所以必要，是因为依赖装到
+        解释器级别的路径上；Swift 的依赖是编进构建产物的，
+        天然不共享。共同点是两边都能让两个项目用不同版本的同一个库。
+      java: |
+        两边都有隔离手段，但**放在哪里**不同：Java 靠 Maven 的
+        本地仓库（共享的缓存）+ classpath（项目级的可见集），
+        所以依赖只存一份、多个项目共用；
+        Swift 把依赖源码取到**每个包的构建目录**里，
+        隔离更彻底、但磁盘与编译时间成本更高。
+        另一处是 Java 有 classpath 隔离（同一个类的不同版本
+        在同一个 JVM 里勉强能共存，靠类加载器），
+        Swift 是编译期链接的，同一个模块的两个版本不能共存。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  publishing:
+    code: |
+      // @note! Swift **没有中心包仓库** —— 「发布」在本语言里等于
+      // @note! 「把 git 仓库公开，并打上语义化版本的 tag」
+
+      // ① 打 tag（这就是「发一个版本」）
+      git tag 1.3.0
+      git push origin 1.3.0
+
+      // ② 别人这样引用你
+      .package(url: "https://github.com/you/YourLib.git", from: "1.3.0")
+
+      // @note! 没有 `swift package publish` 这样的命令 ——
+      // @note! 因为不需要：SwiftPM 直接从 git 取
+
+      // @note 想被**搜索到**只能靠：
+      // @note   · GitHub 上的话题标签（`swift-package`）
+      // @note   · 社区维护的索引（Swift Package Index 之类，不是官方的）
+      // @note 私有源就是私有 git 仓库（靠访问凭证）
+
+      // @note 库要能被用起来，得把**产品**（product）声明出来 ——
+      // @note 那是「对外暴露哪些模块」的清单，在 Package.swift 里写
+      // @note 也就是说「导出什么」在这门语言里是**包层面**的事，
+      // @note 与代码里的 public / open 是两层（一个管模块对外、
+      // @note 一个管模块之间）
+    vs:
+      javascript: |
+        **两边差别很大**：JavaScript 有中心化的 npm registry，
+        `npm publish` 一条命令全世界能装，还有搜索与版本页；
+        Swift **没有中心仓库** —— 发布等于「公开 git 仓库 + 打 tag」，
+        没有发布命令、没有统一的索引。
+        所以那边「怎么让别人找到我的包」有标准答案（registry 搜索），
+        这边要靠 GitHub 话题标签或者社区索引。
+        另一处是私有包：npm 有私有的 registry 服务，
+        Swift 就是私有 git 仓库（靠仓库权限管）。
+      python: |
+        两边的分发模型差别明显：Python 有 PyPI，`pip install` 就能
+        装到全世界的包，`twine upload` 就发出去了；
+        Swift 的包就是 git 仓库，**没有上传这一步** ——
+        打 tag 就等于发布。
+        另一处是「导出什么」的层次：Python 靠 `__all__` 或者包结构，
+        Swift 要在 `Package.swift` 里声明 product（哪些模块对外）
+        再加代码里的 `public` —— 两层都要写。
+        共同点是两边都能依赖私有源（私有索引 / 私有 git 仓库）。
+      java: |
+        两边都有「打包发布」这件事，但**载体不同**：
+        Java 发的是 **JAR**（编译产物）到 Maven Central，
+        有坐标、有签名、有校验，别人拉下来直接用；
+        Swift「发」的是**源码仓库**，别人拉下来自己编 ——
+        所以那边「发布」是把编译结果送出去，这边只是把源码公开。
+        另一处是发现机制：Maven Central 能按坐标搜，
+        Swift 没有中央索引，靠社区站点或 GitHub 标签。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

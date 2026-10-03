@@ -1,0 +1,364 @@
+# swift —— model / collections
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: collections` 的那批：
+# list-array / map-dict / set / tuple-record / collection-mutability / slicing。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是**「容器是值类型，而切片是视图」**这两件事的叠加 ——
+# 赋值是拷贝语义（标准库用写时复制优化，但那是实现细节），
+# 而 `a[1..<3]` 拿到的 `ArraySlice` 却是**共享底层存储的视图**，
+# 而且它的**下标保留原数组的索引**（从 1 开始，不是从 0）——
+# 这一条是本组最容易写错的地方。想要独立的副本要显式 `Array(slice)`。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  list-array:
+    code: |
+      var a = [1, 2, 3]              // @note Array<Int>，唯一的动态数组
+      a.append(4)                    // @note 尾部追加，摊还 O(1)
+      a.insert(0, at: 0)
+      a.remove(at: 0)
+      a.removeLast()
+      a.count                        // @note 元素个数
+      a.capacity                     // @note 已分配容量（与 count 不是一回事）
+      a.reserveCapacity(100)         // @note 预分配，避免反复搬家
+      a.first                        // @note Int?（空数组给 nil）
+      a[0]                           // @note! 越界直接崩
+
+      // @note! 没有「链表」这个类型 —— 标准库里只有 Array。
+      // @note 需要频繁中间插入要么用别的结构（自己写或第三方），
+      // @note 要么接受 O(n) 的代价
+
+      // @note 定长的东西用元组（但不能遍历、不能按下标循环取）
+      let t = (1, "a", 2.5)          // @note 可异构
+
+      // @note 变换都返回**新数组**（不改原数组）
+      a.map { $0 * 2 }
+      a.filter { $0 > 1 }
+      a.sorted()
+      a.reversed()                   // @note 返回视图（ReversedCollection）
+    vs:
+      javascript: |
+        两边的数组 API 很接近（`push` ↔ `append`、`map` / `filter` 同名），
+        这一层可以对应。差别在两处：① **越界**：JavaScript 越界读给
+        `undefined`、越界写会静默扩长；Swift 越界直接崩。
+        ② **值语义**：JavaScript 的数组赋值是共享，
+        Swift 的赋值是拷贝语义。
+        另一处是 Swift **没有链表**（标准库只有 Array 一种序列容器），
+        JavaScript 也没有，但那边可以随手用对象模拟；
+        Swift 里要别的结构得自己实现或引库。
+        还有一处是 `reversed()` 返回的是**视图**（不拷贝），
+        JavaScript 的 `reverse()` 是**原地改** —— 语义完全不同。
+      python: |
+        两边的默认相反：Python 的列表赋值是绑到同一个列表（要副本得切片），
+        Swift 的数组赋值是拷贝语义。另一处是越界：
+        Python 抛 IndexError（能接住），Swift 直接崩（接不住）。
+        还有一处是 `reversed()`：两边都有，而且都返回惰性的东西
+        （Python 返回迭代器，Swift 返回视图），这一层反而一致；
+        但 Python 的 `sort()` 是原地改、`sorted()` 是新的，
+        Swift 只有 `sorted()`（返回新的）—— 想原地改得 `a.sort()`（mutating）。
+      java: |
+        两边都有动态数组，但**只有一种**：Java 有 `ArrayList` /
+        `LinkedList` / `ArrayDeque` 可选，Swift 的标准库只有 `Array` ——
+        需要链表得自己写或者引库。另一处是语义：
+        Java 的列表赋值是共享、`subList` 是视图；Swift 的数组是值类型、
+        赋值是拷贝语义、但**切片也是视图** —— 两件事的默认各取了一半。
+        还有一处是越界：Java 抛异常、Swift 崩。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  map-dict:
+    code: |
+      var d = ["a": 1]               // @note Dictionary<String, Int>
+      d["b"] = 2                     // @note 不存在就插入
+      d["a"]                         // @note Int?（不存在给 nil，**不插入**）
+      d["a"] = nil                   // @note 赋 nil 就是删除
+      d.removeValue(forKey: "b")     // @note 删并返回旧值
+      d.keys  d.values               // @note 都是集合类型，可以遍历
+      d.count  d.isEmpty
+
+      // @note 带默认值的读法（**不会插入**）
+      d["x", default: 0]
+
+      // @note 遍历拿到的是 (key, value) 元组
+      for (k, v) in d { }
+
+      // @note! **遍历顺序不保证** —— 与插入序无关，也不承诺跨运行一致。
+      // @note 要稳定顺序得自己排：d.keys.sorted()
+
+      // @note 键必须遵守 Hashable（String / Int 等原生类型都遵守，
+      // @note 自定义 struct 能自动合成）
+
+      // @note Swift **没有**「保持插入顺序的字典」这个类型
+    vs:
+      javascript: |
+        **两边顺序保证相反**：JavaScript 的 `Map` 保证按插入序
+        （普通对象也有一套明确规则）；Swift 的 `Dictionary` 不保证顺序 ——
+        与插入序无关。所以那边「按顺序遍历」是能指望的，
+        这边要显式排序，或者干脆用数组存一份键。
+        另一处是「读不存在的键」：JavaScript 给 `undefined`（无副作用），
+        Swift 给 `nil`（也无副作用）—— 一致；但 Swift 还有
+        `d[k, default: x]` 和「赋 nil 即删除」两个写法，JavaScript 没有。
+        还有一处是键的约束：JavaScript 的 Map 键可以是任何值
+        （按同一性比较），Swift 的键必须可哈希。
+      python: |
+        两边的字典**顺序保证相反**：Python 的 `dict` 保证插入序
+        （3.7 起是语言保证），Swift 的 `Dictionary` 不保证 ——
+        Python 里那个「顺手按顺序遍历」的习惯在 Swift 里要显式排序。
+        另一处是读不存在的键：Python 抛 KeyError / `get` 给默认，
+        Swift 返回 nil / `d[k, default: x]` —— 两边都提供了安全读法。
+        还有一处是「赋 nil 即删除」这个 Swift 特有的语义，
+        Python 用 `del` 或 `pop`，读代码时不会误会。
+      java: |
+        两边**几乎一一对应**：`HashMap` ↔ `Dictionary`（都无序）、
+        `LinkedHashMap` ↔ **Swift 没有**、`TreeMap` ↔ Swift 要自己排序。
+        差别在「读不存在的键」的写法：Java 的 `get` 返回 `null`、
+        `getOrDefault` 给默认；Swift 返回 `nil`、`d[k, default: x]` 给默认 ——
+        这一层很像。另一处是 Swift 的「赋 nil 即删除」
+        （Java 要用 `remove`），读代码时容易看错。
+        还有一处是键的约束：Java 靠 `hashCode` / `equals` 约定、
+        Swift 靠 `Hashable` 协议（能自动合成）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  set:
+    code: |
+      var s: Set<Int> = [1, 2, 3]     // @note 字面量与数组一样，但类型必须写出来
+      s.insert(4)
+      s.remove(1)
+      s.contains(2)
+      s.count
+      // @note 遍历顺序**不保证**
+
+      // @note! 集合运算是**标准库自带的一等操作**（不像某些语言要拼算法）
+      let a: Set = [1, 2, 3], b: Set = [2, 3, 4]
+      a.union(b)                     // @note 并集
+      a.intersection(b)               // @note 交集
+      a.subtracting(b)                // @note 差集
+      a.symmetricDifference(b)        // @note 对称差
+      a.isSubset(of: b)
+      a.isDisjoint(with: b)
+
+      // @note 这些运算都返回**新的集合**（原集合不动）
+      // @note 也有 `formUnion` 这类原地版本（mutating）
+
+      // @note 元素必须遵守 Hashable；插入之后元素不能改
+      // @note Set 与 Array 之间转换：Set(array) / Array(set)
+    vs:
+      javascript: |
+        两边都有集合运算了（JavaScript 从 ES2025 起内建了
+        并集/交集/差集），这一层现在很接近。差别在两处：
+        ① 名字不同（`union` / `intersection` / `difference` ↔
+        `union` / `intersection` / `subtracting`），各自符合本语言的用词习惯；
+        ② **顺序**：JavaScript 的 `Set` 保持插入序，
+        Swift 的 `Set` **不保证**遍历顺序 —— 想要确定的顺序得排序。
+        另一处是 Swift 的集合字面量与数组**长得一样**
+        （`[1,2,3]`），必须靠类型标注区分，读代码时要看上下文。
+      python: |
+        两边都有集合与集合运算，而且**都用运算符表达**
+        （Python 的 `|` / `&` / `-` / `^`）—— 不过 Swift 用的是
+        方法名（`union` / `intersection` / `subtracting` /
+        `symmetricDifference`），写起来更长但意图更明确。
+        另一处是顺序：Python 的 `set` 不保证顺序（与 Swift 一致），
+        但 Python 有 `frozenset` 应对「要当字典键」的场景，
+        Swift 里 `Set` 本身就能当值传递（它是值类型）。
+        共同点是两边都要求元素可哈希。
+      java: |
+        两边**几乎完全对应**：`HashSet` ↔ `Set`，都无序、
+        都要求可哈希 —— 这一层很像。差别在集合运算：
+        Java **没有内建的并集/交集方法**（要自己循环或
+        `addAll` / `retainAll` 改自身），Swift 的集合运算是一等操作
+        而且返回新集合 —— 这是 Swift 明显更方便的一处。
+        另一处是 Java 有 `TreeSet`（有序），Swift 没有内建的有序集合，
+        要顺序得自己排序或用数组。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  tuple-record:
+    code: |
+      // @note 元组：把一组固定的东西打包，**类型里写明每个位置**
+      let pair = (1, "a")                    // @note (Int, String)
+      let named = (x: 1, y: 2)               // @note 元素还能有名字
+      named.x                                // @note 按名字取
+      pair.0                                 // @note 按位置取
+
+      // @note 解构
+      let (a, b) = pair
+      let (_, second) = pair                 // @note 不要的用 _
+
+      // @note! 元组的能力边界（很重要）：
+      // @note   能比较（元素都可比时）、能当返回值、能解构
+      // @note   **不能遵守协议**（所以不能进 Set、不能当 Dictionary 键）
+      // @note   **不能有方法**、不能扩展、不能遍历
+      // @note 所以「需要这些能力」时就得定义 struct
+
+      // @note 二元组还有标签化的类型别名可用
+      typealias Point = (x: Int, y: Int)
+
+      // @note 与 struct 的分界：临时打包用元组，要长期用、要方法、要进集合 → struct
+    vs:
+      javascript: |
+        两边都能临时打包一组值，但**能力差别很大**：
+        JavaScript 的数组能放任何东西、能遍历、能当 Map 键；
+        Swift 的元组**不能遵守协议** —— 所以不能进 `Set`、
+        不能当 `Dictionary` 的键，也没有方法。
+        也就是说元组在 Swift 里是**很轻的临时结构**，
+        一旦需要「当键、比较、扩展」就得升级成 struct。
+        另一处是元素可以带名字（`(x: 1, y: 2)`），
+        而且名字是类型的一部分 —— JavaScript 的对象字面量也有名字，
+        但那是运行期的属性，不是类型的一部分。
+      python: |
+        两边都有元组，而且**能力边界很像**：Python 的元组不可变、
+        可以解构、能当字典键（如果元素可哈希）；Swift 的元组
+        可以解构、但**不能遵守协议**，所以进不了集合 ——
+        这一点 Swift 比 Python 更受限。
+        另一处是命名：Python 的元组没有字段名（要 `namedtuple`），
+        Swift 的元组可以写成 `(x: Int, y: Int)`，名字是类型的一部分。
+        还有一处是 Swift 的元组可以比较（元素都可比时），
+        Python 的元组也能按字典序比较 —— 这一层一致。
+      java: |
+        **这一格 Java 的答案最不一样**：Java 没有元组，
+        要表达「一辆车和它的速度」必须定义一个 record 或类；
+        所以那边「顺手返回两个值」是有成本的，
+        这也让 Java 里「定义一个只有两个字段的小类型」更常见。
+        Swift 有元组可以临时打包（而且元素能带名字），
+        但标准库自己也建议「要方法、要进集合就用 struct」——
+        所以两边最终落点相近：**有名字的类型才是正解**，
+        只是 Swift 多了一条「临时打包」的快捷路。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  collection-mutability:
+    code: |
+      // @note! 容器是**值类型**，所以「可变性」由 `let` / `var` 决定
+      var a = [1, 2, 3]
+      a.append(4)                    // @note var：能改
+
+      let b = [1, 2, 3]
+      // b.append(4)                 // @note! 编译错误 —— let 连内容一起冻
+
+      // @note 这层规则对字典、集合、字符串、结构体都成立
+      let d = ["a": 1]
+      // d["b"] = 2                  // @note! 编译错误
+
+      // @note! 但是：如果元素是**类**的实例，让类实例的字段变仍然可以
+      class Box { var v = 0 }
+      let boxes = [Box()]
+      boxes[0].v = 1                  // @note! 合法 —— let 冻的是数组结构，不是对象内部
+
+      // @note 想在函数里改调用方的容器：参数写 inout，调用时加 &
+      func addOne(_ xs: inout [Int]) { xs.append(1) }
+      var c = [1]; addOne(&c)
+
+      // @note 只读接口用 `some Sequence` / 直接传数组（值语义保证改不到外面）
+    vs:
+      javascript: |
+        两边都用 `const` / `let` 表达「不能再绑定」，但**冻结的范围完全不同**：
+        JavaScript 的 `const` 只冻绑定，数组与对象的内容照改；
+        Swift 的 `let` 对值类型是**连内容一起冻**的 ——
+        `let` 的数组连 `append` 都编译不过。
+        所以那边「名义上常量、实际能改」的口子在这边被堵上了；
+        要复现那个行为得用类（引用类型），`let` 只冻住引用。
+        另一处是 Swift 有 `inout` 参数显式表达「这个函数会改我的容器」，
+        JavaScript 里改参数内容是隐式的。
+      python: |
+        两边的可变性机制不同：Python 用**类型**区分（元组不可变、
+        列表可变），名字本身随便重新绑定；Swift 用 `let` / `var` 区分，
+        而因为容器是值类型，冻结名字就等于冻结内容 ——
+        所以 Swift 里「只读的数组」是一个**名字的属性**，
+        Python 里是**对象的属性**。
+        另一处是 Python 里给函数传列表改内容外面看得见，
+        Swift 里传数组是拷贝（想改要 `inout`）—— 这一条改变了
+        很多代码的形状。
+      java: |
+        两边的默认**相反**：Java 的集合赋值是共享同一个对象，
+        要只读视图得 `Collections.unmodifiableList`（运行期检查）；
+        Swift 的容器是值类型，赋值就是拷贝语义，
+        只读靠 `let`（**编译期**检查、零开销）。
+        所以「这个方法只读不写」在 Swift 里写在签名与变量声明上、
+        编译器强制；Java 里要靠包一层或者文档。
+        另一处是 Java 的 `final List` 只冻引用、内容照改，
+        Swift 的 `let` 数组是内容也改不了 —— 同名写法后果不同。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  slicing:
+    code: |
+      let a = [1, 2, 3, 4, 5]
+
+      // @note! 切片是**视图**（ArraySlice），共享底层存储，不拷贝
+      let s = a[1..<4]               // @note 元素是 2,3,4
+
+      // @note! 而且它的**下标保留原数组的索引** —— 这一条最容易踩
+      s[1]                           // @note 2（原数组的第二个元素，不是切片的第一个）
+      s.startIndex                   // @note 1 —— 不是 0！
+      s.first                        // @note 2（用 first 才与下标无关）
+
+      // @note 想要一个**独立的数组**（下标从 0 开始）就显式转
+      let copy = Array(s)
+      copy[0]                        // @note 2
+
+      // @note 字符串同理：`Substring` 也是视图，`String(sub)` 才是独立的
+
+      // @note 那「改切片会不会改到原数组」？——不会直接改到，
+      // @note 因为写时复制会在你第一次写的时候分开（值语义仍然成立）
+      var v = [1, 2, 3]
+      var vs = v[0..<2]
+      vs[0] = 99
+      // v 仍然是 [1, 2, 3] —— 写时复制把两份分开了
+      // @note 所以「视图」在这里是**性能优化**（不必要时不拷贝），
+      // @note 不是「共享可变状态」
+
+      // @note 没有负数下标、没有步长切片
+    vs:
+      javascript: |
+        **两边的切片语义看起来像、细节完全不同**：JavaScript 的
+        `slice` 返回**新数组**（拷贝），`subarray`（类型化数组）返回视图；
+        Swift 的区间下标返回 `ArraySlice` —— 它是**视图**，
+        但因为有写时复制，改它不会改到原数组（值语义仍然成立）。
+        也就是说 Swift 这边「视图」是省一次拷贝的优化，
+        不是「共享可变状态」。
+        另一处是**下标基准**：Swift 的切片下标保留原数组索引
+        （`s.startIndex` 是 1），JavaScript 的切片下标一律从 0 开始 ——
+        这一条是从那边过来最容易写错的地方。
+      python: |
+        两边的切片语义**完全相反**：Python 的 `a[1:4]` 一定返回**拷贝**，
+        而且极短、支持负数与步长；Swift 没有切片语法，
+        要用区间下标，返回的 `ArraySlice` 是**视图**（不拷贝）。
+        所以 Python 里「切片很便宜也安全」这个直觉在这边
+        要拆成两件事：便宜的那条路是视图，而「拿到独立副本」
+        要显式 `Array(...)`。
+        另一处是下标基准：Python 的切片下标从 0 开始，
+        Swift 的保留原索引 —— 这一条极易写错。
+      java: |
+        两边都必须显式取片段，**都没有切片语法**。
+        差别在返回的是什么：Java 的 `subList` 是**视图**
+        （改它会改原列表 —— 这一点与 Swift 的 `ArraySlice` 的
+        「共享底层存储」一致），但 Java 那边改了**真的会改到原列表**；
+        Swift 因为写时复制，改切片不会影响原数组。
+        另一处是 Java 的 `subList` 下标从 0 开始（相对），
+        Swift 的 `ArraySlice` 保留原索引 —— 这一点上 Java 反而更不容易出错。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

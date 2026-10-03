@@ -1,0 +1,316 @@
+# cpp —— model / collections
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: collections` 的那批：
+# list-array / map-dict / set / tuple-record / collection-mutability / slicing。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是**「容器是值，而且切片是拷贝还是视图要你选」** ——
+# 实跑确认：`std::vector` 赋值是深拷贝（改副本不影响原件）；
+# 而切一段出来既可以用**拷贝**的构造函数（改它不影响原容器）
+# 也可以用 `std::span` / `string_view` 拿到**视图**（改它直接改原容器）——
+# 这个选择在别的语言里往往是语言替你定的，在 C++ 里写在代码上。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  list-array:
+    code: |
+      // @note 又是一排可选项，按「内存布局 + 增删代价」挑
+      std::vector<int> v{1,2,3};   // @note 连续存储，尾部增删摊还 O(1)，中间 O(n)
+      std::deque<int>  d{1,2,3};   // @note 分段连续，两头增删都快
+      std::list<int>   l{1,2,3};   // @note 双向链表，任意位置插入 O(1)，但遍历慢
+      std::array<int,3> a{1,2,3};  // @note 定长，栈上，零开销
+
+      // @note! 默认选 std::vector —— 连续内存对缓存友好，实际几乎总是最快
+      // @note! std::list 常被高估：指针追逐的代价往往超过插入的优势
+
+      v.push_back(4);
+      v.emplace_back(5);            // @note 就地构造，省一次拷贝/移动
+      v.insert(v.begin(), 0);
+      v.erase(v.begin());
+      v.size();  v.empty();  v.clear();
+
+      // @note 没有「按值删一个」的成员函数 —— 要配 std::erase（C++20）
+      std::erase(v, 3);
+    vs:
+      javascript: |
+        两边都是「一个数组」，但**这里是一个家族、那边是一个类型**：
+        JavaScript 只有 `Array`（外加类型化数组），底层实现由引擎决定；
+        C++ 要你按内存布局选（连续 / 分段 / 链表），
+        选错的代价直接体现在性能上。另一处是常用操作的位置不同：
+        JavaScript 的 `splice` / `indexOf` / `includes` 都是方法，
+        C++ 的 `std::vector` 只有增删改查那几个，
+        查找与按值删除要靠算法库（`std::find` / `std::erase`）。
+      python: |
+        两边的默认选择都是「动态数组」（`list` ↔ `std::vector`），
+        语义很接近。差别在**元素存放方式**：Python 的 `list` 存指针，
+        所以放进去的是引用、取出来的是同一个对象；
+        C++ 的 `vector` 把元素**内联**在连续内存里，
+        放进去的是拷贝（或移动）—— 所以 Python 里「改列表里的对象
+        外面也变」在这边不成立，要共享得显式放指针。
+        另一处是 Python 的下标切片、负数下标、`in` 在 C++ 里都没有。
+      java: |
+        两边都是「一个家族」：Java 有 `ArrayList` / `LinkedList` / 数组，
+        C++ 有 `vector` / `list` / `array` —— 这一层几乎一一对应。
+        差别在**增删的接口形状**：Java 的 `ArrayList.add(index, e)` 一个方法，
+        C++ 的 `insert` 要传**迭代器**（`v.insert(v.begin(), 0)`），
+        多一层「位置」的表达方式。另一处是 Java 的集合存引用、
+        C++ 的存值，所以 C++ 放进去的是拷贝，元素的相等性也按值算。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  map-dict:
+    code: |
+      std::map<std::string,int> sorted;        // @note 红黑树：按 key 有序
+      std::unordered_map<std::string,int> fast; // @note 哈希表：平均 O(1)，**顺序不保证**
+
+      sorted["a"] = 1;              // @note 不存在就插入
+      sorted.at("a");               // @note 不存在抛 out_of_range
+      sorted.contains("a");         // @note C++20 起
+      sorted.find("k");             // @note 返回迭代器，找不到就是 end()
+      // @note! `m[key]` 有副作用：读一个不存在的键会**插进去一个默认值**
+      // @note 只想查就用 find / at / contains
+
+      for (auto& [k, v] : sorted) { }           // @note 结构化绑定
+
+      // @note 想让键是自己定义的类？得给它一个比较器（map）或哈希（unordered_map）
+      // @note 没有「保持插入顺序」的映射 —— 要那个语义得自己再记一份键序列
+    vs:
+      javascript: |
+        **遍历顺序是这一格的核心**：JavaScript 的 `Map` 有规定的插入序，
+        对象也有一套确定的顺序规则；C++ 的 `std::map` 按 key 排序（不是插入序），
+        `std::unordered_map` **完全不保证顺序**（实测换个插入次序就变），
+        而且没有「保持插入序」的那个类型。所以那边「按顺序遍历」
+        是默认行为，这边要么选排序、要么接受无序、要么自己维护键表。
+        另一处是 `m[key]` 在 C++ 里会顺手插入默认值，JavaScript 只会给你 `undefined`。
+      python: |
+        两边都有「有序」和「哈希」两种映射，但**哪一个是默认正好相反**：
+        Python 的 `dict` 是哈希表**且保证插入顺序**（3.7 起是语言保证），
+        C++ 的哈希表（`unordered_map`）不保证顺序、
+        有序的那个（`map`）是按 key 排序而不是插入序。
+        也就是说 Python 里那个「既有哈希速度又保持插入序」的字典，
+        在 C++ 里没有对应物 —— 这是从 Python 过来最实际的一处落差。
+        另一处同样是 `m[key]` 的插入副作用（Python 读不存在的键是抛 KeyError）。
+      java: |
+        两边**几乎是同一套设计**：`HashMap` ↔ `unordered_map`（无序）、
+        `TreeMap` ↔ `std::map`（按键排序）、`HashSet` ↔ `unordered_set`、
+        `TreeSet` ↔ `std::set`，连「哪个有序哪个无序」都对得上。
+        差别有两处：Java 多一个 `LinkedHashMap`（保持插入序），C++ 没有；
+        Java 的 `get` 返回 `null` 且无副作用，C++ 的 `operator[]`
+        会插入默认值 —— 这个副作用是从 Java 过来最容易踩的一处。
+        另一处是 C++ 的键要能默认构造（`[]` 的要求），Java 没有这个约束。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  set:
+    code: |
+      std::set<int> sorted{3,1,2};        // @note 有序（红黑树）
+      std::unordered_set<int> fast{3,1,2}; // @note 哈希，顺序不保证
+
+      sorted.insert(4);
+      sorted.contains(3);                  // @note C++20 起
+      sorted.find(3) != sorted.end();      // @note 老写法
+      sorted.erase(3);
+
+      // @note! 标准库**没有**并集 / 交集 / 差集这些成员函数 ——
+      // @note! 它们在 <algorithm> 里，而且写出来是「输出到另一个容器」
+      std::set<int> a{1,2,3}, b{2,3,4}, out;
+      std::set_union(a.begin(), a.end(), b.begin(), b.end(),
+                     std::inserter(out, out.begin()));
+      // @note 也有 set_intersection / set_difference / set_symmetric_difference
+
+      // @note 元素是**按值存**的，而且插入之后不能改（改了会破坏排序/哈希）
+      // @note 「可变的集合元素」这件事在 C++ 里做不到，得先删再插
+    vs:
+      javascript: |
+        **这一格差得比较远**：JavaScript 的 `Set` 从 ES2025 起
+        内建了并集、交集、差集（`union` / `intersection` / `difference`），
+        而且直接返回新集合；C++ 的标准库**没有这些成员** ——
+        要配 `<algorithm>` 里的算法加一个插入迭代器，
+        写出来是一长串，而且得先准备输出容器。
+        另一处是插入顺序：JavaScript 的 `Set` 保持插入序，
+        C++ 的 `std::set` 是排序的、`unordered_set` 无序 —— 都不是插入序。
+      python: |
+        两边都提供有序与哈希两种集合，这一层可以对应
+        （`set` 对应 `unordered_set`，但没有内建的「有序集合」，
+        排序要自己 `sorted()`）。差别在**集合运算**：Python 的
+        `|` / `&` / `-` / `^` 是运算符，一行一个；C++ 要调
+        `set_union` 这类算法并传插入迭代器，明显更重。
+        另一处是 Python 的 `set` 元素必须可哈希且不可变（内建保证），
+        C++ 的 `set` 也要求不可变（改了会破坏结构），但**语言不拦**，
+        改了就悄悄坏掉。
+      java: |
+        两边**几乎完全对应**：`HashSet` ↔ `unordered_set`、
+        `TreeSet` ↔ `std::set`，连「有没有序」都一样。
+        差别在集合运算：Java 没有内建的并集/交集方法（要自己写循环
+        或者用 `retainAll` / `addAll` 改自身），C++ 有算法但要配
+        插入迭代器，两边都不算顺手。另一处是 C++ 的集合元素一旦插入
+        就**不能修改**（`std::set` 的迭代器给的是 const 引用），
+        Java 的 `HashSet` 也靠「别改」的约定，谁都不拦。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  tuple-record:
+    code: |
+      // @note C++ 里「一组固定的东西」有三种常见形态，用途不同
+
+      std::pair<int, std::string> p{1, "a"};      // @note 就两个
+      std::tuple<int, std::string, double> t{1,"a",2.5};   // @note 任意多个
+
+      std::get<0>(t);                              // @note 按下标取（编译期常量下标）
+      std::get<std::string>(t);                    // @note 也能按类型取（类型唯一时）
+      std::tuple_size_v<decltype(t)>;              // @note 3
+
+      auto [i, s, d] = t;                          // @note 结构化绑定拆开（C++17）
+
+      // @note! 但**带名字的结构体几乎总是更好的选择**：
+      struct Point { double x, y; };               // @note 有名字，读代码时知道谁是谁
+      // @note tuple 的元素只能靠位置记，标准库也明说「给元素起名的是 struct」
+
+      // @note 返回多个值的惯用法就是把它们打包成上述任一形态
+    vs:
+      javascript: |
+        两边都能「打包一组值」，但**C++ 的打包方式是有类型的**：
+        JavaScript 的数组或对象字面量可以混装任何东西、随时加字段；
+        C++ 的 `std::tuple` 把每个位置的类型写进类型里，
+        `std::get<0>` 的下标必须是编译期常量（写错下标是编译错误）。
+        另一处是**改名的能力**：JavaScript 解构对象字面量时
+        `const {x, y} = point` 是按字段名取的（自带文档性）；
+        C++ 的结构化绑定 `auto [a, b] = ...` 是**按位置**的，
+        名字自己起，所以顺序记错编译器也帮不了你 ——
+        这也是为什么标准库自己建议「有名字的场合用 struct」。
+      python: |
+        两边都有元组而且都能解包，形态最接近（`a, b = t` ↔ `auto [a, b] = t`）。
+        差别在**类型**：Python 的元组可以混装、可以变长、元素类型不写；
+        C++ 的 `std::tuple` 每个位置的类型都是类型的一部分，
+        按下标取要求下标是编译期常量。另一处是 Python 有具名元组
+        （`namedtuple` / `NamedTuple`）这个「有名字的元组」，
+        与 C++ 的 `struct` 加结构化绑定起的作用一样 ——
+        两边最后都会得出「有名字比较好」这个结论。
+      java: |
+        **这一格 Java 的答案最不一样**：Java 没有内建的元组，
+        要表达「一辆车和它的速度」必须定义一个 record 或类；
+        所以那边「顺手返回两个值」是有成本的，这也让 Java 代码里
+        「定义一个只有两个字段的小类型」更常见。
+        C++ 有 `std::pair` / `std::tuple` 可以临时打包，
+        但标准库自己也建议有名字的场合用 struct ——
+        所以两边最终落点相近：**有名字的类型才是正解**，
+        只是 C++ 多了一条「临时打包」的快捷路。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  collection-mutability:
+    code: |
+      std::vector<int> a{1,2,3};
+      std::vector<int> b = a;        // @note! **深拷贝** —— b 是独立的一份
+      b.push_back(4);
+      // a 还是 {1,2,3}，b 是 {1,2,3,4}
+
+      const std::vector<int> c{1,2,3};
+      c[0];                          // @note 能读
+      // c.push_back(4);             // @note! 编译错误：const 容器的写操作全禁
+
+      const auto& ref = a;           // @note 只读引用：不拷贝也不许改
+      auto copy = a;                 // @note 拷贝一份，之后随便改
+
+      // @note 想共享同一份又都能改：传引用 / 指针 / 用智能指针
+      void modify(std::vector<int>& v);      // @note 引用：看得见改动
+    vs:
+      javascript: |
+        两边的默认**完全相反**：JavaScript 的赋值是共享同一个数组
+        （`const b = a` 之后改 `b` 就是改 `a`），要副本得显式 `[...a]`；
+        C++ 的赋值是**深拷贝**，两份各是各的，
+        要共享得写引用或指针。所以那边「不小心共享了」是常见 bug，
+        这边「不小心拷贝了」是常见性能问题 —— 方向正好反。
+        另一处是 C++ 的 `const` 真的能冻住容器（写操作编译不过），
+        JavaScript 的 `const` 只是冻结绑定。
+      python: |
+        两边的默认同样是相反的：Python 的赋值是**绑到同一个对象**
+        （`b = a` 之后改 `b` 就是改 `a`，要副本得 `a[:]` 或 `copy()`）；
+        C++ 的赋值是深拷贝，两份独立。另一处是「只读」的实现方式：
+        Python 靠不可变类型（元组、冻结集合）做到真不可变，
+        C++ 靠 `const` 限定符 —— 同一个容器可以有一个可改的名字
+        和一个只读的名字同时存在，这在 Python 里做不到。
+      java: |
+        两边的默认**是一致的**（赋值共享同一个对象，要副本得显式拷贝），
+        这一层可以对上。差别在能不能表达「只读视图」：
+        Java 用 `Collections.unmodifiableList` 包一层（运行期检查，包一层有开销），
+        C++ 直接用 `const` 引用（编译期检查、零开销）——
+        所以 C++ 里「这个方法只读不写」是写在签名里的、编译器强制的，
+        Java 里要靠文档或者包一层。
+        另一处是 C++ 的值语义容器能整个拷贝，Java 的集合没有拷贝构造函数。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  slicing:
+    code: |
+      std::vector<int> v{1,2,3,4,5};
+
+      // @note! C++ 把「切一段」做成了**两种东西，由你选**
+
+      // ① 拷贝：新容器，改它不影响原件（实跑：v[1] 还是 2）
+      std::vector<int> sub(v.begin()+1, v.begin()+4);
+
+      // ② 视图：不拥有数据，改它直接改原件（实跑：v[1] 变成 77）
+      std::span<int> view{v.data()+1, 3};
+      view[0] = 77;                          // @note 原容器跟着变
+
+      // 字符串上同理
+      auto ssub = s.substr(0, 5);            // @note 拷贝
+      std::string_view sview{s.data(), 5};   // @note 视图
+
+      // @note! 视图不检查生命周期 —— 原容器一销毁 / 一扩容，视图就悬垂
+      // @note! 这是 C++ 里最常见的悬垂来源之一，编译器不会提醒
+
+      // @note 没有负数下标、没有步长、没有「省略端点」的写法 ——
+      // @note 切片在 C++ 里是**迭代器区间**，不是语言语法
+    vs:
+      javascript: |
+        **这一格的核心是「拷贝还是视图由语言定，还是由你定」**：
+        JavaScript 的 `slice()` 一定返回拷贝，`subarray()`（类型化数组）
+        一定返回视图 —— 选哪个由**方法名**决定；
+        C++ 两种都给你，但都是用**迭代器区间**表达的，
+        而且用视图时**没有任何生命周期保护**（原容器没了就是悬垂）。
+        另一处是 JavaScript 有负数下标与省略端点（`arr.slice(-2)`），
+        C++ 的区间全靠迭代器算术，写起来更长、也更容易算错边界。
+      python: |
+        两边的切片语义**正好相反**：Python 的 `v[1:4]` 一定返回**拷贝**
+        （而且写法极短、支持负数与步长）；C++ 没有切片语法，
+        「切一段」是用迭代器区间表达的，想拿到视图要显式选 `std::span`。
+        所以 Python 里「切片很便宜」这个直觉在这边要修正 ——
+        便宜的那条路（视图）要用另一套写法，而且代价自负。
+        另一处是 C++ 的区间是**左闭右开**、靠迭代器算，
+        Python 的下标是左闭右开、靠整数算，结果一样但表达方式差很远。
+      java: |
+        两边都必须显式拷贝，**都没有内建的视图切片**，
+        这一点处境相同（Java 的 `subList` 其实是**视图**，
+        改它会改原列表 —— 这一点反而与 C++ 的 `span` 更像，
+        而 C++ 的区间构造函数是拷贝）。差别在写法：
+        Java 用 `list.subList(1, 4)` 传两个整数，
+        C++ 用 `std::vector<int>(v.begin()+1, v.begin()+4)` 传两个迭代器。
+        另一处是 C++ 有 `std::span` / `string_view` 这类
+        **明确命名的不拥有视图**，Java 的 `subList` 是视图这件事
+        藏在文档里，不看文档很容易以为是拷贝。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

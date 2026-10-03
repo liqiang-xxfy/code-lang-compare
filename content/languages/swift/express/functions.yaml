@@ -1,0 +1,314 @@
+# swift —— express / functions
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: functions` 的那批：
+# function-declaration / parameters / variadic / return-values / closures。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组三处特色 ——
+# ① **参数标签**：`func move(to p: Int)` 里 `to` 是调用时写的标签、
+#    `p` 是函数体里用的名字，两个维度；前缀 `_` 表示省略标签。
+# ② **参数默认是常量、按值传**；想改调用方的值必须写 `inout` 并传 `&`。
+# ③ **函数与闭包是引用类型**（值类型是 struct / enum / 元组）——
+#    这一条与直觉相反，也是本组最该记住的。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  function-declaration:
+    code: |
+      // @note 签名的读法是「参数标签 + 参数名: 类型」再「-> 返回类型」
+      func add(_ a: Int, _ b: Int) -> Int { a + b }      // @note _ 表示调用时不写标签
+      func add(a: Int, b: Int) -> Int { a + b }          // @note! 这是另一个函数（重载）
+
+      add(1, 2)
+      add(a: 1, b: 2)
+
+      // @note 返回类型可以省（推断），但只在单表达式函数体时省
+      func double(_ x: Int) -> Int { x * 2 }
+
+      // @note 嵌套函数
+      func outer() {
+        func inner() { }
+        inner()
+      }
+
+      // @note 函数类型是一等公民：能当参数、当返回值、存进变量
+      let f: (Int, Int) -> Int = add
+      func apply(_ fn: (Int) -> Int, to x: Int) -> Int { fn(x) }
+
+      // @note 泛型函数
+      func firstOf<T>(_ items: [T]) -> T? { items.first }
+
+      // @note 方法、静态方法、`mutating` 方法（值类型里要改自己得标它）
+      struct Counter {
+        var n = 0
+        mutating func bump() { n += 1 }        // @note 值类型改自己必须写 mutating
+      }
+    vs:
+      javascript: |
+        最显眼的差别是**参数标签**：JavaScript 只有位置参数，
+        想表达「这个参数是什么」只能靠命名或者文档；
+        Swift 的参数有标签与名字两层（`func move(to p: Int)` 调用写
+        `move(to: 3)`），读调用点就像读句子 —— 但这也意味着
+        **改参数标签会破坏所有调用点**（比改参数名严重得多）。
+        另一处是函数类型：两边都能把函数当值，但 Swift 要写出
+        `(Int) -> Int` 这样的类型；JavaScript 里函数就是函数，不写类型。
+        还有一处是 Swift 的 `mutating` —— 值类型的方法想改自己要显式标，
+        JavaScript 里没有值类型，也就没有这个概念。
+      python: |
+        两边的调用形态差别最大的一处就是参数：Python 有位置参数、
+        关键字参数、默认值、`*args` / `**kwargs`，非常灵活；
+        Swift 的参数是「标签 + 名字」，调用时默认**必须写标签**
+        （除非定义处写了 `_`）—— 也就是说 Python 里「关键字参数是可选的」，
+        Swift 里「标签是默认要写的」。
+        另一处是 `mutating`：Swift 的值类型方法想改自己要标记，
+        Python 的对象全都是引用，改 `self` 的属性随时可以。
+        共同点是两边都有默认参数与可变参数。
+      java: |
+        两边都能定义方法、重载、把函数当参数传，这一层对应得上。
+        差别在两处：① **参数标签**是 Java 完全没有的维度 ——
+        Java 调用只知道位置，Swift 调用点带着信息
+        （`insert(5, at: 0)` 一眼看出第二个是位置）；
+        ② Java 没有独立函数，一切都在类里；
+        Swift 有顶层函数、有嵌套函数、也有泛型函数，
+        而且函数类型是真正的类型（`(Int) -> Int`），
+        Java 要表达它得挑一个函数式接口。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  parameters:
+    code: |
+      func greet(_ name: String, times: Int = 1) -> String {   // @note 默认值
+        String(repeating: "你好 \(name)\n", count: times)
+      }
+      greet("Ada")                  // @note 有默认值的可以省
+      greet("Ada", times: 3)
+
+      // @note! 参数**默认是按值传**，而且是常量（函数体里改不了）
+      func tryChange(_ x: Int) { /* x = 99 */ }    // @note! 编译错误：x 是常量
+
+      // @note 想改调用方的值：写 inout，调用时加 &
+      func reallyChange(_ x: inout Int) { x = 99 }
+      var n = 1
+      reallyChange(&n)              // @note n 变成 99
+
+      // @note 值类型传进去也是拷贝（改不到外面），引用类型传的是引用
+      // @note 大结构体可以标 `borrowing` / `consuming` 控制所有权（Swift 5.9+）
+
+      // @note 参数还能是闭包（闭包默认不逃逸，要存起来得标 @escaping）
+      func run(_ body: () -> Void) { body() }          // @note 非逃逸
+      func store(_ body: @escaping () -> Void) { }     // @note 逃逸：可能活过这次调用
+
+      // @note 变参见下一格
+    vs:
+      javascript: |
+        两边都是「按值传」，但**「值」是什么**不同：JavaScript 里
+        「值」是「对对象的引用」，所以传对象进去改属性外面看得见；
+        Swift 里值类型传的是真的拷贝，改不到外面 ——
+        要改必须显式写 `inout` 并在调用时加 `&`（一眼能看出来）。
+        另一处是 Swift 的参数在函数体里**是常量**（不能重新赋值），
+        JavaScript 的参数随便改。还有一处是闭包逃逸：
+        Swift 默认**非逃逸**（编译器能优化掉堆分配），
+        要存起来必须标 `@escaping`；JavaScript 里没有这个概念。
+      python: |
+        两边都有默认参数，但**传参的语义方向不同**：
+        Python 的「传对象引用」让可变对象改得动、不可变对象改不动；
+        Swift 分得更清 —— 值类型一律拷贝、要改就写 `inout` +
+        调用时 `&`。也就是说 Swift 把「这个参数会被改」变成
+        写在签名与调用两处的事，读代码时看得见。
+        另一处是 Python 的可变默认值陷阱（`def f(x=[])`）在 Swift 里
+        不存在，因为默认值表达式每次调用都求值。
+      java: |
+        两边对**基本类型**完全一致（值传递、改不到外面），
+        这一层很像。差别在「要改调用方的值」怎么写：
+        Java 只能绕（传单元素数组、传可变对象），
+        Swift 有专门的 `inout` 加调用点的 `&` ——
+        写法上更直接，而且**调用点能看出来**（Java 看不出来）。
+        另一处是 Java 的参数可以重新赋值，Swift 的参数是常量；
+        还有一处是 Swift 的 `@escaping` 标注 —— Java 的 lambda
+        天生就是对象、无所谓逃逸，没有对应概念。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  variadic:
+    code: |
+      // @note 写法是在参数类型后面加三个点
+      func sum(_ numbers: Int...) -> Int {
+        numbers.reduce(0, +)         // @note 在函数体里它就是 [Int]
+      }
+      sum(1, 2, 3)                    // @note 调用时想传几个传几个
+      sum()                           // @note 一个不传也合法
+
+      // @note 一个函数**只能有一个**变参，位置不限（不必放最后）
+      func join(sep: String, parts: String...) -> String { parts.joined(separator: sep) }
+      join(sep: "-", parts: "a", "b")
+
+      // @note! Swift **没有「展开」运算符** —— 手上已经有一个数组时，
+      // @note! 不能写 `sum(nums)` 把它摊成实参（那会被当成一个元素，类型对不上）
+      // @note 惯例做法是另写一个接数组的函数，或者直接用集合自己的方法
+      func sumArray(_ numbers: [Int]) -> Int { numbers.reduce(0, +) }
+
+      // @note 变参在调用点读起来很自然，代价是**这个函数不能被当成
+      // @note 「接受数组」的函数用** —— 变参是调用点的便利，不是类型上的能力
+    vs:
+      javascript: |
+        两边的可变参数形态几乎一样（`...` ↔ `...`），这一层最接近。
+        差别在**展开**：JavaScript 可以用展开语法
+        （`sum(...nums)`）把数组拆成实参；Swift **没有展开运算符**，
+        要么另写一个接数组的函数，要么改写调用方式 ——
+        所以「手上有一个数组、想传给变参函数」这件事在 Swift 里
+        要绕一下。（顺带一提：直接传数组进去会被当成一个元素，
+        这在两边都是容易踩的一处。）
+        另一处是 Swift 的变参在函数体里就是普通的数组，
+        这点与 JavaScript 的剩余参数一致。
+      python: |
+        两边的可变参数都对应得上（`*args` ↔ `Int...`），
+        而且函数体里都是一个序列 —— 这一层很像。
+        差别在**展开**：Python 用 `f(*args)` 一行把列表展开成实参，
+        Swift 没有这个语法，要另写函数或改调用。
+        另一处是 Swift 有 `inout` 变参、Python 没有；
+        Python 有 `**kwargs`（关键字变参），Swift 里没有对应物
+        （最接近的是传一个字典，但那是一个普通参数）。
+      java: |
+        两边**高度对应**：`String... parts` ↔ `String... parts`，
+        写法与语义几乎一样（一个函数只能有一个变参、在函数体里是数组）。
+        差别在**展开**：Java 也有「传数组进去」这个行为
+        （`f(new String[]{"a"})` 会把数组当变参展开），
+        Swift **不会** —— 直接传数组进去会被当成单个元素。
+        所以同一段代码在两边行为不同，这是最容易踩的一处。
+        另一处是 Swift 的变参可以有标签，Java 的参数只有位置。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  return-values:
+    code: |
+      func one() -> Int { 1 }
+      func nothing() { }             // @note 没有返回值就省略 ->
+
+      // @note! Swift 的「多返回值」是**元组**，不是特例语法
+      func minMax(_ a: [Int]) -> (min: Int, max: Int) { (a.min()!, a.max()!) }
+      let r = minMax([3, 1, 2])
+      r.min                          // @note 1 —— 元组元素还能有名字
+      let (lo, hi) = minMax([3, 1, 2])     // @note 也能解构
+
+      // @note 想表达「可能没有」用可选返回值
+      func find(_ id: Int) -> String? { nil }
+
+      // @note 想表达「可能失败」用 throws 或 Result
+      func parse(_ s: String) throws -> Int { 0 }
+
+      // @note! 单表达式函数体可以省 return；多语句必须写
+      // @note 返回类型也能推断（但只限单表达式那种）
+      func twice(_ x: Int) -> Int { x * 2 }
+
+      // @note 值类型返回的是拷贝（有写时复制优化，不是无脑深拷贝）
+    vs:
+      javascript: |
+        两边的函数都只返回一个值，但**凑多个**的成本不同：
+        JavaScript 顺手写个对象字面量（`return {min, max}`），
+        调用方解构一下；Swift 用元组（`-> (min: Int, max: Int)`），
+        而且元组元素**有名字**、能解构 —— 写法上两边挺像。
+        差别在类型：Swift 的元组类型要写全（或者靠推断），
+        元素名字也是类型的一部分；JavaScript 里对象字段随便加。
+        另一处是「失败」的表达：Swift 有 `throws` 与 `Result` 两种
+        明确机制，JavaScript 常靠抛异常或返回 null。
+      python: |
+        两边都能「一次返回多个」，而且都是靠元组 —— 这是最接近的一处
+        （`return a, b` ↔ `return (a, b)`）。差别在**元组元素的命名**：
+        Python 的元组没有字段名（要命名得用 `namedtuple`），
+        Swift 的元组可以写成 `(min: Int, max: Int)`，元素自带名字，
+        取的时候 `r.min` 就行。另一处是「失败」的表达：
+        Python 通常抛异常，Swift 有 `throws` 加 `try` 的显式标记，
+        调用点能看出「这里可能抛」。
+      java: |
+        **这一格 Java 的答案不一样**：Java 没有元组，
+        「返回两个值」必须定义一个记录类或数组；
+        所以那边「顺手多返回一个」是有成本的。
+        Swift 有元组，可以临时打包（而且元素带名字），
+        所以两边在「要不要为此定义一个类型」上的取舍不同。
+        另一处是「失败」的表达方式：Java 的 `Optional` 对应
+        Swift 的可选返回值，Java 的受检异常对应 Swift 的 `throws` ——
+        但 Swift 的 `throws` 不强制调用方逐一处理类型，
+        只强制写 `try`。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  closures:
+    code: |
+      // @note 闭包表达式的写法：{ 参数 in 函数体 }
+      let double = { (x: Int) in x * 2 }
+      let add = { (a: Int, b: Int) -> Int in a + b }
+
+      // @note 简写：类型能推、参数能用 $0 $1
+      [1, 2, 3].map { $0 * 2 }
+      [1, 2, 3].reduce(0) { $0 + $1 }
+
+      // @note 尾随闭包：最后一个参数是闭包时可以写在括号外
+      [1, 2, 3].filter { $0 > 1 }
+
+      // @note! 闭包会捕获外部变量，而且捕获的是**引用**
+      var counter = 0
+      let bump = { counter += 1 }        // @note 直接改外面的变量
+      bump()                             // @note counter 变成 1
+
+      // @note 类实例里的闭包要注意引用环：用捕获列表 [weak self]
+      class VC {
+        var onDone: (() -> Void)?
+        func setup() {
+          onDone = { [weak self] in self?.refresh() }   // @note 打破强引用环
+        }
+        func refresh() { }
+      }
+
+      // @note! **函数与闭包是引用类型** —— 同一个闭包赋给两个变量，
+      // @note! 它们指向同一份捕获环境（与 struct 的拷贝语义相反）
+    vs:
+      javascript: |
+        两边的闭包形态很像（都能省类型、都能用简写参数），
+        但有两处实质差别：① **捕获的可见性**：JavaScript 的闭包
+        自动捕获外部变量、活多久由引擎管，不用操心循环引用；
+        Swift 里闭包捕获是**强引用**，类实例里很容易形成引用环
+        （要用 `[weak self]` 手动打破）—— 这是那边不存在的一类 bug。
+        ② **逃逸标注**：Swift 的闭包参数默认不逃逸，要存起来必须标
+        `@escaping`（而且逃逸闭包里引用 `self` 要显式写 `self.`）；
+        JavaScript 里没有这层区分。共同点是捕获的都是引用，
+        改外部变量两边都行。
+      python: |
+        两边的闭包都要「记住定义处的名字」，但**晚绑定**的坑不同：
+        Python 的闭包捕获的是**变量本身**（循环里创建闭包会全部
+        指向最后一个值，这是经典陷阱）；Swift 的闭包捕获也是引用，
+        但循环变量的作用域规则不同，那个具体陷阱不那么常见。
+        另一处是写法：Swift 的 `{ $0 * 2 }` 这种极简写法（参数都不写）
+        在 Python 里没有对应物（lambda 有字数限制、且不能多语句）。
+        还有一处是 Swift 的 `[weak self]` 捕获列表、
+        `@escaping` 标注，Python 里都没有。
+      java: |
+        两边都要求「捕获的东西必须是有效不变的」：Java 的 lambda
+        只能捕获**事实上的最终变量**；Swift 的闭包**可以捕获并修改**
+        外部变量（只要那个变量是 `var`）—— 这是 Swift 更松的一处，
+        也让「闭包与外部共享状态」更直接。
+        另一处是 Swift 有捕获列表（`[weak self]` / `[unowned self]`）
+        用来显式控制捕获方式与打破引用环，Java 没有这个概念
+        （Java 的对象由 GC 管，循环引用不是问题）。
+        共同点是两边的函数都能当值传、都能存进变量。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

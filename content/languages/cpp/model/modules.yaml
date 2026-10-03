@@ -1,0 +1,257 @@
+# cpp —— model / modules
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: modules` 的那批：
+# module-unit / export-import / default-vs-named / namespace-alias /
+# module-resolution。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是 **C++ 的「模块」有三层，而且第一层不是模块** ——
+# ① **翻译单元**（一个源文件加它文本包含进来的一切）才是最小编译单位；
+# ② `#include` 是**文本插入**，不是导入；③ 头文件与源文件的分工是
+# 编译模型的直接后果（每个编译单元各编各的，靠链接拼起来）。
+# 实跑确认：同一编译单元里同名函数定义两次是 `redefinition` 错误；
+# 而 C++20 的模块在这台机器的工具链上仍是实验状态（`import std;` 直接失败）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-modules-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  module-unit:
+    code: |
+      // @note! C++ 的最小单位不是「文件」，是**翻译单元（TU）**：
+      // @note 一个 .cpp 加它 #include 进来的一切，预处理之后拼成的一大坨
+
+      // 所以典型项目里同一个东西出现两次：
+      //   头文件（.h / .hpp）—— 放声明、类定义、模板、inline 函数
+      //   源文件（.cpp / .cc）—— 放函数定义
+      // 头文件被 #include 进每一个用到它的编译单元，等于被编了很多遍
+
+      #include "my_header.h"      // @note 就是把那个文件的文本插到这里
+
+      // @note! C++20 起有真模块（`export module foo;` / `import foo;`），
+      // @note! 但生态里主流仍是头文件 —— 这台机器的工具链上
+      // @note! 连标准库模块都还用不了（见 compile-run 那一格）
+
+      // @note 链接期把各个编译单元拼起来，缺符号就在这一步报「undefined reference」
+    vs:
+      javascript: |
+        **两边「一个模块」的意思完全不同**：JavaScript 的一个文件就是一个模块
+        （语言规定的边界，`import` 加载它），文件与模块是一一对应的；
+        C++ 的最小单位是**翻译单元** —— 一个源文件加上被文本插入进来的所有头文件，
+        所以「一个文件」不等于「一个模块」，反而是头文件的内容
+        在每个用到它的编译单元里各存在一份。
+        另一处是 `#include` 不是导入：它只是把那段文本插进来，
+        被包含的文件有什么就得到什么，没有选择余地。
+      python: |
+        两边的分层完全不同：Python 的模块也是**文件**，`import` 会真的加载并执行它
+        （有自己的命名空间，只执行一次）；C++ 的头文件是**文本片段**，
+        它不知道也不关心自己被包含了几次，没有「加载」这个动作，
+        更没有「只执行一次」的语义（所以自己得写包含卫士或 `#pragma once`）。
+        另一处是 C++ 的模块边界要**靠人维护**：什么放头文件、什么放源文件、
+        什么算对外接口，都是约定，语言不强制（`static` 与匿名命名空间除外）。
+      java: |
+        两边都有「编译单元」这个概念，但方向相反：Java 的一个文件是一个编译单元，
+        而且**文件里有什么对外可见是写清楚的**（`public`），
+        导入是 `import` 一个类型、不是插文本；C++ 的一个编译单元
+        是「源文件加它包含的一切」，对外可见性由**声明放在哪个头文件**决定 ——
+        也就是说可见性是靠**文件组织**实现的，不是靠关键字。
+        Java 一个类型只有一份（编译器看着），C++ 的类定义在每个编译单元里各一份，
+        所以要靠单一定义规则约束它们必须一模一样。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  export-import:
+    code: |
+      // 头文件 mylib.h —— 这里写**声明**，谁来包含谁就看见了
+      #pragma once                    // @note 或 #ifndef MYLIB_H 包含卫士
+      int add(int a, int b);
+      struct Point { double x, y; };
+
+      // 源文件 mylib.cpp —— 这里写**定义**
+      #include "mylib.h"
+      int add(int a, int b) { return a + b; }
+
+      // 别的文件用起来
+      #include "mylib.h"
+      #include <vector>                 // @note 尖括号找系统路径，引号找本地路径
+      int main() { return add(1, 2); }
+
+      // @note 「导出」不是语言动作，是**把声明放对位置**：
+      // @note   放头文件 → 别人能用；只放源文件 → 别人看不见
+      // @note C++20 模块之后才有了真关键字：export int add(int,int);
+    vs:
+      javascript: |
+        **这一格是「没有导入系统」的直接后果**：JavaScript 用 `export` / `import`
+        显式声明谁给谁看，语言负责连起来；C++ 没有这套 ——
+        所谓「导出」就是**把声明放进头文件然后让别人包含它**，
+        可见性是文件组织的副产物。所以那边「改一下导出」是改一行关键字，
+        这边是搬家（把声明从头文件挪进源文件）。
+        另一处是包含的**代价**：JavaScript 的 `import` 是加载一次，
+        C++ 的 `#include` 是文本展开，头文件越大、每个编译单元都要重编一遍。
+      python: |
+        两边的写法形状像（`#include` ↔ `import`），机制差得远：
+        Python 的 `import` 会**找到并执行**那个模块，得到一个模块对象，
+        名字从里面取；C++ 的 `#include` 只是把文本插进来，
+        插进来的东西直接落进当前作用域（所以重名冲突要靠命名空间救）。
+        另一处是重复包含：Python 的模块天然只执行一次，
+        C++ 的头文件包含两次就是重复定义（要靠包含卫士或 `#pragma once`）。
+      java: |
+        两边都分「声明」与「实现」，但**声明在哪**不同：
+        Java 的 `public` 方法声明和实现**写在同一个文件**里，
+        别人 `import` 那个类型就看到全部接口；C++ 的声明可以
+        单独出现在头文件里、实现藏在源文件里 ——
+        也就是说 C++ 有「对外能看到什么」与「实现放在哪」两件独立的事，
+        Java 只有一件。另一处是 C++ 的 `#include` 有顺序与重复问题，
+        Java 的 `import` 没有。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  default-vs-named:
+    code: |
+      // @note! C++ **没有「默认导出」这个概念** —— 导出就是名字本身
+      int add(int, int);           // 名字是 add，就是 add，没有别名层
+
+      namespace mylib {            // @note 用命名空间做分组，不是用导出形态
+        int add(int, int);
+        int sub(int, int);
+      }
+      mylib::add(1, 2);            // @note 用的时候要写前缀
+
+      // 命名空间还有几个特殊形态
+      namespace { int hidden(); }        // @note 匿名命名空间：内部链接，文件私有
+      inline namespace v1 { }            // @note 内联命名空间：版本化用
+      namespace alias = mylib;           // @note 给命名空间起短名
+
+      // @note using 有两种含义，别混：
+      using mylib::add;                  // ① 把**一个名字**引进当前作用域
+      using namespace mylib;             // ② 把**整个命名空间**的名字都放进来（少用）
+    vs:
+      javascript: |
+        **这一格是直接的有无之分**：JavaScript 有默认导出与具名导出两种形态，
+        而且导入时可以**改名**（`import { a as b }`）—— 名字有两层。
+        C++ 里名字就是名字，没有默认那一档，也没有导入时改名的动作；
+        想避免冲突靠 `namespace` 把它圈起来，用的时候写前缀或者 `using`。
+        所以那边「改导出名不影响内部」这件事在这边不成立 ——
+        C++ 改一个名字，所有写到这个名字的地方都得改。
+      python: |
+        两边的「分组」手段不同：Python 靠**模块与包**分组
+        （`from x import y`、`import x as y` 都能改名），
+        所以同名函数放在不同模块里互不干扰、取用时还能改叫法；
+        C++ 靠**命名空间**分组（语言层面的名字前缀），
+        不能改名，只能起命名空间别名。
+        另一处是 Python 的 `from m import *` 与 C++ 的
+        `using namespace` 都容易把名字池搅浑 —— 两边都不推荐。
+      java: |
+        两边都能分组，而且 Java 的「一个类型一个全限定名」与
+        C++ 的「命名空间加名字」看起来很接近。差别在**改名的能力**：
+        Java 的 `import` 支持静态导入与在导入时用全名，
+        但类型名本身不能改；C++ 也差不多（名字不能改），
+        真正多出来的是**匿名命名空间**这个「文件私有」的机制，
+        Java 没有对应物（Java 的包私有是包级的，不是文件级）。
+        另一处是 C++ 的内联命名空间能做版本化，Java 没有这个能力。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  namespace-alias:
+    code: |
+      namespace very::long::name { int f(); }
+
+      namespace v = very::long::name;     // @note 命名空间别名
+      v::f();
+
+      using very::long::name::f;          // @note 也可以只引一个名字进来
+      f();
+
+      namespace app {
+        namespace impl { }                 // @note 嵌套命名空间
+      }
+      namespace app::impl2 { }             // @note C++17 起能一句话写嵌套
+
+      // @note 标准库的名字住在 std 里，第三方库各有自己的顶层命名空间
+      // @note 头文件的路径与命名空间**没有关系** —— 靠人约好
+      // @note （所以同一套库会有 boost/filesystem.hpp 与 boost::filesystem）
+    vs:
+      javascript: |
+        两边都能「起个短名」，但短名的层次不同：JavaScript 的
+        `import fs from 'fs'` 是**给模块起名**（而且默认导出能随便叫），
+        模块内部的东西从那个名字往下取；C++ 的 `namespace v = ...` 是
+        **给命名空间起名**，而命名空间与文件路径没有关系 ——
+        一个目录下可以有好几个命名空间，一个命名空间可以横跨很多文件。
+        也就是说 JavaScript 的短名跟着模块走，C++ 的短名跟着名字前缀走。
+      python: |
+        两边的别名机制很像（`import numpy as np` ↔ `namespace np = ...`），
+        这一格接近。差别在**别名绑在什么上**：Python 的别名绑在模块对象上
+        （模块是一个真实存在的东西，有 `__name__`、能被反射），
+        C++ 的命名空间别名只是编译期的名字前缀替换，运行期没有这个东西。
+        另一处是 C++ 能只引一个名字进来（`using X::f`），
+        Python 要有对应效果就用 `from x import f`，形态不同但目的一样。
+      java: |
+        两边的差距在这一格最大：Java 的**包名必须与目录结构一致**，
+        而且全限定名是唯一的标识；C++ 的命名空间与文件路径完全解耦，
+        别名也只是编译期的缩写。所以 Java 里「这个名字指向哪个文件」
+        是可以推出来的，C++ 里推不出来（得看谁包含谁、以及链接时谁提供了实现）。
+        另一处是 C++ 能把一个名字单独引进来（`using`），
+        Java 只能 `import` 类型或静态成员，粒度粗一点。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  module-resolution:
+    code: |
+      #include "my_header.h"        // @note 引号：先在当前目录找，再找包含路径
+      #include <vector>             // @note 尖括号：只在系统/`-I` 指定的路径里找
+
+      // 查找路径由编译命令行决定：
+      //   g++ -I./include -I../third_party main.cpp
+      // 链接时还要告诉它库在哪：
+      //   g++ main.cpp -L./lib -lmylib
+
+      // @note! 与别的语言最大的不同：**头文件找到≠实现找到** ——
+      // @note 编译只解决「声明在哪」，链接才解决「实现在哪」，
+      // @note 所以会有「编译通过、链接报 undefined reference」这个中间状态
+
+      // @note C++20 模块之后这条路变了一点（模块按名字找、编译器要能定位
+      // @note 模块接口文件），但主流仍是包含路径这一套
+    vs:
+      javascript: |
+        **两边的失败形态完全不同**：JavaScript 的模块解析是运行前的
+        一个确定算法（相对路径、包名、导出映射），找不到就报「找不到模块」；
+        C++ 把这件事**劈成了两半** —— 头文件找不到是编译错误（立即报），
+        实现找不到是链接错误（整批编译完之后才报），
+        而且报出来的是 `undefined reference to 'foo'`，
+        一个从没见过 C++ 链接模型的人会以为是代码写错了。
+        另一处是 C++ 的搜索路径靠命令行传（`-I` / `-L`），
+        没有清单文件来声明「这个包在哪」。
+      python: |
+        两边的查找范围不同：Python 的模块解析从当前目录与 `sys.path` 走，
+        运行时可以改（`sys.path.append`），而且导入过的会缓存在 `sys.modules` 里；
+        C++ 的包含路径在编译时定死（`-I`），运行时没有任何解析动作，
+        也没有缓存这一说 —— 头文件的内容在编译时就烧进目标文件了。
+        另一处是 Python 找不到模块就抛 ImportError 停在那里，
+        C++ 的「找不到实现」要等到链接，前面所有编译都白做。
+      java: |
+        两边都用「路径 + 名字」定位，但**耦合度相反**：Java 的包名必须
+        与目录结构一一对应，类路径（classpath）决定从哪找；
+        C++ 的命名空间与目录毫无关系，头文件的包含路径与链接时的库路径
+        是两条独立的搜索路径 —— 所以同一套代码换一台机器，
+        `-I` 与 `-L` 都可能要重配。另一处是 Java 的符号在 class 文件里自带索引，
+        C++ 的目标文件要靠链接器解析外部符号，失败信息更底层。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

@@ -1,0 +1,336 @@
+# swift —— mechanism / memory
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: memory` 的那批：
+# value-vs-reference / garbage-collection / ownership-borrow /
+# lifetime / weak-reference。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：**这一组是轮 ③ 的对比轴（确定性析构）**，四条要写准的 ——
+# ① **没有 GC，用的是 ARC**：官方措辞是「最后一次强引用消失时立刻释放」，
+#    所以释放时机是确定的；
+# ② **但它与「出了作用域就析构」不等价** —— ARC 优化器会**缩短生命周期**，
+#    这正是 `withExtendedLifetime` 存在的理由（官方标准库源码里写明了）；
+# ③ `weak` 与 `unowned` 的区别很关键：**访问已释放的 unowned 是运行时错误
+#    （陷阱，可判定）**，真正「内存不安全」的是 `unowned(unsafe)`；
+# ④ **「值类型一定分配在栈上」查不到官方出处** —— 官方只说拷贝语义。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  value-vs-reference:
+    code: |
+      // @note! 这一组的第一件事是选类型：struct 还是 class
+      struct Point { var x = 0.0, y = 0.0 }      // @note 值类型
+      class Node { var v = 0 }                    // @note 引用类型
+
+      var p1 = Point(x: 1, y: 2)
+      var p2 = p1                                 // @note 拷贝一份
+      p2.x = 99
+      // p1.x 仍然是 1
+
+      var n1 = Node()
+      var n2 = n1                                 // @note! 指向**同一个实例**
+      n2.v = 99
+      // n1.v 也是 99
+
+      // @note! 标准库的集合与字符串**都是值类型**（用 struct 实现的）
+      var a = [1, 2, 3]
+      var b = a
+      b.append(4)                                 // @note a 还是三个元素
+
+      // @note 写时复制（COW）是标准库的**实现优化**，不是语言保证：
+      // @note 官方说的是「代码看到的行为一律像立刻拷贝」
+      // @note 所以别指望「一定是共享的」或者「一定是深拷贝的」
+
+      // @note! 函数与闭包是**引用类型**（这一点与直觉相反）
+      func f() { }
+      let g1 = f, g2 = f                          // @note 指向同一个函数对象
+    vs:
+      javascript: |
+        **两边的默认完全相反**：JavaScript 里除了原始值，一切赋值都是共享；
+        Swift 把「值语义」做成了**默认推荐**（struct 是默认选择），
+        只有 class 才是共享的。所以那边「不小心共享了」是常见 bug，
+        这边「不小心拷贝了」才需要留意 —— 方向正好反。
+        另一处是字符串与集合：JavaScript 的数组/对象都是引用，
+        Swift 的数组、字典、字符串**都是值类型** ——
+        也就是说 `var b = a` 之后改 b 完全不影响 a，
+        这在那边要显式 `[...a]` 才行。
+        还有一处是函数：两边都是引用类型，这点反而一致。
+      python: |
+        两边的默认同样是相反的：Python 的赋值是**绑到同一个对象**
+        （要副本得显式拷贝），Swift 的 struct 与集合是值语义。
+        另一处是「哪一类是默认」：Python 里你定义 `class` 拿到的就是
+        共享语义，要值语义得自己实现；Swift 里你定义 `struct`
+        是默认选择，要共享才写 `class`。
+        还有一处是切片与字符串：Python 的切片返回副本、
+        Swift 返回视图（但因为写时复制，改视图不会影响原数组）——
+        两边最终行为一样，但实现路径不同。
+      java: |
+        **两边差别很大**：Java 里对象永远在堆上、赋值永远是共享引用，
+        没有值类型的对象（较新版本才有实验性的值类型）。
+        Swift 有两种，而且**值类型是默认推荐** ——
+        所以从 Java 过来最需要重新想的一件事是
+        「这个类型该是 struct 还是 class」。
+        另一处是 Java 的数组与字符串：数组是对象（共享）、
+        `String` 不可变（看起来像值语义，但它是引用类型）；
+        Swift 的数组**就是值类型**，赋值即拷贝语义。
+        共同点是两边的函数/闭包都是引用类型。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  garbage-collection:
+    code: |
+      // @note! Swift **没有垃圾回收** —— 用的是 **ARC（自动引用计数）**
+      // @note 官方对它的描述是「最后一次强引用消失时立刻释放」，
+      // @note 也就是说释放时机是**确定的**，不像 GC 那样等扫描
+
+      class Resource {
+        init() { print("打开") }
+        deinit { print("关闭") }        // @note! 只有类有 deinit
+      }
+
+      func use() {
+        let r = Resource()
+        print("用着")
+      }
+      // @note 输出是 打开 → 用着 → 关闭
+      // @note! 但注意：这个顺序是「最后一次强引用消失」的时机，
+      // @note! **不严格等于「离开词法作用域」** —— ARC 优化器可能**缩短生命周期**，
+      // @note! 也就是在最后一次使用之后就把对象放了（这更省内存，但更难预测）
+      // @note! 想强行拖到某个点，标准库给了 withExtendedLifetime
+
+      // @note 所以 Swift 的「确定性」比 GC 强，但比「出了作用域必然析构」
+      // @note 那种模型弱一档 —— 中间还有一层优化器
+
+      // @note 值类型不参与引用计数（它们是拷贝语义，没有共享）
+      // @note 引用计数只在**堆上的类实例**之间发生
+
+      // @note 循环引用会导致永不回收（见 weak-reference 那一格）
+    vs:
+      javascript: |
+        **两边是两种内存管理哲学**：JavaScript 有 GC，
+        对象活到没人引用为止，什么时候扫、什么时候收你既不知道也不用管；
+        Swift 用**引用计数**，最后一次强引用消失就释放 ——
+        所以「对象什么时候消失」是**确定的**，这也是
+        「在对象消失时做点什么」能成立的基础。
+        另一处是循环引用：GC 能识别并回收整组够不着的对象，
+        **引用计数不能** —— 互相引用的两个对象永不回收，
+        这是 Swift 里真实存在的泄漏来源。
+        还有一处是 Swift 的「确定」也要打折：ARC 优化器可能
+        提前释放，所以别把析构时机当成精确的调度手段。
+      python: |
+        两边都有自动内存管理，但**机制与后果都不同**：
+        Python 主要是引用计数（加一个循环回收器兜底），
+        所以「引用没了就释放」这一层与 Swift 相似；
+        关键是**循环引用**：CPython 有 GC 能回收够不着的环，
+        Swift 的 ARC **没有兜底** —— 循环就是永久泄漏，必须手动打断。
+        另一处是析构函数：Python 的 `__del__` 时机不确定
+        （有环时更糟），Swift 的 `deinit` 在引用计数归零时调用，
+        更可靠但也可能被优化器提前。
+        共同点是两边都不该把「析构」当成必须按时发生的调度。
+      java: |
+        两边**完全相反**：Java 有分代 GC，对象不再可达后被回收，
+        时机不可控、有停顿，但**循环引用不是问题**（可达性分析能处理环）；
+        Swift 用 ARC，释放时机确定，但**循环引用是真实的泄漏**。
+        也就是说两边各有一个「你要小心」的点：
+        Java 要小心「别再拿着无用引用」（否则内存下不去），
+        Swift 要小心「两个对象互相强引用」（否则永远不释放）。
+        另一处是 Java 有终结器（已废弃）与 `Cleaner`，
+        Swift 的 `deinit` 是可靠得多的清理挂钩。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  ownership-borrow:
+    code: |
+      // @note! Swift **没有所有权与借用检查** —— 没有那套静态的借用规则
+
+      // 「所有权」在 Swift 里是**惯例**，靠类型与 ARC 表达：
+      //   struct        值类型：赋值拷贝，没有「谁拥有」的问题
+      //   class         引用类型：谁能拿到引用谁就能用，释放由 ARC 管
+      //   强引用        默认：持有
+      //   weak/unowned  打破循环用（见 weak-reference）
+
+      // @note 参数传递也是惯例：
+      func look(_ p: Point) { }            // @note 值类型：拷贝进去，改动看不见
+      func touch(_ n: Node) { }            // @note 引用类型：共享同一个实例
+
+      // @note! 较新版本引入了所有权相关的**标注**（不是检查）：
+      // @note   borrowing  —— 承诺只是借用，不会吃掉这个值
+      // @note   consuming  —— 承诺会吃掉它（调用方之后不该再用）
+      // @note  这些是**性能提示与自我约束**，编译器不会像借用检查器那样
+      // @note  全面验证生命周期
+
+      // @note 想手动管内存只有一条路：Unsafe 系指针
+      // @note   UnsafeMutablePointer / withUnsafeBufferPointer ...
+      // @note! 而且借用出来的指针**只在调用期间有效**：
+      // @note! 官方原话是「不要在 with 之外保存或返回这个指针」
+    vs:
+      javascript: |
+        两边都没有所有权这一层，但原因不同：JavaScript 里谁都能引用
+        任何对象，回收交给 GC，所以不需要谈论所有权；
+        Swift 里所有权**客观存在**（引用计数总得有人减），
+        但语言不检查 —— 靠 ARC 自动管、靠 weak/unowned 手动破环。
+        另一处是值类型：Swift 的 struct 传参是拷贝，
+        所以「共享」这件事必须显式用 class ——
+        这在 JavaScript 里永远是隐式的。
+        还有一处是 Swift 有 `Unsafe` 指针这一层手下探，
+        JavaScript 完全够不到内存。
+      python: |
+        两边的处境最接近：都没有所有权检查，都靠自动内存管理。
+        差别在**兜底**：Python 有循环回收器，所以「环」最终会被收掉；
+        Swift 的 ARC 没有兜底，循环引用是永久泄漏 ——
+        也就是说同一个「互相引用」的写法，两边后果不同。
+        另一处是 Swift 有 `borrowing` / `consuming` 这类
+        **所有权标注**（性能导向、不强制），Python 里没有对应概念。
+        共同点是两边都不需要（也没法）手动释放。
+      java: |
+        两边都没有所有权检查，也都不需要手动释放，这一层处境相同。
+        差别在**循环引用的后果**：Java 的 GC 能回收环、
+        Swift 的 ARC 不能 —— 所以 Swift 里 `weak` / `unowned`
+        是**必须会用**的工具，Java 的 `WeakReference` 多半是为了
+        「不影响生命周期」的语义（比如缓存）。
+        另一处是 Swift 有 `Unsafe` 指针能下探到手动内存管理，
+        Java 只有 `sun.misc.Unsafe` 那种非标准口子。
+        共同点是两边都能用「不可变 + 值语义」来回避一部分共享问题。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lifetime:
+    code: |
+      // @note! Swift **没有生命周期标注** —— 写不出「这个引用活得和那个一样久」
+
+      // 能指望的只有两件事：
+      //   ① 值类型的局部变量活在作用域内（拷贝语义，没有悬垂问题）
+      //   ② 类实例只要还有强引用就活着 —— **ARC 保证它不会提前消失**
+
+      // @note! 第二条是 Swift 与手动管理语言最大的差别：
+      // @note! 在别处「对象没了但你还拿着引用」是最主要的错误来源，
+      // @note! 在 Swift 里**不会发生** —— 你拿着强引用，对象就一定活着
+
+      // @note `unowned` 是唯一的例外：它不保活，对象可能先走
+      // @note 官方措辞是「访问已释放的 unowned 会得到运行时错误」
+      // @note （可判定的陷阱，不是未定义行为）—— 见下一格
+
+      // @note 借用式指针的生命周期**是文档说的，不是类型说的**：
+      // @note   withUnsafeBufferPointer { buf in ... } 里的 buf
+      // @note   官方明确说「只在 with 执行期间有效」
+      // @note   想延长要用 withExtendedLifetime（同样是人工的）
+
+      // @note 「值类型一定分配在栈上」这个说法**查不到官方出处** ——
+      // @note 官方只承诺拷贝语义与你看到的写时复制行为，
+      // @note 具体分配在哪是实现的自由（优化器常常把它们放到栈上，
+      // @note 但那是优化结果，不是语言保证）
+    vs:
+      javascript: |
+        两边的「生命周期」都不是语言要操心的事：JavaScript 的对象
+        由 GC 保活，只要你还拿着引用就不会消失 —— 所以「悬垂」
+        这个概念在那边不存在；Swift 的强引用有同样的保证（ARC 保活）。
+        差别在 `unowned`：那是不保活的引用，对象可能先走 ——
+        也就是说 Swift 里唯一能「悬垂」的地方，是你**主动选择**不保活的地方，
+        而且访问它得到的是明确的运行时错误，不是未定义行为。
+        另一处是 Swift 有 `withExtendedLifetime` 这种
+        「强制把对象留到这个点」的工具（因为优化器会缩短生命周期），
+        JavaScript 里没有对应需求。
+      python: |
+        两边的保证方向一致：Python 的引用计数保证「只要我拿着，
+        它就活着」，Swift 的强引用也一样 —— 所以都不会悬垂
+        （Python 的例外是 `__del__` 时机；Swift 的例外是 `unowned`）。
+        差别在**优化器**：Swift 的 ARC 优化器可能**缩短**生命周期
+        （最后一次使用之后就释放），所以「析构什么时候跑」比 Python 更不可预测；
+        Python 的引用计数只在引用变少时才减。
+        另一处是 Swift 有借用指针（`withUnsafe...`）这层下探，
+        Python 里完全没有。
+      java: |
+        两边都靠自动管理保活，所以「你拿着引用对象就活着」
+        在两边都成立，这一层很接近。
+        差别在**循环引用**：Java 的 GC 能收环，所以「谁活多久」
+        最终由可达性决定；Swift 的 ARC 收不了环，
+        所以必须用 weak/unowned 主动破环 ——
+        那些不保活的引用就是 Swift 里唯一会「对象先走」的地方。
+        另一处是 Java 的对象都是引用类型，没有值类型那一半；
+        Swift 的 struct 完全没有生命周期问题（拷贝语义）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  weak-reference:
+    code: |
+      class Node {
+        var name = ""
+        var parent: Node?              // @note 强引用（默认）
+        weak var weakParent: Node?     // @note! weak：不保活，而且 ARC 会自动置 nil
+        unowned var owner: Node        // @note! unowned：不保活，但**类型非可选**
+        init(name: String) { self.name = name }
+        deinit { print("\(name) 释放") }
+      }
+
+      // @note! weak 与 unowned 的差别（这一条最容易记错）：
+      // @note   weak     被引对象释放时 ARC **自动置为 nil** ——
+      // @note            所以它必须是**可选类型的 var**（不能是 let）
+      // @note   unowned  永不置 nil、类型非可选 ——
+      // @note            用在「我确定它活得比我久」的场景
+      // @note! 访问已释放的 unowned：官方措辞是**运行时错误**（陷阱），
+      // @note! 是**可判定**的，不是未定义行为
+      // @note! 真正「内存不安全」的是显式写的 `unowned(unsafe)` ——
+      // @note! 那个才是「访问对象原来所在的那块内存」
+
+      // @note 闭包里的循环引用：用捕获列表打破
+      class VC {
+        var onDone: (() -> Void)?
+        func setup() {
+          onDone = { [weak self] in self?.refresh() }   // @note 弱捕获
+        }
+        func refresh() { }
+      }
+
+      // @note 值类型不参与引用计数，**不存在值类型层面的循环引用**
+      // @note 但 struct 里放 class、class 里放 struct，环还是可能绕出来
+    vs:
+      javascript: |
+        两边都有「互相引用回收不掉」这个问题，但**机制完全不同**：
+        JavaScript 里两个对象互相引用**不影响回收** ——
+        标记清除能识别「整组都够不着」，一组一起收；
+        Swift 的引用计数只看**单个对象的计数**，互相指着就永不归零。
+        所以那边不需要为循环引用做任何事，这边**必须**在写闭包捕获、
+        双向关系时主动用 `[weak self]` / `weak` / `unowned`。
+        另一处是 Swift 有 `unowned` 这个「非可选的弱引用」，
+        用它省掉解包、代价是「万一它先走了就崩」；
+        JavaScript 里没有这个概念。
+      python: |
+        两边的处境更接近（都是引用计数），但**兜底不同**：
+        CPython 有循环回收器，够不着的环最终会被收掉；
+        Swift 的 ARC **完全没有兜底**，环就是永久泄漏。
+        所以 Python 里「随手造个环」通常没事，Swift 里
+        必须在设计阶段就想清楚谁持有谁。
+        另一处是弱引用的用法：Python 的 `weakref` 取对象时要调用
+        （拿到真对象或 None），与 Swift 的 `weak var` 加可选解包
+        是同一套思路，只是 Swift 的置 nil 由 ARC 自动做。
+      java: |
+        **这一格 Java 的处境更好**：Java 的 `WeakReference` 也是弱引用，
+        但普通引用**有 GC 兜底** —— 循环引用由可达性分析处理，
+        不会泄漏；Swift 的强引用循环就是真的收不回来。
+        所以 Java 里用弱引用大多是为了「不影响生命周期」的语义
+        （缓存、监听器列表），而 Swift 里用弱引用往往是
+        **为了避免泄漏** —— 动机完全不同。
+        另一处是 Swift 有 `unowned`（非可选的弱引用），
+        Java 没有对应物（那里要么强引用要么 WeakReference）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

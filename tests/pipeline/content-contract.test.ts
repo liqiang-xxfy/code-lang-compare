@@ -126,6 +126,7 @@ describe('架构决策的可执行断言', () => {
     expect(a.registry.defaultBaseline).toBe('javascript')
     expect([...a.enabledLanguageIds].sort()).toEqual([
       'arkts',
+      'cpp',
       'dart',
       'go',
       'java',
@@ -133,6 +134,7 @@ describe('架构决策的可执行断言', () => {
       'kotlin',
       'python',
       'rust',
+      'swift',
       'typescript',
     ])
   })

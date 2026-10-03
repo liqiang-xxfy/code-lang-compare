@@ -1,0 +1,213 @@
+# cpp —— express / values
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: values` 的那批。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是**「初始化有五六种写法，含义各不相同」**，
+# 以及**隐式转换在 C++ 里既普遍又可静默**。三处实跑验过的硬事实：
+# ① `int d{}` 是 0、`int x;`（局部）是**不确定值**（读它 UB）、
+#    但全局/静态的同名写法会被**零初始化** —— 同一个 `int x;` 在两种位置含义不同；
+# ② 花括号**拦窄化**（`char c{300}` 编译错误），圆括号**只警告**
+#    （`char c(300)` → `-Woverflow`，实测**不是**静默截断）；
+# ③ 隐式转换可静默发生到很危险的程度：`1u > -1` 结果是 **false**（-1 被转成无符号）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-values-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  literals:
+    code: |
+      int a = 1;                  // @note 拷贝初始化
+      int b(2);                   // @note 直接初始化
+      int c{3};                   // @note 列表初始化（C++11 起推荐）
+      int d{};                    // @note 值初始化：得到 0
+
+      int x;                      // @note! 局部变量**不确定值** —— 读它是 UB
+      static int sz;              // @note 静态存储期：被零初始化，是 0
+
+      // 字面量与后缀
+      auto i = 42;      auto l = 42L;     auto u = 42u;
+      auto f = 3.14;    auto f2 = 3.14f;  auto ch = 'A';
+      auto s = "文本";                    // @note! const char*，不是字符串对象
+      auto str = std::string{"文本"};
+      auto raw = R"(原样 \n 不转义)";      // @note 原始字符串（C++11）
+
+      auto bin = 0b1010;   auto big = 1'000'000;   // @note 数字分隔符（C++14）
+    vs:
+      javascript: |
+        两边都能写出值，但 C++ 的初始化**分好几种且含义不同**：
+        `int b(2)` 与 `int c{3}` 都是「用 2 初始化」，看起来一样，
+        但花括号版本会**拦住窄化**（写 `char c{300}` 直接编译不过），
+        圆括号版本只给个警告。JavaScript 只有一种写法，不存在这个选择。
+        另一处是「没写初值」的后果：JavaScript 得到 `undefined`（一个确定的值），
+        C++ 的局部变量得到**不确定的值** —— 读它是未定义行为，
+        而全局变量却又会被自动清零，同一个写法两种结果。
+      python: |
+        两边都有多种字面量，C++ 多出来的是**给类型留位置**：
+        `42` / `42L` / `42u` 是不同后缀写出来的不同类型，
+        `3.14` 与 `3.14f` 也是两种精度 —— Python 里这些都只是数字。
+        另一处是字符串：C++ 的 `"文本"` 是**指针**不是字符串对象，
+        加一个 `std::string{...}` 才是真字符串，这个区别会一直影响后面所有操作。
+        没写初值的后果也不一样：Python 里的名字没绑定就是 `NameError`，
+        C++ 的局部变量是「有一块不确定的内存」。
+      java: |
+        两边都要写类型，也都能给初值，差别在**「没写初值」这件事上**：
+        Java 的字段有默认值（0 / false / null）、局部变量没有值而且用了直接编译报错；
+        C++ 把这个规则换了个位置 —— 局部变量**有一块内存但内容不确定**，
+        编译不报错、运行行为不可预测，而全局和静态变量会被零初始化。
+        另一处是 C++ 的初始化语法有五六种（等号 / 圆括号 / 花括号 / 花括号空），
+        Java 基本只有等号一种。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-inference:
+    code: |
+      auto x = 1;                 // @note 推断为 int（C++11）
+      auto y = 1.5;               // double
+      auto& r = x;                // @note 推断出**引用**
+      const auto& cr = x;         // @note 推断出 const 引用
+
+      auto arr = std::vector<int>{1, 2, 3};   // @note 类模板实参也能推（C++17）
+      auto [a, b] = std::pair{1, 2};          // @note 结构化绑定（C++17）
+
+      decltype(x) z = 5;          // @note 另一种推断：取某个表达式的类型
+
+      // @note! auto 会**丢掉**顶层 const 和引用，想保留要自己写
+      const int ci = 1;
+      auto copy = ci;             // @note copy 是 int，不是 const int
+      auto& ref = ci;             // @note ref 才是 const int&
+    vs:
+      javascript: |
+        两边都要「让编译器替你写类型」，但 C++ 的 `auto` 是在**一个真实存在的
+        类型系统里**做推断 —— 推出来的类型此后固定不变，而且推断规则本身
+        要学（丢不丢 const、要不要引用）。JavaScript 的「类型」本来就是值的属性，
+        换个值就换个类型，没有「推出来之后钉死」这一步。
+        另一处是 C++ 的推断有两种入口：从初值推（`auto`）和从表达式取类型
+        （`decltype`），后者在写模板时是必需的。
+      python: |
+        两边的推断看着像，分量不同：Python 的变量从来没有类型，所以
+        「推不推」只影响类型检查器怎么看它；C++ 的 `auto` 是编译器**算出**
+        一个类型然后当成写死的一样用 —— 后面所有重载决议、
+        模板匹配都按这个结果走。所以 C++ 的推断错了是编译错误，
+        Python 的「推断错了」是类型检查器的一个提示。
+        另一处是 C++ 要显式处理引用与 const 的丢失，Python 没有对应概念。
+      java: |
+        两边的意图一样（少写一次类型名），力度差很多：
+        Java 的 `var` 只用在局部变量，推的是一个引用类型，规则简单；
+        C++ 的 `auto` 到处能用 —— 变量、函数返回类型、lambda 参数、
+        模板实参，而且它参与模板编程（`decltype` 再配一层），
+        是「让编译器推导」这件事的**基础设施**而不只是省几个字。
+        代价是推断规则本身成了要掌握的知识（引用折叠、const 丢失）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  null-and-undefined:
+    code: |
+      int* p = nullptr;           // @note 空指针（C++11 起用这个，不用 NULL / 0）
+      // *p;                      // @note! UB：解引用空指针，可能崩也可能不崩
+
+      if (p) { /* 非空 */ }        // @note 指针能直接当条件用，非空为真
+
+      // @note 「可能没有值」写进类型：std::optional
+      std::optional<int> maybe;
+      if (maybe) use(*maybe);      // @note 检查过才敢取
+      int v = maybe.value_or(0);   // @note 带默认值的取法
+      // maybe.value();            // @note! 空的时候抛 bad_optional_access
+
+      // @note! 引用**不能为空** —— 这是 C++ 唯一的结构性保证
+      int& r = x;                  // @note 必须绑到真实对象，且不能改绑
+      // 但引用可以悬空：绑到一个已经销毁的对象上（编译器不拦）
+
+      // @note 还有第三种「没有值」：没有默认值的枚举、和值为 0 的指针混着用
+    vs:
+      javascript: |
+        **两边的「空」完全不是一回事**：JavaScript 有 `null` 与 `undefined`
+        两个值，读空值的属性会抛一个明确的 TypeError，程序停在现场；
+        C++ 只有空指针，而解引用它是**未定义行为** —— 可能当场崩，
+        可能读到垃圾继续跑，也可能崩在离现场很远的地方，没有异常也没有栈。
+        所以那边「出错位置就是现场」这条经验在这边不成立。
+        另一处是 C++ 多了一个 `std::optional`，把「可能没有值」
+        写进类型 —— 这是 JavaScript 没有的那层表达力。
+      python: |
+        Python 的 `None` 是**一个普通值**，任何名字都能装它，出事时抛
+        AttributeError 且带完整栈；C++ 没有一个统一的「空值」——
+        指针有空、引用不能空、`std::optional` 是另一个类型。
+        所以两边「可能没有值」的表达力不同：Python 是「什么都可以是 None」，
+        C++ 是「你得先声明这个东西可能没有，然后用的时候检查」。
+        代价是 C++ 更啰嗦，好处是类型上看得见。
+      java: |
+        两边都有可空包装（`Optional` / `std::optional`），也都常有裸引用。
+        真正的分水岭是**裸引用解空时的行为**：Java 必定抛 NullPointerException，
+        错误是确定的、只是发生得晚；C++ 对空指针解引用是未定义行为，
+        连「一定出错」都不保证。另一处是 C++ 的引用**不可能是空**，
+        这一点比 Java 的引用强 —— 写 `void f(T& x)` 就等于声明了「不许传空」，
+        而 Java 只能靠注解和文档。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-conversion:
+    code: |
+      // @note! 隐式转换在 C++ 里又普遍又能静默发生
+      double d = 1;                // int -> double，静默
+      int i = 3.9;                 // @note double -> int，静默截断成 3
+      bool b = 1;                  // int -> bool，静默
+      long l = 1; int n = l;       // @note 窄化：默认不报错
+
+      // 危险的一种：有符号与无符号混用
+      unsigned u = 1;
+      if (u > -1) { }              // @note! 结果是 **false** —— -1 被转成 4294967295
+
+      // 用户定义类型也能隐式转换（构造函数没写 explicit 就行）
+      struct Money { Money(double){} };
+      void take(Money);
+      // take(3.5);                // @note 3.5 直接变成 Money
+
+      // 显式转换分四种，各管一件事
+      double pi = 3.14;
+      int t = static_cast<int>(pi);              // @note 编译期能验证的
+      auto* cp = const_cast<int*>(&ci);          // @note 只去 const
+      auto* raw = reinterpret_cast<char*>(&pi);  // @note! 按位重解释，最危险
+      auto* dd = dynamic_cast<Derived*>(base);   // @note 运行时检查，失败给 nullptr
+    vs:
+      javascript: |
+        两边都有大量「悄悄发生的转换」，但**后果的可见性差很远**：
+        JavaScript 转出来的怪结果（`"1" + 1`、`[] + {}`）至少是**一个值**，
+        你能打印出来看；C++ 的隐式转换有时候连值都不给你 ——
+        `1u > -1` 得到 `false` 是**完全确定、完全合法**的结果，
+        而越界、解引用这种干脆是未定义行为。另一处是 C++ 把「转换」
+        分成了四种带名字的写法（`static_cast` 等），一眼能看出这步有多危险，
+        JavaScript 只有一个隐式过程，读代码时看不出哪里在转。
+      python: |
+        两边都有「窄化会丢东西」，但默认行为相反：Python 的整数任意精度、
+        `int` 与 `float` 各自独立，没有把 3.9 变 3 这种无声损失
+        （`int(3.9)` 要你显式写）；C++ 里 `int i = 3.9;` 直接给你 3，
+        连警告都不一定有。另一处是「字符串转数字」：
+        Python 的 `int("abc")` 抛异常，C++ 有两个入口 ——
+        `std::stoi` 抛 `invalid_argument`，`std::atoi` **静默返回 0**，
+        挑错了就吞掉错误。
+      java: |
+        两边都隐式加宽（`int` → `double`）、都要求显式窄化，
+        这一层很接近。C++ 多出来的是**另外三种转换**：
+        Java 的强转只有一种写法，无法从语法上区分「安全的数值转换」
+        和「把一块内存重新解释成别的类型」；C++ 的 `reinterpret_cast`
+        一出现，读代码的人立刻知道这里不靠类型系统兜底。
+        另一处是 C++ 的构造函数可以**隐式**把一个值变成对象
+        （除非加 `explicit`），Java 里这种隐式转换只发生在包装类型上。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

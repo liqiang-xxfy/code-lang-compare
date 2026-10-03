@@ -1,0 +1,241 @@
+# cpp —— mechanism / generics
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: generics` 的那批：
+# generic-declaration / generic-constraint / variance / type-erasure。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：**本轮的两门语言在这四格上是同一条路线**（都是单态化、都不是擦除），
+# 这正是轮 ③ 的对比轴。C++ 特有的要写准的有三条：
+# ① **模板不是「泛型」** —— 它是编译期的代码生成，实参不同就真的生成不同的函数；
+# ② **模板定义必须对使用它的编译单元可见**（所以模板写在头文件里），
+#    只声明不定义是**链接错误**而不是编译错误；
+# ③ **没有声明处型变** —— 也没有型变这回事，因为模板实例化出来的
+#    是彼此无关的独立类型（`vector<int>` 与 `vector<double>` 毫无关系）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  generic-declaration:
+    code: |
+      template <typename T>          // @note 类型参数（`class T` 也合法，同义）
+      T twice(T x) { return x + x; }
+
+      template <typename T> struct Box {   // @note 泛型类
+        T value;
+        T get() const { return value; }
+      };
+
+      template <typename K, typename V> struct Pair { K k; V v; };   // @note 多个参数
+
+      // @note! 用起来必须让编译器**看见定义** —— 所以模板一般整个写在头文件里
+      // @note! 只声明不定义、又调用了，是**链接错误**（undefined reference），
+      // @note! 不是编译错误（实跑确认：报的是 `undefined reference to 'int add<int>(int, int)'`）
+
+      // @note C++17 起类模板实参能推断（CTAD）
+      Box b{42};                     // @note 推出 Box<int>
+
+      // @note C++20 起还能用简写函数模板
+      void f(auto x) { }             // @note 等价于 template <typename T> void f(T)
+
+      // @note! 连「泛型」这个词都不是标准用语 —— 标准说的是模板（template）
+    vs:
+      javascript: |
+        **这一格是「有没有类型参数」的直接对比**：JavaScript 完全没有
+        —— 想写一个通用的 `twice`，只能靠运行时判断类型或干脆不管，
+        类型信息在函数体里是看不见的。C++ 的模板让编译器给每种实参
+        **各生成一份代码**，所以 `twice(1)` 与 `twice(1.5)` 真的是两个函数
+        （这也是它能做「编译期鸭子类型」的底气）。
+        另一处是书写成本：C++ 的模板要写 `template <typename T>`，
+        而且定义必须放在头文件里让用的人都看得见 —— 这条约束在
+        JavaScript 里不存在（函数在哪都能调）。
+      python: |
+        两边都能写「通用的函数」，但**一个只在检查器里、一个真的生成代码**：
+        Python 的 `TypeVar` 是给类型检查器看的标注，运行期完全不存在；
+        C++ 的模板是编译器真的按实参展开的，`Box<int>` 与 `Box<double>`
+        在目标文件里是两段互不相干的代码。
+        另一处是定义位置的要求：Python 的函数在哪定义都能被找到，
+        C++ 的模板定义必须让使用它的编译单元看见（通常写在头文件里），
+        否则是链接错误 —— 这条约束对没接触过 C++ 的人很反直觉。
+      java: |
+        两边都能写泛型类与泛型方法，写法也像（`<T>` ↔ `template <typename T>`），
+        但**底下是两套机制**：Java 的泛型是**擦除**的 ——
+        `Box<Integer>` 与 `Box<String>` 运行期是同一个类；
+        C++ 的模板是**单态化**的 —— 每个实参真的生成一份代码。
+        这个差别会一路影响后面三格（约束、型变、运行期信息），
+        而且它解释了一件很实际的事：C++ 编译慢、产物体积大，
+        换来的是零开销的抽象与能在模板上做编译期判断。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  generic-constraint:
+    code: |
+      // @note C++ 的约束有两代写法，效果差别很大
+
+      // 老写法（C++98 起）：靠**用法**约束 —— 编译到模板体里才发现不满足
+      template <typename T>
+      T maxOf(T a, T b) { return a > b ? a : b; }   // @note 要求 T 支持 >
+
+      // 新写法（C++20）：concept，约束写在签名上
+      template <typename T>
+      concept Comparable = requires(T a, T b) { { a > b } -> std::convertible_to<bool>; };
+
+      template <Comparable T>
+      T maxOf2(T a, T b) { return a > b ? a : b; }
+
+      // @note 标准库现成的 concept：std::integral / std::floating_point /
+      // @note   std::same_as / std::convertible_to / std::invocable ...
+      template <std::integral T> T half(T x) { return x / 2; }
+
+      // @note 老写法还有一条路是 type traits 加 SFINAE（std::enable_if），
+      // @note 现代代码应该改用 concept —— 报错信息会好读得多
+      // @note 实跑对比：concept 不满足时报的是「candidate requires Quacker<T>」，
+      // @note 而不是一屏模板展开的错误
+    vs:
+      javascript: |
+        JavaScript 没有约束这一层，函数里对参数的假设只能靠文档或运行时判断；
+        C++ 的约束是编译器真的会检查的（实跑确认：不满足就编译不过，
+        报错信息里直接写明要求）。**但两边的差别不只是「有没有检查」**：
+        C++ 的约束还决定**能不能调用** —— 不满足 concept 的函数
+        根本不进候选集，所以同一个函数名可以靠不同约束做重载分发。
+        这是 JavaScript 里做不到的（那边只能写一个函数、在体内分支）。
+      python: |
+        Python 用 `TypeVar('T', bound=...)` 表达约束，但那只对类型检查器
+        有意义、运行时不强制；C++ 的 concept 是编译器硬要求，
+        不满足直接编译不过。另一处是**约束写在哪**：
+        Python 的约束在类型变量定义处，与函数分开；
+        C++ 的 concept 可以就地写在模板参数上
+        （`template <Comparable T>` 或 `void f(Quacker auto&)`），读起来更近。
+        共同点是两边都让「函数对参数的要求」成了可以写下来的东西 ——
+        一个给检查器，一个给编译器。
+      java: |
+        **这一格差别最大**：Java 的泛型约束只有一种形态 ——
+        `<T extends Comparable<T>>`，写的是**上界**（必须是某个类型的子类型），
+        而且因为擦除，编译后约束就没了；C++ 的 concept 能表达
+        「必须支持 `>` 这个操作」这种**结构化**要求，跟继承毫无关系，
+        而且它是在每个实参类型上真的检查的。
+        所以 Java 只能表达「任何 X 的子类型」，C++ 能表达
+        「任何长得像 X 的类型」—— 这句话在约束这一格上最直观。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  variance:
+    code: |
+      // @note! **C++ 根本没有「型变」这个概念** —— 因为模板实例化出来的
+      // @note! 是彼此无关的类型，谈不上「协变/逆变」
+
+      std::vector<int>    vi;
+      std::vector<double> vd;
+      // vi = vd;                  // @note! 编译错误：两个毫无关系的类型
+      // std::vector<double>& r = vi;   // @note 同样不行
+
+      // @note! 连 `const` 也不给协变：
+      const std::vector<int>& cri = vi;      // @note 合法（加 const 不算型变）
+      // const std::vector<double>& crd = vi;  // @note! 不行
+
+      // 想在「不同的元素类型」之间做通用的东西，有两条路：
+      //   ① 模板：把元素类型当参数（互相之间仍然没有赋值关系）
+      template <typename T> void sum(const std::vector<T>& v);
+      //   ② 迭代器/视图：不拥有数据，看的是「一段范围」
+      void sumRange(std::span<const int> s);
+
+      // @note 标准库里有**指针**层面的协变：`Derived*` 能当 `Base*` 用
+      // @note （这是继承带来的，不是模板的）
+      // @note 也有 `const` 层面的一点点：`int*` 能转 `const int*`
+    vs:
+      javascript: |
+        两边都「没有型变」这个词，但原因不同：JavaScript 根本没有
+        元素类型这个概念（数组里什么都能放），所以「能不能那样赋值」
+        这个问题不存在；C++ 有元素类型，而模板又是单态化的 ——
+        `vector<int>` 与 `vector<double>` 是两个**毫无关系的类型**，
+        赋值直接编译不过。另一处是 C++ 里唯一带点「协变」味道的地方
+        是**指针与继承**（派生类指针能当基类指针用），
+        那来自继承而不来自模板 —— 而那条路在 C++ 里是允许的，
+        也是「对象切片」那一类坑的源头。
+      python: |
+        两边的处境差得比较远：Python 的类型检查器把列表当**不变**
+        （`list[int]` 不是 `list[float]`），但那是检查器的选择，
+        运行期根本不检查；C++ 的 `vector<int>` 与 `vector<double>`
+        是**真的不同的类型**，赋值是编译错误、运行时也真的不能混。
+        另一处是 C++ 里有 `const` 这一层能加限定
+        （`vector<int>` 能转成 `vector<int> const&`），
+        但那是加只读，不是型变。
+      java: |
+        **两边结果像、原因不同**：Java 的泛型是**不变**的
+        （`List<Integer>` 不是 `List<Number>`），因为它**擦除** ——
+        运行期分不出来，所以编译器必须从严；
+        C++ 的模板实例是**单态化**的，`vector<int>` 与 `vector<double>`
+        在运行期就是两个不同的类型，编译器允许混才是错的。
+        另一处差别很大：Java 有**通配符**（`? extends` / `? super`）
+        让你在调用点表达协变与逆变，C++ **完全没有对应物** ——
+        想写「接受任何元素类型的序列」只能上模板。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-erasure:
+    code: |
+      // @note! C++ 的模板**不擦除** —— 每个实参真的生成一份代码
+
+      std::vector<int>    vi{1,2,3};
+      std::vector<double> vd{1.5};
+
+      typeid(vi).name();     // @note 实跑给的是 `St6vectorIiSaIiEE`
+                             // @note 一串修饰名 —— 实参编码在里面，但没法拿它分支
+      typeid(vi) == typeid(std::vector<int>);    // @note true，可是右边要写死类型
+      // typeid(vi) == typeid(std::vector<double>);  // @note false
+
+      // @note! 想「按元素类型分支」在 C++ 里**做不到** ——
+      // @note! 那是编译期的事，编译完就没有「实参」这个可查询的对象了
+      // @note! （对比：同一段逻辑想按类型走不同分支，得用 `if constexpr`，
+      // @note!  而那必须发生在模板里、编译期决定）
+
+      // @note! 想**主动擦除**类型也可以 —— 那是另一件事，叫类型擦除手法：
+      // @note   std::function（存任意可调用物）、std::any（存任意值）、
+      // @note   基类指针 + 虚函数。擦除是**设计选择**，不是模板的默认行为
+      std::function<int(int)> f = [](int x){ return x * 2; };   // @note 擦掉了 lambda 的真实类型
+      // @note 代价：多一层间接调用，而且 sizeof(std::function) 是 32 字节
+    vs:
+      javascript: |
+        两边运行期都**没有类型参数**这个概念，但原因完全不同：
+        JavaScript 本来就没有类型参数（函数不区分元素类型）；
+        C++ 的模板参数在编译期就已经「用完就没了」—— 生成好的代码里
+        没有它，问不出来。所以两边都无法「先写一段处理 `List<int>`
+        的代码，再在运行时判断这个列表是不是整数列表」。
+        另一处是 C++ 里有**主动的类型擦除**手法（`std::function` / `std::any`）
+        作为设计选择，JavaScript 不需要 —— 那边一切都是动态的。
+      python: |
+        **两边的运行期信息量差得很远**：Python 的泛型实参在运行期
+        **看得见**（`list[int]` 这个类型对象上带着 `__args__`，
+        可以翻出来），因为那些类型对象是真的存在的东西；
+        C++ 的模板实参编译完就没了，`typeid` 只给你一个整体类型的
+        修饰名，而且拿它分支必须先写死目标类型。
+        所以 Python 里「按泛型实参做点事」写得出来，C++ 里写不出来 ——
+        C++ 那件事必须在编译期用 `if constexpr` 做完。
+      java: |
+        **这一格正是 Java 与 C++ 分野最清楚的地方**：Java 的泛型
+        **擦除**，运行期 `List<String>` 与 `List<Integer>` 是同一个类，
+        `instanceof List<String>` 根本写不出来；
+        C++ 的模板**不擦除**，`vector<int>` 与 `vector<double>`
+        在目标文件里是两段独立代码，各自带着自己的类型名。
+        但两边**都不能**做「按实参分支」这件事 ——
+        Java 是做不到（信息没了），C++ 是不该做（那要在编译期做完）。
+        另一处是 C++ 有 `std::any` / `std::function` 这类主动擦除的工具，
+        那是 Java 用 `Object` 加强转在做的事。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

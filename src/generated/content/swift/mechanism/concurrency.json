@@ -1,0 +1,207 @@
+{
+  "lang": "swift",
+  "section": "mechanism",
+  "group": "concurrency",
+  "boxes": {
+    "concurrency-unit": {
+      "lang": "swift",
+      "code": "// Swift 的并发有两代工具并存\n\n// ① 传统线程（来自 Foundation）\nlet t = Thread { print(\"在另一根线程上\") }\nt.start()\n\n// ② 结构化并发（Swift 5.5 起，这是现在的正统写法）\nTask {                              // 一个异步任务\n  await doWork()\n}\n\nawait withTaskGroup(of: Int.self) { group in     // 任务组：并发跑一批\n  for i in 0..<3 {\n    group.addTask { await compute(i) }\n  }\n  for await r in group { print(r) }              // 结果随到随收\n}\n\n// ⚠ 「结构化」的意思是：子任务的寿命被**限制在**它在的那个作用域里 ——\n// ⚠ 作用域结束前所有子任务都会完成或被取消，\n// ⚠ 所以不会出现「任务飘走了没人管」的情况\n\n// actor 是并发安全类型（见 shared-state 那一格）\nactor Counter { var n = 0 }\n\n// ⚠ 关键差别：`Task {}` 里的代码**不一定在别的线程上** ——\n// ⚠ 它只是「一个可以挂起的工作单元」，跑在哪由调度器决定\n// ⚠ 所以「并发」与「并行」在这门语言里是分开的两件事",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Swift 的并发有两代工具并存</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ① 传统线程（来自 Foundation）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> t </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Thread</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"在另一根线程上\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">t.</span><span style=\"color:var(--shiki-token-constant)\">start</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ② 结构化并发（Swift 5.5 起，这是现在的正统写法）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">Task</span><span style=\"color:var(--shiki-foreground)\"> {                              </span><span style=\"color:var(--shiki-token-comment)\">// 一个异步任务</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-token-function)\"> doWork</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-function)\"> withTaskGroup</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">of</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-constant)\"> Int</span><span style=\"color:var(--shiki-token-function)\">.</span><span style=\"color:var(--shiki-token-keyword)\">self</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> { group </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-comment)\">     // 任务组：并发跑一批</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-keyword)\">..&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">3</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    group.</span><span style=\"color:var(--shiki-token-function)\">addTask</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-function)\"> compute</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">i</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> group { </span><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">r</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> }              </span><span style=\"color:var(--shiki-token-comment)\">// 结果随到随收</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 「结构化」的意思是：子任务的寿命被**限制在**它在的那个作用域里 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 作用域结束前所有子任务都会完成或被取消，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以不会出现「任务飘走了没人管」的情况</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// actor 是并发安全类型（见 shared-state 那一格）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">actor</span><span style=\"color:var(--shiki-token-function)\"> Counter</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 关键差别：`Task {}` 里的代码**不一定在别的线程上** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 它只是「一个可以挂起的工作单元」，跑在哪由调度器决定</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以「并发」与「并行」在这门语言里是分开的两件事</span></span></code></pre>",
+      "lineCount": 28,
+      "notes": [
+        {
+          "line": 19,
+          "text": "「结构化」的意思是：子任务的寿命被**限制在**它在的那个作用域里 ——",
+          "tone": "warn"
+        },
+        {
+          "line": 20,
+          "text": "作用域结束前所有子任务都会完成或被取消，",
+          "tone": "warn"
+        },
+        {
+          "line": 21,
+          "text": "所以不会出现「任务飘走了没人管」的情况",
+          "tone": "warn"
+        },
+        {
+          "line": 26,
+          "text": "关键差别：`Task {}` 里的代码**不一定在别的线程上** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 27,
+          "text": "它只是「一个可以挂起的工作单元」，跑在哪由调度器决定",
+          "tone": "warn"
+        },
+        {
+          "line": 28,
+          "text": "所以「并发」与「并行」在这门语言里是分开的两件事",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都有「并发单元」，但<strong>能共享什么</strong>完全不同：\nJavaScript 的主线程只有一个执行流（Worker 之间不共享内存），\n所以 <code>Promise</code> / 任务之间天然没有竞争；\nSwift 的任务<strong>可以共享内存</strong>（同一个进程、同一块堆），\n所以需要一个机制来保证安全 —— 那就是 actor 与 Sendable。\n另一处是并行：JavaScript 的 Worker 真并行但要消息传递；\nSwift 的 <code>Task</code> 默认只是「可挂起的工作单元」，\n真并行由调度器决定，而线程是真并行。\n还有一处是 Swift 的「结构化并发」把子任务的寿命钉在作用域内，\nJavaScript 的 Promise 没有这个约束（跑完为止，没人等）。</p>\n",
+        "python": "<p>两边都有「协程式并发 + 线程」两套，但<strong>安全模型不同</strong>：\nPython 有全局解释器锁，所以很多竞争被掩盖了（代价是没有真并行）；\nSwift 用 actor 与 Sendable 在<strong>编译期</strong>拦数据竞争 ——\n也就是说那边靠运行时锁兜底（还常常忘），\n这边靠类型系统。另一处是 Swift 的 actor 是语言/标准库级别的隔离机制，\nPython 的 <code>asyncio</code> 里没有对应物（要自己保证不共享状态）。\n共同点是两边的异步任务都能挂起、都跑在调度器上。</p>\n",
+        "java": "<p>两边都有真线程、都能真并行，但<strong>安全手段的层次不同</strong>：\nJava 靠 <code>synchronized</code> / <code>Lock</code> 加人工纪律，编译器不检查；\nSwift 6 靠 actor 隔离 + Sendable，<strong>多数数据竞争是编译期错误</strong>。\n也就是说同一个「共享可变状态」的问题，一边是「你要记得加锁」，\n另一边是「你没标明安全就编不过」。\n另一处是 Java 有虚拟线程把大量并发变便宜，\nSwift 的结构化并发（Task / TaskGroup）是另一个方向：\n它管的是「任务的寿命与取消」，不是「线程有多便宜」。</p>\n"
+      }
+    },
+    "shared-state": {
+      "lang": "swift",
+      "code": "// ⚠ Swift 6 的核心主张：**数据竞争在多数情况下是编译期错误**\n\nclass NotSendable { var v = 0 }\n\n// 把可变状态放进 actor：所有访问都要经过隔离\nactor Bank {\n  private var balance = 0\n  func deposit(_ x: Int) { balance += x }      // 同一时刻只有一个任务能进来\n  func current() -> Int { balance }\n}\n\nlet bank = Bank()\nawait bank.deposit(100)                          // 跨隔离边界的调用要 await\nlet b = await bank.current()\n\n// ⚠ 跨并发域传递的值必须标 **Sendable**：\n// 值类型（全是 Sendable 成员的 struct）自动满足\n// 类要显式标 `final class X: Sendable` 并保证内部不可变\n// `@MainActor` 的类也算（它被主 actor 保护着）\n\n// ⚠ 编译器拦不住的（比如通过 Unsafe 指针绕过去），\n// ⚠ 运行时会**直接终止程序** —— 官方明说了这一点，\n// ⚠ 不是「结果不确定」，是当场停\n\n// 所以「怎么加锁」在这门语言里退居次席 ——\n// 先让编译器认账，剩下的场景才轮到手写同步",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Swift 6 的核心主张：**数据竞争在多数情况下是编译期错误**</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> NotSendable</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> v </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 把可变状态放进 actor：所有访问都要经过隔离</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">actor</span><span style=\"color:var(--shiki-token-function)\"> Bank</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  private</span><span style=\"color:var(--shiki-token-keyword)\"> var</span><span style=\"color:var(--shiki-foreground)\"> balance </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  func</span><span style=\"color:var(--shiki-token-function)\"> deposit</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">_</span><span style=\"color:var(--shiki-token-parameter)\"> x</span><span style=\"color:var(--shiki-foreground)\">: </span><span style=\"color:var(--shiki-token-constant)\">Int</span><span style=\"color:var(--shiki-foreground)\">) { balance </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-foreground)\"> x }      </span><span style=\"color:var(--shiki-token-comment)\">// 同一时刻只有一个任务能进来</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  func</span><span style=\"color:var(--shiki-token-function)\"> current</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-constant)\"> Int</span><span style=\"color:var(--shiki-foreground)\"> { balance }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> bank </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Bank</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-foreground)\"> bank.</span><span style=\"color:var(--shiki-token-function)\">deposit</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">100</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">                          // 跨隔离边界的调用要 await</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-foreground)\"> bank.</span><span style=\"color:var(--shiki-token-function)\">current</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 跨并发域传递的值必须标 **Sendable**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 值类型（全是 Sendable 成员的 struct）自动满足</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 类要显式标 `final class X: Sendable` 并保证内部不可变</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// `@MainActor` 的类也算（它被主 actor 保护着）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 编译器拦不住的（比如通过 Unsafe 指针绕过去），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 运行时会**直接终止程序** —— 官方明说了这一点，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不是「结果不确定」，是当场停</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以「怎么加锁」在这门语言里退居次席 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 先让编译器认账，剩下的场景才轮到手写同步</span></span></code></pre>",
+      "lineCount": 26,
+      "notes": [
+        {
+          "line": 1,
+          "text": "Swift 6 的核心主张：**数据竞争在多数情况下是编译期错误**",
+          "tone": "warn"
+        },
+        {
+          "line": 16,
+          "text": "跨并发域传递的值必须标 **Sendable**：",
+          "tone": "warn"
+        },
+        {
+          "line": 21,
+          "text": "编译器拦不住的（比如通过 Unsafe 指针绕过去），",
+          "tone": "warn"
+        },
+        {
+          "line": 22,
+          "text": "运行时会**直接终止程序** —— 官方明说了这一点，",
+          "tone": "warn"
+        },
+        {
+          "line": 23,
+          "text": "不是「结果不确定」，是当场停",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>这一格的对比最极端</strong>：JavaScript 的 Worker 不共享内存，\n所以「数据竞争」这个问题<strong>根本不存在</strong>；\nSwift 的任务共享同一个地址空间，所以必须用\nactor 隔离与 Sendable 来证明安全，而且<strong>编译器会拦</strong>。\n也就是说那边不用想这件事是因为问题被设计掉了，\n这边必须想是因为共享是默认、而语言给了工具来管住它。\n另一处是 Swift 的违反后果很硬：编译期不报的那些，\n运行时会直接终止程序 —— 不是「结果可能不对」。</p>\n",
+        "python": "<p>两边的差別在<strong>谁来保证</strong>：Python 因为全局解释器锁，\n单条字节码是原子的，很多竞争被掩盖（但也换来了没有真并行）；\nSwift 没有这层保护，所以它把安全做进了类型系统 ——\nactor 隔离、Sendable 检查，过不了就编译不过。\n也就是说那边「靠运行时兜底、还常常兜不住」，\n这边「靠编译期证明」。\n另一处是 Python 的 <code>asyncio</code> 里共享状态全靠自觉，\nSwift 的 actor 是强制隔离的。</p>\n",
+        "java": "<p>两边都有共享内存与数据竞争，但<strong>拦截的时机不同</strong>：\nJava 的内存模型规定得比较细（volatile、final 的初始化安全），\n但<strong>编译器不检查你是否正确同步</strong> —— 一切靠纪律与工具；\nSwift 6 把「可安全跨并发域传递」变成了类型上的要求\n（Sendable），大多数错误在编译期就报。\n另一处是隔离机制：Java 的 <code>synchronized</code> 是「保护一段代码」，\nSwift 的 actor 是「保护一个对象」—— 后者的粒度更粗但更难写错。</p>\n"
+      }
+    },
+    "lock-mutex": {
+      "lang": "swift",
+      "code": "// ⚠ Swift 的正统答案是 actor —— 先问「能不能不用锁」\nactor Counter {\n  private var n = 0\n  func bump() { n += 1 }\n  func value() -> Int { n }\n}\n// 用 actor 时你**写不出**「忘了解锁」这种错 —— 隔离是类型层面的\n\n// 确实需要锁的时候（比如要保护的不是一个 actor 的状态），\n// 可以用：\n//   NSLock（Foundation）—— 老牌，要记得成对 lock/unlock\n//   os_unfair_lock（平台相关，性能更好，但生命周期要小心）\n//   Mutex（Swift 6 起工具链里的 Synchronization 模块）\n//      —— 用 withLock 包一段，作用域结束自动解锁\n\n// ⚠ 与别的语言一样，锁的经典错误这里全都有：\n// 忘记解锁、在持锁时调用会再取同一把锁的代码（死锁）、\n// 加锁顺序不一致（ABBA 死锁）\n// 所以官方更推 actor：**让编译器帮你排除这一类错误**\n\n// `@MainActor` 是另一层：它保证代码跑在主线程上，\n// 用来保护界面状态 —— 这不是「锁」，而是「隔离到特定执行器」\n\n// 只读共享时 actor 仍会串行化，想并行读要别的方案",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Swift 的正统答案是 actor —— 先问「能不能不用锁」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">actor</span><span style=\"color:var(--shiki-token-function)\"> Counter</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  private</span><span style=\"color:var(--shiki-token-keyword)\"> var</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  func</span><span style=\"color:var(--shiki-token-function)\"> bump</span><span style=\"color:var(--shiki-foreground)\">() { n </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  func</span><span style=\"color:var(--shiki-token-function)\"> value</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-constant)\"> Int</span><span style=\"color:var(--shiki-foreground)\"> { n }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 用 actor 时你**写不出**「忘了解锁」这种错 —— 隔离是类型层面的</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 确实需要锁的时候（比如要保护的不是一个 actor 的状态），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 可以用：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   NSLock（Foundation）—— 老牌，要记得成对 lock/unlock</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   os_unfair_lock（平台相关，性能更好，但生命周期要小心）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   Mutex（Swift 6 起工具链里的 Synchronization 模块）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//      —— 用 withLock 包一段，作用域结束自动解锁</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 与别的语言一样，锁的经典错误这里全都有：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 忘记解锁、在持锁时调用会再取同一把锁的代码（死锁）、</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 加锁顺序不一致（ABBA 死锁）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以官方更推 actor：**让编译器帮你排除这一类错误**</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// `@MainActor` 是另一层：它保证代码跑在主线程上，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 用来保护界面状态 —— 这不是「锁」，而是「隔离到特定执行器」</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只读共享时 actor 仍会串行化，想并行读要别的方案</span></span></code></pre>",
+      "lineCount": 24,
+      "notes": [
+        {
+          "line": 1,
+          "text": "Swift 的正统答案是 actor —— 先问「能不能不用锁」",
+          "tone": "warn"
+        },
+        {
+          "line": 16,
+          "text": "与别的语言一样，锁的经典错误这里全都有：",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>这一格 JavaScript 基本上用不上</strong> —— 没有共享内存就不需要锁，\n所以那边根本没有互斥量这个日常概念。Swift 里 actor 是\n语言推荐的用法（比锁更安全，因为隔离由类型系统保证），\n锁只在 actor 不适合的场景才出手。\n也就是说两边对「互斥」这件事的距离完全不同：\n一边是「没有这个问题」，一边是「有，但优先用类型解决」。\n共同点是两边都不推荐「手写锁」这条路\n（JavaScript 那边是因为不需要，Swift 是因为有更好的）。</p>\n",
+        "python": "<p>两边都有锁，而且 Python 的 <code>with lock:</code> 与 Swift 的\n<code>withLock { }</code> 是一个思路（块结束自动释放）—— 这一层可以对应。\n差别在<strong>首选方案</strong>：Python 里锁就是主要手段（\n<code>asyncio.Lock</code> / <code>threading.Lock</code>）；Swift 里首选 actor，\n锁是退路 —— 因为 actor 的隔离是编译期检查的，\n而锁完全靠人记得用对。\n另一处是 Swift 的 <code>@MainActor</code> 是「隔离到某个执行器」，\nPython 的 asyncio 里没有直接对应（靠单线程事件循环保证）。</p>\n",
+        "java": "<p>两边<strong>高度对应</strong>：<code>synchronized</code> / <code>ReentrantLock</code> ↔\n<code>NSLock</code> / <code>Mutex</code>，<code>ReadWriteLock</code> ↔ Swift 里没有内建的读写锁\n（要自己搭或用别的方案）。连「用手作用域保证解锁」这个模式\n两边都一样。\n差别在<strong>首选方案</strong>：Java 6 之后有 <code>java.util.concurrent</code>\n一整套（并发集合、原子类、线程池），但共享可变状态\n仍然靠人工纪律；Swift 6 优先用 actor 隔离 + Sendable 检查，\n目标是<strong>让编译器把这一类错误挡在门外</strong>。</p>\n"
+      }
+    },
+    "channel": {
+      "lang": "swift",
+      "code": "// Swift 里「通道」这件事有几种形态，而且都不是内建的关键字\n\n// ① AsyncStream：生产者往流里塞值，消费者 for-await 收\nlet stream = AsyncStream<Int> { continuation in\n  continuation.yield(1)\n  continuation.yield(2)\n  continuation.finish()                 // 结束要显式说\n}\nfor await v in stream { print(v) }\n\n// ② actor + 队列：标准库没有现成的阻塞队列，\n//    要么自己用 actor 包一个，要么引第三方（swift-async-algorithms\n//    提供 AsyncChannel 这类）\n\n// ③ 任务组也是一种「汇聚结果」的手段（见 concurrency-unit 那一格）\n//    它把「并发跑一批、收集结果」写得比通道更直接\n\n// ⚠ 与别的语言差别最大的一点：**消费是异步的（for await）**，\n// ⚠ 所以「等一个消息」不会阻塞线程 —— 它挂起当前任务\n\n// 不过 `AsyncStream` 的缓冲策略要留意（默认无界，\n// 生产者太快会一直堆在内存里）\n\n// 想跨进程/跨设备通信得用别的框架（Distributed actor 那一套）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Swift 里「通道」这件事有几种形态，而且都不是内建的关键字</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ① AsyncStream：生产者往流里塞值，消费者 for-await 收</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> stream </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> AsyncStream</span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">Int</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-foreground)\"> { continuation </span><span style=\"color:var(--shiki-token-keyword)\">in</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  continuation.</span><span style=\"color:var(--shiki-token-function)\">yield</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  continuation.</span><span style=\"color:var(--shiki-token-function)\">yield</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  continuation.</span><span style=\"color:var(--shiki-token-function)\">finish</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-comment)\">                 // 结束要显式说</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-foreground)\"> v </span><span style=\"color:var(--shiki-token-keyword)\">in</span><span style=\"color:var(--shiki-foreground)\"> stream { </span><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">v</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ② actor + 队列：标准库没有现成的阻塞队列，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//    要么自己用 actor 包一个，要么引第三方（swift-async-algorithms</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//    提供 AsyncChannel 这类）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ③ 任务组也是一种「汇聚结果」的手段（见 concurrency-unit 那一格）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//    它把「并发跑一批、收集结果」写得比通道更直接</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 与别的语言差别最大的一点：**消费是异步的（for await）**，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 所以「等一个消息」不会阻塞线程 —— 它挂起当前任务</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 不过 `AsyncStream` 的缓冲策略要留意（默认无界，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 生产者太快会一直堆在内存里）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想跨进程/跨设备通信得用别的框架（Distributed actor 那一套）</span></span></code></pre>",
+      "lineCount": 24,
+      "notes": [
+        {
+          "line": 18,
+          "text": "与别的语言差别最大的一点：**消费是异步的（for await）**，",
+          "tone": "warn"
+        },
+        {
+          "line": 19,
+          "text": "所以「等一个消息」不会阻塞线程 —— 它挂起当前任务",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>两边的「消息传递」位置正好相反</strong>：JavaScript 的 Worker 之间\n<strong>只有</strong>消息传递（<code>postMessage</code> 是唯一通道），共享内存反而是特例；\nSwift 的并发任务默认共享内存，消息传递（AsyncStream）\n是<strong>额外搭出来的一种模式</strong>。\n也就是说一边「不共享、改用通信」是唯一的路，\n另一边它是若干方案之一。\n另一处是消费方式：两边都能异步消费（<code>for await</code> ↔\n<code>for await...of</code>），形态出奇地像 —— 这是两边最接近的一处。</p>\n",
+        "python": "<p>两边都能做消息传递，而且现在的写法有几分像\n（Python 的 <code>async for</code> ↔ Swift 的 <code>for await</code>）。\n差别在<strong>开箱程度</strong>：Python 的 <code>asyncio.Queue</code> 是标准库现成的，\nSwift 的 <code>AsyncStream</code> 是<strong>流</strong>（一次性、有结束），\n想要「可反复读写的队列」标准库没有，得自己用 actor 包一个\n或者引第三方。另一处是 Swift 的 actor 让「自己搭一个队列」\n比 Python 里简单（隔离由语言保证）。</p>\n",
+        "java": "<p>两边<strong>基本对应</strong>：Java 的 <code>BlockingQueue</code> 提供现成的阻塞队列，\nSwift 的 <code>AsyncStream</code> 提供流式的值传递 ——\n但两者不完全是同一件事：<code>BlockingQueue</code> 是<strong>阻塞式</strong>的\n（拿不到就阻塞线程），<code>AsyncStream</code> 是<strong>挂起式</strong>的\n（拿不到就挂起任务、不占线程）。\n所以 Swift 的方式更省线程，但表达力上少了「可反复读写的队列」\n这个现成类型。另一处是 Java 的 <code>CompletableFuture</code> 与\nSwift 的任务组在「收集一批结果」上作用相近。</p>\n"
+      }
+    },
+    "atomicity": {
+      "lang": "swift",
+      "code": "// ⚠ 「一条语句」在 Swift 里**不等于一步** ——\n// ⚠ `n += 1` 是读、加、写三步，跨任务共享时会被插队\n\n// 正统解法仍然是**别共享**：把状态放进 actor，\n// 让编译器保证同一时刻只有一个任务在动它\n\n// 真需要底层原子操作时（Swift 6 起工具链里有 Synchronization 模块）：\nimport Synchronization\nlet counter = Atomic<Int>(0)\ncounter.wrappingAdd(1, ordering: .relaxed)      // 显式指定内存序\ncounter.load(ordering: .acquiring)\n\n// 与别的语言一样，内存序写错不会报错，\n// 只会在某些机器上偶尔出错 —— 不确定就用默认的顺序一致\n\n// 老代码里能见到的替代品：\n//   OSAtomic 系列（已废弃）\n//   NSLock 包一段临界区\n//   @MainActor（把访问都安排到主线程上，串行化）\n\n// ⚠ 还有一条要记牢：**`volatile` 不是 Swift 的东西** ——\n// ⚠ 这门语言里没有这个关键字（它属于别的语言的工具箱）\n\n// 值类型天然没有原子性问题（拷贝语义），\n// 需要原子的地方一定是「共享的可变引用类型或全局变量」",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 「一条语句」在 Swift 里**不等于一步** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `n += 1` 是读、加、写三步，跨任务共享时会被插队</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 正统解法仍然是**别共享**：把状态放进 actor，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 让编译器保证同一时刻只有一个任务在动它</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 真需要底层原子操作时（Swift 6 起工具链里有 Synchronization 模块）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-token-function)\"> Synchronization</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> Atomic</span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;</span><span style=\"color:var(--shiki-token-constant)\">Int</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">counter.</span><span style=\"color:var(--shiki-token-function)\">wrappingAdd</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-function)\">, ordering</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-function)\"> .relaxed</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">      // 显式指定内存序</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">counter.</span><span style=\"color:var(--shiki-token-function)\">load</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">ordering</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-function)\"> .acquiring</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 与别的语言一样，内存序写错不会报错，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只会在某些机器上偶尔出错 —— 不确定就用默认的顺序一致</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 老代码里能见到的替代品：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   OSAtomic 系列（已废弃）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   NSLock 包一段临界区</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   @MainActor（把访问都安排到主线程上，串行化）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 还有一条要记牢：**`volatile` 不是 Swift 的东西** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 这门语言里没有这个关键字（它属于别的语言的工具箱）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 值类型天然没有原子性问题（拷贝语义），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 需要原子的地方一定是「共享的可变引用类型或全局变量」</span></span></code></pre>",
+      "lineCount": 25,
+      "notes": [
+        {
+          "line": 1,
+          "text": "「一条语句」在 Swift 里**不等于一步** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 2,
+          "text": "`n += 1` 是读、加、写三步，跨任务共享时会被插队",
+          "tone": "warn"
+        },
+        {
+          "line": 21,
+          "text": "还有一条要记牢：**`volatile` 不是 Swift 的东西** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 22,
+          "text": "这门语言里没有这个关键字（它属于别的语言的工具箱）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边都有原子操作，但<strong>位置不同</strong>：JavaScript 的 <code>Atomics</code>\n是给 <code>SharedArrayBuffer</code> 配套的<strong>特例工具</strong>\n（因为默认不共享，想共享反而要显式申请一块共享内存）；\nSwift 的 <code>Atomic</code> 是给共享状态用的常规工具\n（因为默认就共享）。\n另一处是<strong>首选方案</strong>：Swift 优先用 actor 把问题从根上避免，\n原子操作是底层退路；JavaScript 那边因为没有共享，\n平时根本不会碰到这个话题。\n还有一处是 Swift 的原子操作要显式指定内存序\n（与 C 系语言一致），JavaScript 只给了顺序一致这一档。</p>\n",
+        "python": "<p>两边的原子性层次完全不同：Python 有全局解释器锁，\n<strong>单条字节码</strong>天然是原子的，所以很多操作不需要显式原子类型；\nSwift 里连一次自增都不是一步，必须用 actor 隔离\n或者显式的原子类型。另一处是 Python 的 <code>threading</code> 里\n没有语言级的原子类型（要做就靠锁），\nSwift 较新的工具链里有 <code>Atomic</code> 与 <code>Mutex</code>。\n共同点是两边都会遇到「看起来对、偶尔错」的并发 bug。</p>\n",
+        "java": "<p>两边<strong>非常接近</strong>：<code>AtomicInteger</code> / <code>AtomicLong</code> ↔\nSwift 的 <code>Atomic&lt;T&gt;</code>，都能指定内存序\n（Java 的 <code>VarHandle</code> 提供 acquire/release/opaque 等访问模式），\n都有「原子但不管顺序」的档位。\n差别在<strong>首选方案与默认值</strong>：Java 的 <code>volatile</code> 语义清晰、\n使用门槛低，共享可变状态是常态；\nSwift 6 优先用 actor 把共享挡在类型系统外面，\n原子操作是少数场景才用的底层工具 ——\n也就是说同一个问题上，一边默认「用原子/volatile」，\n一边默认「用隔离」。</p>\n"
+      }
+    }
+  }
+}

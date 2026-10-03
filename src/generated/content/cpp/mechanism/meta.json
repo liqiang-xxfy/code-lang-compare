@@ -1,0 +1,145 @@
+{
+  "lang": "cpp",
+  "section": "mechanism",
+  "group": "meta",
+  "boxes": {
+    "reflection": {
+      "lang": "cpp",
+      "code": "// ⚠ C++ **没有通用反射** —— 编译完的类型基本什么都不剩\n\n// 只有多态类型有 RTTI 可用，而且只有两件工具：\nstruct Base { virtual ~Base() = default; };\nstruct Derived : Base { int extra = 7; };\n\nBase* p = new Derived();\ntypeid(*p).name();                  // 实跑给的是修饰名 `St6vectorIiSaIiEE` 那一类\n                                    // 能拿它比较，但**不能拿它构造对象**\nif (auto* d = dynamic_cast<Derived*>(p)) { d->extra; }   // 运行时检查的向下转型\ntypeid(*p) == typeid(Derived);      // 可以比较，但右边要写死类型\n\n// ⚠ 列不出成员、拿不到字段名、不能按名字调方法 —— 这些都没有\n// 非多态类型连上面那两件都没有（结构体问不出任何东西）\n\n// 标准库的**静态反射**（`#include <meta>`，C++26）\n// 实跑在这台机器上：`meta: No such file or directory` —— 用不了\n// 所以「编译期遍历成员」这件事在当前工具链上只能靠\n// 宏、模板元编程、或者外部代码生成器\n\n// 换来的是：没有运行时类型信息常驻内存，产物体积小、零开销",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ C++ **没有通用反射** —— 编译完的类型基本什么都不剩</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 只有多态类型有 RTTI 可用，而且只有两件工具：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> Base</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">virtual</span><span style=\"color:var(--shiki-token-keyword)\"> ~</span><span style=\"color:var(--shiki-token-function)\">Base</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> default</span><span style=\"color:var(--shiki-foreground)\">; };</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> Derived</span><span style=\"color:var(--shiki-token-punctuation)\"> :</span><span style=\"color:var(--shiki-foreground)\"> Base { </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> extra </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 7</span><span style=\"color:var(--shiki-foreground)\">; };</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">Base</span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> p </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Derived</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">typeid</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\">p)</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">name</span><span style=\"color:var(--shiki-foreground)\">();</span><span style=\"color:var(--shiki-token-comment)\">                  // 实跑给的是修饰名 `St6vectorIiSaIiEE` 那一类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">                                    // 能拿它比较，但**不能拿它构造对象**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">auto*</span><span style=\"color:var(--shiki-foreground)\"> d </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> dynamic_cast&#x3C;</span><span style=\"color:var(--shiki-foreground)\">Derived</span><span style=\"color:var(--shiki-token-keyword)\">*></span><span style=\"color:var(--shiki-foreground)\">(p)) { </span><span style=\"color:var(--shiki-token-constant)\">d</span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-foreground)\">extra; }</span><span style=\"color:var(--shiki-token-comment)\">   // 运行时检查的向下转型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">typeid</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\">p) </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-token-keyword)\"> typeid</span><span style=\"color:var(--shiki-foreground)\">(Derived);</span><span style=\"color:var(--shiki-token-comment)\">      // 可以比较，但右边要写死类型</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 列不出成员、拿不到字段名、不能按名字调方法 —— 这些都没有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 非多态类型连上面那两件都没有（结构体问不出任何东西）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 标准库的**静态反射**（`#include &#x3C;meta>`，C++26）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 实跑在这台机器上：`meta: No such file or directory` —— 用不了</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以「编译期遍历成员」这件事在当前工具链上只能靠</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 宏、模板元编程、或者外部代码生成器</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 换来的是：没有运行时类型信息常驻内存，产物体积小、零开销</span></span></code></pre>",
+      "lineCount": 21,
+      "notes": [
+        {
+          "line": 1,
+          "text": "C++ **没有通用反射** —— 编译完的类型基本什么都不剩",
+          "tone": "warn"
+        },
+        {
+          "line": 13,
+          "text": "列不出成员、拿不到字段名、不能按名字调方法 —— 这些都没有",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>两边的可用性差一个量级</strong>：JavaScript 的反射是运行时自带的、\n到处都是（<code>Object.keys</code> / <code>Reflect</code> / <code>for...in</code> / 动态属性访问），\n随便写个通用函数遍历对象字段是日常；C++ 里连\n「这个对象有哪些字段」都问不出来，只有多态类型上的\n<code>typeid</code> 与 <code>dynamic_cast</code> 两件工具。\n所以那边「写个通用的序列化」靠反射，这边靠编译期生成\n（宏、模板元编程、或者外部工具先生成代码）。\n另一处是 <code>typeid().name()</code> 给的是实现定义的修饰名，\n不能用来构造对象、也不适合展示给用户。</p>\n",
+        "python": "<p>两边的落差同样大：Python 的反射是<strong>日常工具</strong>\n（<code>getattr</code> / <code>setattr</code> / <code>vars</code> / <code>inspect</code> 到处在用），\n而且随时可用；C++ 的反射只有多态类型上的一小块 RTTI，\n普通结构体什么都问不出来。所以那边「按名字取值」是家常便饭，\n这边根本没有「名字」这个概念（编译完就没有了）。\n另一处是 C++ 正在补这块（C++26 的静态反射），\n但它发生在<strong>编译期</strong>而不是运行期 —— 方向与 Python 相反。</p>\n",
+        "java": "<p><strong>这一格是 C++ 与主流静态语言差别最大的一处</strong>：Java 的反射\n能列出字段、方法、注解，框架靠它做序列化与依赖注入，\n而且任何类都能反射；C++ 只有 RTTI 那一小块 ——\n<code>typeid</code> 与 <code>dynamic_cast</code>，<strong>且都要求类型是多态的</strong>\n（有虚函数），非多态类型问不出任何东西。\n这不是实现差异而是取舍：反射要求类型信息常驻内存，\nC++ 选择把它省掉，换零开销与更小的产物。</p>\n"
+      }
+    },
+    "decorator-annotation": {
+      "lang": "cpp",
+      "code": "// C++ 的「注解」是**属性**（attribute），语法 [[...]]（C++11 起）\n\n[[nodiscard]] int important();          // 不接收返回值就警告（实跑确认）\n[[deprecated(\"用 newFn 替代\")]] void oldFn();   // 用了就警告（实跑确认）\n[[maybe_unused]] int x;                 // 抑制「未使用」警告\n[[noreturn]] void die();                // 承诺不返回（编译器据此优化）\n[[likely]] / [[unlikely]]               // 分支预测提示（C++20）\n\n// ⚠ 关键限制：**不能自定义属性** ——\n// ⚠ 实跑：`[[my_custom_attr]] void f(){}` 只给一条\n// ⚠ 「warning: 'my_custom_attr' attribute directive ignored」\n// ⚠ 然后文件照常编译（既不报错、也不产生任何效果）\n// 标准里的属性是一张**封闭清单**，编译器可以忽略不认识的\n\n// 所以「给声明挂上额外语义」这件事在 C++ 里主要靠别的机制：\n// · 模板 + type traits（编译期判断类型性质）\n// · 宏（文本层面替换）\n// · 代码生成器（在编译前先跑一遍，产出生代码）\n// C++26 才计划引入可自定义的注解，当前工具链没有",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// C++ 的「注解」是**属性**（attribute），语法 [[...]]（C++11 起）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">[[nodiscard]]</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-token-function)\"> important</span><span style=\"color:var(--shiki-foreground)\">();</span><span style=\"color:var(--shiki-token-comment)\">          // 不接收返回值就警告（实跑确认）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">[[deprecated(</span><span style=\"color:var(--shiki-token-string-expression)\">\"用 newFn 替代\"</span><span style=\"color:var(--shiki-token-constant)\">)]]</span><span style=\"color:var(--shiki-token-keyword)\"> void</span><span style=\"color:var(--shiki-token-function)\"> oldFn</span><span style=\"color:var(--shiki-foreground)\">();</span><span style=\"color:var(--shiki-token-comment)\">   // 用了就警告（实跑确认）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">[[maybe_unused]]</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-foreground)\"> x;</span><span style=\"color:var(--shiki-token-comment)\">                 // 抑制「未使用」警告</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">[[noreturn]]</span><span style=\"color:var(--shiki-token-keyword)\"> void</span><span style=\"color:var(--shiki-token-function)\"> die</span><span style=\"color:var(--shiki-foreground)\">();</span><span style=\"color:var(--shiki-token-comment)\">                // 承诺不返回（编译器据此优化）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">[[likely]]</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> [[unlikely]]</span><span style=\"color:var(--shiki-token-comment)\">               // 分支预测提示（C++20）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 关键限制：**不能自定义属性** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 实跑：`[[my_custom_attr]] void f(){}` 只给一条</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 「warning: 'my_custom_attr' attribute directive ignored」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 然后文件照常编译（既不报错、也不产生任何效果）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 标准里的属性是一张**封闭清单**，编译器可以忽略不认识的</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以「给声明挂上额外语义」这件事在 C++ 里主要靠别的机制：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// · 模板 + type traits（编译期判断类型性质）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// · 宏（文本层面替换）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// · 代码生成器（在编译前先跑一遍，产出生代码）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// C++26 才计划引入可自定义的注解，当前工具链没有</span></span></code></pre>",
+      "lineCount": 19,
+      "notes": [
+        {
+          "line": 9,
+          "text": "关键限制：**不能自定义属性** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 10,
+          "text": "实跑：`[[my_custom_attr]] void f(){}` 只给一条",
+          "tone": "warn"
+        },
+        {
+          "line": 11,
+          "text": "「warning: 'my_custom_attr' attribute directive ignored」",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "然后文件照常编译（既不报错、也不产生任何效果）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>两边的名字容易混，本质完全不同</strong>：JavaScript 的装饰器是\n<strong>可执行的函数</strong>，在定义时改写类与方法（而且提案演进过好几版）；\nC++ 的属性只是给编译器的<strong>提示</strong>，标准规定了一张封闭清单，\n自定义的一律被忽略（实跑：只警告「attribute directive ignored」，\n然后照编）。所以那边 <code>@foo</code> 可能真的改变了行为，\n这边 <code>[[foo]]</code> 顶多影响一条警告。\n另一处是 C++ 有大量「挂语义」的需求是靠<strong>宏与模板</strong>实现的，\n那两样在 JavaScript 里没有对应物。</p>\n",
+        "python": "<p>两边都有「给声明挂东西」的语法，但<strong>能不能被读</strong>完全不同：\nPython 的装饰器是<strong>真的函数调用</strong>（<code>@d</code> 等价于 <code>f = d(f)</code>），\n立刻改变对象；C++ 的属性是编译器看的元信息，\n而且只有标准清单里的那些有意义，自定义的会被静默忽略。\n另一处是 Python 的装饰器能挂任意代码、能改任意行为，\nC++ 的等价能力要靠<strong>代码生成器</strong>（编译前先跑一遍生成源码），\n那是一个构建步骤，不是语言特性。</p>\n",
+        "java": "<p>两边都叫「注解/属性」，也都做「给声明挂元信息」这件事，\n而且<strong>默认都不产生运行时效果</strong> —— 这一层很像。\n关键差别是<strong>能不能自定义</strong>：Java 用 <code>@interface</code> 随便定义注解，\n再用反射在运行时读；C++ 的属性清单是<strong>封闭的</strong>，\n自定义的一律被忽略（实跑确认）。所以 Java 那套\n「自定义注解 + 反射读取」的框架写法在 C++ 里写不出来 ——\n得换成宏、模板或代码生成。\n另一处是 C++ 的属性连「运行期读取」这一层都没有。</p>\n"
+      }
+    },
+    "dynamic-eval": {
+      "lang": "cpp",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>C++ <strong>没有 <code>eval</code></strong>，字符串不能当代码跑。这不是「做得不好」，\n是编译型语言的结构决定的：源码在编译期就变成了机器码，\n运行期根本没有能解释字符串的东西。\n要动态行为只能走<strong>动态链接</strong>这条路 —— 编译好一个共享库，\n运行期 <code>dlopen</code> 把它加载进来、<code>dlsym</code> 取函数指针，\n这是「换一个已经编好的模块」，与「把一段文本变成代码」是两回事。\n代价与 <code>eval</code> 完全不是一个量级，而且没有可移植的标准接口。</p>\n",
+        "python": "<p>C++ <strong>没有 <code>eval</code> / <code>exec</code></strong>。Python 里 <code>eval</code>、<code>exec</code>、\n<code>getattr</code> 三件套能做到的元编程，在这边要么改成编译期生成\n（宏、模板、代码生成器），要么干脆换个设计。\n理论上可以接一个 JIT 库或嵌一个脚本引擎进来，\n但那是引入一整个运行时，不是语言能力。\n代价换来的是：可以放心地认为「能跑的代码都是被编译过的」——\n没有字符串注入执行的风险。</p>\n",
+        "java": "<p>两边<strong>都没有内建的 eval</strong>，这一点一致 ——\n都只能靠外部手段（Java 早年的脚本引擎、C++ 的动态加载库）。\n所以从 Java 过来不需要改认知：那边写不了的东西这边同样写不了，\n连替代思路都差不多（引一个解释器进来）。\n差别在 C++ 的 <code>dlopen</code> / <code>dlsym</code> 是<strong>平台相关的</strong>（不是标准库），\n换平台要重写；Java 那套至少是统一的 API。</p>\n"
+      }
+    },
+    "proxy-interception": {
+      "lang": "cpp",
+      "code": "// ⚠ C++ 能拦的东西比看上去多 —— 但都是**针对你自己写的类型**\n\n// ① 重载 operator-> ：拦下每一次成员访问（实跑确认有效）\nstruct Inner { void hello() const; };\nstruct Proxy {\n  Inner* p;\n  Inner* operator->() const { std::puts(\"有人访问了成员\"); return p; }\n  operator bool() const { return p != nullptr; }   // 转换运算符也能重载\n};\nInner i; Proxy px{&i};\npx->hello();        // 先打印「有人访问了成员」，再进 Inner::hello\n\n// ② operator* 与 operator[] ：拦下解引用与下标\n// ③ 转换运算符：拦下「把它当别的类型用」的每一处\n// ④ 拷贝/移动构造、赋值：拦下复制与赋值\n\n// ⚠ 但有两处拦不到：\n// ⚠ ① **已经编好的类型** —— 你不能给 int 或别人库里的类加钩子\n// ⚠ ② 字段访问**不经过任何函数** —— `obj.field` 是直接算偏移，\n// ⚠ 想拦住它只能先经过一次 operator->（也就是先换成代理对象）\n\n// 所以 C++ 的代理是**编译期、逐类型**的：\n// 要拦什么，就得先写一个包住它的类型，\n// 而且用的人得拿这个代理类型而不是原类型",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ C++ 能拦的东西比看上去多 —— 但都是**针对你自己写的类型**</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ① 重载 operator-> ：拦下每一次成员访问（实跑确认有效）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> Inner</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> hello</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\">; };</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">struct</span><span style=\"color:var(--shiki-token-function)\"> Proxy</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  Inner</span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\"> p;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  Inner</span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-keyword)\"> operator</span><span style=\"color:var(--shiki-foreground)\">->() </span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> { std</span><span style=\"color:var(--shiki-token-punctuation)\">::</span><span style=\"color:var(--shiki-token-function)\">puts</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"有人访问了成员\"</span><span style=\"color:var(--shiki-foreground)\">); </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> p; }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  operator</span><span style=\"color:var(--shiki-foreground)\"> bool() </span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> p </span><span style=\"color:var(--shiki-token-keyword)\">!=</span><span style=\"color:var(--shiki-token-constant)\"> nullptr</span><span style=\"color:var(--shiki-foreground)\">; }</span><span style=\"color:var(--shiki-token-comment)\">   // 转换运算符也能重载</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">Inner i; Proxy px{</span><span style=\"color:var(--shiki-token-keyword)\">&#x26;</span><span style=\"color:var(--shiki-foreground)\">i};</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">px</span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-token-function)\">hello</span><span style=\"color:var(--shiki-foreground)\">();</span><span style=\"color:var(--shiki-token-comment)\">        // 先打印「有人访问了成员」，再进 Inner::hello</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ② operator* 与 operator[] ：拦下解引用与下标</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ③ 转换运算符：拦下「把它当别的类型用」的每一处</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ④ 拷贝/移动构造、赋值：拦下复制与赋值</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但有两处拦不到：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ① **已经编好的类型** —— 你不能给 int 或别人库里的类加钩子</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ ② 字段访问**不经过任何函数** —— `obj.field` 是直接算偏移，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 想拦住它只能先经过一次 operator->（也就是先换成代理对象）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以 C++ 的代理是**编译期、逐类型**的：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 要拦什么，就得先写一个包住它的类型，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 而且用的人得拿这个代理类型而不是原类型</span></span></code></pre>",
+      "lineCount": 24,
+      "notes": [
+        {
+          "line": 1,
+          "text": "C++ 能拦的东西比看上去多 —— 但都是**针对你自己写的类型**",
+          "tone": "warn"
+        },
+        {
+          "line": 17,
+          "text": "但有两处拦不到：",
+          "tone": "warn"
+        },
+        {
+          "line": 18,
+          "text": "① **已经编好的类型** —— 你不能给 int 或别人库里的类加钩子",
+          "tone": "warn"
+        },
+        {
+          "line": 19,
+          "text": "② 字段访问**不经过任何函数** —— `obj.field` 是直接算偏移，",
+          "tone": "warn"
+        },
+        {
+          "line": 20,
+          "text": "想拦住它只能先经过一次 operator->（也就是先换成代理对象）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>这一格是「能不能透明」的区别</strong>：JavaScript 的 <code>Proxy</code> 能拦住\n<strong>所有</strong>属性访问（读、写、<code>in</code> 判断、删除），而且对\n<strong>任何对象</strong>都有效，用的人甚至不需要知道它是代理；\nC++ 的代理必须<strong>为每种类型各写一个包装类型</strong>，\n而且只能是「自己写的类型」—— 已经编好的库类型没法加钩子。\n字段访问更是完全拦不到（那是直接算内存偏移）。\n所以那边「给任意对象套一层透明代理」在这边做不到，\n只能对确定的几个类型各写一层。</p>\n",
+        "python": "<p>两边的触发面不同：Python 的 <code>__getattr__</code> 只在常规查找失败时触发\n（与 C++ 重载 <code>operator-&gt;</code> 完全不同 —— 那个是<strong>每次访问都触发</strong>），\n而 <code>__getattribute__</code> 能拦下每一次属性访问，\n那个才与 C++ 的 <code>operator-&gt;</code> 同级 —— 但 Python 的\n<code>__getattribute__</code> 是<strong>每个类都能加</strong>的，不用写新类型；\nC++ 要拦就得换一个包装类型出来。\n另一处是 Python 能对内置类型做子类加钩子（虽然受限），\nC++ 对已经定义好的类型<strong>完全无法追加</strong>。</p>\n",
+        "java": "<p>两边能做的是<strong>同一件事</strong>（拦下对接口方法的调用），\n因为 C++ 在这一点上用的也是动态派发那一套。\n差别在写法：Java 用 <code>Proxy.newProxyInstance</code> 在<strong>运行时</strong>\n生成一个新对象、只对接口有效；C++ 是<strong>编译期</strong>写好一个\n包装类型、重载 <code>operator-&gt;</code>，对具体类型有效。\n也就是说 Java 的代理是「运行时动态生成」，C++ 的是「编译期手写」。\n两边共同的限制是<strong>字段访问拦不到</strong> —— 那需要一层能改写「取属性」\n这个动作的机制，两边都没有。</p>\n"
+      }
+    }
+  }
+}

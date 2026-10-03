@@ -1,0 +1,270 @@
+# swift —— model / abstraction
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: abstraction` 的那批：
+# interface / abstract-class / mixin-trait / duck-typing。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是 **Swift 用「协议 + 扩展」把三件事合成了一个机制** ——
+# 接口（`protocol`）、默认实现（协议扩展）、混入（协议扩展 + 条件遵循）。
+# 而 **`abstract class` 这个概念在这门语言里不存在** ——
+# 抽象类能做的事被协议分了；想强留一个「不能实例化的基类」
+# 只能靠约定（在基类方法里写 `fatalError`）。
+# 另外 Swift 是**名义类型系统**：协议必须显式声明遵守，形状像不算数。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  interface:
+    code: |
+      protocol Drawable {
+        func draw() -> String              // @note 只写签名
+        var area: Double { get }           // @note 属性要求也能写
+      }
+
+      // @note! 协议可以带**默认实现**（通过协议扩展）—— 这是 Swift 的标志性能力
+      extension Drawable {
+        func describe() -> String { "面积 \(area)" }
+      }
+
+      // @note 类型要**显式声明**遵守（名义类型系统）
+      struct Circle: Drawable {
+        var r: Double
+        func draw() -> String { "○" }
+        var area: Double { 3.14 * r * r }
+      }
+
+      // @note 给改不了源码的类型补协议：在扩展里写
+      extension String: Drawable {           // @note 示例（真实项目里很少这么干）
+        func draw() -> String { self }
+        var area: Double { 0 }
+      }
+
+      // @note 组合多个协议
+      func render(_ item: Drawable & CustomStringConvertible) { }
+
+      // @note `some` 与 `any` 是两种用法（见 duck-typing 那一格）
+      func make() -> some Drawable { Circle(r: 1) }    // @note 编译器知道具体类型
+      let boxed: any Drawable = Circle(r: 1)           // @note 运行期才知道，多一层装箱
+
+      // @note 协议还能被类**继承式**遵守（`: Drawable` 写在父类后面）
+    vs:
+      javascript: |
+        **两边「接口」的落实层级不同**：JavaScript 没有接口这个概念，
+        「能做什么」靠文档与运行时检查；Swift 的协议是编译器强制的 ——
+        类型不实现协议要求的方法根本编译不过。
+        另一处是**默认实现**：Swift 的协议扩展能给所有遵守者
+        提供一份现成实现（甚至可以覆盖），所以「面向接口编程」
+        在这边非常轻；JavaScript 里要复用实现只能靠继承或混入函数。
+        还有一处是 `some` / `any` 这个区分 ——
+        「编译器知道具体类型」与「运行期才知道」是两件事，
+        分别有语法表达，JavaScript 里没有这一层。
+      python: |
+        两边的对应关系很紧：Python 的 `Protocol` ↔ Swift 的 `protocol`，
+        都有默认实现（Python 靠基类或 mixin 类）、都能当类型用。
+        关键差别在**强制力**：Python 的 `Protocol` 是给类型检查器看的
+        （运行时不检查，不遵守也能跑）；Swift 的协议是编译器硬要求，
+        不实现就编译不过。
+        另一处是 Python 有 `abc.ABC`（实例化时才检查的抽象基类），
+        Swift 里没有对应物（见 abstract-class 那一格）。
+        共同点是两边的方法都能在事后补（Python 靠打补丁、
+        Swift 靠扩展，但 Swift 的更受控）。
+      java: |
+        两边**高度对应**：`interface` ↔ `protocol`，
+        都能声明方法签名与属性要求、都能组合、都能被类实现多个。
+        差别在两处：① Swift 的协议能通过**扩展**给默认实现
+        （而且可以给「所有遵守者」加一批方法），
+        Java 的 `default` 方法只能在接口里写、能力窄一些；
+        ② Swift 的 `some` / `any` 区分「编译器知道具体类型」与
+        「运行期装箱」，Java 里只有一种用法（接口引用总是运行期派发）。
+        共同点是两边都能「面向接口编程」，也都能给实现类加能力。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  abstract-class:
+    code: |
+      // @note! Swift **没有抽象类** —— 没有 `abstract` 关键字，
+      // @note! 也没有「不能实例化」的类型
+      class Shape {
+        func area() -> Double {
+          fatalError("子类必须重写")        // @note! 只能这样「假装抽象」——
+        }                                   // @note! 而且是**运行期**才炸，编译期不拦
+      }
+
+      // @note! 想真正强制「必须实现」，用的是**协议**：
+      protocol Shape2 {
+        func area() -> Double               // @note 没有实现 = 必须实现
+      }
+      // @note 这样漏实现就是编译错误 —— 比上面那个基类的写法可靠得多
+
+      // @note 于是「抽象类」的两种用途在这边被拆开：
+      // @note   ① 「只描述接口」→ 协议
+      // @note   ② 「给一份半成品实现 + 要求子类补完」→ 协议 + 协议扩展，
+      // @note      或者父类 + 协议要求混着用
+
+      // @note! 后果：Swift 里没有「共享状态的抽象基类」这个惯用法 ——
+      // @note! 因为协议不能有存储属性。
+
+      // @note 类可以用 `required init` 要求子类必须实现某个构造器
+      class Base { required init() { } }
+    vs:
+      javascript: |
+        两边都没有真正的抽象类：JavaScript 可以用一个抛异常的基类方法
+        模拟「必须实现」，但那要**运行时**才炸；Swift 也一样
+        （写 `fatalError` 在基类方法里）。
+        区别是 **Swift 有一条更可靠的路**：用协议来强制实现 ——
+        漏实现是编译错误。JavaScript 没有接口，只能靠约定或
+        类型检查器的 `.d.ts`。
+        另一处是 Swift 的类可以有 `required init`（要求子类必须实现构造器），
+        JavaScript 里没有这个约束。
+      python: |
+        **这一格两边正好相反**：Python 有 `abc.ABC` 与
+        `@abstractmethod` —— 实例化抽象类会抛 TypeError，
+        所以「不能实例化」这件事 Python 真的做得到；
+        Swift **没有抽象类**，想「假装」只能在基类方法里写
+        `fatalError`（运行期才炸），想真强制必须改用协议。
+        也就是说同一个需求，一边有现成机制、一边要换手段。
+        共同点是两边都能用「半成品基类 + 子类补完」这个模式，
+        只是 Swift 的落点在协议扩展上，而协议不能带存储属性。
+      java: |
+        **两边差别明显**：Java 有 `abstract class`（不能实例化、
+        可含抽象方法与具体方法、可带字段），Swift 没有这个概念 ——
+        「不能实例化」这件事在 Swift 里表达不出来，
+        只能靠近似（基类方法里 `fatalError`）。
+        也就是说 Java 里「抽象类」既是接口又是半成品实现，
+        Swift 把这两半拆给了协议与协议扩展，
+        代价是**协议不能有存储属性**（所以「共享状态的半成品基类」
+        在这边不好写）。
+        共同点是两边都能强制子类实现方法 —— 一个靠 abstract，
+        一个靠协议要求。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  mixin-trait:
+    code: |
+      // @note Swift 的「混入」就是**协议扩展** —— 一份实现给所有遵守者
+
+      protocol Loggable { }
+      extension Loggable {
+        func log(_ msg: String) { print("[log] \(msg)") }    // @note 所有遵守者都有
+      }
+
+      struct User: Loggable { }                  // @note 什么都不用写就拿到了 log
+      struct Order: Loggable { }
+      User().log("创建")
+
+      // @note! 还能**条件遵循**：只在满足某个条件时给那份实现
+      extension Collection where Element: Loggable {
+        func logAll() { forEach { $0.log("元素") } }
+      }
+      // @note 上面这句让「元素可记录的任意集合」都多了一个方法 ——
+      // @note 这是**横向加能力**，不需要改任何已有类型
+
+      // @note 协议扩展还能**约束自身**：
+      extension Drawable where Self: Equatable { }
+
+      // @note! 一个类型能遵守多个协议，各拿一份默认实现 ——
+      // @note! 这就是「多继承式的复用」，但**不引入状态**
+      // @note! （协议不能有存储属性，所以混入进来的只有行为）
+
+      // @note 冲突怎么解决？同名方法时，类型自己的实现优先，
+      // @note 其次是更具体的协议扩展 —— 规则比多继承简单
+    vs:
+      javascript: |
+        **这一格 JavaScript 基本是空白**：语言只有一条原型链，
+        没有「横向拿一份实现」的机制 —— 要复用只能把函数挂上去
+        （`Object.assign` 或混入函数），而且是**每个实例各挂一份**，
+        没有编译期保证。
+        Swift 的协议扩展是**编译期**的：类型声明遵守一个空协议
+        就拿到了那批方法，而且能用 `where` 条件精确控制
+        「什么样的类型才拿到」。所以那边「混入」是运行期抄一份，
+        这边是编译期的能力组合。
+      python: |
+        两边都能横向复用实现：Python 用**多维承一个 mixin 类**
+        （按 MRO 决定同名方法听谁的）；Swift 用**协议扩展**
+        （同名时类型自己的实现优先）。
+        差别在**能不能带状态**：Python 的 mixin 可以有实例属性
+        （`self.x`），Swift 的协议扩展**不能加存储属性** ——
+        所以那边的混入能带数据，这边的只能带行为。
+        另一处是 Swift 有条件遵循（`where` 子句），
+        Python 里没有对应机制（要动态判断类型）。
+      java: |
+        **两边机制不同、效果相近**：Java 用 `interface` 的
+        `default` 方法做横向复用；Swift 用协议 + 协议扩展。
+        差别在**灵活度**：Swift 的扩展可以给「满足某个条件的
+        任意类型」加方法（条件遵循），Java 的 default 方法
+        只能加在接口自己身上。
+        另一处是 Java 的接口也不能有状态，与 Swift 的协议一样 ——
+        所以两边做「带状态的混入」都不行，都得改成继承。
+        共同点是两边都能让一个类型同时获得多份行为，
+        而不需要多继承。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  duck-typing:
+    code: |
+      // @note! Swift 是**名义**类型系统：协议必须**显式声明遵守**
+      // @note! 一个类型有两个同名方法，但没写 `: Drawable` —— 那它就不是 Drawable
+
+      struct Fake { func draw() -> String { "○" } }
+      // let d: Drawable = Fake()                // @note! 编译错误：Fake 没声明遵守
+
+      // @note! 所以 Swift **没有运行时鸭子类型** —— 这一格基本是空的
+      // @note 泛型+协议约束看起来像「看形状」，但仍然是名义的：
+      // @note 约束里写的是协议名，不是「有哪些方法」
+      func render<T: Drawable>(_ x: T) { }        // @note 这里要求的是「遵守了 Drawable」
+
+      // @note! 唯一的例外是**结构化类型**（不是协议）：
+      // @note   元组、函数类型、元类型按**形状**相容
+      let f: (Int) -> String = { "\($0)" }        // @note 任何同形状的闭包都能赋给它
+      let t: (Int, String) = (1, "a")             // @note 元组按形状
+
+      // @note 想「按能力动态取」只能靠反射（Mirror，只读、能力很弱）
+      // @note 或者 `AnyObject` 加协议转换 + as? 判断
+    vs:
+      javascript: |
+        **这一格是直接的有无之分**：JavaScript 的鸭子类型在运行时
+        （「调用那一刻有没有这个方法」就是判据），
+        任何对象只要长得像就能用；Swift **完全没有** ——
+        类型必须显式声明遵守协议，形状一样也不算。
+        唯一的「看形状」是元组与函数类型（它们按结构相容），
+        但那是很窄的一块。所以那边「不写接口也能传进去」在这边
+        必须补一个协议声明 —— 这也意味着 Swift 里
+        「给第三方类型补协议」只能靠扩展（改代码能力有限）。
+      python: |
+        两边的姿态相反：Python 的鸭子类型是**运行时默认行为**
+        （不写 `Protocol` 也能调用），`Protocol` 只是给类型检查器的
+        可选标注；Swift 没有运行时鸭子类型这一层 ——
+        协议是名义的，必须显式声明。
+        另一处是 Python 可以给任何类（包括内置类型）加方法来实现协议，
+        Swift 也能用扩展补协议，但只能在**能看见该类型**的地方做，
+        而且不能加存储属性。
+        共同点是两边都有结构化的类型检查工具（Python 的 Protocol、
+        Swift 的元组与函数类型），但覆盖面差别很大。
+      java: |
+        **两边一致**：Java 也是名义类型系统 —— 类必须显式
+        `implements` 接口，形状相同不算数；Swift 完全一样。
+        差别在**泛型约束的形态**：Java 的约束只能写
+        「某个接口的子类型」（擦除的泛型做不了结构判断）；
+        Swift 的约束也写协议名，所以这一点两边相同。
+        另一处是 Swift 的元组与函数类型是结构化的（按形状相容），
+        Java 里没有元组、函数类型也要靠函数式接口（名义的）。
+        共同点是两边都没有运行时鸭子类型。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

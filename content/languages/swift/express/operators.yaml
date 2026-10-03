@@ -1,0 +1,240 @@
+# swift —— express / operators
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: operators` 的那批：
+# arithmetic / equality / logical / operator-overloading。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组三处要写准 ——
+# ① **整数溢出默认崩**（`Int.max + 1` 是运行时陷阱），想回绕必须显式
+#    写 `&+` / `&-` / `&*` —— 这三个「带与号的运算符」是这门语言的特色；
+# ② **`==` 是内容相等、`===` 是同一性**，而 `===` **只对类的实例成立**
+#    （值类型用 `===` 编译不过）；
+# ③ 与多数语言不同，Swift **允许自定义新的运算符**（不只是重载已有的），
+#    要配 `prefix` / `infix` / `precedencegroup` 声明。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  arithmetic:
+    code: |
+      let a = 7, b = 2
+      a / b                        // @note 3 —— 整数除法**向零截断**
+      -7 / 2                       // @note -3（不是向下取整的 -4）
+      a % b                        // @note 1
+      -7 % 2                       // @note -1 —— 余数符号跟着**被除数**
+      7 / 2.0                      // @note 3.5：有一个是浮点就按浮点算
+
+      // @note! 整数溢出是**运行时陷阱**（当场崩），不是回绕
+      var big = Int.max
+      // big + 1                   // @note! crash: arithmetic overflow
+
+      // @note 想回绕必须显式用「溢出运算符」—— 三个带 & 的
+      big &+ 1                      // @note 回绕到 Int.min
+      big &- 1
+      big &* 2
+
+      // @note 浮点取余要用方法，不能用 %
+      7.5.truncatingRemainder(dividingBy: 2)     // @note 1.5
+
+      // @note 没有 `++` / `--` —— 这在早期版本里被移除了，写 `+= 1`
+      var i = 0; i += 1
+    vs:
+      javascript: |
+        除法差别很大：JavaScript 的 `/` 一律给浮点（`7/2` 是 3.5），
+        要整除得自己写 `Math.floor`；Swift 的 `/` 看操作数类型 ——
+        两个整数就是整除，而且**向零截断**（`-7/2` 得 -3）。
+        另一处是溢出：JavaScript 的数字是浮点，超出安全范围只是丢精度、
+        不会崩；Swift 的整数溢出**直接崩**，要回绕必须显式写 `&+`。
+        还有一处很显眼：Swift 里**没有 `++` 与 `--`**（早期版本移除了），
+        写 `i += 1` —— JavaScript 里两种都能写。
+      python: |
+        两边都有整除和取余，但**负数上的行为是反的**：Python 的 `//`
+        向下取整（`-7 // 2` 是 -4）、`%` 的结果跟着除数（`-7 % 2` 是 1）；
+        Swift 的 `/` 向零截断（-3）、`%` 跟着被除数（-1）。
+        所以从 Python 过来的代码里只要出现负数和除法，结果就会不一样，
+        而且两边都不报错。另一处是溢出：Python 的整数任意精度、
+        根本不会溢出，Swift 会**崩** —— 这也是两边数值模型的分野。
+      java: |
+        整数除法的行为**两边一致**（都向零截断、余数跟着被除数），
+        这一层不用重新学。差别在溢出：Java 的整数溢出是**回绕**、
+        结果可预测；Swift 的溢出是**运行时崩溃** ——
+        也就是说 Java 里那种「靠溢出绕一圈」的位运算技巧
+        在 Swift 里得显式写成 `&+` 才成立。
+        另一处是自增：Java 有 `++` / `--`，Swift 没有
+        （早期版本移除了），只能写 `+= 1` —— 这个差别在移植循环时天天遇到。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  equality:
+    code: |
+      // @note `==` 是**内容相等**，靠 Equatable 协议
+      1 == 1
+      "abc" == "abc"
+      [1, 2] == [1, 2]              // @note 数组也是按内容比
+      (1, 2) == (1, 2)              // @note 元组也能比（元素都可比的元组）
+
+      // @note! `===` 是**同一性**：两个引用是不是指向同一个实例
+      // @note! 它**只对类的实例成立** —— 值类型用 `===` 编译不过
+      class Box { var v = 0 }
+      let b1 = Box(), b2 = Box()
+      b1 === b1                     // @note true
+      b1 === b2                     // @note false
+      b1 !== b2                     // @note 也有 !==
+
+      let s1 = "abc", s2 = "abc"
+      s1 == s2                      // @note true（内容）
+      // s1 === s2                  // @note! 编译错误：String 是值类型
+
+      // @note 自定义类型想用 == 得遵守 Equatable
+      struct Point: Equatable { var x = 0, y = 0 }
+      Point() == Point()            // @note 自动合成 ==（逐字段比）
+    vs:
+      javascript: |
+        两边都有内容比较与同一性比较，但**同一性那一半的适用范围不同**：
+        JavaScript 的 `===` 用在任何值上（对对象比引用、对数字比值），
+        所以 `"a" === "a"` 是 true；Swift 的 `===` **只对类的实例成立**，
+        值类型（字符串、数组、结构体）用 `===` 直接编译不过 ——
+        对它们来说「同一性」没有意义，因为根本没有共享的实例。
+        另一处是 Swift 的 `==` 需要类型遵守 `Equatable`
+        （原生类型都遵守，自定义结构体可以自动合成），
+        JavaScript 的 `===` 是所有值都有的运算符。
+      python: |
+        两边的 `==` 都是「可被类型作者定义的内容比较」，这一层一致。
+        差别在**同一性比较的落点**：Python 的 `is` 比同一性、
+        `==` 比内容，两个都在语言里且对所有对象都可用；
+        Swift 的 `===` 只对类的实例可用 ——
+        对值类型来说「是不是同一个对象」这个问题本身不成立
+        （值类型赋值就是拷贝，没有共享的实例）。
+        另一处是 Python 有 `__eq__` / `__hash__` 的配套约定，
+        Swift 有 `Equatable` / `Hashable` 协议，两边都很像。
+      java: |
+        两边**非常接近**：基本类型用 `==` 比内容，
+        对象用 `==` 比引用（想比内容得靠 `equals`）。
+        Swift 把这两件事拆成了两个不同的运算符 ——
+        `==` 一律是内容（靠协议），`===` 一律是同一性（只对类）——
+        也就是说读代码时**一眼能分出比的是什么**，
+        Java 里看到 `==` 得先判断左边是基本类型还是对象。
+        另一处是 Swift 的结构体可以自动合成 `==`，
+        Java 的记录类也有类似能力，普通类则都要手写。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  logical:
+    code: |
+      let t = true
+      t && sideEffect()             // @note 短路：左边为假就不算右边
+      t || sideEffect()             // @note 短路
+      !t
+
+      // @note 条件**必须是 Bool** —— 没有真值/假值那套
+      // if 1 { }                   // @note! 编译错误：Int 不是 Bool
+      if !arr.isEmpty { }           // @note 判空要写出来
+
+      // @note 三元运算符是表达式
+      let label = count > 0 ? "有" : "无"
+
+      // @note 空值合并用 `??`（只在 nil 时取右边）
+      let name = optionalName ?? "匿名"
+      // @note 注意与「或」的区别：`??` 只认 nil，
+      // @note 空字符串、0 都算「有值」—— 而 `||` 在别处会把这些当假
+
+      // @note 可选链本身也是一种「短路」：a?.b?.c 中间断掉整条就是 nil
+    vs:
+      javascript: |
+        **这一格的重点是「条件允许什么」与「`??` 认什么」**：
+        JavaScript 有一整套真值/假值（空字符串、0、NaN、null 都算假），
+        所以 `if (name)` 是常见写法；Swift 的条件**必须是 Bool**，
+        `if arr.count` 直接编译不过，得写 `!arr.isEmpty`。
+        另一处是 `??` 与 `||` 的分工：JavaScript 里 `a || "默认"`
+        在 a 是空字符串或 0 时也会取默认值（这常常是 bug 的来源），
+        Swift 的 `??` 只认 nil，空字符串与 0 都算有值 ——
+        也就是说「缺省值」这件事在这边更精确。
+      python: |
+        两边的短路行为一致，但**条件里能放什么**不同：
+        Python 的对象自己说了算（`__bool__`，空容器为假），
+        `if arr:` 是标准写法；Swift 要求条件必须是 `Bool`，
+        容器不能直接当条件，要写 `if !arr.isEmpty`。
+        另一处是取默认值：Python 的 `a or "默认"` 会把空字符串、
+        0、空列表都当成假，Swift 的 `??` 只认 nil ——
+        所以 Python 里那些「用 or 兜底」的惯用法在 Swift 里
+        语义完全不同，这类 bug 移植时很容易带过去。
+      java: |
+        两边**几乎完全一致**：条件必须是 `boolean`，
+        `&&` / `||` 短路、只返回布尔值 —— 这一格可以直接平移。
+        差别在「取默认值」：Java 靠三元运算符或 `Optional.orElse`，
+        Swift 有专门的运算符 `??`（更紧凑，而且只认 nil）。
+        另一处是 Swift 的可选链 `?.` 本身就是一种短路
+        （链上任一环为 nil 整条就是 nil），Java 靠 `Optional.map` 串联，
+        写法上更长一些。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  operator-overloading:
+    code: |
+      struct Vec {
+        var x = 0.0, y = 0.0
+        // @note 重载已有运算符：写成类型的静态方法
+        static func + (l: Vec, r: Vec) -> Vec { Vec(x: l.x + r.x, y: l.y + r.y) }
+        static func == (l: Vec, r: Vec) -> Bool { l.x == r.x && l.y == r.y }
+        // @note 复合赋值要单独写，而且左边得是 inout
+        static func += (l: inout Vec, r: Vec) { l = l + r }
+      }
+
+      // @note! Swift 还能**发明新运算符** —— 这是它比较特别的地方
+      infix operator |>: AdditionPrecedence       // @note 先声明
+      func |> <A, B>(value: A, transform: (A) -> B) -> B { transform(value) }   // @note 再实现
+      5 |> { $0 * 2 }                             // @note 10
+
+      // @note 新运算符要声明结合性与优先级（`precedencegroup` 或现成的组）
+      // @note 前缀/后缀运算符也可以自定义：
+      prefix operator √
+      prefix func √ (x: Double) -> Double { x.squareRoot() }
+
+      // @note! 有两类运算符**不能**重载：`=`（赋值）与三元条件 `? :`
+    vs:
+      javascript: |
+        **两边是直接的有无之分**：JavaScript 没有运算符重载，
+        自定义数值类型只能用方法名（`.plus()`），
+        读代码时 `a + b` 永远是语言定义的；
+        Swift 不但能重载已有运算符，还能**发明新的**
+        （`|>`、`√` 这种），所以同一个符号在不同类型上
+        可能有完全不同的含义、甚至是你从没见过的符号。
+        好处是自定义数值类型（向量、复数、金额）写起来像原生类型，
+        代价是「这个符号是什么」要跳进去看。
+      python: |
+        两边都支持运算符重载，连实现方式都对应
+        （Python 的 `__add__` ↔ Swift 的 `static func +`），
+        而且**两边都能发明新运算符**（Python 的 `@` 是标准库加的，
+        用户自定义的运算符受字符集限制；Swift 的字符集更宽）。
+        差别在**声明的分离度**：Swift 要先 `infix operator |>:`
+        声明结合性与优先级、再写实现，两步；
+        Python 是在类里定义 `__xxx__` 方法，但新符号要语言层面支持。
+        共同点是两边都能让 `a + b` 变成作者写的代码。
+      java: |
+        **两边相反**：Java 不支持运算符重载（只有字符串拼接这一个特例），
+        自定义类型一切靠方法名 —— `BigDecimal.add()` 而不是 `a + b`；
+        Swift 全面支持，而且还能发明新符号。
+        所以从 Java 过来最容易低估的是这件事的**改变面**：
+        Swift 里看到 `+`、`==`、`|>` 都可能是作者写的函数，
+        读代码时不能默认它们是语言行为。
+        另一处是 Swift 的复合赋值（`+=`）要单独实现，
+        Java 里 `a += b` 自动等价于 `a = a + b`，没有这个要求。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

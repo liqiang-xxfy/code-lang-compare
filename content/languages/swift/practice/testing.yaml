@@ -1,0 +1,324 @@
+# swift —— practice / testing
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: testing` 的那批：
+# test-framework / assertions / mocking / parameterized-tests / coverage。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的关键背景是**这门语言正在换代测试框架** ——
+# 老的 **XCTest**（类继承 + `XCTAssert` 系列）与新的 **Swift Testing**
+# （`@Test` 宏 + `#expect`，Swift 6 起随工具链分发）并存。
+# 两套的写法差别很大，所以每一格都要说清「哪一套」。
+# 另外断言那一格要分清**语言自带的三个**（assert / precondition / fatalError）
+# 与**测试框架的断言** —— 它们是完全不同的东西。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-testing-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  test-framework:
+    code: |
+      // @note! Swift 现在有**两套**测试框架并存，写代码时要先知道用哪套
+
+      // ① Swift Testing（新，Swift 6 起随工具链分发）—— 用宏，不用继承
+      import Testing
+
+      @Test func addsTwoNumbers() {
+        #expect(add(1, 2) == 3)
+      }
+
+      @Suite("计算器")                      // @note 分组（可选）
+      struct CalculatorTests {
+        @Test func handlesNegative() { }
+      }
+
+      // ② XCTest（老，仍然是很多项目的现实）
+      import XCTest
+
+      final class CalculatorTests: XCTestCase {
+        func testAddsTwoNumbers() {
+          XCTAssertEqual(add(1, 2), 3)
+        }
+        override func setUp() { }          // @note 每个用例前
+        override func tearDown() { }       // @note 每个用例后
+      }
+
+      // @note 跑测试都是同一条命令
+      //   swift test
+      //   swift test --filter CalculatorTests
+
+      // @note! 两套的差别不只是写法：
+      // @note   · 新的用**结构体加宏**，老的用**类继承**
+      // @note   · 新的支持**并发跑用例**且默认就并行
+      // @note   · 新的断言用宏，失败时能打印**表达式原文**（更易读）
+      // @note   · 新的能标记「已知问题」「按条件跳过」「打标签分组」
+      // @note 官方方向是新的那套，但迁移需要时间，所以两套都要认识
+    vs:
+      javascript: |
+        两边的测试框架都成熟，而且都在演进，这一层可以对应。
+        差别在**框架数量与换代**：JavaScript 生态里有多个框架并存
+        （Node 自带的 `node:test`、Jest、Vitest……）；
+        Swift 也正好处在换代期（XCTest → Swift Testing），
+        但方向是**官方在推一套新的**，不是生态自然分化。
+        另一处是**组织方式**：Swift Testing 用结构体加宏
+        （不需要继承），XCTest 用类继承；
+        JavaScript 的框架大多是函数式注册（`test(...)` / `it(...)`）。
+        共同点是两边都能按名字过滤、都能跑单个文件。
+      python: |
+        两边都有成熟的测试框架，但**组织方式差别明显**：
+        Python 的 `pytest` 靠**命名约定**发现测试
+        （`test_*.py` 里的 `test_*` 函数），不需要注册；
+        Swift 的 Swift Testing 靠 **`@Test` 宏**显式标记，
+        XCTest 靠类名与方法名前缀 —— 也就是说 Swift 这边
+        是「显式声明」，Python 是「按约定找」。
+        另一处是并行：Swift Testing 默认**并行跑用例**，
+        Python 的 pytest 默认串行（要 `xdist` 插件才并行）。
+        共同点是两边都能按名字过滤、都有断言库。
+      java: |
+        两边**形态上最像**（JUnit ↔ XCTest：类继承 + 断言方法），
+        而且都出现了更现代的那一套（JUnit 5 ↔ Swift Testing）。
+        差别在**新旧交替的进度**：Java 的 JUnit 5 已经普及多年、
+        生态基本迁完；Swift 的 Swift Testing 还在推广中，
+        很多项目仍是 XCTest —— 所以 Swift 这边「两套并存」
+        是当下真实的日常。
+        另一处是并行：Swift Testing 默认并行，
+        JUnit 5 要显式开启。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  assertions:
+    code: |
+      // @note! 先分清**两族完全不同的东西**
+
+      // ① 语言自带的三个（不是测试用的）
+      assert(x > 0)              // @note! 只在 debug 构建检查，release 下条件都不求值
+      precondition(x > 0)        // @note debug 与 release **都**检查（-Ounchecked 才关）
+      fatalError("不该到这")      // @note 永远生效，而且**不返回**（类型是 Never）
+      // @note 三者的选择标准很实际：
+      // @note   「内部一致性检查」→ assert
+      // @note   「调用方必须满足的契约 / 校验输入」→ precondition
+      // @note   「逻辑上不可能到的分支」→ fatalError
+
+      // ② 测试框架的断言（才是「判断符合预期」的标准写法）
+      #expect(add(1, 2) == 3)                  // @note Swift Testing：宏
+      try #require(value)                      // @note 不满足就**中止这个用例**
+      #expect(throws: NetworkError.timeout) { try fetch() }   // @note 断言抛错
+
+      XCTAssertEqual(add(1, 2), 3)             // @note XCTest：方法
+      XCTFail("不该到这")
+      // @note XCTest 的断言失败**不会中止**用例（除非用 XCTUnwrap 那类），
+      // @note 会继续跑到底再汇总 —— 与 Swift Testing 的 #require 有区别
+
+      // @note! 一个容易搞混的点：测试里看到 `#expect` 与 `assert` 同时出现时，
+      // @note! 它们是两套系统 —— 前者由测试框架收集与报告，
+      // @note! 后者是运行时的硬检查（release 下会消失）
+    vs:
+      javascript: |
+        两边的断言处境差别很大：JavaScript **没有语言级的断言语句**，
+        平时用的 `console.assert` 或框架断言都是库函数、**一直生效**；
+        Swift 有语言级的四个档位（assert / precondition / fatalError，
+        加上测试框架的 `#expect`），而且开关行为不同 ——
+        `assert` 在 release 下会被移除。
+        另一处是失败行为：JavaScript 的断言不通过只是打印或抛异常
+        （能接住）；Swift 的 `assert` / `precondition` 直接终止进程。
+        共同点是测试框架的断言两边都很好用，失败时都能给出清晰信息。
+      python: |
+        **这一格两边最容易搞反**：Python 的 `assert` 默认**是开的**
+        （`-O` 才关），失败抛 AssertionError（能接住）；
+        Swift 的 `assert` **只在 debug 检查**（release 下连条件都不求值），
+        失败**直接终止**（接不住）。
+        也就是说 Python 那边「断言是一种能接住的异常」，
+        这边「断言是一个编译配置相关的硬检查」。
+        另一处是 Swift 用**三个关键字**区分「调试检查 / 生产契约 / 不可能分支」，
+        Python 基本只有 assert 一种。
+      java: |
+        两边都有断言、也都有开关，但**默认值相反**：
+        Java 的 `assert` **默认是关的**（要 `-ea`），
+        Swift 的 `assert` **默认是开的**（release 构建才移除）。
+        另一处是 Swift 多了两档：`precondition`（发布也检查）
+        与 `fatalError`（永远生效且返回 `Never`）——
+        Java 里「逻辑上不可能到这」只能靠抛异常表达。
+        共同点是两边测试框架的断言都很成熟，
+        而且都区分「继续跑」与「立刻中止」两种失败语义。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  mocking:
+    code: |
+      // @note! Swift **没有内建的测试替身机制，也没有运行时代理生成** ——
+      // @note! 替身要靠**协议 + 手写假实现**（或者引第三方宏）
+
+      protocol Clock { func now() -> Int }
+      struct RealClock: Clock { func now() -> Int { 0 } }
+      struct FakeClock: Clock {                  // @note 手写替身
+        var fixed = 1000
+        func now() -> Int { fixed }
+      }
+
+      func age(_ c: Clock) -> Int { c.now() - 500 }
+
+      @Test func ageUsesClock() {
+        #expect(age(FakeClock(fixed: 1000)) == 500)     // @note 换成假的
+      }
+
+      // @note! 两条与别处不同的约束：
+      // @note! ① 替身要能**注入** —— 代码里直接 `RealClock()` 就没法替，
+      // @note!    必须改成从外面传进来（这在 Swift 里是常见重构）
+      // @note! ② 想自动生成替身得引第三方库（有一些基于宏的方案）——
+      // @note!    **标准库与官方工具链里没有**
+
+      // @note 老代码里常见的手法是「用协议把外部依赖隔开」，
+      // @note 再用结构体写假实现 —— 结构体是值类型，写起来比类轻
+
+      // @note 因为反射只读（见 mechanism/meta），
+      // @note 「运行时动态生成一个假对象」这条路在这门语言里基本走不通
+    vs:
+      javascript: |
+        **两边的机制完全不同**：JavaScript 的替身是**运行期改对象**
+        （把模块的方法换掉、给对象塞假属性），不需要接口；
+        Swift 的替身要**事先设计**：先抽象出协议、再让依赖能注入，
+        然后手写一个遵守协议的假实现。
+        也就是说那边「测不动就 mock 一下」是常态，
+        这边得先重构代码让它可替换。
+        另一处是自动生成：JavaScript 的测试库能自动造 mock；
+        Swift 的标准工具链里没有，要引第三方。
+      python: |
+        两边都有「换掉外部依赖」的需求，但**成本差很多**：
+        Python 用 `unittest.mock` 打补丁（`patch` 一个名字就行），
+        不需要接口；Swift 的替身必须有一个协议、代码还得支持注入 ——
+        也就是说这条路上 Swift 的准备工作明显更多。
+        另一处是 Python 的 mock 能记录调用、断言调用次数，
+        Swift 里这些要自己写在假实现里。
+        共同点是两边都推荐「面向接口编程」让代码可测，
+        只是 Swift 里这条是**硬要求**（没有接口就没法替）。
+      java: |
+        **两边思路一致、便利程度差一截**：Java 的 Mockito 可以在
+        **运行时**动态生成假对象（`mock(Foo.class)` 一行），
+        用起来极省事；Swift 没有这层能力（反射只读），
+        替身要**手写一个遵守协议的类型**，或者引第三方宏库。
+        所以从 Java 过来最明显的失落是「要多写一个假实现」。
+        另一处是两边的替身都要求「依赖能注入」，
+        这一点是一致的 —— 不可测的代码在两边都要重构。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  parameterized-tests:
+    code: |
+      // @note Swift Testing 把参数化测试做成了**宏的一部分**
+      @Test(arguments: [1, 2, 3])
+      func isPositive(_ n: Int) { #expect(n > 0) }
+      // @note 每个参数**各自是一个独立用例**，失败时能指出是哪一个
+
+      // @note 多组输入用元组，或者两个参数的笛卡尔积
+      @Test(arguments: [("a", 1), ("b", 2)])
+      func parses(_ input: String, _ expected: Int) { }
+
+      @Test(arguments: ["x", "y"], [1, 2])       // @note 组合起来跑四遍
+      func combines(_ s: String, _ n: Int) { }
+
+      // @note 参数还能来自集合、区间、或者实现 `CaseIterable` 的枚举
+      @Test(arguments: 0...5) func ranges(_ n: Int) { }
+
+      // @note! XCTest 那边没有对应的官方写法 —— 常见做法是
+      // @note! 在**一个用例里写循环**（失败时看不出是哪组数据），
+      // @note! 或者一个用例一个方法地展开（重复多）
+
+      // @note 想给每组数据起名字，可以传带标签的元组
+      // @note 想跳过某组，可以在用例里用 `withKnownIssue` 或条件跳过
+    vs:
+      javascript: |
+        两边都能跑多组输入，而且都是**框架提供**的写法
+        （`test.each` ↔ `@Test(arguments:)`），失败时都能指出是哪一组 ——
+        这一层很接近。
+        差别在**数据来源的表达**：JavaScript 的 `each` 常常接一个表格；
+        Swift Testing 接的是**任意序列**（数组、区间、枚举的 `allCases`），
+        而且能把多个序列组合成笛卡尔积 —— 表达力更强一些。
+        另一处是 Swift 的写法借助宏，数据直接在属性里写，
+        比 JavaScript 的模板串表格更类型安全。
+      python: |
+        两边都有参数化的正式写法（`@pytest.mark.parametrize` ↔
+        `@Test(arguments:)`），而且都会为每组数据单独报结果 ——
+        这一层可以对应。
+        差别在**组合能力**：pytest 要靠多次叠加装饰器或者手工生成
+        (`itertools.product`)；Swift Testing 直接写多个序列就是笛卡尔积。
+        另一处是 Swift 的用例写在结构体里、用宏标记，
+        pytest 靠函数名约定加装饰器 —— 一个是显式、一个是约定。
+      java: |
+        两边**高度对应**：JUnit 的 `@ParameterizedTest` +
+        `@MethodSource` / `@CsvSource` ↔ Swift Testing 的
+        `@Test(arguments:)`，都是「同一段逻辑跑多组数据、
+        每组单独报结果」。
+        差别在数据来源的写法：Java 的 `@CsvSource` 能直接写表格字符串
+        （紧凑但类型弱）；Swift 的参数是真正的值序列
+        （类型安全，但表格要写成元组数组）。
+        另一处是 Swift 的用例默认**并行**跑，Java 要显式开。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  coverage:
+    code: |
+      // @note Swift 的覆盖率靠 `swift test` 的一个开关加 LLVM 的工具
+
+      swift test --enable-code-coverage          # 带覆盖率跑测试
+      // 产物在 .build/debug/codecov/ 下（有 JSON 与 profdata）
+
+      // 看报告：用 LLVM 的 llvm-cov（Apple 平台上还能用 xcrun xccov）
+      xcrun llvm-cov report \
+        .build/debug/MyAppPackageTests.xctest/Contents/MacOS/MyAppPackageTests \
+        -instr-profile=.build/debug/codecov/default.profdata
+
+      // @note 接进 CI 就是「多一个开关 + 上报报告」，模式与别处一样
+
+      // @note! 两处插桩式覆盖率特有的麻烦在这里同样存在：
+      // @note! ① 覆盖率是**编译期插桩**的产物 —— 「跑覆盖率」是另一次构建
+      // @note! ② 泛型特化与内联会让同一份代码**重复计数**，
+      // @note!    数字会被稀释，所以覆盖率高不代表没漏
+      // @note 所以这边的覆盖率同样只当参考
+
+      // @note 另一类更有价值的手段是**并发检查**：
+      // @note Swift 6 语言模式下的 Sendable / actor 隔离检查
+      // @note 是编译期就报的 —— 那比事后看覆盖率实在得多
+    vs:
+      javascript: |
+        两边都能统计覆盖率，但**收集方式**不同：JavaScript 的覆盖率
+        是引擎/工具在运行期采集的（不用改代码）；Swift 的覆盖率
+        要在 `swift test` 时**插桩**，也就是说「跑覆盖率」是另一次构建。
+        另一处是 Swift 有一套**编译期的并发安全检查**
+        （Sendable 与 actor 隔离，Swift 6 语言模式下是编译错误），
+        那比覆盖率有用得多 —— JavaScript 里并发安全不是编译期能查的东西。
+        共同点是两边都把覆盖率当参考，不当硬指标。
+      python: |
+        两边的差距在「要不要重新构建」：Python 的覆盖率工具
+        （`coverage.py`）跟着解释器跑就行，不用改代码；
+        Swift 的覆盖率是**编译期插桩**的产物，要单独构建一次。
+        另一处是 Swift 的泛型特化与内联会让统计失真
+        （同一份代码被多个实例化重复计数），Python 里没有这个问题。
+        共同点是两边都有更实在的替代品 ——
+        Python 靠类型检查、Swift 靠编译期的并发安全与可选值检查。
+      java: |
+        两边**几乎完全对应**：Java 的 JaCoCo 也是字节码插桩，
+        Swift 的覆盖率也是插桩 —— 都要在构建上做文章，
+        都能产出报告、都能接 CI 红线。
+        差别在 Swift 的插桩会改变产物（要专门构建一次覆盖率版本），
+        JaCoCo 可以挂在正常构建上、运行期用 agent 采集。
+        另一处是 Swift 的泛型特化会重复计数导致失真，
+        Java 的泛型是擦除的、不存在这个问题。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

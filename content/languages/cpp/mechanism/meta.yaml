@@ -1,0 +1,222 @@
+# cpp —— mechanism / meta
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: meta` 的那批：
+# reflection / decorator-annotation / dynamic-eval / proxy-interception。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是**「这一整套能力 C++ 要么没有、要么形式很不一样」**。
+# 三处实跑确认：① 自定义属性**不被支持**（`[[my_custom_attr]]` 只给一条
+# 「attribute directive ignored」警告，然后照编不误）；
+# ② 反射只有 RTTI 那一小块（`typeid` / `dynamic_cast`，且要求多态类型），
+# 标准库的 `<meta>`（C++26 静态反射）在 GCC 14.2 上**根本不存在**；
+# ③ 但**成员访问可以拦** —— 重载 `operator->` 就能在取成员时插一层（实跑有效）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  reflection:
+    code: |
+      // @note! C++ **没有通用反射** —— 编译完的类型基本什么都不剩
+
+      // 只有多态类型有 RTTI 可用，而且只有两件工具：
+      struct Base { virtual ~Base() = default; };
+      struct Derived : Base { int extra = 7; };
+
+      Base* p = new Derived();
+      typeid(*p).name();                  // @note 实跑给的是修饰名 `St6vectorIiSaIiEE` 那一类
+                                          // @note 能拿它比较，但**不能拿它构造对象**
+      if (auto* d = dynamic_cast<Derived*>(p)) { d->extra; }   // @note 运行时检查的向下转型
+      typeid(*p) == typeid(Derived);      // @note 可以比较，但右边要写死类型
+
+      // @note! 列不出成员、拿不到字段名、不能按名字调方法 —— 这些都没有
+      // @note 非多态类型连上面那两件都没有（结构体问不出任何东西）
+
+      // @note 标准库的**静态反射**（`#include <meta>`，C++26）
+      // @note 实跑在这台机器上：`meta: No such file or directory` —— 用不了
+      // @note 所以「编译期遍历成员」这件事在当前工具链上只能靠
+      // @note 宏、模板元编程、或者外部代码生成器
+
+      // @note 换来的是：没有运行时类型信息常驻内存，产物体积小、零开销
+    vs:
+      javascript: |
+        **两边的可用性差一个量级**：JavaScript 的反射是运行时自带的、
+        到处都是（`Object.keys` / `Reflect` / `for...in` / 动态属性访问），
+        随便写个通用函数遍历对象字段是日常；C++ 里连
+        「这个对象有哪些字段」都问不出来，只有多态类型上的
+        `typeid` 与 `dynamic_cast` 两件工具。
+        所以那边「写个通用的序列化」靠反射，这边靠编译期生成
+        （宏、模板元编程、或者外部工具先生成代码）。
+        另一处是 `typeid().name()` 给的是实现定义的修饰名，
+        不能用来构造对象、也不适合展示给用户。
+      python: |
+        两边的落差同样大：Python 的反射是**日常工具**
+        （`getattr` / `setattr` / `vars` / `inspect` 到处在用），
+        而且随时可用；C++ 的反射只有多态类型上的一小块 RTTI，
+        普通结构体什么都问不出来。所以那边「按名字取值」是家常便饭，
+        这边根本没有「名字」这个概念（编译完就没有了）。
+        另一处是 C++ 正在补这块（C++26 的静态反射），
+        但它发生在**编译期**而不是运行期 —— 方向与 Python 相反。
+      java: |
+        **这一格是 C++ 与主流静态语言差别最大的一处**：Java 的反射
+        能列出字段、方法、注解，框架靠它做序列化与依赖注入，
+        而且任何类都能反射；C++ 只有 RTTI 那一小块 ——
+        `typeid` 与 `dynamic_cast`，**且都要求类型是多态的**
+        （有虚函数），非多态类型问不出任何东西。
+        这不是实现差异而是取舍：反射要求类型信息常驻内存，
+        C++ 选择把它省掉，换零开销与更小的产物。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  decorator-annotation:
+    code: |
+      // @note C++ 的「注解」是**属性**（attribute），语法 [[...]]（C++11 起）
+
+      [[nodiscard]] int important();          // @note 不接收返回值就警告（实跑确认）
+      [[deprecated("用 newFn 替代")]] void oldFn();   // @note 用了就警告（实跑确认）
+      [[maybe_unused]] int x;                 // @note 抑制「未使用」警告
+      [[noreturn]] void die();                // @note 承诺不返回（编译器据此优化）
+      [[likely]] / [[unlikely]]               // @note 分支预测提示（C++20）
+
+      // @note! 关键限制：**不能自定义属性** ——
+      // @note! 实跑：`[[my_custom_attr]] void f(){}` 只给一条
+      // @note!   「warning: 'my_custom_attr' attribute directive ignored」
+      // @note! 然后文件照常编译（既不报错、也不产生任何效果）
+      // @note 标准里的属性是一张**封闭清单**，编译器可以忽略不认识的
+
+      // @note 所以「给声明挂上额外语义」这件事在 C++ 里主要靠别的机制：
+      // @note   · 模板 + type traits（编译期判断类型性质）
+      // @note   · 宏（文本层面替换）
+      // @note   · 代码生成器（在编译前先跑一遍，产出生代码）
+      // @note C++26 才计划引入可自定义的注解，当前工具链没有
+    vs:
+      javascript: |
+        **两边的名字容易混，本质完全不同**：JavaScript 的装饰器是
+        **可执行的函数**，在定义时改写类与方法（而且提案演进过好几版）；
+        C++ 的属性只是给编译器的**提示**，标准规定了一张封闭清单，
+        自定义的一律被忽略（实跑：只警告「attribute directive ignored」，
+        然后照编）。所以那边 `@foo` 可能真的改变了行为，
+        这边 `[[foo]]` 顶多影响一条警告。
+        另一处是 C++ 有大量「挂语义」的需求是靠**宏与模板**实现的，
+        那两样在 JavaScript 里没有对应物。
+      python: |
+        两边都有「给声明挂东西」的语法，但**能不能被读**完全不同：
+        Python 的装饰器是**真的函数调用**（`@d` 等价于 `f = d(f)`），
+        立刻改变对象；C++ 的属性是编译器看的元信息，
+        而且只有标准清单里的那些有意义，自定义的会被静默忽略。
+        另一处是 Python 的装饰器能挂任意代码、能改任意行为，
+        C++ 的等价能力要靠**代码生成器**（编译前先跑一遍生成源码），
+        那是一个构建步骤，不是语言特性。
+      java: |
+        两边都叫「注解/属性」，也都做「给声明挂元信息」这件事，
+        而且**默认都不产生运行时效果** —— 这一层很像。
+        关键差别是**能不能自定义**：Java 用 `@interface` 随便定义注解，
+        再用反射在运行时读；C++ 的属性清单是**封闭的**，
+        自定义的一律被忽略（实跑确认）。所以 Java 那套
+        「自定义注解 + 反射读取」的框架写法在 C++ 里写不出来 ——
+        得换成宏、模板或代码生成。
+        另一处是 C++ 的属性连「运行期读取」这一层都没有。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  dynamic-eval:
+    absent: true
+    vs:
+      javascript: |
+        C++ **没有 `eval`**，字符串不能当代码跑。这不是「做得不好」，
+        是编译型语言的结构决定的：源码在编译期就变成了机器码，
+        运行期根本没有能解释字符串的东西。
+        要动态行为只能走**动态链接**这条路 —— 编译好一个共享库，
+        运行期 `dlopen` 把它加载进来、`dlsym` 取函数指针，
+        这是「换一个已经编好的模块」，与「把一段文本变成代码」是两回事。
+        代价与 `eval` 完全不是一个量级，而且没有可移植的标准接口。
+      python: |
+        C++ **没有 `eval` / `exec`**。Python 里 `eval`、`exec`、
+        `getattr` 三件套能做到的元编程，在这边要么改成编译期生成
+        （宏、模板、代码生成器），要么干脆换个设计。
+        理论上可以接一个 JIT 库或嵌一个脚本引擎进来，
+        但那是引入一整个运行时，不是语言能力。
+        代价换来的是：可以放心地认为「能跑的代码都是被编译过的」——
+        没有字符串注入执行的风险。
+      java: |
+        两边**都没有内建的 eval**，这一点一致 ——
+        都只能靠外部手段（Java 早年的脚本引擎、C++ 的动态加载库）。
+        所以从 Java 过来不需要改认知：那边写不了的东西这边同样写不了，
+        连替代思路都差不多（引一个解释器进来）。
+        差别在 C++ 的 `dlopen` / `dlsym` 是**平台相关的**（不是标准库），
+        换平台要重写；Java 那套至少是统一的 API。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  proxy-interception:
+    code: |
+      // @note! C++ 能拦的东西比看上去多 —— 但都是**针对你自己写的类型**
+
+      // ① 重载 operator-> ：拦下每一次成员访问（实跑确认有效）
+      struct Inner { void hello() const; };
+      struct Proxy {
+        Inner* p;
+        Inner* operator->() const { std::puts("有人访问了成员"); return p; }
+        operator bool() const { return p != nullptr; }   // 转换运算符也能重载
+      };
+      Inner i; Proxy px{&i};
+      px->hello();        // @note 先打印「有人访问了成员」，再进 Inner::hello
+
+      // ② operator* 与 operator[] ：拦下解引用与下标
+      // ③ 转换运算符：拦下「把它当别的类型用」的每一处
+      // ④ 拷贝/移动构造、赋值：拦下复制与赋值
+
+      // @note! 但有两处拦不到：
+      // @note! ① **已经编好的类型** —— 你不能给 int 或别人库里的类加钩子
+      // @note! ② 字段访问**不经过任何函数** —— `obj.field` 是直接算偏移，
+      // @note!    想拦住它只能先经过一次 operator->（也就是先换成代理对象）
+
+      // @note 所以 C++ 的代理是**编译期、逐类型**的：
+      // @note 要拦什么，就得先写一个包住它的类型，
+      // @note 而且用的人得拿这个代理类型而不是原类型
+    vs:
+      javascript: |
+        **这一格是「能不能透明」的区别**：JavaScript 的 `Proxy` 能拦住
+        **所有**属性访问（读、写、`in` 判断、删除），而且对
+        **任何对象**都有效，用的人甚至不需要知道它是代理；
+        C++ 的代理必须**为每种类型各写一个包装类型**，
+        而且只能是「自己写的类型」—— 已经编好的库类型没法加钩子。
+        字段访问更是完全拦不到（那是直接算内存偏移）。
+        所以那边「给任意对象套一层透明代理」在这边做不到，
+        只能对确定的几个类型各写一层。
+      python: |
+        两边的触发面不同：Python 的 `__getattr__` 只在常规查找失败时触发
+        （与 C++ 重载 `operator->` 完全不同 —— 那个是**每次访问都触发**），
+        而 `__getattribute__` 能拦下每一次属性访问，
+        那个才与 C++ 的 `operator->` 同级 —— 但 Python 的
+        `__getattribute__` 是**每个类都能加**的，不用写新类型；
+        C++ 要拦就得换一个包装类型出来。
+        另一处是 Python 能对内置类型做子类加钩子（虽然受限），
+        C++ 对已经定义好的类型**完全无法追加**。
+      java: |
+        两边能做的是**同一件事**（拦下对接口方法的调用），
+        因为 C++ 在这一点上用的也是动态派发那一套。
+        差别在写法：Java 用 `Proxy.newProxyInstance` 在**运行时**
+        生成一个新对象、只对接口有效；C++ 是**编译期**写好一个
+        包装类型、重载 `operator->`，对具体类型有效。
+        也就是说 Java 的代理是「运行时动态生成」，C++ 的是「编译期手写」。
+        两边共同的限制是**字段访问拦不到** —— 那需要一层能改写「取属性」
+        这个动作的机制，两边都没有。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

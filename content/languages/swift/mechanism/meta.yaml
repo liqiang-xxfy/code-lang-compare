@@ -1,0 +1,252 @@
+# swift —— mechanism / meta
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: meta` 的那批：
+# reflection / decorator-annotation / dynamic-eval / proxy-interception。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的四条都写成「形态与别处不一样」而不是「有/没有」——
+# ① **反射**：标准库有 `Mirror`，但它**只读**（能列出子节点的标签与值，
+#    不能按名字取值、不能写、不能调方法）；
+# ② **没有装饰器**：`@` 开头的东西是**编译器属性**（`@MainActor` / `@available`），
+#    用户定义不了新的；最接近「给声明挂行为」的是**属性包装器**；
+# ③ **没有 eval**；④ **拦截**靠 `@dynamicMemberLookup` 这类**编译期**约定，
+#    不是运行期的透明代理。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  reflection:
+    code: |
+      // @note 标准库的反射是 **Mirror** —— 用法很简单：
+      struct User { let name: String; let age: Int }
+      let u = User(name: "Ada", age: 30)
+
+      let m = Mirror(reflecting: u)
+      m.children.count                       // @note 2
+      for child in m.children {
+        print(child.label ?? "?", child.value)   // @note "name" Ada / "age" 30
+      }
+      m.displayStyle                          // @note .struct / .class / .enum ...
+
+      // @note! Mirror 的能力边界很清楚：
+      // @note   **能**：按顺序列出子节点（标签 + 值），能递归反射
+      // @note   **不能**：按名字取值、写回、调方法、列出类型的所有成员
+      // @note   也不能从字符串构造类型
+
+      // @note 运行时类型信息还有两条路：
+      // @note   type(of: x)      —— 值在运行时的类型
+      // @note   x as? SomeType   —— 动态转换（失败给 nil）
+      // @note 泛型参数在运行时**是拿得到的**（泛型函数里能写 T.self），
+      // @note 这一点与擦除式泛型完全不同
+
+      // @note! 还有一条平台相关的路：`@objc` 加 Objective-C 运行时
+      // @note! 那个能做更多（按名字调方法、动态派发），但它只在有
+      // @note! ObjC 运行时的平台上可用 —— 不是这门语言的可移植能力
+      // @note! 而且不是「写了没用」那么轻：在**没有 ObjC 运行时的平台上
+      // @note! 写 `@objc` 会直接编译失败**（那些平台默认关掉了 ObjC 互操作）
+
+      // @note 所以「按字符串调用一个方法」在这门语言里基本做不到
+      // @note （除非绕到 ObjC 运行时，或者自己写一张映射表）
+    vs:
+      javascript: |
+        **两边的可用性差一个量级**：JavaScript 的反射是运行时自带的、
+        到处都是（`Object.keys` / `Reflect` / `for...in` / 动态属性访问），
+        除了读还能写、还能按名字调用；Swift 的 `Mirror` **只读** ——
+        能列出子节点，但不能按名字取值、不能写、不能调方法。
+        所以那边「写个通用的序列化器」靠反射，这边靠**编译期代码生成**
+        （较新版本的语言特性或第三方工具）或者手写。
+        另一处是 Swift 的类型信息很实在（`type(of:)`、泛型参数运行时可取），
+        但「按名字找成员」这条路是断的。
+      python: |
+        两边的落差同样大：Python 的反射是**日常工具**
+        （`getattr` / `setattr` / `vars` / `inspect`），读、写、调用都行；
+        Swift 的 `Mirror` 只能读，而且只给「子节点的标签与值」这一层，
+        拿不到类型的方法表、也不能按名字改。所以那边靠反射做框架，
+        这边靠代码生成或显式映射表。
+        另一处是 Python 的 `__dict__` 让「给对象加字段」随时可行，
+        Swift 的类型布局是编译期定死的 —— 连尝试都不行。
+      java: |
+        **这一格是两边差别最大的一处**：Java 的反射能列出字段、方法、注解，
+        能按名字调用、能修改私有字段，框架靠它做序列化与依赖注入，
+        而且任何类都能反射；Swift 的标准库只有 `Mirror` ——
+        **只读、只给子节点**，连「这个类型有哪些方法」都列不出来。
+        所以 Java 那套「注解 + 反射」的框架写法在 Swift 里
+        要换成属性包装器加代码生成（宏）。
+        另一处是 Swift 有较新版本引入的**编译期宏**，
+        能在编译期生成代码 —— 那才是这边「元编程」的落点，方向与 Java 相反。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  decorator-annotation:
+    code: |
+      // @note! Swift **没有装饰器** —— `@` 开头的东西是**编译器属性**，
+      // @note! 而且**用户定义不了新的**（清单是语言/编译器给的）
+
+      @MainActor func updateUI() { }              // @note 声明隔离到主 actor
+      @available(iOS 17, *) func newAPI() { }
+      @discardableResult func f() -> Int { 1 }    // @note 不接收返回值也不警告
+      @objc func legacy() { }                     // @note 暴露给 ObjC 运行时
+      @escaping                                   // @note 标闭包参数会逃逸
+      @propertyWrapper                            // @note 声明属性包装器（见下）
+
+      // @note! 最接近「装饰器」的是**属性包装器** ——
+      // @note! 它能把「读写一个属性」这件事包进一个类型里：
+      @propertyWrapper
+      struct Clamped {
+        var wrappedValue: Int { didSet { wrappedValue = min(wrappedValue, 100) } }
+        init(wrappedValue: Int) { self.wrappedValue = min(wrappedValue, 100) }
+      }
+      struct Form { @Clamped var score = 0 }
+      // @note 于是 `form.score = 999` 会被夹到 100 —— 逻辑写在包装器里，
+      // @note 用的人只看到一个普通的属性
+
+      // @note 较新的版本还加了**宏**（`@freestanding` / `@attached`）：
+      // @note 那是编译期展开的代码生成，能力比属性包装器大得多
+      // @note （能生成新类型、新方法），也是这边元编程的正统方向
+
+      // @note 注解式的「运行时读取」在这门语言里基本没有 ——
+      // @note 因为反射只读（见上一格）
+    vs:
+      javascript: |
+        **两边的名字容易混，本质完全不同**：JavaScript 的装饰器是
+        **可执行的函数**，在定义时改写类与方法；Swift 的 `@` 东西是
+        **编译器属性**（语言规定的一张清单，用户加不了新的）。
+        所以那边 `@foo` 可能真的改变了行为，这边 `@foo` 只能是
+        编译器认得的那些。
+        另一处是 Swift 有**属性包装器** —— 它确实能「把逻辑挂在属性上」，
+        但那是**显式声明一个包装类型**换来的，与装饰器那种
+        「往函数上一贴」的写法不同；而且它作用的范围是属性，不是方法或类。
+        还有一处是 Swift 的宏能在编译期生成代码，能力比装饰器更大。
+      python: |
+        两边都有「给声明挂东西」的语法（`@decorator` ↔ `@属性`），
+        但**能不能被读、能不能执行**完全不同：
+        Python 的装饰器是**真的函数调用**（`@d` 等价于 `f = d(f)`），
+        立刻改变对象；Swift 的 `@` 是编译器看的元信息，
+        而且运行期读不到（反射只读）。
+        最接近 Python 装饰器的是 Swift 的**属性包装器**：
+        它确实会把读写绕进一个类型，但它只作用于属性、
+        而且要显式定义包装类型。
+        另一处是 Swift 的宏在编译期展开，方向与 Python 的运行时装饰器相反。
+      java: |
+        两边都叫「注解」，也都做「给声明挂元信息」这件事，
+        而且**默认都不产生行为** —— 这一层很像。
+        关键差别是**能不能自定义 + 能不能在运行时读**：
+        Java 用 `@interface` 随便定义注解，再用反射在运行时读，
+        框架就建立在这上面；Swift 的 `@` 清单是**封闭的**，
+        自定义要改用属性包装器或宏，而且**运行期读不到**。
+        所以 Java 那套「注解 + 反射」的框架写法在 Swift 里
+        要换成「属性包装器 + 宏」—— 一个在运行时、一个在编译期。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  dynamic-eval:
+    absent: true
+    vs:
+      javascript: |
+        Swift **没有 `eval`**，字符串不能当代码跑。语言层面
+        完全没有求值入口，标准库里也没有。
+        要动态行为只能走两条路：编译期**宏**（在编译时生成代码）
+        或者接一个解释器进来（那是引入一整个运行时）。
+        所以那边一句 `eval(s)` 的事，在这边通常要改设计 ——
+        而且这不是「做得不好」，是编译型语言的结构决定的：
+        源码先变成机器码，运行期没有能解释字符串的东西。
+      python: |
+        Swift **没有 `eval` / `exec`**。Python 里 `eval`、`exec`、
+        `getattr` 三件套能做到的元编程，在这边要么改成**编译期宏**
+        （生成代码，但那是构建流程的一环），要么干脆换个设计。
+        代价换来的是：可以放心地认为「能跑的代码都是被编译过的」，
+        没有字符串注入执行这条攻击面。
+        另一处是 iOS / macOS 上也不能像某些平台那样动态加载代码。
+      java: |
+        两边**都没有内建的 eval**，这一点一致 ——
+        都只能靠外部手段（Java 早年的脚本引擎、Swift 这边接一个解释器）。
+        所以从 Java 过来不需要改认知：那边写不了的东西这边同样写不了，
+        连替代思路都差不多。
+        差别在 Swift 的**宏**是编译期展开的（较新版本的能力），
+        能覆盖一部分「本来要用反射/eval」的场景；
+        Java 的注解处理器也在编译期，但生成的是新文件而不是就地展开。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  proxy-interception:
+    code: |
+      // @note Swift 的「拦截」靠几个**编译期**约定，不是运行期透明代理
+
+      // ① 动态成员查找：把「不存在但想接住的名字」接到一个下标上
+      @dynamicMemberLookup
+      struct Config {
+        var storage: [String: String] = [:]
+        subscript(dynamicMember key: String) -> String? {
+          get { storage[key] }
+          set { storage[key] = newValue }
+        }
+      }
+      var c = Config()
+      c.host = "localhost"                 // @note 实际写进了 storage["host"]
+      print(c.host ?? "")
+
+      // ② 动态调用：把「用任意参数调它」接到一个方法上
+      @dynamicCallable
+      struct Logger {
+        func dynamicallyCall(withArguments args: [Int]) -> Int { args.reduce(0, +) }
+      }
+      Logger()(1, 2, 3)                    // @note 实际调的是那个方法
+
+      // @note! 两者的共同点：**要拦截什么，得先在类型上声明** ——
+      // @note! 而且编译期就知道你会用到这些动态名字（只是名字不检查）
+      // @note! 所以它不是「给任意对象套一层透明代理」
+
+      // @note 真正意义上的「属性访问拦截」在这门语言里没有：
+      // @note 属性的读写是编译期定好的，要么走计算属性（你自己写的）、
+      // @note 要么走属性包装器（也是显式声明的）
+      // @note KVO 那种运行时观察机制只在 Objective-C 的类上有
+
+      // @note 还有一处相关的：`withUnsafeMutablePointer` 能拿到存储的地址，
+      // @note 但那是手动内存那一层的事，不是代理
+    vs:
+      javascript: |
+        **这一格是「能不能透明」的区别**：JavaScript 的 `Proxy` 能拦住
+        **所有**属性访问（读、写、`in`、删除），而且对**任何对象**有效，
+        用的人不需要知道它是代理；Swift 的 `@dynamicMemberLookup`
+        只能接住「编译期不存在的名字」到**一个下标**上，
+        而且要**显式声明**在那个类型上 —— 也就是说
+        「给任意对象套一层透明代理」在这边做不到。
+        另一处是 Swift 的拦截面窄：属性读写走的是编译期确定的路径，
+        没有「每次访问都过一层钩子」的能力（除非你自己写计算属性）。
+      python: |
+        两边的触发面不同：Python 的 `__getattr__` 只在常规查找失败时
+        触发（与 `@dynamicMemberLookup` 的作用范围最接近），
+        而 `__getattribute__` 能拦下**每一次**属性访问，
+        那个才是完整代理；Swift **没有**后者的对应物 ——
+        它只能接住「不存在的名字」。
+        另一处是 Python 的钩子是运行时动态查找的（改类就能变），
+        Swift 的下标是编译期选定的（写法确定、只是键是动态的）。
+        共同点是两边都能表达「按名字取值」这件事，只是范围差很多。
+      java: |
+        两边能做的是**同一件事**（拦下对接口方法的调用），
+        而且都用动态派发那一套。差别在写法与时机：
+        Java 用 `Proxy.newProxyInstance` 在**运行时**生成新对象、
+        只对接口有效；Swift 用 `@dynamicMemberLookup` /
+        `@dynamicCallable` 在**编译期**声明约定、对具体类型有效。
+        也就是说一个运行时生成、一个编译期声明。
+        另一处是 Java 的代理能拦住接口上的所有方法（透明），
+        Swift 的动态成员只能接住「不存在的名字」——覆盖面窄得多。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

@@ -1,0 +1,152 @@
+# swift —— express / strings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: strings` 的那批：
+# string-literals / string-common-ops。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组最重要的两条是**「字符串不能用整数下标」与「长度按字素簇数」** ——
+# 官方原话就是 "Swift strings can't be indexed by integer values"，
+# 因为一个 `Character` 占几个字节是不定的，必须靠 `String.Index` 走。
+# 第二条：`String.count` 数的是 **Character（扩展字素簇）**，
+# 所以它既不是字节数也不是码点数 —— 「é」这种组合字符算一个。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  string-literals:
+    code: |
+      let a = "文本"
+      let multi = """
+        第一行
+        第二行
+        """                        // @note 三个双引号：多行字符串
+
+      let raw = #"这里 \n 不是换行"#   // @note 原始字符串：用 # 包住，转义失效
+      let rawInterp = #"值是 \#(x)"#   // @note 原始字符串里要插值得写 \#(...)
+
+      // @note! 插值用反斜杠加圆括号 —— 这是这门语言的招牌写法
+      let name = "Ada"
+      let greeting = "你好，\(name)"           // @note 任意表达式都能放
+      let calc = "结果 \(1 + 2)"               // @note 3
+
+      // @note 单字符是另一个类型：Character
+      let ch: Character = "好"
+      let chars: [Character] = Array("你好")    // @note 拆成字符数组
+
+      // @note 字符串索引是 String.Index，**不是整数**
+      let i = greeting.index(greeting.startIndex, offsetBy: 3)
+      greeting[i]                              // @note 取一个 Character
+
+      // @note 常用构造
+      String(repeating: "ab", count: 3)        // @note "ababab"
+      String(42)                               // @note "42"
+      "\(42)"                                  // @note 同上，插值更常用
+    vs:
+      javascript: |
+        两边的字符串字面量都很方便，插值也都是一行写完 ——
+        但**语法形式完全不同**：JavaScript 用模板串（反引号加 `${}`），
+        Swift 用 `\(...)` 且对普通双引号字符串也生效。
+        另一处是下标：JavaScript 的字符串可以用整数下标
+        （`s[0]` 拿到 UTF-16 码元），Swift **完全不行** ——
+        必须走 `String.Index`，因为一个可见字符占几个字节不定。
+        还有一处是原始字符串：两边都能表达「不转义」，
+        但 JavaScript 用 `String.raw` 标签函数，
+        Swift 用 `#` 包住整个字面量（还能在原始串里插值，写 `\#(...)`）。
+      python: |
+        两边的插值写法最接近（`f"{x}"` ↔ `"\(x)"`），
+        而且都有多行字符串与原始字符串，这一层可以对应。
+        差别在下标：Python 的字符串可以按整数下标、可以切片，
+        `s[0:2]` 一行拿到一段；Swift **不能用整数下标**，
+        要拿一段得构造 `String.Index` 区间 —— 从 Python 过来
+        这是最别扭的一处（也是 Swift 有意为之：按字节切会切坏字符）。
+        另一处是长度：Python 的 `len()` 数码点，
+        Swift 的 `count` 数**字素簇**，「é」这种组合字符两边算的数不同。
+      java: |
+        两边的多行字符串后来居上（Java 的文本块 ↔ Swift 的三引号），
+        这一层可以对应。差别在**插值**：Java 要到较新版本才有
+        模板表达式，此前只能用 `String.format` 或拼接；
+        Swift 的 `\(...)` 从早期就有，任意表达式都能放。
+        另一处是下标与长度：Java 的 `charAt` 按 UTF-16 码元取、
+        `length()` 数码元，Swift 两样都不按 —— 它按**可见字符**
+        算长度、且不允许整数下标。所以同一个中文串两边数出来的
+        长度可能不同（一个字在 Java 里算 1、在 Swift 里也算 1，
+        但组合字符与 emoji 就分道扬镳了）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  string-common-ops:
+    code: |
+      var s = "你好ab"
+
+      s.count                        // @note! 4 —— 数的是**字符**（字素簇），不是字节
+      s.isEmpty                      // @note 判空用这个
+      s.uppercased()                 // @note 大写
+      s.lowercased()
+      s + "!"                        // @note 拼接（返回新字符串）
+      s += "!"                       // @note 原地追加
+      s.hasPrefix("你")              // @note 前缀
+      s.hasSuffix("ab")
+      s.contains("好")               // @note 子串查找
+
+      // @note 切分与合并
+      "a,b,c".split(separator: ",")              // @note ["a","b","c"]
+      ["a","b"].joined(separator: "-")           // @note "a-b"
+
+      // @note! 取一段：必须用 Index 区间，拿到的是 Substring（**视图**，不拷贝）
+      let start = s.startIndex
+      let end = s.index(start, offsetBy: 2)
+      let sub = s[start..<end]                    // @note "你好"，类型是 Substring
+      String(sub)                                 // @note 想要独立的 String 得转一下
+
+      // @note! 没有 replace / trim 这样的「原地改」方法 ——
+      // @note 字符串是值类型，替换是返回新串：
+      s.replacingOccurrences(of: "你", with: "您")
+      s.trimmingCharacters(in: .whitespaces)
+
+      // @note 大小写与比较都是**按 Unicode 语义**做的，
+      // @note 所以 "ß".uppercased() 这类会有语言相关的细节
+    vs:
+      javascript: |
+        两边的方法名不同但能力接近（`toUpperCase` ↔ `uppercased`），
+        真正的分水岭还是**长度与下标**：JavaScript 的 `length`
+        数 UTF-16 码元、`s[0]` 取一个码元；Swift 的 `count`
+        数**可见字符**、且**不允许**整数下标。
+        对「你好ab」这种串两边都算 4，但对带组合字符或 emoji 的串
+        就会不一样。另一处是切片：JavaScript 的 `slice` 返回新字符串，
+        Swift 的区间下标返回 `Substring`（**共享底层存储的视图**）——
+        想独立得显式 `String(...)`，这与 Swift 整体的「视图 vs 拷贝
+        要你选」风格一致。
+      python: |
+        两边都有丰富的方法，但**取子串的方式差得最远**：
+        Python 的切片 `s[0:2]` 一行、支持负数与步长，
+        而且返回的是新字符串；Swift 要先用 `index(_:offsetBy:)`
+        算出两个位置再取区间，返回的还是个视图（`Substring`）。
+        也就是说 Python 里最顺手的一件事在 Swift 里最啰嗦，
+        换来的是「永远不会切坏一个字符」。
+        另一处是 Python 的 `strip` / `replace` 这些方法在 Swift 里
+        名字更长（`trimmingCharacters(in:)` / `replacingOccurrences(of:with:)`），
+        能力相近。
+      java: |
+        两边的方法名与能力都不太一样，但**长度与切片的语义方向不同**：
+        Java 的 `length()` 与 `substring()` 都按 UTF-16 码元，
+        `substring` 返回新字符串；Swift 的 `count` 按可见字符数，
+        切片走 `String.Index` 区间、返回 `Substring` 视图。
+        所以同一段中文文本两边切出来的结果可能不同，
+        而且 Swift 这边多了一层「视图还是拷贝」的选择。
+        共同点是两边的大小写与比较都按 Unicode 语义处理，
+        也都有前缀/后缀/包含这几个判断。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

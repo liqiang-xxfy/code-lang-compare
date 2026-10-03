@@ -1,0 +1,331 @@
+# cpp —— practice / packages
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: packages` 的那批：
+# package-manager / dependency-declaration / version-constraint /
+# lockfile / environment-isolation / publishing。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是**「C++ 根本没有官方包管理器」** ——
+# 标准里从头到尾没有依赖管理这一章，vcpkg / Conan / 系统包管理器
+# 都是第三方的，CMake 同样是第三方（Kitware 维护）。
+# 而且因为**没有跨编译器的稳定 ABI**，生态普遍**从源码构建依赖**，
+# 这与「下载编译好的包」是两种完全不同的分发模型。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  package-manager:
+    code: |
+      // @note! C++ **没有官方包管理器** —— 标准里没有依赖管理这一章
+
+      // 现存的都是第三方的，而且各有各的模型：
+      //   vcpkg     微软出品，从源码构建，与 CMake 集成好
+      //   Conan     JFrog 出品，二进制包优先，有自己的包格式
+      //   FetchContent  CMake 自带：在配置阶段把依赖的源码拉下来一起编
+      //   系统包管理器  apt / brew / vcpkg 之外的（版本往往很旧）
+
+      // @note 于是 C++ 项目的常见开场白是「先装 vcpkg」——
+      // @note 而这在别的语言里是「先装官方那个包管理器」
+
+      // @note! 为什么标准一直没管这件事：C++ 没有跨编译器的稳定 ABI，
+      // @note! 编译好的二进制包换个编译器/标准库版本就未必能用，
+      // @note! 所以生态长期是**源码分发**，而源码分发对
+      // @note! 「包管理器」的要求与二进制分发完全不同
+
+      // @note CMake 也不是官方的 —— 它是 Kitware 维护的第三方构建系统，
+      // @note 只是事实上成了生态的标准
+    vs:
+      javascript: |
+        **这一格是「有没有官方那一个」的直接对比**：JavaScript 有 npm
+        （随 Node 一起装、有官方仓库），项目的第一步就是 `npm install`；
+        C++ 连「该用哪个」都没有共识 —— vcpkg / Conan / 系统包管理器
+        都是候选，选哪个会影响项目结构、构建脚本与 CI 配置。
+        另一处是分发模型：npm 下的是**打包好的产物**，
+        C++ 的 vcpkg 默认**从源码构建**依赖 ——
+        所以 C++ 项目的一次完整构建常常是先编一堆依赖，时间长得多。
+      python: |
+        两边的差距同样是「有没有官方那一个」：Python 有 pip 加 PyPI
+        （标准库自带 pip），依赖声明写进元数据文件；
+        C++ 什么都没有官方的 —— 依赖清单这种东西都还不存在统一格式，
+        全靠构建系统自己的写法（CMake 的 `find_package` /
+        `FetchContent`，或者 vcpkg 的清单模式）。
+        另一处是 Python 下的是 wheel（编译好的二进制），
+        C++ 因为 ABI 不稳定，多数时候只能拿源码自己编。
+      java: |
+        两边都有事实上的标准，但**地位不同**：Java 的 Maven Central
+        与 Maven/Gradle 是生态共识（而且 Maven 的坐标系统成了通用语言）；
+        C++ 连一个统一的「包坐标」都没有，vcpkg 与 Conan
+        各有各的命名方式。另一处是**二进制分发能不能成立**：
+        Java 的字节码 + 稳定 API 让 JAR 可以随便换环境用，
+        C++ 换个编译器 ABI 就可能不兼容，所以生态默认源码分发 ——
+        这直接导致构建时间长、依赖树深了以后很难管。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  dependency-declaration:
+    code: |
+      // @note! C++ 没有标准的依赖声明文件 —— 写法取决于你选了哪套工具
+
+      // ① vcpkg 清单模式（vcpkg.json）
+      // {
+      //   "name": "myapp",
+      //   "version": "1.0.0",
+      //   "dependencies": ["fmt", "nlohmann-json"]
+      // }
+
+      // ② CMake 的 FetchContent：在构建脚本里直接拉源码
+      include(FetchContent)
+      FetchContent_Declare(fmt
+        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+        GIT_TAG        11.0.2)
+      FetchContent_MakeAvailable(fmt)
+
+      // ③ 系统包管理器（apt install libfmt-dev）—— 版本由发行版决定
+      // ④ 直接把源码放进仓库（vendor）—— 老项目常见
+
+      // @note 用起来还是 `#include <fmt/format.h>` 加链接 ——
+      // @note 依赖的「获取」与「使用」是两件分开的事，
+      // @note 声明在哪个文件里则由工具决定
+
+      // @note! 所以 C++ 项目里「依赖在哪」的答案是：看构建脚本
+    vs:
+      javascript: |
+        两边都能声明依赖，但**声明的落点完全不同**：JavaScript 的
+        依赖一律写在一个固定的清单文件里（`package.json`），
+        工具负责获取、安装、放进 `node_modules`，
+        用的时候 `import` 就行；C++ 的依赖声明散在构建脚本里
+        （CMake 的 `FetchContent`、vcpkg 的清单、或者干脆手工下载），
+        而且**获取与使用是两件事**——拿到之后还要在构建脚本里
+        写「链接哪个库、头文件在哪」。
+        另一处是 C++ 常常直接把依赖源码放进仓库，JavaScript 那边几乎不这么做。
+      python: |
+        两边都有「声明在哪里」的约定，但成熟度不同：Python 的
+        `pyproject.toml` 是标准化的（PEP 621），依赖名与版本约束
+        有统一写法；C++ 连用哪种文件都还没定，
+        不同工具各写各的格式（JSON / CMake 脚本 / 系统包名）。
+        另一处是「拿到就能用」的程度：Python 装了包就能 import，
+        C++ 还要在构建系统里声明头文件路径、库名、链接方式 ——
+        依赖的使用本身也是构建配置的一部分。
+      java: |
+        两边都靠构建工具的清单，但**标准化程度差很远**：
+        Java 的依赖写法是 `groupId:artifactId:version` 这个全局坐标，
+        Maven 与 Gradle 都认，而且依赖能被传递（A 依赖 B、B 依赖 C，
+        你自动拿到 C）；C++ 没有统一的坐标格式，
+        而且**传递依赖处理得很差**（CMake 的 `find_package`
+        要求依赖自己提供配置文件，否则就得手工把整棵树列出来）。
+        这是 C++ 项目构建配置比 Java 啰嗦得多的直接原因。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  version-constraint:
+    code: |
+      // @note! C++ 连「版本号怎么写」都没有统一规定 —— 规范还在讨论中
+
+      // vcpkg 用语义化版本：       "dependencies": ["fmt@11.0.2"]
+      // Conan 用「版本 + 修订」：   fmt/11.0.2#revision
+      // FetchContent 直接指定 git tag / commit：
+      //   GIT_TAG 11.0.2      （可以是 tag，也可以是某个 commit 哈希）
+      // 系统包管理器：版本由发行版锁死（apt 上是 9.x 就一直是 9.x）
+
+      // @note 常见的「约束」写法：
+      //   · 钉死某个 tag 或 commit（最可复现，也最不灵活）
+      //   · 指定一个范围（取决于工具，各有各的语法）
+      //   · 跟着最新走（构建随时可能坏）
+
+      // @note! 因为没有统一的版本解析算法，也就没有别的语言里
+      // @note! 那套「同一份清单在不同机器上解析出同一棵依赖树」的保证
+
+      // @note 实践中的做法：源码分发 + 钉 commit，牺牲升级便利换可复现
+    vs:
+      javascript: |
+        两边都有版本号，但**语义的落地程度完全不同**：JavaScript 的
+        语义化版本有语言生态的共识与工具实现（`^` / `~` 的含义明确、
+        解析算法确定），所以「同一份清单在不同机器上装出同一棵树」
+        是有保证的；C++ 连版本语法都没统一，
+        vcpkg 与 Conan 的写法不一样，CMake 干脆直接指 git tag ——
+        而且**没有统一的解析算法**。
+        另一处是 C++ 常钉 commit 哈希（最保险，但升级全靠手动）。
+      python: |
+        两边的差距在**约束语的成熟度**：Python 有 PEP 440 规范版本号、
+        PEP 508 规范约束写法（`>=1.2,<2.0`），所有工具都按它解析；
+        C++ 没有对应的规范，写 `11.0.2` 还是 `>=11` 取决于用哪套工具，
+        而且同一个约束在不同工具里含义可能不同。
+        另一处是 Python 有「解析出一棵满足所有约束的树」这个算法，
+        C++ 基本靠人工保证兼容性 —— 依赖一多就是噩梦。
+      java: |
+        两边的版本都是「字符串」，但**有没有解析器**差别很大：
+        Java 的 Maven 有明确的版本范围语法与「最近者优先」的
+        冲突解决策略，Gradle 有更复杂的约束求解；
+        C++ 没有标准版本约束，也没有冲突求解 ——
+        依赖打架时基本靠人手工指定用哪个版本。
+        另一处是 Java 的版本冲突很常见但有工具帮你查
+        （`mvn dependency:tree`），C++ 里依赖树本身就不容易看全。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lockfile:
+    code: |
+      // @note! C++ **没有标准的锁文件** —— 因为连包管理器都没有官方的
+
+      // 各家的做法：
+      //   vcpkg     有版本基线（versioning baseline）机制，
+      //             用一个 git 提交记录锁住所有包解析到的版本
+      //   Conan     有 lockfile（conan.lock），记录解析结果
+      //   FetchContent  没有锁 —— 你写的是 git tag 或 commit，那就是「锁」
+      //   系统包管理器 系统本身就是锁（apt 上就那么一个版本）
+
+      // @note 「保证别人的机器装出同一套依赖」这件事在 C++ 里
+      // @note 最常见的答案是：**把依赖源码钉在某个 commit 上**，
+      // @note 或者干脆 vendor 进仓库
+
+      // @note 另一个现实障碍：**构建本身不可复现** ——
+      // @note 同一份源码、同一个编译器版本，换台机器编出来的二进制
+      // @note 也未必逐字节相同（时间戳、路径、并行顺序都进得去）
+      // @note 所以「可复现构建」在 C++ 里是一个专门的工程课题，
+      // @note 不是加一个锁文件就完事
+    vs:
+      javascript: |
+        两边的可复现性来源不同：JavaScript 靠**锁文件**
+        （`package-lock.json` 记下每个包的精确版本与来源哈希），
+        装的时候照着锁文件来；C++ 没有标准锁文件 ——
+        常见替代是**钉 git commit**（那就等于把锁写进构建脚本），
+        或者把源码 vendor 进仓库。
+        另一处是 C++ 就算依赖完全一致，**编出来的产物**也未必一致
+        （编译器版本、路径、并行顺序都会影响），
+        「可复现构建」是个单独的工程问题。
+      python: |
+        两边都有「钉住依赖」的需求，工具成熟度差得远：
+        Python 有 `requirements.txt` / `pip-tools` / `uv.lock` 这类
+        锁文件，能把整棵依赖树连同哈希一起记下来；
+        C++ 基本靠「钉 commit」或 vendor 源码，
+        而且因为依赖常常是源码、要现场编译，
+        锁住「拿到哪些源码」与锁住「编出什么」是两回事。
+        另一处是 C++ 的依赖树本身就不容易列全（传递依赖处理得差）。
+      java: |
+        两边的处境差得比较多：Java 的 Maven 用固定的版本号
+        （不太需要锁文件 —— 版本写死了就是写死了），
+        Gradle 有依赖锁定（dependency locking）；
+        C++ 没有统一的锁文件，而且因为没有集中的包仓库坐标，
+        「钉住一个版本」这件事本身就要靠 git tag 或 commit 表达。
+        另一处是 Java 拿的是编好的 JAR，锁住坐标就锁住了产物；
+        C++ 拿的常是源码，锁住源码之后编出来的东西还取决于工具链。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  environment-isolation:
+    code: |
+      // @note! C++ **没有虚拟环境/隔离环境这个概念** ——
+      // @note! 依赖装在哪由工具决定，通常是全局的或者构建目录里的
+
+      // 常见做法：
+      //   vcpkg     把包装到一个指定的 vcpkg 根目录里，多个项目可以各用一个
+      //   Conan     有自己的本地缓存（~/.conan2），包按配置哈希分开存
+      //   FetchContent  依赖直接编进项目的构建目录 —— 天然隔离，但每个项目各编一遍
+      //   系统包     /usr/include 与 /usr/lib 全局共享（版本冲突只能靠升级解决）
+
+      // @note 「两个项目要同一个库的不同版本」在 C++ 里是**真的难题** ——
+      // @note 因为 C++ 没有稳定的 ABI，「同一个进程里装两个版本」
+      // @note 通常不可行（符号冲突）。所以现实答案往往是：
+      // @note 一个项目一个构建目录，各自编各自的
+
+      // @note 另一条路是容器（Docker）—— 用整个容器做隔离，
+      // @note 而不是语言层面的虚拟环境
+    vs:
+      javascript: |
+        两边的隔离层次完全不同：JavaScript 的 `node_modules`
+        **天然是项目级的**（每个项目一份，装在同一目录下），
+        所以两个项目用同一个库的不同版本毫无问题；
+        C++ 没有这种结构性隔离 —— 依赖要么在全局（系统路径）、
+        要么在构建目录里各编一遍。而且因为 ABI 不稳定，
+        「同一个进程里两个版本共存」基本不可行。
+        另一处是 C++ 常靠**容器**做隔离，那比语言级的虚拟环境重得多。
+      python: |
+        两边的隔离哲学差别明显：Python 用**虚拟环境**
+        （`venv` 造一个独立的解释器目录，依赖装在里头），
+        切项目就是切环境；C++ 没有「环境」这个概念 ——
+        依赖要么编进项目的构建目录（等于每个项目各编一份），
+        要么全局共享。另一处是 Python 的隔离之所以可行，
+        是因为依赖是**纯文件**（可以随便复制、共存）；
+        C++ 的依赖是**编译产物 + 链接进来的符号**，
+        同一个符号在同一进程里只能有一份。
+      java: |
+        两边都有隔离手段，但**为什么需要**不同：Java 靠 classpath
+        与构建工具的仓库缓存（Maven 的本地仓库）做到「项目各自的依赖集」，
+        同一个类的不同版本在同一个 JVM 里也能勉强共存（类加载器隔离）；
+        C++ 因为符号是链接期解析的，同一个库的两个版本
+        在同一个进程里基本不可能共存。
+        另一处是 C++ 常见做法是每个项目建自己的构建目录、
+        各自编一遍依赖 —— 隔离是天然的，代价是编译时间。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  publishing:
+    code: |
+      // @note! C++ **没有官方的公共包仓库** —— 没有相当于 npm / PyPI 的东西
+
+      // 分发方式基本是这几种：
+      //   · 源码放 GitHub，让别人用 FetchContent / vcpkg 拉
+      //   · 发到 vcpkg 的中央仓库（提交 PR，人工审核）
+      //   · 发到 ConanCenter
+      //   · 交给系统包管理器（发行版维护者打包）
+      //   · 二进制直接发（因为 ABI 不稳定，通常只对特定平台/编译器有效）
+
+      // 私有源：
+      //   · 内部 git 仓库 + FetchContent / git submodule
+      //   · 自建 vcpkg registry（有正式的 registry 机制）
+      //   · 自建 Conan server
+
+      // @note! 「怎么让别人用上我的库」在 C++ 里是**分发问题而非发布问题**：
+      // @note! 多数库的答案是「把源码放出去 + 提供 CMake 配置」，
+      // @note! 而不是「推一个版本到中央仓库」
+
+      // @note 一个库要能被 `find_package` 找到，得提供
+      // @note `<包名>Config.cmake` 文件 —— 那是事实上的接口约定
+    vs:
+      javascript: |
+        两边的差别是「有没有那个中央仓库」：JavaScript 有 npm registry
+        （`npm publish` 一条命令就发出去了），版本一推就在那儿；
+        C++ 没有统一的中央仓库 —— vcpkg 与 Conan 各有自己的，
+        都要走人工审核，而且很多库干脆就只发源码。
+        另一处是**发布的产物形态**：npm 发的是打包好的 JS（谁都能用），
+        C++ 发二进制要指定平台与编译器（ABI 不通用），
+        所以「发源码 + 提供构建配置」是主流。
+      python: |
+        两边都是「把源码放出去」，但**被发现的路径**不同：
+        Python 有 PyPI，`pip install` 就能装到全世界的包，
+        发布是一条命令；C++ 没有对应的中央仓库，
+        想让别人方便地用上，得提供 CMake 配置文件、
+        或者提交到 vcpkg / Conan 的仓库（人工审核、周期长）。
+        另一处是私有源的成熟度：Python 有私有的包索引（devpi 这类），
+        C++ 的私有源基本就是「内部 git 仓库」。
+      java: |
+        两边的差距在**中央仓库的地位**：Java 的 Maven Central
+        是生态的默认位置，坐标一发布全世界都能拉，
+        而且有签名、校验、镜像这一整套基础设施；
+        C++ 没有这样的地方 —— vcpkg 与 Conan 的中央仓库
+        更小、更新更慢，很多库只在 GitHub 上。
+        另一处是「别人怎么找到你的库」：Java 靠坐标，C++ 靠
+        `find_package` 找一个配置文件，那个文件还得你自己提供。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

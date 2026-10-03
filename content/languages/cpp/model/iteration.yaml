@@ -1,0 +1,230 @@
+# cpp —— model / iteration
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: iteration` 的那批：
+# generator-yield / comprehension / lazy-evaluation / destructuring。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是**「这一套能力 C++ 是后加的，而且加在标准库而不是语法里」** ——
+# 实跑确认：C++23 才有第一个标准库协程类型 `std::generator`（`co_yield` 直接能用，
+# 无限序列取前六个正常）；惰性管道是 `std::views`（`iota(0) | take(4)` 能跑，
+# 证明真的惰性）；但**没有推导式语法**，只有 `views::transform` 这类库调用。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-iteration-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  generator-yield:
+    code: |
+      // @note! C++ 的生成器来得很晚，而且是**标准库**提供的：
+      // @note   C++20 给了协程的**语言机制**（co_await / co_yield / co_return），
+      // @note   但标准库一直没给现成的任务类型，要自己写 promise_type；
+      // @note   C++23 才有了 `std::generator`（实跑可用）
+
+      #include <generator>
+      std::generator<int> fib() {
+        int a = 0, b = 1;
+        while (true) { co_yield a; auto t = a + b; a = b; b = t; }
+      }
+
+      for (int x : fib()) { if (x > 100) break; }   // @note 无限序列照样能遍历
+
+      // @note! 在没有 std::generator 的编译器上，「惰性序列」只能靠：
+      // @note   ① 自己实现一对迭代器（传统做法，很啰嗦）
+      // @note   ② 写一个把结果收集进容器的函数（那就不惰性了）
+      // @note   ③ 用 std::views 拼（能表达很多场景，但不是任意逻辑）
+
+      // @note 手写协程时的关键点：协程是**无栈**的，语言只给挂起原语，
+      // @note 「什么时候恢复」要自己调度（std::generator 帮你填了这块）
+    vs:
+      javascript: |
+        **两边的成熟度差得很远**：JavaScript 的生成器是 ES2015 的语言特性，
+        写个 `function*` 加 `yield` 就完事，`for...of` 直接消费；
+        C++ 要走三步 —— C++20 给语言机制、C++23 才给标准库类型
+        （`std::generator`），而且这台机器的工具链上
+        标准库模块都还用不了（生成器本身可用）。
+        另一处是**手写成本**：JavaScript 永远不用碰调度；
+        C++ 若不用 `std::generator`，写协程要自己实现一套
+        promise/awaiter 协议 —— 那是另一个量级的工作。
+      python: |
+        两边都有生成器（`yield` ↔ `co_yield`），语义对应得上，
+        而且都是惰性的、都能表达无限序列。差别在**是不是语言内建**：
+        Python 的 `yield` 是一个关键字，函数里有它就自动变成生成器函数；
+        C++ 的 `co_yield` 是协程机制的一部分，必须有配套的
+        promise 类型与返回类型（`std::generator` 是 C++23 才补上的），
+        也就是说同一段逻辑在 C++ 里要先有基础设施。
+        另一处是 C++ 的生成器与迭代器协议接得很紧（能直接 `for` 遍历），
+        Python 的生成器本身就是迭代器。
+      java: |
+        **这一格 Java 长期是空白的**：Java 没有 `yield` 式的生成器，
+        要惰性序列得自己实现 `Iterator`，或者用 Stream（但 Stream 的
+        `iterate` / `generate` 只能表达有限的几种形状，
+        任意逻辑还是得手写迭代器）。
+        C++ 的处境在 C++23 之前与 Java 类似（也要手写迭代器），
+        之后有了 `std::generator` 才算补上。
+        所以两边都说明了同一件事：**「能暂停的函数」在静态语言里要额外的机制**，
+        一个靠库类型、一个靠手写。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  comprehension:
+    code: |
+      // @note! C++ **没有推导式语法** —— 最接近的是标准库的 ranges 管道
+
+      std::vector<int> v{1,2,3,4,5};
+
+      // 「造一个新序列」用 views::transform（实跑：平方后是 1 4 9 16 25）
+      auto squares = v | std::views::transform([](int x) { return x * x; });
+
+      // 带过滤就再串一个
+      auto odd_squares = v | std::views::filter([](int x){ return x % 2; })
+                            | std::views::transform([](int x){ return x * x; });
+
+      // @note 想真的要一个容器（而不是视图），用 ranges::to 或者手工构造
+      std::vector<int> out(odd_squares.begin(), odd_squares.end());
+      // @note! 注意 views 是**惰性**的 —— 上面这个构造才真的算了一遍
+
+      // @note 惯用法上，C++ 更常写的是**显式循环**：
+      std::vector<int> manual;
+      for (int x : v) if (x % 2) manual.push_back(x * x);
+      // @note 项目的代码风格里，显式循环常常比长管道更受推荐（好读、好断点）
+
+      // @note 往容器里批量构造还有一条路：构造函数接迭代器区间
+      std::vector<int> copy(v.begin(), v.end());
+    vs:
+      javascript: |
+        **这一格是「语法 vs 库」的对比**：JavaScript 有 `map` / `filter`
+        这些方法，链式写起来很紧凑（虽然不是推导式语法）；
+        C++ 的 `std::views` 管道形态上几乎一样（`|` 连接），
+        但它是**惰性**的 —— `transform` 当场什么都不算，
+        JavaScript 的 `map` 立刻返回一个新数组。
+        所以那边「链式调用会造中间数组」的性能直觉在这边不成立
+        （C++ 这条链一个元素都不存），代价是「什么时候算的」要自己心里有数。
+        另一处是 C++ 常用显式循环而不是长管道，风格上更偏「写清楚」。
+      python: |
+        两边的写法形态差得最远：Python 有**推导式语法** ——
+        `[x*x for x in v if x % 2]` 一行搞定，读起来就是个集合定义；
+        C++ 只能拼库调用（`v | filter(...) | transform(...)`），
+        或者干脆写显式循环。所以那边「造一个序列」是语言语法，
+        这边是标准库组合。
+        另一处是求值时机：Python 的列表推导式**立刻算完**、
+        生成器表达式才惰性；C++ 的 views 管道**一定惰性**，
+        要实体化得显式构造容器 —— 默认值正好相反。
+      java: |
+        两边的处境**相似**（都没有推导式语法，都靠 Stream/views 组合），
+        这一格最接近。差别在**惰性与终端的约定**：
+        Java 的 Stream 管道末尾一定要有个终端操作（`collect`）才真的跑，
+        而且流用完就不能再用；C++ 的 views 管道是**可以重复遍历的视图**，
+        没有「流已消费」这个概念（实跑确认过：惰性链能反复遍历）。
+        另一处是 Java 的 Stream 能并行（`parallel()`），C++ 的 views 没有这层。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  lazy-evaluation:
+    code: |
+      // @note C++ 的惰性求值主要落在 std::views 上，而且**真的不提前算**
+      auto v = std::vector{1,2,3,4,5};
+
+      auto r = v | std::views::filter(pred) | std::views::transform(f);
+      // @note 到这里为止**一个元素都没处理**，r 只是「怎么算」的描述
+
+      for (int x : r) { }          // @note 遍历到哪个元素才算哪个
+
+      // @note! 无限序列也能表达（实跑：取前四个正常）
+      for (int x : std::views::iota(0) | std::views::take(4)) { }
+
+      // 没有中间容器：整条链遍历一遍只走一次原序列
+      // @note! 代价是**每次遍历都重算** —— 链上挂着重活时要注意
+      // @note 想只算一次就先实体化：std::vector<int> cache(r.begin(), r.end());
+
+      // @note! 还有一条更老的惰性路线：给迭代器配 std::function，
+      // @note 或者自写输入迭代器 —— ranges 之前大家都那么写
+    vs:
+      javascript: |
+        **两边的默认正好相反**：JavaScript 的 `map` / `filter` 是**立即**的
+        （每次调用都造一个新数组），要惰性得改用生成器函数自己写；
+        C++ 的 `views` 管道**天生惰性**，一个中间数组都不造，
+        要实体化得显式构造容器。
+        所以那边「链太长会造一堆中间数组」的担心在这边不存在，
+        但反过来的问题出现了：每次遍历都重算一遍，
+        重活挂在链上时反复遍历就是反复算 —— 要缓存还得主动做。
+      python: |
+        两边都有惰性与非惰性两条路，而且**默认值也相反**：
+        Python 的列表推导式立刻算、生成器表达式惰性（写 `()` 而不是 `[]`）；
+        C++ 的 views 管道一定惰性，实体化要显式构造容器。
+        所以 Python 里「我写的是 `[]` 还是 `()`」决定求值时机，
+        C++ 里「我有没有构造容器」决定 —— 判据不同但都是显式的。
+        另一处是 C++ 的惰性链可以反复遍历（是视图不是流），
+        Python 的生成器**用过就空**（这一点更接近一次性迭代器）。
+      java: |
+        两边都有惰性管道（Stream ↔ views），形态相近。
+        差别在**生命周期**：Java 的 Stream 是**一次性的** ——
+        消费过就不能再用（再遍历会抛 IllegalStateException），
+        而 C++ 的 views 是**可以重复遍历的**（惰性、每次重算）。
+        所以 Java 那边「流用完了」是个要记住的状态，
+        C++ 这边没有这个状态，取而代之的是「每次遍历都重算」。
+        另一处是 Java 的 Stream 有并行开关，C++ 的 views 需要别的工具。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  destructuring:
+    code: |
+      // @note C++ 的「解构」叫**结构化绑定**（C++17），而且有个硬限制：
+      // @note! 右边必须是**编译期已知个数**的东西 —— 数组、pair、tuple、聚合体
+
+      auto [a, b] = std::pair{1, 2};
+      auto [x, y, z] = std::array<int,3>{1,2,3};
+      auto [i, s, d] = std::tuple{1, std::string{"a"}, 2.5};
+
+      struct Point { double x, y; };
+      auto [px, py] = Point{1.0, 2.0};        // @note 聚合体也行
+
+      for (auto& [k, v] : map) { v += 1; }     // @note 配 range-for 是最高频用法
+
+      // @note! `std::vector` **不能**结构化绑定 —— 它的大小是运行期的
+      // @note 要拆开得自己写下标，或者先转成 tuple
+
+      // @note 还能加限定：`auto& [k,v]`（引用）、`const auto& [k,v]`（只读引用）
+      // @note 不加 & 就是拷贝一份出来
+    vs:
+      javascript: |
+        两边的解构看起来很像（`const [a, b] = ...` ↔ `auto [a, b] = ...`），
+        但**边界差别很大**：JavaScript 的数组解构能吃任何可迭代对象、
+        个数不匹配时补 `undefined`、还能用默认值；
+        C++ 的结构化绑定要求右边**编译期知道有几个元素**，
+        个数对不上直接编译错误，`std::vector` 根本用不了。
+        另一处是 JavaScript 的对象解构**按名字**取（`const {x} = p`），
+        C++ 是**按位置**取（名字自己起），所以字段顺序记错就错位了。
+      python: |
+        两边都是按位置拆，形态接近（`a, b = t` ↔ `auto [a, b] = t`），
+        而且都能配循环用。差别在**能不能吃变长的东西**：
+        Python 的 `a, *rest = seq` 能接住剩下所有元素，
+        解包还能嵌套；C++ 的结构化绑定要求个数在编译期就对上，
+        没有「剩下的都给它」这种写法。
+        另一处是 C++ 用 `&` 决定是拷贝还是引用（改引用会改原件），
+        Python 拿到的一律是引用，没有这个选择。
+      java: |
+        **这一格 Java 目前没有对应能力**（要到较新版本的模式匹配
+        才在 `instanceof` 与 `switch` 上支持记录解构，而且只对记录类型）；
+        所以 Java 里「把一组值拆到几个名字」一直是
+        `int a = p.getX(); int b = p.getY();` 这样一行一个。
+        C++ 从 C++17 起就有了结构化绑定，而且能吃数组、pair、
+        tuple、以及任何聚合体 —— 覆盖面比 Java 现在的模式匹配宽。
+        共同点是两边都**不能**拆运行期长度的容器。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

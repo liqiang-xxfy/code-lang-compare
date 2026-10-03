@@ -1,0 +1,148 @@
+# swift —— express / containers
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: containers` 的那批：
+# arrays / maps。
+#
+# Swift 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Swift 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的题眼是 **`Array` / `Dictionary` 是值类型** ——
+# 赋值就是拷贝语义（标准库用写时复制做优化，但**那是实现细节，
+# 不是语言保证**，代码看到的行为一律「像立刻拷贝」）。
+# 另一处是**切片返回的是视图**（`ArraySlice` 与 `Substring`），
+# 这是本组最容易写错的地方。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-containers-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  arrays:
+    code: |
+      var a = [1, 2, 3]              // @note 类型是 [Int]，即 Array<Int>
+      a.append(4)
+      a.insert(0, at: 0)
+      a.remove(at: 0)
+      a.count                        // @note 元素个数
+      a.isEmpty
+      a.first                        // @note 类型是 Int?（空数组给 nil）
+      a.last
+      a.contains(2)
+      a[0]                           // @note! 越界直接**崩**（不是返回 nil、不是 UB）
+
+      // @note! 赋值是**拷贝语义**：两份各是各的
+      var b = a
+      b.append(99)
+      // a 还是原来的三个元素
+
+      // @note 想共享就得用类（`NSArray` 那类），或者传 inout
+      // @note 长度可变的「数组」只有这一种；定长的有更省的类型：
+      let t = (1, 2, 3)              // @note 元组：定长、可异构、不能遍历
+
+      // @note 排序与变换都返回新数组
+      a.sorted()
+      a.map { $0 * 2 }
+      a.filter { $0 > 1 }
+
+      // @note! 切片得到的是 **ArraySlice（视图）**，共享底层存储
+      let slice = a[1..<3]
+      // @note 而且它的下标**保留原数组的索引** —— `slice[1]` 是原数组的第二个
+      // @note 想要独立的数组得转一下：Array(slice)
+    vs:
+      javascript: |
+        **这一格是「值语义还是引用语义」的直接对比**：JavaScript 的数组
+        赋值是共享（改一个另一个也变），要副本得显式展开；
+        Swift 的数组赋值是**拷贝语义**（标准库用写时复制优化，
+        但代码看到的行为就是拷贝）。所以那边「不小心共享了」是常见 bug，
+        这边「不小心拷贝了」才需要留意。
+        另一处是越界：JavaScript 越界读给 `undefined`、越界写会静默扩长；
+        Swift 越界**直接崩**。
+        还有一处是切片：JavaScript 的 `slice` 返回新数组，
+        Swift 的区间下标返回 `ArraySlice` —— 它是个**视图**，
+        而且下标保留原数组的索引，这两个细节都容易踩。
+      python: |
+        两边的默认正好相反：Python 的列表赋值是**绑到同一个列表**
+        （要副本得 `a[:]`），Swift 的数组赋值是拷贝语义；
+        不过 Python 的切片返回的是副本、Swift 的返回的是视图 ——
+        也就是说「赋值」与「切片」这两件事的默认，两边各反了一处，
+        记的时候要分开记。
+        另一处是越界：Python 越界抛 IndexError（能接住），
+        Swift 越界直接崩（`fatalError`，接不住）。
+        还有一处是 Python 的负数下标、步长切片在 Swift 里都没有。
+      java: |
+        两边都有动态数组（`ArrayList` ↔ `Array`），但**语义方向相反**：
+        Java 的列表赋值是共享同一个对象，要副本得显式拷贝；
+        Swift 的数组是**值类型**，赋值就是拷贝语义。
+        另一处是越界：Java 抛 IndexOutOfBoundsException（受检与否都不必接），
+        Swift 直接崩 —— 一个能兜住、一个不能。
+        还有一处是 Swift 有 `ArraySlice` 这个「视图切片」概念
+        （切一段不拷贝），Java 的 `subList` 也是视图但那是 List 层面的事，
+        值语义的数组切片在 Java 里没有对应物。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  maps:
+    code: |
+      var d = ["a": 1, "b": 2]        // @note [String: Int]，即 Dictionary<String, Int>
+      d["c"] = 3                     // @note 不存在就插入
+      d["a"]                        // @note 类型是 Int? —— 不存在给 nil（**不会插入**）
+      d["a"] = nil                  // @note 赋 nil 就是**删除**这个键
+      d.removeValue(forKey: "b")    // @note 删并返回旧值（可选）
+      d.keys                        // @note 键的集合
+      d.values
+      d.count
+      d.isEmpty
+
+      // @note 遍历：拿到的元素是 (key:value) 元组，可以解构
+      for (k, v) in d { print("\(k)=\(v)") }
+
+      // @note! 遍历顺序**不保证** —— 与插入顺序无关，也不承诺跨运行一致
+      // @note 想要确定的顺序得自己排：d.keys.sorted() 或者改用数组存键
+
+      // @note 默认值用下标的下标语法
+      d["x", default: 0]             // @note 不存在就返回 0（**这个不会插入**）
+
+      // @note 键必须遵守 Hashable；自定义类型想当键得遵守它（可自动合成）
+      // @note Swift 没有「保持插入顺序的字典」这个类型
+    vs:
+      javascript: |
+        **两边的默认值正好相反**：JavaScript 的 `Map` **保证按插入顺序**遍历
+        （这是语言规定），普通对象的顺序也有一套明确规则；
+        Swift 的 `Dictionary` **不保证任何顺序** —— 与插入序无关，
+        也不承诺跨运行一致。所以那边「按顺序遍历」是能指望的，
+        这边要排序得自己写（或者干脆用数组存键）。
+        另一处是「读不存在的键」：JavaScript 给 `undefined`（无副作用），
+        Swift 给 `nil`（也无副作用）—— 这一层一致；
+        但 Swift 还有 `d[k, default: x]` 这个带默认值的写法，
+        以及「赋 nil 等于删除」这个语义，JavaScript 里没有。
+      python: |
+        两边的字典**都做内容比较**，但**顺序保证相反**：
+        Python 的 `dict` 保证按插入顺序（3.7 起是语言保证），
+        Swift 的 `Dictionary` 不保证顺序 —— 所以 Python 里
+        `d.keys()` 那个确定的顺序在 Swift 里没了，
+        要顺序得显式排序。
+        另一处是「读不存在的键」：Python 抛 KeyError（或用 `get` 返回默认），
+        Swift 返回 nil（用 `d[k, default: x]` 给默认）——
+        两边都提供了安全读法，写法不同。
+        还有一处是 Swift 的「赋 nil 即删除」，Python 用 `del` 或 `pop`。
+      java: |
+        两边**几乎一一对应**：`HashMap` ↔ `Dictionary`（都无序）、
+        `TreeMap` ↔ 没有直接对应（Swift 要自己排序）、
+        `LinkedHashMap` ↔ **Swift 没有**（这是 Java 更方便的一处）。
+        差别在「读不存在的键」：Java 的 `get` 返回 `null`（无副作用），
+        Swift 返回 `nil` —— 一致。但 Swift 多了一个
+        `d[k, default: x]`（不存在给默认、**不插入**），
+        以及「赋 nil 即删除」这个写法，Java 里要用 `remove`。
+        另一处是键的约束：Java 靠 `hashCode` / `equals` 约定，
+        Swift 靠 `Hashable` 协议（编译器能自动合成）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
