@@ -1,0 +1,172 @@
+# rust —— express / control-flow
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: control-flow` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  conditionals:
+    code: |
+      let label = if score >= 60 { "及格" } else { "不及格" };
+      // @note! if 是表达式，两个分支都是 &str，类型必须一致
+
+      if let Some(name) = user.nickname {   // @note 一边判断一边解构
+        println!("{}", name);
+      }
+
+      let abs = if n < 0 { -n } else { n };  // @note 不需要三元运算符
+    vs:
+      javascript: |
+        JavaScript 的 `if` 是语句，要拿值只能先声明变量再在分支里赋值；
+        Rust 的 `if` 是**表达式**，可以直接放在 `=` 右边，两个分支的类型必须一致 ——
+        这也是 Rust 没有三元运算符的原因，`if` 本身就是。
+        条件上两边不同：JavaScript 会做真值转换，`if (1)` 合法；
+        Rust 要求条件必须是 `bool`。
+      python: |
+        Python 的 `if` 是语句，取值的写法是条件表达式 `a if cond else b`；
+        Rust 的 `if` 直接当表达式用，且两个分支都是块 —— 分支里可以写多条语句、
+        最后一行当值。Python 里没有「一边判断一边解构」的对应写法，
+        Rust 用 `if let Some(x) = opt` 把「有值吗」和「取出值」合成一步。
+      java: |
+        Java 的 `if` 是语句（Java 14 起有 `switch` 表达式，但 `if` 没有），
+        要拿值得先声明变量；Rust 的 `if` 是表达式，两个分支的类型必须一致，
+        编译器还会检查每个分支都给了值。
+        两边条件都必须是布尔，这一点一致；差别是 Java 有 `?:` 三元运算符，
+        Rust 不需要 —— 用 `if` 就够了。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  loops:
+    code: |
+      let mut i = 0;
+      while i < 3 { i += 1; }        // @note while
+
+      loop {                         // @note 无限循环；break 可以带一个值出去
+        let n = next();
+        if n > 10 { break n; }
+      };
+
+      for x in 0..3 { println!("{}", x); }   // @note 0 1 2 —— 只有 for-in，没有 C 式三段
+
+      'outer: for i in 0..3 {        // @note 标签 + break，直接跳出外层
+        for j in 0..3 {
+          if j == 2 { continue 'outer; }
+        }
+      }
+    vs:
+      javascript: |
+        JavaScript 的 `for (let i = 0; i < n; i++)` 那种三段式在 Rust 里不存在 ——
+        只有 `for x in …`，遍历范围用 `0..n` 这样的区间表达。
+        多出来两样：`loop` 是一个会返回值的无限循环（`break value` 把值交出去），
+        以及**带标签的 break / continue**，能一次跳出多层嵌套 ——
+        JavaScript 里得靠布尔标志位或函数返回绕开。
+      python: |
+        Python 的 `for` 是遍历可迭代对象，这一点与 Rust 相同；
+        Python 的 `while True` 加 `break` 对应 Rust 的 `loop`，
+        但 Rust 的 `loop` 能把值从 `break` 带出来，Python 得先在循环外定义变量。
+        嵌套跳出上 Rust 更直接：`break 'outer` 一步到位，
+        Python 只能靠标志位或把循环包进函数用 `return`。
+      java: |
+        Java 保留了 C 式三段 `for`，Rust 只有 `for x in …`；
+        带标签的 `break` / `continue` 两边都有，语义也一致 ——
+        这是 Java 少有的、与 Rust 直接对应的控制流设施。
+        差别在 `while (true)`：Rust 用专门的 `loop` 关键字，
+        编译器知道它不会正常结束，而且 `break` 能带值出去，Java 没有对应写法。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  iteration-protocol:
+    code: |
+      let v = vec![1, 2, 3];
+      let doubled: Vec<i32> = v.iter().map(|x| x * 2).collect();
+      // @note 适配器是惰性的，collect 才真正跑一遍
+
+      let sum: i32 = v.iter().filter(|x| **x > 1).sum();
+
+      for x in &v { }               // @note for 是 IntoIterator 的语法糖，等价于 iter()
+      for x in v { }                // @note! 这个写法会拿走 v 的所有权，之后不能再用 v
+
+      struct Countdown(u32);
+      impl Iterator for Countdown {  // @note 实现 Iterator 就能用上全套适配器
+        type Item = u32;
+        fn next(&mut self) -> Option<u32> {
+          if self.0 == 0 { None } else { self.0 -= 1; Some(self.0 + 1) }
+        }
+      }
+    vs:
+      javascript: |
+        JavaScript 的迭代协议是运行时的：对象带一个 `Symbol.iterator` 方法就能被
+        `for…of` 遍历。Rust 的 `Iterator` 是**编译期 trait**，实现它以后
+        自动获得 `map` / `filter` / `sum` 这一整套适配器 ——
+        JavaScript 的数组方法只在 Array 上有，自定义可迭代对象拿不到。
+        另一处是所有权：`for x in v` 会消耗 `v`，之后不能再用 ——
+        JavaScript 的 `for…of` 不改变原数组的任何东西。
+      python: |
+        Python 的迭代协议是 `__iter__` / `__next__`，靠 `StopIteration` 结束；
+        Rust 的 `Iterator::next` 返回 `Option`，结束是一个普通值而不是异常 ——
+        这是两种风格的根本差别。适配器上两边很像（`map` / `filter` 都惰性），
+        但 Rust 的 `collect()` 必须写出目标类型，Python 的 `list()` 不用。
+      java: |
+        Java 的 `Iterable` / `Iterator` 与 Rust 的 trait 思路接近，
+        但 Java 的 `Iterator.remove()` 会改集合、`hasNext` / `next` 分两步调用；
+        Rust 只有 `next()` 一个方法，返回 `Option`。Java 的 Stream 提供了
+        `map` / `filter`，但它是独立于 Iterator 的另一套，且默认惰性、
+        要 `collect` 才执行 —— Rust 把这两者合成了一个 trait。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  switch-and-match:
+    code: |
+      let msg = match code {
+        200 => "OK",
+        301 | 302 => "重定向",          // @note 一个分支匹配多个值
+        400..=499 => "客户端错误",       // @note 可以匹配区间
+        n if n >= 500 => "服务端错误",   // @note 守卫条件
+        _ => "未知",                    // @note! match 必须穷尽，漏了编译不过
+      };
+
+      match shape {
+        Circle { r } => println!("{}", r),        // @note 直接解构出字段
+        Rect { w, h } if w == h => println!("正方形"),
+        Rect { w, h } => println!("{}x{}", w, h),
+      }
+    vs:
+      javascript: |
+        JavaScript 的 `switch` 用 `===` 逐个比对，穿透要小心 `break` 忘写；
+        Rust 的 `match` 是**模式匹配**：能匹配区间、多值、结构体字段、
+        还能挂守卫条件，而且**编译器强制穷尽** —— 漏掉一种情况编译不过。
+        JavaScript 想表达「所有情况都处理了」只能靠 `default` 加自觉，
+        Rust 靠类型系统保证。这正是 Rust 里 `Option` 与 `Result`
+        能被安全处理的原因。
+      python: |
+        Python 3.10 起有 `match` 语句，也支持解构与守卫，形态上与 Rust 接近；
+        最大的差别是**穷尽性**：Python 的 `match` 允许不写兜底分支，
+        漏掉的情况会静默跳过；Rust 的 `match` 必须覆盖全部可能，
+        否则编译错误。所以 Rust 里加了枚举成员之后，
+        所有没处理新分支的 `match` 会一起报错 —— 这是一个刻意设计的提醒。
+      java: |
+        Java 的 `switch` 只能比对常量（新版支持模式匹配，但仍是逐步放开），
+        且历史上有穿透问题、需要 `break`；Rust 的 `match` 天然不穿透，
+        能匹配区间、解构结构体、带守卫。最根本的差别还是穷尽性：
+        Java 的 `switch` 没有 `default` 也能编译，Rust 的 `match` 不行。
+        Java 的 `switch` 表达式（Java 14+）要求穷尽，是近年才补上的能力。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
