@@ -17,7 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | [docs/完整项目架构.md](docs/完整项目架构.md) | **架构的唯一权威描述**：系统现在是什么样、为什么这么设计 |
 | [docs/项目步骤规划与进度台账.md](docs/项目步骤规划与进度台账.md) | **实施步骤与进度的唯一权威描述**：走到哪了、下一步做什么、哪些账没结 |
 
-[docs/项目架构设计.md](docs/项目架构设计.md) 已弃用（只有附录 A 的 ADR-01–39 是决策历史，仍有效）；
+`docs/项目架构设计.md` 已删除（v1 正文早已失效；其 ADR-01 – ADR-35 是决策历史，
+2026-10-03 已并入完整项目架构.md 附录 B.1，与 v2 的 ADR-40 起同处一份）。
 真正的**理解本仓库最短路径**是 README 的「四条核心设计」+ 上述架构文档。
 
 **执行约定（每次动 `content/` 或 `src/` 的计划性改动都要遵守）**：
@@ -32,12 +33,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **判断标准只有一条**：一个从没参与过这个项目的人，只读这两份文档，
    能不能说出「系统现在是什么样、为什么这样、下一步做什么、哪些账还没结」。
 
-> **当前状态（2026-10-03）：内容爬坡期，四个板块的正文已写完。**
-> **S0–S7.5 完成** —— 架构切到 v2.1，四个板块的正文与 rust / go 对比列全部落库。
+> **当前状态（2026-10-03）：内容爬坡期，四个板块的正文与速查三兄弟都已铺满。**
+> **S0–S7.6、S9、S10 完成** —— 架构切到 v2.1，四个板块的正文与 rust / go 对比列全部落库；
+> **速查三兄弟从 6 个方向补到 12 个**（3 基准 × 4 目标），每方向 12 陷阱 / 10 词典 / 5 路线。
 > 现状：4 个板块 / **22 个存放组 / 104 个知识点 / 12 份章节分组** / **520 个对比框**
-> （104 × 5 门启用语言，**五门各 100%**）；
-> `content:validate` **error 0 / warn 7**；183 条可索引路由；162 条测试。
-> 剩下的**一笔账**（见台账 §0.2）：**S8** 校对升级（520 条 draft → 1 条 R6 warn）。
+> （104 × 5 门启用语言，**五门各 100%**）+ **速查 12 个方向 / 324 条**（各方向另有 `meta.yaml` 留痕）；
+> `content:validate` **error 0 / warn 1**；183 条可索引路由；157 条测试。
+> 剩下的**一笔账**（见台账 §0.2）：**S8** 校对升级（520 条 draft → 那 1 条 R6 warn）——
+> 注意它**不含速查**：速查不在 520 格里，`meta.yaml` 的 `state` 也不参与发布门槛。
 > 旧内容完整存档在 `content.legacy/`，**不参与构建与校验**，填新内容时可对照旧写法。
 > 分批与写作口径见 [docs/项目步骤规划与进度台账.md](docs/项目步骤规划与进度台账.md) 第 6 章。
 
@@ -82,7 +85,7 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
 | **feature 池** | `content/catalog/<板块>/features.yaml` | 该板块有哪些知识点，每个属于哪个 `group`（**与基准无关，全站唯一**） |
 | **章节分组** | `content/catalog/<板块>/<基准 id>.yaml` | 该基准把池里的知识点分成哪几章、叫什么、什么顺序、取舍哪些 |
 | 一对多内容 | `content/languages/<语言>/<板块>/<group>.yaml` | 每门语言在各知识点上的 `boxes`。**第三段是存放组，不是展示章** |
-| 方向性内容 | `content/pairs/<基准>2<目标>/{pitfalls,glossary,roadmap}.yaml` | 速查三兄弟 |
+| 方向性内容 | `content/pairs/<基准>2<目标>/`（`meta.yaml` + `{pitfalls,glossary,roadmap}.yaml`） | 速查三兄弟，12 个方向 |
 
 四点约定：
 
@@ -208,19 +211,18 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 ## 测试地图
 
-`npm test` = `vitest run`。9 个文件按"钉住什么"分两类：
+`npm test` = `vitest run`。7 个文件按"钉住什么"分两类（S9 删掉运行时 diff 引擎时，
+`diff.test.ts` 与 `blocks.test.ts` 一并删除）：
 
 | 文件 | 钉住的不变量 |
 | --- | --- |
-| [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：0 error、全局 id 两段唯一、**`featureIndex` 来自池而非遍历章节分组**、R21、provenance（llm 无 license）、台账、@note 无残留、`vs` 的 key 必须是基准候选 |
+| [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：0 error、全局 id 两段唯一、**`featureIndex` 来自池而非遍历章节分组**、R21、provenance（llm 无 license）、台账、@note 无残留、`vs` 的 key 必须是基准候选；**速查正文的写作口径**两条（只讲本方向两门语言、提到的板块名必须真实存在 —— R5 够不到散文那一层） |
 | [tests/unit/section-model.test.ts](tests/unit/section-model.test.ts) | **对真实 `src/generated/` 产物**断言：分片路径与声明的 (语言,板块,存放组) 一致、catalog.json 的 key 是两段、章节 features 已 join 且带 `group`、**章节分类确实随基准变**、**章节可见性与路由同源**（没内容的章不产出路由，反之亦然 —— 骨架期这条天天在跑）、**双角色取值**（基准列 null 徽章 / absent 短路 / vs 缺 key 才是 identical） |
-| [tests/unit/pool-loader.test.ts](tests/unit/pool-loader.test.ts) | 装载器：池与章节分组、**同一 feature 在不同基准下落到不同章**、池驱动的语言内容、`_` 私有目录跳过、`pairs/` 方向反查、**对比框契约**（code/blocks 至多一个、absent 可三槽全空、`.strict()` 拒绝重复声明） |
-| [tests/unit/baseline-switch.test.ts](tests/unit/baseline-switch.test.ts) | 基准候选与默认值、可见列计算、目标语言推导、切基准回落、diff 缓存 |
+| [tests/unit/pool-loader.test.ts](tests/unit/pool-loader.test.ts) | 装载器：池与章节分组、**同一 feature 在不同基准下落到不同章**、池驱动的语言内容、`_` 私有目录跳过、`pairs/` 方向反查、**速查 `meta.yaml` 的留痕**（缺失合法、存在则被解析而非静默丢弃）、**对比框契约**（code/blocks 至多一个、absent 可三槽全空、`.strict()` 拒绝重复声明） |
+| [tests/unit/baseline-switch.test.ts](tests/unit/baseline-switch.test.ts) | 基准候选与默认值、**候选与列的显示顺序**、可见列计算、目标语言推导、切基准回落、**速查方向的顺序与默认回落按书写序**（ADR-67） |
 | [tests/unit/search.test.ts](tests/unit/search.test.ts) | 中文 bigram 分词、按语言分片、查询无需过滤、pair 归目标语言 |
-| [tests/unit/diff.test.ts](tests/unit/diff.test.ts) | `compareToBaseline` 的行级对齐与缓存 |
 | [tests/unit/extract-notes.test.ts](tests/unit/extract-notes.test.ts) | `extractNotes` 的 `notes`（仅高危）/ `allNotes`（全部）分流契约 |
 | [tests/unit/lang-mention.test.ts](tests/unit/lang-mention.test.ts) | R25 的语言点名检测器（`JavaScript` 含 `Java`、`Go` 撞英文动词） |
-| [tests/unit/blocks.test.ts](tests/unit/blocks.test.ts) | 多段代码的逐段 diff（段数不一致时拒绝，不拼成一份错位的着色） |
 
 前两个**读真实内容目录与真实构建产物**，因此它们既是回归测试、也是内容契约的第二道闸门。
 
@@ -230,7 +232,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 - `provenance.origin: 'llm'` **刻意不填 `license`** —— 模型输出不产生可署名许可，强填 MIT/GFDL 是错误陈述。
 - 以 `_` 开头的语言目录是**私有目录**，默认不参与构建与校验（`_template/`、`verify:ext` 的 `_fixturelang`）。新增真语言不要用下划线前缀。
 - **YAML 普通标量不能以反引号开头**（``title: `x` 是什么`` 会让整章解析失败），也不能写裸 `null`。SEO 模板一律用引号包起来（以 `{` 开头的普通标量会被 YAML 当成流式映射）。
-- **速查三兄弟只能讲本方向的两门语言**（R5）：多写一门第三语言，读者会以为「带着当前基准的习惯」在那个方向也会踩到同样的坑。
+- **速查三兄弟只能讲本方向的两门语言**（R5，**两条**）：`glossary.perLanguage` 的键与 `pitfalls.languages` 的值都必须是 error 级合规；但 `symptom` / `cause` / `fix` / `note` / `todo` 这些**散文** R5 够不到 —— 那一层由 `content-contract.test.ts` 的常设断言守（另有「提到的板块名必须真实存在」，它抓的是从 v1 搬过来的「心智模型」/「基础语法」这类死引用）。
 - **`baseline` 文本只讲本语言、`vs.<基准>` 只讲那两门**（R25，warn）：多列板块里提第三门就是屏幕外的幽灵语言。
 - 所有外部 URL 必须是 `https`（R7）。
 - **compare 路由里只有基准 / 板块 / 章节三段**，章节由**该基准的**章节分组定义；feature id 是 `<板块>/<feature>` 两段（不含章节 —— 章节随基准变）。组件里不要拼这些字符串，也不要写死板块名；`verify:sections` 会拦住硬编码的板块 id（白名单在脚本里，每条都写了理由）。
