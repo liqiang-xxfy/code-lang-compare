@@ -1,0 +1,210 @@
+# typescript —— express / bindings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: bindings` 的那批。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-bindings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  declaration:
+    code: |
+      let count = 0;              // @note 块级作用域，可以重新赋值
+      const name = "Ada";         // @note 块级作用域，绑定不可改
+      var legacy = 1;             // @note! 函数作用域且会提升，只应出现在遗留代码里
+
+      let total: number = 0;      // @note 标注是可选的：不写就靠推断
+      let pending;                // @note! 推断成 any，检查从这里断掉
+    vs:
+      javascript: |
+        声明语句本身一模一样 —— 毕竟 TypeScript 是它的超集，
+        同一份代码去掉冒号和类型就是合法的 JavaScript。差别发生在**写不写标注**上：
+        不写时两边行为完全相同，写了之后 TypeScript 会在编译期盯着这个变量，
+        而 JavaScript 那边什么都没发生。所以这不是「另一种声明」，
+        是同一套声明多了一层可选检查 —— 麻烦也在这里：哪一格漏了标注，
+        哪一格就悄悄退回到了 JavaScript。
+      python: |
+        Python 的赋值语句本身就是声明，没有关键字可选；TypeScript 用关键字不只是风格 ——
+        `let` / `const` 顺带定下了作用域与能否改绑。
+        两边都有「改动一个不该改的绑定」这回事，报错时机相反：
+        Python 要到运行到那一行才知道，TypeScript 在编译期就拦下。
+      java: |
+        Java 的声明必须写出类型（`int count = 0;`，Java 10 起可写 `var` 让编译器推断）。
+        TypeScript 的默认姿态相反 —— 类型能推断就不写，只在推断不出来时才标。
+        所以读 Java 代码时类型一眼可见，读 TypeScript 代码常常得回看赋值语句
+        才知道这个变量是什么类型。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: analogous
+
+  mutability:
+    code: |
+      let n = 1;
+      n = 2;                      // @note let 的绑定可以改
+      const list = [1, 2];
+      list.push(3);               // @note! const 只冻结绑定，数组内容照样能改
+      // list = [];               // @note 编译错误：不能重新赋值
+
+      // 想连内容一起锁住，得靠类型
+      const frozen: readonly number[] = [1, 2];
+      // frozen.push(3);          // @note! 编译错误：只读视图
+    vs:
+      javascript: |
+        运行时的行为完全一样 —— `const` 依然只冻结绑定、不冻结内容。
+        TypeScript 多出来的是 `readonly` 这一类**只在编译期存在的不可变标注**：
+        它不改变运行时（那个数组照样能改），只是把「别动它」的约定变成检查。
+        另一处差别是改绑 `const` 的报错时机：JavaScript 要运行到那一行才抛，
+        TypeScript 在编辑器里就标红。
+      python: |
+        Python 没有常量语法，全大写的名字只是给同事看的约定，解释器照改不误；
+        TypeScript 的 `const` 由编译器负责，改绑直接编译不过。
+        但「内容不可变」两边都得另想办法 —— Python 靠元组这类不可变类型，
+        TypeScript 靠 `readonly` 标注，而后者只在编译期有效，
+        一旦值流出到没有类型信息的地方（JSON、第三方库），这层保护就没了。
+      java: |
+        Java 的 `final` 与 `const` 是同一件事：**冻结绑定、不冻结内容** ——
+        `final` 的集合照样能增删元素。差别在检查时机：两边都在编译期，
+        但 Java 的类型在运行时还在，所以不可变性有时能被运行时检查到；
+        TypeScript 的 `readonly` 编译后就消失了，绕过它不需要任何技巧。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  scope:
+    code: |
+      let a = 1;                  // @note 块级
+      {
+        let a = 2;                // @note 内层是新变量
+      }
+
+      var b = 1;                  // @note! 函数作用域：整个函数都能看到它
+      {
+        var b = 2;                // @note 还是同一个 b
+      }
+
+      // 类型也有作用域：默认是模块级的
+      type Id = string;
+    vs:
+      javascript: |
+        作用域规则完全一致，连 `var` 的坑都一样。TypeScript 在这里只多做一件事：
+        它能发现「在声明之前使用」的一部分情况。`let` 的暂时性死区是**运行时**行为，
+        但编译器做得到静态分析的场合会提前报错 —— 也就是说同一个错误，
+        在这边是编辑器里的红线，在那边是运行到才炸。
+      python: |
+        Python 是**函数级**作用域，一个 `for` 或 `if` 里赋的值出了块还在；
+        TypeScript 的 `let` / `const` 是块级的，出了花括号就没了。
+        这让 TypeScript 里同名变量在相邻块中出现得很自然，
+        而 Python 里那会是在改同一个名字。类型这一层 Python 也有
+        （模块级、函数级），但同样只在类型检查器眼里存在。
+      java: |
+        两边都是块级作用域，这条基本一致。差别落在 `var` 这个同名不同义的关键字上 ——
+        Java 的 `var` 是局部变量类型推断，与作用域无关，读到它不会有歧义；
+        TypeScript 的 `var` 是函数级作用域的声明，与 `let` 的规则不同，
+        读到它基本可以判断这段是老代码。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
+
+  hoisting:
+    code: |
+      // console.log(a);          // @note! 编译错误：a 在声明前不可用
+      let a = 1;
+
+      console.log(b);             // @note undefined —— var 被提升并初始化
+      var b = 1;
+
+      console.log(c());           // @note 函数声明整体提升，这里能调用
+      function c() { return 1; }
+    vs:
+      javascript: |
+        提升是**引擎**的行为，运行时的结果两边一模一样。TypeScript 的价值在于
+        它能把你手里这部分代码的前两种情况变成编译错误 —— 但只限它看得见的代码：
+        一旦跨了模块边界、或者值是从外部传进来的，那层检查就够不着了。
+        函数声明那种「先用后定义」的写法两边都合法，TypeScript 也不拦。
+      python: |
+        Python 没有提升这回事 —— 名字在赋值之前根本不存在，
+        读它会得到 NameError。TypeScript 的两套声明造出了三种时机
+        （`let` 报错 / `var` 是 undefined / 函数声明可用），
+        这种「先用的结果取决于用哪个关键字」是 Python 里不需要考虑的问题。
+      java: |
+        Java 的局部变量必须先赋值才能用，这条由编译器强制；
+        字段则有默认值（数值是 0、引用是 null），所以类里的字段
+        「先用后声明」是允许的 —— 这一点与 `var` 提升后被初始化成 undefined
+        有相似的味道。差别是 Java 的默认值是可预期的规则，
+        而 TypeScript 这边的结果取决于你用哪个关键字声明。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: divergent
+
+  shadowing:
+    code: |
+      let x = 1;
+      {
+        let x = 2;                // @note 合法：内层遮蔽外层
+        console.log(x);           // 2
+      }
+
+      // let x = 3;               // @note! 编译错误：同一作用域不能重复声明
+    vs:
+      javascript: |
+        遮蔽规则两边完全一致。差别还是在**什么时候告诉你**：
+        同一个作用域里重复声明，在 JavaScript 里会因为关键字不同
+        得到不同结果（`let` 抛错、`var` 静默覆盖），TypeScript 一律编译期拦下。
+        这也意味着 TS 代码里出现遮蔽时，多半是**故意**的 ——
+        因为不小心写的那些已经被编译器挡掉了。
+      python: |
+        Python 没有块级作用域，花括号里的那次赋值在原语言里就是改同一个名字，
+        根本构不成遮蔽；TypeScript 里它是新变量，出了块就回到外层那个。
+        所以同一段嵌套结构在两边的含义完全不同，这是迁移时容易看漏的一处。
+      java: |
+        两边都是块级遮蔽，同作用域重复声明都在编译期报错 —— 规则可以逐条对应。
+        值得一说的是 TypeScript 为什么选报错而不是放行：重复声明一旦被允许，
+        外层那个名字会被静默取代，读代码的人很难注意到；
+        报错把「我确实想换一个名字」和「我写错了」分开成了两件事。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: identical
+
+  naming-convention:
+    code: |
+      const MAX_RETRY = 3;        // @note 常量全大写
+      let userName = "Ada";       // @note 变量小驼峰
+      class UserProfile {}        // @note 类型大驼峰
+      function fetchData() {}     // @note 函数小驼峰
+      interface Props { onClick: () => void }   // @note 接口不加 I 前缀
+
+      // 类型与值可以同名 —— 它们处在不同的命名空间
+      type Item = { id: number };
+      const Item = { create: () => ({ id: 1 }) };
+    vs:
+      javascript: |
+        惯例是同一套（社区约定，语言不强制）。TypeScript 多出一整类名字 ——
+        类型名，而且类型与值**不冲突**：`type Item` 与 `const Item` 可以并存，
+        因为它们分别活在类型空间和值空间里。这是 TypeScript 独有的概念，
+        也是初学时最容易困惑的地方之一（同一个词在不同位置指不同的东西）。
+      python: |
+        两边都靠社区惯例，语言都不强制 —— 命名错了不会报错，只是难读。
+        TypeScript 的独有之处同样在类型空间：Python 的类型与值共用一个命名空间，
+        一个名字不能既是类型又是变量；TypeScript 里这是常态。
+      java: |
+        Java 的类名大驼峰、方法与小驼峰变量，与 TypeScript 一致。
+        差别在接口的惯例：Java 社区常用 `I` 前缀或 `Impl` 后缀来区分，
+        而 TypeScript 社区明确不这么做（因为类型空间本身就是分开的，
+        同名不冲突，前缀反而制造噪声）。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: analogous

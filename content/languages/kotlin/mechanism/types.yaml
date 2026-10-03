@@ -1,0 +1,238 @@
+# kotlin —— mechanism / types
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: types` 的那批。
+#
+# Kotlin 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Kotlin 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      var n = 1                    // @note 编译期推断为 Int，之后再赋值也只能给 Int
+      // n = "text"                // @note! 编译错误：静态类型，值不能换门类
+
+      val t = n::class             // @note JVM 运行时还带着类型：KClass 上能看到 Int
+
+      // is 检查之后，编译器自动把变量当更具体的类型用，不用强转
+      val x: Any = "hello"
+      if (x is String) {
+        println(x.length)          // @note 这里 x 已经是 String，可以点出 .length
+      }
+    vs:
+      javascript: |
+        JavaScript 的类型只活在运行时，写错了要跑到那一行才知道；
+        Kotlin 在编译期就拦下，类型还是字节码的一部分，运行时（JVM 上）
+        能靠反射看到它。另一处是 `is` 检查之后 Kotlin 会**智能转换** ——
+        同一个分支里不用再强转就能当具体类型用，JavaScript 里
+        `typeof` 判断完只是给读代码的人看的，引擎不会因此改变看法。
+      python: |
+        Python 的类型错误要等到运行时才暴露，标注本身不产生检查；
+        Kotlin 在编译期拒绝，且编译产物里带着类型。
+        差别还体现在收窄上：Python 的 `isinstance` 判断只对类型检查器有用，
+        Kotlin 的 `is` 是语言规则 —— 判断过之后编译器就换了个更具体的类型
+        来看这个变量。
+      java: |
+        两边都是静态类型、都跑在 JVM 上，编译产物里都保留类型信息（反射能读到）。
+        差别在推断与收窄：Java 的 `var` 只能省局部变量的类型，
+        Kotlin 的 `val` / `var` 在局部与属性上都能推断；Java 的 `instanceof`
+        模式匹配要到较新的版本才有，Kotlin 的智能转换从第一天就在。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-annotation:
+    code: |
+      fun area(r: Double): Double = 3.14 * r * r     // @note 签名必须写类型
+      fun greet(name: String): String = "你好，$name" // @note 参数与返回值都写类型
+
+      val x = 1                    // @note 有初值就能推断，不用写
+      val y: Double = 1.0          // @note 也可以显式标注
+      var count: Int               // @note 局部变量没有初值，类型就不能省
+
+      class Point(val x: Double, val y: Double)   // @note 主构造函数里直接声明属性
+
+      const val MAX_RETRY = 3      // @note 编译期常量：顶层或 object 成员，限基本类型与 String
+    vs:
+      javascript: |
+        JavaScript 没有类型标注这回事，值自己带着类型到处走；
+        Kotlin 的函数签名、属性、没有初值的变量都必须写类型，
+        能省的只有「有初值的局部变量」这一处。更根本的差别是标注的去向：
+        JavaScript 本来就无标注可谈，Kotlin 的标注会进字节码，
+        运行时的反射读得到。
+      python: |
+        两边都把类型写在名字后面（`r: Double` / `r: float`），也都能只标注一部分；
+        差别是**谁在检查**：Python 的标注运行时不生效，写错了代码照跑，
+        要靠 mypy 这类工具另跑一遍才发现；Kotlin 的标注是编译器的输入，
+        写错就编译不过。Kotlin 还有 `const val` 这种编译期常量，Python 里没有对应写法。
+      java: |
+        位置相反：Java 写 `double r`（类型在前），Kotlin 写 `r: Double`（类型在后），
+        而且 Kotlin 的 `Double` / `Int` 是类，不是 Java 的基本类型。
+        能省的范围也不同：Java 的 `var` 只给局部变量用，Kotlin 的属性与局部变量
+        都能靠初值推断；但反过来，Java 的成员变量有默认初值，
+        Kotlin 的属性必须在声明处或构造里给出。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  structural-nominal:
+    code: |
+      interface Quacker { fun quack(): String }
+
+      class Duck : Quacker {                        // @note 必须显式写 : Quacker
+        override fun quack() = "嘎"
+      }
+
+      class Robot {                                 // @note! 有 quack() 也不算数：名义类型看声明
+        fun quack() = "哔"
+      }
+      // val q: Quacker = Robot()                   // @note! 编译错误：没声明实现 Quacker
+
+      fun interface Greeter { fun greet(): String }
+      val g = Greeter { "你好" }                     // @note SAM 转换：唯一接近结构化的地方
+
+      fun String.shout() = uppercase()              // @note 扩展函数：静态解析，没进 String 类里
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型在运行时生效：有那个方法就能调用，没有就到运行时炸。
+        Kotlin 相反，接口必须**显式声明实现**，形状相同但没写 `: Quacker` 的类
+        传不进去，错误在编译期出现。代价是没法给一个改不了源码的类型
+        事后补上接口实现 —— Kotlin 只能用扩展函数加方法，
+        但那只是静态解析的语法糖，不会让它真的成为该接口的实现。
+      python: |
+        Python 的鸭子类型在运行时，`Protocol` 提供的是可选的结构化标注；
+        Kotlin 是**名义**类型 —— 不写 `: Interface` 就不算实现，有同样的方法也没用。
+        这带来一个 Python 没有的确定性：读到一个 `Quacker` 类型的参数，
+        它一定来自某个显式声明实现了 Quacker 的类。唯一接近结构化的是
+        `fun interface` 的 SAM 转换：单个抽象方法能用 lambda 顶上。
+      java: |
+        两边都是名义类型，接口都要显式 `:` / `implements`，这一点形状相同。
+        差别在能表达的东西：Kotlin 的接口可以有默认实现与属性，
+        还能用扩展函数给已有类型加方法；再加上 `fun interface` 让单方法接口
+        可以直接用 lambda 构造。Java 的 `implements` 与 Kotlin 的 `:` 一样，
+        都在编译期留下一条可以跳转、可以搜索的声明。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-narrowing:
+    code: |
+      fun describe(x: Any): String {
+        if (x is String) return "字符串，长度 ${x.length}"   // @note 智能转换：这里 x 已是 String
+        if (x !is Int) return "都不是"                       // @note 取反后同样收窄：往下走 x 就是 Int
+        return "整数 ${x + 1}"
+      }
+
+      sealed interface Shape
+      class Circle(val r: Double) : Shape
+      class Square(val side: Double) : Shape
+
+      fun area(s: Shape) = when (s) {          // @note when 表达式对 sealed 有穷尽检查
+        is Circle -> 3.14 * s.r * s.r          // @note 分支里自动收窄成 Circle
+        is Square -> s.side * s.side
+      }                                        // @note! 漏掉一种分支编译不过
+    vs:
+      javascript: |
+        JavaScript 的 `typeof` / `instanceof` 判断只影响这次分支走哪边，
+        判断完那个变量还是原来的类型；Kotlin 的 `is` 检查同时也是**编译期事实**，
+        分支里可以直接用具体类型的方法。两边的检查动作一样（运行时真的查了），
+        差别在之后 —— 一边编译器跟着改了看法，一边没有。
+      python: |
+        Python 用 `isinstance` 判断再分支，收窄要靠类型检查器推断；
+        Kotlin 的 `is` 是语言内建的，判断完编译器立刻换用更具体的类型。
+        更明显的一处差别是穷尽性：Kotlin 的 `when` 用在 sealed 类型上
+        会检查你有没有覆盖全部分支，漏一种就编译不过；
+        Python 的 `if / elif` 链没人管你漏没漏，只能靠阅读发现。
+      java: |
+        Java 传统上是 `instanceof` 判断加显式强转（两步，中间那一转可能写错）；
+        Kotlin 的 `is` 一步到位，检查过就自动收窄。Java 较新的版本也有
+        `instanceof` 模式匹配，形态上接近了。Kotlin 更强的一处是
+        `sealed interface` + `when` 的穷尽检查 —— 漏掉一种实现编译不过，
+        把「忘了处理某种情况」变成了编译期错误。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  null-safety:
+    code: |
+      var a: String = "hi"
+      // a = null                     // @note! 编译错误：String 不接受 null
+
+      var b: String? = null           // @note 「可能为空」写进类型，不写 ? 就不能是 null
+      // b.length                     // @note! 编译错误：可能为 null，先证明它不为空
+      val len = b?.length             // @note 安全调用：为 null 时整个表达式是 null
+      val s = b ?: "默认"             // @note Elvis：左边为 null 时取右边
+      // b!!.length                   // @note! 非空断言：为 null 直接抛 NPE
+
+      fun f(x: String?) = if (x != null) x.length else 0   // @note 判空之后智能转换
+    vs:
+      javascript: |
+        JavaScript 里 `null` / `undefined` 能落到任何变量上，读属性才抛错；
+        Kotlin 把「可能为空」写成类型的一部分（`String?`），不接受空就写 `String`，
+        往 `String` 里塞 null 编译不过。`?.` 与 `?:` 两边都有，
+        但 Kotlin 的 `!!` 会把「我确定它不为空」变成一个显式的、会抛 NPE 的承诺 ——
+        在 JavaScript 里这种承诺是默认状态，根本写不出来。
+      python: |
+        Python 的 `None` 同样能赋给任何变量，出问题要到运行时才看见；
+        Kotlin 把可空性编码进类型，不处理 `String?` 就拿不到里面的值。
+        写法上两边都有快捷方式 —— Python 的 `x or "默认"` 与 Kotlin 的 `?:` ——
+        但 `or` 对空字符串、0、空列表同样取右边，`?:` 只在左边真的是 null 时才取右边，
+        所以 Kotlin 的默认值判断更精确。
+      java: |
+        Java 的 `null` 可以赋给任何引用类型，解引用就是 NPE，编译器不管；
+        Kotlin 在类型上区分 `String` 与 `String?`，不判空就用会编译不过。
+        Java 的对策是库层面的 `Optional` 与 `@Nullable` 注解，
+        它们只覆盖部分位置、也不强制；Kotlin 的可空性是类型系统的一等公民 ——
+        字段、参数、返回值、集合元素类型都能标，判空分支还会自动收窄。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-assertion:
+    code: |
+      val x: Any = "hello"
+      val s = x as String             // @note 强转成功，得到 String
+      // val n = x as Int             // @note! 类型不符直接抛 ClassCastException
+
+      val n2 = x as? Int              // @note 安全转换：不符得到 null，不抛
+
+      val d = 3.9
+      val i = d.toInt()               // @note 3，数值转换一律显式调用方法
+      val b = 300.toByte()            // @note! 44，窄化静默回绕，编译器不拦
+
+      val anyList: List<Any> = listOf(1, "two")
+      val strs = anyList as List<String>   // @note! 泛型被擦除：这里查不出来，取用时才抛
+    vs:
+      javascript: |
+        JavaScript 没有「断言」这个动作 —— 值就是值，没有静态类型需要被说服，
+        转换大量是隐式的（`Number` / `String` / 运算符自己转），失败得到哨兵值不报错。
+        Kotlin 的 `as` 是真的运行时检查，类型不符直接抛异常；`as?` 是不抛的版本，
+        不符得到 null。数值转换必须写出方法名，窄化截断时编译器也不提醒。
+      python: |
+        Python 的 `cast` 只是给类型检查器下的指令，运行时什么都不做；
+        Kotlin 的 `as` 在运行时真的检查，不符就抛 ClassCastException，
+        拿不准时用 `as?` 得到 null 而不是异常。数值转换两边都要显式写
+        （`int(x)` / `x.toInt()`），但 Python 的整数是任意精度、不会回绕，
+        Kotlin 的 `300.toByte()` 会静默变成 44 —— 一处 Python 里不存在的失败模式。
+      java: |
+        两边都跑在 JVM 上，语法几乎可以逐字对应：Kotlin 的 `as` 就是 Java 的强转，
+        失败都抛 ClassCastException；`as?` 对应「先用 instanceof 判一下再转」的写法，
+        只是收成了一句。泛型上两边同样被擦除，`as List<String>` 这类转换
+        编译器只给警告、查不出元素真实类型，取用的时候才抛。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

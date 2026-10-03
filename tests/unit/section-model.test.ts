@@ -80,8 +80,16 @@ describe('内容分片：一门语言 × 一个存放组', () => {
         return `${s.lang}/${s.section}/${s.group}`
       }),
     )
-    expect(onDisk).toEqual(new Set(a.content.keys()))
-    for (const key of a.content.keys()) {
+    /*
+     * 比的是**已启用语言**的内容：`a.content` 里也装着未启用语言写下的内容
+     * （S11 起「先写内容、后启用」是既定的工作方式），而产物只为已启用语言生成分片。
+     * 样张给 7 门未启用语言写下第一批文件时，这条断言第一次被触发。
+     */
+    const emitted = new Set(
+      [...a.content.keys()].filter((k) => a.enabledLanguageIds.includes(k.split('/')[0]!)),
+    )
+    expect(onDisk).toEqual(emitted)
+    for (const key of emitted) {
       const [lang, section, group] = key.split('/')
       const expected = path.join(GENERATED, 'content', lang!, section!, `${group!}.json`)
       expect(fs.existsSync(expected), key).toBe(true)

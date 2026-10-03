@@ -275,9 +275,16 @@ describe('语言内容装载的细节', () => {
      * 「哪几门还没写内容」在 S7 爬坡期每批都在变（rust / go 在 S7.5 之前也是空的）。
      * 稳定的事实是：只声明了 meta.yaml、没有启用也没有内容目录的语言永远是空的。
      */
-    const metaOnly = ['typescript', 'arkts', 'kotlin', 'swift', 'dart']
-    const empty = metaOnly.filter((id) => listLanguageGroupFiles(id).length === 0)
-    expect(empty.length, 'meta-only 语言列表已失效，请同步').toBeGreaterThan(0)
+    /*
+     * 列表本身也**派生**，不写死 —— S11 起 7 门对比列语言会逐轮补上内容，
+     * 「哪几门还是 meta-only」每批都在变。这里曾经硬编码五门、并断言「至少有一门是空的」，
+     * 那条断言在样张给五门都写下第一个文件时就失效了。
+     * 所有语言都写满之后 `empty` 会成为空集、本测试随之空转 —— 这是可接受的：
+     * 它守的契约（有 meta 而无内容时不能抛错）只在新增语言的那一刻才被触发。
+     */
+    const empty = loadAllLanguageMeta()
+      .map((m) => m.id)
+      .filter((id) => listLanguageGroupFiles(id).length === 0)
     for (const id of empty) {
       expect(loadPoolLanguageContent(id, pools), id).toEqual([])
     }

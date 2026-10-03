@@ -1,0 +1,251 @@
+# typescript —— mechanism / types
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: types` 的那批。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      let n = 1;                  // @note 推断为 number
+      // n = "text";              // @note! 编译错误：类型在编译期就定死了
+
+      // 类型只活在编译期：运行时看不到标注，只看得到值
+      const t: string = "hi";
+      typeof t;                   // @note "string" —— 这是值的类型，不是那行标注
+
+      // any 是主动退出检查的逃生舱
+      let loose: any = 42;
+      loose = "text";             // @note 合法：any 让编译器闭嘴
+      loose.notAMethod();         // @note! 也不报错，要到运行时才炸
+    vs:
+      javascript: |
+        TypeScript 是 JavaScript 加一层**编译期**检查，运行时的类型行为一字不改 ——
+        标注全部被抹掉，跑起来还是那套动态类型。所以两者的差别不在
+        「类型是什么」，而在「什么时候告诉你错了」：JavaScript 要运行到那一行，
+        TypeScript 在编辑器里就标红。代价是这份保证只覆盖你写了标注的地方 ——
+        `any` 与没有标注的第三方库边界，会把检查悄悄放行。
+      python: |
+        Python 的标注是可选的、且**运行时不检查**（要靠 mypy 之类的工具另跑一遍）；
+        TypeScript 的检查是编译的一部分，不通过就编译不出产物。
+        两边的类型都只存在于「检查时」——运行时都看不到。差别在强制性：
+        Python 里忘写标注只是少了一层文档，TypeScript 里漏掉一个分支的返回类型
+        会被直接拦下来。
+      java: |
+        两边都在编译期检查，但类型的**存活期**相反：Java 的类型在运行时还在
+        （反射能读到字段与方法的类型），TypeScript 的标注编译后全部消失。
+        所以 Java 能靠反射做依赖注入、序列化框架能自动映射字段，
+        TypeScript 想在同一件事上依靠类型，只能把信息另写一份（装饰器元数据、
+        或者干脆写个运行时 schema）。另一个差别是结构：Java 的类型都是具名的。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  type-annotation:
+    code: |
+      function area(r: number): number { return 3.14 * r * r }   // @note 签名必须写
+
+      let x = 1;                  // @note 推断出 number
+      let y: number = 1;          // @note 显式标注
+      let z;                      // @note! 推断成 any，检查在这里漏掉
+
+      interface Point { x: number; y: number }   // @note 描述形状，编译后消失
+
+      const K = 10;               // @note 类型是字面量 10，比 number 更窄
+      let m: 1 | 2 | 3 = 1;       // @note 联合字面量：只接受这三个值
+    vs:
+      javascript: |
+        写法上 TypeScript 的标注是**外加**的：同一段 JavaScript 代码
+        去掉冒号和类型就是合法的 JavaScript —— 这也是它被接受的原因，
+        迁移可以一个文件一个文件地做。但标注不是装饰：`let z;` 这种
+        不写初值也不写类型的声明，JavaScript 里毫无问题，
+        TypeScript 里会推断成 `any`，等于在这个变量上关掉了检查。
+      python: |
+        两边都把类型写在名字后面（`x: number` / `x: int`），也都能只标注一部分；
+        差别是**谁在检查**：Python 的标注运行时不生效，写错了代码照跑，
+        要靠 mypy 另跑一遍才发现；TypeScript 的标注是编译器的输入，
+        写错就编译不过。另一处是字面量类型 —— `let m: 1 | 2 | 3`
+        表达「只接受这几个值」，Python 的 `Literal[1, 2, 3]` 形状相同，
+        但同样只有类型检查器在意。
+      java: |
+        位置相反：Java 写 `int x`（类型在前），TypeScript 写 `x: number`（类型在后）。
+        能省的范围也不同 —— Java 的 `var` 只用于局部变量，
+        而 TypeScript 的函数签名、字段、常量全都**可以**省（靠推断），
+        所以更容易写出「一处漏了标注、检查从这里断掉」的代码。
+        Java 的类型运行时还在，TypeScript 的编译后消失。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  structural-nominal:
+    code: |
+      interface Quacker { quack(): string }
+      class Duck { quack() { return "嘎" } }
+
+      const d: Quacker = new Duck();   // @note 没写 implements，形状对就通过
+
+      // 两个形状相同的接口互相兼容
+      interface A { x: number }
+      interface B { x: number }
+      const b: B = { x: 1 };
+      const a: A = b;                  // @note 合法：只比形状，不比名字
+
+      // 但私有字段把它拉回「名义」那一侧
+      class P { private tag = 1 }
+      class Q { private tag = 1 }
+      // const q: P = new Q();         // @note! 错误：私有字段来自不同的声明
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型发生在运行时，判断依据是「调用那一刻有没有这个方法」；
+        TypeScript 把同一条规则提前到编译期，且比运行时更严格 ——
+        它按**声明的形状**比对，所以一个从来没被调用过的方法名写错了也能被发现。
+        代价是 TypeScript 只看得见有类型信息的那部分，
+        从 JavaScript 世界进来的值（JSON、第三方库）它一无所知。
+      python: |
+        Python 有 `Protocol` 提供结构化标注，但那是一个可选的、给类型检查器看的标记；
+        TypeScript 的结构化是**默认行为**，不写任何东西就已经是结构化的。
+        这带来一个 Python 没有的麻烦：两个碰巧形状相同的类型会被当成同一个，
+        想区分只能塞一个私有字段进去 —— 也就是下面那段代码在做的事。
+      java: |
+        这是两门语言在抽象上最根本的差别：Java 是**具名**的，
+        类必须写 `implements`，有同名方法不算数；TypeScript 只看形状。
+        实际影响：TypeScript 里可以为一个改不了源码的类型
+        （第三方库、JSON 字面量）事后描述出接口，Java 做不到；
+        反过来 Java 的 `implements` 是一份可以跳转、可以搜索的显式声明，
+        TypeScript 里「谁满足了这个接口」只能靠工具全量分析。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  type-narrowing:
+    code: |
+      function f(x: string | number) {
+        if (typeof x === "string") {
+          x.toUpperCase();        // @note 这里收窄成 string
+        } else {
+          x.toFixed(2);           // @note 这里收窄成 number
+        }
+      }
+
+      // 自定义类型守卫：返回值写成 `x is T` 才有收窄作用
+      function isCat(a: Animal): a is Cat { return "meow" in a }
+      if (isCat(a)) a.meow();     // @note 靠守卫函数的签名收窄
+
+      // 判别联合：按一个字面量字段分支
+      type Shape = { kind: "circle"; r: number } | { kind: "square"; s: number };
+      function area(s: Shape) {
+        switch (s.kind) {
+          case "circle": return 3.14 * s.r ** 2;   // @note 按 kind 判别
+          case "square": return s.s ** 2;
+        }
+      }
+    vs:
+      javascript: |
+        JavaScript 里 `typeof` 判断的结果只对读代码的人有意义，引擎不会因此
+        改变它对这个变量的看法；TypeScript 把它变成编译器的事实 ——
+        同一个 `if`，两边运行时做的是同一件事，但一边之后可以用 `.toUpperCase()`，
+        另一边只能继续当它是「字符串或数字」。差别在分支之外：
+        TypeScript 会检查你有没有漏掉一种可能，JavaScript 不会。
+      python: |
+        Python 用 `isinstance` 判断，收窄由类型检查器（mypy）推断；
+        TypeScript 的收窄是编译器内置的，覆盖面更宽 ——
+        `typeof`、`in`、真值判断、判别字段都能触发，还能靠
+        `x is T` 这样的**自定义守卫**把收窄传播出去。Python 的 `TypeGuard`
+        提供同样的能力，但需要一个额外导入、且同样只在类型检查器里生效。
+      java: |
+        Java 传统上是 `instanceof` 判断加显式强转（两步，中间那一转可能写错）；
+        Java 16 起有 `instanceof` 模式匹配、21 起 switch 支持模式，
+        形态上与 TypeScript 越来越像。核心差别是**强制性**：
+        Java 的编译器不检查你是否覆盖了所有分支（`switch` 也不是穷尽的），
+        TypeScript 在判别联合上会指出漏掉的分支。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  null-safety:
+    code: |
+      let a: string = "hi";
+      // a = null;                  // @note! strictNullChecks 下编译错误
+
+      let b: string | null = null;  // @note 空是类型的一部分，必须显式写出来
+      // b.length;                  // @note! 错误：可能为 null
+      b?.length;                    // @note 可选链：为 null 时整个表达式是 undefined
+      b ?? "默认";                  // @note 空值合并：只在 null/undefined 时取右边
+
+      function f(x?: string) { }    // @note 可选参数的类型是 string | undefined
+      // f(undefined); f(null);     // @note! null 不能传给可选参数
+    vs:
+      javascript: |
+        JavaScript 里 `null` 与 `undefined` 能赋给任何变量，读属性就抛
+        「Cannot read properties of null」；TypeScript 打开 `strictNullChecks`
+        后把它们变成类型的一部分 —— 想让它可能是空，就得在类型里写出来。
+        注意这是**编译开关**：关掉它（或不写 `strict`）两边就没有区别，
+        这也解释了为什么老项目里 `?.` 到处都在、新项目里反而少见。
+      python: |
+        Python 的 `None` 同样能赋给任何变量，`x.y` 到运行时才抛 AttributeError；
+        TypeScript 把它提到编译期拦下。两边的可选写法还差一层语义：
+        Python 的 `x or "默认"` 对空字符串、0、空列表都会取右边，
+        TypeScript 的 `??` 只认 `null` / `undefined` ——
+        `0 ?? 5` 得到 0，而 `0 or 5` 得到 5。
+      java: |
+        Java 的 `null` 能赋给任何引用类型，解引用就是 NPE，编译器不管；
+        TypeScript 在编译期就要求你把「可能为空」写进类型。
+        Java 的对策是库层面的 `Optional`，但它只覆盖返回值，
+        字段、参数、局部变量都用不上，而且套上之后写法变重；
+        TypeScript 的可空性是类型系统里的一等公民，字段和参数一样能标。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-assertion:
+    code: |
+      const x: unknown = JSON.parse(raw);
+      const s = x as string;      // @note 断言：编译器信你，运行时不检查
+
+      // 注意断言不做转换 —— 它只是让编译器改主意
+      const n = x as number;
+      // n.toFixed(2);            // @note! 运行时可能炸：x 也许是个字符串
+
+      // 双重断言绕过兼容性检查
+      const y = x as unknown as number;   // @note! 两步跳，危险信号
+
+      // 真的想确认，只能自己写运行时检查
+      if (typeof x === "string") { /* 到这里才是真的 */ }
+    vs:
+      javascript: |
+        JavaScript 没有「断言」这个概念 —— 值就是值，没有一层类型声明
+        需要被说服。TypeScript 的 `as` 存在的唯一原因是：有时候你比编译器
+        知道得多（比如刚从 `JSON.parse` 拿到东西）。它的风险也在这里 ——
+        断言之后编译器就不再检查了，写错的话错误会推迟到运行时，
+        而且报错位置离出事的地方很远。
+      python: |
+        Python 的 `cast(T, x)` 与 TypeScript 的 `as T` 是同一类东西：
+        都是给类型检查器下的指令，运行时是空操作，写错了没人拦。
+        差别在**默认姿态**：Python 不加标注就是动态的，本来也没有检查可绕；
+        TypeScript 默认检查、`as` 是主动放弃，所以它读起来更像一个危险信号，
+        代码评审时值得多看一眼。
+      java: |
+        方向相反：Java 的强转 `(String) x` 在**运行时**会检查，
+        类型不对就抛 ClassCastException；TypeScript 的 `as` 完全不做运行时检查，
+        所以它比 Java 的强转更不安全 —— Java 至少在那一刻会告诉你错了，
+        TypeScript 会让你带着一个错误的理解继续跑下去。
+        想在 TypeScript 里得到 Java 式的保证，只能自己写检查函数。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

@@ -1,0 +1,252 @@
+# cpp —— mechanism / types
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: types` 的那批。
+#
+# C++ 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 C++ 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      int n = 1;                  // @note 编译期定死
+      // n = "text";              // @note! 编译错误
+
+      // 运行时的类型信息是例外，且只对多态类型有效（RTTI）
+      struct Base { virtual ~Base() = default; };
+      struct Derived : Base { int extra = 7; };
+
+      Base* p = new Derived();
+      typeid(*p).name();          // @note 能问出动态类型，但拿到的是实现定义的字符串
+      dynamic_cast<Derived*>(p);  // @note 运行时检查的向下转型
+
+      // 绝大多数类型编译后就不存在了 —— 没有反射，列不出成员
+    vs:
+      javascript: |
+        JavaScript 的类型全在运行时，读一个不存在的属性只是得到 `undefined`；
+        C++ 在编译期就把类型钉死，除了 RTTI 那一小块，运行时问不出任何类型信息。
+        所以同一件事两边做法完全不同：JavaScript 里可以写一个通用函数
+        遍历对象字段，C++ 里连「这个对象有哪些字段」都问不出来 ——
+        要遍历就得自己在编译期把字段列表生成出来。
+      python: |
+        Python 的类型跟着值走，`type(x)` 随时能问；C++ 的类型跟着**声明**走，
+        而且编译后基本消失。RTTI 看起来像 Python 的 `type()`，
+        但只对含虚函数的多态类型有效，普通结构体问不出东西，
+        拿到的也只是类型名（还不能直接用来构造对象）。
+      java: |
+        两边都静态，但运行时的余量差得很远：Java 的反射能列出字段、方法、
+        注解，框架靠它做序列化和依赖注入；C++ 的 RTTI 只有 `typeid` 与
+        `dynamic_cast` 两件工具，且都要求类型是多态的。
+        这不是实现差异而是取舍 —— 反射要求类型信息常驻内存，
+        C++ 选择把它省掉，换零开销。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-annotation:
+    code: |
+      double area(double r) { return 3.14 * r * r; }   // @note 签名必须写类型
+
+      int x = 1;                  // @note 显式
+      auto y = 1;                 // @note 推断（C++11）
+      auto& ref = x;              // @note 推断出引用
+      constexpr int K = 10;       // @note 编译期常量，能当数组长度用
+
+      using Id = unsigned long;   // @note 类型别名
+
+      template <typename T>
+      T max(T a, T b) { return a > b ? a : b; }   // @note 类型参数也是标注
+    vs:
+      javascript: |
+        JavaScript 的变量没有类型，只有值有；C++ 的声明同时定下名字和类型，
+        而且**每个**函数参数、返回值、成员都得写（模板参数除外）。
+        这让 C++ 的接口读起来信息量更大，代价是改动一个类型要顺着调用链改一串 ——
+        这也是 `auto` 存在的理由：让编译器替你写，而不是让类型消失。
+      python: |
+        Python 的标注是可选的、运行时不检查；C++ 的标注是编译器的输入，
+        写错或漏写直接编译不过（函数签名没有「省略」这个选项）。
+        另一处实质差别：Python 的 `x: int` 只是一个断言，
+        C++ 的 `int x` 同时决定了内存布局、对齐、能不能拷贝 ——
+        类型在 C++ 里是**构造性的**，不只是约束。
+      java: |
+        两边都必须写类型，且都有局部变量的推断。差别在推断的力度：
+        Java 的 `var` 只省掉一次书写，C++ 的 `auto` 还要推导引用、
+        `const`、模板实参，是模板编程能用的基础。
+        另外 C++ 有 `constexpr` 这一层 —— 变量、函数都能标记成编译期求值，
+        于是「常量」不只是不可修改，而是根本不存在于运行时。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  structural-nominal:
+    code: |
+      // C++ 是彻底的名义类型系统：类型是谁，取决于它叫什么、从谁继承
+      struct A { int x; };
+      struct B { int x; };
+      A a{1};
+      // B b = a;                // @note! 编译错误：A 与 B 毫无关系
+
+      // 「看形状」只能靠模板 —— 而且是编译期的鸭子类型
+      template <typename T>
+      concept Quacker = requires(T t) {
+        { t.quack() } -> std::convertible_to<const char*>;
+      };
+
+      template <Quacker T>
+      void useIt(T& t) { t.quack(); }   // @note 有 quack() 就通过，不看它继承自谁
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型在运行时，判断依据是「调用那一刻有没有这个方法」；
+        C++ 的 `concept` 把同一件事搬到编译期 —— 规则同样是看形状不看名字，
+        但错误提前到了编译时，代价是它只对**模板参数**有效：
+        一个普通的函数参数仍然必须写成具名类型。
+      python: |
+        Python 的 `Protocol` 与 C++ 的 `concept` 解决同一个问题、处在同一层
+        （都是给检查器看的结构化约束），差别在生效方式：
+        Python 的检查器是外挂的、可以不理它，代码照跑；
+        C++ 的 concept 不满足就直接编译失败，没有绕过的余地。
+        另一处是 Python 的运行时鸭子类型依然存在（不写 Protocol 也能调用），
+        C++ 里不通过 concept 就根本进不去模板。
+      java: |
+        两边都是名义类型系统：类必须显式继承或实现，形状相同不算数。
+        差别在有没有退路 —— Java 的泛型是擦除的，类型参数上做不了
+        「有没有这个方法」的检查；C++ 的模板在编译期为每个类型各生成一份代码，
+        于是可以在类型参数上做任意编译期判断。这让 C++ 能表达
+        「任何长得像 X 的类型」，Java 只能表达「任何 X 的子类型」。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  type-narrowing:
+    code: |
+      std::variant<int, std::string> v = "hi";
+
+      // 取之前必须问「现在是哪个」
+      if (auto* s = std::get_if<std::string>(&v)) {
+        s->size();                // @note 拿到指针才敢用
+      }
+
+      // visit 让编译器逼你处理每一种可能
+      std::visit([](auto&& x) {
+        using T = std::decay_t<decltype(x)>;
+        if constexpr (std::is_same_v<T, int>) { /* 整数分支 */ }
+        else { /* 字符串分支 */ }
+      }, v);
+
+      // 基类指针向下转型，失败得到 nullptr 而不是异常
+      if (auto* d = dynamic_cast<Derived*>(base)) { d->extra; }
+    vs:
+      javascript: |
+        JavaScript 的 `typeof` 判断完，引擎对这值的看法一点没变，
+        收窄只对读代码的人（或类型检查器）有意义；C++ 的 `variant` 是
+        编译期就封闭的集合，`std::visit` 会逼你把每一种可能都写出来 ——
+        漏一种就编译不过，这是 JavaScript 永远给不了的保证。
+        代价是这个集合必须在写代码时就定好，加一种要改所有地方。
+      python: |
+        Python 用 `isinstance` 判断再分支，判断过程完全在运行时；
+        C++ 的 `variant` + `visit` 把「有哪些可能」提到了类型里，
+        分支是否穷尽由编译器检查。另一处差别在失败方式：
+        Python 的 `getattr` 用错了属性抛 AttributeError，
+        C++ 的 `std::get<T>` 取错类型抛 `bad_variant_access`，
+        而 `get_if` 版本返回空指针 —— 两种风格都提供，由你选。
+      java: |
+        Java 16 起有 `instanceof` 模式匹配、21 起 switch 支持模式，
+        写起来与 C++ 的 `variant` + `visit` 越来越像。
+        关键差别是**封闭性**：Java 的 `sealed interface` 加 switch 模式
+        才勉强做到穷尽检查，C++ 的 `variant` 天生就是封闭集合。
+        另一处：Java 的向下转型失败抛 ClassCastException，
+        C++ 的 `dynamic_cast` 到指针失败返回 nullptr（到引用才抛异常）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  null-safety:
+    code: |
+      int* p = nullptr;
+      // *p;                      // @note! 未定义行为：可能崩，也可能什么都不发生
+
+      std::optional<int> maybe;    // @note 「可能没有值」写进类型里
+      if (maybe) use(*maybe);      // @note 检查之后才能取
+      maybe.value_or(0);           // @note 有默认值的取法
+
+      // 引用不能为空 —— 这是 C++ 唯一的结构性保证
+      int& r = x;                  // @note 引用必须绑定到真实对象，且不能改绑
+
+      // 但引用也可能悬空：绑到一个已经销毁的对象上
+    vs:
+      javascript: |
+        JavaScript 读空值的属性会抛一个明确的 TypeError，程序停在那里；
+        C++ 解引用空指针是**未定义行为** —— 可能当场崩，可能读到垃圾数据
+        继续跑，也可能崩在完全无关的地方。这个区别很实际：
+        JavaScript 的错误现场就是出事现场，C++ 的崩溃地点常常离得很远，
+        得靠工具回溯。引用看起来比指针安全，但它也可能悬空。
+      python: |
+        Python 里 `None` 是普通值，出错时抛 AttributeError 且带完整栈；
+        C++ 的空指针解引用是未定义行为，没有异常、没有栈、甚至可能不报错。
+        「可能没有值」这件事两边都能写进类型（`Optional[int]` / `std::optional`），
+        但 Python 的 `None` 更普遍 —— 任何变量都能是 None，
+        C++ 的 `optional` 是一个要主动选用的包装类型。
+      java: |
+        都提供可空包装（Java 的 `Optional`、C++ 的 `std::optional`），
+        也都能在类型里表达「可能没有值」。真正的差别在**裸引用**：
+        Java 对 null 解引用必定抛 NullPointerException —— 错误是确定的，
+        只是发生得晚；C++ 对空指针解引用是未定义行为，连「一定出错」都不保证。
+        C++ 的引用不可能是空，这一点比 Java 的引用强。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  type-assertion:
+    code: |
+      double d = 3.9;
+      int i = static_cast<int>(d);          // @note 3，截断
+
+      const int ci = 1;
+      int* cp = const_cast<int*>(&ci);      // @note 去掉 const（改它仍是未定义行为）
+
+      char* raw = reinterpret_cast<char*>(&d);   // @note! 按位重新解释，最危险的一种
+
+      Base* b = new Derived();
+      auto* dd = dynamic_cast<Derived*>(b);      // @note 运行时检查，失败给 nullptr
+
+      // 窄化初始化：花括号拦，圆括号不拦
+      // char c{300};                       // @note! 编译错误：窄化
+      char c2(300);                         // @note 静默截断
+    vs:
+      javascript: |
+        JavaScript 的转换大多是隐式的（运算符自己决定怎么转），失败得到 `NaN`
+        而不是报错；C++ 没有任何隐式转换能跨过类型边界，每一次转换都要写出
+        是**哪一种**：`static_cast` 是编译期能验证的、`const_cast` 只动 const、
+        `reinterpret_cast` 完全不检查、`dynamic_cast` 运行时才查。
+        把「转换」拆成四件事，好处是读代码时能看出这一步有多危险。
+      python: |
+        两边都要显式转换，都提供多种精度。差别在表达力：
+        Python 的 `int(3.9)` 只有一种含义；C++ 要看你想做什么 ——
+        数值转换用 `static_cast`、改 const 用 `const_cast`、
+        把一段内存当另一种类型读用 `reinterpret_cast`。
+        字符串转数字：Python 的 `int("abc")` 抛 ValueError，
+        C++ 的 `std::stoi` 也抛，但 `std::atoi` 静默返回 0 —— 得挑对那个函数。
+      java: |
+        Java 的 `(int) d` 对应 C++ 的 `static_cast<int>(d)`，
+        隐式加宽两边都有。C++ 多出来的是另外三种转换：
+        Java 的强转只有一种写法，无法从语法上区分「安全的数值转换」与
+        「把一段内存重新解释」；C++ 的 `reinterpret_cast` 一出现，
+        读代码的人立刻知道这里不能靠类型系统兜底。
+        往下转型：Java 失败抛 ClassCastException，C++ 的 `dynamic_cast` 到指针返回空。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

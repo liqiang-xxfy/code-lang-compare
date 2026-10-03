@@ -1,0 +1,249 @@
+# php —— mechanism / types
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: types` 的那批。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 注意：PHP 的行注释前缀是 `//`（meta.comment.line）。PHP 也认 `#` 注释，
+# 但 `@note` 标记必须写在 `//` 之后 —— 写成 `#` 会让抽取失败并报 R4/R9。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      declare(strict_types=1);        // @note 强制的是「函数调用时」的类型检查
+
+      function add(int $a, int $b): int {   // @note 声明了类型
+        return $a + $b;
+      }
+
+      add(1, 2);                      // @note 通过
+      // add("1", "2");               // @note! 严格模式下抛 TypeError
+
+      // 但类型跟着**值**走：变量本身没有类型，随时可以换成别的
+      $x = 1;
+      $x = "text";                    // @note 合法 —— 变量没有固定类型
+
+      // 去掉 strict_types，上面的 "1"/"2" 会被悄悄转成 int 而通过
+    vs:
+      javascript: |
+        JavaScript 是纯动态的，PHP 走的是渐进式：类型声明可以有可以没有，
+        写了之后由 `declare(strict_types=1)` 决定是不是强制检查。
+        值本身两边都是动态的 —— 变量能随时换成别的类型，这一点完全一样。
+        差别在函数边界：PHP 可以在签名上写类型并在调用时检查（严格模式下不匹配抛 TypeError），
+        JavaScript 没有这个位置可写。所以 PHP 的检查是「你声明了才检查」，不是「全都有类型」。
+      python: |
+        两者都是渐进式类型：类型声明可选，运行时类型跟着值走。差别在检查发生在哪 ——
+        PHP 的标量类型声明在运行时会真的执行（严格模式抛 TypeError，默认模式先尝试转换），
+        Python 的标注运行时不生效，只能靠额外的类型检查器发现。
+        另一处是默认姿态：PHP 默认宽松转换、要手动开严格模式，Python 的标注从一开始就不参与运行。
+      java: |
+        两边都能在参数与返回值上写类型，但强制性相反：Java 的类型是编译期硬性检查、运行时也保留，
+        PHP 的类型声明只在函数调用那一刻生效，变量内部随时可以换类型，
+        默认模式下还会先尝试隐式转换而不是直接报错。
+        另一处是范围：Java 的字段、参数、局部变量全都要写，PHP 的局部变量根本没有类型声明这一说。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  type-annotation:
+    code: |
+      // 参数与返回值（7.0+）
+      function area(float $r): float { return 3.14 * $r * $r; }
+
+      class Point {
+        public int $x = 0;            // @note 属性类型（7.4+）
+        public ?int $y = null;        // @note ? 前缀 = 可空
+      }
+
+      function show(int|string $v): string { return (string) $v; }   // @note 联合类型（8.0+）
+
+      function add($a, $b) { return $a + $b; }   // @note! 没有类型，什么都能传进来
+    vs:
+      javascript: |
+        JavaScript 没有任何地方可以写参数或返回值的类型；PHP 从 7.0 起就能写在签名上，
+        7.4 起属性也能写，8.0 起还支持联合类型。写法上有一处形似：
+        JavaScript 的默认参数 `function f(x = 1)` 与 PHP 的 `function f(int $x = 1)` 长得像，
+        但后者带类型检查。差别在于谁在用这些标注：JavaScript 只能靠文档和运行时自检，
+        PHP 的标注在调用那一刻真的会被检查。
+      python: |
+        两边都把类型写在名字后面（`float $r` 与 `r: float`），也都可以只标注一部分、甚至完全不标。
+        差别是检查强度：PHP 的标量类型声明运行时会执行（严格模式下不匹配抛 TypeError），
+        Python 的标注运行时不生效。另一处是可选写法 —— Python 用 `Optional[int]` 或 `int | None`，
+        PHP 用 `?int` 前缀，更短，而且是真的会在运行时拦下来的那一层。
+      java: |
+        两边都能在参数、返回值、字段上写类型，这是最接近的一对。差别在能省的范围：
+        Java 的局部变量必须写（或 `var` 推断），PHP 的局部变量根本没有类型声明 ——
+        值是什么类型，它此刻就是什么。另一处是联合类型：Java 没有，只能靠共同父类或泛型，
+        PHP 8.0 起可以直接写 `int|string`。检查时机也不同：Java 在编译期，PHP 在运行时。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  structural-nominal:
+    code: |
+      interface Quacker { public function quack(): string; }
+
+      class Duck implements Quacker {                    // @note 必须显式 implements
+        public function quack(): string { return "嘎"; }
+      }
+
+      class Toy {
+        public function quack(): string { return "吱"; }  // @note! 方法一样也不算 Quacker
+      }
+
+      function useIt(Quacker $q): string { return $q->quack(); }
+      useIt(new Duck());                                 // @note 通过
+      // useIt(new Toy());                               // @note! TypeError：没有 implements
+
+      // 但方法调用本身不做检查 —— 同一个对象，直接调用却畅通无阻
+      (new Toy())->quack();                              // @note 合法："吱"
+    vs:
+      javascript: |
+        JavaScript 是运行时鸭子类型：调用那一刻有这个方法就通过，没有任何声明。
+        PHP 多出一层名义的类型声明 —— 参数写成 `Quacker` 就要求实参的类显式 `implements Quacker`，
+        形状相同不算数。但 PHP 没把这一层贯彻到底：类型声明只在传参那一刻检查，
+        方法本身存不存在仍然是运行时才知道，所以「形状对、名字不对」的调用两边一样要跑到那行才炸。
+      python: |
+        Python 的类也按名字识别（`isinstance` 看的是继承关系），但它保留了运行时鸭子类型，
+        还提供 `Protocol` 这种结构化标注；PHP 的接口必须是显式的 `implements`，没有结构化这一路。
+        差别在检查时机：PHP 的接口约束在传参那一刻真的检查（不满足直接 TypeError），
+        `Protocol` 只在另跑的类型检查器里生效。方法调用本身两边都不做类型检查。
+      java: |
+        Java 与 PHP 规则相同：类必须显式 `implements` 才能当接口用，有同名方法不算数 ——
+        都是名义类型。差别在检查时机与代价：Java 在编译期就把不满足的传参拦下，
+        PHP 要到运行时才抛 TypeError。接口形态也不同：Java 的接口可以有默认方法与静态方法，
+        PHP 的接口只能声明方法签名（想复用实现要用 trait）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  type-narrowing:
+    code: |
+      function show(mixed $v): string {
+        if (is_string($v)) return strtoupper($v);   // @note 这里 $v 确定是 string
+        if (is_int($v))    return (string) $v;      // @note 这里 $v 确定是 int
+        return "其它";
+      }
+
+      function fmt($x): string {                    // @note 参数没有类型，什么都可能传进来
+        return $x instanceof DateTime ? $x->format("Y-m-d") : "";   // @note instanceof 之后确定是 DateTime
+      }
+
+      $label = match (true) {                       // @note PHP 8：把多个判断写成一个表达式
+        is_string($v) => "字符串",
+        is_int($v)    => "整数",
+        default       => "其它",
+      };
+    vs:
+      javascript: |
+        JavaScript 用 `typeof` / `instanceof` 判断，结果只对读代码的人有意义；
+        PHP 同样是运行时判断（`is_string` / `instanceof`），也没有编译期的收窄。
+        差别在写法的密度：PHP 有一整套 `is_*` 函数覆盖每种类型，
+        还有 `match (true)` 这种把多个判断写成一个表达式的写法。
+        两边都可能漏掉一种情况 —— 只是 `match` 没有匹配时会抛异常，比静默走空分支更容易暴露。
+      python: |
+        Python 用 `isinstance` 判断再分支，收窄只对另跑的类型检查器有意义；
+        PHP 用 `is_*` 函数与 `instanceof`，同样只在运行时生效 —— 思路一致。
+        差别在分支写法：PHP 8 的 `match (true)` 把一个值上的多个类型判断写成一个表达式，
+        漏掉情况会抛 UnhandledMatchError；Python 3.10 起也有 `match`，
+        但匹配的是结构而不是类型谓词。
+      java: |
+        Java 的 `instanceof` 与 PHP 的 `instanceof` 同名同义，差别在 Java 的版本会顺带完成收窄
+        （模式匹配后可以直接用新类型的成员），PHP 的判断只是「知道了」——
+        它没有静态类型那一层，判断的结果不会被记录下来。另一处是穷尽性：
+        Java 的 `switch` 不检查是否覆盖所有情况，PHP 的 `match` 漏掉分支会直接抛异常。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  null-safety:
+    code: |
+      class User { public function name(): string { return "张三"; } }
+
+      function find(int $id): ?User { return $id > 0 ? new User() : null; }   // @note ?User = User|null
+
+      $u = find(0);                    // @note 拿到 null
+      // $u->name();                    // @note! 对 null 调方法：致命错误
+      $u?->name();                     // @note 8.0 空安全调用：为 null 时整体得 null
+      $name = $u?->name() ?? "匿名";    // @note 8.0 ?? 空值合并：null 才取右边
+
+      function greet(?string $who): string {   // @note 参数也可以可空
+        return "你好，" . ($who ?? "访客");
+      }
+
+      greet(null);                     // @note 合法：类型里允许 null
+    vs:
+      javascript: |
+        JavaScript 的 `null` / `undefined` 能赋给任何变量，读属性就抛错；PHP 也一样。
+        区别是 PHP 允许把「可能为空」写进类型（`?User`），让函数签名提前告诉调用方
+        「这里可能返回 null」。两边的短写法几乎重合：`?.` 与 PHP 的 `?->`、
+        `??` 与 `??` 语义一致。所以差别只在类型声明那一层 —— 写了也只是声明，
+        不处理照样在运行时报错。
+      python: |
+        Python 的 `None` 能赋给任何变量，`x.y` 到运行时才抛 AttributeError；PHP 也一样，
+        区别同样是 PHP 可以把 `?int` / `?User` 写进类型（Python 只在标注里写，运行时不生效）。
+        取值写法上还有一处语义差别：Python 常用 `x or "默认"` 兜底，它对空字符串、0、
+        空列表都会取右边；PHP 的 `??` 只认 null —— `0 ?? 5` 得到 0，而 `0 or 5` 得到 5。
+      java: |
+        Java 的 `null` 能赋给任何引用类型，解引用就是异常，编译器不管 —— 这点两边一样。
+        差别是 PHP 可以把 `?` 写进类型本身（参数、返回值、7.4 起的属性都能标），
+        而 Java 的应对是库层面的 `Optional`，只覆盖返回值、套上之后写法变重。
+        两边都不强制处理：声明了可空，不检查照样在运行时报错。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  type-assertion:
+    code: |
+      // PHP 的「断言」是强制转换：真的换了值，不是改编译器的看法
+      $n = (int) "42";              // @note 42
+      $f = (float) "3.14";          // @note 3.14
+      $s = (string) 42;             // @note "42"
+
+      // @note! 转不动时不报错，给的是默认值 —— 最常踩的坑
+      $bad  = (int) "abc";          // @note! 0，不是异常
+      $part = (int) "12abc";        // @note! 12：只解析最前面的数字
+
+      $n2 = intval("42");           // @note 与 (int) 同义
+      $x = "7";
+      settype($x, "integer");       // @note 就地改变量类型，$x 变成 7
+
+      if (!is_numeric($s)) { throw new InvalidArgumentException("不是数字"); }
+    vs:
+      javascript: |
+        JavaScript 的转换大量隐式（`Number`、`String`、运算符自己转），失败得到 `NaN` 却不报错；
+        PHP 的转换可以显式写 `(int)`，失败同样不报错 —— 但结果不是 `NaN` 而是 0。
+        这是两边最容易互相踩的一处：JavaScript 里 `Number("abc")` 得到 `NaN`，
+        能用 `Number.isNaN` 检查；PHP 的 `(int)"abc"` 得到 0，和真实的 0 完全分不开，
+        只能靠 `is_numeric` 事先判断。
+      python: |
+        两边都要显式转换，但失败方式正相反：Python 的 `int("abc")` 直接抛 ValueError，
+        逼你处理；PHP 的 `(int)"abc"` 得到 0，一声不吭 —— 这是从 Python 迁过来最容易出事的地方，
+        以为有异常可以捕获，实际拿到的是一个看起来正常的数字。
+        `int(3.9)` 与 `(int) 3.9` 都是截断（不是四舍五入），这一点两边一致；
+        `intval("12abc")` 得到 12，而 Python 会抛异常。
+      java: |
+        Java 的 `(int) 3.9` 与 PHP 的 `(int) 3.9` 都是截断，写法也几乎一样。
+        差别在对象与字符串：Java 不能用 `(int) "42"` 转字符串，要写 `Integer.parseInt`
+        （失败抛 NumberFormatException）；PHP 的 `(int) "42"` 直接可用，转不动就给 0。
+        另一处是 Java 对引用类型的强转会在运行时检查、类型不对抛 ClassCastException；
+        PHP 没有对应的转换语法，想核对类型只能自己写 `instanceof`。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

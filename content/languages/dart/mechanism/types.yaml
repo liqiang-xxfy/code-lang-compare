@@ -1,0 +1,266 @@
+# dart —— mechanism / types
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: types` 的那批。
+#
+# Dart 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Dart 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      var n = 1;                   // @note 推断为 int
+      // n = 'text';               // @note! 编译错误：类型在编译期定死
+
+      print(n.runtimeType);        // @note int —— 运行时能问出真实类型
+
+      dynamic loose = 42;          // @note 主动退出检查的逃生舱
+      loose = 'text';              // @note 合法：编译器不再管这个变量
+      loose.notAMethod();          // @note! 也不报错，要到运行时才炸
+
+      int? maybe;                  // @note sound null safety：可空性也在编译期追踪
+      // print(maybe + 1);         // @note! 编译错误：可能为 null
+    vs:
+      javascript: |
+        JavaScript 的类型全在运行时，错了跑起来才知道；Dart 在编译期检查，
+        类型不匹配编译不过，而且这份检查在运行时同样可靠（sound）——
+        不存在「编译期说是 int、运行时却塞进来一个字符串」这种事。
+        Dart 另外留了一个主动退出检查的出口 `dynamic`，用它声明的变量
+        退回 JavaScript 那种「运行时才知道对不对」的状态；
+        JavaScript 不需要这个开关 —— 它本来就只做运行时检查。
+      python: |
+        Python 全程动态，类型错误靠运行暴露；Dart 在编译期检查，
+        错在运行之前就被拦下。两边都能在运行时问到类型
+        （Python 的 `type()`、Dart 的 `runtimeType`），但 Dart 里这属于调试手段 ——
+        编译器早就知道类型，要问通常是遇上了 `dynamic`。
+        Dart 还有一条 Python 没有的保证：可空性由编译器完整追踪，
+        `null` 不可能悄悄溜进一个非空类型。
+      java: |
+        Dart 与 Java 都是静态类型，都保留运行时类型信息（Java 用反射，
+        Dart 用 `runtimeType` 与 `is`；不过 Dart 的 `dart:mirrors`
+        在 AOT 编译下不可用，反射能力远不如 Java）。泛型上两边也接近：
+        Java 的类型参数被擦除、运行时看不到，Dart 的泛型同样在运行时被擦除。
+        实质差别是 Dart 多了一个 `dynamic` 出口，可以按需退回动态检查，
+        Java 里没有等价的开关。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-annotation:
+    code: |
+      double area(double r) => 3.14 * r * r;   // @note 签名可以写类型
+
+      var x = 1;                 // @note 推断为 int，之后类型不能再改
+      final y = 2;               // @note final：只赋一次值
+      const z = 3;               // @note const：编译期常量
+      int? maybe;                // @note 可空写进类型：int?
+
+      class Point {              // @note 字段必须写类型
+        final double x;
+        final double y;
+        Point(this.x, this.y);
+      }
+    vs:
+      javascript: |
+        JavaScript 没有类型标注；Dart 的标注是编译器的事实来源，
+        函数签名、字段、变量都能写，能省的靠 `var` / `final` 推断。
+        `final` 与 `const` 是 JavaScript 的 `const` 被拆开的两件事 ——
+        `final` 表示「只赋一次」，`const` 表示「编译期常量」，
+        JavaScript 的 `const` 只做到前者。可空标注 `int?` 也是
+        JavaScript 完全没有的一层。
+      python: |
+        两边的标注都写在名字后面（`x: int`），也都能只标一部分；
+        差别在谁把它当真：Python 的标注运行时不检查、写错代码照跑，
+        Dart 的标注是编译器的输入，写错就编译不过。
+        可空上更明显：Python 的 `Optional[int]` 只是给类型检查器看的提示，
+        Dart 的 `int?` 是编译器会强制执行的真类型。
+        另外 Dart 把「常量」拆成 `final`（只赋一次）与 `const`（编译期常量）两种，
+        Python 里没有对应写法。
+      java: |
+        两边都是「类型在前」的写法（`int x` / `int area(int r)`），
+        签名与字段类型都必须写，能省的范围也相似（局部变量靠推断）。
+        差别在常量：Java 用一个 `final` 同时管「只赋一次」与「编译期常量」，
+        Dart 拆成了 `final` 与 `const`。可空性 Java 完全没有对应物 ——
+        Dart 的 `int?` 是类型的一部分，Java 只能靠库里的 `Optional` 包装，
+        而 `Optional` 覆盖不到字段与局部变量。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  structural-nominal:
+    code: |
+      abstract class Greeter {
+        String greet();
+      }
+
+      class Dog implements Greeter {     // @note 必须显式写 implements / extends
+        String greet() => '汪';
+      }
+
+      // 每个类都隐含定义了一份接口：可以只取签名、不要实现
+      class Robot implements Dog {       // @note Robot 复用 Dog 的接口
+        String greet() => '哔';
+      }
+
+      void hello(Greeter g) => print(g.greet());
+      hello(Dog());                      // @note 具名类型：靠 implements 接线
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型在运行时，只要求对象上有那个方法；
+        Dart 是**名义**的：类型必须显式 `implements` / `extends`，光有同名方法不算数。
+        它还多一层 JavaScript 没有的能力 —— 每个类都隐含定义一份接口，
+        `implements` 一个类可以只取它的方法签名、不要它的实现，
+        所以「复用接口」不必先抽出一个专门的抽象类型。
+        好处是编译器知道每个类型实现了什么，跳转、补全、报错都有据可依。
+      python: |
+        Python 的鸭子类型在运行时，`Protocol` 提供可选的结构化标注；
+        Dart 是**名义**类型，必须显式声明实现关系，而且类型本身
+        就是可以写进签名、当作参数与返回值用的东西。两者都能做面向接口编程，
+        但 Dart 的接口是**具名**的 —— 想让类型满足接口，
+        要么 `extends` / `implements`，要么把成员实现齐，没有第三条路。
+        额外的差别是 Dart 里「接口」不必单独声明：任何类都自带一份，
+        可以只取签名复用，这一点比 Python 里先写 `Protocol` 再让类标注要直接。
+      java: |
+        两边都是**名义**类型：Java 的类必须 `implements` 接口，有同名方法不算数；
+        Dart 的类必须写 `implements` / `extends`，规则一致。
+        差别在「接口」的定义：Java 的接口要单独写一个 `interface`，
+        Dart 里每个类都隐含定义了一份接口，`implements` 一个已有类
+        就能只取它的方法签名、不继承实现 —— Java 想做同样的事往往得先抽出一个接口。
+        另外 Dart 的 `mixin` 提供了 Java 接口之外的一种代码复用方式。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-narrowing:
+    code: |
+      Object x = 42;
+      if (x is int) {
+        print(x + 1);           // @note is 触发类型提升：这里 x 就是 int
+      }
+      // x.abs();               // @note! 出了分支就不再提升，回到 Object
+
+      // Dart 3：sealed 家族 + switch 表达式有穷尽检查
+      sealed class Shape {}
+      class Circle extends Shape { final double r; Circle(this.r); }
+      class Square extends Shape { final double s; Square(this.s); }
+
+      double area(Shape shape) => switch (shape) {
+        Circle(r: final r) => 3.14 * r * r,
+        Square(s: final s) => s * s,
+      };                         // @note! 漏掉一个子类，编译不过
+    vs:
+      javascript: |
+        JavaScript 的 `typeof` / `instanceof` 判断完，类型只对读代码的人有意义；
+        Dart 的 `is` 会触发**类型提升** —— 判断过之后，同一个变量在编译器眼里
+        就是那个更具体的类型，可以直接调它的成员，不用再转一次。
+        另一处 JavaScript 给不了的是穷尽检查：Dart 3 的 `sealed` 家族配 `switch`
+        表达式，漏掉一个子类就编译不过。
+      python: |
+        Python 用 `isinstance` 判断再分支；Dart 的 `is` 更进一步，
+        判断之后会触发**类型提升**，同一个变量直接获得更具体类型的能力。
+        两边的结构匹配也像 —— Python 的 `match` / `case` 与 Dart 3 的
+        `switch` 表达式都能按结构拆解，但 Python 不强制覆盖所有分支，
+        Dart 在 `sealed` 家族上强制：漏掉一个子类就编译不过。
+        差别就在这条强制性：收窄在 Dart 里是编译器认账的事实，不只是给人看的。
+      java: |
+        Java 传统上是 `instanceof` 判断加显式强转（两步，中间那一转可能写错）；
+        Java 16 起有 `instanceof` 模式匹配、21 起 switch 支持模式，
+        形态上与 Dart 越来越像。差别是 Dart 的收窄更自动：
+        `is` 判断过之后编译器会**提升**变量的类型，连模式都不用写；
+        Java 的模式匹配需要显式声明一个绑定变量。
+        穷尽检查两边都有（Java 靠 switch 配 sealed 类型，Dart 靠 switch 配 sealed 家族），
+        但 Dart 把它做进了 `switch` 表达式，可以直接拿来算出一个值。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  null-safety:
+    code: |
+      String a = 'hi';
+      // a = null;               // @note! 编译错误：非空类型不能是 null
+
+      String? b = null;          // @note 可空写进类型：String?
+      print(b?.length);          // @note 可选链：为 null 时整体得 null
+      // print(b!.length);       // @note! 强制解包：为 null 时抛错
+      print(b ?? '默认');        // @note ?? 提供默认值
+
+      int? len = b?.length;
+      if (len != null) {         // @note 判断过之后，len 提升成非空 int
+        print(len + 1);
+      }
+    vs:
+      javascript: |
+        JavaScript 里 `null` / `undefined` 能赋给任何变量，读属性就抛错；
+        Dart 的 sound null safety 把「可能为空」变成类型的一部分 ——
+        `String?` 与 `String` 是两个不同的类型，想用里面的值必须先处理 null。
+        可选链与默认值两边都有（JavaScript 的 `?.` / `??`，Dart 的 `?.` / `??`），
+        但 Dart 的检查是**编译器强制**且在运行时也成立的：
+        漏写一个 `?.` 在 Dart 里根本编译不过，在 JavaScript 里要到运行时才炸。
+      python: |
+        Python 的 `None` 同样能赋给任何变量，`x.y` 到运行时才抛 AttributeError；
+        Dart 把它提到编译期拦下。两边的可选写法还差一层语义：
+        Python 的 `x or "默认"` 对空字符串、0、空列表都会取右边，
+        Dart 的 `??` 只认 `null` —— `0 ?? 5` 得到 0，而 `0 or 5` 得到 5。
+        另外 Python 的 `Optional[int]` 只是给类型检查器的提示，
+        Dart 的 `int?` 是编译器会强制执行的真类型。
+      java: |
+        Java 的 `null` 能赋给任何引用类型，解引用就是 NPE，编译器不管；
+        Dart 在编译期就要求把「可能为空」写进类型（`String?`），用之前必须先处理。
+        Java 的对策是库层面的 `Optional`，但它只覆盖返回值，
+        字段、参数、局部变量都用不上，套上之后写法还变重；
+        Dart 的可空性是类型系统里的一等公民，字段和参数一样能标，
+        `?.` 与 `??` 让判空成为表达式里的一步，而不是一层包装。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-assertion:
+    code: |
+      Object x = 'hello';
+      String s = x as String;    // @note as：不做转换，只是断言；失败抛 TypeError
+      // int n = x as int;       // @note! 运行时抛 TypeError
+
+      int a = int.parse('42');   // @note 真的做解析转换：42
+      // int.parse('abc');       // @note! 抛 FormatException
+
+      num f = 3.9;
+      int t = f.toInt();         // @note 3，向零截断
+      double big = f.toDouble(); // @note 3.9，同样是显式调用
+    vs:
+      javascript: |
+        JavaScript 的转换大多隐式（`Number` / `String` / 运算符自己转），
+        失败得到 `NaN` 不报错；Dart 的 `as` 只做类型断言、不做转换，
+        失败直接抛 TypeError，而真的转换要走 `int.parse` 这类 API。
+        所以 Dart 里「断言」与「转换」是两件分开的事，
+        JavaScript 里两者常常糊在一个表达式里。
+      python: |
+        Python 的转换是运行时动作，失败就抛异常（`int("abc")` 抛 ValueError）；
+        Dart 里断言与转换分得很清：`as` 只改类型的看法、不做值的转换，
+        失败抛 TypeError；真要换值必须调 API（`int.parse('42')` 得到 42，
+        `num.toInt()` 向零截断，解析失败抛 FormatException 而不返回哨兵值）。
+        所以 Python 里一个 `int(...)` 同时承担「转换」与「可能失败」两件事，
+        Dart 把它们拆成了不同的方法。
+      java: |
+        Java 的强转 `(String) x` 会**在运行时检查**，类型不对抛 ClassCastException；
+        Dart 的 `as` 同样在运行时检查、失败抛 TypeError，两者是一回事。
+        数值转换两边都显式：Java 用隐式加宽加显式窄化（`(int) 3.9`），
+        Dart 靠 `num.toInt()` / `toDouble()` 这类方法，向零截断的行为一致。
+        解析字符串 Java 抛异常，Dart 也抛异常（FormatException），
+        这一层比「返回 nil / 哨兵值」的做法更接近。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

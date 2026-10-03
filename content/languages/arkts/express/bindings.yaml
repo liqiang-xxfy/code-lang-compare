@@ -1,0 +1,179 @@
+# arkts —— express / bindings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: bindings` 的那批。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）。
+#
+# ⚠ 这一份是**陪跑样张**：ArkTS 与它语法上的母体高度同形，本文件的用途是
+#   把「哪些格子真的有话说、哪些只在重复同一句」如实记下来，
+#   用来给后续批次的工时与矩阵着色定价。写不出的差异不要灌水。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-bindings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  declaration:
+    code: |
+      let count = 0;              // @note 块级作用域，可以重新赋值
+      const name = "Ada";         // @note 块级作用域，绑定不可改
+
+      let total: number = 0;      // @note 类型必须能静态推断出来
+      // let pending;             // @note! 推断不出类型，静态检查不接受
+    vs:
+      javascript: |
+        `let` / `const` 的语义与 JavaScript 逐字相同 —— 作用域、改绑规则、
+        甚至暂时性死区的报错时机都没有区别，因为这些本来就是引擎的行为。
+        真正的分界在**类型能不能省**：JavaScript 里一个不写初值的声明
+        只是暂时是 `undefined`，ArkTS 里它会因为推断不出类型而编译不过。
+        ArkTS 不接受「先放着，运行起来再说」这种写法。
+      python: |
+        Python 的赋值语句本身就是声明，没有关键字可选；ArkTS 用关键字不只是风格 ——
+        `let` / `const` 顺带定下了作用域与能否改绑。
+        两边都不要求每处都写字面类型（都能推断），但推断失败时的态度相反：
+        Python 无所谓（反正运行时不检查），ArkTS 直接拒绝编译。
+      java: |
+        Java 的声明必须写出类型（Java 10 起可写 `var` 让编译器推断）。
+        ArkTS 的默认姿态相反 —— 类型能推断就不写，只在推断不出来时才标。
+        但两边有一条共同底线：推断不出来就必须写出来，不允许留空。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  mutability:
+    code: |
+      let n = 1;
+      n = 2;                      // @note let 的绑定可以改
+
+      const list = [1, 2];
+      list.push(3);               // @note! const 只冻结绑定，内容照样能改
+      // list = [];               // @note 编译错误：不能重新赋值
+    vs:
+      javascript: |
+        运行时行为完全一样：`const` 冻结的是绑定，不是内容。
+        差别只在报错时机 —— 重新赋值一个 `const`，JavaScript 要运行到那一行
+        才抛 TypeError，ArkTS 在编译期就拦下。也就是说这段代码在两边
+        跑起来结果相同，但其中一边你在写的时候就知道写错了。
+      python: |
+        Python 没有常量语法，全大写的名字只是给同事看的约定，解释器照改不误；
+        ArkTS 的 `const` 由编译器负责，改绑直接编译不过。
+        但「内容不可变」两边都没有语言级的答案 —— 列表照样能被改，
+        而且改了之后没有任何机制会提醒你。
+      java: |
+        Java 的 `final` 与 `const` 是同一件事：**冻结绑定、不冻结内容** ——
+        `final` 的集合照样能增删元素。两边也都在编译期检查。
+        这条基本可以逐条对应，是这组知识点里差别最小的一格。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: identical
+
+  scope:
+    code: |
+      let a = 1;                  // @note 块级
+      {
+        let a = 2;                // @note 内层是新变量
+      }
+
+      // 类型也有作用域：默认是模块级的
+      type Id = string;
+    vs:
+      javascript: |
+        作用域规则完全一致 —— 块级、暂时性死区、闭包捕获，全都是同一套。
+        ArkTS 在这里没有添加任何新规则，它只是要求这些名字的类型
+        在编译期就能确定下来。所以这一格唯一的实质差别，
+        仍然落在「静态检查」这一件事上，而不是声明本身。
+      python: |
+        Python 是**函数级**作用域，一个 `for` 或 `if` 里赋的值出了块还在；
+        ArkTS 的块级作用域意味着出了花括号名字就没了。
+        这让同样一段嵌套结构在两边的含义不同：一边是新变量，一边是在改外层那个。
+      java: |
+        两边都是块级作用域，规则接近。ArkTS 在这一格上没有引入新规则，
+        类型别名与 Java 的类声明一样是模块或文件级的，都比较直观，
+        没有留下历史包袱。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
+
+  hoisting:
+    absent: true
+    vs:
+      javascript: |
+        ArkTS 的静态检查要求名字在使用之前已经声明 —— 依赖运行时提升的写法
+        在这里不是「有风险」，而是**编译不过**。JavaScript 那边
+        提升是引擎的既定行为（`var` 是 undefined、函数声明可用、
+        `let` 抛错），是一套需要记住的规则；ArkTS 用一条规则把它们全替掉了：
+        按声明顺序写。
+      python: |
+        Python 没有提升这回事 —— 名字在赋值之前根本不存在，读它得到 NameError。
+        在「必须按顺序写」这一点上两边是一致的，差别只在报错时机：
+        Python 要运行到那一行，ArkTS 在编译期。
+      java: |
+        Java 的局部变量同样必须先声明后使用，由编译器强制。
+        两边在这一点上规则相同 —— 这一格真正有内容的是它相对动态语言的那一侧，
+        与 Java 之间没有可讲的差异，`identical` 是如实标注。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: identical
+
+  shadowing:
+    code: |
+      let x = 1;
+      {
+        let x = 2;                // @note 合法：内层遮蔽外层
+        console.log(x);           // 2
+      }
+
+      // let x = 3;               // @note! 编译错误：同一作用域不能重复声明
+    vs:
+      javascript: |
+        遮蔽规则两边完全一致。差别还是时机：同一作用域里重复声明，
+        JavaScript 因关键字不同会得到不同结果（`let` 抛错、`var` 静默覆盖），
+        ArkTS 一律编译期拦下。所以 ArkTS 代码里出现遮蔽时多半是故意的，
+        不小心写的那些已经在编译时被挡掉了。
+      python: |
+        Python 没有块级作用域，花括号里的那次赋值在原语言里就是改同一个名字，
+        根本构不成遮蔽；ArkTS 里它是新变量，出了块就回到外层那个。
+        同一段嵌套结构，两边的含义完全不同。
+      java: |
+        两边都是块级遮蔽，同作用域重复声明都报错 —— 这一格两边的规则
+        可以逐条对应，没有实质差异。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: identical
+
+  naming-convention:
+    code: |
+      const MAX_RETRY = 3;        // @note 常量全大写
+      let userName = "Ada";       // @note 变量小驼峰
+      class UserProfile {}        // @note 类型大驼峰
+      function fetchData() {}     // @note 函数小驼峰
+      interface Props { onClick: () => void }   // @note 接口不加前缀
+    vs:
+      javascript: |
+        惯例是同一套社区约定，语言都不强制 —— 命名写错了不会报错，只是难读。
+        ArkTS 与 JavaScript 在这一格上没有可讲的差别：同样的驼峰规则、
+        同样的常量全大写，因为它的语法本来就继承自同一套生态。
+        这一格的 `identical` 是如实标注，不是偷懒。
+      python: |
+        两边都靠社区惯例，语言都不强制。差别只用记一条：
+        Python 用下划线分词、ArkTS 用驼峰，同一个概念在两边的名字长得完全不同
+        （`user_name` 与 `userName`），跨语言读代码时这是最明显的视觉差异之一。
+      java: |
+        Java 的类名大驼峰、方法与小驼峰变量，与 ArkTS 一致。
+        接口命名的惯例也接近 —— 都是不加前缀、直接用具名。
+        这一格两边基本可以逐条对应。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: identical
