@@ -1,0 +1,147 @@
+# python —— mechanism / generics
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: generics` 的那批。
+# 这一组以 Python 为基准时与 types 合并进「类型标注与泛型」章
+# （见 catalog/mechanism/python.yaml）—— 章跨存放组，内容仍按组存放。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      def first[T](xs: list[T]) -> T:      # @note 3.12+ 的新语法
+          return xs[0]
+
+      # 老写法（3.11 及以前）：
+      from typing import TypeVar, Generic
+      T = TypeVar("T")
+      def first2(xs: list[T]) -> T: return xs[0]
+
+      class Box(Generic[T]):               # @note 泛型类
+          def __init__(self, v: T): self.v = v
+
+      first([1, 2])                        # @note 运行时不检查，检查器算出 int
+    baseline: |
+      泛型写在**标注**里：`TypeVar` 声明类型参数（3.12 起可以直接 `def f[T]`），
+      `Generic[T]` 声明泛型基类。内建容器从 3.9 起支持 `list[int]` 这种下标写法。
+      运行时**不做任何检查**，全部交给 mypy / pyright 那类检查器 ——
+      所以泛型在 Python 里是「标注体系的一部分」，不是独立的语言机制。
+    vs:
+      javascript: |
+        JavaScript 语法里没有泛型，必须换 TypeScript；Python 把它做进了标注。
+        两边都是编译期的事、运行时不检查，区别只在「写不写得出来」——
+        这里能写，那边得换语言。
+      java: |
+        Java 的泛型是独立的语法（`<T>`），编译器强制；Python 的泛型是标注的一部分，
+        由外部检查器管。一个在语言里，一个在工具链里。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  generic-constraint:
+    code: |
+      from typing import TypeVar
+      T = TypeVar("T", bound=Shape)        # @note 约束：必须"是"Shape
+
+      def draw(s: T) -> T: ...             # @note 检查器会拦下不符合的实参
+
+      # 约束到多种之一
+      N = TypeVar("N", int, float)
+      def double(x: N) -> N: ...
+
+      # 结构化的约束用 Protocol
+      class HasLen(Protocol):
+          def __len__(self) -> int: ...
+      L = TypeVar("L", bound=HasLen)
+      def longest(a: L, b: L) -> L: ...
+
+      # @note! 运行时不检查 —— 传错的代价要等检查器或运行时出错
+    baseline: |
+      `TypeVar(..., bound=X)` 把类型参数约束到 X 或其子类（**名义**约束），
+      也可以直接列出几种允许的类型。想按形状约束就用 `Protocol` 加 `bound`。
+      与所有标注一样，这些约束**运行时不执行** —— 靠检查器在开发时拦。
+    vs:
+      javascript: |
+        这里（TypeScript）的约束写作 `T extends { length: number }`，
+        约束的是**形状**；Python 的 `bound=` 通常绑到一个类上。
+        两边都不在运行时执行，都靠检查器。
+      java: |
+        Java 的 `<T extends Number>` 是编译期强制的，而且约束可以是「与」的组合
+        （`<T extends A & B>`）。Python 的 `bound=` 只有一个、运行时不强制 ——
+        同样是约束，强制力差一档。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  variance:
+    code: |
+      from typing import TypeVar
+      T_co = TypeVar("T_co", covariant=True)          # @note 只读，可协变
+      T_contra = TypeVar("T_contra", contravariant=True)
+
+      class Producer(Generic[T_co]):
+          def get(self) -> T_co: ...                  # @note 只出不进
+
+      class Consumer(Generic[T_contra]):
+          def put(self, x: T_contra) -> None: ...     # @note 只进不出
+
+      # @note list 是**不变**的：list[int] 不能当 list[float] 用
+      # @note Sequence / Iterable 是协变的：只读协议可以放宽
+      def total(xs: Sequence[float]) -> float: ...
+      total([1, 2])                                   # @note list[int] 可以传进去
+    baseline: |
+      型变由 `TypeVar` 的参数声明：`covariant=True` 表示「只产出」、
+      `contravariant=True` 表示「只消费」，默认**不变**。
+      标准库已经按这个规则标好了：`list` 是不变的（既能读又能写），
+      `Sequence` / `Iterable` 是协变的（只读）。所以
+      「`list[int]` 能不能传给 `Sequence[float]`」是检查器会回答的问题。
+    vs:
+      javascript: |
+        这里（TypeScript）的型变是**推断出来的**：编译器看类型参数出现在
+        输入还是输出位置，自动决定；也能用 `in` / `out` 显式标注。
+        Python 要在 `TypeVar` 上手动声明，两边一个自动一个手动。
+      java: |
+        Java 把型变写在**使用处**（`List<? extends Number>`），而不是声明处；
+        而且它是通配符视图 —— 协变的那一侧只能读、逆变的那一侧只能写。
+        Python 把型变写在 `TypeVar` 的声明处，一处声明处处生效。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  type-erasure:
+    code: |
+      xs: list[int] = [1, 2]
+      xs.__class__                  # @note list —— 不带元素类型
+      list[int] == list[str]        # @note! False —— 但这是 typing 的特殊对象，
+                                    #        不是运行时的真实类型
+
+      def f(x: list[int]) -> None:
+          # @note! 运行期看不到 int 这一层
+          print(f.__annotations__)  # {'x': list[int]} —— 标注还在，但没人检查
+
+      f(["字符串"])                 # @note! 照样跑
+
+      # @note 所以 new T / isinstance(x, T) 写不出来 —— 类型参数运行期不存在
+    baseline: |
+      泛型参数在运行期**不参与检查**：`list[int]` 与 `list[str]` 运行起来是同一个
+      `list`。不过 Python 有一点与别的语言不同 —— **标注本身留了下来**
+      （`__annotations__` 里能看到 `list[int]`），所以框架（pydantic、FastAPI）
+      能读它做运行时校验。这是「擦除」在 Python 里没那么彻底的地方。
+    vs:
+      javascript: |
+        这里（TypeScript）编译后类型参数**全部消失**，运行期一点信息都不剩；
+        Python 至少把标注留在 `__annotations__` 里，框架能读。
+        所以「运行期按类型校验」在 Python 生态里是可行的，在 JS 里只能自己写。
+      java: |
+        Java 也是擦除，而且后果更明显：不能 `new T[]`、不能
+        `instanceof List<String>`、不能重载只差泛型参数的方法。
+        Python 的擦除只到「不检查」这一层，标注文本还在，所以能反射出来。
+    equivalence:
+      javascript: analogous
+      java: analogous

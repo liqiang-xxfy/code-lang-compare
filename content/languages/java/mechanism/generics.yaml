@@ -1,0 +1,141 @@
+# java —— mechanism / generics
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: generics` 的那批。
+# 这一组以 Java 为基准时单独成章（见 catalog/mechanism/java.yaml）——
+# 擦除的后果值得单独一课。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      class Box<T> {                       // @note 泛型类
+        private final T value;
+        Box(T value) { this.value = value; }
+        T get() { return value; }
+      }
+
+      <T> T first(List<T> xs) { return xs.get(0); }    // @note 泛型方法：T 写在返回类型前
+
+      Box<String> b = new Box<>("a");       // @note 菱形推断（Java 7+）
+      String s = b.get();                   // @note! 不用转换 —— 编译器知道是 String
+      // b.get().length();                  // 这就是泛型的价值
+
+      // @note! 类型参数只能是引用类型：List<int> 不合法，要写 List<Integer>
+    baseline: |
+      泛型是**语言语法**：`<T>` 可以加在类上或方法上，编译器据此检查。
+      最大的收益是**省掉转换** —— `Box<String>.get()` 直接就是 `String`，
+      不需要 `(String)`。两处限制要记住：类型参数只能是引用类型
+      （`List<int>` 要写 `List<Integer>`），以及所有这些都只活在编译期。
+    vs:
+      javascript: |
+        JavaScript 语法里没有泛型，得换 TypeScript；Java 的泛型是语言的一部分，
+        而且**编译期强制**。两边共同的结论是运行期都不存在类型参数。
+      python: |
+        Python 的泛型写在标注里（`TypeVar` / `Generic`），由外部检查器管，
+        运行时不强制；Java 的 `<T>` 是编译器强制的语法。一边靠工具链、
+        一边靠语言。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  generic-constraint:
+    code: |
+      <T extends Number> double sum(List<T> xs) { ... }   // @note 上界：必须是 Number
+
+      <T extends Comparable<T>> T max(List<T> xs) { ... } // @note 常用约束：可比较
+
+      class Repo<T extends Entity & Serializable> { }     // @note 可以「与」多个
+
+      // @note! 有了上界之后，才能调用上界类型上的方法：
+      //        T 上能调 numberValue()，因为 Number 有它
+      // @note 约束是**名义**的 —— 必须真的继承或实现那个类型
+    baseline: |
+      用 `<T extends X>` 声明上界：T 必须是 X 或其子类。有了上界之后，
+      编译器才允许你在 T 上调用 X 的方法。约束可以是「与」的组合
+      （`T extends A & B`），而且它是**名义**的 —— 形状对但没继承就是不行。
+      这是泛型能真正用起来的关键：没有约束的 T 什么都干不了。
+    vs:
+      javascript: |
+        TypeScript 的 `T extends { length: number }` 约束的是**形状**，
+        按结构判断；Java 的 `<T extends Number>` 要求真的继承 Number。
+        一个是结构化的、一个是名义的。
+      python: |
+        Python 的 `TypeVar("T", bound=Shape)` 与这里的上界是同一回事，
+        但前者只在检查器里生效、运行时不管；Java 的约束由编译器强制，
+        而且能「与」多个类型。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  variance:
+    code: |
+      // @note Java 的型变写在**使用处**，用通配符
+      List<? extends Number> producer = new ArrayList<Integer>();   // @note 协变视图
+      Number n = producer.get(0);                 // @note 读可以
+      // producer.add(1);                         // @note! 编译错误：写不进去
+
+      List<? super Integer> consumer = new ArrayList<Number>();     // @note 逆变视图
+      consumer.add(1);                            // @note 写可以
+      // Object o = consumer.get(0);              // @note 读出来只能是 Object
+
+      // @note! List<Integer> 与 List<Number> 没有继承关系 —— 泛型默认**不变**
+      // List<Number> xs = new ArrayList<Integer>();   // 编译错误
+    baseline: |
+      泛型**默认不变**：`List<Integer>` 不是 `List<Number>` 的子类型。要放宽得用
+      通配符，而且它直接决定了你能做什么：`? extends T` 是只读的协变视图
+      （读出来是 T，但什么都写不进去），`? super T` 是只写的逆变视图
+      （能写 T，但读出来只能是 Object）。这套规则被总结成
+      「producer extends, consumer super」，写集合 API 时天天要用。
+    vs:
+      javascript: |
+        TypeScript 的型变是编译器**推断**出来的（看类型参数出现在输入还是
+        输出位置），也能显式写 `in` / `out`；Java 要在每次**使用**时写通配符，
+        而且编译器会据此限制你能读还是能写。
+      python: |
+        Python 把型变声明在 `TypeVar` 上（`covariant=True`），一处声明处处生效；
+        Java 声明在使用处。两边默认都是不变，标准库也都按同一套规则标好了
+        （只读的容器协变）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  type-erasure:
+    code: |
+      List<String> a = new ArrayList<>();
+      List<Integer> b = new ArrayList<>();
+      a.getClass() == b.getClass();          // @note! true —— 运行期都是 ArrayList
+
+      // 擦除带来的四个后果：
+      // new T[10];                          // @note! 编译错误
+      // x instanceof List<String>;          // @note! 编译错误（只能 instanceof List）
+      // void f(List<String> x) {} void f(List<Integer> x) {}   // @note! 重载冲突
+      // catch (MyException<String> e) {}    // @note! 编译错误
+
+      // 泛型数组要绕：用 List<T> 代替，或者转型（带警告）
+      @SuppressWarnings("unchecked")
+      T[] arr = (T[]) new Object[10];
+    baseline: |
+      类型参数在编译后被**抹掉**（`List<String>` 与 `List<Integer>` 运行时是同一个类），
+      所以四件事写不出来：`new T[]`、`instanceof List<String>`、
+      只差泛型参数的重载、泛型 catch。要绕通常用 `List<T>` 代替数组并加
+      `@SuppressWarnings`。擦除是为了兼容旧代码而做的取舍 ——
+      代价是运行期拿不到类型参数。
+    vs:
+      javascript: |
+        这里（TypeScript）编译后类型参数全部消失，情况类似，但因为没有
+        「不能 new T[]」这类与运行期类型绑定的语法，后果没那么显眼。
+        Java 的擦除会直接让你写不出某些代码。
+      python: |
+        Python 的泛型运行时不检查，但**标注文本还在**（`__annotations__` 里能读到），
+        所以框架能据此做校验 —— 这是「擦除」在两边不一样的深度。
+        Java 那边运行期连名字都没有。
+    equivalence:
+      javascript: analogous
+      python: divergent

@@ -1,0 +1,131 @@
+# javascript —— mechanism / generics
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: generics` 的那批：
+# generic-declaration / generic-constraint / variance / type-erasure。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      // @note! 语言层面没有泛型 —— 一个字都写不出来
+      function first(xs) { return xs[0]; }        // 拿到的永远是「某个值」
+
+      // 唯一的办法是 TypeScript 那层（编译期，运行时不留下任何东西）：
+      //   function first<T>(xs: T[]): T { return xs[0] }
+      //   class Box<T> { constructor(readonly v: T) {} }
+
+      // 不进类型系统的替代做法：运行时什么都不检查，靠约定
+      function firstOr(xs, fallback) { return xs.length ? xs[0] : fallback; }
+    baseline: |
+      **语言里没有泛型**。想让「容器里的元素类型」参与检查，只能上 TypeScript
+      —— 那是编译期的机制，运行时不留下任何痕迹（连类型参数的名字都没有）。
+      纯 JS 代码里「这个数组装的是什么」只有注释与命名能回答，
+      函数签名上写不出来。
+    vs:
+      python: |
+        Python 把泛型做进了标注体系（`TypeVar` / `Generic` / `list[int]`），
+        虽然运行时同样不检查，但至少**写得出、读得到**（存进 `__annotations__`）。
+        这里连语法都没有，必须有 TypeScript 那层才行。
+      java: |
+        Java 的泛型是语言语法（`<T>`），编译器强制检查 —— 但也仅限编译期，
+        运行时会擦除。这里（纯 JS）连编译期那一层都没有。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  generic-constraint:
+    code: |
+      // @note 同样只能写在 TypeScript 里：
+      //   function longest<T extends { length: number }>(a: T, b: T): T {
+      //     return a.length >= b.length ? a : b;
+      //   }
+      //   longest("abc", "de");      // ok
+      //   longest(1, 2);             // 编译错误：number 没有 length
+
+      // 运行时的等价物只有手写检查：
+      function longest(a, b) {
+        if (typeof a.length !== "number" || typeof b.length !== "number") {
+          throw new TypeError("需要带 length 的东西");
+        }
+        return a.length >= b.length ? a : b;
+      }
+    baseline: |
+      泛型约束在语言层面同样不存在。TypeScript 里它写作 `T extends { ... }` ——
+      约束的是一个**形状**（结构化），不是某个具体的类，这很符合 JS 的一贯风格。
+      运行时的等价物只有自己写检查，而且检查写在哪、什么时候跑，
+      完全由你决定（写漏了没人提醒）。
+    vs:
+      python: |
+        Python 用 `TypeVar("T", bound=Base)` 表达约束，同样是给检查器看的。
+        两边的约束都写在类型层、运行时不执行；差别是 Python 的约束通常绑到一个
+        类或协议上，TypeScript 更常直接写形状。
+      java: |
+        Java 的 `<T extends Number>` 由编译器强制，约束是**名义**的
+        （要继承或实现某个类型）。TypeScript 的 `T extends { ... }` 是结构化的 ——
+        形状对就行。同样是约束，一边看名字一边看形状。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  variance:
+    code: |
+      // @note! 语言层面没有泛型，也就没有型变可言
+      //   数组是「协变」的，但那是运行时行为，不是什么类型规则：
+      let xs = [1, 2];
+      let any = xs;                  // @note 随便赋，没类型概念
+      any.push("字符串");             // @note! 合法 —— xs 里就混进字符串了
+
+      // TypeScript 里数组默认协变（它是「不安全」的那一侧），
+      // 函数参数位置则逆变；想显式表达用 in / out 修饰。
+    baseline: |
+      没有泛型就没有型变规则。相关的现象只有一处：**数组是「可赋值给更宽的
+      类型」的**，所以把 `number[]` 交给期望 `any[]` 的地方之后，
+      对方往里塞字符串是做得到的 —— 类型层面没有任何东西拦着。
+      TypeScript 里数组默认是协变的（并且承认这是不安全的那一侧），
+      函数参数位置则逆变。
+    vs:
+      python: |
+        Python 的型变写在 `TypeVar` 上（`covariant=True` / `contravariant=True`），
+        同样是给检查器看的、运行时不执行。这里（纯 JS）连这层声明都没有，
+        数组的协变行为只是「没有类型系统」的副产品。
+      java: |
+        Java 的型变靠通配符表达：`List<? extends Number>` 是只读的协变视图、
+        `List<? super Integer>` 是只写的逆变视图，编译器会拦住用错方向。
+        这里完全不管 —— 把数组赋出去之后两边都能往里塞东西。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  type-erasure:
+    code: |
+      // @note! 没有泛型可擦 —— 运行时根本不知道元素类型
+      [1, 2].constructor;             // @note Array —— 不带元素类型
+      [1, "a"].length;                // @note 2 —— 混着装也没人管
+
+      // TypeScript 编译后类型参数**全部消失**：
+      //   function f<T>(x: T): T { return x }   ->   function f(x) { return x }
+      // 所以运行期写不出任何依赖 T 的逻辑（不能 new T、不能 instanceof T）
+    baseline: |
+      类型信息在运行期**根本不存在** —— 数组不知道也不关心自己装了什么。
+      TypeScript 的类型参数编译后全部消失，所以「运行期依赖类型参数」的逻辑
+      （`new T()`、`x instanceof T`、按类型重载）写不出来。
+      这与其他带泛型的语言后果相同，只是这里连编译期那一层都是可选的。
+    vs:
+      python: |
+        两边的类型信息在运行期都不参与检查，但 Python 至少把标注**留了下来**
+        （`__annotations__` 里能看到 `list[int]`），框架能读它做校验；
+        这里编译后什么都不剩，运行期连「它本该是什么」都问不出来。
+      java: |
+        Java 也是擦除，而且擦除带来的后果更明显（不能 `new T[]`、
+        不能 `instanceof List<String>`、不能重载只差泛型参数的方法）。
+        两边共同的结论是：泛型是编译期的约束，运行期只有原始类型。
+    equivalence:
+      python: analogous
+      java: analogous

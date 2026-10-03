@@ -1,0 +1,106 @@
+{
+  "lang": "javascript",
+  "section": "mechanism",
+  "group": "generics",
+  "boxes": {
+    "generic-declaration": {
+      "lang": "javascript",
+      "code": "// ⚠ 语言层面没有泛型 —— 一个字都写不出来\nfunction first(xs) { return xs[0]; }        // 拿到的永远是「某个值」\n\n// 唯一的办法是 TypeScript 那层（编译期，运行时不留下任何东西）：\n//   function first<T>(xs: T[]): T { return xs[0] }\n//   class Box<T> { constructor(readonly v: T) {} }\n\n// 不进类型系统的替代做法：运行时什么都不检查，靠约定\nfunction firstOr(xs, fallback) { return xs.length ? xs[0] : fallback; }",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 语言层面没有泛型 —— 一个字都写不出来</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> first</span><span style=\"color:var(--shiki-foreground)\">(xs) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> xs[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">]; }        </span><span style=\"color:var(--shiki-token-comment)\">// 拿到的永远是「某个值」</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 唯一的办法是 TypeScript 那层（编译期，运行时不留下任何东西）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   function first&#x3C;T>(xs: T[]): T { return xs[0] }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   class Box&#x3C;T> { constructor(readonly v: T) {} }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 不进类型系统的替代做法：运行时什么都不检查，靠约定</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> firstOr</span><span style=\"color:var(--shiki-foreground)\">(xs</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> fallback) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> xs</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-token-keyword)\"> ?</span><span style=\"color:var(--shiki-foreground)\"> xs[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\">] </span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-foreground)\"> fallback; }</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 1,
+          "text": "语言层面没有泛型 —— 一个字都写不出来",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>语言里没有泛型</strong>。想让「容器里的元素类型」参与检查，只能上 TypeScript\n—— 那是编译期的机制，运行时不留下任何痕迹（连类型参数的名字都没有）。\n纯 JS 代码里「这个数组装的是什么」只有注释与命名能回答，\n函数签名上写不出来。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 把泛型做进了标注体系（<code>TypeVar</code> / <code>Generic</code> / <code>list[int]</code>），\n虽然运行时同样不检查，但至少<strong>写得出、读得到</strong>（存进 <code>__annotations__</code>）。\n这里连语法都没有，必须有 TypeScript 那层才行。</p>\n",
+        "java": "<p>Java 的泛型是语言语法（<code>&lt;T&gt;</code>），编译器强制检查 —— 但也仅限编译期，\n运行时会擦除。这里（纯 JS）连编译期那一层都没有。</p>\n"
+      }
+    },
+    "generic-constraint": {
+      "lang": "javascript",
+      "code": "// 同样只能写在 TypeScript 里：\n//   function longest<T extends { length: number }>(a: T, b: T): T {\n//     return a.length >= b.length ? a : b;\n//   }\n//   longest(\"abc\", \"de\");      // ok\n//   longest(1, 2);             // 编译错误：number 没有 length\n\n// 运行时的等价物只有手写检查：\nfunction longest(a, b) {\n  if (typeof a.length !== \"number\" || typeof b.length !== \"number\") {\n    throw new TypeError(\"需要带 length 的东西\");\n  }\n  return a.length >= b.length ? a : b;\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 同样只能写在 TypeScript 里：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   function longest&#x3C;T extends { length: number }>(a: T, b: T): T {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     return a.length >= b.length ? a : b;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   longest(\"abc\", \"de\");      // ok</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   longest(1, 2);             // 编译错误：number 没有 length</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 运行时的等价物只有手写检查：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> longest</span><span style=\"color:var(--shiki-foreground)\">(a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">typeof</span><span style=\"color:var(--shiki-token-constant)\"> a</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-token-keyword)\"> !==</span><span style=\"color:var(--shiki-token-string-expression)\"> \"number\"</span><span style=\"color:var(--shiki-token-keyword)\"> ||</span><span style=\"color:var(--shiki-token-keyword)\"> typeof</span><span style=\"color:var(--shiki-token-constant)\"> b</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-token-keyword)\"> !==</span><span style=\"color:var(--shiki-token-string-expression)\"> \"number\"</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"需要带 length 的东西\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-constant)\"> a</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-token-keyword)\"> >=</span><span style=\"color:var(--shiki-token-constant)\"> b</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-token-keyword)\"> ?</span><span style=\"color:var(--shiki-foreground)\"> a </span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-foreground)\"> b;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>泛型约束在语言层面同样不存在。TypeScript 里它写作 <code>T extends { ... }</code> ——\n约束的是一个<strong>形状</strong>（结构化），不是某个具体的类，这很符合 JS 的一贯风格。\n运行时的等价物只有自己写检查，而且检查写在哪、什么时候跑，\n完全由你决定（写漏了没人提醒）。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 用 <code>TypeVar(&quot;T&quot;, bound=Base)</code> 表达约束，同样是给检查器看的。\n两边的约束都写在类型层、运行时不执行；差别是 Python 的约束通常绑到一个\n类或协议上，TypeScript 更常直接写形状。</p>\n",
+        "java": "<p>Java 的 <code>&lt;T extends Number&gt;</code> 由编译器强制，约束是<strong>名义</strong>的\n（要继承或实现某个类型）。TypeScript 的 <code>T extends { ... }</code> 是结构化的 ——\n形状对就行。同样是约束，一边看名字一边看形状。</p>\n"
+      }
+    },
+    "variance": {
+      "lang": "javascript",
+      "code": "// ⚠ 语言层面没有泛型，也就没有型变可言\n//   数组是「协变」的，但那是运行时行为，不是什么类型规则：\nlet xs = [1, 2];\nlet any = xs;                  // 随便赋，没类型概念\nany.push(\"字符串\");             // ⚠ 合法 —— xs 里就混进字符串了\n\n// TypeScript 里数组默认协变（它是「不安全」的那一侧），\n// 函数参数位置则逆变；想显式表达用 in / out 修饰。",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 语言层面没有泛型，也就没有型变可言</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   数组是「协变」的，但那是运行时行为，不是什么类型规则：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> xs </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">];</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> any </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> xs;                  </span><span style=\"color:var(--shiki-token-comment)\">// 随便赋，没类型概念</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">any</span><span style=\"color:var(--shiki-token-function)\">.push</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"字符串\"</span><span style=\"color:var(--shiki-foreground)\">);             </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 合法 —— xs 里就混进字符串了</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// TypeScript 里数组默认协变（它是「不安全」的那一侧），</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 函数参数位置则逆变；想显式表达用 in / out 修饰。</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 1,
+          "text": "语言层面没有泛型，也就没有型变可言",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "合法 —— xs 里就混进字符串了",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>没有泛型就没有型变规则。相关的现象只有一处：<strong>数组是「可赋值给更宽的\n类型」的</strong>，所以把 <code>number[]</code> 交给期望 <code>any[]</code> 的地方之后，\n对方往里塞字符串是做得到的 —— 类型层面没有任何东西拦着。\nTypeScript 里数组默认是协变的（并且承认这是不安全的那一侧），\n函数参数位置则逆变。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的型变写在 <code>TypeVar</code> 上（<code>covariant=True</code> / <code>contravariant=True</code>），\n同样是给检查器看的、运行时不执行。这里（纯 JS）连这层声明都没有，\n数组的协变行为只是「没有类型系统」的副产品。</p>\n",
+        "java": "<p>Java 的型变靠通配符表达：<code>List&lt;? extends Number&gt;</code> 是只读的协变视图、\n<code>List&lt;? super Integer&gt;</code> 是只写的逆变视图，编译器会拦住用错方向。\n这里完全不管 —— 把数组赋出去之后两边都能往里塞东西。</p>\n"
+      }
+    },
+    "type-erasure": {
+      "lang": "javascript",
+      "code": "// ⚠ 没有泛型可擦 —— 运行时根本不知道元素类型\n[1, 2].constructor;             // Array —— 不带元素类型\n[1, \"a\"].length;                // 2 —— 混着装也没人管\n\n// TypeScript 编译后类型参数**全部消失**：\n//   function f<T>(x: T): T { return x }   ->   function f(x) { return x }\n// 所以运行期写不出任何依赖 T 的逻辑（不能 new T、不能 instanceof T）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有泛型可擦 —— 运行时根本不知道元素类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">].</span><span style=\"color:var(--shiki-token-constant)\">constructor</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// Array —— 不带元素类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"a\"</span><span style=\"color:var(--shiki-foreground)\">].</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-foreground)\">;                </span><span style=\"color:var(--shiki-token-comment)\">// 2 —— 混着装也没人管</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// TypeScript 编译后类型参数**全部消失**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   function f&#x3C;T>(x: T): T { return x }   ->   function f(x) { return x }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 所以运行期写不出任何依赖 T 的逻辑（不能 new T、不能 instanceof T）</span></span></code></pre>",
+      "lineCount": 7,
+      "notes": [
+        {
+          "line": 1,
+          "text": "没有泛型可擦 —— 运行时根本不知道元素类型",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>类型信息在运行期<strong>根本不存在</strong> —— 数组不知道也不关心自己装了什么。\nTypeScript 的类型参数编译后全部消失，所以「运行期依赖类型参数」的逻辑\n（<code>new T()</code>、<code>x instanceof T</code>、按类型重载）写不出来。\n这与其他带泛型的语言后果相同，只是这里连编译期那一层都是可选的。</p>\n",
+      "vsHtml": {
+        "python": "<p>两边的类型信息在运行期都不参与检查，但 Python 至少把标注<strong>留了下来</strong>\n（<code>__annotations__</code> 里能看到 <code>list[int]</code>），框架能读它做校验；\n这里编译后什么都不剩，运行期连「它本该是什么」都问不出来。</p>\n",
+        "java": "<p>Java 也是擦除，而且擦除带来的后果更明显（不能 <code>new T[]</code>、\n不能 <code>instanceof List&lt;String&gt;</code>、不能重载只差泛型参数的方法）。\n两边共同的结论是：泛型是编译期的约束，运行期只有原始类型。</p>\n"
+      }
+    }
+  }
+}
