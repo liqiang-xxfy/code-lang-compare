@@ -1,0 +1,179 @@
+# rust —— mechanism / generics
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: generics` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      fn largest<T: PartialOrd>(xs: &[T]) -> Option<&T> {   // @note 类型参数写在尖括号里
+        xs.iter().reduce(|a, b| if a > b { a } else { b })
+      }
+
+      struct Pair<T, U> { first: T, second: U }             // @note 结构体也能泛型
+      impl<T: std::fmt::Display, U> Pair<T, U> {            // @note impl 上可以带约束
+        fn show(&self) -> String { format!("{}", self.first) }
+      }
+
+      // impl Trait：参数位置与返回位置都能用
+      fn twice(x: impl std::ops::Add<Output = i32>) -> i32 { x + x }
+      fn make() -> impl Iterator<Item = i32> { (0..3).map(|x| x * 2) }
+
+      let p = Pair { first: 1, second: "a" };   // @note 类型参数由使用处推断
+    vs:
+      javascript: |
+        JavaScript 没有泛型（TS 有，但编译后抹掉、不产生专门代码）。
+        Rust 的泛型是**真泛型**：编译器为每个具体类型各生成一份代码
+        （单态化），所以 `largest::<i32>` 与 `largest::<String>`
+        是两份独立的机器码，调用没有虚表开销。
+        代价是编译更慢、二进制更大 —— 而 JavaScript 里这两者都不存在，
+        因为泛型根本不留痕迹。
+      python: |
+        Python 的泛型（`TypeVar`）只对类型检查器有意义，运行时不产生任何专门化；
+        Rust 的泛型在编译期展开成具体代码，是实打实的性能机制。
+        Rust 还有 `impl Trait` 这种「匿名的泛型参数」，可以省掉
+        起名字与写 where 子句 —— Python 里对应的是
+        「标注里写个 Protocol 但不给它命名」，语义弱得多。
+      java: |
+        两边语法都是尖括号、都能推断，但实现完全不同：
+        Java 是**类型擦除**，`List<String>` 与 `List<Integer>` 运行时
+        是同一个类；Rust 是**单态化**，每个实例化都是独立的类型与代码。
+        这导致 Rust 里 `Vec<i32>` 的 `i32` 真的不占空间（直接内联），
+        Java 的 `List<Integer>` 要装箱。另一处差别是 Rust 的
+        `impl Trait` 在返回位置可以表达「返回某个实现了 Iterator 的类型，
+        但我不告诉你是什么」—— Java 只能用具体类型或通配符近似。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  generic-constraint:
+    code: |
+      use std::fmt::Display;
+
+      fn print_all<T: Display>(xs: &[T]) {          // @note 冒号后写约束
+        for x in xs { println!("{}", x); }
+      }
+
+      fn print_all2<T>(xs: &[T])                    // @note where 子句更适合多约束
+      where
+        T: Display + Clone,
+      {
+        for x in xs { println!("{}", x.clone()); }
+      }
+
+      // 多个约束：+ 连接
+      fn max_of<T: PartialOrd + Copy>(a: T, b: T) -> T { if a > b { a } else { b } }
+
+      // 约束也可以写在 impl 上，实现只对满足条件的类型存在
+      impl<T: Display> ToString for Wrapper<T> { }
+
+      // 编译期常量参数（const generics）
+      struct Buf<const N: usize> { data: [u8; N] }
+    vs:
+      javascript: |
+        JavaScript 没有泛型约束（TS 用 `extends`）。Rust 的约束不是文档，
+        而是**能力的来源**：`T: Display` 才让 `println!("{}", x)` 成立，
+        没有这条约束连编译都过不了。约束写得越紧，函数体里能做的事越多、
+        调用方的选择越少 —— 这个权衡在 JavaScript 里完全不存在，
+        因为没有编译期这一层。
+      python: |
+        Python 的 `TypeVar(bound=...)` 只是给类型检查器的提示，
+        运行时不产生任何约束；Rust 的 trait bound 决定**这段代码能不能编译**，
+        也决定了函数体里能调用哪些方法。另一处 Rust 独有的是
+        **const generics**（`Buf<const N: usize>`）：把数组长度这类
+        编译期常量也做成类型参数，Python 里完全没有对应概念。
+      java: |
+        Java 用 `T extends Comparable<T>` 表达约束，Rust 用 `T: PartialOrd`——
+        形态接近，但 Java 的约束在擦除后**运行时看不到**，
+        而 Rust 的约束在单态化时被用来生成代码。
+        Rust 多两类能力：`where` 子句（多约束时更可读）
+        与 const generics（编译期常量参数）。
+        Java 的 `T extends Comparable` 会对 `Integer` 装箱，
+        Rust 的 `T: PartialOrd` 对 `i32` 是零成本。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  variance:
+    code: |
+      // 生命周期是协变的：'long 的引用可以当 'short 用
+      fn short<'a>(x: &'a str) -> &'a str { x }
+      let s: &'static str = "hi";
+      let r = short(s);                    // @note 'static 可以塞进任意短的 'a
+
+      // &T 对 T 协变
+      let v: Vec<&'static str> = vec!["a"];
+      fn takes<'a>(xs: &[&'a str]) {}
+      takes(&v);
+
+      // &mut T 对 T **不变**：可变引用既不能协变也不能逆变
+      // @note! 这是为了安全 —— 允许协变就能把短生命周期写进长生命周期
+
+      // 需要显式声明时用 PhantomData 标注
+      use std::marker::PhantomData;
+      struct Holder<T> { _marker: PhantomData<T> }
+    vs:
+      javascript: |
+        JavaScript 没有型变这个概念 —— 没有类型参数，也就无所谓
+        协变逆变。Rust 的型变是**编译器推导**的：`&T` 协变、
+        `&mut T` 不变、`Cell<T>` 不变，你不需要手写，但出问题时
+        要能看懂编译器的解释。`&mut T` 之所以是不变的，
+        是为了不让「短命的值」通过可变引用被写进「长命的位置」。
+      python: |
+        Python 的型变靠 `TypeVar(covariant=True)` 显式声明，
+        而且只对类型检查器有效；Rust 的型变由编译器**自动推导**，
+        并且直接影响代码能否编译。这是两种完全不同的性质：
+        Python 里写错了只是类型检查器报警，Rust 里写错了
+        就是借用检查器拒绝编译。
+      java: |
+        Java 用通配符手写型变：`List<? extends T>`（协变）、
+        `List<? super T>`（逆变），而且因为擦除，这套只在编译期成立
+        （运行时都是 `List`）。Rust 的型变是自动推导的，
+        不用写通配符 —— 但 `&mut T` 刻意设计成不变的，
+        这一点与 Java 的 `List<T>` 不变类似，理由也一样：
+        可写的位置如果协变，类型系统就不安全了。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-erasure:
+    absent: true
+    vs:
+      javascript: |
+        Rust **不擦除类型参数** —— 恰恰相反，泛型在编译期被
+        **单态化**：`Vec<i32>` 与 `Vec<String>` 是两个不同的类型，
+        各自有一份专门生成的代码，运行时类型信息完整（在编译产物里）。
+        所以「擦除」这件事在 Rust 里没有对应物；
+        想要运行时才知道类型，得显式用 `dyn Any` 或 trait 对象。
+      python: |
+        Rust **不擦除** —— 泛型靠单态化展开，每个具体类型一份代码。
+        Python 的泛型本来就不产生运行时痕迹（`list[int]` 与 `list[str]`
+        运行时都是 `list`），这与擦除的效果相似但机制不同：
+        Python 是「从来没写进去」，Rust 是「编译期就展开了」。
+        两边都拿不到「泛型实参是什么」的运行时答案，
+        但 Rust 是因为信息在编译期就被用掉了。
+      java: |
+        Java **擦除**类型参数（`List<String>` 运行时就是 `List`），
+        这是为了兼容旧代码；Rust **不擦除**，靠单态化给每个
+        具体类型生成独立代码。后果差别很大：Java 里
+        `new T[]` 不合法、`instanceof List<String>` 不合法，
+        都是擦除造成的；Rust 里这些都自然成立。
+        代价是 Rust 编译时间与二进制体积随泛型实例数增长，Java 不会。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

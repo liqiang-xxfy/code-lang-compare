@@ -1,0 +1,176 @@
+# go —— mechanism / generics
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: generics` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      func Largest[T cmp.Ordered](xs []T) (T, bool) {   // @note! 类型参数写在方括号里
+        var zero T
+        if len(xs) == 0 { return zero, false }
+        max := xs[0]
+        for _, x := range xs[1:] { if x > max { max = x } }
+        return max, true
+      }
+
+      type Pair[T, U any] struct {                       // @note 类型也能泛型
+        First  T
+        Second U
+      }
+
+      func (p Pair[T, U]) Swap() Pair[U, T] {            // @note 方法上要重复类型参数
+        return Pair[U, T]{p.Second, p.First}
+      }
+
+      n, _ := Largest([]int{1, 2, 3})
+      s, _ := Largest([]string{"a", "b"})
+    vs:
+      javascript: |
+        JavaScript 没有泛型（TS 的有，但编译后抹掉）。Go 1.18 起有真泛型，
+        但语法用**方括号**而不是尖括号 —— 因为 `<` 在 Go 里是运算符，
+        用尖括号会与比较表达式产生歧义。这与 JavaScript 的处境有点像：
+        TS 之所以能用尖括号，是因为它有独立的语法层。
+        实际写法上 Go 还要多一步：零值要靠 `var zero T` 声明出来。
+      python: |
+        Python 的泛型只对类型检查器有意义、运行时不产生专门化代码；
+        Go 的泛型是编译器的真实机制。语法上 Go 用方括号 `[T any]`，
+        Python 用 `TypeVar` 加方括号 `list[T]`，形态有点像但位置不同 ——
+        Go 把类型参数写在函数名之后。另外 Go 要取零值必须
+        `var zero T`，Python 里没有「零值」这个概念。
+      java: |
+        两边语法形状不同：Java 用尖括号 `<T>`，Go 用方括号 `[T any]`
+        （理由见「没有尖括号」那段）。一处实际差别是 Go 的
+        **方法不能引入新的类型参数** —— `func (p Pair[T,U]) Map[V any](...)`
+        不合法，方法只能用接收者上的参数；Java 的方法可以自由引入 `<V>`。
+        另一处是零值：Go 泛型里常要 `var zero T`，Java 用 `null`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  generic-constraint:
+    code: |
+      // 用接口做约束 —— 接口的集合含义在这里派上用场
+      type Number interface {
+        ~int | ~int64 | ~float64      // @note ~ 表示「底层类型是它的都算」
+      }
+
+      func Sum[T Number](xs []T) T {
+        var total T
+        for _, x := range xs { total += x }   // @note 因为约束里都是数值，+ 成立
+        return total
+      }
+
+      type MyInt int
+      Sum([]MyInt{1, 2})               // @note 底层类型是 int，所以 MyInt 满足 Number
+
+      // comparable 是内建约束
+      func Contains[T comparable](xs []T, target T) bool {
+        for _, x := range xs { if x == target { return true } }
+        return false
+      }
+    vs:
+      javascript: |
+        JavaScript 没有泛型约束（TS 用 `extends`）。Go 的约束是**接口**——
+        与普通接口是同一个概念，只是用在方括号里；
+        `~int` 这种「近似类型」元素是 Go 独有的：它表示
+        「底层类型是 int 的都算」，于是 `type MyInt int` 也满足约束。
+        JavaScript 里没有类型参数，也就没有「约束得多紧」这个权衡。
+      python: |
+        Python 用 `TypeVar(bound=...)` 表达上界，但它只是个提示；
+        Go 的约束直接决定函数体里能做哪些运算 ——
+        `Sum[T Number]` 里能写 `total += x`，正是因为约束保证了都是数值。
+        Python 里同样的代码只能靠运行时 duck typing。
+        Go 的 `~int`（近似类型）是 Python 没有的概念：
+        它把「底层类型相同」也算作满足约束。
+      java: |
+        Java 用 `T extends Number`，Go 用接口做约束 ——
+        两者都能表达「必须是数值」，但 Go 的约束更强：
+        可以用 `|` 列出多个类型、用 `~` 表示底层类型，
+        而且约束本身是个接口，可以复用、可以嵌入。
+        Java 的约束在擦除后运行时不可见，Go 的约束在编译期
+        用来检查运算合法性。两边都不支持运算符重载，
+        所以 `+` 能否使用完全取决于约束里列了哪些类型。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  variance:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有型变** —— 泛型类型之间没有子类型关系推导，
+        `[]Dog` 不能当 `[]Animal` 用（切片本来就不型变），
+        `Box[Dog]` 也不能当 `Box[Animal]` 用。
+        也没有 `? extends` 那样的通配符语法。
+        要转换只能显式逐元素复制或做适配 ——
+        这一点比 JavaScript 更严格（JavaScript 数组天然可变、什么都能塞）。
+      python: |
+        Go **没有型变**，泛型实例之间互不兼容，也没有通配符。
+        需要「装得下多种类型」时，Go 用接口而不是型变 ——
+        把元素类型写成接口，`[]Shape` 装任何满足 Shape 的值。
+        这是 Go 的典型解法：用接口替代类型系统里的高级特性，
+        代价是装进去要装箱、取出来要断言。
+      java: |
+        Go **没有型变**，也没有 `? extends` / `? super` 通配符 ——
+        Java 里用来表达变型的那套工具在 Go 里不存在。
+        Go 的替代方案是接口：`[]Shape` 里装 `Circle` 与 `Rect`，
+        靠接口的动态分派而不是类型参数。
+        实际影响：Go 里「泛型容器协变」这件事做不到，
+        要跨类型传递就得复制或改成接口切片。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-erasure:
+    code: |
+      // Go 的泛型**既不是纯擦除，也不是纯单态化** ——
+      // 实现走的是「GC shape stenciling」：
+      // 运行时形状相同的类型共享同一份实例化代码
+      // （比如所有指针类型共用一个 shape），
+      // 每个实例化再带一个字典（dictionary）提供类型相关的操作。
+
+      func Name[T any]() string {
+        var zero T
+        return reflect.TypeOf(zero).String()   // @note 运行时拿得到类型实参
+      }
+
+      Name[int]()      // "int" —— 类型实参在运行时是可得的
+    vs:
+      javascript: |
+        Go 的泛型在运行时**保留类型实参**（通过字典与 `reflect` 能拿到），
+        这与 JavaScript 的处境相反 —— JavaScript 没有泛型，
+        但运行时什么都看得到（值自带类型）。
+        Go 是「编译期检查 + 运行时保留信息」，两边都有类型信息，
+        只是获取方式不同：JavaScript 直接看值，Go 要显式走 `reflect`。
+      python: |
+        Python 的泛型运行时不保留（`list[int]` 取不到 `int`），
+        这一点与类型擦除的效果相似；Go 的实现保留了类型实参 ——
+        通过 `reflect.TypeOf` 能拿到 `T` 具体是什么。
+        所以 Go 泛型里可以写 `reflect` 相关的逻辑，Python 里做不到。
+        代价是 Go 的泛型调用要传一个隐藏的字典参数，有一点额外开销。
+      java: |
+        Java **擦除**类型参数，运行时 `List<String>` 就是 `List`，
+        拿不到 `String`；Go **不擦除**，运行时能拿到类型实参
+        （`reflect` 可以读出 `T` 是什么），实现上介于擦除与单态化之间 ——
+        形状相同的类型共享实例化、各自带一份字典。
+        实际差别：Java 里 `new T[]` 与 `instanceof List<String>` 不合法，
+        Go 里这些限制都不存在。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
