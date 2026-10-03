@@ -116,6 +116,12 @@ boxes:
       var nums = [1, 2, 3];
       for (final n in nums) { }             // @note for-in 只要求对象是 Iterable
 
+      // @note! 但 Iterable **没有下标** —— 它只是「能按顺序走一遍」
+      var iter = nums.where((n) => n > 1);  // @note 结果类型是 Iterable<int>，不是 List
+      // iter[0];                           // @note! 编译错误：没有 [] 运算符
+      iter.elementAt(0);                    // @note 能取，但是线性查找，可能很慢
+      iter.toList()[0];                     // @note 要反复按下标访问就先转成 List
+
       // 手工走一遍，与 for-in 做的事一模一样：
       Iterator<int> it = nums.iterator;
       while (it.moveNext()) {               // @note! moveNext() 既推进又返回「还走不走得动」
@@ -165,12 +171,10 @@ boxes:
       var code = 2;
       switch (code) {                       // @note 传统 switch 语句
         case 1:
-          print("一");
-          break;                            // @note! 非空分支不写 break：编译期就报错
+          print("一");                       // @note! 执行完直接跳出，**不需要 break**
         case 2:
-        case 3:                             // @note 空的 case 才允许「贯穿」下来
-          print("二或三");
-          break;
+        case 3:                             // @note 空的 case 会「落」到下一个
+          print("二或三");                    // @note 写 break 也合法，只是多余
         default:
           print("其他");
       }
@@ -199,10 +203,12 @@ boxes:
       javascript: |
         **贯穿的处理相反**：JavaScript 的 `switch` 会静默贯穿，
         忘了 `break` 就掉进下一个分支，是最经典的 bug 之一；
-        Dart 的非空分支不写 `break` 直接编译不过，坑从语法上堵住了
-        （只有空的 `case` 允许落下去）。另一处是能力：
-        JavaScript 的 `case` 只能写常量，Dart 3 的模式能写类型、范围、
-        解构、逻辑组合，还能把 `switch` 当表达式赋值。
+        Dart 的非空分支执行完直接跳出，**压根不写 `break`**，
+        只有空的 `case` 才会落到下一个 —— 同一段结构在两个语言里，
+        一个要求你记住加、一个要求你记住不加，语义正好相反。
+        另一处是能力：JavaScript 的 `case` 只能写常量，
+        Dart 3 的模式能写类型、范围、解构、逻辑组合，
+        还能把 `switch` 当表达式赋值。
       python: |
         Python 直到 3.10 才有 `match`，在那之前只能靠一长串 `if / elif`；
         Dart 的 switch 一直都在，Dart 3 又补上了模式与表达式形式。
@@ -212,9 +218,11 @@ boxes:
         把「忘了处理新加的那种情况」变成了编译器能拦下的问题。
         贯穿则只有 Dart 有（Python 从来没有）。
       java: |
-        Java 的经典 `switch` 与 Dart 的传统 `switch` 同为「常量分支 + `break`」，
-        但**兜底方式相反**：Java 忘了 `break` 会静默贯穿到下一个分支，
-        编译器不吭声；Dart 直接报错，只有空 case 才允许落下。
+        两边都有传统 `switch`，但**收尾方式相反**：Java 忘了 `break`
+        会静默贯穿到下一个分支，编译器不吭声；Dart 的非空分支默认就跳出，
+        `break` 写了也行、不写也行，只有空 `case` 才落下 ——
+        所以在 Dart 里看到 `break` 反而要留意，它多半是从别处带过来的习惯，
+        而不是这里真的需要。
         Java 较新的版本也在补模式匹配与箭头 case，方向与 Dart 3 一致，
         但 Dart 这边还多一条：**密封类上的穷尽性检查**，
         漏分支编译不过，Java 的 `switch` 至今没有这一层。

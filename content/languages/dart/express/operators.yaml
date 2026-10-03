@@ -85,8 +85,10 @@ boxes:
       }
       print(Point(1) == Point(1));  // @note true：自己定义的
 
-      print(1 == 1.0);              // @note! false —— int 与 double 不相等
-      print(double.nan == double.nan);  // @note false：按 IEEE 规则
+      print(1 == 1.0);              // @note! true —— 数值相等就算相等，类型不同不影响
+      print(1.hashCode == 1.0.hashCode);   // @note! 也是 true
+      print(identical(1, 1.0));     // @note false：值相等，但不是同一个对象
+      print(double.nan == double.nan);  // @note false：按 IEEE 规则，NaN 不等于自己
     vs:
       javascript: |
         两边都不会替你做类型转换（JavaScript 的宽松 `==` 会，所以
@@ -98,19 +100,20 @@ boxes:
         从宽松相等迁过来时，原本靠转换成立的判断会静静地变成假。
       python: |
         Python 的 `==` 比内容、`is` 比身份，与 Dart 的 `==` / `identical` 对应，
-        而且两边的默认规则也一样：自定义类不重载时都按身份比。
-        差别在**集合**：Python 的列表 `==` 会逐元素比较
-        （`[1,2] == [1,2]` 为真），Dart 的列表比的是身份（为假）——
-        同一行判断在两个语言里结论相反，这是最容易踩的一处。
-        另一处是 `1 == 1.0`：Python 为真，Dart 为假（`int` 与 `double` 不相等）。
+        数值上两边也一致（`1 == 1.0` 都为真）。
+        真正的分歧在**容器**：Python 的列表 `==` 会逐元素比较
+        （`[1, 2] == [1, 2]` 为真），Dart 的列表没有重载 `==`、
+        比的是身份（为假）—— 同一行判断在两个语言里结论相反，
+        这是从 Python 过来最容易踩的一处。
+        自定义类两边默认又都按身份比 —— 所以差异只在标准库的容器上，
+        不在语言规则上，记「列表别用 ==」就够了。
       java: |
         两边都是「不重载就按身份比」，且都要求重载 `==` 时同时给出 `hashCode`，
         规则可以逐条对应。差别在**字符串**：Java 的 `==` 比身份，
         比内容要写 `.equals`；Dart 的 `String` 重载了 `==`，直接 `==` 就行。
-        另一处是包装类型的坑：Java 里 `Integer` 的 `==` 在超出缓存范围后
-        会给出意外结果，Dart 的 `int` 没有这个缓存问题；
-        但 Dart 这边 `1 == 1.0` 为假，Java 里 `1 == 1.0`（基本类型）为真 ——
-        方向又是反的。
+        另一处是包装类型：Java 的 `Integer` 在缓存范围之外 `==` 会给出
+        意外结果（必须改用 `.equals`），Dart 的 `int` 没有这个坑，
+        而且 `1 == 1.0` 直接为真 —— 数值比较在这边不用再操心类型。
     equivalence:
       javascript: analogous
       python: divergent

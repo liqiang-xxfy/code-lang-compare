@@ -37,14 +37,22 @@ boxes:
       var map = {'a': 1};           // @note 映射字面量
       var set = {1, 2};             // @note 花括号没有冒号就是集合
 
+      var empty = {};               // @note! 空花括号是**映射**不是集合，要写 <int>{}
+      var list2 = [...list, 3];     // @note 展开：把一个可迭代对象摊进字面量
+      var maybe = null;
+      var safe = [...?maybe];       // @note 空感知展开：源为 null 时什么都不插
+
       // @note int 与 double 都是 num 的子类型，num 是它们的公共父类
     vs:
       javascript: |
         数字上两边差别很实在：JavaScript 只有一种数字类型，
-        `1` 与 `1.0` 是同一个值；Dart 把它们分成 `int` 与 `double`，
-        而且 `1 == 1.0` 在 Dart 里**不成立**，`identical` 更不成立。
+        `1` 与 `1.0` 连类型都一样；Dart 把它们分成 `int` 与 `double`
+        两个类型（`1 == 1.0` 仍为真，但 `identical` 为假，类型也确实是两个）。
         集合字面量上 Dart 多一种：`{}` 没有冒号就是集合，
-        而 JavaScript 的 `{}` 永远是对象 —— 这一处最容易看错。
+        而 JavaScript 的 `{}` 永远是对象 —— 这一处最容易看错，
+        而且**空的 `{}` 是映射不是集合**，这条几乎人人都会踩一次。
+        展开写法两边语法相同（`...`），但 Dart 多一个空感知版本 `...?`，
+        JavaScript 得自己写 `...(x ?? [])`。
         另外 Dart 有原样字符串前缀 `r`，JavaScript 只能靠反斜杠双写。
       python: |
         两边的字面量都很丰富。差别在两处：
@@ -113,6 +121,8 @@ boxes:
   null-and-undefined:
     code: |
       // @note Dart 只有 null，没有第二个「空值」
+      // @note! 而且 null 本身也是**一个对象**（Null 类的唯一实例）——
+      // @note! 不是「没有类型」，只是上面没有你能用的成员
       int? maybe = null             // @note 「可能为空」写进类型：? 是类型的一部分
 
       // int nope = null;           // @note! 编译错误：int 不接受 null
@@ -163,6 +173,9 @@ boxes:
       var i = 1;
       var d = i.toDouble();         // @note! 必须显式调用：Dart 没有隐式数值转换
       // double bad = i;            // @note! 编译错误
+
+      double lit = 1;               // @note! 唯一的例外：**字面量**会自动当 double（等于 1.0）
+      // double lit2 = i;           // @note! 换成变量就不行了 —— 例外只给字面量
 
       var n = 3.9;
       var t = n.toInt();            // @note 3：截断，不是四舍五入
