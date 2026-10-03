@@ -1,0 +1,188 @@
+# rust —— express / functions
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: functions` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  function-declaration:
+    code: |
+      fn add(a: i32, b: i32) -> i32 {   // @note 参数与返回值都必须写出类型
+        a + b
+      }
+
+      let f: fn(i32, i32) -> i32 = add;  // @note 函数是一等值，可以赋给变量
+      let g = |x: i32| x + 1;            // @note 闭包字面量，类型由编译器推断
+
+      pub fn visible() {}                // @note pub 控制可见性，默认私有
+      // fn add(a: i32, b: i32) -> i32 { }  // @note! 不支持重载：同名函数只能有一个
+    vs:
+      javascript: |
+        JavaScript 用 `function` 或箭头函数声明，参数不标类型；
+        Rust 的 `fn` 必须把参数与返回值类型写全。两边的函数都是一等值，
+        但 Rust 的**函数与闭包是两个类型** —— 函数指针是 `fn(i32) -> i32`，
+        闭包各有各的匿名类型，要统一得装箱或用泛型。JavaScript 里两者没有区别。
+        Rust 也不支持函数重载，同名函数只能定义一次。
+      python: |
+        Python 用 `def` 加类型标注（可选、运行时不检查）；Rust 的 `fn`
+        参数与返回值类型是必填的，编译器拿它们做检查。Python 的默认参数
+        与关键字参数在 Rust 里**完全不存在** —— 想让某个参数可选，
+        得用 `Option<T>` 或 builder 模式在调用点显式表达。
+      java: |
+        Java 与 Rust 都要写类型、都支持可见性修饰（`public` 对 `pub`），
+        但 Java 支持方法重载、Rust 不支持。函数作为值的写法也不同：
+        Java 用函数式接口（`Function<Integer,Integer>`）装 lambda，
+        有装箱开销；Rust 的 `fn` 指针与闭包都是原生类型，
+        泛型参数配合 `impl Fn` 可以零成本传递。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  parameters:
+    code: |
+      fn takes(s: String) {}          // @note! 按值传入 = 转移所有权，调用方之后不能再用
+      fn borrows(s: &String) {}       // @note 只读借用
+      fn edits(s: &mut String) { s.push('!'); }  // @note 可变借用，调用时要传 &mut
+
+      fn copy_type(n: i32) {}         // @note Copy 类型按值传是复制，不影响调用方
+
+      #[derive(Clone)]
+      struct Config { retries: u32 }
+      fn use_config(c: Config) {}     // @note 不想转移所有权就传引用，或调用方 clone()
+    vs:
+      javascript: |
+        JavaScript 的参数传递没有「所有权」这层：对象传进去后调用方与函数
+        同时持有它，谁改都看得见。Rust 默认是**移动** —— 传 `String` 进去，
+        调用方之后就用不了了；要保留访问权必须在函数签名上写 `&` 或 `&mut`。
+        这个信息写在签名里，所以只看函数头就知道它会不会把参数吃掉。
+      python: |
+        Python 的参数是引用绑定，函数内重新赋值不影响调用方，
+        但改可变对象的内容会影响 —— 这层区分靠类型自己（可变/不可变）判断；
+        Rust 把「能不能改」写进签名：`&T` 只读、`&mut T` 可改、
+        裸 `T` 是拿走所有权。读 Rust 的函数签名就能知道它会不会消耗实参，
+        Python 里必须读函数体。
+      java: |
+        Java 一律按值传递：基本类型传副本，对象传引用副本 ——
+        函数内改对象的字段会影响调用方，重新赋值引用不会。
+        Rust 把这两种意图分成了不同的类型：`&mut T` 对应「我要改它」、
+        `&T` 对应「我只看」、裸 `T` 对应「我要拿走」。Java 里
+        这三个意图在签名上长得一模一样，只能靠注释与命名传达。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  variadic:
+    absent: true
+    vs:
+      javascript: |
+        Rust 的函数**不支持变参** —— 没有 `...args` 那样的写法，
+        也没有 `arguments`。要接受不定个数的同类型参数，标准做法是
+        收一个切片 `&[T]` 或 `Vec<T>`，调用方用 `&[a, b, c]` 传进去。
+        `println!` 那种能接任意个参数的写法靠的是宏，不是函数。
+      python: |
+        Rust 的函数**不支持变参**，`*args` / `**kwargs` 都没有对应物。
+        不定参数只能收切片或 `Vec`，关键字参数则完全没有 ——
+        需要「可选的一组命名参数」时，Rust 的惯用解法是 builder 模式：
+        每个 setter 返回 `self`，链式调用拼出一个结构体。
+      java: |
+        Java 有变参 `int... nums`，Rust **没有** —— 这是从 Java 过来
+        最直接的一处缺失。Rust 的替代是收 `&[i32]`，调用方写 `&[1, 2, 3]`；
+        需要在同一位置接受不同类型参数时，只能靠泛型 trait
+        或宏，而宏的调用形态（`name!(…)`）与普通函数明显不同。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  return-values:
+    code: |
+      fn double(n: i32) -> i32 {
+        n * 2                    // @note! 最后一个表达式就是返回值，不写 return、不写分号
+      }
+
+      fn find(xs: &[i32], target: i32) -> Option<usize> {
+        for (i, x) in xs.iter().enumerate() {
+          if *x == target { return Some(i); }   // @note 提前返回要用 return
+        }
+        None                     // @note 没有 else —— 找不到就是 None，类型上说得清楚
+      }
+
+      fn read(path: &str) -> Result<String, std::io::Error> {
+        let text = std::fs::read_to_string(path)?;  // @note ? 出错就直接返回 Err
+        Ok(text.trim().to_string())
+      }
+    vs:
+      javascript: |
+        JavaScript 靠 `return` 返回值，漏写就返回 `undefined` ——
+        编译器不会提醒，问题要到调用方用错时才发现。Rust 的函数体
+        最后一行表达式**就是**返回值，忘写它意味着返回 `()`，
+        与声明的返回类型不符，编译不过。另外 Rust 把「可能失败」
+        放进返回类型（`Result`），JavaScript 里通常靠抛异常或返回 null。
+      python: |
+        Python 靠 `return`，没有返回值就是 `None`，且 `None` 可以赋给任何变量；
+        Rust 的最后一行表达式是返回值，忘了它编译不过 —— 错误在编译期暴露。
+        另一个显著差别是 Rust 的 `?` 运算符：出错就提前返回 `Err`，
+        不必每个调用点都写一遍 try 块。Python 里对应的是异常层层上抛，
+        但「这个函数会不会失败」在签名上看不出来。
+      java: |
+        Java 用 `return`，且必须保证所有路径都有返回值（编译器检查）；
+        Rust 更进一步 —— 最后一行表达式的值就是返回值，连 `return` 都省了，
+        但「所有路径都给了值」同样由编译器保证。失败表达上两边分道扬镳：
+        Java 的受检异常写在 `throws` 里，调用方必须处理；
+        Rust 用 `Result` 放在返回类型里，`?` 一行就能往上抛，
+        而且「有没有可能失败」一眼可见。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  closures:
+    code: |
+      let n = 10;
+      let add_n = |x| x + n;        // @note 闭包捕获 n（默认按引用借用）
+      println!("{}", add_n(5));      // @note 15
+
+      let mut count = 0;
+      let mut inc = || count += 1;   // @note 需要修改捕获值 → FnMut
+      inc();
+
+      let owned = String::from("hi");
+      let consume = move || owned;   // @note! move 把所有权搬进闭包，之后外面不能再用 owned
+
+      fn apply(f: impl Fn(i32) -> i32, v: i32) -> i32 { f(v) }  // @note 三种 trait 按捕获方式区分
+    vs:
+      javascript: |
+        JavaScript 的闭包捕获的是**变量本身**（引用），循环里用 `var`
+        造的闭包会共享同一个变量 —— 这是经典陷阱。Rust 的闭包默认按借用捕获，
+        用 `move` 可以改成把值搬进去；而且每个闭包有独立的匿名类型，
+        能改捕获值的与只能读的，类型不同（`FnMut` 与 `Fn`），
+        传给函数时在签名里就写清楚了。JavaScript 完全不做这层区分。
+      python: |
+        Python 的闭包捕获变量（后期绑定），循环里造的闭包共享同一份，
+        想固定住得写 `lambda x=x: …` 这种默认参数技巧。Rust 用 `move`
+        一次性解决：把值搬进闭包，每个闭包拿到自己那份。
+        另一处差别是 Rust 会用 trait 区分闭包是只读（`Fn`）、
+        要改捕获值（`FnMut`）还是消耗捕获值（`FnOnce`），
+        Python 里这三者没有任何语法区别。
+      java: |
+        Java 的 lambda 只能捕获**事实上的 final** 变量 —— 想改外部变量
+        得用数组或 `AtomicInteger` 绕过去；Rust 的闭包可以直接
+        `&mut` 捕获外部变量（`FnMut`），代价是这个闭包同时存在时
+        外部变量不能再被借用。Java 的 lambda 也没有所有权概念，
+        捕获的是引用副本；Rust 的 `move` 会真实转移所有权。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

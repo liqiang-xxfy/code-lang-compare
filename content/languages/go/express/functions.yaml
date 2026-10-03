@@ -1,0 +1,210 @@
+# go —— express / functions
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: functions` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  function-declaration:
+    code: |
+      func add(a int, b int) int {   // @note 类型写在参数名之后
+        return a + b
+      }
+      func add2(a, b int) int { return a + b }   // @note 相邻同类型可以合并写法
+
+      var f func(int, int) int = add   // @note 函数是一等值
+      g := func(x int) int { return x + 1 }      // @note 匿名函数（闭包）
+
+      func (u *User) Rename(n string) {}          // @note 方法 = 带 receiver 的函数
+
+      // func add(a, b float64) float64 { }       // @note! 不支持重载
+    vs:
+      javascript: |
+        JavaScript 用 `function` 或箭头函数，参数不标类型；Go 的 `func`
+        必须写类型，而且**类型在参数名之后**（`a int`），与 TypeScript 相反。
+        两边函数都是一等值，但 Go 的**方法**是另一套东西 ——
+        在函数名前的括号里声明 receiver（`func (u *User) Rename()`），
+        这与 JavaScript 把函数挂在原型或对象上不是同一个机制。
+        Go 同样不支持重载，同名函数只能定义一次。
+      python: |
+        Python 用 `def` 加可选标注，靠缩进划块；Go 用花括号，
+        类型写在参数名之后。Python 有默认参数与关键字参数，
+        Go **两个都没有** —— 想让参数可选，惯用解法是传一个配置结构体，
+        或者用「option 函数」模式（一串 `func(*Config)` 参数）。
+        方法上两边形态接近（`self` 对 receiver），但 Go 的 receiver
+        可以选择值或指针，并且它决定方法属于谁。
+      java: |
+        Java 与 Go 都要写类型，但位置相反：Java 是 `int a`，
+        Go 是 `a int` —— 从 Java 过来改手写习惯需要几天。
+        Java 支持重载与变参，Go 两个都不支持。方法上差别更大：
+        Java 的方法必须写在类里，Go 的方法是带 receiver 的顶层函数，
+        因此可以给**任何本包定义的类型**加方法，不必改类型定义本身。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  parameters:
+    code: |
+      func modify(s []int) { s[0] = 9 }      // @note 切片头是按值传的，但底层数组共享 → 会改到调用方
+      func noEffect(s []int) { s = append(s, 1) }  // @note! 重新赋值 s 不影响调用方
+      func byPtr(u *User) { u.Name = "Ada" } // @note 想改结构体就传指针
+
+      type Config struct{ Retries int }
+      func withConfig(c Config) {}            // @note 结构体按值传 = 整个复制
+
+      func greet(name string, times int) {}   // @note! 没有默认值、没有关键字参数
+    vs:
+      javascript: |
+        JavaScript 的对象与数组传进去后调用方与函数共享同一个引用；
+        Go 的参数**一律按值传递** —— 传切片时复制的是「切片头」
+        （指针 + 长度 + 容量），所以改元素会影响调用方、`append` 之后
+        重新赋给参数则不会。这层区分在 JavaScript 里不存在，
+        读 Go 函数时得先看参数是值、指针还是切片，才能判断它能不能改动实参。
+      python: |
+        Python 传的是引用绑定，改可变对象会影响调用方；
+        Go 一律按值传，想影响调用方得显式传指针 —— 切片是个中间态
+        （头按值、底层数组共享），这层细节 Python 里没有。
+        两边都没有默认参数：Python 缺省值写 `def f(x=1)`，
+        Go 只能用可变参数或配置结构体替代。
+      java: |
+        两边都是按值传递，且都区分「基本类型传副本」与「引用类型传引用副本」，
+        这一层几乎一一对应。Go 多一个切片：它虽然按值传，
+        但底层数组是共享的，改元素会影响调用方，`append` 之后则不一定 ——
+        Java 的数组没有这个「头与底层分离」的语义。
+        另外 Go 与 Java 都没有默认参数与关键字参数。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  variadic:
+    code: |
+      func sum(nums ...int) int {    // @note 变参：类型前加 ...，必须是最后一个参数
+        total := 0
+        for _, n := range nums { total += n }   // @note 函数内它就是一个切片
+        return total
+      }
+
+      sum(1, 2, 3)
+      xs := []int{1, 2, 3}
+      sum(xs...)                     // @note 传切片要加 ... 展开
+
+      // func bad(a ...int, b int) {}  // @note! 变参只能放最后
+    vs:
+      javascript: |
+        JavaScript 的 rest 参数 `...nums` 与 Go 的 `nums ...int` 位置相反 ——
+        类型写在后面，而 rest 参数写在前面。展开时也相反：
+        JavaScript 用 `f(...xs)`，Go 用 `f(xs...)`，省略号在**变量之后**。
+        两边都要求变参在末尾，且函数内它都是数组/切片。
+      python: |
+        Python 收变参用 `*args`、收关键字参数用 `**kwargs`；
+        Go 只有前者，形态是 `nums ...int`，而且是**同类型**的 ——
+        Go 没有 `**kwargs` 的对应物，想做「可选的一组命名参数」
+        得传配置结构体。展开调用时 Python 写 `f(*xs)`，Go 写 `f(xs...)`。
+      java: |
+        Java 的 `int... nums` 与 Go 的 `nums ...int` 是同一个东西，
+        只是类型与省略号的位置互换。调用时 Java 可以直接传数组，
+        Go 必须写成 `f(xs...)` 显式展开。两边都要求变参在参数表末尾，
+        函数内都当作数组/切片使用 —— 这一节是 Java 与 Go 最接近的一处。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: identical
+
+  return-values:
+    code: |
+      func div(a, b int) (int, error) {   // @note! 多返回值：结果 + error 是 Go 的招牌
+        if b == 0 {
+          return 0, fmt.Errorf("除数为零")
+        }
+        return a / b, nil
+      }
+
+      q, err := div(6, 2)
+      if err != nil { return err }
+
+      func split(s string) (head, tail string) {  // @note 命名返回值，函数内就是变量
+        head, tail = s[:1], s[1:]
+        return                                     // @note 裸 return：返回上面两个名字
+      }
+
+      func mustParse(s string) int {
+        n, _ := strconv.Atoi(s)    // @note! 用 _ 丢掉 error 是常见但不该学的写法
+        return n
+      }
+    vs:
+      javascript: |
+        JavaScript 的函数只能返回一个值，想同时给出结果与错误得返回对象或抛异常；
+        Go 的**多返回值**是语言级的，`(结果, error)` 是标准形态，
+        调用方习惯上紧接着写 `if err != nil`。另一个差别是「命名返回值」 ——
+        Go 可以在签名里给返回值起名，函数内直接当变量用，`return` 不带参数即可。
+        JavaScript 里没有对应写法。
+      python: |
+        Python 返回多个值其实是返回元组再解构，失败靠异常；
+        Go 的多返回值是语言特性，失败靠**第二个返回值**。
+        所以 Go 里「这个函数会不会失败」写在签名上，
+        Python 里得看文档或读实现。命名返回值（`(head, tail string)`）
+        是 Go 独有的，Python 没有；裸 `return` 也只能在 Go 里用。
+      java: |
+        Java 只能返回一个值，多值要包成对象或数组；失败用受检异常，
+        写在 `throws` 里，调用方必须处理。Go 把这两件事合成了一件事：
+        返回 `(值, error)`，调用方紧接着判断 err —— 错误不是控制流跳转，
+        而是一个普通返回值。Java 的异常会打断正常流程，
+        Go 的错误处理是线性的，读代码时更容易看清每条失败路径。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  closures:
+    code: |
+      n := 10
+      addN := func(x int) int { return x + n }   // @note 闭包捕获 n
+      fmt.Println(addN(5))                        // @note 15
+
+      counter := func() func() int {              // @note 返回闭包 = 造出一个私有状态
+        c := 0
+        return func() int { c++; return c }
+      }()
+
+      for _, v := range xs {
+        go func() { fmt.Println(v) }()             // @note! 1.22 起每次迭代是新变量，安全
+      }
+      for _, v := range xs {
+        v := v                                     // @note! 1.22 之前必须这样固定住 v
+        go func() { fmt.Println(v) }()
+      }
+    vs:
+      javascript: |
+        JavaScript 的闭包捕获变量本身，`var` 循环里的闭包会共享同一个变量 ——
+        Go 在 1.22 之前有一模一样的问题，需要在循环体里写 `v := v` 固定住；
+        两边现在都改了语义（Go 1.22 起每次迭代是新变量，与 `let` 的行为对齐）。
+        差别在 Go 的闭包是**函数字面量**，类型仍是 `func(...)`，
+        没有 JavaScript 箭头函数与 `this` 那套纠葛 —— Go 没有 `this`。
+      python: |
+        Python 的闭包是后期绑定，循环里造的闭包共享同一个变量，
+        想固定住得写 `lambda x=x: …`；Go 在 1.22 起已经改成每轮新变量，
+        不必再手动固定。两边都能用闭包造出私有状态（函数返回函数），
+        思路一致。差别是 Go 的闭包有明确的函数类型 `func() int`，
+        Python 里函数就是函数，没有这层类型书写。
+      java: |
+        Java 的 lambda 只能捕获事实上的 final 变量，想改外部变量
+        得用数组或 `AtomicInteger` 绕；Go 的闭包直接读写外部变量，
+        没有这个限制 —— 也因此要小心多个闭包共享同一变量。
+        捕获列表上 Java 是「按引用捕获但值不能变」，
+        Go 是「按引用捕获且可以改」，从 Java 过来会觉得更宽松、也更容易写出共享状态。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
