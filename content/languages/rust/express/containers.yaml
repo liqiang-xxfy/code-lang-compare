@@ -1,0 +1,99 @@
+# rust —— express / containers
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: containers` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-containers-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arrays:
+    code: |
+      let fixed: [i32; 3] = [1, 2, 3];      // @note 定长数组，长度是类型的一部分，放在栈上
+      let repeated = [0u8; 16];              // @note 16 个 0
+
+      let mut v: Vec<i32> = vec![1, 2, 3];   // @note Vec 是可变长的堆数组
+      v.push(4);
+      let last = v.pop();                    // @note Option<i32>，空时是 None
+
+      let slice: &[i32] = &v[1..3];          // @note 切片是视图，不复制元素
+      // v.push(5);                          // @note! 借用未结束时不能改 v —— 借用检查器拦住
+
+      let n = v[0];                          // @note! 越界会 panic
+      let safe = v.get(0);                   // @note Option<&i32>，越界得 None
+    vs:
+      javascript: |
+        JavaScript 只有一种数组：长度可变、元素类型不限。Rust 分成三种 ——
+        定长数组 `[T; N]`（长度写进类型、栈上）、`Vec<T>`（可变长、堆上）、
+        切片 `&[T]`（借来的视图，不拥有元素）。多出来的是**借用规则**：
+        拿着切片的时候不能再去 `push`，这在 JavaScript 里是完全合法且常见的操作。
+        越界行为也不同：JavaScript 读越界得到 `undefined`，
+        Rust 用 `v[0]` 会 panic，想安全就写 `v.get(0)` 拿 `Option`。
+      python: |
+        Python 的 `list` 对应 Rust 的 `Vec`，两者都能增长；
+        Rust 多出一个**定长数组** `[T; N]`，长度是类型的一部分，
+        可以在栈上分配。最需要适应的是借用：切出一个切片之后，
+        原 `Vec` 在切片存活期间不能再改 —— Python 里 `sub = xs[1:3]`
+        是**复制**，之后随便改 `xs` 都行，两边语义完全不同。
+        越界上 Python 抛 IndexError，Rust 的 `v[0]` panic、`v.get(0)` 返回 Option。
+      java: |
+        Java 的数组长度固定且是对象，Rust 的定长数组 `[T; N]` 是值类型、
+        赋值会整体复制；Java 的 `ArrayList` 对应 `Vec`，但 Java 的集合
+        只能装引用类型，Rust 的 `Vec<i32>` 直接存值，没有装箱。
+        索引越界两边都是运行时错误（Java 抛异常、Rust panic），
+        但 Rust 提供了 `get()` 这条返回 `Option` 的安全通道，
+        Java 的 `List.get` 没有对应形态，只能先判 `size()`。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  maps:
+    code: |
+      use std::collections::HashMap;         // @note 不在 prelude 里，要显式引入
+
+      let mut scores: HashMap<String, i32> = HashMap::new();
+      scores.insert("Ada".to_string(), 90);
+      scores.insert("Bob".to_string(), 85);   // @note insert 会覆盖旧值并返回它
+
+      let s = scores.get("Ada");              // @note Option<&i32>
+      let s = scores.get("Ada").copied().unwrap_or(0);
+
+      scores.entry("Eve".to_string()).or_insert(0);  // @note 没有才插入
+      *scores.entry("Eve".to_string()).or_insert(0) += 1;  // @note 计数器的标准写法
+
+      for (k, v) in &scores { }               // @note 遍历顺序不保证
+      // scores["nope"]                       // @note! Index 用在缺失 key 上会 panic
+    vs:
+      javascript: |
+        两个差别最实际：JS 的 `Map` 取缺失的 key 得到 `undefined`，
+        判断存在要 `has()`；Rust 的 `HashMap` 用 `get()` 返回 `Option`，
+        想带默认值就 `unwrap_or`。另一处是 Rust 的 **`entry` API** ——
+        「没有就插入、有就改」这类逻辑一次查表搞定，JS 里通常写成
+        `if (!m.has(k)) m.set(k, 0); m.set(k, m.get(k) + 1)`，查了三次表。
+        Rust 的 `HashMap` 用 `[]` 取值时缺失会 panic，与 JS 的 undefined 相反。
+      python: |
+        Python 的 `dict` 用 `d[k]` 取缺失 key 抛 KeyError、`d.get(k)` 给 None、
+        `d.setdefault(k, 0)` 做「没有才插入」；Rust 把这些收进一个 `entry` API，
+        且返回的是可写引用 —— 可以直接 `*entry.or_insert(0) += 1`。
+        Python 里对应写法要 `d[k] = d.get(k, 0) + 1`（查两次）。
+        遍历顺序上 Python 3.7 起 dict 保序，Rust 的 `HashMap` **明确不保证顺序**。
+      java: |
+        Java 的 `HashMap.get` 返回 `null`，`getOrDefault` / `putIfAbsent` /
+        `computeIfAbsent` 分别对应 Rust `entry` API 的一部分；
+        Rust 用一个 `entry()` 入口配 `or_insert` 覆盖了这几种需求，
+        而且返回的是可变引用，拿到就能改。空值上也不同：
+        Java 的 `HashMap` 允许 null 值，Rust 的 `HashMap<K, V>` 里
+        `V` 是什么类型就存什么，没有「值缺失」与「值就是 null」的混淆。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

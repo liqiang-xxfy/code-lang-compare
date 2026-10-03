@@ -1,0 +1,96 @@
+# go —— express / containers
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: containers` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-containers-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arrays:
+    code: |
+      var fixed [3]int = [3]int{1, 2, 3}   // @note 数组：长度是类型的一部分
+      copy := fixed                         // @note! 数组是值类型 —— 这一行复制了全部 3 个元素
+      copy[0] = 9                           // @note fixed[0] 仍是 1
+
+      xs := []int{1, 2, 3}                  // @note 切片：长度可变，底层是数组
+      xs = append(xs, 4)                    // @note append 可能重新分配，返回新的切片头
+
+      m := make([]int, 0, 16)               // @note 预分配容量 16，避免反复扩容
+      sub := xs[1:3]                        // @note! 切片共享底层数组，改 sub 会影响 xs
+      three := xs[:3:3]                     // @note 三索引切片：限定容量，防越界写入
+
+      n := len(xs)                          // @note 长度
+      c := cap(xs)                          // @note 容量
+    vs:
+      javascript: |
+        JavaScript 的数组就是 Go 的切片（可变长），Go 另有**数组** `[3]int` ——
+        长度写进类型，而且是**值类型**：`copy := fixed` 会复制全部元素，
+        JavaScript 里赋值只会复制引用。切片上最需要注意的是
+        `sub := xs[1:3]` **共享底层数组**，改 `sub` 会改到 `xs`；
+        JavaScript 的 `slice()` 是复制，语义正相反。
+        越界时 `xs[9]` 两边都抛/panic，但 Go 可以 `append` 自动扩容。
+      python: |
+        Python 的 `list` 是引用语义、切片是复制；Go 的切片**共享底层数组**，
+        `sub := xs[1:3]` 之后改 `sub[0]` 会改到 `xs` ——
+        这是从 Python 过来最容易踩的一处。长度与容量是 Go 特有的概念：
+        `len` 是可见长度、`cap` 是底层数组还能装多少，
+        `append` 超出容量才会重新分配。Python 的列表没有这层区分。
+      java: |
+        Java 的数组长度固定、是对象、赋值复制引用；Go 的数组长度是类型的一部分
+        且为值类型（赋值整体复制），Go 的切片才对应 Java 的数组/ArrayList。
+        切片多出「长度 + 容量」两个量：Java 的 `ArrayList` 内部也有容量，
+        但对外不暴露，也不存在「两个 list 共享同一段底层数组」这种情况，
+        而 Go 的切片切片是常态，写的时候必须想清楚谁共享谁。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  maps:
+    code: |
+      m := map[string]int{"Ada": 90}      // @note 字面量初始化
+      var empty map[string]int             // @note! nil map：读得到零值，写会 panic
+      m2 := make(map[string]int)           // @note 要写就得先 make
+
+      m["Bob"] = 85                        // @note 键不存在就插入，存在就覆盖
+      v := m["nope"]                       // @note 得到零值 0 —— 分不清「值是 0」与「键不存在」
+      v, ok := m["nope"]                   // @note! comma-ok：ok 告诉你键在不在
+      delete(m, "Bob")                     // @note delete 是内建函数，不是方法
+
+      for k, v := range m { _ = k; _ = v } // @note! 遍历顺序是随机的，每次都不一样
+
+      // 并发读写同一个 map 会直接 panic（fatal error: concurrent map writes）
+    vs:
+      javascript: |
+        两个差别最实际：JavaScript 的 `Map` 取缺失键得到 `undefined`，
+        Go 的 `m["nope"]` 得到**零值**（int 是 0、string 是 ""），
+        根本分不出「键不存在」与「值就是零值」—— 要判断得用 `v, ok := m[k]`。
+        另一个是顺序：`Map` 保持插入顺序，Go 的 map 遍历顺序**每次随机**，
+        这是语言刻意设计的（防止依赖顺序），要固定顺序得自己排序键。
+        并发上 Go 的 map 并发写会直接崩，JavaScript 的单线程模型没有这个问题。
+      python: |
+        Python 的 `d[k]` 缺失抛 KeyError、`d.get(k)` 给 None、
+        Go 的 `m[k]` 缺失给**零值**且不报错 —— 想区分就得用 `v, ok := m[k]`。
+        `del d[k]` 对应 Go 的 `delete(m, k)`（内建函数，不是方法）。
+        顺序上差别明显：Python 3.7 起 dict 保插入序，
+        Go 的 map 遍历顺序随机，要稳定输出得显式排序键。
+      java: |
+        Java 的 `map.get(k)` 缺失返回 `null`，Go 返回零值 ——
+        两者都能用「先问在不在」的写法区分：Java 是 `containsKey`（查两次），
+        Go 是 `v, ok := m[k]`（一次）。Java 有 `ConcurrentHashMap` 处理并发，
+        Go 的 map 并发写直接 panic，要用 `sync.Map` 或加锁 ——
+        这一条是 Go 的显式失败优于静默数据竞争的地方。
+        删除上 Java 是 `map.remove(k)` 方法，Go 是内建 `delete(m, k)`。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
