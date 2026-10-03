@@ -32,8 +32,8 @@ boxes:
       class Ok extends Result { }
       class Err extends Result { }
 
-      interface class Marked { }           // @note! interface class：只能被实现，不能被继承
-      base class Base { }                  // @note! base：只能被继承，不能被实现
+      interface class Marked { }           // @note! interface class：**库外**只能实现、不能继承
+      base class Base { }                  // @note! base：**库外**只能继承、不能实现
       final class Sealed { }               // @note! final：本库外既不能继承也不能实现
 
       mixin Walker { void walk() { } }     // @note mixin：给别的类「贴」一段行为
@@ -213,8 +213,10 @@ boxes:
         只在导入了它的库里有效，而且**遇到同名成员会输给真成员** ——
         所以它不会像原型那样把已有方法盖掉，也不会被继承覆盖。
       python: |
-        Python 给类加方法就是赋值（`String.shout = ...`），
-        运行期生效、全局可见；Dart 的扩展方法只在导入它的文件里有效，
+        Python 给**自定义类**加方法就是赋值（`Foo.shout = ...`），
+        运行期生效、全局可见 —— 但**对内置类型做不到**
+        （`str.shout = ...` 直接抛异常），而那恰恰是扩展方法最想解决的场景；
+        Dart 的扩展方法对任何类型都能加，只是只在导入它的文件里有效，
         写错了名字也不会报错，只是「这个扩展没生效」。
         另一处是接收者：Python 要显式写 `self`，
         Dart 不写，方法体里直接用字段名 —— 少一层噪音，
@@ -254,7 +256,8 @@ boxes:
       // @note 单继承 + mixin：一个类只有一个超类，但可以 with 多个 mixin
       class Robot extends Animal with Walker, Swimmer { Robot(super.name); }
 
-      // @note! 构造顺序：先跑基类的初始化列表与构造器体，再跑子类的
+      // @note! 构造顺序：子类初始化列表里 `super(...)` 之前的表达式先求值，
+      // @note! 然后才跑基类的初始化列表与构造器体，最后是子类的构造器体
       // @note! 所以基类构造器里不要调用会被子类覆盖的方法
     vs:
       javascript: |

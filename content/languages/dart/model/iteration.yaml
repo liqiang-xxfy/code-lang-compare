@@ -52,8 +52,8 @@ boxes:
         靠关键字前缀区分；Dart 用 `sync*` / `async*`，
         而且**返回类型必须写对** —— 写 `Iterable` 配 `sync*`、
         `Stream` 配 `async*`，配错了编译不过。
-        另一处是委托：Dart 有 `yield*` 直接转交另一个生成器，
-        JavaScript 要在循环里一个个 `yield` 出来。
+        委托这一层两边都有（`yield*` 对 `yield*`），
+        差别在 Dart 用它之前必须先声明生成器的种类与返回类型。
       python: |
         两边的 `yield` 用法接近，但**函数怎么变成生成器**不同：
         Python 里只要函数体出现 `yield` 就自动变成生成器，返回类型不用写；
@@ -138,7 +138,8 @@ boxes:
       // @note 急切的那些：toList / sublist / sort / add
       xs.toList();                    // @note 这时候才落地成一个 List
 
-      // @note 惰性链只能遍历一次，反复用要先 toList()
+      // @note! 惰性链**可以反复遍历** —— 每次取迭代器都重新求值；
+      // @note! 这一点与「流 / 迭代器只能消费一次」的语言相反，别搞混
       // @note Iterable 没有下标 —— 只能 elementAt()（线性查找）
     vs:
       javascript: |
@@ -155,14 +156,19 @@ boxes:
         都不算到最后一刻。所以从 Python 过来在这件事上不会有意外。
         差别在**落地方式**：Python 用 `list(...)`，Dart 用 `.toList()`；
         以及 Dart 多一个「字面量写法是急切的」这个例外（见上一格）。
-        两边共同的坑也一样：惰性的链遍历一次就耗尽。
+        但**「能不能反复遍历」这一点两边相反**：Python 的 `map` / `filter`
+        返回迭代器，消费一次就耗尽；Dart 的 `Iterable` 每次取迭代器都重新求值，
+        同一根惰性链可以反复 `toList()` —— 只有 `Stream` 才是一次性的。
       java: |
         两边的默认相反：Java 的流**默认就是惰性的**，必须 `collect`
         才拿回集合；Dart 的 `List` 是急切的，只有 `map` / `where`
         这些方法返回的 `Iterable` 才惰性 —— 也就是说
         **惰性在这边取决于你手上是 `List` 还是 `Iterable`**，
         同一个链上转一下类型，求值时机就变了。
-        共同的坑也一样：Java 的流与 Dart 的 Iterable 都只能遍历一次。
+        **「能不能反复遍历」这一条只有 Java 有坑**：流消费一次就废了；
+        Dart 的 `Iterable` 每次取迭代器都重新求值，同一根链可以反复遍历
+        （只有 `Stream` 才是一次性的）。所以那边「用过的流不能再用」这条纪律
+        在这边不成立。
     equivalence:
       javascript: divergent
       python: analogous
@@ -214,8 +220,9 @@ boxes:
         反过来 Python 的元组解包对任何可迭代对象都成立，
         Dart 的列表模式只对列表（或实现了对应协议的）成立。
       java: |
-        Java 至今没有解构（record 模式在较新版本里还是预览特性），
-        取值只能逐个调用访问器。Dart 的 `var (x, y) = point`
+        Java 到较新的版本才有解构（record 模式已转正，
+        但**只能用在模式匹配的场合**，不能像 Dart 那样随手写一句解构声明）。
+        Dart 的 `var (x, y) = point`
         把两步取值收成一个动作，而且能嵌在 `if-case` / `switch-case` 里
         当条件用 —— 这是 Java 完全没有的一层。
         另一处是匹配依据：Java 的 record 模式按**类型 + 位置**匹配，

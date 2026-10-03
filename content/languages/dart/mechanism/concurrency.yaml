@@ -165,7 +165,8 @@ boxes:
 
       // @note 大块字节要不拷贝地搬过去，用 TransferableTypedData
       final t = TransferableTypedData.fromList([Uint8List(1024)]);
-      rp.send(t);                            // @note 发出去是常数时间；本地那份作废
+      rp.sendPort.send(t);                   // @note! 发消息要走 sendPort，ReceivePort 本身没有 send
+      // @note 转移是常数时间；发出去之后本地那份就不能再取用了
 
       // @note 回信地址的惯用法：把 receivePort.sendPort 交给对方
       rp.close();                            // @note 端口要自己关

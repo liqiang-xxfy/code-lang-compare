@@ -197,8 +197,10 @@ boxes:
         差别在**并发的默认**：Python 里要并发得用 `gather` 或者先
         `create_task`，光 `await` 是串行的 —— 这一点两边相同，
         所以从 Python 过来不会踩这个坑。
-        另一处是异常传播：Dart 的 `Future.wait` 默认等全部完成，
-        Python 的 `gather` 默认也会等在跑的任务结束，行为接近。
+        另一处是异常传播，而且**两边正好相反**：Python 的 `gather`
+        默认一有异常就立刻向等待方抛出（其余任务不被取消、继续跑），
+        Dart 的 `Future.wait` 默认等全部完成才报第一个错误 ——
+        想要「早点失败」在这边要显式说，在那边是默认。
       java: |
         Java 没有 `async` / `await` 这套语法，异步要么用
         `CompletableFuture` 链式组合，要么用虚拟线程写阻塞式代码。

@@ -116,13 +116,16 @@ boxes:
       final file = File('a.txt');
       final contents = file.readAsStringSync();      // @note 读文件本身不用手关
 
-      // @note 需要显式释放的东西（流、端口）用 try/finally 手工关
-      var stream = file.openRead();
+      // @note 需要显式释放的东西（写出的流、连接、端口）用 try/finally 手工关
+      var sink = file.openWrite();
       try {
-        await stream.drain();
+        sink.write('内容');
       } finally {
-        await stream.cancel();                       // @note 放在 finally 里
+        await sink.close();                          // @note 放在 finally 里
       }
+
+      // @note! 读出来的 Stream 本身没有 close / cancel ——
+      // @note! 要取消的是它的**订阅**（listen 返回的那个对象才有 cancel）
 
       // @note rethrow：想「记一笔再往上抛」时用它，别用 throw e
       try { risky(); } catch (e) { print('记一笔'); rethrow; }
@@ -130,13 +133,14 @@ boxes:
       javascript: |
         两边的 `finally` 语义一致（无论如何都执行），
         资源清理也都得手工写在 `finally` 里 —— 这一层相同。
-        差别在**重抛**：JavaScript 写裸 `throw;` 就能重新抛出并保留栈，
-        Dart **不允许**裸 `throw;`，必须写 `rethrow`；
-        写成 `throw e` 会丢掉原始栈信息，这是从那边过来最容易犯的错。
+        差别在**重抛**：JavaScript 用 `throw e` 重抛，而且因为 Error 对象
+        自带栈信息，**原始栈是保留的**；Dart 必须写 `rethrow` 才能保住原始栈，
+        写成 `throw e` 会把栈**重置成重抛点** —— 两边都写 `throw e`，
+        效果正好相反，这是从那边过来最容易犯的错。
       python: |
         Python 的 `finally` 与 Dart 语义相同。差别有两处：
-        一是**重抛**，Python 用裸 `raise`（或 `raise ... from`），
-        Dart 用专门的 `rethrow` 关键字，且写成 `throw e` 会丢栈；
+        一是**重抛**，Python 用裸 `raise`（异常对象自己带着原始栈），
+        Dart 用专门的 `rethrow` 才保得住栈，写成 `throw e` 会把栈重置；
         二是**资源管理**，Python 有 `with` 语句把「进入与退出」做进协议，
         Dart 没有对应语法，只能在 `finally` 里手工关 ——
         少写一次清理在 Dart 里不会有任何提示。
@@ -174,8 +178,8 @@ boxes:
       assert(n > 0, '这里不能放副作用');
     vs:
       javascript: |
-        JavaScript 里一切都是 `Error` 的子类，没有「不该捕获」这一支 ——
-        所有错误一视同仁。Dart 从根上分出两支：
+        JavaScript 的内建错误类型都挂在 `Error` 之下，没有「不该捕获」这一支 ——
+        所有错误一视同仁（虽然它并不限制你抛什么）。Dart 从根上分出两支：
         `Error` 表示程序写错了（调用方不该接），`Exception` 表示预料之中的失败。
         另一处更实际的是**兜底写法**：JavaScript 的 `catch` 一律接住一切；
         Dart 里写 `on Exception` 接不住 `Error`，
@@ -258,8 +262,8 @@ boxes:
       void a() { b(); }                       // @note 不声明、不处理，异常自己往上冒
       void b() { throw StateError('炸了'); }
 
-      // @note 没人接就冒到顶层：当前 isolate 被挂起（web 上表现为控制台报错）
-      // @note 没有「全局异常处理器」的语言级机制可以续命
+      // @note! 没人接就冒到顶层：当前 isolate **终止**（根 isolate 上就是整个程序退出）
+      // @note 官方说法是未捕获异常默认是致命的，它会停掉这个 isolate 的事件循环
 
       // @note 部分处理再往上抛：rethrow 保留原始栈
       try { a(); } catch (e) { print('记一笔'); rethrow; }
@@ -272,13 +276,13 @@ boxes:
         两边都靠冒泡传播，中间层不写任何东西 —— 这一层很像。
         差别在**没接住时会发生什么**：JavaScript 在浏览器里
         冒到顶层只影响那一次事件回调，页面照常活着；
-        Dart 里未捕获的异常会**挂起当前 isolate** ——
-        代价更大，所以「兜底 catch」在这边更重要。
+        Dart 里未捕获的异常会**终止当前 isolate**（在根 isolate 上表现为
+        程序以非零码结束）—— 代价大得多，所以「兜底 catch」在这边更重要。
         另一处是重抛的写法（`rethrow` ↔ 裸 `throw`）。
       python: |
         两边都靠冒泡，都不需要在签名里声明。差别在**兜底的粒度**：
         Python 有 `sys.excepthook` 与线程级钩子，异常冒到顶层后
-        还能做点事再让程序结束；Dart 的未捕获异常会直接挂起 isolate，
+        还能做点事再让程序结束；Dart 的未捕获异常会直接终止 isolate，
         能插手的余地更小。
         另一处是「可能失败」的表达：Python 惯例用异常或返回 `None`，
         Dart 同样用异常或返回可空值（`int.tryParse` 给 null），

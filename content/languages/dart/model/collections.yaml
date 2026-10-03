@@ -116,7 +116,7 @@ boxes:
       var empty = <int>{};                  // @note! 空集合必须标类型 —— 不标就是映射
 
       s.add(4); s.remove(1);
-      s.contains(2); 2 in s;
+      s.contains(2);
       s.union({3, 4});                      // @note 并集
       s.intersection({2, 3});               // @note 交集
       s.difference({1});                    // @note 差集
@@ -129,8 +129,9 @@ boxes:
         也都保持插入顺序。差别在**字面量**：JavaScript 没有集合字面量，
         必须 `new Set([1,2,3])`；Dart 直接写 `{1, 2, 3}` ——
         但代价是空的那个有歧义（`{}` 是映射），要标类型才成集合。
-        另一处是集合运算：JavaScript 的 `Set` 至今没有并交差，
-        Dart 标准库直接给了三个。
+        另一处是集合运算：JavaScript 的 Set **从 ES2025 起也有了**
+        并集、交集、差集这一套（名字与 Dart 的三个对得上），
+        差别只在 Dart 标准库一直就有、不必等运行时升级。
       python: |
         两边的集合都能做并交差（`| & -` ↔ `union` / `intersection` / `difference`），
         这一层可以对应。差别在**顺序**：Python 的 `set` 遍历顺序不可预期，
@@ -208,13 +209,14 @@ boxes:
       // bound = [];                        // @note 编译错误：不能再赋一次
 
       const frozen = [1, 2];
-      // frozen.add(3);                     // @note! 编译错误：const 深度冻结
+      // frozen.add(3);                     // @note! 静态检查**通过**，运行期才抛 UnsupportedError
 
       final view = List.unmodifiable([1, 2]);
-      // view.add(3);                       // @note! 运行期抛 UnsupportedError
+      // view.add(3);                       // @note! 同样：静态通过、运行期抛
 
-      // @note! 分三档：`final` 只锁绑定、`const` 编译期冻结、
-      // @note! `unmodifiable` 是**运行期**只读视图（普通变量也能包）
+      // @note! 分三档：`final` 只锁绑定；`const` 与 `unmodifiable` 都拦写操作，
+      // @note! 而且**两者都是运行期抛异常**（静态类型仍是 List，编译器不拦）
+      // @note! `const` 真正多出来的是「值必须是编译期常量、元素也得是常量」
     vs:
       javascript: |
         **关键字是错位的**：JavaScript 的 `const arr` 只锁绑定
@@ -233,11 +235,11 @@ boxes:
         所以 Dart 这边「看起来是列表但不能写」有两种成因，要分清是编译期还是运行期。
       java: |
         `final` 在两边含义相同（赋一次、不冻结内容），可以逐条对应。
-        差别在只读视图的时机：Java 的 `List.of(...)` 是**运行期**不可变，
-        编译器不检查、改它运行期抛异常；Dart 的 `const` 集合
-        **编译期**就拦下写操作，连运行期绕过去都抛。
-        另一处是 Dart 多一层「真正的编译期常量集合」——
-        Java 的 `List.of` 给不了这个，因为它的值不参与常量折叠。
+        两边拦写操作都是**运行期**抛异常，静态类型都仍是可写的接口 ——
+        这一点其实一致。差别在 Dart 的 `const` 集合**还多一层要求**：
+        它的值必须是编译期常量、元素也必须是常量，
+        所以它能参与常量折叠、能被规范化（内容相同的两个 `const` 列表是同一个对象）；
+        Java 的不可变集合工厂给不了这一层。
     equivalence:
       javascript: divergent
       python: divergent
