@@ -1,0 +1,161 @@
+# rust —— mechanism / meta
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: meta` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  reflection:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有运行时反射** —— 拿不到一个值的类型名、列不出它的字段、
+        也调不了它的方法。能做宏（编译期）与 `dyn Any` 那点有限的类型判断。
+        JavaScript 里 `Object.keys` / `typeof` / `for…in` 随手可得，
+        Rust 里这些能力在编译期被宏与 trait 取代了：
+        需要「遍历字段」的场合（序列化、调试输出）都靠
+        `#[derive(Serialize)]` 这种宏展开成具体代码。
+      python: |
+        Rust **没有运行时反射**，`getattr` / `dir` / `type()` 都没有对应物。
+        取而代之的是**编译期宏**：`#[derive(Debug)]` 在编译时生成
+        「打印所有字段」的代码，`#[derive(Serialize)]` 生成序列化逻辑 ——
+        效果相似，但代价在编译期而不是运行期，产物里没有任何类型元数据。
+        所以 Rust 里「动态地按名字取字段」这件事做不到。
+      java: |
+        Rust **没有运行时反射** —— 没有 `Class`、没有 `getDeclaredFields`、
+        没有 `Method.invoke`。Java 的反射能在运行时发现并调用任意方法，
+        Rust 里这些工作在编译期由宏完成（`derive` 展开成具体代码）。
+        两个直接后果：Rust 产物里不带类型元数据（体积小、
+        也没有反射带来的安全面），但「插件式按名字加载」这类设计
+        在 Rust 里要显式写 trait 对象与注册表。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  decorator-annotation:
+    code: |
+      #[derive(Debug, Clone, PartialEq)]        // @note! derive 宏：编译期生成实现
+      struct User { id: u64, name: String }
+
+      #[inline]                                  // @note 提示内联
+      fn fast() {}
+
+      #[cfg(test)]                               // @note 条件编译：只在测试构建里存在
+      mod tests { }
+
+      #[serde(rename_all = "camelCase")]         // @note 属性宏：由库提供，可带参数
+      struct Config { retry_count: u32 }
+
+      // 过程宏的三种形态：derive / 属性宏 / 函数式宏
+      // 都在**编译期**展开成代码 —— 运行时不产生任何额外开销
+    vs:
+      javascript: |
+        JavaScript 的装饰器（`@decorator`）在**运行时**执行，
+        函数被包一层，调用时多一跳；Rust 的 `#[derive(…)]`
+        在**编译期**展开成实现代码，运行时没有痕迹、没有开销。
+        语法上的相似（都有 `@` 或 `#[…]`）很容易让人误以为是同一件东西，
+        实际上一个是运行时元编程，一个是编译期代码生成。
+      python: |
+        Python 的装饰器是运行时的高阶函数（`@decorator` 把函数传进去再返回新的），
+        每个调用都有额外开销；Rust 的 `#[derive]` / 属性宏在编译期展开，
+        运行时零成本。另外 Rust 的属性还能做**条件编译**（`#[cfg(test)]`），
+        这在 Python 里没有对应物 —— 测试代码在 Python 里永远会被打包。
+      java: |
+        Java 的注解本身没有行为，要靠运行时反射（或注解处理器）
+        去读并做事，所以「注解生效」通常意味着运行时扫描；
+        Rust 的属性宏**在编译期就展开成代码**，运行时什么都不剩。
+        形态上 Java 的 `@Override` / `@Deprecated` 更接近 Rust 的
+        内建属性（`#[inline]` / `#[cfg]`），而 `@Entity` 那种
+        需要框架扫描的注解，在 Rust 里对应的是
+        「写一个 derive 宏，把代码生成出来」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  dynamic-eval:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有 `eval`**，也没有任何在运行时执行字符串代码的手段。
+        编译单位是静态的 crate，代码在编译期全部确定。
+        JavaScript 的 `eval` / `new Function` 早就是安全与性能上的禁忌，
+        Rust 干脆不支持 —— 想「运行时可配置的逻辑」，
+        得设计一个数据格式或嵌入一个解释器（如 rhai、lua）。
+      python: |
+        Rust **没有 `eval` / `exec`**，运行时无法执行字符串代码。
+        Python 里 `eval` 是危险但常用的能力（配置化、DSL、快速原型），
+        Rust 里要替代它只能引入嵌入式脚本引擎或自己写解释器。
+        这也是 Rust 里宏之所以重要的原因之一：
+        它们提供了一部分「生成代码」的能力，但全部发生在编译期。
+      java: |
+        Rust **没有 `eval`** —— 与 Java 一样，语言层面都不提供运行时求值。
+        Java 里最接近的是运行时编译（`javax.tools.JavaCompiler`）
+        或脚本引擎（JSR-223），都需要额外机制；
+        Rust 里对应的做法是嵌入一个脚本引擎。两边都把
+        「运行时代码生成」排除在语言之外，要动态逻辑就得自己背这个包袱。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  proxy-interception:
+    code: |
+      use std::ops::{Deref, Index};
+
+      // Rust 没有通用的属性拦截，但**运算符与解引用**可以自定义
+      struct Wrapper(Vec<i32>);
+
+      impl Deref for Wrapper {                  // @note . 访问被转发到内部字段
+        type Target = Vec<i32>;
+        fn deref(&self) -> &Vec<i32> { &self.0 }
+      }
+
+      impl Index<usize> for Wrapper {           // @note 拦截 [] 取值
+        type Output = i32;
+        fn index(&self, i: usize) -> &i32 { &self.0[i] }
+      }
+
+      let w = Wrapper(vec![1, 2, 3]);
+      println!("{}", w.len());                  // @note 通过 Deref 调到 Vec 的方法
+      println!("{}", w[0]);
+
+      // 想要「访问属性时执行逻辑」，只能写成方法（`w.get(0)`），
+      // 或者用 RefCell / Mutex 把内部可变性显式化
+    vs:
+      javascript: |
+        JavaScript 的 `Proxy` 能拦截**任意属性读写**（`get` / `set` trap），
+        这让「透明地做日志、缓存、校验」变得可能；
+        Rust **没有这种通用拦截**，能自定义的只有
+        `Deref`（`.` 转发）、`Index`（`[]`）、运算符 trait 这些**固定几种**，
+        而且都是编译期绑定、没有运行时的 trap。
+        想达到类似效果只能显式写方法，或者造一个名字不同的容器类型。
+      python: |
+        Python 的 `__getattr__` / `__setattr__` / `__getattribute__`
+        能在运行时拦截属性访问，`@property` 更是把方法伪装成属性；
+        Rust 没有这层 —— 字段就是字段、方法就是方法，
+        读代码时 `.x` 与 `.x()` 的区别不会骗人。
+        Rust 能自定义的只有 `Deref` / `Index` / 运算符这些固定接口，
+        它们同样在编译期解析，没有运行时的钩子。
+      java: |
+        Java 用动态代理（`Proxy` + `InvocationHandler`）或字节码库
+        （cglib / ByteBuddy）做拦截，Spring 的 AOP 就是这么实现的；
+        Rust **没有动态代理** —— 拦截只能在**手写包装类型**里做：
+        新类型持有被包装对象，方法里加逻辑再转发。
+        代价是每个方法都要手写一遍，收益是调用关系完全显式、
+        没有运行时代理对象，性能与可调试性都更好。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

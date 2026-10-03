@@ -1,0 +1,186 @@
+# go —— mechanism / meta
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: meta` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  reflection:
+    code: |
+      import "reflect"
+
+      type User struct {
+        ID   int    `json:"id"`
+        Name string `json:"name"`
+      }
+
+      u := User{ID: 1, Name: "Ada"}
+      t := reflect.TypeOf(u)
+      v := reflect.ValueOf(u)
+
+      t.Name()                          // @note "User"
+      t.NumField()                      // @note 2
+      f := t.Field(0)
+      f.Name                            // @note "ID"
+      f.Tag.Get("json")                 // @note "id" —— 结构体标签
+
+      v.Field(0).Int()                  // @note 读字段值
+      // 修改必须传指针，否则 Value 不可写
+      pv := reflect.ValueOf(&u).Elem()
+      pv.Field(1).SetString("Bob")      // @note 通过反射改字段
+    vs:
+      javascript: |
+        Go 的 `reflect` 与 JavaScript 的运行时内省目标相似
+        （都能列出字段、读标签/属性、动态调用），但 Go 有一条
+        JavaScript 没有的限制：**只能反射到导出成员** ——
+        小写开头的字段拿不到（`CanSet` 为 false）。
+        JavaScript 里对象没有这层门槛。代价与收益也相反：
+        Go 的反射慢且容易 panic，社区建议只在序列化这类
+        框架层用；JavaScript 里内省是日常操作。
+      python: |
+        Go 的 `reflect` 与 Python 的 `getattr` / `vars` / `dir` 目标相同，
+        但 Go 只能看到导出字段（首字母大写）——
+        Python 的 `getattr(obj, 'x')` 什么都能拿。
+        另一处差别是写回：Go 必须传指针并检查 `CanSet`，
+        忘了就 panic；Python 直接 `setattr` 即可。
+        Go 还有结构体标签（`json:"id"`）这种内嵌元数据，
+        Python 里对应的是装饰器或类属性。
+      java: |
+        Go 的 `reflect` 与 Java 的反射能力接近（读类型、字段、标签/注解、
+        动态调用），但 Go 只能反射到导出成员，Java 用
+        `setAccessible(true)` 能突破私有访问。
+        性能上 Java 的反射同样偏慢（有 `MethodHandle` 等优化路径），
+        Go 的反射也没有编译期优化 —— 两边都建议把反射结果缓存起来。
+        差别是 Go 的反射不需要「类」的概念，类型信息就在值里。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  decorator-annotation:
+    code: |
+      type Config struct {
+        RetryCount int    `json:"retryCount" validate:"min=0"`   // @note 结构体标签：字符串约定
+        Name       string `json:"name"`
+      }
+
+      // @note! 标签本身**没有任何行为** —— 只是元数据，
+      // 得由库（encoding/json、validator 等）用反射去读
+
+      // 代码生成是 Go 里替代注解的主要手段
+      //go:generate stringer -type=Status        // @note 生成 String() 方法
+      //go:generate mockgen -source=iface.go     // @note 生成 mock
+
+      type Status int
+      const (
+        Active Status = iota
+        Inactive
+      )
+    vs:
+      javascript: |
+        Go **没有装饰器语法** —— 想要「给一段代码附加行为」，
+        要么用结构体标签配反射（行为由库提供），
+        要么用 `go:generate` 在构建前生成代码。
+        JavaScript 的装饰器是语言语法且运行时执行；
+        Go 的标签只是字符串，读它的库要自己对约定；
+        代码生成则是「编译前跑一次工具」，产物是真实代码、运行时零开销。
+      python: |
+        Go **没有装饰器** —— `@decorator` 那种语法在 Go 里不存在。
+        最接近的是结构体标签（纯元数据，需要库用反射读）
+        与 `go:generate` 代码生成。差别很实在：
+        Python 的装饰器是运行时包装、看得见调用链；
+        Go 的代码生成在编译前把代码写进文件，
+        读代码时看到的是生成结果（这也带来「生成物要不要入库」的讨论）。
+      java: |
+        Go **没有注解** —— Java 的 `@Entity` / `@Override` 那套在 Go 里
+        没有对应物。Go 的结构体标签是纯字符串元数据，
+        只有库主动去读才有意义；Java 的注解至少能被编译期处理器
+        （Annotation Processor）消费，也能被运行时反射读到。
+        Go 的替代路线是代码生成（`go:generate`），
+        与 Java 的注解处理器思路接近，都是编译期产出代码。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  dynamic-eval:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有 `eval`**，运行时无法执行字符串代码。
+        JavaScript 的 `eval` / `new Function` 在 Go 里没有对应物；
+        想做「运行时可配置的逻辑」，Go 的路线是定义数据结构 + 解释它，
+        或者引入嵌入式脚本引擎（如 Lua、Starlark 的 Go 实现）。
+        编译型语言的产物里没有求值器，这是语言选择带来的必然结果。
+      python: |
+        Go **没有 `eval` / `exec`**，运行时不能执行字符串代码。
+        Python 里 `eval` 常用于配置与 DSL，Go 里替代它的是
+        「把配置定义成结构体 + 解析」或引入脚本引擎。
+        两者在工程上的取舍其实一致：`eval` 在 Python 里也被认为
+        危险且难调试，Go 是直接把这条路关掉了。
+      java: |
+        Go **没有 `eval`** —— 与 Java 一样，语言层面都不提供运行时求值。
+        两边要「动态执行逻辑」都得引入脚本引擎（Java 有 JSR-223，
+        Go 有各种嵌入式解释器），或者干脆用代码生成在编译期把逻辑定下来。
+        取舍也一致：动态求值换来灵活性，代价是性能、
+        可调试性与安全面上的负担。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  proxy-interception:
+    code: |
+      // Go 没有通用的代理/拦截机制，最接近的是**函数包装**
+      type Handler func(string) string
+
+      func withLogging(next Handler) Handler {     // @note 中间件模式
+        return func(s string) string {
+          start := time.Now()
+          out := next(s)
+          log.Printf("耗时 %v", time.Since(start))
+          return out
+        }
+      }
+
+      var h Handler = doWork
+      h = withLogging(h)                           // @note 包一层
+      h("x")
+
+      // HTTP 中间件就是同一套路：func(http.Handler) http.Handler
+      // @note 字段级别的拦截做不到 —— 没有 __getattr__ / Proxy 那种钩子
+    vs:
+      javascript: |
+        JavaScript 的 `Proxy` 能拦截**任意属性读写**；
+        Go 没有这种东西 —— 拦截只能发生在**函数调用**这一层：
+        包一个同签名的函数、在里面加逻辑再转发（中间件模式）。
+        所以 Go 里「透明地记录每次字段访问」做不到，
+        但「给一组操作统一加日志/重试/超时」做起来非常自然，
+        HTTP 中间件就是这个模式的产物。
+      python: |
+        Python 用 `__getattr__` / 描述符 / 装饰器能拦截属性访问与方法调用；
+        Go 只有**函数包装**这一条路（`func(H) H` 的中间件），
+        没有属性级钩子、没有元类。好处是调用链完全显式 ——
+        读代码时能看到 `withLogging(handler)` 这一层；
+        代价是每个要增强的方法都得手写包装。
+      java: |
+        Java 的动态代理（`Proxy` + `InvocationHandler`）能拦截
+        **任意接口方法**，Spring AOP 靠它实现；
+        Go 没有动态代理，拦截靠手写包装函数（中间件模式）。
+        差别在自动化程度与可调试性：Java 的代理是运行时生成的、
+        调用链中多一层看不见的对象；Go 的包装在源码里一目了然，
+        但要为每个方法写一遍。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
