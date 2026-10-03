@@ -1,0 +1,202 @@
+# python —— mechanism / types
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: types` 的那批。
+# 这一组以 Python 为基准时展示在「类型标注与泛型」章（见 catalog/mechanism/python.yaml）——
+# 泛型那一组的行也落在同一章里，但内容仍按存放组分开写。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      n = 1
+      n = "字符串"          # @note 合法 —— 名字没有类型
+      n.to_fixed(2)        # @note! AttributeError: 'str' object has no attribute
+
+      1 + "a"              # @note! TypeError —— 报错直接点出类型
+      len(1)               # @note! TypeError: object of type 'int' has no len()
+
+      type(n)              # @note 运行时问类型
+      isinstance(n, str)   # @note 判断，能接元组一次判多种
+    baseline: |
+      **动态类型**：类型属于对象、不属于名字。类型错误在运行到那一行时抛异常，
+      但报错信息通常很好用 —— 会写清是哪个类型、缺什么属性或方法，
+      比「没有这个方法」更容易回推。想提前发现只能上 mypy 这类外部检查器。
+    vs:
+      javascript: |
+        两边都是动态类型，差别在报错质量：Python 的异常会点出具体类型与缺失的
+        属性名，定位更快。另一处不同是 `isinstance` 能一次判多种类型，
+        这里要写 `typeof` 加 `||` 串起来。
+      java: |
+        Java 是静态类型：类型写在声明上、编译器全程检查，赋值类型不符直接
+        编译错误 —— 这类问题根本活不到运行时。代价是声明上的类型无法省略，
+        以及类型系统对表达的约束更强。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  type-annotation:
+    code: |
+      def greet(name: str, times: int = 1) -> str:   # @note 标注是语法的一部分
+          return f"你好，{name}" * times
+
+      xs: list[int] = []            # @note 变量也能标
+      y: int | None = None          # @note 3.10+ 的联合写法
+
+      greet.__annotations__         # @note 运行期真的存下来了
+      # {'name': <class 'str'>, 'times': <class 'int'>, 'return': <class 'str'>}
+
+      greet(42)                     # @note! 照样跑 —— 解释器不检查
+      import typing; typing.get_type_hints(greet)   # @note 框架靠这个做校验/文档
+    baseline: |
+      标注是**语法的一部分**，而且运行时会把它们存进 `__annotations__` ——
+      解释器自己不检查，但框架（pydantic、FastAPI、dataclass）能读出来做校验、
+      生成文档。所以标注在 Python 里不只是给检查器看的注释，
+      它是一份运行时可取的元数据。
+    vs:
+      javascript: |
+        JavaScript 语法里没有标注，想写得换 TypeScript 那种超集；
+        Python 把标注做进了语法本身。更关键的是运行期：Python 的标注
+        能被读到（框架拿它做校验），TypeScript 的标注编译后**全部消失**。
+      java: |
+        Java 的类型声明是强制的、编译器全程监督；Python 的标注是可选的、
+        运行时不强制。收益也不同：Java 换来的是「不可能类型错」，
+        Python 换来的是框架能据此做运行时校验。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  structural-nominal:
+    code: |
+      # 运行期：鸭子类型，只看有没有那个方法
+      def area(shape):
+          return shape.area()          # @note 不检查类型
+
+      # 结构化类型：Protocol（给检查器看，不要求继承）
+      from typing import Protocol
+      class Shape(Protocol):
+          def area(self) -> float: ...
+
+      def area2(shape: Shape) -> float: ...   # @note 形状对就行，无需 implements
+
+      # 名义类型：ABC（要求继承）
+      from abc import ABC, abstractmethod
+      class Reader(ABC):
+          @abstractmethod
+          def read(self) -> str: ...
+    baseline: |
+      运行期完全是**鸭子类型**。要在静态层面表达形状有两个选择：
+      `Protocol`（结构化 —— 形状对就相容，不要求继承，与别的语言的
+      「结构化类型」是一回事）与 `ABC`（名义 —— 必须继承）。
+      选哪个取决于你想让「相容」由形状决定还是由声明决定。
+    vs:
+      javascript: |
+        运行期两边都是鸭子类型，思路一致。静态层面也对应得上：
+        这里的 `Protocol` 相当于 TypeScript 的结构化 `interface`。
+        两边都没有「必须显式声明实现」的强制。
+      java: |
+        Java 是名义类型：必须 `implements` 那个接口，形状对但没声明就是不相容。
+        这里运行期完全不看声明（鸭子类型），静态检查也能用「形状」代替「名字」，
+        弹性更大但少了确定性。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  type-narrowing:
+    code: |
+      def f(x: int | str) -> str:
+          if isinstance(x, str):
+              return x.upper()          # @note 检查器在这里把 x 收窄成 str
+          if isinstance(x, (int, float)):   # @note 一次判多种
+              return str(x)
+          if hasattr(x, "read"):        # @note 按能力判断
+              return x.read()
+          return ""
+
+      # @note! 检查器只认它能理解的那几种判断；自定义的
+      #        「等价于 isinstance」的函数它跟不过去
+    baseline: |
+      运行期靠 `isinstance` / `hasattr` / `callable` 之类的检查，
+      检查器（mypy）会把这些检查当作**收窄依据** —— 判断过之后类型自动变窄。
+      `isinstance` 能接元组一次判多种，这是它比别处的同类检查更好用的地方。
+      局限是检查器只认它认识的那几种模式。
+    vs:
+      javascript: |
+        两边都靠运行期检查、检查器据此收窄。差别是判断手段：
+        JavaScript 要写 `typeof` / `instanceof` / `Array.isArray` 一串，
+        Python 的 `isinstance` 接个元组就覆盖了多种类型。
+      java: |
+        Java 的收窄是**显式写出来的**：`if (obj instanceof Point p)` 直接绑定
+        新变量，由编译器保证。Python 这边靠检查器分析推断，
+        推断不出来的地方就得自己写断言。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  null-safety:
+    code: |
+      x = None                 # @note 唯一的空值
+      x.foo                    # @note! AttributeError: 'NoneType' object has no ...
+
+      from typing import Optional
+      def find(k) -> Optional[str]: ...   # @note 「可能没有」写进返回类型
+      # 注：Optional[str] 等价于 str | None
+
+      d.get("k")               # @note 缺键给 None，不抛
+      d["k"]                   # @note! KeyError
+
+      # @note! 类型系统不强制处理 None —— 是检查器（mypy --strict）在管
+    baseline: |
+      只有一种空值 `None`。类型系统本身**不区分「可能为空」**；
+      `Optional[X]` 是给检查器看的约定，运行时不强制。所以「这个值会不会是 None」
+      靠的是标注与检查器（开了 strict 模式才管得严），不是语言保证。
+      容器的行为要分清：`d.get(k)` 给 None、`d[k]` 抛 KeyError。
+    vs:
+      javascript: |
+        JavaScript 有两种空值（undefined / null），Python 只有一种 ——
+        少一种的代价是区分不出「属性不存在」与「属性值就是空」。
+        两边都不在类型系统里强制空安全，都靠检查器与可选链之类的语法缓解。
+      java: |
+        Java 的 null 同样不受类型系统约束，但标准库提供了 `Optional` 把
+        「可能没有」写进返回类型 —— 与这里的 `Optional[X]` 标注用意相同，
+        只是一个在标准库里、一个是给检查器看的。两边都要靠约定兜住。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  type-assertion:
+    code: |
+      from typing import cast
+
+      x = cast(str, value)     # @note! 空操作 —— 只影响检查器，运行时不检查
+      reveal_type(x)           # @note 检查器眼里的类型，运行时会 NameError
+
+      # 真正能在运行时确认的是检查：
+      if not isinstance(value, str):
+          raise TypeError("需要 str")
+
+      assert isinstance(value, str)    # @note 断言，-O 时会被剥掉，别用它做校验
+
+      # @note cast 断错了不会报，错误会漂到后面某处才炸
+    baseline: |
+      `typing.cast` 是**给检查器的空操作**：运行时它只是把值原样返回，
+      一行检查都不做。真正能确认类型的是 `isinstance` 判断（不符合就抛），
+      或者用 `assert`（注意 `-O` 运行时断言会被整个剥掉，不能拿它做输入校验）。
+      断错了不会当场报，只会在后面某处炸。
+    vs:
+      javascript: |
+        这里与 TypeScript 的 `as` 是同一回事：都是纯编译期的承诺、
+        运行时不检查。两边真正的运行时手段也都只有显式判断。
+      java: |
+        Java 的强制转换 `(String) x` 会在**运行时真的检查**，类型不符抛
+        ClassCastException。这是最关键的区别：Java 的转换是一个会失败的动作，
+        这里与 Python 的断言只是一句声明。
+    equivalence:
+      javascript: analogous
+      java: divergent

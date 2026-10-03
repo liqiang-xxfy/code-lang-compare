@@ -1,0 +1,208 @@
+# java —— mechanism / types
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: types` 的那批。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      int n = 1;
+      // n = "字符串";              // @note! 编译错误：不兼容的类型
+
+      Object o = "其实是字符串";     // @note 上转型：编译期只看 Object
+      o.toUpperCase();              // @note! 编译错误：Object 没有这个方法
+      ((String) o).toUpperCase();   // @note 要转回来
+
+      // @note 一切在编译期定：类型写对了，运行时就一定不会「类型错」
+      // @note! 例外是泛型擦除与反射 —— 那两条路能绕过编译期检查
+    baseline: |
+      **静态类型**：类型写在声明上、编译器全程检查，不兼容的赋值与调用直接
+      编译错误。所以「把数字当字符串用」这类错误活不到运行时 ——
+      这是它相对动态语言最大的收益。两个例外要记住：泛型参数会被擦除、
+      反射能绕过检查，那两处仍然可能在运行时报错。
+    vs:
+      javascript: |
+        JavaScript 的动态类型让 `let n = 1; n = "字符串"` 完全合法，错误要到
+        运行时才炸；Java 在编译期就拦住。代价是 Java 的声明必须写类型、
+        且要经常上转型再转回来。
+      python: |
+        Python 是动态的：类型错误要到运行时才抛，Java 的静态检查把整类错误
+        提前到了编译期。反过来 Java 少了「同一个变量先后装不同类型」的灵活 ——
+        需要那点灵活时得用 `Object` 加转换，很难看。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  type-annotation:
+    code: |
+      int count = 0;                        // @note 类型是声明的一部分
+      List<Map<String, Integer>> table;     // @note 嵌套泛型
+      String greet(String name, int times) { return name.repeat(times); }
+
+      var inferred = compute();             // @note var 只让编译器替你写，类型仍固定
+
+      // @note 注解（annotation）是另一回事：@Override / @Nullable
+      //        它们是附加信息，不是类型
+      // @note! 类型一旦写下就固定，没有「可选标注」这回事
+    baseline: |
+      类型是**声明的一部分**，处处都要写，编译器全程检查。`var` 只是省掉手写、
+      推断结果仍然固定。另有一类容易混淆的东西叫「注解」（`@Override`、
+      `@Nullable`）—— 那是附加在声明上的元数据，不是类型；
+      空安全要靠它们加外部工具，语言本身不管。
+    vs:
+      javascript: |
+        JavaScript 语法里没有类型可写，只能靠 TypeScript 那种超集；
+        Java 的类型是强制的、编译期盯着。这里唯一与「可选标注」沾边的是注解，
+        但它不改变类型检查。
+      python: |
+        Python 的标注是可选的、运行时不强制，还能被框架读出来；
+        Java 的类型不可省略、编译器强制执行，没有「标了但不检查」这种状态。
+        一边给的是元数据，一边给的是约束。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  structural-nominal:
+    code: |
+      interface Shape { double area(); }
+
+      class Circle implements Shape {                 // @note 必须显式声明
+        public double area() { return 3.14; }
+      }
+
+      class HasArea {                                 // @note 有同样的方法
+        public double area() { return 3.14; }
+      }
+
+      void print(Shape s) { System.out.println(s.area()); }
+      print(new Circle());                            // @note 可以
+      // print(new HasArea());                        // @note! 编译错误：没声明实现
+
+      // 想传进去只能：让它 implements，或包一层适配器
+      // @note 唯一的「形状相容」通道是 lambda 对函数式接口
+    baseline: |
+      **名义类型**：相容与否看有没有**声明实现**那个接口，与它实际有没有
+      那个方法无关。「形状一模一样但没写 implements」编译不过 —— 这是 Java
+      最需要适应的一条，从鸭子类型的语言过来时会觉得多余。唯一的例外是
+      函数式接口：lambda 只要形状对就能写，但那个接口仍是声明过的类型。
+    vs:
+      javascript: |
+        JavaScript 运行期是鸭子类型，只要有方法就能用，从不需要声明；
+        Java 反过来 —— 有方法没用，得有声明。这是两家设计取向上最根本的差别。
+      python: |
+        Python 运行期不看声明、静态检查也能用 `Protocol` 按形状判断；
+        Java 一律要求显式 `implements`。同一个意思想表达「它能被这样用」，
+        一边靠形状一边靠名字。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  type-narrowing:
+    code: |
+      // 经典写法：判断 + 强制转换
+      if (obj instanceof String) {
+        String s = (String) obj;      // @note! 转换是必须的，编译器不会替你收窄
+        s.length();
+      }
+
+      // 模式匹配（Java 16+）：判断的同时绑定变量
+      if (obj instanceof String s) {   // @note s 在这里已经是 String
+        s.length();
+      }
+
+      String kind = switch (shape) {
+        case Circle c    -> "圆 " + c.radius();     // @note 编译器检查穷尽性
+        case Rectangle r -> "矩形";
+        default          -> "别的";
+      };
+    baseline: |
+      旧写法是「`instanceof` 判断 + 强制转换」两步，**编译器不会替你收窄**，
+      转换那一句必须自己写。新版用**模式匹配**把两步合成一步：
+      `instanceof String s` 直接绑定变量，`switch` 里还能按类型分支并由编译器
+      检查穷尽性。这是 Java 近几年补上的、最实用的一块语法。
+    vs:
+      javascript: |
+        JavaScript 的收窄靠运行期检查、编译器不参与（TypeScript 才会分析），
+        Java 的模式匹配是语法的一部分、由编译器绑定变量并保证穷尽。
+        两边读起来都是「判断一下再用」，确定性不同。
+      python: |
+        Python 靠 `isinstance` 判断、检查器据此收窄，Java 在语法里直接绑定
+        新变量。另一处差别是 Java 的 `switch` 模式能穷尽性检查，
+        Python 的 `match` 漏分支只会落到兜底。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  null-safety:
+    code: |
+      String s = null;
+      s.length();                   // @note! NullPointerException
+
+      // @note! 类型系统不区分 String 与「可能是 null 的 String」
+      //        编译器对空值一言不发
+
+      // 缓解手段一：Optional（把「可能没有」写进返回类型）
+      Optional<String> find(String k) { ... }
+      find("a").orElse("默认");
+
+      // 缓解手段二：注解 + 工具（@Nullable / @NonNull）
+      String greet(@Nullable String name) { ... }
+
+      // 缓解手段三：Objects.requireNonNull 提前失败
+    baseline: |
+      **空值不在类型系统里**：`null` 能塞进任何引用类型，编译器一句都不说，
+      而且基本类型装不下它。标准库给的补救是 `Optional`（把「可能没有」
+      写进返回类型，逼调用方处理）与 `Objects.requireNonNull`（让它在边界上
+      早点炸）。真正的空安全检查要靠 `@Nullable` 这类注解加外部工具。
+    vs:
+      javascript: |
+        两边的空值都不受类型系统约束、编译器都不提醒。差别是 JavaScript 有
+        可选链 `?.` 与空值合并 `??` 这类顺手语法，Java 只有 `Optional`
+        与一层层的 `!= null`。
+      python: |
+        Java 用 `Optional` 把「可能没有」写进类型，Python 用 `Optional[X]`
+        标注写同一件事，但后者是给检查器的、运行时不强制。
+        两边都有「判空要自己记得」这个前提。
+    equivalence:
+      javascript: analogous
+      python: analogous
+
+  type-assertion:
+    code: |
+      Object o = "abc";
+      String s = (String) o;        // @note 运行时**真的检查**，不符就抛
+      // Integer i = (Integer) o;   // @note! ClassCastException
+
+      Number n = 1;
+      Double d = (Double) n;        // @note! 编译通过，运行时炸 —— 包装类型别乱转
+
+      // 安全写法：先判再转
+      if (o instanceof String s2) { ... }
+
+      // @note 泛型转换会在别处炸：List<String> 转成 List<Integer> 编译只是警告，
+      //       取元素时才抛 ClassCastException —— 这是擦除的后果
+    baseline: |
+      强制转换 `(Type) x` 是**会失败的动作**：运行时真的检查，不匹配抛
+      ClassCastException。所以要转换就配一个 `instanceof` 判断
+      （或直接用模式匹配）。要特别小心泛型转换 —— 擦除之后
+      `List<String>` 与 `List<Integer>` 在运行时是同一个类，
+      转换当时不报，取元素时才炸。
+    vs:
+      javascript: |
+        Java 的转换是运行时动作、会失败；这里（含 TypeScript）的断言只是
+        编译期的承诺、一行代码都不生成，断错了要到后面某处才炸。
+        两边都有「转换/断言要先确认」这条纪律，代价不同。
+      python: |
+        Python 的 `cast` 与 Java 的转换是两回事：前者运行时是空操作，
+        后者会真的检查并抛 ClassCastException。真正能在运行时确认类型的手段，
+        Python 是 `isinstance`，Java 是转换本身。
+    equivalence:
+      javascript: divergent
+      python: divergent

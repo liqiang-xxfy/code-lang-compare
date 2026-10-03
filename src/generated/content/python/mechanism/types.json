@@ -1,0 +1,171 @@
+{
+  "lang": "python",
+  "section": "mechanism",
+  "group": "types",
+  "boxes": {
+    "static-vs-dynamic": {
+      "lang": "python",
+      "code": "n = 1\nn = \"字符串\"          # 合法 —— 名字没有类型\nn.to_fixed(2)        # ⚠ AttributeError: 'str' object has no attribute\n\n1 + \"a\"              # ⚠ TypeError —— 报错直接点出类型\nlen(1)               # ⚠ TypeError: object of type 'int' has no len()\n\ntype(n)              # 运行时问类型\nisinstance(n, str)   # 判断，能接元组一次判多种",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"字符串\"</span><span style=\"color:var(--shiki-token-comment)\">          # 合法 —— 名字没有类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">n</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">to_fixed</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">        # ⚠ AttributeError: 'str' object has no attribute</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-token-string-expression)\"> \"a\"</span><span style=\"color:var(--shiki-token-comment)\">              # ⚠ TypeError —— 报错直接点出类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">len</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">               # ⚠ TypeError: object of type 'int' has no len()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">type</span><span style=\"color:var(--shiki-token-punctuation)\">(n)</span><span style=\"color:var(--shiki-token-comment)\">              # 运行时问类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">isinstance</span><span style=\"color:var(--shiki-token-punctuation)\">(n, </span><span style=\"color:var(--shiki-token-constant)\">str</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">   # 判断，能接元组一次判多种</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 3,
+          "text": "AttributeError: 'str' object has no attribute",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "TypeError —— 报错直接点出类型",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "TypeError: object of type 'int' has no len()",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>动态类型</strong>：类型属于对象、不属于名字。类型错误在运行到那一行时抛异常，\n但报错信息通常很好用 —— 会写清是哪个类型、缺什么属性或方法，\n比「没有这个方法」更容易回推。想提前发现只能上 mypy 这类外部检查器。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>两边都是动态类型，差别在报错质量：Python 的异常会点出具体类型与缺失的\n属性名，定位更快。另一处不同是 <code>isinstance</code> 能一次判多种类型，\n这里要写 <code>typeof</code> 加 <code>||</code> 串起来。</p>\n",
+        "java": "<p>Java 是静态类型：类型写在声明上、编译器全程检查，赋值类型不符直接\n编译错误 —— 这类问题根本活不到运行时。代价是声明上的类型无法省略，\n以及类型系统对表达的约束更强。</p>\n"
+      }
+    },
+    "type-annotation": {
+      "lang": "python",
+      "code": "def greet(name: str, times: int = 1) -> str:   # 标注是语法的一部分\n    return f\"你好，{name}\" * times\n\nxs: list[int] = []            # 变量也能标\ny: int | None = None          # 3.10+ 的联合写法\n\ngreet.__annotations__         # 运行期真的存下来了\n# {'name': <class 'str'>, 'times': <class 'int'>, 'return': <class 'str'>}\n\ngreet(42)                     # ⚠ 照样跑 —— 解释器不检查\nimport typing; typing.get_type_hints(greet)   # 框架靠这个做校验/文档",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> greet</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">name</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-constant)\"> str</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-parameter)\"> times</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-constant)\"> int</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-token-constant)\"> str</span><span style=\"color:var(--shiki-foreground)\">:   </span><span style=\"color:var(--shiki-token-comment)\"># 标注是语法的一部分</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-keyword)\"> f</span><span style=\"color:var(--shiki-token-string-expression)\">\"你好，</span><span style=\"color:var(--shiki-token-constant)\">{</span><span style=\"color:var(--shiki-foreground)\">name</span><span style=\"color:var(--shiki-token-constant)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">\"</span><span style=\"color:var(--shiki-token-keyword)\"> *</span><span style=\"color:var(--shiki-foreground)\"> times</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">xs</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-foreground)\"> list</span><span style=\"color:var(--shiki-token-punctuation)\">[</span><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-token-punctuation)\">]</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> []            </span><span style=\"color:var(--shiki-token-comment)\"># 变量也能标</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">y</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-constant)\"> int</span><span style=\"color:var(--shiki-token-keyword)\"> |</span><span style=\"color:var(--shiki-token-constant)\"> None</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> None</span><span style=\"color:var(--shiki-token-comment)\">          # 3.10+ 的联合写法</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">greet</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">__annotations__</span><span style=\"color:var(--shiki-token-comment)\">         # 运行期真的存下来了</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># {'name': &#x3C;class 'str'>, 'times': &#x3C;class 'int'>, 'return': &#x3C;class 'str'>}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">greet</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">42</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">                     # ⚠ 照样跑 —— 解释器不检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> typing; typing</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">get_type_hints</span><span style=\"color:var(--shiki-token-punctuation)\">(greet)</span><span style=\"color:var(--shiki-token-comment)\">   # 框架靠这个做校验/文档</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 10,
+          "text": "照样跑 —— 解释器不检查",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>标注是<strong>语法的一部分</strong>，而且运行时会把它们存进 <code>__annotations__</code> ——\n解释器自己不检查，但框架（pydantic、FastAPI、dataclass）能读出来做校验、\n生成文档。所以标注在 Python 里不只是给检查器看的注释，\n它是一份运行时可取的元数据。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 语法里没有标注，想写得换 TypeScript 那种超集；\nPython 把标注做进了语法本身。更关键的是运行期：Python 的标注\n能被读到（框架拿它做校验），TypeScript 的标注编译后<strong>全部消失</strong>。</p>\n",
+        "java": "<p>Java 的类型声明是强制的、编译器全程监督；Python 的标注是可选的、\n运行时不强制。收益也不同：Java 换来的是「不可能类型错」，\nPython 换来的是框架能据此做运行时校验。</p>\n"
+      }
+    },
+    "structural-nominal": {
+      "lang": "python",
+      "code": "# 运行期：鸭子类型，只看有没有那个方法\ndef area(shape):\n    return shape.area()          # 不检查类型\n\n# 结构化类型：Protocol（给检查器看，不要求继承）\nfrom typing import Protocol\nclass Shape(Protocol):\n    def area(self) -> float: ...\n\ndef area2(shape: Shape) -> float: ...   # 形状对就行，无需 implements\n\n# 名义类型：ABC（要求继承）\nfrom abc import ABC, abstractmethod\nclass Reader(ABC):\n    @abstractmethod\n    def read(self) -> str: ...",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 运行期：鸭子类型，只看有没有那个方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">shape</span><span style=\"color:var(--shiki-foreground)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-foreground)\"> shape</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">area</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-comment)\">          # 不检查类型</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 结构化类型：Protocol（给检查器看，不要求继承）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-foreground)\"> typing </span><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> Protocol</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Shape</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">Protocol</span><span style=\"color:var(--shiki-foreground)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    def</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">self</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-token-constant)\"> float</span><span style=\"color:var(--shiki-foreground)\">: ...</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> area2</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">shape</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-foreground)\"> Shape) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-token-constant)\"> float</span><span style=\"color:var(--shiki-foreground)\">: ...   </span><span style=\"color:var(--shiki-token-comment)\"># 形状对就行，无需 implements</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 名义类型：ABC（要求继承）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-foreground)\"> abc </span><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> ABC</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> abstractmethod</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Reader</span><span style=\"color:var(--shiki-foreground)\">(ABC):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    @abstractmethod</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    def</span><span style=\"color:var(--shiki-token-function)\"> read</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">self</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-token-constant)\"> str</span><span style=\"color:var(--shiki-foreground)\">: ...</span></span></code></pre>",
+      "lineCount": 16,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>运行期完全是<strong>鸭子类型</strong>。要在静态层面表达形状有两个选择：\n<code>Protocol</code>（结构化 —— 形状对就相容，不要求继承，与别的语言的\n「结构化类型」是一回事）与 <code>ABC</code>（名义 —— 必须继承）。\n选哪个取决于你想让「相容」由形状决定还是由声明决定。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>运行期两边都是鸭子类型，思路一致。静态层面也对应得上：\n这里的 <code>Protocol</code> 相当于 TypeScript 的结构化 <code>interface</code>。\n两边都没有「必须显式声明实现」的强制。</p>\n",
+        "java": "<p>Java 是名义类型：必须 <code>implements</code> 那个接口，形状对但没声明就是不相容。\n这里运行期完全不看声明（鸭子类型），静态检查也能用「形状」代替「名字」，\n弹性更大但少了确定性。</p>\n"
+      }
+    },
+    "type-narrowing": {
+      "lang": "python",
+      "code": "def f(x: int | str) -> str:\n    if isinstance(x, str):\n        return x.upper()          # 检查器在这里把 x 收窄成 str\n    if isinstance(x, (int, float)):   # 一次判多种\n        return str(x)\n    if hasattr(x, \"read\"):        # 按能力判断\n        return x.read()\n    return \"\"\n\n# ⚠ 检查器只认它能理解的那几种判断；自定义的\n#        「等价于 isinstance」的函数它跟不过去",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> f</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">x</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-constant)\"> int</span><span style=\"color:var(--shiki-token-keyword)\"> |</span><span style=\"color:var(--shiki-token-constant)\"> str</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-token-constant)\"> str</span><span style=\"color:var(--shiki-foreground)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-token-function)\"> isinstance</span><span style=\"color:var(--shiki-token-punctuation)\">(x, </span><span style=\"color:var(--shiki-token-constant)\">str</span><span style=\"color:var(--shiki-token-punctuation)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        return</span><span style=\"color:var(--shiki-foreground)\"> x</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">upper</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-comment)\">          # 检查器在这里把 x 收窄成 str</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-token-function)\"> isinstance</span><span style=\"color:var(--shiki-token-punctuation)\">(x, (</span><span style=\"color:var(--shiki-token-constant)\">int</span><span style=\"color:var(--shiki-token-punctuation)\">, </span><span style=\"color:var(--shiki-token-constant)\">float</span><span style=\"color:var(--shiki-token-punctuation)\">)):</span><span style=\"color:var(--shiki-token-comment)\">   # 一次判多种</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        return</span><span style=\"color:var(--shiki-token-constant)\"> str</span><span style=\"color:var(--shiki-token-punctuation)\">(x)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-token-function)\"> hasattr</span><span style=\"color:var(--shiki-token-punctuation)\">(x, </span><span style=\"color:var(--shiki-token-string-expression)\">\"read\"</span><span style=\"color:var(--shiki-token-punctuation)\">):</span><span style=\"color:var(--shiki-token-comment)\">        # 按能力判断</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        return</span><span style=\"color:var(--shiki-foreground)\"> x</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">read</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-string-expression)\"> \"\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># ⚠ 检查器只认它能理解的那几种判断；自定义的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">#        「等价于 isinstance」的函数它跟不过去</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 10,
+          "text": "检查器只认它能理解的那几种判断；自定义的",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>运行期靠 <code>isinstance</code> / <code>hasattr</code> / <code>callable</code> 之类的检查，\n检查器（mypy）会把这些检查当作<strong>收窄依据</strong> —— 判断过之后类型自动变窄。\n<code>isinstance</code> 能接元组一次判多种，这是它比别处的同类检查更好用的地方。\n局限是检查器只认它认识的那几种模式。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>两边都靠运行期检查、检查器据此收窄。差别是判断手段：\nJavaScript 要写 <code>typeof</code> / <code>instanceof</code> / <code>Array.isArray</code> 一串，\nPython 的 <code>isinstance</code> 接个元组就覆盖了多种类型。</p>\n",
+        "java": "<p>Java 的收窄是<strong>显式写出来的</strong>：<code>if (obj instanceof Point p)</code> 直接绑定\n新变量，由编译器保证。Python 这边靠检查器分析推断，\n推断不出来的地方就得自己写断言。</p>\n"
+      }
+    },
+    "null-safety": {
+      "lang": "python",
+      "code": "x = None                 # 唯一的空值\nx.foo                    # ⚠ AttributeError: 'NoneType' object has no ...\n\nfrom typing import Optional\ndef find(k) -> Optional[str]: ...   # 「可能没有」写进返回类型\n# 注：Optional[str] 等价于 str | None\n\nd.get(\"k\")               # 缺键给 None，不抛\nd[\"k\"]                   # ⚠ KeyError\n\n# ⚠ 类型系统不强制处理 None —— 是检查器（mypy --strict）在管",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> None</span><span style=\"color:var(--shiki-token-comment)\">                 # 唯一的空值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-foreground)\">foo                    </span><span style=\"color:var(--shiki-token-comment)\"># ⚠ AttributeError: 'NoneType' object has no ...</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-foreground)\"> typing </span><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> Optional</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">def</span><span style=\"color:var(--shiki-token-function)\"> find</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-parameter)\">k</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-punctuation)\">-></span><span style=\"color:var(--shiki-foreground)\"> Optional</span><span style=\"color:var(--shiki-token-punctuation)\">[</span><span style=\"color:var(--shiki-token-constant)\">str</span><span style=\"color:var(--shiki-token-punctuation)\">]</span><span style=\"color:var(--shiki-foreground)\">: ...   </span><span style=\"color:var(--shiki-token-comment)\"># 「可能没有」写进返回类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 注：Optional[str] 等价于 str | None</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">d</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"k\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">               # 缺键给 None，不抛</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">d</span><span style=\"color:var(--shiki-token-punctuation)\">[</span><span style=\"color:var(--shiki-token-string-expression)\">\"k\"</span><span style=\"color:var(--shiki-token-punctuation)\">]</span><span style=\"color:var(--shiki-token-comment)\">                   # ⚠ KeyError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># ⚠ 类型系统不强制处理 None —— 是检查器（mypy --strict）在管</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 2,
+          "text": "AttributeError: 'NoneType' object has no ...",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "KeyError",
+          "tone": "warn"
+        },
+        {
+          "line": 11,
+          "text": "类型系统不强制处理 None —— 是检查器（mypy --strict）在管",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>只有一种空值 <code>None</code>。类型系统本身<strong>不区分「可能为空」</strong>；\n<code>Optional[X]</code> 是给检查器看的约定，运行时不强制。所以「这个值会不会是 None」\n靠的是标注与检查器（开了 strict 模式才管得严），不是语言保证。\n容器的行为要分清：<code>d.get(k)</code> 给 None、<code>d[k]</code> 抛 KeyError。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 有两种空值（undefined / null），Python 只有一种 ——\n少一种的代价是区分不出「属性不存在」与「属性值就是空」。\n两边都不在类型系统里强制空安全，都靠检查器与可选链之类的语法缓解。</p>\n",
+        "java": "<p>Java 的 null 同样不受类型系统约束，但标准库提供了 <code>Optional</code> 把\n「可能没有」写进返回类型 —— 与这里的 <code>Optional[X]</code> 标注用意相同，\n只是一个在标准库里、一个是给检查器看的。两边都要靠约定兜住。</p>\n"
+      }
+    },
+    "type-assertion": {
+      "lang": "python",
+      "code": "from typing import cast\n\nx = cast(str, value)     # ⚠ 空操作 —— 只影响检查器，运行时不检查\nreveal_type(x)           # 检查器眼里的类型，运行时会 NameError\n\n# 真正能在运行时确认的是检查：\nif not isinstance(value, str):\n    raise TypeError(\"需要 str\")\n\nassert isinstance(value, str)    # 断言，-O 时会被剥掉，别用它做校验\n\n# cast 断错了不会报，错误会漂到后面某处才炸",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">from</span><span style=\"color:var(--shiki-foreground)\"> typing </span><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> cast</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> cast</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-constant)\">str</span><span style=\"color:var(--shiki-token-punctuation)\">, value)</span><span style=\"color:var(--shiki-token-comment)\">     # ⚠ 空操作 —— 只影响检查器，运行时不检查</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">reveal_type</span><span style=\"color:var(--shiki-token-punctuation)\">(x)</span><span style=\"color:var(--shiki-token-comment)\">           # 检查器眼里的类型，运行时会 NameError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 真正能在运行时确认的是检查：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-token-keyword)\"> not</span><span style=\"color:var(--shiki-token-function)\"> isinstance</span><span style=\"color:var(--shiki-token-punctuation)\">(value, </span><span style=\"color:var(--shiki-token-constant)\">str</span><span style=\"color:var(--shiki-token-punctuation)\">):</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    raise</span><span style=\"color:var(--shiki-token-constant)\"> TypeError</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"需要 str\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">assert</span><span style=\"color:var(--shiki-token-function)\"> isinstance</span><span style=\"color:var(--shiki-token-punctuation)\">(value, </span><span style=\"color:var(--shiki-token-constant)\">str</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">    # 断言，-O 时会被剥掉，别用它做校验</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># cast 断错了不会报，错误会漂到后面某处才炸</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 3,
+          "text": "空操作 —— 只影响检查器，运行时不检查",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>typing.cast</code> 是<strong>给检查器的空操作</strong>：运行时它只是把值原样返回，\n一行检查都不做。真正能确认类型的是 <code>isinstance</code> 判断（不符合就抛），\n或者用 <code>assert</code>（注意 <code>-O</code> 运行时断言会被整个剥掉，不能拿它做输入校验）。\n断错了不会当场报，只会在后面某处炸。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>这里与 TypeScript 的 <code>as</code> 是同一回事：都是纯编译期的承诺、\n运行时不检查。两边真正的运行时手段也都只有显式判断。</p>\n",
+        "java": "<p>Java 的强制转换 <code>(String) x</code> 会在<strong>运行时真的检查</strong>，类型不符抛\nClassCastException。这是最关键的区别：Java 的转换是一个会失败的动作，\n这里与 Python 的断言只是一句声明。</p>\n"
+      }
+    }
+  }
+}

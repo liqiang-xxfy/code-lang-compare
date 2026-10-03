@@ -1,0 +1,161 @@
+{
+  "lang": "javascript",
+  "section": "mechanism",
+  "group": "types",
+  "boxes": {
+    "static-vs-dynamic": {
+      "lang": "javascript",
+      "code": "let n = 1;\nn = \"字符串\";         // ⚠ 完全合法 —— 变量没有类型\nn.toFixed(2);        // ⚠ 运行时才炸：n.toFixed is not a function\n\ntypeof n;            // 类型只能在运行时问\nArray.isArray(n);    // 数组要单独判 —— typeof [] 是 \"object\"\n\n// 想静态检查得用 TypeScript：它编译期报错，运行时不留下任何东西",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"字符串\"</span><span style=\"color:var(--shiki-foreground)\">;         </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 完全合法 —— 变量没有类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">n</span><span style=\"color:var(--shiki-token-function)\">.toFixed</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">);        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 运行时才炸：n.toFixed is not a function</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">typeof</span><span style=\"color:var(--shiki-foreground)\"> n;            </span><span style=\"color:var(--shiki-token-comment)\">// 类型只能在运行时问</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Array</span><span style=\"color:var(--shiki-token-function)\">.isArray</span><span style=\"color:var(--shiki-foreground)\">(n);    </span><span style=\"color:var(--shiki-token-comment)\">// 数组要单独判 —— typeof [] 是 \"object\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想静态检查得用 TypeScript：它编译期报错，运行时不留下任何东西</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 2,
+          "text": "完全合法 —— 变量没有类型",
+          "tone": "warn"
+        },
+        {
+          "line": 3,
+          "text": "运行时才炸：n.toFixed is not a function",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>动态类型</strong>：类型属于值、不属于变量，所以 <code>let n = 1</code> 之后赋字符串完全合法。\n类型错误在运行到那一行时才暴露，而且通常报的是「没有这个方法」而不是\n「类型不对」—— 从错误信息回推是哪一步错了要费点劲。想提前发现只能上\nTypeScript，那是一层编译期的检查，运行时不留下痕迹。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 同样是动态类型，但失败方式不同：调不存在的方法抛 AttributeError，\n<code>1 + &quot;a&quot;</code> 抛 TypeError，报错通常比 JavaScript 更直接地指出类型问题。\n两边的类型标注也都是可选的，检查靠外部工具。</p>\n",
+        "java": "<p>Java 是静态类型：类型写在声明上、编译器全程检查，<code>n = &quot;字符串&quot;</code> 直接\n编译错误。换来的是「这类错误不可能活到运行时」，代价是写起来更啰嗦、\n且表达能力受类型系统约束。</p>\n"
+      }
+    },
+    "type-annotation": {
+      "lang": "javascript",
+      "code": "// ⚠ 语言层面没有类型标注 —— 一行都写不出来\nfunction f(n) { return n * 2; }\n\n// 想标注只有两条路：\n//  1. TypeScript（语法扩展，编译期检查）\n//     function f(n: number): number { return n * 2 }\n//  2. JSDoc 注释（给编辑器与检查器看，不影响运行）\n/**\n * @param {number} n\n * @returns {number}\n */\nfunction g(n) { return n * 2; }",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 语言层面没有类型标注 —— 一行都写不出来</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> f</span><span style=\"color:var(--shiki-foreground)\">(n) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想标注只有两条路：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//  1. TypeScript（语法扩展，编译期检查）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     function f(n: number): number { return n * 2 }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//  2. JSDoc 注释（给编辑器与检查器看，不影响运行）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">/**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"> * </span><span style=\"color:var(--shiki-token-keyword)\">@param</span><span style=\"color:var(--shiki-token-function)\"> {number}</span><span style=\"color:var(--shiki-token-comment)\"> n</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"> * </span><span style=\"color:var(--shiki-token-keyword)\">@returns</span><span style=\"color:var(--shiki-token-function)\"> {number}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"> */</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> g</span><span style=\"color:var(--shiki-foreground)\">(n) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">; }</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 1,
+          "text": "语言层面没有类型标注 —— 一行都写不出来",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>语言里没有类型标注这回事</strong> —— 想标注只能换 TypeScript（超集，编译期检查）\n或者写 JSDoc 注释（编辑器与检查器能读，运行时完全忽略）。所以\n「这个函数收什么」在纯 JS 代码里只有文档能回答，运行时不校验任何东西。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 把标注做进了语法（<code>def f(n: int) -&gt; int</code>），而且运行时会存进\n<code>__annotations__</code> —— 虽然不检查，但框架能读出来做校验或生成文档。\nJavaScript 连这个都没有，标注要么靠 TS 要么靠注释。</p>\n",
+        "java": "<p>Java 的标注就是类型声明本身，编译器强制、不可省略，而且是方法签名的一部分。\n这里的「标注」是可选的附加信息，运行时不看、Java 那边是硬约束。</p>\n"
+      }
+    },
+    "structural-nominal": {
+      "lang": "javascript",
+      "code": "// ⚠ 运行时完全是鸭子类型 —— 只看有没有那个方法\nfunction area(shape) { return shape.area(); }\narea({ area: () => 1 });        // 合法，形状对就行\narea(new Circle());             // 也合法\n\n// TS 把这层判断搬到了编译期：**结构化类型**\n//   interface Shape { area(): number }\n//   任何有 area(): number 的东西都算 Shape，不需要 implements",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 运行时完全是鸭子类型 —— 只看有没有那个方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(shape) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> shape</span><span style=\"color:var(--shiki-token-function)\">.area</span><span style=\"color:var(--shiki-foreground)\">(); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">area</span><span style=\"color:var(--shiki-foreground)\">({ </span><span style=\"color:var(--shiki-token-function)\">area</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-foreground)\"> () </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\"> });        </span><span style=\"color:var(--shiki-token-comment)\">// 合法，形状对就行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">area</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Circle</span><span style=\"color:var(--shiki-foreground)\">());             </span><span style=\"color:var(--shiki-token-comment)\">// 也合法</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// TS 把这层判断搬到了编译期：**结构化类型**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   interface Shape { area(): number }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   任何有 area(): number 的东西都算 Shape，不需要 implements</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 1,
+          "text": "运行时完全是鸭子类型 —— 只看有没有那个方法",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>运行期是<strong>鸭子类型</strong>：一个值能不能用，只看它有没有那个方法 / 属性。\nTypeScript 把这层判断提升到编译期，而且保持<strong>结构化</strong> ——\n「形状对」就算相容，不需要显式声明实现某个接口。\n所以 JS 生态里没有「实现某某接口」这种写法。</p>\n",
+      "vsHtml": {
+        "python": "<p>同样是鸭子类型，Python 的 <code>Protocol</code> 把「形状约定」写成了可检查的类型，\n与 TypeScript 的结构化类型思路一致。两边的运行期都只看实际有没有那个方法。</p>\n",
+        "java": "<p>Java 是<strong>名义类型</strong>：能不能传进某个参数，看有没有声明实现那个接口，\n与它实际有没有那个方法无关。「形状对但没声明」编译不过，\n这是鸭子类型在这里完全行不通的原因。</p>\n"
+      }
+    },
+    "type-narrowing": {
+      "lang": "javascript",
+      "code": "function f(x) {\n  if (typeof x === \"string\") {\n    x.toUpperCase();           // 运行期这里一定是字符串\n  }\n  if (Array.isArray(x)) { }\n  if (x instanceof Date) { }\n  if (\"kind\" in x) { }         // 按属性存在性判断\n}\n\n// TS 在这些检查之后会**自动收窄**类型，不用额外写断言：\n//   function f(x: string | number) {\n//     if (typeof x === \"string\") x.toUpperCase();  // 这里 x 被收窄成 string\n//   }",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> f</span><span style=\"color:var(--shiki-foreground)\">(x) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">typeof</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">===</span><span style=\"color:var(--shiki-token-string-expression)\"> \"string\"</span><span style=\"color:var(--shiki-foreground)\">) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    x</span><span style=\"color:var(--shiki-token-function)\">.toUpperCase</span><span style=\"color:var(--shiki-foreground)\">();           </span><span style=\"color:var(--shiki-token-comment)\">// 运行期这里一定是字符串</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-constant)\">Array</span><span style=\"color:var(--shiki-token-function)\">.isArray</span><span style=\"color:var(--shiki-foreground)\">(x)) { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (x </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> Date</span><span style=\"color:var(--shiki-foreground)\">) { }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-string-expression)\">\"kind\"</span><span style=\"color:var(--shiki-token-keyword)\"> in</span><span style=\"color:var(--shiki-foreground)\"> x) { }         </span><span style=\"color:var(--shiki-token-comment)\">// 按属性存在性判断</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// TS 在这些检查之后会**自动收窄**类型，不用额外写断言：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   function f(x: string | number) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//     if (typeof x === \"string\") x.toUpperCase();  // 这里 x 被收窄成 string</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   }</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>运行期靠检查来保证：<code>typeof</code> / <code>instanceof</code> / <code>Array.isArray</code> /\n<code>&quot;key&quot; in obj</code>。语言不会因此改变什么，是你自己确认了形状。\nTypeScript 则会把这些检查<strong>当作类型收窄的依据</strong> —— 判断过之后类型自动变窄，\n不需要再写断言，这是它最好用的地方之一。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 用 <code>isinstance</code> / <code>hasattr</code> 做同样的检查，类型检查器也会据此收窄。\n差别是 Python 的 <code>isinstance</code> 能接元组一次判多种\n（<code>isinstance(x, (int, float))</code>），这里要写两次 <code>typeof</code> 或 <code>||</code>。</p>\n",
+        "java": "<p>Java 的收窄由<strong>编译器</strong>做，而且用模式匹配写在语法里：\n<code>if (obj instanceof Point p) { p.x(); }</code> 直接绑定新变量。\n这里（含 TypeScript）的收窄是分析出来的，Java 的是显式声明的。</p>\n"
+      }
+    },
+    "null-safety": {
+      "lang": "javascript",
+      "code": "let a;                       // undefined\nlet b = null;                // null —— 两种空\na.length;                    // ⚠ TypeError\n\nobj?.prop?.deep;             // 可选链：中途为空就整体给 undefined\nvalue ?? \"默认\";              // 空值合并：只认 null / undefined\n\n// ⚠ 语言不区分「一定非空」与「可能为空」\n//   TS 的 strictNullChecks 才把这层写进类型：string 与 string | null 是两回事",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> a;                       </span><span style=\"color:var(--shiki-token-comment)\">// undefined</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;                </span><span style=\"color:var(--shiki-token-comment)\">// null —— 两种空</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">a</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">length</span><span style=\"color:var(--shiki-foreground)\">;                    </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ TypeError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">obj</span><span style=\"color:var(--shiki-foreground)\">?.</span><span style=\"color:var(--shiki-token-constant)\">prop</span><span style=\"color:var(--shiki-foreground)\">?.deep;             </span><span style=\"color:var(--shiki-token-comment)\">// 可选链：中途为空就整体给 undefined</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">value </span><span style=\"color:var(--shiki-token-keyword)\">??</span><span style=\"color:var(--shiki-token-string-expression)\"> \"默认\"</span><span style=\"color:var(--shiki-foreground)\">;              </span><span style=\"color:var(--shiki-token-comment)\">// 空值合并：只认 null / undefined</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 语言不区分「一定非空」与「可能为空」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   TS 的 strictNullChecks 才把这层写进类型：string 与 string | null 是两回事</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 3,
+          "text": "TypeError",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "语言不区分「一定非空」与「可能为空」",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>有两种空值（<code>undefined</code> / <code>null</code>），而且<strong>类型系统不区分「可能为空」</strong>——\n语言层面每个引用都可能为空，编译器不提醒。<code>?.</code> 与 <code>??</code> 是缓解手段，\n不是保证。想真正把「可能为空」写进类型，只能靠 TypeScript 的\n<code>strictNullChecks</code>。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 只有一种空值，而且同样不在类型系统里；<code>Optional[X]</code> 标注是\n给检查器看的（运行时不检查）。两边的空值都要靠约定与工具兜住。</p>\n",
+        "java": "<p>Java 的 <code>null</code> 可以塞进任何引用类型、编译器不提醒 —— 与这里一样是\n「谁都可能为空」。Java 有 <code>Optional</code> 把「可能没有」写进返回类型，\n但那是标准库的约定，不是类型系统强制的。</p>\n"
+      }
+    },
+    "type-assertion": {
+      "lang": "javascript",
+      "code": "// ⚠ 语言层面没有类型断言 —— 没有东西可以「断言」\n//   运行时只能检查，不能声称：\nif (!(x instanceof Date)) throw new TypeError(\"需要 Date\");\n\n// TS 里有断言语法，但它**不做任何运行时检查**：\n//   const d = x as Date;      // 只是让编译器闭嘴\n//   x!                        // 非空断言，同样不检查",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 语言层面没有类型断言 —— 没有东西可以「断言」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   运行时只能检查，不能声称：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">!</span><span style=\"color:var(--shiki-foreground)\">(x </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> Date</span><span style=\"color:var(--shiki-foreground)\">)) </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"需要 Date\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// TS 里有断言语法，但它**不做任何运行时检查**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   const d = x as Date;      // 只是让编译器闭嘴</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   x!                        // 非空断言，同样不检查</span></span></code></pre>",
+      "lineCount": 7,
+      "notes": [
+        {
+          "line": 1,
+          "text": "语言层面没有类型断言 —— 没有东西可以「断言」",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>运行期<strong>没有类型断言这回事</strong> —— 没有类型可以断言。要保证类型只能当场检查\n（<code>instanceof</code> / <code>typeof</code>）并在不符合时抛错。TypeScript 的 <code>as</code> 是纯编译期的\n声明「我知道它是什么」，运行时一行代码都不生成，所以断错了不会报，\n只会在后面某处炸掉。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的 <code>typing.cast</code> 与这里 TypeScript 的 <code>as</code> 一样是<strong>空操作</strong>，\n只影响检查器。真正能在运行时确认的是 <code>isinstance</code> 或 <code>assert isinstance(...)</code>。\n两边都是「声称」与「检查」分开的。</p>\n",
+        "java": "<p>Java 的强制转换 <code>(Date) x</code> 会<strong>在运行时真的检查</strong>，不匹配抛\nClassCastException。这是与这里最关键的区别：Java 的转换是动作，\nTypeScript 的断言只是承诺。</p>\n"
+      }
+    }
+  }
+}

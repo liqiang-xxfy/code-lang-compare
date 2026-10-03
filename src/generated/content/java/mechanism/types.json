@@ -1,0 +1,177 @@
+{
+  "lang": "java",
+  "section": "mechanism",
+  "group": "types",
+  "boxes": {
+    "static-vs-dynamic": {
+      "lang": "java",
+      "code": "int n = 1;\n// n = \"字符串\";              // —— ⚠ 编译错误：不兼容的类型\n\nObject o = \"其实是字符串\";     // 上转型：编译期只看 Object\no.toUpperCase();              // ⚠ 编译错误：Object 没有这个方法\n((String) o).toUpperCase();   // 要转回来\n\n// 一切在编译期定：类型写对了，运行时就一定不会「类型错」\n// ⚠ 例外是泛型擦除与反射 —— 那两条路能绕过编译期检查",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// n = \"字符串\";              // —— ⚠ 编译错误：不兼容的类型</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Object</span><span style=\"color:var(--shiki-foreground)\"> o </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"其实是字符串\"</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// 上转型：编译期只看 Object</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">o</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">toUpperCase</span><span style=\"color:var(--shiki-foreground)\">();              </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 编译错误：Object 没有这个方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">((String) o)</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">toUpperCase</span><span style=\"color:var(--shiki-foreground)\">();   </span><span style=\"color:var(--shiki-token-comment)\">// 要转回来</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 一切在编译期定：类型写对了，运行时就一定不会「类型错」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 例外是泛型擦除与反射 —— 那两条路能绕过编译期检查</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 2,
+          "text": "编译错误：不兼容的类型",
+          "tone": "warn"
+        },
+        {
+          "line": 5,
+          "text": "编译错误：Object 没有这个方法",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "例外是泛型擦除与反射 —— 那两条路能绕过编译期检查",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>静态类型</strong>：类型写在声明上、编译器全程检查，不兼容的赋值与调用直接\n编译错误。所以「把数字当字符串用」这类错误活不到运行时 ——\n这是它相对动态语言最大的收益。两个例外要记住：泛型参数会被擦除、\n反射能绕过检查，那两处仍然可能在运行时报错。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的动态类型让 <code>let n = 1; n = &quot;字符串&quot;</code> 完全合法，错误要到\n运行时才炸；Java 在编译期就拦住。代价是 Java 的声明必须写类型、\n且要经常上转型再转回来。</p>\n",
+        "python": "<p>Python 是动态的：类型错误要到运行时才抛，Java 的静态检查把整类错误\n提前到了编译期。反过来 Java 少了「同一个变量先后装不同类型」的灵活 ——\n需要那点灵活时得用 <code>Object</code> 加转换，很难看。</p>\n"
+      }
+    },
+    "type-annotation": {
+      "lang": "java",
+      "code": "int count = 0;                        // 类型是声明的一部分\nList<Map<String, Integer>> table;     // 嵌套泛型\nString greet(String name, int times) { return name.repeat(times); }\n\nvar inferred = compute();             // var 只让编译器替你写，类型仍固定\n\n// 注解（annotation）是另一回事：@Override / @Nullable\n//        它们是附加信息，不是类型\n// ⚠ 类型一旦写下就固定，没有「可选标注」这回事",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> count </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;                        </span><span style=\"color:var(--shiki-token-comment)\">// 类型是声明的一部分</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">List</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">Map</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> Integer</span><span style=\"color:var(--shiki-foreground)\">>> table;     </span><span style=\"color:var(--shiki-token-comment)\">// 嵌套泛型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> greet(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> name</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> int</span><span style=\"color:var(--shiki-token-function)\"> times)</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> name</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">repeat</span><span style=\"color:var(--shiki-foreground)\">(times); }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> inferred </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> compute()</span><span style=\"color:var(--shiki-foreground)\">;             </span><span style=\"color:var(--shiki-token-comment)\">// var 只让编译器替你写，类型仍固定</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 注解（annotation）是另一回事：@Override / @Nullable</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        它们是附加信息，不是类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 类型一旦写下就固定，没有「可选标注」这回事</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 9,
+          "text": "类型一旦写下就固定，没有「可选标注」这回事",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>类型是<strong>声明的一部分</strong>，处处都要写，编译器全程检查。<code>var</code> 只是省掉手写、\n推断结果仍然固定。另有一类容易混淆的东西叫「注解」（<code>@Override</code>、\n<code>@Nullable</code>）—— 那是附加在声明上的元数据，不是类型；\n空安全要靠它们加外部工具，语言本身不管。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 语法里没有类型可写，只能靠 TypeScript 那种超集；\nJava 的类型是强制的、编译期盯着。这里唯一与「可选标注」沾边的是注解，\n但它不改变类型检查。</p>\n",
+        "python": "<p>Python 的标注是可选的、运行时不强制，还能被框架读出来；\nJava 的类型不可省略、编译器强制执行，没有「标了但不检查」这种状态。\n一边给的是元数据，一边给的是约束。</p>\n"
+      }
+    },
+    "structural-nominal": {
+      "lang": "java",
+      "code": "interface Shape { double area(); }\n\nclass Circle implements Shape {                 // 必须显式声明\n  public double area() { return 3.14; }\n}\n\nclass HasArea {                                 // 有同样的方法\n  public double area() { return 3.14; }\n}\n\nvoid print(Shape s) { System.out.println(s.area()); }\nprint(new Circle());                            // 可以\n// print(new HasArea());                        // —— ⚠ 编译错误：没声明实现\n\n// 想传进去只能：让它 implements，或包一层适配器\n// 唯一的「形状相容」通道是 lambda 对函数式接口",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">interface</span><span style=\"color:var(--shiki-token-function)\"> Shape</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">double</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(); }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Circle</span><span style=\"color:var(--shiki-token-keyword)\"> implements</span><span style=\"color:var(--shiki-token-function)\"> Shape</span><span style=\"color:var(--shiki-foreground)\"> {                 </span><span style=\"color:var(--shiki-token-comment)\">// 必须显式声明</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  public</span><span style=\"color:var(--shiki-token-keyword)\"> double</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 3.14</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> HasArea</span><span style=\"color:var(--shiki-foreground)\"> {                                 </span><span style=\"color:var(--shiki-token-comment)\">// 有同样的方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  public</span><span style=\"color:var(--shiki-token-keyword)\"> double</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 3.14</span><span style=\"color:var(--shiki-foreground)\">; }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">void</span><span style=\"color:var(--shiki-token-function)\"> print(</span><span style=\"color:var(--shiki-token-keyword)\">Shape</span><span style=\"color:var(--shiki-token-function)\"> s)</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-constant)\">System</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">out</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">println</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">s</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">area</span><span style=\"color:var(--shiki-foreground)\">()); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">print(</span><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Circle())</span><span style=\"color:var(--shiki-foreground)\">;                            </span><span style=\"color:var(--shiki-token-comment)\">// 可以</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// print(new HasArea());                        // —— ⚠ 编译错误：没声明实现</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想传进去只能：让它 implements，或包一层适配器</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 唯一的「形状相容」通道是 lambda 对函数式接口</span></span></code></pre>",
+      "lineCount": 16,
+      "notes": [
+        {
+          "line": 13,
+          "text": "编译错误：没声明实现",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>名义类型</strong>：相容与否看有没有<strong>声明实现</strong>那个接口，与它实际有没有\n那个方法无关。「形状一模一样但没写 implements」编译不过 —— 这是 Java\n最需要适应的一条，从鸭子类型的语言过来时会觉得多余。唯一的例外是\n函数式接口：lambda 只要形状对就能写，但那个接口仍是声明过的类型。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 运行期是鸭子类型，只要有方法就能用，从不需要声明；\nJava 反过来 —— 有方法没用，得有声明。这是两家设计取向上最根本的差别。</p>\n",
+        "python": "<p>Python 运行期不看声明、静态检查也能用 <code>Protocol</code> 按形状判断；\nJava 一律要求显式 <code>implements</code>。同一个意思想表达「它能被这样用」，\n一边靠形状一边靠名字。</p>\n"
+      }
+    },
+    "type-narrowing": {
+      "lang": "java",
+      "code": "// 经典写法：判断 + 强制转换\nif (obj instanceof String) {\n  String s = (String) obj;      // ⚠ 转换是必须的，编译器不会替你收窄\n  s.length();\n}\n\n// 模式匹配（Java 16+）：判断的同时绑定变量\nif (obj instanceof String s) {   // s 在这里已经是 String\n  s.length();\n}\n\nString kind = switch (shape) {\n  case Circle c    -> \"圆 \" + c.radius();     // 编译器检查穷尽性\n  case Rectangle r -> \"矩形\";\n  default          -> \"别的\";\n};",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 经典写法：判断 + 强制转换</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (obj </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-foreground)\"> String) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  String</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (String) obj;      </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 转换是必须的，编译器不会替你收窄</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  s</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">length</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 模式匹配（Java 16+）：判断的同时绑定变量</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (obj </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-foreground)\"> s) {   </span><span style=\"color:var(--shiki-token-comment)\">// s 在这里已经是 String</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  s</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">length</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> kind </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> switch</span><span style=\"color:var(--shiki-foreground)\"> (shape) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  case</span><span style=\"color:var(--shiki-token-keyword)\"> Circle</span><span style=\"color:var(--shiki-foreground)\"> c    </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-string-expression)\"> \"圆 \"</span><span style=\"color:var(--shiki-token-keyword)\"> +</span><span style=\"color:var(--shiki-token-constant)\"> c</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">radius</span><span style=\"color:var(--shiki-foreground)\">();     </span><span style=\"color:var(--shiki-token-comment)\">// 编译器检查穷尽性</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  case</span><span style=\"color:var(--shiki-token-keyword)\"> Rectangle</span><span style=\"color:var(--shiki-foreground)\"> r </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-string-expression)\"> \"矩形\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  default</span><span style=\"color:var(--shiki-token-keyword)\">          -></span><span style=\"color:var(--shiki-token-string-expression)\"> \"别的\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">};</span></span></code></pre>",
+      "lineCount": 16,
+      "notes": [
+        {
+          "line": 3,
+          "text": "转换是必须的，编译器不会替你收窄",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>旧写法是「<code>instanceof</code> 判断 + 强制转换」两步，<strong>编译器不会替你收窄</strong>，\n转换那一句必须自己写。新版用<strong>模式匹配</strong>把两步合成一步：\n<code>instanceof String s</code> 直接绑定变量，<code>switch</code> 里还能按类型分支并由编译器\n检查穷尽性。这是 Java 近几年补上的、最实用的一块语法。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的收窄靠运行期检查、编译器不参与（TypeScript 才会分析），\nJava 的模式匹配是语法的一部分、由编译器绑定变量并保证穷尽。\n两边读起来都是「判断一下再用」，确定性不同。</p>\n",
+        "python": "<p>Python 靠 <code>isinstance</code> 判断、检查器据此收窄，Java 在语法里直接绑定\n新变量。另一处差别是 Java 的 <code>switch</code> 模式能穷尽性检查，\nPython 的 <code>match</code> 漏分支只会落到兜底。</p>\n"
+      }
+    },
+    "null-safety": {
+      "lang": "java",
+      "code": "String s = null;\ns.length();                   // ⚠ NullPointerException\n\n// ⚠ 类型系统不区分 String 与「可能是 null 的 String」\n//        编译器对空值一言不发\n\n// 缓解手段一：Optional（把「可能没有」写进返回类型）\nOptional<String> find(String k) { ... }\nfind(\"a\").orElse(\"默认\");\n\n// 缓解手段二：注解 + 工具（@Nullable / @NonNull）\nString greet(@Nullable String name) { ... }\n\n// 缓解手段三：Objects.requireNonNull 提前失败",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">s</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">length</span><span style=\"color:var(--shiki-foreground)\">();                   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ NullPointerException</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 类型系统不区分 String 与「可能是 null 的 String」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//        编译器对空值一言不发</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 缓解手段一：Optional（把「可能没有」写进返回类型）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Optional&#x3C;</span><span style=\"color:var(--shiki-foreground)\">String</span><span style=\"color:var(--shiki-token-keyword)\">></span><span style=\"color:var(--shiki-token-function)\"> find(</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> k)</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">find(</span><span style=\"color:var(--shiki-token-string-expression)\">\"a\"</span><span style=\"color:var(--shiki-token-function)\">)</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">orElse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"默认\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 缓解手段二：注解 + 工具（@Nullable / @NonNull）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-token-function)\"> greet(@</span><span style=\"color:var(--shiki-token-keyword)\">Nullable</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-token-function)\"> name)</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 缓解手段三：Objects.requireNonNull 提前失败</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 2,
+          "text": "NullPointerException",
+          "tone": "warn"
+        },
+        {
+          "line": 4,
+          "text": "类型系统不区分 String 与「可能是 null 的 String」",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>空值不在类型系统里</strong>：<code>null</code> 能塞进任何引用类型，编译器一句都不说，\n而且基本类型装不下它。标准库给的补救是 <code>Optional</code>（把「可能没有」\n写进返回类型，逼调用方处理）与 <code>Objects.requireNonNull</code>（让它在边界上\n早点炸）。真正的空安全检查要靠 <code>@Nullable</code> 这类注解加外部工具。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>两边的空值都不受类型系统约束、编译器都不提醒。差别是 JavaScript 有\n可选链 <code>?.</code> 与空值合并 <code>??</code> 这类顺手语法，Java 只有 <code>Optional</code>\n与一层层的 <code>!= null</code>。</p>\n",
+        "python": "<p>Java 用 <code>Optional</code> 把「可能没有」写进类型，Python 用 <code>Optional[X]</code>\n标注写同一件事，但后者是给检查器的、运行时不强制。\n两边都有「判空要自己记得」这个前提。</p>\n"
+      }
+    },
+    "type-assertion": {
+      "lang": "java",
+      "code": "Object o = \"abc\";\nString s = (String) o;        // 运行时**真的检查**，不符就抛\n// Integer i = (Integer) o;   // —— ⚠ ClassCastException\n\nNumber n = 1;\nDouble d = (Double) n;        // ⚠ 编译通过，运行时炸 —— 包装类型别乱转\n\n// 安全写法：先判再转\nif (o instanceof String s2) { ... }\n\n// 泛型转换会在别处炸：List<String> 转成 List<Integer> 编译只是警告，\n//       取元素时才抛 ClassCastException —— 这是擦除的后果",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Object</span><span style=\"color:var(--shiki-foreground)\"> o </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"abc\"</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\"> s </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (String) o;        </span><span style=\"color:var(--shiki-token-comment)\">// 运行时**真的检查**，不符就抛</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Integer i = (Integer) o;   // —— ⚠ ClassCastException</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Number</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Double</span><span style=\"color:var(--shiki-foreground)\"> d </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> (Double) n;        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 编译通过，运行时炸 —— 包装类型别乱转</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 安全写法：先判再转</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (o </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-keyword)\"> String</span><span style=\"color:var(--shiki-foreground)\"> s2) { </span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 泛型转换会在别处炸：List&#x3C;String> 转成 List&#x3C;Integer> 编译只是警告，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//       取元素时才抛 ClassCastException —— 这是擦除的后果</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 3,
+          "text": "ClassCastException",
+          "tone": "warn"
+        },
+        {
+          "line": 6,
+          "text": "编译通过，运行时炸 —— 包装类型别乱转",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>强制转换 <code>(Type) x</code> 是<strong>会失败的动作</strong>：运行时真的检查，不匹配抛\nClassCastException。所以要转换就配一个 <code>instanceof</code> 判断\n（或直接用模式匹配）。要特别小心泛型转换 —— 擦除之后\n<code>List&lt;String&gt;</code> 与 <code>List&lt;Integer&gt;</code> 在运行时是同一个类，\n转换当时不报，取元素时才炸。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>Java 的转换是运行时动作、会失败；这里（含 TypeScript）的断言只是\n编译期的承诺、一行代码都不生成，断错了要到后面某处才炸。\n两边都有「转换/断言要先确认」这条纪律，代价不同。</p>\n",
+        "python": "<p>Python 的 <code>cast</code> 与 Java 的转换是两回事：前者运行时是空操作，\n后者会真的检查并抛 ClassCastException。真正能在运行时确认类型的手段，\nPython 是 <code>isinstance</code>，Java 是转换本身。</p>\n"
+      }
+    }
+  }
+}
