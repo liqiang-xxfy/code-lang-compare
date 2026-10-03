@@ -1,0 +1,193 @@
+# go —— mechanism / memory
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: memory` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  value-vs-reference:
+    code: |
+      type User struct{ Name string }
+
+      a := User{Name: "Ada"}
+      b := a                     // @note! 结构体是值类型 —— 这一行真的复制了
+      b.Name = "Bob"             // @note a.Name 仍是 "Ada"
+
+      pa := &User{Name: "Ada"}
+      pb := pa                   // @note 指针复制的是地址 —— 两个名字指向同一个对象
+      pb.Name = "Bob"            // @note pa.Name 也变成 "Bob"
+
+      xs := []int{1, 2}
+      ys := xs                   // @note! 切片是引用语义（共享底层数组）
+      ys[0] = 9                  // @note xs[0] 也变成 9
+    vs:
+      javascript: |
+        JavaScript 的对象与数组都是引用语义，赋值共享；Go **两者都有** ——
+        结构体与数组是值类型（赋值整体复制），切片/map/指针/通道是引用语义。
+        这个区分是 Go 特有的，读代码时必须先看手上是哪种类型：
+        `b := a` 到底是复制还是共享，取决于 a 是什么。
+        JavaScript 里这个问题永远只有一个答案（共享）。
+      python: |
+        Python 里可变对象（list/dict）赋值共享、不可变对象（tuple/str）语义上复制；
+        Go 的分界线不看可变性，而看**类型种类**：结构体与数组是值类型，
+        切片/map/指针是引用语义。所以 Go 里 `b := a`（a 是结构体）
+        得到独立副本，Python 里 `b = a`（a 是 dataclass 实例）得到别名 ——
+        同一个写法，行为相反。
+      java: |
+        Java 里对象赋值复制引用（共享），基本类型赋值复制值；
+        Go 的分界是类型种类：结构体与数组是**值类型**（赋值复制），
+        与 Java 的对象语义相反 —— 这是从 Java 过来最容易出错的一处。
+        想让 Go 表现得像 Java 就用指针（`pa := &a`），
+        而且这个选择必须显式做出来，不能默认。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  garbage-collection:
+    code: |
+      // Go 有 GC —— 并发三色标记清除，不需要手动释放
+      type Node struct{ Next *Node }
+
+      n := &Node{}
+      n.Next = &Node{}          // @note 互相引用也没关系，GC 能回收环
+      n = nil                   // @note 两个节点都不可达，会被回收
+
+      // 想让 GC 提前知道可以回收（一般不需要）
+      // runtime.GC()           // @note 强制一轮，生产环境不要用
+      // debug.FreeOSMemory()   // @note 把内存还给操作系统
+
+      // 可以调 GOGC 控制触发比例（默认 100，即堆翻倍时触发）
+      // GOGC=50 ./app
+    vs:
+      javascript: |
+        Go 与 JavaScript 都是 GC 语言，日常编码里都不需要手动释放 ——
+        这一点两边体验接近。差别在**可控性**：Go 可以用 `GOGC` 调触发阈值、
+        用 `debug.SetMemoryLimit` 设软上限、用 `runtime.ReadMemStats` 看堆状态；
+        JavaScript 引擎把 GC 藏得更深，几乎没有旋钮。
+        另外 Go 的 GC 会带来尾延迟（`GODEBUG=gctrace=1` 能看到），
+        这在延迟敏感的服务里是要调参的。
+      python: |
+        Python 用引用计数为主、分代 GC 收环，对象通常在计数归零时立刻释放；
+        Go 用并发标记清除，对象什么时候回收不精确 ——
+        但 Go 的 GC 全程并发、停顿极短（亚毫秒级），
+        而 Python 的循环回收会停顿。两边的取舍不同：
+        Python 释放及时但吞吐受影响，Go 有延迟但暂停短。
+        另一处差别是 Go 的 `GOGC` / `GOMEMLIMIT` 给了明确的调优入口。
+      java: |
+        两边都是 GC 语言，都能处理循环引用，都有调优参数 ——
+        这一格是最接近的。差别在默认体验：Go 的 GC 默认就够快
+        （停顿亚毫秒），一般不需要调；JVM 的收集器选择与堆参数
+        是运维的常规课题，`-Xmx` 几乎必设。
+        Go 用 `GOMEMLIMIT` 设软上限（类似 `-Xmx` 但超了不 OOM，只是更积极地回收），
+        这一点比 JVM 的硬上限更温和。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  ownership-borrow:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有所有权与借用这层概念** —— 值被谁引用、什么时候释放，
+        全交给 GC，编译器不做任何追踪。这与 JavaScript 一样，
+        但 Go 的**值/引用语义区分**承担了一部分相似的职责：
+        想共享就传指针（双方都清楚），想复制就传值。
+        区别是「共享」在 Go 里不会造成编译错误，只有数据竞争才会 ——
+        而且那是运行时才发现的（或靠 `-race` 检测器）。
+      python: |
+        Go **没有所有权与借用**，对象的生命周期由 GC 决定，
+        引用可以随意复制。Go 的值/引用语义确实要求作者想清楚
+        「传进去的是副本还是共享」，但这个想法只是**约定**，
+        编译器不检查 —— 忘了就会踩到「改了副本没生效」或
+        「改了共享的对象影响了别处」。Python 里同样没有检查，
+        唯一的保障是可变对象在两边都共享这个直觉。
+      java: |
+        Go **没有所有权与借用** —— 与 Java 一样靠 GC，
+        对象可以被任意多个引用共享、随意修改。
+        Go 多一层值/指针的显式选择（Java 的基本类型/对象是隐含的），
+        但两者都不提供编译期的别名检查。
+        Go 的 `-race` 检测器能在运行测试时抓数据竞争，
+        这是 GC 语言里最接近「编译期检查别名」的手段。
+    equivalence:
+      javascript: identical
+      python: identical
+      java: identical
+
+  lifetime:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有生命周期标注** —— 引用不会悬垂（GC 保活），
+        所以「这个引用能不能活到那里」不是编译器要问的问题。
+        唯一需要主动管理的是**逃逸分析**：局部变量被返回或存进堆对象时，
+        编译器自动把它分配到堆上，语法上完全无感。
+        JavaScript 里引擎也做类似的逃逸分析，但那是纯优化、不影响语义。
+      python: |
+        Go **没有生命周期**，与 Python 一样：对象由 GC 保活，
+        引用不可能悬垂。Go 里有一个相近但不同的概念 ——
+        **逃逸分析**（变量逃到堆上还是留在栈上由编译器决定），
+        它影响性能但不影响正确性，也不需要写任何标注。
+        Python 里连这层都不暴露，全由解释器决定。
+      java: |
+        Go **没有生命周期标注** —— 与 Java 一样，GC 保证引用有效。
+        Java 里最接近的关切是「这个对象会不会被提前回收」
+        （`WeakReference` 与引用队列的场景），Go 里对应的是
+        `runtime.SetFinalizer`，但两者都不是类型系统的一部分。
+        两边的编译器都会做逃逸分析，Go 的还直接影响
+        「这个变量在栈上还是堆上」的文档解释，Java 的 JIT 也能做栈上分配。
+    equivalence:
+      javascript: identical
+      python: identical
+      java: identical
+
+  weak-reference:
+    code: |
+      import "runtime"
+
+      // 长期以来 Go 没有弱引用 —— 标准库只有一个有限的手段：
+      runtime.SetFinalizer(obj, func(o *T) { println("被回收了") })
+      // @note 但 finalizer 语义微妙：不保证被调用、可能延迟很久、还会拖慢回收
+
+      // Go 1.24 起标准库有了 weak 包
+      // import "weak"
+      // w := weak.Make(ptr)        // @note 不阻止回收
+      // if p := w.Value(); p != nil { … }   // @note 对象已回收时得到 nil
+
+      // 常见替代：缓存里用 map + 定期清理，或干脆不缓存
+    vs:
+      javascript: |
+        JavaScript 有 `WeakMap` / `WeakRef` / `WeakSet`，
+        用途明确（缓存、观察者、不阻止回收的元数据）；Go 长期没有，
+        直到 1.24 才加入 `weak` 包。在 1.24 之前，
+        Go 里想达到同样效果只能靠 `runtime.SetFinalizer`（语义不可靠）
+        或者手动管理缓存生命周期 —— 这是从 JavaScript 过来会明显感到缺失的一块。
+      python: |
+        Python 的 `weakref` 与 Go 1.24 的 `weak` 包用途一致：
+        持有引用但不阻止回收，取用时判断对象还在不在。
+        差别在成熟度 —— Python 的 `weakref` 还提供回调与
+        `WeakValueDictionary` 这类现成容器，Go 的 `weak` 包刻意保持最小
+        （只有 `Make` 与 `Value` 两个函数），容器要自己搭。
+        Go 里另一个选项是 `runtime.SetFinalizer`，Python 是 `__del__`，两边都不推荐依赖。
+      java: |
+        Java 的 `WeakReference` / `SoftReference` / `PhantomReference`
+        配 `ReferenceQueue` 是一套完整的机制；Go 1.24 的 `weak` 包
+        只有取值这一个能力，没有引用队列、没有软引用分级。
+        在 1.24 之前 Go 只有 `runtime.SetFinalizer`，而 Java 的
+        `finalize` 已被弃用 —— 两边都意识到「靠 finalizer 做清理」
+        不可靠，区别是 Java 早就有替代品，Go 补得很晚。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

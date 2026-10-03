@@ -1,0 +1,214 @@
+# rust —— mechanism / memory
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: memory` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+#
+# 这一组是全站信息量最大的地方：三个基准候选都是 GC 语言，
+# 它们在这组里的 ownership-borrow / lifetime 全是 absent ——
+# Rust 一来，那两格第一次有了内容。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  value-vs-reference:
+    code: |
+      let a = String::from("hi");
+      let b = a;                 // @note! **移动**：a 之后不能再用
+      // println!("{}", a);      // @note! 编译错误：value borrowed here after move
+      println!("{}", b);
+
+      let n = 1;
+      let m = n;                 // @note Copy 类型是复制，n 仍然可用
+      println!("{}", n);
+
+      let s = String::from("hi");
+      let r = &s;                // @note 借用：不转移所有权
+      println!("{} {}", s, r);   // @note 两者都能用
+
+      let c = s.clone();         // @note 想要独立副本就显式 clone（有开销）
+    vs:
+      javascript: |
+        这是 Rust 最需要重新学的一处：JavaScript 里赋值永远不改变原变量的可用性，
+        Rust 里 `let b = a;`（a 是 `String`）会**移动**所有权，a 之后不能再用。
+        想两边都能用就得写 `&a`（借用）或 `a.clone()`（复制）。
+        数值、布尔这类实现了 `Copy` 的类型不受影响，仍然像 JavaScript 那样复制。
+        好处是「谁负责释放」从不需要讨论 —— 编译器知道。
+      python: |
+        Python 的赋值是加一个引用，对象由 GC 管；Rust 的赋值默认**转移所有权**，
+        原变量立即失效。这是从 Python 过来最需要改的直觉：
+        `let b = a` 之后 a 不再是「另一个名字」，而是「已经不存在」。
+        想保留两个入口就写 `&a`（不可变借用）或 `a.clone()`。
+        收益是释放时机确定、没有 GC 停顿，代价是要显式表达别名意图。
+      java: |
+        Java 里对象赋值只复制引用、原变量照常可用，对象由 GC 回收；
+        Rust 的「移动」在 Java 里完全没有对应物 ——
+        `let b = a` 之后 a 就不能用了，编译器会拦住。
+        想保留 a 就用 `&a`（借用，带生命周期检查）或 `a.clone()`（深复制）。
+        Java 的基本类型赋值倒与 Rust 的 `Copy` 类型一致，都是值复制。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  garbage-collection:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有垃圾回收器**。内存的释放时机由编译器在编译期算出来：
+        值的所有者离开作用域，析构函数就在那里被插入执行。
+        所以运行时不扫描、不暂停、也不需要一个运行时来管理堆。
+        JavaScript 的对象什么时候被回收完全不可知，Rust 里
+        「这块内存什么时候还」在源码上就能指出来。
+      python: |
+        Rust **没有垃圾回收器** —— 不用引用计数做主力（`Rc` / `Arc`
+        是显式选择，普通值不走这条路），也没有循环收集器。
+        释放点由作用域决定，编译期就写进代码里。
+        Python 里 `del` 或离开作用域的判断依赖引用计数与分代回收，
+        时机不可精确预测；Rust 里是确定的、没有运行时开销。
+      java: |
+        Rust **没有 GC**，也没有 JVM 那套堆管理与调优参数。
+        Java 的 GC 负责找出不可达对象，代价是运行时的扫描与暂停
+        （现代收集器已把停顿压得很短，但机制仍在）；
+        Rust 由编译器在编译期插入释放代码，运行时零开销。
+        换来的是开发者要显式表达所有权 —— 这是两门语言最大的分野。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  ownership-borrow:
+    code: |
+      fn take(s: String) {}          // @note 拿走所有权
+      fn borrow(s: &String) {}       // @note 只读借用，可以借很多次
+      fn edit(s: &mut String) { s.push('!'); }   // @note 可变借用，同时只能有一个
+
+      let mut s = String::from("hi");
+      let r1 = &s;
+      let r2 = &s;                   // @note 多个不可变借用没问题
+      println!("{} {}", r1, r2);
+      // let r3 = &mut s;            // @note! 还有不可变借用时不能可变借用
+
+      edit(&mut s);                  // @note 这一刻 s 被独占
+
+      // 借用不能活得比被借的值长
+      // let d; { let x = 1; d = &x; }  // @note! 编译错误：x 活不到 d 用的地方
+    vs:
+      javascript: |
+        JavaScript 没有所有权概念 —— 同一个对象可以被任意多个变量引用，
+        谁都能改、什么时候释放由 GC 决定。Rust 把这件事变成了**编译期规则**：
+        每个值有一个所有者，借用可以有很多个（只读）或者恰好一个（可写），
+        两者不能同时存在。所以 JavaScript 里「遍历数组时又修改它」
+        这种难查的 bug，在 Rust 里根本写不出来。
+      python: |
+        Python 的引用可以随便复制、随便改，对象由引用计数 + GC 管理；
+        Rust 用「一个所有者 + 借用规则」在编译期保证内存安全。
+        最实际的差别是：Python 里 `for x in xs: xs.append(...)`
+        会产生诡异行为但不报错，Rust 里同样的代码编译不过。
+        读 Rust 代码时看到 `&` 与 `&mut` 就已经知道「这里能不能改」。
+      java: |
+        Java 靠 GC 保证内存安全，代价是运行时开销与「对象何时释放不可知」；
+        Rust 靠所有权与借用检查在**编译期**保证同一件事。
+        三条规则可以直接背下来：每个值只有一个所有者；
+        同一时刻要么多个只读借用、要么一个可变借用；
+        借用不能比被借的值活得更久。
+        Java 里对应的风险（并发修改、悬垂引用般的逻辑错误）
+        在这里变成了编译错误。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lifetime:
+    code: |
+      // 编译器需要知道返回的引用活得跟谁一样长
+      fn longest<'a>(a: &'a str, b: &'a str) -> &'a str {   // @note 生命周期参数 'a
+        if a.len() > b.len() { a } else { b }
+      }
+
+      // 结构体里存引用就要标注
+      struct Excerpt<'a> { part: &'a str }
+
+      // 多数时候编译器自动推导（生命周期省略规则）
+      fn first(s: &str) -> &str { &s[0..1] }    // @note 不用写 'a
+
+      // 'static：活得和程序一样长
+      let s: &'static str = "字面量";
+    vs:
+      javascript: |
+        JavaScript 没有生命周期这个概念 —— 对象由 GC 保活，
+        「这个引用还有效吗」不可能成为问题。Rust 里引用不持有所有权，
+        所以编译器必须知道它指向的数据活得够不够久；
+        这个信息在签名里写成 `'a`。多数情况下编译器能自动推导，
+        只有「多个输入、一个输出」时才会让你写出来 ——
+        写出来的那一次，正是需要向编译器解释「返回的引用借的是谁」。
+      python: |
+        Python 的对象活到没人引用为止，没有「引用可能悬垂」这回事；
+        Rust 的引用必须证明活得不比数据长 —— 证据就是生命周期参数。
+        从 Python 过来会觉得这是额外的负担，但它解决的是
+        GC 语言里根本不存在的问题（悬垂指针），
+        所以只在 Rust 里需要表达。`'static` 是其中最简单的一种：
+        活得和程序一样长。
+      java: |
+        Java 的引用由 GC 保活，没有悬垂引用 —— 生命周期这对 Java
+        是完全陌生的概念。Rust 里生命周期不是「对象的寿命」，
+        而是**引用的有效范围**，写在类型里供编译器验证。
+        与 Java 的 GC 相比：Java 靠运行时的可达性分析，
+        Rust 靠编译期的借用检查；前者可能延迟释放，后者精确但对开发者有要求。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  weak-reference:
+    code: |
+      use std::rc::{Rc, Weak};
+      use std::cell::RefCell;
+
+      // Rc：共享所有权（单线程引用计数）
+      let a = Rc::new(RefCell::new(vec![1]));
+      let b = Rc::clone(&a);                 // @note 计数变 2，不是深复制
+      println!("{}", Rc::strong_count(&a));  // @note 2
+
+      // Weak：不增加强引用计数 —— 用来打破循环引用
+      let weak: Weak<RefCell<Vec<i32>>> = Rc::downgrade(&a);
+      let upgraded = weak.upgrade();          // @note Option<Rc<_>>：对象已释放时是 None
+
+      // 多线程用 Arc（原子计数）；RefCell / Mutex 负责内部可变性
+      use std::sync::{Arc, Mutex};
+      let shared = Arc::new(Mutex::new(0));
+    vs:
+      javascript: |
+        JavaScript 的 GC 能回收循环引用（可达性分析），所以
+        「弱引用」只是可选工具（`WeakMap` / `WeakRef`），用来做缓存或不影响回收。
+        Rust 的 `Rc` 是**引用计数**，循环引用会永久泄漏 ——
+        所以 `Weak` 不是可选的优化，而是打破环的必需工具。
+        用法也不同：JavaScript 的 WeakMap 键是弱引用，
+        Rust 的 `Weak::upgrade()` 返回 Option，要在每次使用时判断对象还在不在。
+      python: |
+        Python 有循环 GC，循环引用一般能被回收，`weakref` 是可选的
+        （常用于缓存与观察者）；Rust 的 `Rc` 是纯引用计数，
+        环一定泄漏，`Weak` 是打破环的标准手段。
+        取用方式也不同：Python 的 `weakref.ref(x)()` 返回对象或 None，
+        Rust 的 `weak.upgrade()` 返回 `Option<Rc<T>>`——
+        两边都要处理「对象已经没了」，形态几乎一样。
+      java: |
+        Java 的 GC 能处理循环，`WeakReference` / `SoftReference`
+        是给缓存与内存敏感场景用的（引用队列配合清理）；
+        Rust 的 `Rc` 计数一旦成环就泄漏，`Weak` 是**修 bug 的手段**。
+        另一处差别是可变性：Java 的 `WeakReference` 指向的对象
+        可以直接改；Rust 的 `Rc<T>` 默认只读，要改得配
+        `RefCell`（单线程）或 `Mutex`（多线程）做内部可变性，
+        而且借用规则在运行时同样被检查。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
