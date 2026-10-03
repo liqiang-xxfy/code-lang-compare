@@ -1,0 +1,169 @@
+# java —— express / functions
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: functions` 的那批。
+# 这一组以 Java 为基准时展示在「方法、作用域与闭包」章（见 catalog/express/java.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  function-declaration:
+    code: |
+      class Greeter {
+        String greet(String name) {              // @note 方法必须写在类里
+          return "你好，" + name;
+        }
+        static String hi(String name) {          // @note 静态方法不需要实例
+          return "你好，" + name;
+        }
+      }
+
+      // @note 没有自由函数 —— 顶层写不了函数
+      Function<String, String> greet = name -> "你好，" + name;   // @note lambda 是值
+      greet.apply("Ada");
+    baseline: |
+      方法**必须写在类里**（静态方法也一样）：类型是方法的归属，没有「文件级函数」
+      这种写法。要把行为当值传递，得用 lambda —— 它必须落在一个函数式接口上
+      （比如 `Function<String, String>`），接口的方法签名决定了参数与返回类型。
+    vs:
+      javascript: |
+        JavaScript 的函数是自由的值，顶层随便定义，还能直接当参数传；
+        Java 的一切都必须先有类型，方法挂在类上，传行为得包成 lambda
+        并声明它符合哪个接口。换来的是「这个回调收什么、返回什么」写在签名里。
+      python: |
+        Python 允许顶层 `def`，模块本身就是命名空间；Java 要求一切属于某个类。
+        两边都能把函数当值传，区别是 Java 要显式给出函数式接口的类型，
+        Python 直接传函数对象就行。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  parameters:
+    code: |
+      // @note! 没有默认参数 —— 缺省行为要靠重载
+      void log(String msg) { log(msg, false); }
+      void log(String msg, boolean verbose) { }
+
+      // @note! 没有关键字参数 —— 调用点只按位置传
+      log("开始", true);
+
+      // @note 参数一多就分不清，惯用解药是造一个参数对象
+      record LogOptions(boolean verbose, int level) {}
+      void log2(String msg, LogOptions opts) { }
+    baseline: |
+      参数**只按位置传**：没有默认值、没有关键字参数。缺省行为用**重载**表达
+      （同名不同参数表写多个方法，编译器挑最匹配的那个），参数多了就造一个
+      record 当参数对象。少传或多传实参在编译期就报错，不会静默变成空值。
+    vs:
+      javascript: |
+        JavaScript 有默认参数、没有关键字参数，缺省靠默认值语法；
+        Java 两样都没有，缺省只能靠重载写多个方法。两边都只能按位置传、
+        都要靠对象参数来救场，差别是 Java 的调用错误在编译期就报。
+      python: |
+        Python 的关键字参数让调用点能写 `log(verbose=True)`，Java 只能
+        `log("...", true)` —— 读代码时得回头翻签名才知道 `true` 是什么意思。
+        Python 一个签名能表达的「默认值 / 只按关键字传」，Java 都要靠重载摊开。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  variadic:
+    code: |
+      int sum(int... nums) {              // @note 方法内部就是一个 int[]
+        int total = 0;
+        for (int n : nums) total += n;
+        return total;
+      }
+      sum(1, 2, 3);                       // @note 6
+      sum(new int[]{1, 2, 3});            // @note 也可以直接传数组
+
+      // @note! 必须是参数表最后一个，而且一个方法只能有一个
+      // @note! 调用处没有「把数组展开成实参」的语法
+
+      static <T> List<T> listOf(T... items) { return Arrays.asList(items); }
+    baseline: |
+      可变参数 `T...` 在方法内部**就是一个数组**，可以直接当数组用。
+      它必须是最后一个参数，且一个方法只能有一个。方法与调用点都没有「展开」
+      这一层 —— 调用时要么逐个列出，要么直接传一个数组。本质上只是编译器的语法糖。
+    vs:
+      javascript: |
+        JavaScript 的 `...rest` 在调用处还能反向展开（`f(...xs)`），
+        Java 没有这个语法，只能直接传数组。两边的可变参数都放在参数表最后。
+      python: |
+        Python 有两个星号（`*args` 收位置、`**kwargs` 收关键字），Java 只有位置
+        那一种，没有「按关键字收集」的对应物。另外 Python 调用时能写 `f(*xs)`
+        展开，Java 不行。
+    equivalence:
+      javascript: analogous
+      python: analogous
+
+  return-values:
+    code: |
+      int add(int a, int b) { return a + b; }   // @note 必须声明返回类型
+      void log(String msg) { }                  // @note void = 明确没有返回值
+
+      int f(boolean b) {
+        if (b) return 1;
+        // @note! 这里少一条 return 就编译错误 —— 编译器检查每条控制流路径
+        return 0;
+      }
+
+      record Pair(int first, int second) {}     // @note 多返回值要包成 record
+      Pair two() { return new Pair(1, 2); }
+    baseline: |
+      返回类型是签名的一部分：有值就写类型，没有就写 `void`。**编译器会沿所有
+      控制流路径确认一定返回了值**，漏一条就编译不过 —— 所以「忘了 return」
+      这类错误根本到不了运行时。想返回多个值要包成一个 record 或对象。
+    vs:
+      javascript: |
+        Java 把「有没有返回值」写进签名并由编译器检查；JavaScript 静默返回
+        undefined，忘了 return 也没人提醒。多返回值两边都要包容器，
+        但 Java 的 record 是具名的（`.first()` / `.second()`），读起来清楚些。
+      python: |
+        Python 的 `return a, b` 就是元组，解包是一等写法；Java 必须显式定义一个
+        类型来装这两个值。反过来 `void` 让「这个方法没有返回值」成为契约，
+        Python 只能靠读代码。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  closures:
+    code: |
+      IntSupplier counter() {
+        int n = 0;
+        // @note! 编译错误：n 不是 effectively final（下一行会改它）
+        // return () -> ++n;
+        return () -> n;              // @note 只读可以
+      }
+
+      // 要共享可变状态，就把它放进对象字段
+      class Counter implements IntSupplier {
+        private int n = 0;
+        public int getAsInt() { return ++n; }
+      }
+
+      // @note 捕获之后，那个局部变量就不能再赋值了
+      String prefix = ">";
+      Function<String, String> f = s -> prefix + s;
+      // prefix = "!";                // @note! 编译错误
+    baseline: |
+      lambda 只能捕获 **effectively final** 的局部变量：变量被 lambda 用过之后
+      就不能再赋值，编译器直接拦住。所以「闭包共享一个可变计数器」这种写法在这里
+      不存在 —— 要共享可变状态就放进对象字段。捕获的是变量的值，
+      但对象内部的改动仍然看得见（捕获的是引用）。
+    vs:
+      javascript: |
+        JavaScript 的闭包可以直接读写外层变量，因此有 `var` 循环共享变量那类坑；
+        Java 从语言层面把这类坑堵死了（只能捕获 effectively final），
+        代价是想要有状态的行为就得写个类。
+      python: |
+        Python 的闭包要改外层变量得显式 `nonlocal`，Java 干脆不让改 ——
+        两者都在防「以为在改外层」，手段不同：一个要求声明，一个直接禁止。
+    equivalence:
+      javascript: divergent
+      python: divergent

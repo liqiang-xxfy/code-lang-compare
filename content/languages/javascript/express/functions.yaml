@@ -1,0 +1,157 @@
+# javascript —— express / functions
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: functions` 的那批：
+# function-declaration / parameters / variadic / return-values / closures。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  function-declaration:
+    code: |
+      function greet(name) { return `你好，${name}`; }   // @note 声明式：会提升
+      const hi = function (name) { return `你好，${name}`; };   // @note 表达式
+      const yo = (name) => `你好，${name}`;              // @note 箭头函数
+
+      // @note! 箭头函数没有自己的 this —— 它取定义处外层的 this
+      const self = { n: 1, get() { return this.n; } };
+      const loose = self.get;    // @note! 单独取出来调用，this 就丢了
+    baseline: |
+      函数是一等值，三种写法：**声明式**（会提升，可在定义前调用）、
+      **函数表达式**、**箭头函数**。核心差别是 `this` —— 普通函数的 `this`
+      由**调用方式**决定（单独取出来调用就丢），箭头函数直接取定义处外层的 `this`。
+      函数不挂在类上，顶层函数随便写。
+    vs:
+      python: |
+        Python 的函数只有 `def` 一种（外加 `lambda` 表达式），没有 `this` 这一层 ——
+        方法的第一个参数 `self` 是显式传的，所以「把方法单独取出来」不会丢绑定。
+        JavaScript 的 `this` 由调用方式决定，这是它最需要心防的一处。
+      java: |
+        Java 没有自由函数：所有方法都必须写在类里，顶层写不了函数。
+        JavaScript 的函数是值，可以直接传、存、返回；Java 要到 lambda 才有
+        「把行为当值传」的写法，而且它仍然必须落在一个函数式接口上。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  parameters:
+    code: |
+      function f(a, b = 10, ...rest) {}     // @note 默认值每次调用重新求值
+      f(1);                                 // @note b = 10, rest = []
+      f(1, undefined, 2);                   // @note! 传 undefined 也触发默认值
+
+      // @note! 没有具名参数 —— 参数一多只能靠对象约定
+      function makeUser({ name, age }) {}
+      makeUser({ age: 3, name: "Ada" });    // @note 靠解构模拟具名参数
+
+      function withDefault(o = {}) {}       // @note 默认值写 {} 而不是可变对象
+    baseline: |
+      参数按位置传，**没有具名参数** —— 参数多了要么靠 `{...}` 解构模拟、
+      要么写一堆注释。默认值在每次调用时求值（所以可以安全地写 `= []`），
+      但只有传 `undefined` 才触发（传 `null` 不触发）。多余实参照收，
+      少了就是 `undefined`，不会报错。
+    vs:
+      python: |
+        Python 支持关键字参数，调用方写 `f(name="Ada")` 就能无视顺序；
+        JavaScript 只能靠解构对象来模拟。默认值的求值时机两边也相反：
+        Python 的默认值**只在定义时求值一次**（所以 `def f(x=[])` 是著名的坑），
+        JavaScript 每次调用重新求值。
+      java: |
+        Java 没有默认参数、没有关键字参数，缺省行为只能靠**重载**写多个方法；
+        少传或多传实参在编译期就报错，不像这里静默变成 undefined。
+        换来的好处是签名即契约，读调用点就知道要什么。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  variadic:
+    code: |
+      function sum(...nums) {              // @note ... 收集成真数组
+        return nums.reduce((a, b) => a + b, 0);
+      }
+      sum(1, 2, 3);                        // @note 6
+
+      const xs = [1, 2, 3];
+      sum(...xs);                          // @note ... 在调用处是展开
+      Math.max(...xs);                     // @note 展开传参的常见用法
+
+      // @note! 旧写法用 arguments（类数组、不是真数组），新代码别再用
+    baseline: |
+      用 `...名称` 收集不定个数的实参，收到的是**真数组**（旧代码里的 `arguments`
+      只是类数组，得先转换）。同一个 `...` 在调用处是反过来的意思：把数组展开成
+      一串实参。没有位置限制，可以与其他具名参数混用。
+    vs:
+      python: |
+        Python 的 `*args` 收成元组（不是列表），而且还有 `**kwargs` 收关键字参数 ——
+        JavaScript 没有对应的东西，模拟 `**kwargs` 只能传一个对象。
+        两边的展开语法都叫 `*` / `...`，但作用位置与产物类型不同。
+      java: |
+        Java 的可变参数 `int... nums` 在方法内部就是一个数组，而且**必须是最后一个
+        参数**；JavaScript 的 `...rest` 同样放最后，但没有类型约束。
+        Java 调用时不能把已有数组「展开」成实参，只能直接传数组。
+    equivalence:
+      python: analogous
+      java: analogous
+
+  return-values:
+    code: |
+      function f() {}          // @note 没有 return -> undefined
+      function g() { return; } // @note 裸 return -> 也是 undefined
+      const h = () => ({ a: 1 });   // @note! 箭头函数返回对象要加括号
+
+      function multi() { return [1, 2]; }   // @note 想返回多个值就返回数组
+      const [x, y] = multi();               // @note 靠解构接回来
+    baseline: |
+      没有 `return` 就返回 `undefined`，裸 `return` 也是 —— 调用方拿到的永远是
+      一个值，不会因为「忘了写 return」而报错。想一次返回多个值只能包成数组或对象，
+      再由调用方解构。箭头函数返回对象字面量要加圆括号，否则 `{}` 被当成函数体。
+    vs:
+      python: |
+        Python 也是「不写 return 就返回 None」，但多返回值是原生的：
+        `return a, b` 其实返回元组，调用方直接 `x, y = f()` 解包 ——
+        JavaScript 得自己包数组再接。
+      java: |
+        Java 要求方法声明返回类型，`void` 明确表示没有返回值 ——
+        「忘了 return」在编译期就报错。JavaScript 是静默给出 undefined，
+        好处是省事，代价是写错了也没人提醒。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  closures:
+    code: |
+      function counter() {
+        let n = 0;
+        return () => ++n;      // @note 闭包记住 n
+      }
+      const next = counter();
+      next(); next();          // @note 1 2
+
+      // @note! 用 var 的循环变量只有一个，全部闭包共享它
+      const fns = [];
+      for (var i = 0; i < 3; i++) fns.push(() => i);
+      fns.map((f) => f());     // @note! [3, 3, 3]
+      for (let j = 0; j < 3; j++) fns.push(() => j);   // @note let 每轮一个新绑定
+    baseline: |
+      函数记住它定义处的外层变量，返回出去之后那些变量依然活着。
+      **`var` 与 `let` 在这里分道扬镳**：`var` 的循环变量自始至终只有一个，
+      所有闭包共享它（于是都拿到最后的值）；`let` 每轮迭代新建一个绑定，
+      捕获到的就是当轮的值。这是 `var` 最经典的坑。
+    vs:
+      python: |
+        Python 的闭包同样能记住外层变量，而且有一样的「late binding」坑 ——
+        循环里造的多个函数共享同一个变量名，最后拿到的都是末值
+        （惯用解法是给函数加个默认参数把值固定下来）。差别是 Python 只读不写，
+        要在闭包里改外层得显式 `nonlocal`。
+      java: |
+        Java 的 lambda 只能捕获 **effectively final** 的局部变量 —— 变量一旦被
+        lambda 用了就不能再改。所以这里那类「闭包共享可变变量」的坑在 Java 里
+        根本写不出来，编译器直接拦住。
+    equivalence:
+      python: analogous
+      java: divergent
