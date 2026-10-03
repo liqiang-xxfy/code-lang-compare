@@ -1,0 +1,251 @@
+# go —— mechanism / concurrency
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: concurrency` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-concurrency-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  concurrency-unit:
+    code: |
+      go doWork()                 // @note! go 关键字启动一个 goroutine
+
+      func doWork() {
+        time.Sleep(time.Second)
+        fmt.Println("done")
+      }
+
+      // goroutine 不是 OS 线程 —— 初始栈只有几 KB，由 Go 运行时
+      // 调度到少量 OS 线程上（M:N）。开十万个很常见。
+
+      var wg sync.WaitGroup
+      for i := 0; i < 3; i++ {
+        wg.Add(1)
+        go func(n int) {
+          defer wg.Done()
+          fmt.Println(n)
+        }(i)                      // @note! 1.22 起循环变量每轮独立，不必再写 i := i
+      }
+      wg.Wait()
+    vs:
+      javascript: |
+        JavaScript 在浏览器与 Node 里是单线程事件循环 ——
+        并发靠异步回调/Promise，没有真正的并行；
+        Go 的 `go` 关键字启动的是可以真正并行执行的 goroutine。
+        代价是共享数据要小心：JavaScript 里没有数据竞争，
+        Go 里两个 goroutine 同时写一个 map 会直接崩。
+        写起来的相似处是「都很轻」—— goroutine 与 Promise 都不是 OS 线程。
+      python: |
+        Python 的线程受 GIL 限制，CPU 密集并行不起来，真并行要 `multiprocessing`；
+        Go 的 goroutine 没有这层限制 —— 运行时把它们调度到多个 OS 线程上，
+        CPU 密集任务也能真正并行。写法上 Go 只要一个 `go` 前缀，
+        Python 要 `threading.Thread(target=…)` 或进程池。
+        代价是 Go 里共享数据必须自己保证安全（`-race` 能帮上忙）。
+      java: |
+        Java 的 `Thread` 是 OS 线程（21 起有虚拟线程），
+        Go 的 goroutine 从一开始就是用户态轻量线程，由运行时做 M:N 调度 ——
+        所以 Go 里「开十万个 goroutine」是常规操作，Java 传统线程模型下不行。
+        写法上 Go 只要 `go f()`，Java 要提交到线程池或 executor。
+        同步原语两边都有：`sync.WaitGroup` 对应 `CountDownLatch` 之类。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  shared-state:
+    code: |
+      // Go 的格言：不要通过共享内存来通信，而要通过通信来共享内存
+
+      // 做法一：加锁保护
+      var mu sync.Mutex
+      counter := 0
+      for i := 0; i < 10; i++ {
+        go func() { mu.Lock(); counter++; mu.Unlock() }()
+      }
+
+      // 做法二：用 channel 把数据的所有权交出去（更 Go 的写法）
+      ch := make(chan int)
+      go func() { ch <- compute() }()   // @note 值通过 channel 传递，不共享
+      result := <-ch
+
+      // 检测数据竞争：go test -race / go run -race
+      // @note 不加锁的并发写是**运行时**才能发现的（map 并发写会直接 fatal）
+    vs:
+      javascript: |
+        JavaScript 是单线程，没有共享可变状态，也就没有数据竞争 ——
+        并发只发生在异步任务之间，靠事件循环串起来。
+        Go 里的 goroutine 真并行，所以共享数据必须显式保护
+        （加锁或用 channel 传递）。另一处直接差别：
+        Go 的 map 并发写会**直接崩掉整个程序**（不是抛异常），
+        这是语言刻意选择的「早失败」，JavaScript 里完全没有对应风险。
+      python: |
+        Python 的 GIL 让大部分共享访问天然串行，只有一个字节码的操作是原子的，
+        `counter += 1`（读-改-写跨多条字节码）仍要加锁；
+        Go 没有 GIL，任何共享访问都要自己保证安全。
+        Python 里忘加锁往往表现为「偶尔少加几次」，很难复现；
+        Go 里常见的是直接的 `fatal error: concurrent map writes` 或
+        靠 `-race` 检测器抓到 —— 失败得更响。
+      java: |
+        Java 用 `synchronized` / `volatile` / 并发容器保证共享安全，
+        忘加锁表现为难以复现的诡异结果；Go 有一样的问题，
+        但多了 `-race` 检测器（编译进测试流程）与「map 并发写直接崩」
+        这两个更响的失败信号。做法上 Go 更强调用 channel
+        把数据所有权交出去，而不是加锁后再共享 ——
+        Java 的 `BlockingQueue` 也是同一思路，只是不是默认建议。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  lock-mutex:
+    code: |
+      var mu sync.Mutex
+      mu.Lock()
+      defer mu.Unlock()          // @note! 紧跟 Lock 写 defer，函数返回时自动解锁
+
+      // 读写锁
+      var rw sync.RWMutex
+      rw.RLock()                 // @note 多个读者可以同时持有
+      rw.RUnlock()
+      rw.Lock()                  // @note 写锁独占
+      rw.Unlock()
+
+      // 注意：锁与它保护的数据是**分开**的（与 Rust 相反）
+      type Counter struct {
+        mu sync.Mutex             // @note 惯例：锁做成结构体字段，与数据放一起
+        n  int
+      }
+      func (c *Counter) Inc() { c.mu.Lock(); defer c.mu.Unlock(); c.n++ }
+
+      // 不可复制：sync.Mutex 不能按值传递（go vet 会报 copylocks）
+    vs:
+      javascript: |
+        JavaScript 没有锁（单线程不需要）。Go 的 `sync.Mutex` 与它保护的
+        数据是**分开**的两个东西，靠「放在同一个结构体里」这个惯例绑在一起 ——
+        忘了加锁代码照样跑。`defer mu.Unlock()` 是标准写法，
+        比 JavaScript 里手写清理更不容易漏。
+        另一处 Go 特有的约束：`sync.Mutex` 不可复制，
+        按值传递会被 `go vet` 抓出来。
+      python: |
+        Python 的 `threading.Lock` 与 Go 的 `sync.Mutex` 用法接近，
+        都要「先锁、后改、再解锁」。差别是 Go 有 `defer mu.Unlock()` ——
+        写在 `Lock()` 下一行，函数怎么返回都会解锁；
+        Python 要 `with lock:` 或自己保证 release。
+        Go 还有 `RWMutex`（读写锁）在标准库里，Python 要自己用条件变量搭。
+      java: |
+        Java 的 `synchronized` 作用在一段代码或方法上，
+        `ReentrantLock` 更接近 Go 的 `sync.Mutex`（显式 lock/unlock）。
+        Go 没有可重入锁 —— 同一个 goroutine 重复 `Lock()` 会死锁，
+        Java 的 `synchronized` 可重入，这是从 Java 过来要留意的差别。
+        Go 的 `defer mu.Unlock()` 对应 Java 的 `finally { lock.unlock(); }`，
+        但前者更短也更难写错。Java 的 `ReentrantReadWriteLock`
+        对应 Go 的 `sync.RWMutex`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  channel:
+    code: |
+      ch := make(chan int)          // @note 无缓冲：发送与接收必须同时就绪
+      ch <- 1                       // @note 阻塞，直到有人接收
+      v := <-ch                     // @note 阻塞，直到有人发送
+
+      buf := make(chan int, 3)      // @note 带缓冲：满了才阻塞
+      buf <- 1
+
+      close(buf)                    // @note 由**发送方**关闭，表示不再发送
+      v, ok := <-buf                // @note ok=false 表示通道已关闭且取空
+      for x := range buf { _ = x }  // @note range 直到关闭
+
+      // select：多路等待，Go 的招牌
+      select {
+      case v := <-ch1:
+        fmt.Println(v)
+      case ch2 <- 1:
+        fmt.Println("发出去了")
+      case <-time.After(time.Second):
+        fmt.Println("超时")          // @note 超时的标准写法
+      default:
+        fmt.Println("都不就绪")       // @note 加上 default 就是非阻塞
+      }
+    vs:
+      javascript: |
+        JavaScript 没有内建通道；`MessageChannel` 与 `postMessage`
+        是宿主环境的能力，且基于事件而非阻塞。Go 的 channel
+        是语言级原语，`select` 更是 JavaScript 完全没有的 ——
+        它能同时等待多个通道并挑一个就绪的执行，包括超时与默认分支。
+        语义上也有个鲜明差别：Go 的通道有「关闭」这个明确状态
+        （由发送方关闭、接收方用 `ok` 或 `range` 感知），
+        JavaScript 的消息端口只能靠约定一个结束消息。
+      python: |
+        Python 的 `queue.Queue` 支持多生产者多消费者，
+        Go 的 channel 缓冲版语义与之接近；但 Go 的 channel
+        还有**无缓冲**形态（收发必须同时就绪，天然的会合点）、
+        `select` 多路等待、以及显式的关闭语义 ——
+        这些都是 `queue.Queue` 没有的。
+        Python 里做超时要 `get(timeout=…)`，Go 用
+        `select` 配 `time.After`，形态更统一。
+      java: |
+        Java 的 `BlockingQueue` 在「缓冲队列」这一点上与 Go 的
+        带缓冲 channel 对得上；但 Go 还有无缓冲 channel 与 `select`,
+        这两样 Java 都没有 —— Java 里多路等待要靠
+        `ExecutorCompletionService` 或轮询多个队列。
+        Go 的 `time.After` 配 `select` 表达超时非常直接，
+        Java 里通常靠 `Future.get(timeout)` 或 `poll`。
+        关闭语义上 Java 用毒丸或中断，Go 内建 `close` 与 `ok`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  atomicity:
+    code: |
+      import "sync/atomic"
+
+      var n atomic.Int64            // @note 1.19 起有类型化原子类型
+      n.Add(1)
+      n.Load()
+      n.Store(10)
+      n.CompareAndSwap(10, 0)       // @note CAS
+
+      // 老写法（函数式，仍可用）
+      var m int64
+      atomic.AddInt64(&m, 1)
+      atomic.LoadInt64(&m)
+
+      // @note 原子类型不可复制，且必须对齐（32 位平台上 64 位原子量要对齐）
+      // 复杂逻辑用 mutex 更清楚 —— 原子操作只适合单点更新
+    vs:
+      javascript: |
+        JavaScript 的 `Atomics` 只在 `SharedArrayBuffer` 上有意义，
+        而且是一组静态方法（`Atomics.add(arr, i, v)`），不是类型；
+        Go 的原子类型是普通结构体字段，用起来像普通方法。
+        实际使用频率差别很大：Go 里用原子计数器是常规优化，
+        JavaScript 里除了跨 Worker 几乎用不到。
+      python: |
+        Python 因为有 GIL，很多「原子性」是白送的，
+        标准库也没有对外暴露原子类型；Go 要自己判断哪些操作需要原子性，
+        并用 `sync/atomic` 或 mutex。写法上 Go 1.19 起有了
+        类型化的 `atomic.Int64`（`n.Add(1)`），
+        比之前必须传指针的 `atomic.AddInt64(&m, 1)` 安全得多。
+      java: |
+        Java 的 `AtomicLong` / `AtomicInteger` 与 Go 1.19 起的
+        `atomic.Int64` 几乎一一对应：`Add` 对 `addAndGet`、
+        `CompareAndSwap` 对 `compareAndSet`、`Load` / `Store` 同名。
+        差别在内存序：Java 的原子类隐含 volatile 语义（只有一种强度），
+        Go 同样不暴露内存序参数 —— 两边都不给选择，
+        代价是少一点调优空间，收益是不会因为写错内存序而踩坑。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
