@@ -1,0 +1,93 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 数组
+  aliases: [array, list, map]
+  perLanguage:
+    java: 数组与集合都是引用类型，赋值共享
+    php: 数组是值类型（赋值即拷贝）；`+` 是并集
+  note: |
+    PHP 的「数组」同时是 list 和 map（有序映射）。
+    赋值是拷贝、`+` 是并集 —— 两个反直觉叠在一起。
+
+- term: 对象
+  aliases: [object, clone, handle]
+  perLanguage:
+    java: 对象赋值传引用
+    php: 对象赋值传句柄（共享），要独立副本得显式 clone
+  note: |
+    PHP 里数组是拷贝、对象是句柄。Java 里两者都是引用。
+    clone 是浅拷贝，深拷贝要在 __clone 里自己实现。
+
+- term: 泛型
+  aliases: [generic, list]
+  perLanguage:
+    java: 泛型擦除但编译期检查严格
+    php: 没有泛型（RFC 被 Declined），只能写 PHPDoc 注释
+  note: |
+    PHP 的容器元素类型靠 PHPDoc + PHPStan / Psalm，
+    不是语言保证。别指望以后会有。
+
+- term: 字符串
+  aliases: [string, strlen, mbstring]
+  perLanguage:
+    java: String 是 UTF-16 序列，length 按 char 算
+    php: 字符串是字节序列，strlen 数字节；多字节要用 mbstring
+  note: |
+    `"中文".length()` 是 2，`strlen("中文")` 是 6。
+    处理 Unicode 一律用 mb_ 系列。
+
+- term: 类型转换
+  aliases: [cast, parseint, conversion]
+  perLanguage:
+    java: '`Integer.parseInt("abc")` 抛异常'
+    php: '`(int)"abc"` 得 0，不报错'
+  note: |
+    Java 快速失败，PHP 尽量给一个数。
+    要校验用 is_numeric 或 filter_var。
+
+- term: match / switch
+  aliases: [match, switch]
+  perLanguage:
+    java: switch 用类型明确的比较，需要 break
+    php: switch 用松散比较、match 用严格比较；match 不贯穿、能返回值
+  note: |
+    Java 的 switch 比较是类型明确的，PHP 的 switch 是松散比较 ——
+    数字与字符串比较时可能走错分支。
+
+- term: 注解 / 属性
+  aliases: [annotation, attribute]
+  perLanguage:
+    java: 注解是元数据，靠反射读取
+    php: '#[...] 属性同样是元数据，靠反射读取'
+  note: |
+    两边都是纯元数据（这点一致）。
+    区别是 PHP 的属性语法位置更像装饰器，容易误判它会执行。
+
+- term: 严格类型
+  aliases: [strict-types, declare]
+  perLanguage:
+    java: 类型检查始终严格
+    php: 默认弱类型；declare(strict_types=1) 按调用方所在文件生效
+  note: |
+    作用域是调用方文件，不是被调用函数的定义处。
+    每个文件都开才一致。
+
+- term: 构造器
+  aliases: [constructor, super]
+  perLanguage:
+    java: 子类构造器隐式调用 super()
+    php: 子类定义了自己的 __construct 就不会自动调父类，必须显式写
+  note: |
+    这是最容易静默出错的一处：不报错、不警告，只是父类初始化没跑。
+
+- term: 执行模型
+  aliases: [request, lifecycle, shared-nothing, servlet]
+  perLanguage:
+    java: Servlet 容器长驻，静态变量与单例跨请求共享
+    php: 共享无状态，每请求一个进程，结束后状态全销毁
+  note: |
+    这是最根本的运行时差别。跨请求共享必须用外部存储。

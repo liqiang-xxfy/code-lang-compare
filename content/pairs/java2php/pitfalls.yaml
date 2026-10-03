@@ -1,0 +1,194 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 PHP 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-java2php-variable-prefix
+  featureId: express/declaration
+  title: 变量带 $ 前缀，默认弱类型
+  symptom: |
+    每个变量都要写 `$`；而且没有类型声明（除非显式标注），默认是弱类型。
+  cause: |
+    PHP 的变量必须带 `$` 前缀，且默认做隐式类型转换。
+    Java 的变量有明确类型、不用前缀。
+  fix: |
+    注意 `$` 前缀；开 `declare(strict_types=1)` 并写参数 / 返回类型标注。
+  severity: 1
+  languages: [java, php]
+  fromBaseline: true
+  tags: [声明]
+
+- id: pitfall-java2php-array-copy-object-handle
+  featureId: mechanism/value-vs-reference
+  title: 数组是值拷贝，对象是句柄
+  symptom: |
+    Java 的数组赋值传引用；PHP 的数组赋值是**拷贝**（改副本不影响原数组）。
+    但 PHP 的对象赋值是句柄（共享）。
+  cause: |
+    PHP 的数组是值类型（赋值即拷贝）；对象默认是引用语义，要复制得显式 clone。
+    Java 的数组与对象都是引用类型。
+  fix: |
+    数组要共享得传引用（`&$arr`）；对象要独立副本用 `clone`。
+    注意 clone 是浅拷贝，需要深拷贝得在 __clone 里自己实现。
+  severity: 3
+  languages: [java, php]
+  fromBaseline: true
+  tags: [值语义, 数组]
+
+- id: pitfall-java2php-no-generics
+  featureId: mechanism/generic-declaration
+  title: 没有泛型
+  symptom: |
+    Java 的 `List<User>` 到 PHP 没有对应写法，只能写 PHPDoc `@var User[]`。
+  cause: |
+    PHP 没有泛型（2026-05 的 RFC 被 Declined，不是「以后会有」）。
+    Java 的泛型虽然擦除，但编译期检查严格。
+  fix: |
+    用 PHPDoc 标注，配 PHPStan / Psalm 做静态检查。
+    容器元素类型靠文档约束，不是语言保证。
+  severity: 2
+  languages: [java, php]
+  fromBaseline: true
+  tags: [泛型]
+
+- id: pitfall-java2php-cast-gives-zero
+  featureId: express/type-conversion
+  title: 类型转换失败给的是 0
+  symptom: |
+    Java 的 `Integer.parseInt("abc")` 抛 NumberFormatException；
+    PHP 的 `(int)"abc"` 得到 **0**，不报错。
+  cause: |
+    PHP 的显式转换尽量给一个数（非数字开头给 0）。
+    Java 的解析方法会抛异常 —— 这是「快速失败」与「尽量给值」的差别。
+  fix: |
+    要校验用 `is_numeric()` 或 `filter_var($x, FILTER_VALIDATE_INT)`。
+  severity: 2
+  languages: [java, php]
+  fromBaseline: true
+  tags: [类型转换]
+
+- id: pitfall-java2php-string-bytes
+  featureId: express/string-common-ops
+  title: 字符串是字节序列
+  symptom: |
+    Java 的 `"中文".length()` 是 2（char 数）；PHP 的 `strlen("中文")` 是 6（字节数）。
+  cause: |
+    Java 的 String 是 UTF-16 序列、length 按 char 算。
+    PHP 的字符串是**字节数组**，strlen / 下标 / substr 都按字节算。
+  fix: |
+    用 mbstring：`mb_strlen($s, 'UTF-8')`、`mb_substr(...)`。
+  severity: 2
+  languages: [java, php]
+  fromBaseline: true
+  tags: [字符串]
+
+- id: pitfall-java2php-match-vs-switch
+  featureId: express/switch-and-match
+  title: match 严格比较，switch 松散比较
+  symptom: |
+    Java 的 switch 对字符串用值比较；PHP 的 switch 用**松散比较**，
+    字符串和数字比较可能走错分支。
+  cause: |
+    PHP 的 `switch` 用松散比较（`==`），`match` 用严格比较（`===`）。
+    Java 的 switch 是类型明确的比较。
+  fix: |
+    优先用 `match`（严格、不贯穿、能返回值）；非要 switch 就确保两边类型一致。
+  severity: 2
+  languages: [java, php]
+  fromBaseline: true
+  tags: [控制流]
+
+- id: pitfall-java2php-attributes-are-metadata
+  featureId: mechanism/decorator-annotation
+  title: 属性是元数据，靠反射读
+  symptom: |
+    PHP 的 `#[...]` 语法位置像装饰器，容易以为它会执行逻辑。
+  cause: |
+    Java 的注解与 PHP 的属性都是**元数据**（这点一样），都要靠反射读取。
+    区别在于 PHP 的属性语法更接近装饰器，容易误判它会执行。
+    两边都不执行任何代码。
+  fix: |
+    用 `ReflectionClass::getAttributes()` 读取与处理。
+  severity: 2
+  languages: [java, php]
+  fromBaseline: true
+  tags: [注解, 元编程]
+
+- id: pitfall-java2php-constructor-no-super
+  featureId: model/constructor
+  title: 子类构造器不会自动调父类
+  symptom: |
+    Java 的子类构造器会隐式调用 super()；PHP 里如果不写 parent::__construct()，
+    父类构造器**静默不执行**。
+  cause: |
+    Java 在子类构造器里隐式插入 super()。
+    PHP 里子类只要定义了自己的 `__construct`，父类的就**不会被自动调用** ——
+    最危险的一种：不报错、不警告，只是初始化没跑。
+  fix: |
+    子类构造函数里显式写 `parent::__construct(...)`。
+  severity: 3
+  languages: [java, php]
+  fromBaseline: true
+  tags: [类, 构造]
+
+- id: pitfall-java2php-strict-types
+  featureId: mechanism/type-annotation
+  title: 严格类型要显式开，而且按调用方生效
+  symptom: |
+    Java 的类型检查始终严格；PHP 默认弱类型，要开 `declare(strict_types=1)`，
+    而且它管的是**调用方所在文件**，不是被调用函数的定义处。
+  cause: |
+    PHP 默认做隐式类型转换。`declare(strict_types=1)` 按**调用方文件**生效 ——
+    从没开的文件调用仍然松散。
+  fix: |
+    每个文件都开 `declare(strict_types=1)`，并写参数 / 返回类型标注，
+    这样接近 Java 的严格性。
+  severity: 2
+  languages: [java, php]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-java2php-array-plus-union
+  featureId: express/arrays
+  title: 数组相加是并集
+  symptom: |
+    PHP 的 `$a + $b` 是**并集**（左边键优先），不是「把两个拼起来」。
+  cause: |
+    PHP 的 `+` 对数组是并集语义。Java 没有数组相加，所以这条是从 PHP 侧理解的问题。
+  fix: |
+    合并用 `array_merge($a, $b)` 或 `[...$a, ...$b]`。
+    注意 array_merge 对整数键重排、字符串键覆盖。
+  severity: 2
+  languages: [java, php]
+  fromBaseline: true
+  tags: [数组]
+
+- id: pitfall-java2php-shared-nothing
+  featureId: mechanism/concurrency-unit
+  title: 共享无状态请求模型
+  symptom: |
+    想在请求间共享缓存，发现每次请求状态全新 ——
+    而 Java 的 Servlet 容器里静态变量 / 单例是跨请求共享的。
+  cause: |
+    PHP 经典模型是**共享无状态**：每请求一个进程，结束即销毁。
+    Java 的 Servlet 容器是长驻的，静态变量与单例跨请求存活 —— 正好相反。
+  fix: |
+    跨请求共享用外部存储（Redis、文件、数据库）。
+    常驻进程形态要用 Swoole / RoadRunner 之类，那改变了执行模型。
+  severity: 3
+  languages: [java, php]
+  fromBaseline: true
+  tags: [并发, 运行时]
+
+- id: pitfall-java2php-isset-null
+  featureId: express/null-and-undefined
+  title: isset 对 null 返回 false
+  symptom: |
+    用 `isset($arr['key'])` 判断键在不在，值是 null 时返回 false。
+  cause: |
+    PHP 的 isset 问的是「存在且不为 null」。
+    Java 的 `map.containsKey(k)` 只问键在不在 —— 语义更接近 array_key_exists。
+  fix: |
+    只问键在不在用 `array_key_exists`。
+  severity: 2
+  languages: [java, php]
+  fromBaseline: true
+  tags: [空值]

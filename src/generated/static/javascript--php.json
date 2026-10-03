@@ -1,0 +1,521 @@
+{
+  "baseline": "javascript",
+  "target": "php",
+  "pitfalls": [
+    {
+      "id": "pitfall-js2php-array-copy-object-handle",
+      "title": "数组是值拷贝，对象是句柄",
+      "symptomHtml": "<p>JS 里数组和对象都是引用；PHP 里数组赋值是<strong>拷贝</strong>（改副本不影响原数组），\n而对象赋值是<strong>句柄</strong>（改一个影响另一个）。</p>\n",
+      "causeHtml": "<p>PHP 的数组是值类型（赋值即拷贝）；对象默认是引用语义（赋值传句柄），\n要复制对象得显式 <code>clone</code>。JS 则统一是引用语义。\n所以「数组偏偏是拷贝、对象又像 JS」—— 这条最容易搞混。</p>\n",
+      "fixHtml": "<p>数组要共享得传引用（<code>&amp;$arr</code>）或用 ArrayObject；\n对象要独立副本用 <code>clone $obj</code>（注意是浅拷贝）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "值语义",
+        "数组"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-isset-null",
+      "title": "isset 对 null 返回 false",
+      "symptomHtml": "<p>用 <code>isset($arr['key'])</code> 判断键在不在，键存在但值是 null 时返回 false ——\n与「键不存在」分不开。</p>\n",
+      "causeHtml": "<p>PHP 的 <code>isset()</code> 问的是「变量存在<strong>且不为 null</strong>」。\n所以在「值可能是 null」的场景里，它把两种情况混成了一种。\nJS 的 <code>'key' in obj</code> 只问键在不在。</p>\n",
+      "fixHtml": "<p>只问键在不在用 <code>array_key_exists('key', $arr)</code>；同时排除 null 才用 isset。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/null-and-undefined",
+      "tags": [
+        "空值",
+        "数组"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-logical-returns-bool",
+      "title": "逻辑运算符恒返回布尔值",
+      "symptomHtml": "<p>JS 里 <code>const name = input || 'guest'</code> 是常见的「取默认值」写法；\n到 PHP 写 <code>$name = $input || 'guest'</code>，$name 会是 <strong>true</strong>，不是 'guest'。</p>\n",
+      "causeHtml": "<p>JS 的 <code>||</code> / <code>&amp;&amp;</code> 返回<strong>操作数</strong>（短路求值后那个值），所以能当默认值用。\nPHP 的 <code>||</code> / <code>&amp;&amp;</code> <strong>恒返回 bool</strong> —— 它只回答真假，不返回操作数。\n这是个静默的错误：$name 有值、不报错，只是值不对。</p>\n",
+      "fixHtml": "<p>取默认值用 <code>??</code>：<code>$name = $input ?? 'guest'</code>（null 合并）。\n要「假值也取默认」得写显式判断或用 <code>?:</code>。记住 <code>||</code> 只给 bool。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/logical",
+      "tags": [
+        "运算符"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-shared-nothing",
+      "title": "共享无状态请求模型",
+      "symptomHtml": "<p>想用模块级变量在请求间共享缓存，发现每次请求都是全新的状态，\n上个请求写的东西不见了。</p>\n",
+      "causeHtml": "<p>PHP 的经典执行模型是<strong>共享无状态</strong>：每个请求是一个独立进程，\n请求结束状态全部销毁。全局变量、静态变量都只在<strong>单次请求内</strong>有效。\nJS 的 Node 是长驻进程（模块级变量跨请求共享）—— 正好相反。</p>\n",
+      "fixHtml": "<p>跨请求共享要靠外部存储（文件、Redis、数据库），不能用语言级变量。\n常驻进程形态要用 Swoole / RoadRunner / FrankenPHP 之类，\n但那改变了执行模型，要重新理解生命周期。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发",
+        "运行时"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-strict-types-scope",
+      "title": "严格类型声明管的是本文件发起的调用",
+      "symptomHtml": "<p>在文件顶部写 <code>declare(strict_types=1)</code>，以为管的是<strong>这个文件里定义的函数</strong>；\n实际它管的是<strong>从这个文件发起的调用</strong>。</p>\n",
+      "causeHtml": "<p><code>declare(strict_types=1)</code> 的作用域是<strong>调用方所在文件</strong>，不是被调用函数的定义处。\n同样的函数，从开了 strict 的文件调用会严格检查，从没开的文件调用会做隐式转换。\n这层「按调用方决定」很容易记反。</p>\n",
+      "fixHtml": "<p>每个文件都开 <code>declare(strict_types=1)</code>（放在 <code>&lt;?php</code> 之后第一行），\n这样从任何地方调用都一致。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-annotation",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-array-plus-union",
+      "title": "数组相加是并集，不是拼接",
+      "symptomHtml": "<p><code>$a + $b</code> 得到的不是两个数组接起来，而是<strong>并集</strong> ——\n左边已有的键不会被右边的覆盖。</p>\n",
+      "causeHtml": "<p>JS 里 <code>+</code> 对数组是字符串拼接（<code>[1]+[2]</code> 得 &quot;12&quot;）。\nPHP 的 <code>+</code> 对数组是<strong>并集</strong>（保留左边的键值，只补右边没有的键）。</p>\n",
+      "fixHtml": "<p>合并数组用 <code>array_merge($a, $b)</code> 或展开运算符 <code>[...$a, ...$b]</code>。\n注意 array_merge 对<strong>整数键会重排</strong>，字符串键会覆盖；<code>+</code> 则相反。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arrays",
+      "tags": [
+        "数组"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-attributes-are-metadata",
+      "title": "属性不执行任何代码",
+      "symptomHtml": "<p>看到 <code>#[Route('/home')]</code> 以为像 JS 装饰器那样会执行包装逻辑，\n其实它只是元数据，得有人去读它才有行为。</p>\n",
+      "causeHtml": "<p>PHP 8 的 <code>#[...]</code> 属性<strong>不执行任何代码</strong>，是纯粹的元数据，\n要通过反射读取、再由框架决定行为。\n这与 JS 的装饰器（会执行、能包装）在语义上完全不同 —— 只是语法位置像。</p>\n",
+      "fixHtml": "<p>把 <code>#[...]</code> 理解成「带类型的注解」。自己处理时用\n<code>ReflectionClass::getAttributes()</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/decorator-annotation",
+      "tags": [
+        "装饰器",
+        "元编程"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-cast-gives-zero",
+      "title": "类型转换失败给的是 0",
+      "symptomHtml": "<p><code>(int)&quot;abc&quot;</code> 得到 <strong>0</strong>，不报错；<code>(int)&quot;12abc&quot;</code> 得到 <strong>12</strong>。\n看起来一切正常，直到这个 0 参与运算。</p>\n",
+      "causeHtml": "<p>PHP 的显式转换不检查合法性，尽量给一个数 —— 非数字开头给 0，\n数字开头取前面的部分。JS 的 <code>Number(&quot;abc&quot;)</code> 给 NaN（至少能被 isNaN 抓到），\nPHP 没有等价的「无效」标记。</p>\n",
+      "fixHtml": "<p>要做真正的校验用 <code>is_numeric()</code> 或 <code>filter_var($x, FILTER_VALIDATE_INT)</code>；\n别直接强转后当成校验过了。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/type-conversion",
+      "tags": [
+        "类型转换"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-constructor-no-super",
+      "title": "子类构造器不会自动调父类",
+      "symptomHtml": "<p>子类写了 <code>__construct</code>，忘了调 <code>parent::__construct()</code>，\n父类里的初始化静默没跑。</p>\n",
+      "causeHtml": "<p>PHP 里子类<strong>只要定义了自己的构造函数</strong>，父类的构造器就<strong>不会被自动调用</strong>，\n必须显式 <code>parent::__construct(...)</code>。\nJS 的子类构造器里不调 super() 会直接报错 —— PHP 既不报错也不自动调，\n是最容易静默出错的一种。</p>\n",
+      "fixHtml": "<p>子类构造函数里显式写 <code>parent::__construct(...)</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/constructor",
+      "tags": [
+        "类",
+        "构造"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-match-vs-switch",
+      "title": "match 严格、switch 松散",
+      "symptomHtml": "<p>用 switch 比较字符串和数字，松散比较让分支走错；\n换成 match 后又发现它要求类型完全一致才匹配。</p>\n",
+      "causeHtml": "<p>PHP 的 <code>switch</code> 用<strong>松散比较</strong>（<code>==</code>），<code>match</code> 用<strong>严格比较</strong>（<code>===</code>）。\n两者长得像，语义差一层。JS 的 switch 用严格比较 ——\n所以从 JS 过来会误以为 PHP 的 switch 也严格。</p>\n",
+      "fixHtml": "<p>优先用 <code>match</code>（严格、能返回值、不贯穿）。\n非要用 switch 就确保比较的两边类型一致。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/switch-and-match",
+      "tags": [
+        "控制流"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-no-generics",
+      "title": "没有泛型",
+      "symptomHtml": "<p>想给容器标注元素类型，PHP 没有泛型语法（只有 PHPDoc 注释 <code>@var Foo[]</code>）。</p>\n",
+      "causeHtml": "<p>PHP 没有泛型。2026-05 的一个 RFC 状态是 <strong>Declined</strong>（被否决），\n不是「以后会有」。类型系统只到「类 / 接口 / 基本类型」这一层，\n容器内部元素类型靠文档与静态分析工具保障。</p>\n",
+      "fixHtml": "<p>用 PHPDoc 标注 <code>@param Foo[] $items</code>，配合 PHPStan / Psalm 做静态检查。\n别期待语言级的泛型。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-declaration",
+      "tags": [
+        "泛型"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-js2php-string-bytes",
+      "title": "字符串是字节序列",
+      "symptomHtml": "<p><code>strlen(&quot;中文&quot;)</code> 得到 6（字节数），不是 2（字符数）；\n<code>$s[0]</code> 拿到的是一个字节，可能是半个字符。</p>\n",
+      "causeHtml": "<p>PHP 的字符串是<strong>字节数组</strong>，没有内建的 Unicode 字符概念 ——\nstrlen / 下标 / substr 都按字节算。\nJS 的字符串是 UTF-16 序列，长度按码元算，比 PHP 更接近「字符」。</p>\n",
+      "fixHtml": "<p>处理多字节文本用 mbstring 系列：<code>mb_strlen($s, 'UTF-8')</code>、<code>mb_substr(...)</code>。\n别用 strlen 数中文长度。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串"
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "数组",
+      "aliases": [
+        "array",
+        "list"
+      ],
+      "perLanguage": {
+        "javascript": "引用类型，赋值共享；`+` 是字符串拼接",
+        "php": "值类型，赋值即拷贝；`+` 是并集（不覆盖已有键）"
+      },
+      "note": "两个反直觉叠在一起：数组是拷贝、`+` 是并集。\n合并数组用 array_merge 或 `[...$a, ...$b]`。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "对象",
+      "aliases": [
+        "object",
+        "clone",
+        "handle"
+      ],
+      "perLanguage": {
+        "javascript": "引用类型，赋值共享",
+        "php": "对象赋值传句柄（共享），要独立副本得显式 clone"
+      },
+      "note": "PHP 里数组是拷贝、对象是句柄 —— 两种容器两种规则。\n这与 JS「一切都是引用」不同，最容易混。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "逻辑运算符",
+      "aliases": [
+        "logical",
+        "or",
+        "and",
+        "null-coalescing"
+      ],
+      "perLanguage": {
+        "javascript": "`||` / `&&` 返回操作数，可用来取默认值",
+        "php": "`||` / `&&` 恒返回 bool；取默认值要用 `??` 或 `?:`"
+      },
+      "note": "`$x = $a || 'default'` 在 PHP 里给的是 true。\n这是从 JS 过来最静默的一类错误 —— 不报错，只是值不对。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "存在性判断",
+      "aliases": [
+        "isset",
+        "array-key-exists",
+        "in"
+      ],
+      "perLanguage": {
+        "javascript": "`'key' in obj` 只问键在不在",
+        "php": "isset 问「存在且不为 null」；只问键在不在要用 array_key_exists"
+      },
+      "note": "值是 null 时 isset 返回 false，与「键不存在」混在一起。\n这是 PHP 里最常见的判断陷阱之一。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "字符串",
+      "aliases": [
+        "string",
+        "strlen",
+        "mbstring"
+      ],
+      "perLanguage": {
+        "javascript": "UTF-16 序列，length 按码元算",
+        "php": "字节序列，strlen 数字节；多字节文本要用 mbstring"
+      },
+      "note": "`strlen(\"中文\")` 在 PHP 是 6。这是字节数，不是字符数。\n处理 Unicode 一律用 mb_ 系列函数。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "match / switch",
+      "aliases": [
+        "match",
+        "switch"
+      ],
+      "perLanguage": {
+        "javascript": "switch 用严格比较，需要 break",
+        "php": "switch 用松散比较、match 用严格比较；match 不贯穿、能返回值"
+      },
+      "note": "同样叫 switch，PHP 是松散比较而 JS 是严格 —— 这个差别很隐蔽。\n新代码优先用 match。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "属性",
+      "aliases": [
+        "attribute",
+        "decorator"
+      ],
+      "perLanguage": {
+        "javascript": "装饰器会执行，能包装函数 / 类",
+        "php": "#[...] 属性不执行任何代码，是纯元数据，靠反射读取"
+      },
+      "note": "语法位置像装饰器，语义完全不同。\nPHP 的属性只是一段可被反射读取的注解。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "cast",
+        "conversion"
+      ],
+      "perLanguage": {
+        "javascript": "`Number(\"abc\")` 得 NaN",
+        "php": "`(int)\"abc\"` 得 0，不报错"
+      },
+      "note": "PHP 的转换尽量给一个数，没有「无效」标记。\n要校验用 is_numeric 或 filter_var。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "严格类型",
+      "aliases": [
+        "strict-types",
+        "declare"
+      ],
+      "perLanguage": {
+        "javascript": "没有类型检查（除非用 TS）",
+        "php": "`declare(strict_types=1)` 按**调用方所在文件**生效"
+      },
+      "note": "作用域是调用方，不是被调用函数的定义处。\n每个文件都开 strict 才一致。\n",
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "term": "执行模型",
+      "aliases": [
+        "request",
+        "lifecycle",
+        "shared-nothing"
+      ],
+      "perLanguage": {
+        "javascript": "Node 是长驻进程，模块级变量跨请求共享",
+        "php": "共享无状态，每请求一个进程，结束后状态全销毁"
+      },
+      "note": "这是最根本的运行时差别。跨请求共享必须用外部存储。\n",
+      "baseline": "javascript",
+      "target": "php"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "javascript2php-1-runtime-model",
+      "order": 1,
+      "title": "先理解「共享无状态」的运行时",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 PHP 8 与 Composer，跑一个 hello world",
+        "理解每个请求是独立进程：写一个全局变量，跨请求看它是否还在",
+        "记住 `||` 恒返回 bool，取默认值要用 `??`",
+        "对照本工具「语言机制」板块里 PHP 列的执行模型相关格"
+      ],
+      "acceptance": [
+        "能说清 PHP 的请求生命周期与 Node 长驻进程的差别",
+        "能说清为什么 `$x = $a || 'default'` 是错的"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        },
+        {
+          "label": "PHP 官方手册（英文）",
+          "url": "https://www.php.net/manual/en/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "javascript2php-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1-2 天",
+      "todo": [
+        "过一遍变量、数组、字符串操作，注意数组是值拷贝",
+        "试一次 `(int)\"abc\"`，理解它给 0 而不是报错",
+        "用 mb_strlen 与 strlen 各数一次中文，看差别",
+        "把 switch 改成 match，体会严格比较"
+      ],
+      "acceptance": [
+        "能独立写出变量、数组、控制流、函数定义，无语法错误",
+        "知道哪些写法会静默给错值（|| 取默认、isset 判 null、强转）"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册 · 类型",
+          "url": "https://www.php.net/manual/zh/language.types.php"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "javascript2php-3-classes-and-types",
+      "order": 3,
+      "title": "类、严格类型与属性",
+      "durationHint": "3-5 天",
+      "todo": [
+        "理解对象是句柄、数组是拷贝，用 clone 复制对象",
+        "在每个文件顶部开 declare(strict_types=1)，体会它按调用方生效",
+        "写一个子类构造函数，注意必须显式调 parent::__construct",
+        "用 reflection 读一次 `#[...]` 属性，理解它只是元数据"
+      ],
+      "acceptance": [
+        "能说清 PHP 的严格类型声明为什么按调用方生效",
+        "能说清属性与 JS 装饰器的本质差别"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册 · 类与对象",
+          "url": "https://www.php.net/manual/zh/language.oop5.php"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "javascript2php-4-ecosystem",
+      "order": 4,
+      "title": "Composer 与生态",
+      "durationHint": "2-3 天",
+      "todo": [
+        "用 Composer 建一个工程，装几个包",
+        "注意 Composer 的 `~` 与 npm 的 `~` 语义不一致",
+        "配 PHPStan 或 Psalm，体会用静态分析补上「没有泛型」的缺口",
+        "理解 autoload（PSR-4）与 node_modules 的差别"
+      ],
+      "acceptance": [
+        "能说清 Composer 与 npm 在版本约束上的差异",
+        "能用 PHPDoc + 静态分析给容器标注元素类型"
+      ],
+      "resources": [
+        {
+          "label": "Composer 官方文档",
+          "url": "https://getcomposer.org/doc/"
+        },
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    },
+    {
+      "id": "javascript2php-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 PHPUnit 写测试",
+        "搭一个最小的 Web 应用（路由 + 模板 + 数据库），走通请求生命周期",
+        "对照本工具「工程实践」板块里 PHP 列的工具链",
+        "体验一次常驻进程形态（Swoole / RoadRunner），对比经典模型"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖、测试、静态分析的 PHP 工程",
+        "能说清经典共享无状态模型与常驻进程模型的取舍"
+      ],
+      "resources": [
+        {
+          "label": "Composer 官方文档",
+          "url": "https://getcomposer.org/doc/"
+        },
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "php"
+    }
+  ]
+}

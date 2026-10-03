@@ -1,0 +1,94 @@
+# 速语词典 —— 从 JavaScript 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 数组
+  aliases: [array, list]
+  perLanguage:
+    javascript: 引用类型，赋值共享；`+` 是字符串拼接
+    php: 值类型，赋值即拷贝；`+` 是并集（不覆盖已有键）
+  note: |
+    两个反直觉叠在一起：数组是拷贝、`+` 是并集。
+    合并数组用 array_merge 或 `[...$a, ...$b]`。
+
+- term: 对象
+  aliases: [object, clone, handle]
+  perLanguage:
+    javascript: 引用类型，赋值共享
+    php: 对象赋值传句柄（共享），要独立副本得显式 clone
+  note: |
+    PHP 里数组是拷贝、对象是句柄 —— 两种容器两种规则。
+    这与 JS「一切都是引用」不同，最容易混。
+
+- term: 逻辑运算符
+  aliases: [logical, or, and, null-coalescing]
+  perLanguage:
+    javascript: '`||` / `&&` 返回操作数，可用来取默认值'
+    php: '`||` / `&&` 恒返回 bool；取默认值要用 `??` 或 `?:`'
+  note: |
+    `$x = $a || 'default'` 在 PHP 里给的是 true。
+    这是从 JS 过来最静默的一类错误 —— 不报错，只是值不对。
+
+- term: 存在性判断
+  aliases: [isset, array-key-exists, in]
+  perLanguage:
+    javascript: '`''key'' in obj` 只问键在不在'
+    php: isset 问「存在且不为 null」；只问键在不在要用 array_key_exists
+  note: |
+    值是 null 时 isset 返回 false，与「键不存在」混在一起。
+    这是 PHP 里最常见的判断陷阱之一。
+
+- term: 字符串
+  aliases: [string, strlen, mbstring]
+  perLanguage:
+    javascript: UTF-16 序列，length 按码元算
+    php: 字节序列，strlen 数字节；多字节文本要用 mbstring
+  note: |
+    `strlen("中文")` 在 PHP 是 6。这是字节数，不是字符数。
+    处理 Unicode 一律用 mb_ 系列函数。
+
+- term: match / switch
+  aliases: [match, switch]
+  perLanguage:
+    javascript: switch 用严格比较，需要 break
+    php: switch 用松散比较、match 用严格比较；match 不贯穿、能返回值
+  note: |
+    同样叫 switch，PHP 是松散比较而 JS 是严格 —— 这个差别很隐蔽。
+    新代码优先用 match。
+
+- term: 属性
+  aliases: [attribute, decorator]
+  perLanguage:
+    javascript: 装饰器会执行，能包装函数 / 类
+    php: '#[...] 属性不执行任何代码，是纯元数据，靠反射读取'
+  note: |
+    语法位置像装饰器，语义完全不同。
+    PHP 的属性只是一段可被反射读取的注解。
+
+- term: 类型转换
+  aliases: [cast, conversion]
+  perLanguage:
+    javascript: '`Number("abc")` 得 NaN'
+    php: '`(int)"abc"` 得 0，不报错'
+  note: |
+    PHP 的转换尽量给一个数，没有「无效」标记。
+    要校验用 is_numeric 或 filter_var。
+
+- term: 严格类型
+  aliases: [strict-types, declare]
+  perLanguage:
+    javascript: 没有类型检查（除非用 TS）
+    php: '`declare(strict_types=1)` 按**调用方所在文件**生效'
+  note: |
+    作用域是调用方，不是被调用函数的定义处。
+    每个文件都开 strict 才一致。
+
+- term: 执行模型
+  aliases: [request, lifecycle, shared-nothing]
+  perLanguage:
+    javascript: Node 是长驻进程，模块级变量跨请求共享
+    php: 共享无状态，每请求一个进程，结束后状态全销毁
+  note: |
+    这是最根本的运行时差别。跨请求共享必须用外部存储。

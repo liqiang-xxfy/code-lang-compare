@@ -1,0 +1,520 @@
+{
+  "baseline": "java",
+  "target": "php",
+  "pitfalls": [
+    {
+      "id": "pitfall-java2php-array-copy-object-handle",
+      "title": "数组是值拷贝，对象是句柄",
+      "symptomHtml": "<p>Java 的数组赋值传引用；PHP 的数组赋值是<strong>拷贝</strong>（改副本不影响原数组）。\n但 PHP 的对象赋值是句柄（共享）。</p>\n",
+      "causeHtml": "<p>PHP 的数组是值类型（赋值即拷贝）；对象默认是引用语义，要复制得显式 clone。\nJava 的数组与对象都是引用类型。</p>\n",
+      "fixHtml": "<p>数组要共享得传引用（<code>&amp;$arr</code>）；对象要独立副本用 <code>clone</code>。\n注意 clone 是浅拷贝，需要深拷贝得在 __clone 里自己实现。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "值语义",
+        "数组"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-constructor-no-super",
+      "title": "子类构造器不会自动调父类",
+      "symptomHtml": "<p>Java 的子类构造器会隐式调用 super()；PHP 里如果不写 parent::__construct()，\n父类构造器<strong>静默不执行</strong>。</p>\n",
+      "causeHtml": "<p>Java 在子类构造器里隐式插入 super()。\nPHP 里子类只要定义了自己的 <code>__construct</code>，父类的就<strong>不会被自动调用</strong> ——\n最危险的一种：不报错、不警告，只是初始化没跑。</p>\n",
+      "fixHtml": "<p>子类构造函数里显式写 <code>parent::__construct(...)</code>。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/constructor",
+      "tags": [
+        "类",
+        "构造"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-shared-nothing",
+      "title": "共享无状态请求模型",
+      "symptomHtml": "<p>想在请求间共享缓存，发现每次请求状态全新 ——\n而 Java 的 Servlet 容器里静态变量 / 单例是跨请求共享的。</p>\n",
+      "causeHtml": "<p>PHP 经典模型是<strong>共享无状态</strong>：每请求一个进程，结束即销毁。\nJava 的 Servlet 容器是长驻的，静态变量与单例跨请求存活 —— 正好相反。</p>\n",
+      "fixHtml": "<p>跨请求共享用外部存储（Redis、文件、数据库）。\n常驻进程形态要用 Swoole / RoadRunner 之类，那改变了执行模型。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发",
+        "运行时"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-array-plus-union",
+      "title": "数组相加是并集",
+      "symptomHtml": "<p>PHP 的 <code>$a + $b</code> 是<strong>并集</strong>（左边键优先），不是「把两个拼起来」。</p>\n",
+      "causeHtml": "<p>PHP 的 <code>+</code> 对数组是并集语义。Java 没有数组相加，所以这条是从 PHP 侧理解的问题。</p>\n",
+      "fixHtml": "<p>合并用 <code>array_merge($a, $b)</code> 或 <code>[...$a, ...$b]</code>。\n注意 array_merge 对整数键重排、字符串键覆盖。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arrays",
+      "tags": [
+        "数组"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-attributes-are-metadata",
+      "title": "属性是元数据，靠反射读",
+      "symptomHtml": "<p>PHP 的 <code>#[...]</code> 语法位置像装饰器，容易以为它会执行逻辑。</p>\n",
+      "causeHtml": "<p>Java 的注解与 PHP 的属性都是<strong>元数据</strong>（这点一样），都要靠反射读取。\n区别在于 PHP 的属性语法更接近装饰器，容易误判它会执行。\n两边都不执行任何代码。</p>\n",
+      "fixHtml": "<p>用 <code>ReflectionClass::getAttributes()</code> 读取与处理。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/decorator-annotation",
+      "tags": [
+        "注解",
+        "元编程"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-cast-gives-zero",
+      "title": "类型转换失败给的是 0",
+      "symptomHtml": "<p>Java 的 <code>Integer.parseInt(&quot;abc&quot;)</code> 抛 NumberFormatException；\nPHP 的 <code>(int)&quot;abc&quot;</code> 得到 <strong>0</strong>，不报错。</p>\n",
+      "causeHtml": "<p>PHP 的显式转换尽量给一个数（非数字开头给 0）。\nJava 的解析方法会抛异常 —— 这是「快速失败」与「尽量给值」的差别。</p>\n",
+      "fixHtml": "<p>要校验用 <code>is_numeric()</code> 或 <code>filter_var($x, FILTER_VALIDATE_INT)</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/type-conversion",
+      "tags": [
+        "类型转换"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-isset-null",
+      "title": "isset 对 null 返回 false",
+      "symptomHtml": "<p>用 <code>isset($arr['key'])</code> 判断键在不在，值是 null 时返回 false。</p>\n",
+      "causeHtml": "<p>PHP 的 isset 问的是「存在且不为 null」。\nJava 的 <code>map.containsKey(k)</code> 只问键在不在 —— 语义更接近 array_key_exists。</p>\n",
+      "fixHtml": "<p>只问键在不在用 <code>array_key_exists</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/null-and-undefined",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-match-vs-switch",
+      "title": "match 严格比较，switch 松散比较",
+      "symptomHtml": "<p>Java 的 switch 对字符串用值比较；PHP 的 switch 用<strong>松散比较</strong>，\n字符串和数字比较可能走错分支。</p>\n",
+      "causeHtml": "<p>PHP 的 <code>switch</code> 用松散比较（<code>==</code>），<code>match</code> 用严格比较（<code>===</code>）。\nJava 的 switch 是类型明确的比较。</p>\n",
+      "fixHtml": "<p>优先用 <code>match</code>（严格、不贯穿、能返回值）；非要 switch 就确保两边类型一致。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/switch-and-match",
+      "tags": [
+        "控制流"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-no-generics",
+      "title": "没有泛型",
+      "symptomHtml": "<p>Java 的 <code>List&lt;User&gt;</code> 到 PHP 没有对应写法，只能写 PHPDoc <code>@var User[]</code>。</p>\n",
+      "causeHtml": "<p>PHP 没有泛型（2026-05 的 RFC 被 Declined，不是「以后会有」）。\nJava 的泛型虽然擦除，但编译期检查严格。</p>\n",
+      "fixHtml": "<p>用 PHPDoc 标注，配 PHPStan / Psalm 做静态检查。\n容器元素类型靠文档约束，不是语言保证。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-declaration",
+      "tags": [
+        "泛型"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-strict-types",
+      "title": "严格类型要显式开，而且按调用方生效",
+      "symptomHtml": "<p>Java 的类型检查始终严格；PHP 默认弱类型，要开 <code>declare(strict_types=1)</code>，\n而且它管的是<strong>调用方所在文件</strong>，不是被调用函数的定义处。</p>\n",
+      "causeHtml": "<p>PHP 默认做隐式类型转换。<code>declare(strict_types=1)</code> 按<strong>调用方文件</strong>生效 ——\n从没开的文件调用仍然松散。</p>\n",
+      "fixHtml": "<p>每个文件都开 <code>declare(strict_types=1)</code>，并写参数 / 返回类型标注，\n这样接近 Java 的严格性。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-annotation",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-string-bytes",
+      "title": "字符串是字节序列",
+      "symptomHtml": "<p>Java 的 <code>&quot;中文&quot;.length()</code> 是 2（char 数）；PHP 的 <code>strlen(&quot;中文&quot;)</code> 是 6（字节数）。</p>\n",
+      "causeHtml": "<p>Java 的 String 是 UTF-16 序列、length 按 char 算。\nPHP 的字符串是<strong>字节数组</strong>，strlen / 下标 / substr 都按字节算。</p>\n",
+      "fixHtml": "<p>用 mbstring：<code>mb_strlen($s, 'UTF-8')</code>、<code>mb_substr(...)</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串"
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-java2php-variable-prefix",
+      "title": "变量带 $ 前缀，默认弱类型",
+      "symptomHtml": "<p>每个变量都要写 <code>$</code>；而且没有类型声明（除非显式标注），默认是弱类型。</p>\n",
+      "causeHtml": "<p>PHP 的变量必须带 <code>$</code> 前缀，且默认做隐式类型转换。\nJava 的变量有明确类型、不用前缀。</p>\n",
+      "fixHtml": "<p>注意 <code>$</code> 前缀；开 <code>declare(strict_types=1)</code> 并写参数 / 返回类型标注。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/declaration",
+      "tags": [
+        "声明"
+      ],
+      "baseline": "java",
+      "target": "php"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "数组",
+      "aliases": [
+        "array",
+        "list",
+        "map"
+      ],
+      "perLanguage": {
+        "java": "数组与集合都是引用类型，赋值共享",
+        "php": "数组是值类型（赋值即拷贝）；`+` 是并集"
+      },
+      "note": "PHP 的「数组」同时是 list 和 map（有序映射）。\n赋值是拷贝、`+` 是并集 —— 两个反直觉叠在一起。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "对象",
+      "aliases": [
+        "object",
+        "clone",
+        "handle"
+      ],
+      "perLanguage": {
+        "java": "对象赋值传引用",
+        "php": "对象赋值传句柄（共享），要独立副本得显式 clone"
+      },
+      "note": "PHP 里数组是拷贝、对象是句柄。Java 里两者都是引用。\nclone 是浅拷贝，深拷贝要在 __clone 里自己实现。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic",
+        "list"
+      ],
+      "perLanguage": {
+        "java": "泛型擦除但编译期检查严格",
+        "php": "没有泛型（RFC 被 Declined），只能写 PHPDoc 注释"
+      },
+      "note": "PHP 的容器元素类型靠 PHPDoc + PHPStan / Psalm，\n不是语言保证。别指望以后会有。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "字符串",
+      "aliases": [
+        "string",
+        "strlen",
+        "mbstring"
+      ],
+      "perLanguage": {
+        "java": "String 是 UTF-16 序列，length 按 char 算",
+        "php": "字符串是字节序列，strlen 数字节；多字节要用 mbstring"
+      },
+      "note": "`\"中文\".length()` 是 2，`strlen(\"中文\")` 是 6。\n处理 Unicode 一律用 mb_ 系列。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "cast",
+        "parseint",
+        "conversion"
+      ],
+      "perLanguage": {
+        "java": "`Integer.parseInt(\"abc\")` 抛异常",
+        "php": "`(int)\"abc\"` 得 0，不报错"
+      },
+      "note": "Java 快速失败，PHP 尽量给一个数。\n要校验用 is_numeric 或 filter_var。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "match / switch",
+      "aliases": [
+        "match",
+        "switch"
+      ],
+      "perLanguage": {
+        "java": "switch 用类型明确的比较，需要 break",
+        "php": "switch 用松散比较、match 用严格比较；match 不贯穿、能返回值"
+      },
+      "note": "Java 的 switch 比较是类型明确的，PHP 的 switch 是松散比较 ——\n数字与字符串比较时可能走错分支。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "注解 / 属性",
+      "aliases": [
+        "annotation",
+        "attribute"
+      ],
+      "perLanguage": {
+        "java": "注解是元数据，靠反射读取",
+        "php": "#[...] 属性同样是元数据，靠反射读取"
+      },
+      "note": "两边都是纯元数据（这点一致）。\n区别是 PHP 的属性语法位置更像装饰器，容易误判它会执行。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "严格类型",
+      "aliases": [
+        "strict-types",
+        "declare"
+      ],
+      "perLanguage": {
+        "java": "类型检查始终严格",
+        "php": "默认弱类型；declare(strict_types=1) 按调用方所在文件生效"
+      },
+      "note": "作用域是调用方文件，不是被调用函数的定义处。\n每个文件都开才一致。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "构造器",
+      "aliases": [
+        "constructor",
+        "super"
+      ],
+      "perLanguage": {
+        "java": "子类构造器隐式调用 super()",
+        "php": "子类定义了自己的 __construct 就不会自动调父类，必须显式写"
+      },
+      "note": "这是最容易静默出错的一处：不报错、不警告，只是父类初始化没跑。\n",
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "term": "执行模型",
+      "aliases": [
+        "request",
+        "lifecycle",
+        "shared-nothing",
+        "servlet"
+      ],
+      "perLanguage": {
+        "java": "Servlet 容器长驻，静态变量与单例跨请求共享",
+        "php": "共享无状态，每请求一个进程，结束后状态全销毁"
+      },
+      "note": "这是最根本的运行时差别。跨请求共享必须用外部存储。\n",
+      "baseline": "java",
+      "target": "php"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2php-1-runtime-model",
+      "order": 1,
+      "title": "先理解请求生命周期",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 PHP 8 与 Composer，跑一个 hello world",
+        "理解每个请求是独立进程：写一个静态变量，跨请求看它是否还在",
+        "记住变量要带 `$` 前缀，默认是弱类型",
+        "对照本工具「语言机制」板块里 PHP 列的执行模型相关格"
+      ],
+      "acceptance": [
+        "能说清 PHP 的请求生命周期与 Servlet 容器的差别",
+        "能说清为什么跨请求共享不能用语言级变量"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        },
+        {
+          "label": "PHP 官方手册（英文）",
+          "url": "https://www.php.net/manual/en/"
+        }
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "java2php-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1-2 天",
+      "todo": [
+        "过一遍变量、数组、字符串操作，注意数组是值拷贝",
+        "用 mb_strlen 与 strlen 各数一次中文，看差别",
+        "试一次 `(int)\"abc\"`，理解它给 0 而不是抛异常",
+        "把 switch 改成 match，体会严格比较"
+      ],
+      "acceptance": [
+        "能独立写出变量、数组、控制流、函数定义，无语法错误",
+        "知道哪些写法会静默给错值（isset 判 null、强转、数组 +）"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册 · 类型",
+          "url": "https://www.php.net/manual/zh/language.types.php"
+        }
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "java2php-3-classes-and-types",
+      "order": 3,
+      "title": "类、类型与属性",
+      "durationHint": "3-5 天",
+      "todo": [
+        "理解对象是句柄、数组是拷贝，用 clone 复制对象",
+        "写一个子类构造函数，注意必须显式调 parent::__construct",
+        "在每个文件顶部开 declare(strict_types=1)，体会它按调用方生效",
+        "用 reflection 读一次 `#[...]` 属性，对比 Java 注解"
+      ],
+      "acceptance": [
+        "能说清 PHP 的子类构造器与 Java 隐式 super() 的差别",
+        "能说清 PHP 没有泛型时怎么标注容器元素类型"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册 · 类与对象",
+          "url": "https://www.php.net/manual/zh/language.oop5.php"
+        }
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "java2php-4-ecosystem",
+      "order": 4,
+      "title": "Composer 与生态",
+      "durationHint": "2-3 天",
+      "todo": [
+        "用 Composer 建一个工程，装几个包",
+        "理解 autoload（PSR-4）与 classpath / Maven 的差别",
+        "配 PHPStan 或 Psalm，体会用静态分析补上泛型的缺口",
+        "对照 PHPUnit 与 JUnit 的写法差异"
+      ],
+      "acceptance": [
+        "能说清 Composer 与 Maven 在依赖管理与自动加载上的差异",
+        "能用 PHPDoc + 静态分析给容器标注元素类型"
+      ],
+      "resources": [
+        {
+          "label": "Composer 官方文档",
+          "url": "https://getcomposer.org/doc/"
+        },
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        }
+      ],
+      "baseline": "java",
+      "target": "php"
+    },
+    {
+      "id": "java2php-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 PHPUnit 写测试",
+        "搭一个最小的 Web 应用（路由 + 模板 + 数据库），走通请求生命周期",
+        "对照本工具「工程实践」板块里 PHP 列的工具链",
+        "体验一次常驻进程形态（Swoole / RoadRunner），对比 Servlet 容器"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖、测试、静态分析的 PHP 工程",
+        "能说清经典共享无状态模型与长驻容器模型的取舍"
+      ],
+      "resources": [
+        {
+          "label": "Composer 官方文档",
+          "url": "https://getcomposer.org/doc/"
+        },
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        }
+      ],
+      "baseline": "java",
+      "target": "php"
+    }
+  ]
+}

@@ -1,0 +1,523 @@
+{
+  "baseline": "python",
+  "target": "php",
+  "pitfalls": [
+    {
+      "id": "pitfall-py2php-array-copy-object-handle",
+      "title": "数组是值拷贝，对象是句柄",
+      "symptomHtml": "<p>Python 的 list 是引用语义；PHP 的数组赋值是<strong>拷贝</strong>，改副本不影响原数组。\n但对象赋值是句柄（共享）。</p>\n",
+      "causeHtml": "<p>PHP 的数组是值类型（赋值即拷贝）；对象默认是引用语义，要复制得显式 clone。\nPython 的 list / dict 都是引用语义。</p>\n",
+      "fixHtml": "<p>数组要共享得传引用（<code>&amp;$arr</code>）；对象要独立副本用 <code>clone</code>（浅拷贝）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "值语义",
+        "数组"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-attributes-are-metadata",
+      "title": "属性不执行任何代码",
+      "symptomHtml": "<p>看到 <code>#[Route('/home')]</code> 以为是 Python 那种会执行的装饰器，其实它只是元数据。</p>\n",
+      "causeHtml": "<p>Python 的装饰器是高阶函数，<code>@deco</code> 会真的执行并替换函数。\nPHP 8 的 <code>#[...]</code> 属性<strong>不执行任何代码</strong>，是纯元数据，靠反射读取。\n语法位置像，机制完全不同。</p>\n",
+      "fixHtml": "<p>把 <code>#[...]</code> 理解成「带类型的注解」，行为由读取它的代码提供。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/decorator-annotation",
+      "tags": [
+        "装饰器",
+        "元编程"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-cast-gives-zero",
+      "title": "类型转换失败给的是 0",
+      "symptomHtml": "<p>Python 的 <code>int(&quot;abc&quot;)</code> 抛 ValueError；PHP 的 <code>(int)&quot;abc&quot;</code> 得到 <strong>0</strong>，不报错。</p>\n",
+      "causeHtml": "<p>PHP 的显式转换尽量给一个数（非数字开头给 0，数字开头取前面部分）。\nPython 的 int() 严格，不合法就抛异常 —— 这是「快速失败」与「尽量给值」的差别。</p>\n",
+      "fixHtml": "<p>要校验用 <code>is_numeric()</code> 或 <code>filter_var($x, FILTER_VALIDATE_INT)</code>，\n别指望强转会报错。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/type-conversion",
+      "tags": [
+        "类型转换"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-isset-null",
+      "title": "isset 对 null 返回 false",
+      "symptomHtml": "<p>用 <code>isset($arr['key'])</code> 判断键在不在，键存在但值是 null 时返回 false。</p>\n",
+      "causeHtml": "<p>PHP 的 isset 问的是「存在且不为 null」。\nPython 的 <code>'key' in dict</code> 只问键在不在 —— 语义更接近 PHP 的 array_key_exists。</p>\n",
+      "fixHtml": "<p>只问键在不在用 <code>array_key_exists</code>；同时排除 null 才用 isset。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/null-and-undefined",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-logical-returns-bool",
+      "title": "逻辑运算符恒返回布尔值",
+      "symptomHtml": "<p>Python 的 <code>x = a or 'default'</code> 是取默认值的常用写法；\nPHP 的 <code>$x = $a || 'default'</code> 给的是 <strong>true</strong>。</p>\n",
+      "causeHtml": "<p>Python 的 <code>and</code> / <code>or</code> 返回<strong>操作数</strong>（短路求值后那个值）。\nPHP 的 <code>||</code> / <code>&amp;&amp;</code> <strong>恒返回 bool</strong>。</p>\n",
+      "fixHtml": "<p>取默认值用 <code>??</code>（null 合并）或 <code>?:</code>。记住 <code>||</code> 只给 bool。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/logical",
+      "tags": [
+        "运算符"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-modulo-sign",
+      "title": "取模的符号跟被除数",
+      "symptomHtml": "<p>Python 的 <code>-5 % 3</code> 是 <strong>1</strong>（跟除数、结果非负）；\nPHP 的 <code>-5 % 3</code> 是 <strong>-2</strong>（跟被除数）。两者都不报错。</p>\n",
+      "causeHtml": "<p>PHP 的 <code>%</code> 结果与被除数同号；Python 的结果与除数同号。\n正数时一致，负数时方向相反 —— 这类差异不会报错，只会算错。</p>\n",
+      "fixHtml": "<p>涉及负数的取模要特别小心；需要 Python 那种「非负余数」就自己调整\n（先加一个除数再取模）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "运算符"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-shared-nothing",
+      "title": "共享无状态请求模型",
+      "symptomHtml": "<p>想在请求间共享缓存，发现每次请求状态全新。</p>\n",
+      "causeHtml": "<p>PHP 经典模型是<strong>共享无状态</strong>：每请求一个进程，结束即销毁，\n全局变量、静态变量只在单请求内有效。\nPython 的 WSGI 应用通常每请求调用，但进程可能复用（有全局状态累积的风险）——\n两者的生命周期语义不同。</p>\n",
+      "fixHtml": "<p>跨请求共享用外部存储（Redis、文件、数据库）。\n常驻进程形态要用 Swoole / RoadRunner 之类，那改变了执行模型。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发",
+        "运行时"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-string-bytes",
+      "title": "字符串是字节序列",
+      "symptomHtml": "<p>Python 的 <code>len(&quot;中文&quot;)</code> 是 2（字符数）；PHP 的 <code>strlen(&quot;中文&quot;)</code> 是 6（字节数）。</p>\n",
+      "causeHtml": "<p>Python 3 的 str 是 Unicode 字符序列；PHP 的字符串是<strong>字节数组</strong>，\nstrlen / 下标 / substr 都按字节算。</p>\n",
+      "fixHtml": "<p>用 mbstring：<code>mb_strlen($s, 'UTF-8')</code>、<code>mb_substr(...)</code>。\nPython 的字符串直觉在这里不成立。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-array-plus-union",
+      "title": "数组相加是并集，不是拼接",
+      "symptomHtml": "<p>Python 的 <code>a + b</code> 把两个 list 接起来；PHP 的 <code>$a + $b</code> 是<strong>并集</strong>，\n左边已有的键不被覆盖。</p>\n",
+      "causeHtml": "<p>PHP 的 <code>+</code> 对数组是并集（只补右边缺的键）。\nPython 的 <code>+</code> 对 list 是拼接，<code>|</code> 对 dict 是合并（右边覆盖）。</p>\n",
+      "fixHtml": "<p>合并用 <code>array_merge($a, $b)</code> 或 <code>[...$a, ...$b]</code> ——\n类似 Python 的 <code>a | b</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arrays",
+      "tags": [
+        "数组"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-match-vs-switch",
+      "title": "match 严格比较，switch 松散比较",
+      "symptomHtml": "<p>看到 PHP 的 match 以为是 Python 的结构模式匹配，其实它只是\n「严格比较的多分支选择」；而 switch 用松散比较会走错分支。</p>\n",
+      "causeHtml": "<p>PHP 的 <code>match</code> 是<strong>严格比较</strong>（<code>===</code>）的多分支表达式，不贯穿、能返回值；\n<code>switch</code> 用<strong>松散比较</strong>（<code>==</code>）。\nPython 的 match 是<strong>结构模式匹配</strong>（能解构、能匹配类型与形状）——\n三者都叫 match，能力完全不同。</p>\n",
+      "fixHtml": "<p>PHP 的 match 当成「更安全的 switch」用，别期待结构模式匹配。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/switch-and-match",
+      "tags": [
+        "控制流"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-no-generics",
+      "title": "没有泛型",
+      "symptomHtml": "<p>想在类型标注里写 <code>array&lt;int&gt;</code>，PHP 没有这种语法。</p>\n",
+      "causeHtml": "<p>PHP 没有泛型（2026-05 的 RFC 被 Declined）。\nPython 有 typing 的 <code>list[int]</code>（虽擦除但能静态检查）。\nPHP 只能靠 PHPDoc 注释加静态分析工具。</p>\n",
+      "fixHtml": "<p>用 <code>@param Foo[] $items</code> 这样的 PHPDoc 标注，配 PHPStan / Psalm。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-declaration",
+      "tags": [
+        "泛型"
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "pitfall-py2php-variables-and-typing",
+      "title": "变量带 $ 前缀，而且声明是弱的",
+      "symptomHtml": "<p>每个变量都要写 <code>$</code>；而且没有「先声明后使用」的规则，\n拼错变量名在旧版本里静默当 null。</p>\n",
+      "causeHtml": "<p>PHP 的变量必须带 <code>$</code> 前缀，且是弱类型（除非开 strict_types）。\nPython 的变量不需要前缀，但名字拼错会 NameError —— PHP 8 之前是静默。</p>\n",
+      "fixHtml": "<p>注意 <code>$</code> 前缀；PHP 8 下拼错变量名会有 Warning，别关掉警告。\n开 <code>declare(strict_types=1)</code> 让类型检查严起来。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "php"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/declaration",
+      "tags": [
+        "声明"
+      ],
+      "baseline": "python",
+      "target": "php"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "数组",
+      "aliases": [
+        "array",
+        "list",
+        "dict"
+      ],
+      "perLanguage": {
+        "python": "list / dict 是引用语义；`+` 是拼接、`|` 是合并",
+        "php": "数组是值类型（赋值即拷贝）；`+` 是并集"
+      },
+      "note": "PHP 的「数组」同时是 list 和 dict（有序映射）。\n两个反直觉叠在一起：赋值是拷贝、`+` 是并集。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "对象",
+      "aliases": [
+        "object",
+        "clone",
+        "handle"
+      ],
+      "perLanguage": {
+        "python": "一切皆对象，赋值传引用",
+        "php": "对象赋值传句柄（共享），要独立副本得显式 clone"
+      },
+      "note": "PHP 里数组是拷贝、对象是句柄 —— 两种容器两种规则。\nPython 的「一切都是引用」在这里不成立。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "取模",
+      "aliases": [
+        "modulo",
+        "percent"
+      ],
+      "perLanguage": {
+        "python": "`%` 结果与除数同号，永远非负",
+        "php": "`%` 结果与被除数同号"
+      },
+      "note": "`-5 % 3` 在 Python 是 1、PHP 是 -2。正数时一致，负数时相反，\n而且都不报错 —— 最容易静默算错的一处。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "字符串",
+      "aliases": [
+        "string",
+        "strlen",
+        "mbstring"
+      ],
+      "perLanguage": {
+        "python": "str 是 Unicode 字符序列，len 数字符",
+        "php": "字符串是字节序列，strlen 数字节；多字节要用 mbstring"
+      },
+      "note": "`len(\"中文\")` 是 2，`strlen(\"中文\")` 是 6。\n处理 Unicode 一律用 mb_ 系列。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "存在性判断",
+      "aliases": [
+        "isset",
+        "array-key-exists",
+        "in"
+      ],
+      "perLanguage": {
+        "python": "`'key' in d` 只问键在不在",
+        "php": "isset 问「存在且不为 null」；只问键在不在要用 array_key_exists"
+      },
+      "note": "值是 null 时 isset 返回 false，与「键不存在」混在一起。\n这是最常见的判断陷阱。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "match",
+      "aliases": [
+        "match",
+        "switch",
+        "pattern-matching"
+      ],
+      "perLanguage": {
+        "python": "match 是结构模式匹配，能解构、匹配类型与形状",
+        "php": "match 是严格比较的多分支表达式；switch 是松散比较"
+      },
+      "note": "同名但能力差很远：Python 的 match 是模式匹配，\nPHP 的 match 只是「更安全的 switch」。别指望解构。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "属性",
+      "aliases": [
+        "attribute",
+        "decorator"
+      ],
+      "perLanguage": {
+        "python": "装饰器会执行，能包装函数与类",
+        "php": "#[...] 属性不执行任何代码，是纯元数据，靠反射读取"
+      },
+      "note": "语法位置像装饰器，语义完全不同。PHP 的属性只是一段可被反射读取的注解。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "逻辑运算符",
+      "aliases": [
+        "logical",
+        "or",
+        "and"
+      ],
+      "perLanguage": {
+        "python": "`and` / `or` 返回操作数，可用来取默认值",
+        "php": "`||` / `&&` 恒返回 bool；取默认值要用 `??` 或 `?:`"
+      },
+      "note": "`x = a or 'default'` 在 Python 里给默认值，在 PHP 里写成 `||` 就给 true。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "cast",
+        "conversion",
+        "int"
+      ],
+      "perLanguage": {
+        "python": "`int(\"abc\")` 抛 ValueError",
+        "php": "`(int)\"abc\"` 得 0，不报错"
+      },
+      "note": "Python 快速失败，PHP 尽量给一个数。\n要校验用 is_numeric 或 filter_var。\n",
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "term": "执行模型",
+      "aliases": [
+        "request",
+        "lifecycle",
+        "shared-nothing",
+        "wsgi"
+      ],
+      "perLanguage": {
+        "python": "WSGI 每请求调用，但进程可能复用（全局状态会累积）",
+        "php": "共享无状态，每请求一个进程，结束后状态全销毁"
+      },
+      "note": "这是最根本的运行时差别。跨请求共享必须用外部存储。\n",
+      "baseline": "python",
+      "target": "php"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "python2php-1-runtime-model",
+      "order": 1,
+      "title": "先理解请求生命周期",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 PHP 8 与 Composer，跑一个 hello world",
+        "理解每个请求是独立进程：写一个全局变量，跨请求看它是否还在",
+        "记住变量要带 `$` 前缀，且 `||` 恒返回 bool",
+        "对照本工具「语言机制」板块里 PHP 列的执行模型相关格"
+      ],
+      "acceptance": [
+        "能说清 PHP 的请求生命周期与 WSGI 应用的差别",
+        "能说清为什么取默认值要用 `??` 而不是 `||`"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        },
+        {
+          "label": "PHP 官方手册（英文）",
+          "url": "https://www.php.net/manual/en/"
+        }
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "python2php-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1-2 天",
+      "todo": [
+        "过一遍变量、数组、字符串操作，注意数组是值拷贝",
+        "试一次 `-5 % 3`，对比 Python 的结果",
+        "用 mb_strlen 与 strlen 各数一次中文，看差别",
+        "试一次 `(int)\"abc\"`，理解它给 0 而不是抛异常"
+      ],
+      "acceptance": [
+        "能独立写出变量、数组、控制流、函数定义，无语法错误",
+        "知道哪些写法会静默给错值（取模符号、isset 判 null、强转）"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册 · 类型",
+          "url": "https://www.php.net/manual/zh/language.types.php"
+        }
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "python2php-3-classes-and-types",
+      "order": 3,
+      "title": "类、类型与属性",
+      "durationHint": "3-5 天",
+      "todo": [
+        "理解对象是句柄、数组是拷贝，用 clone 复制对象",
+        "在每个文件顶部开 declare(strict_types=1)",
+        "写一个子类构造函数，注意必须显式调 parent::__construct",
+        "用 reflection 读一次 `#[...]` 属性，理解它只是元数据"
+      ],
+      "acceptance": [
+        "能说清 PHP 的属性与 Python 装饰器的本质差别",
+        "能说清 PHP 没有泛型时怎么标注容器元素类型"
+      ],
+      "resources": [
+        {
+          "label": "PHP 官方手册 · 类与对象",
+          "url": "https://www.php.net/manual/zh/language.oop5.php"
+        }
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "python2php-4-ecosystem",
+      "order": 4,
+      "title": "Composer 与生态",
+      "durationHint": "2-3 天",
+      "todo": [
+        "用 Composer 建一个工程，装几个包",
+        "理解 autoload（PSR-4）与 Python 的 import 机制差别",
+        "配 PHPStan 或 Psalm，体会用静态分析补上泛型的缺口",
+        "注意 Composer 的版本约束语法与 pip 的差别"
+      ],
+      "acceptance": [
+        "能说清 Composer 与 pip 在依赖管理上的差异",
+        "能用 PHPDoc + 静态分析给容器标注元素类型"
+      ],
+      "resources": [
+        {
+          "label": "Composer 官方文档",
+          "url": "https://getcomposer.org/doc/"
+        },
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        }
+      ],
+      "baseline": "python",
+      "target": "php"
+    },
+    {
+      "id": "python2php-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 PHPUnit 写测试",
+        "搭一个最小的 Web 应用（路由 + 模板 + 数据库），走通请求生命周期",
+        "对照本工具「工程实践」板块里 PHP 列的工具链",
+        "体验一次常驻进程形态（Swoole / RoadRunner），对比经典模型"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖、测试、静态分析的 PHP 工程",
+        "能说清经典共享无状态模型与常驻进程模型的取舍"
+      ],
+      "resources": [
+        {
+          "label": "Composer 官方文档",
+          "url": "https://getcomposer.org/doc/"
+        },
+        {
+          "label": "PHP 官方手册（中文）",
+          "url": "https://www.php.net/manual/zh/"
+        }
+      ],
+      "baseline": "python",
+      "target": "php"
+    }
+  ]
+}

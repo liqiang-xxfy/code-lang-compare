@@ -1,0 +1,92 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 数组
+  aliases: [array, list, dict]
+  perLanguage:
+    python: list / dict 是引用语义；`+` 是拼接、`|` 是合并
+    php: 数组是值类型（赋值即拷贝）；`+` 是并集
+  note: |
+    PHP 的「数组」同时是 list 和 dict（有序映射）。
+    两个反直觉叠在一起：赋值是拷贝、`+` 是并集。
+
+- term: 对象
+  aliases: [object, clone, handle]
+  perLanguage:
+    python: 一切皆对象，赋值传引用
+    php: 对象赋值传句柄（共享），要独立副本得显式 clone
+  note: |
+    PHP 里数组是拷贝、对象是句柄 —— 两种容器两种规则。
+    Python 的「一切都是引用」在这里不成立。
+
+- term: 取模
+  aliases: [modulo, percent]
+  perLanguage:
+    python: '`%` 结果与除数同号，永远非负'
+    php: '`%` 结果与被除数同号'
+  note: |
+    `-5 % 3` 在 Python 是 1、PHP 是 -2。正数时一致，负数时相反，
+    而且都不报错 —— 最容易静默算错的一处。
+
+- term: 字符串
+  aliases: [string, strlen, mbstring]
+  perLanguage:
+    python: str 是 Unicode 字符序列，len 数字符
+    php: 字符串是字节序列，strlen 数字节；多字节要用 mbstring
+  note: |
+    `len("中文")` 是 2，`strlen("中文")` 是 6。
+    处理 Unicode 一律用 mb_ 系列。
+
+- term: 存在性判断
+  aliases: [isset, array-key-exists, in]
+  perLanguage:
+    python: '`''key'' in d` 只问键在不在'
+    php: isset 问「存在且不为 null」；只问键在不在要用 array_key_exists
+  note: |
+    值是 null 时 isset 返回 false，与「键不存在」混在一起。
+    这是最常见的判断陷阱。
+
+- term: match
+  aliases: [match, switch, pattern-matching]
+  perLanguage:
+    python: match 是结构模式匹配，能解构、匹配类型与形状
+    php: match 是严格比较的多分支表达式；switch 是松散比较
+  note: |
+    同名但能力差很远：Python 的 match 是模式匹配，
+    PHP 的 match 只是「更安全的 switch」。别指望解构。
+
+- term: 属性
+  aliases: [attribute, decorator]
+  perLanguage:
+    python: 装饰器会执行，能包装函数与类
+    php: '#[...] 属性不执行任何代码，是纯元数据，靠反射读取'
+  note: |
+    语法位置像装饰器，语义完全不同。PHP 的属性只是一段可被反射读取的注解。
+
+- term: 逻辑运算符
+  aliases: [logical, or, and]
+  perLanguage:
+    python: '`and` / `or` 返回操作数，可用来取默认值'
+    php: '`||` / `&&` 恒返回 bool；取默认值要用 `??` 或 `?:`'
+  note: |
+    `x = a or 'default'` 在 Python 里给默认值，在 PHP 里写成 `||` 就给 true。
+
+- term: 类型转换
+  aliases: [cast, conversion, int]
+  perLanguage:
+    python: '`int("abc")` 抛 ValueError'
+    php: '`(int)"abc"` 得 0，不报错'
+  note: |
+    Python 快速失败，PHP 尽量给一个数。
+    要校验用 is_numeric 或 filter_var。
+
+- term: 执行模型
+  aliases: [request, lifecycle, shared-nothing, wsgi]
+  perLanguage:
+    python: WSGI 每请求调用，但进程可能复用（全局状态会累积）
+    php: 共享无状态，每请求一个进程，结束后状态全销毁
+  note: |
+    这是最根本的运行时差别。跨请求共享必须用外部存储。

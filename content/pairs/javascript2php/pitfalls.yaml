@@ -1,0 +1,216 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 PHP 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-js2php-logical-returns-bool
+  featureId: express/logical
+  title: 逻辑运算符恒返回布尔值
+  symptom: |
+    JS 里 `const name = input || 'guest'` 是常见的「取默认值」写法；
+    到 PHP 写 `$name = $input || 'guest'`，$name 会是 **true**，不是 'guest'。
+  cause: |
+    JS 的 `||` / `&&` 返回**操作数**（短路求值后那个值），所以能当默认值用。
+    PHP 的 `||` / `&&` **恒返回 bool** —— 它只回答真假，不返回操作数。
+    这是个静默的错误：$name 有值、不报错，只是值不对。
+  fix: |
+    取默认值用 `??`：`$name = $input ?? 'guest'`（null 合并）。
+    要「假值也取默认」得写显式判断或用 `?:`。记住 `||` 只给 bool。
+  severity: 3
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [运算符]
+
+- id: pitfall-js2php-array-copy-object-handle
+  featureId: mechanism/value-vs-reference
+  title: 数组是值拷贝，对象是句柄
+  symptom: |
+    JS 里数组和对象都是引用；PHP 里数组赋值是**拷贝**（改副本不影响原数组），
+    而对象赋值是**句柄**（改一个影响另一个）。
+  cause: |
+    PHP 的数组是值类型（赋值即拷贝）；对象默认是引用语义（赋值传句柄），
+    要复制对象得显式 `clone`。JS 则统一是引用语义。
+    所以「数组偏偏是拷贝、对象又像 JS」—— 这条最容易搞混。
+  fix: |
+    数组要共享得传引用（`&$arr`）或用 ArrayObject；
+    对象要独立副本用 `clone $obj`（注意是浅拷贝）。
+  severity: 3
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [值语义, 数组]
+
+- id: pitfall-js2php-isset-null
+  featureId: express/null-and-undefined
+  title: isset 对 null 返回 false
+  symptom: |
+    用 `isset($arr['key'])` 判断键在不在，键存在但值是 null 时返回 false ——
+    与「键不存在」分不开。
+  cause: |
+    PHP 的 `isset()` 问的是「变量存在**且不为 null**」。
+    所以在「值可能是 null」的场景里，它把两种情况混成了一种。
+    JS 的 `'key' in obj` 只问键在不在。
+  fix: |
+    只问键在不在用 `array_key_exists('key', $arr)`；同时排除 null 才用 isset。
+  severity: 3
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [空值, 数组]
+
+- id: pitfall-js2php-cast-gives-zero
+  featureId: express/type-conversion
+  title: 类型转换失败给的是 0
+  symptom: |
+    `(int)"abc"` 得到 **0**，不报错；`(int)"12abc"` 得到 **12**。
+    看起来一切正常，直到这个 0 参与运算。
+  cause: |
+    PHP 的显式转换不检查合法性，尽量给一个数 —— 非数字开头给 0，
+    数字开头取前面的部分。JS 的 `Number("abc")` 给 NaN（至少能被 isNaN 抓到），
+    PHP 没有等价的「无效」标记。
+  fix: |
+    要做真正的校验用 `is_numeric()` 或 `filter_var($x, FILTER_VALIDATE_INT)`；
+    别直接强转后当成校验过了。
+  severity: 2
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [类型转换]
+
+- id: pitfall-js2php-string-bytes
+  featureId: express/string-common-ops
+  title: 字符串是字节序列
+  symptom: |
+    `strlen("中文")` 得到 6（字节数），不是 2（字符数）；
+    `$s[0]` 拿到的是一个字节，可能是半个字符。
+  cause: |
+    PHP 的字符串是**字节数组**，没有内建的 Unicode 字符概念 ——
+    strlen / 下标 / substr 都按字节算。
+    JS 的字符串是 UTF-16 序列，长度按码元算，比 PHP 更接近「字符」。
+  fix: |
+    处理多字节文本用 mbstring 系列：`mb_strlen($s, 'UTF-8')`、`mb_substr(...)`。
+    别用 strlen 数中文长度。
+  severity: 2
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [字符串]
+
+- id: pitfall-js2php-match-vs-switch
+  featureId: express/switch-and-match
+  title: match 严格、switch 松散
+  symptom: |
+    用 switch 比较字符串和数字，松散比较让分支走错；
+    换成 match 后又发现它要求类型完全一致才匹配。
+  cause: |
+    PHP 的 `switch` 用**松散比较**（`==`），`match` 用**严格比较**（`===`）。
+    两者长得像，语义差一层。JS 的 switch 用严格比较 ——
+    所以从 JS 过来会误以为 PHP 的 switch 也严格。
+  fix: |
+    优先用 `match`（严格、能返回值、不贯穿）。
+    非要用 switch 就确保比较的两边类型一致。
+  severity: 2
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [控制流]
+
+- id: pitfall-js2php-attributes-are-metadata
+  featureId: mechanism/decorator-annotation
+  title: 属性不执行任何代码
+  symptom: |
+    看到 `#[Route('/home')]` 以为像 JS 装饰器那样会执行包装逻辑，
+    其实它只是元数据，得有人去读它才有行为。
+  cause: |
+    PHP 8 的 `#[...]` 属性**不执行任何代码**，是纯粹的元数据，
+    要通过反射读取、再由框架决定行为。
+    这与 JS 的装饰器（会执行、能包装）在语义上完全不同 —— 只是语法位置像。
+  fix: |
+    把 `#[...]` 理解成「带类型的注解」。自己处理时用
+    `ReflectionClass::getAttributes()`。
+  severity: 2
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [装饰器, 元编程]
+
+- id: pitfall-js2php-strict-types-scope
+  featureId: mechanism/type-annotation
+  title: 严格类型声明管的是本文件发起的调用
+  symptom: |
+    在文件顶部写 `declare(strict_types=1)`，以为管的是**这个文件里定义的函数**；
+    实际它管的是**从这个文件发起的调用**。
+  cause: |
+    `declare(strict_types=1)` 的作用域是**调用方所在文件**，不是被调用函数的定义处。
+    同样的函数，从开了 strict 的文件调用会严格检查，从没开的文件调用会做隐式转换。
+    这层「按调用方决定」很容易记反。
+  fix: |
+    每个文件都开 `declare(strict_types=1)`（放在 `<?php` 之后第一行），
+    这样从任何地方调用都一致。
+  severity: 3
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-js2php-array-plus-union
+  featureId: express/arrays
+  title: 数组相加是并集，不是拼接
+  symptom: |
+    `$a + $b` 得到的不是两个数组接起来，而是**并集** ——
+    左边已有的键不会被右边的覆盖。
+  cause: |
+    JS 里 `+` 对数组是字符串拼接（`[1]+[2]` 得 "12"）。
+    PHP 的 `+` 对数组是**并集**（保留左边的键值，只补右边没有的键）。
+  fix: |
+    合并数组用 `array_merge($a, $b)` 或展开运算符 `[...$a, ...$b]`。
+    注意 array_merge 对**整数键会重排**，字符串键会覆盖；`+` 则相反。
+  severity: 2
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [数组]
+
+- id: pitfall-js2php-no-generics
+  featureId: mechanism/generic-declaration
+  title: 没有泛型
+  symptom: |
+    想给容器标注元素类型，PHP 没有泛型语法（只有 PHPDoc 注释 `@var Foo[]`）。
+  cause: |
+    PHP 没有泛型。2026-05 的一个 RFC 状态是 **Declined**（被否决），
+    不是「以后会有」。类型系统只到「类 / 接口 / 基本类型」这一层，
+    容器内部元素类型靠文档与静态分析工具保障。
+  fix: |
+    用 PHPDoc 标注 `@param Foo[] $items`，配合 PHPStan / Psalm 做静态检查。
+    别期待语言级的泛型。
+  severity: 2
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [泛型]
+
+- id: pitfall-js2php-constructor-no-super
+  featureId: model/constructor
+  title: 子类构造器不会自动调父类
+  symptom: |
+    子类写了 `__construct`，忘了调 `parent::__construct()`，
+    父类里的初始化静默没跑。
+  cause: |
+    PHP 里子类**只要定义了自己的构造函数**，父类的构造器就**不会被自动调用**，
+    必须显式 `parent::__construct(...)`。
+    JS 的子类构造器里不调 super() 会直接报错 —— PHP 既不报错也不自动调，
+    是最容易静默出错的一种。
+  fix: |
+    子类构造函数里显式写 `parent::__construct(...)`。
+  severity: 2
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [类, 构造]
+
+- id: pitfall-js2php-shared-nothing
+  featureId: mechanism/concurrency-unit
+  title: 共享无状态请求模型
+  symptom: |
+    想用模块级变量在请求间共享缓存，发现每次请求都是全新的状态，
+    上个请求写的东西不见了。
+  cause: |
+    PHP 的经典执行模型是**共享无状态**：每个请求是一个独立进程，
+    请求结束状态全部销毁。全局变量、静态变量都只在**单次请求内**有效。
+    JS 的 Node 是长驻进程（模块级变量跨请求共享）—— 正好相反。
+  fix: |
+    跨请求共享要靠外部存储（文件、Redis、数据库），不能用语言级变量。
+    常驻进程形态要用 Swoole / RoadRunner / FrankenPHP 之类，
+    但那改变了执行模型，要重新理解生命周期。
+  severity: 3
+  languages: [javascript, php]
+  fromBaseline: true
+  tags: [并发, 运行时]
