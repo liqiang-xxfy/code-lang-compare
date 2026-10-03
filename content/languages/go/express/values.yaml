@@ -1,0 +1,151 @@
+# go —— express / values
+#
+# 文件名是**存放组**（group），不是展示章 —— 展示章随基准变（见 catalog/express/*.yaml），
+# 存放组不随。boxes 的 key 必须是 catalog/express/features.yaml 里 `group: values` 的那批。
+#
+# Go 不是基准候选（meta.yaml 里 baseline: false），所以**没有 baseline 字段**，
+# 三份 vs 必须写全（R22）；vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-values-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  literals:
+    code: |
+      n := 42                   // @note 默认推断为 int（位宽随平台，通常是 64 位）
+      big := 1_000_000          // @note 下划线是给人看的分隔符
+      hex := 0xff               // @note 还有 0o 八进制、0b 二进制
+
+      ch := 'a'                 // @note! rune 字面量，类型是 int32
+      s := "hello"              // @note 字符串不可变，字节序列是 UTF-8
+      raw := `含 "引号" 的原文`  // @note 反引号原始字符串，不处理转义
+    vs:
+      javascript: |
+        Go 与 JavaScript 都有「一种数字类型走天下」的表象，底子不同：
+        Go 的 `int` 是有符号整数、位宽随平台（通常 64 位），还有 `int8` / `int64`
+        等明确位宽可选；JavaScript 只有双精度浮点 `number`，
+        整数与浮点不分，大整数要另外用 `BigInt`。
+        字符串两边都不可变，但 Go 多一种原始字符串（反引号），
+        写正则与多行文本不用层层转义。
+      python: |
+        Python 的 `1` 是任意精度整数，Go 的 `1` 是固定位宽的 `int`，溢出会静默回绕 ——
+        这是从 Python 过来最容易忽略的一处。字符上两边都有区分：
+        Python 的 `str` 是字符序列，Go 的 `rune` 是 `int32`（一个码点），
+        而 `string` 是字节序列；Go 用单引号写 rune、双引号写 string，
+        Python 两者都用引号，靠内容区分。
+      java: |
+        Java 的 `int` 是固定 32 位、`long` 是 64 位，Go 的 `int` 位宽随平台 ——
+        想固定位宽得写 `int32` / `int64`。两边的字符字面量都是单引号，
+        但 Java 的 `char` 是 16 位 UTF-16 单元，Go 的 `rune` 是 32 位码点，
+        处理 emoji 这类字符时行为不同：Java 的一个字符可能是两个 `char`。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-inference:
+    code: |
+      a := 42                     // @note 推断为 int
+      b := "text"                 // @note 推断为 string
+      var c = 3.5                 // @note var 加初值也推断
+      var d float64               // @note 只写类型，拿到零值 0
+
+      const K = 10                // @note! 无类型常量：可以赋给任何数值类型
+      var f float64 = K           // @note 同一份 K 也能当浮点用
+      var i int32 = K             // @note 没有转换，因为 K 还没有类型
+    vs:
+      javascript: |
+        Go 的推断与 JavaScript 的「变量没有类型」完全是两回事：
+        `a := 42` 之后 `a` 的类型就固定是 `int` 了，`a = "text"` 编译不过。
+        Go 还有一样 JavaScript 没有的东西 —— **无类型常量**：
+        `const K = 10` 不绑定具体类型，赋给 `float64` 或 `int32` 变量都行，
+        这让常量表达式不必到处写转换。
+      python: |
+        Python 的标注是可选的、运行时不检查；Go 的 `:=` 是编译器必须完成的推断，
+        推不出来就报错。差别最明显的地方在常量：Python 没有常量语法，
+        Go 的 `const K = 10` 是**无类型**的，可以不加转换地赋给任意数值类型 ——
+        这不是省略标注，而是刻意保留到使用点才定型。
+      java: |
+        Java 的 `var` 只能用于局部变量，且推断结果就地固定；
+        Go 的 `:=` 同样是就地定型，但推断范围更宽：常量可以是**无类型**的，
+        在使用点才决定类型。Java 里数字字面量也有类似性质
+        （`int` 字面量可赋给 `long`），但那只覆盖基本类型的加宽，
+        Go 的无类型常量连浮点与整数之间都能通吃。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  null-and-undefined:
+    code: |
+      var s []int                 // @note 零值是 nil —— 但 nil slice 可以直接 append
+      var m map[string]int        // @note nil map 不能写，写了会 panic
+      var p *int                  // @note 指针的零值也是 nil
+
+      if v, ok := m["k"]; ok {    // @note 取值同时问「在不在」
+        fmt.Println(v)
+      }
+
+      var x int                   // @note 未初始化的变量是零值 0，不是「未定义」
+    vs:
+      javascript: |
+        Go 没有 `undefined`，每个变量一诞生就有**零值**：数字是 0、字符串是 ""、
+        布尔是 false、指针与切片是 nil。所以「这个变量有没有被赋过值」
+        在 Go 里问不出来 —— 它总有一个值。JavaScript 的 `undefined`
+        能在任何变量上出现，Go 的 `nil` 只对指针、切片、映射、通道、
+        函数与接口这几类有意义，`var x int` 永远是 0 而不是 nil。
+      python: |
+        Python 用 `None` 表示「没有」，而 `None` 可以出现在任何变量里；
+        Go 用零值代替了一部分场景（数字 0、字符串 ""），
+        `nil` 只留给引用类类型。读 Go 时一个 `nil` 切片可以直接 `append`、
+        一个 `nil` 映射写入却会 panic —— 这类区分 Python 里没有对应物。
+      java: |
+        Java 的引用类型默认是 `null`，读写都可能吃 `NullPointerException`；
+        Go 的 `nil` 只覆盖引用类类型，且**用起来更安全一点**：
+        `nil` 切片可读可 append、`nil` 映射可读不可写、`nil` 通道收发都会永久阻塞。
+        Java 里「取值顺便问在不在」得用 `containsKey` 再 `get`（两次查找），
+        Go 用 `v, ok := m["k"]` 一次完成。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-conversion:
+    code: |
+      var i int = 7
+      var f float64 = float64(i)   // @note! 必须显式转换，Go 没有隐式数值提升
+      var j int64 = int64(i)
+
+      var n int32 = 300
+      var b byte = byte(n)         // @note 窄化会截断，编译器不拦
+
+      var any interface{} = "hello"
+      s, ok := any.(string)        // @note 类型断言，ok 为 false 时不 panic
+      // s2 := any.(string)        // @note! 不带 ok 时断言失败会 panic
+    vs:
+      javascript: |
+        JavaScript 的转换大量是隐式的（`"3" * 2`、`1 + "2"`），
+        Go **一个隐式数值转换都没有**：`int` 到 `float64` 也要写出 `float64(i)`。
+        另外 Go 的接口值取回具体类型要走类型断言 `x.(string)`，
+        带 `ok` 的写法把失败变成值；JavaScript 没有静态类型，
+        也就没有「断言」这一步，取到什么全看运行时。
+      python: |
+        两边都要显式转换，但失败方式不同：Python 的 `int("abc")` 抛 ValueError，
+        Go 的数字转换不会有「失败」这回事 —— `byte(300)` 直接截断成 44，
+        不报错也不抛异常。字符串转数字 Go 走 `strconv.Atoi`，它返回 error
+        而不是抛异常。从接口值取回具体类型用类型断言，这是 Python 没有的步骤。
+      java: |
+        Java 有隐式加宽（`int` 到 `long` 自动），Go **没有** —— 加宽也得写出来。
+        两者都有显式窄化：Java 写 `(byte) 300`，Go 写 `byte(n)`，
+        都会静默截断。取回具体类型的方式不同：Java 用强转或 `instanceof` 判断，
+        Go 用类型断言，`v, ok := x.(T)` 是它的安全形态，
+        失败时 `ok` 为 false 而不是抛异常。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
