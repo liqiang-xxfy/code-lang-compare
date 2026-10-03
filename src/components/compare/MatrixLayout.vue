@@ -7,38 +7,33 @@ import { useI18n } from '@/composables/useI18n'
 import { badgeOf, explanationOf } from '@/content/boxView'
 import { getCachedBlockDiffs, getCachedDiff, type LineDiff } from '@/content/diff'
 import { featureAnchor, featurePathOf } from '@/content/repository'
-import type {
-  CatalogChapter,
-  LanguageMeta,
-  RenderedBox,
-  RenderedBoxChapter,
-  Section,
-} from '@/schemas'
+import type { CatalogChapter, LanguageMeta, RenderedBox, Section } from '@/schemas'
 import { useUiStore } from '@/stores/ui'
 
 /**
- * 矩阵：行 = 清单里的 feature，列 = 可见语言，格 = 对比框。
+ * 矩阵：行 = **该基准的**章节分组里的 feature，列 = 可见语言，格 = 对比框。
  *
- * 行与列都来自**清单**（与语言无关），格来自各语言的内容分片 ——
- * 所以「换对比语言」只是多挂一列，「换基准」只是同一批格子换一种读法。
+ * 行来自「当前基准的章节分类」（每个基准一套，ADR-52），格来自各语言的内容分片。
+ * 所以「换基准」换的是整套行与章节名，「换对比语言」只是多挂一列 —— 而格子本身
+ * 只由 (语言, feature) 决定，两种情况都是同一批格子的重新取用。
  */
 const props = defineProps<{
   section: Section
   baseline: string
   chapter: CatalogChapter
   columns: LanguageMeta[]
-  /** 已加载的分片，key = 语言 id。缺的那个语言先按「加载中」渲染 */
-  shards: Record<string, RenderedBoxChapter>
+  /** 已加载的格子，key = 语言 id → feature id。缺的那个语言先按「加载中」渲染 */
+  boxes: Record<string, Record<string, RenderedBox>>
   diffMode?: boolean
 }>()
 
 const ui = useUiStore()
 const { t } = useI18n()
 
-/** 全局 feature id —— 锚点与详情页链接都用完整三段，避免跨章同名 slug 撞车 */
-const gidOf = (featureId: string) => `${props.section}/${props.chapter.id}/${featureId}`
+/** 全局 feature id = `<板块>/<feature>` —— 锚点与详情页链接都用它，不含章（章随基准变） */
+const gidOf = (featureId: string) => `${props.section}/${featureId}`
 const boxOf = (featureId: string, lang: string): RenderedBox | undefined =>
-  props.shards[lang]?.boxes[featureId]
+  props.boxes[lang]?.[featureId]
 
 const rows = computed(() =>
   props.chapter.features.filter((f) => {
@@ -153,7 +148,7 @@ function blocksMismatch(featureId: string, lang: string): boolean {
               />
             </div>
             <!-- 分片还没加载完 —— 与「这门语言没写这一格」是两回事 -->
-            <div v-else-if="!shards[lang.id]" class="pc-cell-unwritten">{{ t('loading') }}</div>
+            <div v-else-if="!boxes[lang.id]" class="pc-cell-unwritten">{{ t('loading') }}</div>
             <div v-else class="pc-cell-unwritten">{{ t('emptyCell') }}</div>
           </td>
         </tr>

@@ -8,16 +8,17 @@ import MatrixLayout from '@/components/compare/MatrixLayout.vue'
 import SideBySideLayout from '@/components/compare/SideBySideLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 import { enabledLanguageMeta } from '@/generated/registry.gen'
-import type { CatalogChapter, LanguageMeta, RenderedBoxChapter, Section } from '@/schemas'
+import type { CatalogChapter, LanguageMeta, RenderedBox, Section } from '@/schemas'
 import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{
   section: Section
   baseline: string
   chapter: CatalogChapter
-  /** 当前可见的列（已按「本章真有分片」裁剪），顺序与布局一致 */
+  /** 当前可见的列（已按「本章真有内容」裁剪），顺序与布局一致 */
   columns: LanguageMeta[]
-  shards: Record<string, RenderedBoxChapter>
+  /** key = 语言 id → feature id；已加载的列才有键 */
+  boxes: Record<string, Record<string, RenderedBox>>
 }>()
 const ui = useUiStore()
 const { t } = useI18n()
@@ -29,8 +30,7 @@ const { t } = useI18n()
  * 而实际是这个模块只写了其中几门。宁可多一句说明，也不要一个看起来失灵的控件。
  */
 const coveredNames = computed(() => {
-  const present = new Set<string>()
-  for (const shard of Object.values(props.shards)) present.add(shard.lang)
+  const present = new Set(Object.keys(props.boxes))
   return enabledLanguageMeta.filter((m) => present.has(m.id)).map((m) => m.name)
 })
 const coverageIncomplete = computed(() => coveredNames.value.length < enabledLanguageMeta.length)
@@ -64,7 +64,6 @@ const degraded = computed(() => isNarrow.value && ui.viewMode !== 'side-by-side'
       v-if="effectiveMode === 'side-by-side'"
       :features="chapter.features"
       :section="section"
-      :chapter="chapter.id"
     />
 
     <!--
@@ -77,7 +76,7 @@ const degraded = computed(() => isNarrow.value && ui.viewMode !== 'side-by-side'
       :baseline="baseline"
       :chapter="chapter"
       :columns="columns"
-      :shards="shards"
+      :boxes="boxes"
     />
     <MatrixLayout
       v-else
@@ -85,7 +84,7 @@ const degraded = computed(() => isNarrow.value && ui.viewMode !== 'side-by-side'
       :baseline="baseline"
       :chapter="chapter"
       :columns="columns"
-      :shards="shards"
+      :boxes="boxes"
       :diff-mode="effectiveMode === 'baseline-diff'"
     />
   </div>

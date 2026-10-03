@@ -58,11 +58,12 @@ const groups = computed<NavGroup[]>(() => {
   const b = baseline.value
 
   /*
-   * 章节来自**清单**，与语言、与基准都无关 —— v2 取消了 topic 这一层之后，
-   * 左栏在任何页面都是同一份，不需要再问「这个板块会选哪个方向」。
+   * 章节来自**当前基准的章节分类** —— 每个基准一套（ADR-52），
+   * 所以切基准时左栏的二级会跟着换名称、换分组，甚至换掉整个板块。
+   * 这正是 S6.5 想要的效果：用户熟悉的语言怎么组织知识，就怎么给他看。
    */
   const chaptersFor = (section: Section): NavChild[] =>
-    chaptersOf(section).map((c) => ({
+    chaptersOf(b, section).map((c) => ({
       to: chapterPathOf(b, section, c.id),
       label: c.title,
     }))

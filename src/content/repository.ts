@@ -1,13 +1,13 @@
 /**
- * ContentRepository —— 运行时取数契约（架构定稿 §3.4 / §7.1）。
+ * ContentRepository —— 运行时取数契约。
  *
- * 为什么要有这层抽象：预渲染（D-B）要求「任意路由能在 Node 里独立取数」，
- * 而客户端要按 (语言, 板块, 章节) 分片懒加载。两者共用同一组接口，
- * 视图层就完全不需要知道数据是从动态 import 来还是从 SSR 预加载里来。
+ * 为什么要有这层抽象：预渲染要求「任意路由能在 Node 里独立取数」，
+ * 而客户端要按分片懒加载。两者共用同一组接口，视图层就完全不需要知道
+ * 数据是从动态 import 来还是从 SSR 预加载里来。
  *
- * v2 的分片粒度是**一门语言 × 一个章节**：一个章节页渲染 N 列，
- * 就按可见语言各取一份。清单（章节树与 feature 索引）与语言无关，
- * 走 eager import 的 `catalog.json` —— 它小，且每页都要用。
+ * 分片粒度是**一门语言 × 一个存放组**（`generated/content/<语言>/<板块>/<存放组>.json`）。
+ * 左栏与矩阵的行来自**该基准的章节分组** —— 章节分类每个基准各一份，
+ * 所以「第一章叫什么、有哪些行」随基准变；而格子只由 (语言, feature) 决定，与基准无关。
  */
 import attrsJson from '../generated/attributions.json'
 import catalogJson from '../generated/catalog.json'
@@ -15,7 +15,6 @@ import i18nJson from '../generated/i18n.json'
 import manifestJson from '../generated/manifest.json'
 import type {
   AttributionEntry,
-  Catalog,
   CatalogChapter,
   Equivalence,
   FeatureKind,
@@ -81,14 +80,13 @@ export const orderedSections = (): ReadonlyArray<SectionDef & { id: Section }> =
 /**
  * 特性在章节页里的锚点 id。
  *
- * 全局 feature id 是 `<板块>/<章节>/<feature>` 三段，斜杠不能直接进 `#` 片段，
- * 所以整段换成连字符。**用完整 id 而不是最后一段**：不同章节里同名的 slug
- * （例：两章都有 `intro`）会撞在同一个锚点上。
+ * 全局 feature id 是 `<板块>/<feature>` 两段，斜杠不能直接进 `#` 片段，整段换成连字符。
+ * **用完整 id 而不是最后一段**：不同板块里同名的 slug 会撞在同一个锚点上。
  */
 export const featureAnchor = (globalId: string): string =>
   `feature-${globalId.replace(/\//g, '-')}`
 
-/** 特性详情页的地址 —— 全局 id 直接拼成路径 */
+/** 特性详情页的地址 —— 全局 id 直接拼成路径（两段，与基准无关） */
 export const featurePathOf = (globalId: string): string => `/feature/${globalId}`
 
 /**
@@ -110,55 +108,96 @@ export const firstChapterSection = (): Section | null =>
 export const landingSection = (): Section | null =>
   orderedSections().find((s) => s.landing)?.id ?? firstChapterSection()
 
-/* ────────────────── 清单（与语言无关） ────────────────── */
+/* ────────────────── 清单：每基准一份的章节分组 ────────────────── */
 
-/** 某个板块的清单。章节型板块才有 */
-export const catalogOf = (section: Section): Catalog | null =>
-  catalog.catalogs.find((c) => c.section === section) ?? null
+/**
+ * 某基准在某板块下的章节 —— 顺序即数组顺序。
+ *
+ * **必须带基准**：章节分类是每个基准各一份的（ADR-52）。同名章节在不同基准下
+ * 不代表同义；某个基准可能根本没有这个板块（返回空数组 = 未开工）。
+ */
+export const chaptersOf = (baseline: string, section: Section): CatalogChapter[] =>
+  catalog.catalogs.find((c) => c.section === section && c.baseline === baseline)?.chapters ?? []
 
-/** 某板块的全部章节（已按清单里的数组顺序）。章节与语言、基准都无关 */
-export const chaptersOf = (section: Section): CatalogChapter[] => catalogOf(section)?.chapters ?? []
+export const chapterOf = (
+  baseline: string,
+  section: Section,
+  chapter: string,
+): CatalogChapter | null => chaptersOf(baseline, section).find((c) => c.id === chapter) ?? null
 
-export const chapterOf = (section: Section, chapter: string): CatalogChapter | null =>
-  chaptersOf(section).find((c) => c.id === chapter) ?? null
+/**
+ * 某个 feature 在**该基准的**章节分类里落在哪一章。
+ *
+ * 可能返回 null —— 这个基准把该知识点取舍掉了（Python 视角下就没有「变量提升」这一行）。
+ * 详情页用它决定面包屑里要不要带一层章节，**不能反过来要求 feature 有唯一的章**。
+ */
+export function chapterContaining(
+  baseline: string,
+  section: Section,
+  featureId: string,
+): CatalogChapter | null {
+  return chaptersOf(baseline, section).find((c) => c.features.some((f) => f.id === featureId)) ?? null
+}
+
+/** 该基准在这个板块有没有章节 —— 没有就是「还没开工」，左栏整组隐藏 */
+export const hasBaselineCatalog = (baseline: string, section: Section): boolean =>
+  catalog.catalogs.some((c) => c.section === section && c.baseline === baseline)
 
 export interface FeatureMeta {
   title: string
   section: Section
-  chapter: string
+  /** 存放组 —— 内容分片的第三段 */
+  group: string
   kind: FeatureKind
+  summary?: string
+  /** 软引用：写全局 id `<板块>/<feature>`，可跨板块 */
+  refFeatureId?: string
+  tags: string[]
 }
 
-/** 全局 feature id → 元数据。key 形如 `<板块>/<章节>/<feature>` */
+/**
+ * 全局 feature id → 元数据。key 形如 `<板块>/<feature>`。
+ *
+ * **没有「章」**：一个 feature 在不同基准下属于不同的章、甚至被某个基准取舍掉 ——
+ * 它没有唯一的章。详情页也不需要章，它只需要存放组（内容与基准无关）。
+ */
 export const featureMetaOf = (globalId: string): FeatureMeta | undefined => catalog.featureIndex[globalId]
 
-/** 全局 feature 清单（按板块、章节、清单顺序展开） */
-export function allFeatures(): Array<{ id: string; section: Section; chapter: string; title: string; kind: FeatureKind; summary?: string; refFeatureId?: string; tags: string[] }> {
-  const out: ReturnType<typeof allFeatures> = []
-  for (const c of catalog.catalogs) {
-    for (const ch of c.chapters) {
-      for (const f of ch.features) {
-        out.push({
-          id: `${c.section}/${ch.id}/${f.id}`,
-          section: c.section as Section,
-          chapter: ch.id,
-          title: f.title,
-          kind: f.kind,
-          ...(f.summary ? { summary: f.summary } : {}),
-          ...(f.refFeatureId ? { refFeatureId: f.refFeatureId } : {}),
-          tags: f.tags,
-        })
-      }
-    }
-  }
+/** 某个 feature 的内容写在哪个存放组 */
+export const groupOfFeature = (globalId: string): string | null =>
+  catalog.featureIndex[globalId]?.group ?? null
+
+/**
+ * 某一章引用了哪些**存放组** —— 这一页要加载的内容分片就是它。
+ *
+ * 与构建期 `04-build.ts` 的同名函数**必须同判据**：那边用它决定「这一页值不值得产出」，
+ * 这边用它决定「加载哪几份分片」。两边分叉 = 空白页且不报错。
+ */
+export function groupsOfChapter(baseline: string, section: Section, chapter: string): string[] {
+  const ch = chapterOf(baseline, section, chapter)
+  if (!ch) return []
+  const out: string[] = []
+  for (const f of ch.features) if (!out.includes(f.group)) out.push(f.group)
   return out
 }
 
-/* ────────────────── 内容分片：一门语言 × 一个章节 ────────────────── */
+/** 章内前后章（用于翻页）。章节顺序来自**该基准**的章节分组的数组顺序 */
+export function siblingsOf(
+  baseline: string,
+  section: Section,
+  chapter: string,
+): { prev: CatalogChapter | null; next: CatalogChapter | null } {
+  const list = chaptersOf(baseline, section)
+  const i = list.findIndex((c) => c.id === chapter)
+  if (i < 0) return { prev: null, next: null }
+  return { prev: list[i - 1] ?? null, next: list[i + 1] ?? null }
+}
+
+/* ────────────────── 内容分片：一门语言 × 一个存放组 ────────────────── */
 
 /**
- * 分片键 = `<语言>/<板块>/<章节>`，与 `generated/content/` 下的目录结构、
- * 与 `languages/<语言>/<板块>/<章节>.yaml` 一一对应。
+ * 分片键 = `<语言>/<板块>/<存放组>`，与 `generated/content/` 下的目录结构、
+ * 与 `languages/<语言>/<板块>/<存放组>.yaml` 一一对应。
  *
  * 两侧（构建期 emit 与这里）必须逐字一致 —— 错一个字符就是**整页空白且不报错**。
  */
@@ -178,23 +217,23 @@ const boxCache = new Map<string, RenderedBoxChapter>()
 const pairCache = new Map<string, PairPayload>()
 const searchCache = new Map<string, SearchShard>()
 
-export const boxShardKeyOf = (lang: string, section: Section, chapter: string): string =>
-  `${lang}/${section}/${chapter}`
+export const boxShardKeyOf = (lang: string, section: Section, group: string): string =>
+  `${lang}/${section}/${group}`
 
-export function boxShardPathOf(lang: string, section: Section, chapter: string): string {
-  return `../generated/content/${lang}/${section}/${chapter}.json`
+export function boxShardPathOf(lang: string, section: Section, group: string): string {
+  return `../generated/content/${lang}/${section}/${group}.json`
 }
 
-/** 取「某门语言在某章」的内容分片。找不到返回 null（路由层负责转 404）。 */
-export async function getBoxChapter(
+/** 取「某门语言在某个存放组」的分片。找不到返回 null。 */
+export async function getBoxGroup(
   lang: string,
   section: Section,
-  chapter: string,
+  group: string,
 ): Promise<RenderedBoxChapter | null> {
-  const key = boxShardKeyOf(lang, section, chapter)
+  const key = boxShardKeyOf(lang, section, group)
   const cached = boxCache.get(key)
   if (cached) return cached
-  const loader = boxShards[boxShardPathOf(lang, section, chapter)]
+  const loader = boxShards[boxShardPathOf(lang, section, group)]
   if (!loader) return null
   const payload = await loader()
   boxCache.set(key, payload)
@@ -202,12 +241,33 @@ export async function getBoxChapter(
 }
 
 /** 已加载则同步取，未加载返回 null —— 视图在守卫 ensure 之后用它渲染 */
-export function getBoxChapterSync(
+export function getBoxGroupSync(
   lang: string,
   section: Section,
-  chapter: string,
+  group: string,
 ): RenderedBoxChapter | null {
-  return boxCache.get(boxShardKeyOf(lang, section, chapter)) ?? null
+  return boxCache.get(boxShardKeyOf(lang, section, group)) ?? null
+}
+
+/** 某个存放组有没有分片（不加载，只查 glob 键） */
+export function hasBoxGroup(lang: string, section: Section, group: string): boolean {
+  return Boolean(boxShards[boxShardPathOf(lang, section, group)])
+}
+
+/**
+ * 某门语言在**某一章**里有没有内容 —— 该章引用的存放组里至少一个写了。
+ *
+ * 用途是**列裁剪**：勾选了一门完全没写这一章的语言时，与其给它一列空白，
+ * 不如不显示这一列（不补位，ADR-34）。判据必须与构建期的路由判据同口径，
+ * 否则会出现「导航里有、点进去整列留白」。
+ */
+export function hasChapterContent(
+  lang: string,
+  baseline: string,
+  section: Section,
+  chapter: string,
+): boolean {
+  return groupsOfChapter(baseline, section, chapter).some((g) => hasBoxGroup(lang, section, g))
 }
 
 /* ────────────────── (基准, 目标) 对 ────────────────── */
@@ -277,20 +337,13 @@ export function getAttributions(): AttributionPayload {
   return attributionPayload
 }
 
-/** 侧边导航所需的最小树 —— 来自清单，与语言无关 */
-export function getNavigation(): Array<{ section: Section; title: string; chapters: CatalogChapter[] }> {
-  return orderedSections()
-    .filter((s) => s.shape === 'chapter')
-    .map((s) => ({ section: s.id, title: s.title, chapters: chaptersOf(s.id) }))
-}
-
 /**
  * 章节 id → 它的规范 URL。前后翻页、面包屑、跳转回落全部走这一个函数。
  *
  * **URL 里没有目标语言**：速查板块的目标由页内的对比语言选择条决定。
  * 目标进 URL 会让同一份内容散成十几个地址，而它其实只是"我现在想看哪个方向"。
  *
- * 基准进 URL：每个基准是一套独立的浏览语境，要能预渲染、能分享。
+ * 基准进 URL：每个基准是一套独立的浏览语境（**连章节分类都不同**），要能预渲染、能分享。
  */
 export function chapterPathOf(baseline: string, section: Section, chapter: string): string {
   return `/compare/${baseline}/${section}/${chapter}`
@@ -299,28 +352,6 @@ export function chapterPathOf(baseline: string, section: Section, chapter: strin
 /** 板块入口地址（不含目标语言） */
 export function sectionPathOf(baseline: string, section: Section): string {
   return `/compare/${baseline}/${section}`
-}
-
-/**
- * 章节型板块的入口：该板块在该基准下第一个可用章节的地址。
- *
- * v2 的章节集合与基准无关（清单是语言无关的），所以这里只问「这个基准
- * 有没有这一章的分片」—— 由调用方（守卫 / 视图）判断，这里给清单首章。
- */
-export function sectionFirstChapterPath(section: Section, baseline: string): string | null {
-  const chapter = chaptersOf(section)[0]
-  return chapter ? chapterPathOf(baseline, section, chapter.id) : null
-}
-
-/** 章内前后章（用于翻页）。章节顺序来自清单的数组顺序 */
-export function siblingsOf(
-  section: Section,
-  chapter: string,
-): { prev: CatalogChapter | null; next: CatalogChapter | null } {
-  const list = chaptersOf(section)
-  const i = list.findIndex((c) => c.id === chapter)
-  if (i < 0) return { prev: null, next: null }
-  return { prev: list[i - 1] ?? null, next: list[i + 1] ?? null }
 }
 
 /**
@@ -345,11 +376,6 @@ export function resolvePairTarget(
   if (preferred && available.includes(preferred)) return preferred
   const picked = selected.find((id) => available.includes(id))
   return picked ?? available[0]!
-}
-
-/** 便捷：某门语言在某章有没有分片（不加载，只查 glob 键） */
-export function hasBoxChapter(lang: string, section: Section, chapter: string): boolean {
-  return Boolean(boxShards[boxShardPathOf(lang, section, chapter)])
 }
 
 export type { Equivalence }

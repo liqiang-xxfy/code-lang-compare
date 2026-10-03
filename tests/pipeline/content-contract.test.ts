@@ -1,12 +1,12 @@
 /**
- * 内容契约测试（v2）—— 让「规则」本身可回归，断言**仓库真实内容**必须满足的不变量。
+ * 内容契约测试 —— 让「规则」本身可回归，断言**仓库真实内容**必须满足的不变量。
  *
  * 它是继 `content:validate` 之后的第二道闸门：脚本被改坏时测试未必发现，
  * 而对真实内容的断言会先红。
  */
 import { describe, expect, it } from 'vitest'
 import { analyzeContent, globalIdOf } from '../../scripts/lib/analyze'
-import { catalogSchema, languageContentFileSchema, provenanceSchema } from '../../src/schemas'
+import { baselineCatalogSchema, languageContentFileSchema, provenanceSchema } from '../../src/schemas'
 
 const a = analyzeContent()
 
@@ -16,33 +16,52 @@ describe('内容不变量（对真实 content/ 目录断言）', () => {
     expect(errors, errors.map((e) => `${e.rule} ${e.where}: ${e.message}`).join('\n')).toEqual([])
   })
 
-  it('清单里的每个 section 都在 registry 注册，且与文件名一致', () => {
+  it('每个板块的池与章节分组都在 registry 注册，且分组通过契约校验', () => {
+    for (const p of a.pools) {
+      expect(a.registry.sections[p.section], `未注册的板块 ${p.section}`).toBeDefined()
+    }
     for (const c of a.catalogs) {
       expect(a.registry.sections[c.section], `未注册的板块 ${c.section}`).toBeDefined()
-      expect(catalogSchema.safeParse(c).success).toBe(true)
+      expect(baselineCatalogSchema.safeParse(c).success).toBe(true)
     }
   })
 
-  it('全局 feature id 形如 <板块>/<章节>/<feature> 且全局唯一', () => {
+  it('全局 feature id 形如 <板块>/<feature> 且全局唯一', () => {
     const seen = new Set<string>()
     for (const f of a.features) {
-      expect(f.id).toBe(globalIdOf(f.section, f.chapter, f.feature.id))
-      expect(f.id).toMatch(/^[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+$/)
+      expect(f.id).toBe(globalIdOf(f.section, f.feature.id))
+      expect(f.id).toMatch(/^[a-z0-9-]+\/[a-z0-9-]+$/)
       expect(seen.has(f.id), `feature id 重复：${f.id}`).toBe(false)
       seen.add(f.id)
     }
     expect(seen.size).toBe(a.features.length)
   })
 
-  it('R21：语言内容文件里的每个 box key 都在清单的该章里', () => {
+  /**
+   * 本文件最承重的一条。
+   *
+   * `features` / `featureIndex` 必须**从池构建**：一旦改成遍历章节分组，
+   * 同一批知识点会被每个基准各插一次 —— 大小翻倍、id 报重复、覆盖率全乱。
+   * 这条断言就是那个翻转的探针。
+   */
+  it('featureIndex 与知识点清单一一对应 —— 它来自池，不是遍历章节分组数出来的', () => {
+    const poolSize = a.pools.reduce((n, p) => n + p.features.length, 0)
+    expect(Object.keys(a.featureIndex).length).toBe(poolSize)
+    expect(poolSize).toBeGreaterThan(0)
+    // 章节分组的引用总量远大于池（同一知识点被多个基准各引用一次）—— 这正是不能遍历它的原因
+    const refs = a.catalogs.reduce((n, c) => n + c.chapters.reduce((m, ch) => m + ch.features.length, 0), 0)
+    expect(refs).toBeGreaterThan(poolSize)
+  })
+
+  it('R21：语言内容文件里的每个 box key 都在**池里该存放组**的 feature 里', () => {
     for (const group of a.content.values()) {
+      const pool = a.poolBySection[group.section]
       const known = new Set(
-        a.catalogBySection[group.section]?.chapters.find((c) => c.id === group.chapter)?.features.map((f) => f.id) ??
-          [],
+        (pool?.features ?? []).filter((f) => f.group === group.group).map((f) => f.id),
       )
       expect(languageContentFileSchema.safeParse({ boxes: group.boxes }).success).toBe(true)
       for (const key of Object.keys(group.boxes)) {
-        expect(known.has(key), `${group.file} 里的 '${key}' 不在清单里`).toBe(true)
+        expect(known.has(key), `${group.file} 里的 '${key}' 不在池的该存放组里`).toBe(true)
       }
     }
   })
@@ -117,12 +136,18 @@ describe('架构决策的可执行断言', () => {
     expect(a.registry.defaultCompareLanguage).not.toBe(a.registry.defaultBaseline)
   })
 
-  it('章节与 feature 的顺序由清单的数组位置表达 —— 没有 order 字段', () => {
+  it('章节分组里只有基准语言 —— 章节分类是「给谁看的」，只能挂在基准上', () => {
     for (const c of a.catalogs) {
-      for (const ch of c.chapters) {
-        expect(ch).not.toHaveProperty('order')
-        for (const f of ch.features) expect(f).not.toHaveProperty('order')
-      }
+      expect(a.baselineIds, `${c.baseline} 不是基准候选`).toContain(c.baseline)
+    }
+  })
+
+  it('顺序由数组位置表达 —— 池与章节分组都没有 order 字段', () => {
+    for (const c of a.catalogs) {
+      for (const ch of c.chapters) expect(ch).not.toHaveProperty('order')
+    }
+    for (const p of a.pools) {
+      for (const f of p.features) expect(f).not.toHaveProperty('order')
     }
   })
 
@@ -151,10 +176,11 @@ describe('架构决策的可执行断言', () => {
     expect(r.data).not.toHaveProperty('license')
   })
 
-  it('契约会拒绝「vs 的 key 不是已知语言」之类能表达但无意义的写法', () => {
-    // boxes 的 key 是 record，拼错的 key 由 R21 兜（这里断言那条规则确实在跑）
-    expect(languageContentFileSchema.safeParse({ section: 'basics', boxes: {} }).success).toBe(false)
-    // 全局 id 必须是三段 —— v1 的 `<topic>/<slug>` 两段形态不再是合法 id
-    expect(a.features.every((f) => f.id.split('/').length === 3)).toBe(true)
+  it('契约会拒绝「顶层重复声明归属」这类能表达但无意义的写法', () => {
+    // boxes 的 key 是 record，拼错的 key 由 R21 兜；归属一律由路径派生，写了就报错
+    expect(languageContentFileSchema.safeParse({ section: 'express', boxes: {} }).success).toBe(false)
+    expect(languageContentFileSchema.safeParse({ group: 'bindings', boxes: {} }).success).toBe(false)
+    // 全局 id 必须是两段 —— 带章节段的三段形态不再是合法 id（章节随基准变）
+    expect(a.features.every((f) => f.id.split('/').length === 2)).toBe(true)
   })
 })

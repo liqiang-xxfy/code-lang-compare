@@ -6,12 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 多语言并排对比学习工具：**选一门基准语言**（JavaScript / Python / Java 三门，固定不变），勾选若干**对比语言**，沿板块并排看每一门「和基准差在哪」。Vue 3 + Vite + TS，纯静态 SSG，无后端。
 
-**内容按「语言」组织，不是按「方向」组织**：每门语言自带一份内容，内容是「本语言相对于三大基准语言的差异」；清单（有哪些章节、哪些 feature、什么顺序）集中在 `content/catalog/`，与内容分离。加一门语言 = 加一个目录（线性成本），不是加 N 个方向目录（平方成本）。
+**内容按「语言」组织，不是按「方向」组织**：每门语言自带一份内容，内容是「本语言相对于三大基准语言的差异」；清单集中在 `content/catalog/`，与内容分离。加一门语言 = 加一个目录（线性成本），不是加 N 个方向目录（平方成本）。
+
+**章节分类按「基准」各一份**：清单分两层 —— **feature 池**（这个板块有哪些知识点，与基准无关）+ **每基准的章节分组**（该基准怎么把它们讲给读者听）。两层的接缝是 `group`（**存放组**，即内容文件名），于是同一个知识点可以在 JS 视角下落在「对象与原型」章、在 Python 视角下落在「类与继承」章，**而内容只写一份**。
 
 架构文档 [docs/对比内容架构.md](docs/对比内容架构.md)（讲「目标形态与为什么」）；迁移的阶段表与进度在 [docs/内容架构迁移实施步骤.md](docs/内容架构迁移实施步骤.md)。README 的「四条核心设计」是理解本仓库的最短路径。
 
-> **当前处于迁移中间态**：S0–S6 已完成（架构切换落地），**S7「内容爬坡」尚未开始**。
-> 站点现在的内容量是：`basics/variables` 一章 × JS/Python 两门 + 速查三兄弟（从旧架构原样搬运）。
+> **当前处于迁移中间态**：S0–S6.5 已完成（架构切换 + 每基准章节分类落地），**S7「内容爬坡」尚未开始**。
+> 站点现在的内容量是：`express` 板块的**章节骨架**（池里 26 个知识点，JS / Python 各一套章节分组）
+> + `bindings` 存放组里 JS/Python 的 5 格内容 + 速查三兄弟（从旧架构原样搬运）。
 > 旧内容完整存档在 `content.legacy/`，**不参与构建与校验**，填新内容时可对照旧写法。
 
 ## 常用命令
@@ -48,19 +51,21 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
 
 `src/generated/` 全部是构建产物，**永远不要手改**（含 `catalog.json`、`manifest.json`、`registry.gen.ts`、`sections.gen.ts`、`content/*.json`、`search-index/*.json`）。跨过分界线只能由 `npm run content:build` 单向完成。
 
-### 2. 内容模型：清单 / 内容 / 方向三段
+### 2. 内容模型：池 / 分组 / 内容 / 方向四段
 
 | 内容 | 路径 | 管什么 |
 | --- | --- | --- |
-| 清单 | `content/catalog/<板块>.yaml` | 章节与 feature 的**顺序、标题、摘要**（与语言无关，唯一顺序真源） |
-| 一对多内容 | `content/languages/<语言>/<板块>/<章节>.yaml` | 每门语言在各知识点上的 `boxes` |
+| **feature 池** | `content/catalog/<板块>/features.yaml` | 该板块有哪些知识点，每个属于哪个 `group`（**与基准无关，全站唯一**） |
+| **章节分组** | `content/catalog/<板块>/<基准 id>.yaml` | 该基准把池里的知识点分成哪几章、叫什么、什么顺序、取舍哪些 |
+| 一对多内容 | `content/languages/<语言>/<板块>/<group>.yaml` | 每门语言在各知识点上的 `boxes`。**第三段是存放组，不是展示章** |
 | 方向性内容 | `content/pairs/<基准>2<目标>/{pitfalls,glossary,roadmap}.yaml` | 速查三兄弟 |
 
-三点约定：
+四点约定：
 
-1. **文件名不带序号**，文件即章节 id。序号会在中间插一章时让后续全体改名；顺序的唯一真源是清单里的数组位置。
-2. **板块从父目录取、语言从祖父目录取**，都不在文件内容里重复声明（`.strict()` 会让重复声明直接报错）。
-3. **`pairs/` 的目录名必须是完整的语言 id**（`javascript2python`，不是 `js2python`）—— 归属由目录名反查，不允许别名。
+1. **章节 id 由章节分组自己声明**（不再由文件名派生），只在「该基准 × 该板块」内唯一 —— 同名章节在不同基准下**不代表同义**。
+2. **pool 与章节分组要显式声明身份**（`section`，分组还要 `baseline`），且必须与目录名、文件名一致（R20c）；语言内容文件则一律由路径派生，不重复声明（`.strict()` 会让重复声明直接报错）。
+3. **存放组与基准无关** —— 这是「每基准一份章节分类」不让内容翻倍的全部原因。改章节分组**永远不动内容文件**。
+4. **`pairs/` 的目录名必须是完整的语言 id**（`javascript2python`，不是 `js2python`）—— 归属由目录名反查，不允许别名。
 
 ### 2.1 对比框：三个槽位，第③槽按角色分两套
 
@@ -82,20 +87,21 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
 
 ### 2.2 板块与 URL
 
-新板块集合（`registry.yaml` 的 `sections:` 段）：
+板块集合（`registry.yaml` 的 `sections:` 段）：
 
 | id | 名称 | shape | scope | columns |
 | --- | --- | --- | --- | --- |
-| `basics` / `inside` / `outside` | 基础语法 / 语言之内 / 语言之外 | chapter | baseline | multi |
+| `express` / `model` / `mechanism` / `practice` | 基础表达 / 数据与抽象 / 语言机制 / 工程实践 | chapter | baseline | multi |
 | `pitfalls` / `glossary` / `roadmap` | 速查三兄弟 | list | pair | single |
 
-分界依据：`inside` 是「换语言必须重学的机制」，`outside` 是「换工具但概念不变的部分」。
+分界依据：按**迁移者先关心什么**重划 —— `express` 能读懂、`model` 能改写、`mechanism` 敢动它、`practice` 能落地。
+命名刻意是主题式的而非「第一课 / 第二课」：本站是查阅型地图，四个板块表达的是关注点而非阅读顺序。
 
 ```
-/compare/<基准>/<板块>/<章节>     列 = 基准 + 页内多选的对比语言
-/compare/<基准>/<板块>            章节型落到首章；列表型就是它自己
+/compare/<基准>/<板块>/<章节>     列 = 基准 + 页内多选的对比语言；章节由该基准的分组定义
+/compare/<基准>/<板块>            章节型落到该基准首个有内容的章；列表型就是它自己
 /compare/<基准>                   落到 compareEntryPath
-/feature/<板块>/<章节>/<feature>  全局 id 三段
+/feature/<板块>/<feature>         全局 id 两段（与基准无关）
 ```
 
 - **基准进 URL**：每个基准是一套独立的浏览语境，要能预渲染、能分享。
@@ -105,30 +111,40 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
 
 ### 2.3 加内容的操作路径
 
-**加一个 feature**：在清单的某章加一条 → 给该章范围内的每门语言各加一条同 key 的 box。缺哪一格由 R20b/R24 报（迁移期是 warn）。
+**加一个知识点**：在池 `catalog/<板块>/features.yaml` 加一条（含 `group`）→ 在**想展示它的**基准的章节分组里引用它的 id → 给每门语言各加一条同 key 的 box（写进 `languages/<语言>/<板块>/<group>.yaml`）。缺哪一格由 R20g/R24 报（迁移期是 warn）。**只想在某个基准下展示就只改那一份分组** —— 这正是分层的目的。
 
-**加一门语言**：`cp -r content/languages/_template content/languages/<id>` → 填 `meta.yaml` → 按板块填内容 → 在 `registry.yaml` 登记 `enabled: true` → `npm run content:build && npm run verify:ext`。**不需要改任何组件/类型/路由**。[verify-extensibility.ts](scripts/verify-extensibility.ts) 是这条承诺的可执行断言。
+**加一门语言**：`cp -r content/languages/_template content/languages/<id>` → 填 `meta.yaml` → 按板块填内容（文件名 = 池里的 `group`）→ 在 `registry.yaml` 登记 `enabled: true` → `npm run content:build && npm run verify:ext`。**不需要改任何组件/类型/路由**。[verify-extensibility.ts](scripts/verify-extensibility.ts) 是这条承诺的可执行断言。
 
-**加一个板块**：在 `registry.yaml` 的 `sections:` 段加一条 + 建 `content/catalog/<板块>.yaml`。`shape: chapter` 的**零代码**（自动复用 `ChapterCompareView`）；`shape: list` 的复用已有渲染器也零代码。[verify-section-extensibility.ts](scripts/verify-section-extensibility.ts) 是这条承诺的可执行断言。
+**加一个板块**：在 `registry.yaml` 的 `sections:` 段加一条 + 建 `content/catalog/<板块>/{features.yaml,<基准>.yaml}`。`shape: chapter` 的**零代码**（自动复用 `ChapterCompareView`）；`shape: list` 的复用已有渲染器也零代码。[verify-section-extensibility.ts](scripts/verify-section-extensibility.ts) 是这条承诺的可执行断言。
+
+**调章节分类**（本次新增的能力）：只改 `catalog/<板块>/<基准>.yaml` —— 改标题、换顺序、重新分组、取舍知识点都行。**一个内容文件都不用碰**，因为内容的归属是池里的 `group`。
 
 ### 3. 契约与校验
 
 - **类型唯一真源**：[src/schemas/index.ts](src/schemas/index.ts)（Zod）。`src/types/index.ts` 只做 `z.infer` 再导出，禁止手写 interface。
-- **校验规则 R1–R26** 在 [scripts/lib/analyze.ts](scripts/lib/analyze.ts)：
+- **校验规则 R1–R27** 在 [scripts/lib/analyze.ts](scripts/lib/analyze.ts)：
 
   | 规则 | 内容 | 级别 |
   | --- | --- | --- |
-  | R20 | 清单-文件对应：孤儿文件 error / 覆盖率缺口 warn / 文件名与 section 一致 | error+warn |
-  | R21 | 语言文件里的 box key 必须在清单的该章里 | error |
+  | R20a | 章节分组引用的 feature id 必须在池里 | error |
+  | R20b | 池内 feature id 唯一 | error |
+  | R20c | 文件名/目录名与 `section` / `baseline` 字段一致；章内 id 唯一 | error |
+  | R20d | 语言目录里的内容文件，其 `group` 不在池里（拼错或孤儿） | error |
+  | R20e | 池里某 feature 不被任何基准的章节分组引用（永不展示） | warn |
+  | R20f | 池里声明的 group 没有任何启用语言写它 | warn |
+  | R20g | 「某语言 × 某章」一个存放组都没写（整列留白），按 (语言, 板块) 汇总 | warn |
+  | R20h | 同一 feature 在同一基准下出现在多个章；章内 feature 重复 | error/warn |
+  | R21 | box key 必须属于**池中该存放组**的 feature 集合 | error |
   | R22 | `vs` 完整性：基准候选写除自己外 2 门、非基准写全 3 门 | **warn** |
-  | R23 | 基准候选在每个 feature 上都要有 `baseline` | **warn** |
-  | R24 | 清单有、文件缺 key、且未 `absent` → 疑似漏写 | warn |
+  | R23 | 基准候选在**被它引用的** feature 上要有 `baseline` | **warn** |
+  | R24 | 被某基准引用、文件缺 key、且未 `absent` → 疑似漏写 | warn |
   | R25 | `vs.<基准>` / `baseline` 点名屏幕外的语言（幽灵语言） | warn |
   | R26 | `absent: true` 且给了 `code`（惯用替代写法）→ 必须有说明 | warn |
+  | R27 | 某章引用了 group G 但该基准缺 G 的内容（基准列空洞），按 (基准, 板块) 汇总 | warn |
 
   另有沿用 v1 的 R3（provenance）/ R4·R9（`@note`）/ R5（引用完整性）/ R6（发布门槛）/ R7（https）/ R8（注册表自检）/ R10（台账）/ R17（校对记录）。
 
-- **R22 / R23 / R24 是过渡期规则**（warn）：内容补齐前把构建变红，会把「还没写完」和「写错了」混成一个信号。R22/R24 按 `(语言, 板块)` **汇总成一条**输出（逐条会刷屏）；逐条待办在 `npm run content:report`。账目归零后把 `warn(` 改 `err(` 即翻级。
+- **R22 / R23 / R24 是过渡期规则**（warn）：内容补齐前把构建变红，会把「还没写完」和「写错了」混成一个信号。**它们的求值域是「该基准真正引用了的知识点」** —— 被某个基准刻意取舍掉的 feature 不该被要求写 `vs` / `baseline`。R22/R24/R20g/R27 都按 `(语言|基准, 板块)` **汇总成一条**输出（逐条会刷屏）；逐条待办在 `npm run content:report`。账目归零后把 `warn(` 改 `err(` 即翻级。
 - **validate 与 build 共用同一份 `analyzeContent()`**。改校验逻辑只需改这一处，但脚本被改坏时测试未必发现 —— `tests/pipeline/content-contract.test.ts` 与 `tests/unit/section-model.test.ts` 对**真实 content 与真实产物**断言不变量，是第二道闸门。
 - **R16 在 schema 层**（`refineBox`）：`code` 与 `blocks` **至多一个**。**「至少一个」被刻意删掉了** —— `absent: true` 的格子天然可以没有代码（「本语言没有变量提升」），强制至少一个会让最典型的 absent 形态解析失败；它的职责由 R24/R26 承担。
 
@@ -143,8 +159,10 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
 - **Shiki 构建期预高亮**，用 `css-variables` 主题（单份 HTML，明暗靠 CSS 变量切换）。Shiki / markdown-it / zod / js-yaml 都是 devDependency，**不进客户端包**。
 - **Markdown 走 markdown-it 且 `html: false`**（禁裸 HTML）—— 内容是 LLM 产出的，这是一条真实的注入路径。
 - **diff 刻意留在运行时**（[src/content/diff.ts](src/content/diff.ts)）：基准可切、对比列可多选、展示模式会变，预计算是几十种组合的浪费。用 `diffArrays` 逐行对齐，**不要换回 `diffLines`**（它会把相邻删除+新增合并成块，让完全相同的行也被标成「不同」，有回归测试）。
-- **内容分片 = 一门语言 × 一个章节**（`src/generated/content/<语言>/<板块>/<章节>.json`），由 [repository.ts](src/content/repository.ts) 用 `import.meta.glob` 懒加载。**分片键两侧必须逐字一致**（构建期 emit 路径 ↔ `boxShardPathOf`），错一个字符就是**整页空白且不报错**。
-- **清单独立成 `catalog.json`**（与语言无关、小、eager import），提供章节树与 `featureIndex`。
+- **内容分片 = 一门语言 × 一个存放组**（`src/generated/content/<语言>/<板块>/<存放组>.json`），由 [repository.ts](src/content/repository.ts) 用 `import.meta.glob` 懒加载。**分片键两侧必须逐字一致**（构建期 emit 路径 ↔ `boxShardPathOf`），错一个字符就是**整页空白且不报错**。
+- **一章 = 若干存放组的组合**：章节页按 `groupsOfChapter(基准, 板块, 章节)` 收集分片，再把它们**合并成一门语言一份的扁平格子表**（`Record<语言, Record<featureId, RenderedBox>>`）交给布局。**合并结果必须保留外层语言键** —— 布局用 `!boxes[lang.id]` 区分「加载中」与「这门语言没写」，丢了它未加载的格子会永远转圈，`finalize-dist` 的空壳探针会红。`groupsOfChapter` 在构建期（[04-build.ts](scripts/pipeline/04-build.ts)，决定路由）与运行时（[repository.ts](src/content/repository.ts)，决定加载）**必须同判据**。
+- **清单独立成 `catalog.json`**（小、eager import）：`catalogs` 是**每基准一份**的章节分组（features 已在构建期 join 上池字段），`featureIndex` 是**与基准无关**的 `<板块>/<feature>` 索引。
+- **`features` / `featureIndex` 必须从池构建**，不能遍历章节分组 —— 同一批知识点会被每个基准各引用一次，遍历等于数三遍。`tests/pipeline/content-contract.test.ts` 有一条专门的探针断言这件事。
 - **速查按对拆文件**（`static/<基准>--<目标>.json`），同样懒加载。
 
 ### 6. SEO 与预渲染
@@ -169,9 +187,9 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 | 文件 | 钉住的不变量 |
 | --- | --- |
-| [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：0 error、全局 id 三段唯一、R21、provenance（llm 无 license）、台账、@note 无残留、`vs` 的 key 必须是基准候选 |
-| [tests/unit/section-model.test.ts](tests/unit/section-model.test.ts) | **对真实 `src/generated/` 产物**断言：分片路径与声明的 (语言,板块,章节) 一致、catalog.json 的 key 是三段、**双角色取值**（基准列 null 徽章 / absent 短路 / vs 缺 key 才是 identical） |
-| [tests/unit/catalog-loader.test.ts](tests/unit/catalog-loader.test.ts) | 装载器：清单驱动、路径派生归属、review 补齐、`_` 私有目录跳过、**对比框契约**（code/blocks 至多一个、absent 可三槽全空、`.strict()` 拒绝重复声明） |
+| [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：0 error、全局 id 两段唯一、**`featureIndex` 来自池而非遍历章节分组**、R21、provenance（llm 无 license）、台账、@note 无残留、`vs` 的 key 必须是基准候选 |
+| [tests/unit/section-model.test.ts](tests/unit/section-model.test.ts) | **对真实 `src/generated/` 产物**断言：分片路径与声明的 (语言,板块,存放组) 一致、catalog.json 的 key 是两段、章节 features 已 join 且带 `group`、**章节分类确实随基准变**、**双角色取值**（基准列 null 徽章 / absent 短路 / vs 缺 key 才是 identical） |
+| [tests/unit/pool-loader.test.ts](tests/unit/pool-loader.test.ts) | 装载器：池与章节分组、**同一 feature 在不同基准下落到不同章**、池驱动的语言内容、`_` 私有目录跳过、`pairs/` 方向反查、**对比框契约**（code/blocks 至多一个、absent 可三槽全空、`.strict()` 拒绝重复声明） |
 | [tests/unit/baseline-switch.test.ts](tests/unit/baseline-switch.test.ts) | 基准候选与默认值、可见列计算、目标语言推导、切基准回落、diff 缓存 |
 | [tests/unit/search.test.ts](tests/unit/search.test.ts) | 中文 bigram 分词、按语言分片、查询无需过滤、pair 归目标语言 |
 | [tests/unit/diff.test.ts](tests/unit/diff.test.ts) | `compareToBaseline` 的行级对齐与缓存 |
@@ -190,7 +208,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 - **速查三兄弟只能讲本方向的两门语言**（R5）：多写一门第三语言，读者会以为「带着当前基准的习惯」在那个方向也会踩到同样的坑。
 - **`baseline` 文本只讲本语言、`vs.<基准>` 只讲那两门**（R25，warn）：多列板块里提第三门就是屏幕外的幽灵语言。
 - 所有外部 URL 必须是 `https`（R7）。
-- **compare 路由里没有 topicId / chapterId 之外的东西** —— 章节 id 就是文件名，feature id 是 `<板块>/<章节>/<feature>` 三段。组件里不要拼这些字符串，也不要写死板块名；`verify:sections` 会拦住硬编码的板块 id（白名单在脚本里，每条都写了理由）。
+- **compare 路由里只有基准 / 板块 / 章节三段**，章节由**该基准的**章节分组定义；feature id 是 `<板块>/<feature>` 两段（不含章节 —— 章节随基准变）。组件里不要拼这些字符串，也不要写死板块名；`verify:sections` 会拦住硬编码的板块 id（白名单在脚本里，每条都写了理由）。
 - **面向用户的文案里不许写死语言名**：三门基准**权重相同**。语言名一律从 meta 取，i18n 里走 `{baseline}` 这类占位符。`verify:ext` 的**第三道断言**守着这条：扫描 i18n 的**值**与 `.vue` 的 `<template>` 段（先摘掉 `<script>` 和 HTML 注释）。
 - **新增 `src/` 代码时注意两个 verify 脚本的字面量检查**：`verify:ext` 的第二道断言**不剥注释**地找**带引号**的语言 id，`verify:sections` 找带引号的板块 id（会剥注释）。新代码的注释与 message 用 `<section>/<chapter>/<feature>` 这类占位式措辞即可同时过关。
 
@@ -205,7 +223,8 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 ## 已知遗留
 
-- **S7 内容爬坡尚未开始**：站点现在只有 `basics/variables` 一章（JS/Python）+ 速查三兄弟。`inside` / `outside` 两个板块的清单还没建，`java` / `rust` / `go` 三门还没有任何 v2 内容。
+- **S7 内容爬坡尚未开始**：`express` 有完整的章节骨架（池 26 个知识点、JS/Python 各一套分组），但只有 `bindings` 存放组写了内容（JS/Python 各 5 格）。`model` / `mechanism` / `practice` 三个板块的池与分组都还没建，`java` / `rust` / `go` 三门还没有任何内容 —— 它们在左栏会整组隐藏（没有章节分组 = 未开工）。
+- **`express` 池里的 26 个知识点是骨架期的设计**，S7 填充时可以自由增删改 —— 现在只有 5 个有内容，改名的代价最低。
 - **搬过来的 `pitfalls.yaml` 里 `featureId` 全指向旧架构的 id**（如 `basics-javascript/truthiness`），按方向汇总成 R5 warn。S7 重写对应章节时重新指向即可。
 - **`src/schemas/index.ts` 里仍留着 v1 的 schema**（`snippetSchema` / `chapterSchema` / `featureSchema` / `topicConfigSchema` 等）：`registrySchema` 仍需要 `topics` 字段（现在是必填的 `z.record`，所以新 `registry.yaml` 里显式写了 `topics: {}`）。清理它们属于 S8，但**不要再新增消费者**。
 - **`docs/内容书写标准.md` 还是 v1 的**（S8 重写）。它讲的「加特性 / 加方向」的操作路径已经不适用，看 README 与 `docs/对比内容架构.md` 更准。

@@ -9,7 +9,8 @@
  */
 import { useRoute, useRouter } from 'vue-router'
 import {
-  hasBoxChapter,
+  chapterOf,
+  hasChapterContent,
   orderedSections,
   pairTargetsOf,
   sectionIsChapter,
@@ -48,10 +49,12 @@ export function resolveSwitchPath(baseline: string, ctx: SwitchContext): string 
     /*
      * 同一章能保留就保留 —— 用户换的是参照系，不是想换一章。
      *
-     * 判据是「新基准**真有这一章的分片**」：清单是语言无关的，三个基准共用同一套
-     * 章节，但某个基准可能还没写这一章（骨架期），落到那里会是一页空白。
+     * 但两个判据都要过，缺一个就会落到空白页：
+     *   1. **章节本身存在于新基准的分类里** —— 每个基准一套章节分类（ADR-52），
+     *      同名不代表同义，新基准可能根本没有这一章
+     *   2. 新基准确实写了这一章引用的某个存放组（骨架期很多章还没内容）
      */
-    if (key && hasBoxChapter(baseline, section, key)) {
+    if (key && chapterOf(baseline, section, key) && hasChapterContent(baseline, baseline, section, key)) {
       return `/compare/${baseline}/${section}/${key}`
     }
     return sectionEntryPath(baseline, section)

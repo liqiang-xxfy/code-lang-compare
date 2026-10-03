@@ -27,26 +27,28 @@ const nameOf = (id: string) => getLanguageMeta(id)?.name ?? id
 const defaultBaselineName = nameOf(defaultBaselineLanguageId)
 const defaultCompareName = nameOf(defaultCompareLanguageId)
 
-/**
- * 清单规模 —— v2 里清单与语言无关，所以三个基准共用同一套章节与知识点。
- * 各基准的差别在**写了多少**，不在清单本身；每个基准卡片都链到自己的落点，
- * 那里按实际有内容的章节落地（`compareEntryPath` 找不到就返回 /404）。
- */
-const catalogChapters = orderedSections()
-  .filter((s) => s.shape === 'chapter')
-  .flatMap((s) => chaptersOf(s.id))
-const catalogFeatureCount = catalogChapters.reduce((n, c) => n + c.features.length, 0)
+/** 某个基准在全部章节型板块下看到的章节 —— **每个基准一套分类**，所以逐基准算 */
+const chaptersFor = (baseline: string) =>
+  orderedSections()
+    .filter((s) => s.shape === 'chapter')
+    .flatMap((s) => chaptersOf(baseline, s.id))
 
-/** 三个基准入口 —— 每个基准有自己的一套地址与浏览语境 */
+/**
+ * 三个基准入口 —— 每个基准有自己的一套地址、**自己的章节分类**与浏览语境。
+ * 所以卡片上的「N 个模块」三张可以不同，这正是 S6.5 想要的效果。
+ */
 const baselineCards = computed(() =>
-  baselineLanguageIds.map((id) => ({
-    id,
-    name: nameOf(id),
-    // 与顶栏、URL 走同一个落点函数，不自己拼地址 —— 首页入口曾因手拼地址全部 404
-    to: compareEntryPath(id),
-    chapterCount: catalogChapters.length,
-    featureCount: catalogFeatureCount,
-  })),
+  baselineLanguageIds.map((id) => {
+    const chapters = chaptersFor(id)
+    return {
+      id,
+      name: nameOf(id),
+      // 与顶栏、URL 走同一个落点函数，不自己拼地址 —— 首页入口曾因手拼地址全部 404
+      to: compareEntryPath(id),
+      chapterCount: chapters.length,
+      featureCount: chapters.reduce((n, c) => n + c.features.length, 0),
+    }
+  }),
 )
 
 /** 「最该先知道的坑」区块的落点 —— 声明了该 dataKey 的板块 */
@@ -59,12 +61,12 @@ const pitfallsEntry = computed(() => {
 const sectionEntries = computed(() => {
   const b = defaultBaselineLanguageId
   /*
-   * 计数按板块的 `scope` 分：基准级板块数章节（清单与语言无关），
+   * 计数按板块的 `scope` 分：基准级板块数**该基准分类下的**章节，
    * 对级板块每个方向一份（数方向）。若按 `shape` 分，速查板块会被数成 1。
    */
   const countOf = (section: Section, scope: string) =>
     scope === 'baseline'
-      ? chaptersOf(section).length
+      ? chaptersOf(b, section).length
       : manifest.pairs.filter((p) => p.baseline === b && p.sections.includes(section)).length
 
   return orderedSections().map((def) => ({

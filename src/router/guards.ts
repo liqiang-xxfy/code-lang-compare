@@ -3,7 +3,9 @@ import type { Router } from 'vue-router'
 import {
   chapterOf,
   featureMetaOf,
-  hasBoxChapter,
+  groupsOfChapter,
+  hasBoxGroup,
+  hasChapterContent,
   hasPairSection,
   sectionDefOf,
   sectionIsChapter,
@@ -34,7 +36,8 @@ function visibleLangs(
   // 与 store 的 compareMeta 同口径：一门都没勾时回落到第一门非基准语言
   const fallback = enabledLanguageIds.find((id) => id !== baseline)
   const others = picked.length ? picked : fallback ? [fallback] : []
-  return [baseline, ...others].filter((id) => hasBoxChapter(id, section, chapter))
+  // 判据是「在这一章里真有内容」—— 章节引用的是若干存放组，某门语言可能一个都没写
+  return [baseline, ...others].filter((id) => hasChapterContent(id, baseline, section, chapter))
 }
 
 /**
@@ -94,44 +97,47 @@ export function installGuards(router: Router, pinia: Pinia): void {
       if (!isEnabledLanguage(baseline) || !isSection(section)) return { name: 'not-found' }
       // 4 段地址只对章节型板块有意义 —— `/compare/<基准>/<速查板块>/xxx` 一律 404
       if (!sectionIsChapter(section)) return { name: 'not-found' }
-      if (!chapterOf(section, chapter)) return { name: 'not-found' }
+      /*
+       * 章节必须存在于**该基准自己的**章节分类里 —— 每个基准一套分类，
+       * 同名章节不代表同义，A 基准的章在 B 基准下可能根本没有。
+       */
+      if (!chapterOf(baseline, section, chapter)) return { name: 'not-found' }
       /*
        * 基准列必须有内容 —— 它是这一页的参照系。没有分片就说明这个基准还没写这一章
-       * （清单是语言无关的，三个基准共用同一套章节），渲染出来是一页没有参照系的空白。
+       * 引用的任何存放组，渲染出来是一页没有参照系的空白。
        */
-      if (!hasBoxChapter(baseline, section, chapter)) return { name: 'not-found' }
+      if (!hasChapterContent(baseline, baseline, section, chapter)) return { name: 'not-found' }
       /*
-       * **所有可见列**都要在这里 await 完，不能只加载基准列 ——
+       * **所有可见列 × 本章引用的所有存放组**都要在这里 await 完，不能只加载基准列 ——
        * 视图那个 watcher 是异步的，而 SSG 在守卫 resolve 之后**同步**渲染，
-       * 只等基准列的话，预渲染出来的页面里其余列全是「加载中」。
+       * 少等一份分片，预渲染出来的页面里就会有格子停在「加载中」。
        * 这正是「预渲染出空壳」的一类：页面结构在、内容不在。
        */
-      await content.ensureColumns(
+      await content.ensureChapter(
         section,
-        chapter,
+        groupsOfChapter(baseline, section, chapter),
         visibleLangs(languages, baseline, section, chapter),
       )
       return true
     }
 
     /*
-     * 特性详情：`/feature/<板块>/<章节>/<feature>`（全局 id 三段）。
-     * 同样的道理：所有可见列都要在这里 await 完。
+     * 特性详情：`/feature/<板块>/<feature>`（全局 id 两段，与基准无关）。
+     *
+     * 详情页**不需要章**：box 的归属由池的存放组决定（与基准无关），所以取数只需
+     * `meta.group`。所有可见列同样要在这里 await 完。
      */
     if (to.name === 'feature') {
       const section = String(to.params.section ?? '')
-      const chapter = String(to.params.chapter ?? '')
-      const gid = `${section}/${chapter}/${String(to.params.feature ?? '')}`
+      const gid = `${section}/${String(to.params.feature ?? '')}`
       const meta = featureMetaOf(gid)
       if (!meta || !isSection(meta.section)) return { name: 'not-found' }
       const baseline = languages.effectiveBaseline
-      if (hasBoxChapter(baseline, meta.section, meta.chapter)) {
-        await content.ensureColumns(
-          meta.section,
-          meta.chapter,
-          visibleLangs(languages, baseline, meta.section, meta.chapter),
-        )
-      }
+      const picked = languages.compareLangs.filter((id) => id !== baseline)
+      const fallback = enabledLanguageIds.find((id) => id !== baseline)
+      const others = picked.length ? picked : fallback ? [fallback] : []
+      const cols = [baseline, ...others].filter((id) => hasBoxGroup(id, meta.section, meta.group))
+      await content.ensureChapter(meta.section, [meta.group], cols)
       return true
     }
 

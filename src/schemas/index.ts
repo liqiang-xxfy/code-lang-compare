@@ -772,18 +772,20 @@ export interface Issue {
  */
 
 /**
- * 全局 feature id —— `<section>/<chapter>/<feature>` 三段。
+ * 全局 feature id —— `<section>/<feature>` **两段**。
  *
- * catalog 里的 feature id 只保证**章内唯一**，但四处需要全局唯一键：
- * `featureIndex`、`refFeatureId` 软引用、搜索文档的 id / url、详情页的路由参数。
- * 这四处必须拼同一套，否则详情页 404 或锚点错位，而且**不报错**。
+ * 四处需要全局唯一键：`featureIndex`、`refFeatureId` 软引用、搜索文档的 id / url、
+ * 详情页的路由参数。这四处必须拼同一套，否则详情页 404 或锚点错位，而且**不报错**。
+ *
+ * **为什么没有章节段**（S6.5）：章节随基准变（每个基准一套章节分类，见 §2.5），
+ * 一个 feature 在不同基准下属于不同的章、甚至被某个基准取舍掉 —— 它没有唯一的章。
+ * 而它属于**池**，池与基准无关，所以 id 只能由「板块 + feature」构成。
+ * 存放组（group）同样是 S6.5 才有的概念，但它是内容的存放细节、界面上看不见，
+ * 进 URL 只会多一个读者对不上的段。
  */
 export const globalFeatureIdSchema = z
   .string()
-  .regex(
-    /^[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+$/,
-    '全局 feature id 形如 <section>/<chapter>/<feature>',
-  )
+  .regex(/^[a-z0-9-]+\/[a-z0-9-]+$/, '全局 feature id 形如 <section>/<feature>')
 
 /** kebab-case 标识 —— 章节 id 与章内 feature id 共用 */
 export const kebabIdSchema = z
@@ -803,33 +805,6 @@ export const catalogFeatureSchema = z
     /** 软引用：写**全局** id，可跨章（其存在性由分析期校验） */
     refFeatureId: globalFeatureIdSchema.optional(),
     tags: z.array(z.string()).default([]),
-  })
-  .strict()
-
-export const catalogChapterSchema = z
-  .object({
-    /** 章节 id = `languages/<语言>/<板块>/<章节>.yaml` 的文件名（去扩展名） */
-    id: kebabIdSchema,
-    title: z.string().min(1),
-    summary: z.string().optional(),
-    /** 数组顺序即行顺序 —— 没有 order 字段，顺序的唯一真源在这里 */
-    features: z.array(catalogFeatureSchema).min(1),
-  })
-  .strict()
-
-/**
- * 一个板块的清单 —— 回答「我们要对比哪些点」，不回答「某门语言怎么讲」。
- * 因此它与语言无关，也不含 target 之类的方向概念。
- *
- * **S6.5 起被下面「池 + 每基准分组」的两层结构取代**（docs/对比内容架构.md §2.5），
- * 迁移期内两者并存，S6.5c 原子切换后本 schema 与它的装载器一起删除。
- */
-export const catalogSchema = z
-  .object({
-    section: sectionSchema,
-    title: z.string().min(1),
-    /** 数组顺序即章节顺序 */
-    chapters: z.array(catalogChapterSchema).min(1),
   })
   .strict()
 
@@ -1051,19 +1026,61 @@ export interface RenderedBox {
 export interface RenderedBoxChapter {
   lang: string
   section: Section
-  chapter: string
-  /** key = catalog 里该章的 feature id */
+  /** **存放组**，不是展示章 —— 展示章随基准变，它不随（见 `poolFeatureSchema.group`） */
+  group: string
+  /** key = 池里该存放组的 feature id */
   boxes: Record<string, RenderedBox>
 }
 
-/** 清单产物 `src/generated/catalog.json` —— 与语言无关、小、可 eager import */
+/**
+ * 构建产物里的一章。
+ *
+ * 源文件（`baselineChapterSchema`）里 `features` 只是**池里的 id 引用**；构建期把池的字段
+ * join 进来，于是视图读 `feature.title` / `kind` / `summary` 的代码一行都不用改。
+ * `features` 的元素类型是 `PoolFeature`（比 `CatalogFeature` 多一个 `group`）——
+ * 运行时正是靠它把「这一行」映射到「哪个内容分片」。
+ */
+export interface CatalogChapter {
+  id: string
+  title: string
+  summary?: string
+  /** 数组顺序即行顺序 */
+  features: PoolFeature[]
+}
+
+/** 某个基准在某个板块下的章节分组（构建期已 join 池字段） */
+export interface RenderedBaselineCatalog {
+  section: Section
+  baseline: string
+  chapters: CatalogChapter[]
+}
+
+/**
+ * 清单产物 `src/generated/catalog.json` —— 与语言无关、小、可 eager import。
+ *
+ * 两层结构（S6.5）：`catalogs` 是**每基准一份**的章节分组（决定左栏与矩阵的行），
+ * `featureIndex` 是**与基准无关**的知识点索引（详情页、锚点、搜索共用）。
+ */
 export interface RenderedCatalog {
   generatedAt: string
-  catalogs: Catalog[]
-  /** key = 全局 feature id `<section>/<chapter>/<feature>` */
+  catalogs: RenderedBaselineCatalog[]
+  /**
+   * key = 全局 feature id `<section>/<feature>`。
+   *
+   * `group` 是详情页唯一的取数依据（box 与基准无关，只由 feature 决定）；
+   * `summary` / `refFeatureId` 一并带上，详情页因此不必再持有一份池。
+   */
   featureIndex: Record<
     string,
-    { title: string; section: Section; chapter: string; kind: FeatureKind }
+    {
+      title: string
+      section: Section
+      group: string
+      kind: FeatureKind
+      summary?: string
+      refFeatureId?: string
+      tags: string[]
+    }
   >
 }
 
@@ -1071,8 +1088,6 @@ export interface RenderedCatalog {
 
 export type GlobalFeatureId = z.infer<typeof globalFeatureIdSchema>
 export type CatalogFeature = z.infer<typeof catalogFeatureSchema>
-export type CatalogChapter = z.infer<typeof catalogChapterSchema>
-export type Catalog = z.infer<typeof catalogSchema>
 /** 池里的一个知识点 = feature 自身的属性 + 存放组（S6.5） */
 export type PoolFeature = z.infer<typeof poolFeatureSchema>
 /** feature 池：`catalog/<板块>/features.yaml`（S6.5） */

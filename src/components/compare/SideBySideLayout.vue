@@ -6,13 +6,7 @@ import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
 import { useI18n } from '@/composables/useI18n'
 import { badgeOf, explanationOf } from '@/content/boxView'
 import { featureAnchor, featurePathOf } from '@/content/repository'
-import type {
-  CatalogChapter,
-  LanguageMeta,
-  RenderedBox,
-  RenderedBoxChapter,
-  Section,
-} from '@/schemas'
+import type { CatalogChapter, LanguageMeta, RenderedBox, Section } from '@/schemas'
 import { useUiStore } from '@/stores/ui'
 
 /**
@@ -27,15 +21,17 @@ const props = defineProps<{
   baseline: string
   chapter: CatalogChapter
   columns: LanguageMeta[]
-  shards: Record<string, RenderedBoxChapter>
+  /** key = 语言 id → feature id。缺的那个语言先按「加载中」渲染 */
+  boxes: Record<string, Record<string, RenderedBox>>
 }>()
 
 const ui = useUiStore()
 const { t } = useI18n()
 
-const gidOf = (featureId: string) => `${props.section}/${props.chapter.id}/${featureId}`
+/** 全局 feature id = `<板块>/<feature>` —— 不含章（章随基准变） */
+const gidOf = (featureId: string) => `${props.section}/${featureId}`
 const boxOf = (featureId: string, lang: string): RenderedBox | undefined =>
-  props.shards[lang]?.boxes[featureId]
+  props.boxes[lang]?.[featureId]
 
 const features = computed(() =>
   props.chapter.features.filter((f) => {
@@ -100,7 +96,7 @@ const comparedColumns = computed(() => props.columns.filter((l) => l.id !== prop
               :is-baseline="lang.id === baseline"
             />
             <!-- 分片还没加载完，与「这门语言没写这一格」是两回事 -->
-            <p v-else-if="!shards[lang.id]" class="pc-hint">{{ t('loading') }}</p>
+            <p v-else-if="!boxes[lang.id]" class="pc-hint">{{ t('loading') }}</p>
             <p v-else class="pc-hint">{{ t('emptyCell') }}</p>
           </div>
         </article>

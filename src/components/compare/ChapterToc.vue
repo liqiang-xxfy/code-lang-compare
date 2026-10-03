@@ -14,12 +14,18 @@
  * 关掉即可；反过来让目录跟着过滤走，会出现「目录里少了几条但我不知道为什么」。
  */
 import { featureAnchor } from '@/content/repository'
-import type { CatalogFeature, Section } from '@/schemas'
+import type { PoolFeature, Section } from '@/schemas'
 
-const props = defineProps<{ features: CatalogFeature[]; section: Section; chapter: string }>()
+const props = defineProps<{ features: PoolFeature[]; section: Section }>()
 
-/** 锚点用全局 id —— 布局层用的是同一个函数，各拼一套会出现「目录点得到、布局锚不上」 */
-const anchorOf = (featureId: string) => featureAnchor(`${props.section}/${props.chapter}/${featureId}`)
+/**
+ * 锚点用全局 id（`<板块>/<feature>`）—— 布局层用的是同一个函数，
+ * 各拼一套会出现「目录点得到、布局锚不上」。
+ *
+ * **不含章**：章随基准变，同一个 feature 在不同基准下属于不同的章，
+ * 锚点若带上章，切基准后页内跳转就会失配。
+ */
+const anchorOf = (featureId: string) => featureAnchor(`${props.section}/${featureId}`)
 </script>
 
 <template>

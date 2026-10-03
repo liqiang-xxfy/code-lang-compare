@@ -38,8 +38,11 @@ export function buildSearchDocs(a: Analysis): SearchDoc[] {
   for (const f of a.features) {
     const bucket = a.boxes.get(f.id)
     if (!bucket) continue
-    const chapterTitle = a.catalogBySection[f.section]?.chapters.find((c) => c.id === f.chapter)?.title ?? ''
-    const context = `${a.registry.sections[f.section]?.title ?? f.section} ${chapterTitle}`
+    /*
+     * 上下文用「板块 + 存放组」，**不用章节标题** —— 章节名随基准变（每个基准一套章节分类），
+     * 把某一份写进索引就等于对另外两个基准说谎。存放组与基准无关，对所有基准都成立。
+     */
+    const context = `${a.registry.sections[f.section]?.title ?? f.section} ${f.group}`
 
     for (const [lang, box] of bucket) {
       const commentLine = a.metaById[lang]?.comment.line

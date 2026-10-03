@@ -49,38 +49,42 @@ describe('运行时常量与注册表', () => {
   })
 })
 
-describe('内容分片：一门语言 × 一个章节', () => {
+describe('内容分片：一门语言 × 一个存放组', () => {
   const shards = walkJson(path.join(GENERATED, 'content')).map((f) =>
-    readJson<{ lang: string; section: string; chapter: string; boxes: Record<string, RenderedBox> }>(f),
+    readJson<{ lang: string; section: string; group: string; boxes: Record<string, RenderedBox> }>(f),
   )
 
-  it('分片带着自己的三轴归属，且 section 是已注册板块', () => {
+  it('分片带着自己的归属（语言 / 板块 / 存放组），且 section 是已注册板块', () => {
     expect(shards.length).toBeGreaterThan(0)
     for (const s of shards) {
       expect(SECTION_IDS).toContain(s.section)
       expect(s.lang).toBeTruthy()
-      expect(s.chapter).toBeTruthy()
+      expect(s.group).toBeTruthy()
     }
   })
 
-  it('分片路径与它声明的 (语言, 板块, 章节) 一致 —— 错位会整页空白且不报错', () => {
+  it('分片路径与它声明的 (语言, 板块, 存放组) 一致 —— 错位会整页空白且不报错', () => {
     const files = walkJson(path.join(GENERATED, 'content'))
     for (const f of files) {
-      const s = readJson<{ lang: string; section: string; chapter: string }>(f)
+      const s = readJson<{ lang: string; section: string; group: string }>(f)
       const rel = path.relative(GENERATED, f).replace(/\\/g, '/')
-      expect(rel).toBe(`content/${s.lang}/${s.section}/${s.chapter}.json`)
+      expect(rel).toBe(`content/${s.lang}/${s.section}/${s.group}.json`)
     }
   })
 
-  it('每个清单章节都有对应的分片路径可加载（键能拼出来）', () => {
-    for (const c of a.catalogs) {
-      for (const ch of c.chapters) {
-        for (const lang of a.enabledLanguageIds) {
-          const expected = path.join(GENERATED, 'content', lang, c.section, `${ch.id}.json`)
-          const hasContent = a.content.has(`${lang}/${c.section}/${ch.id}`)
-          expect(fs.existsSync(expected), `${lang}/${c.section}/${ch.id}`).toBe(hasContent)
-        }
-      }
+  it('产出的分片与装载结果一一对应（不多不少）', () => {
+    const files = walkJson(path.join(GENERATED, 'content'))
+    const onDisk = new Set(
+      files.map((f) => {
+        const s = readJson<{ lang: string; section: string; group: string }>(f)
+        return `${s.lang}/${s.section}/${s.group}`
+      }),
+    )
+    expect(onDisk).toEqual(new Set(a.content.keys()))
+    for (const key of a.content.keys()) {
+      const [lang, section, group] = key.split('/')
+      const expected = path.join(GENERATED, 'content', lang!, section!, `${group!}.json`)
+      expect(fs.existsSync(expected), key).toBe(true)
     }
   })
 })
@@ -88,14 +92,44 @@ describe('内容分片：一门语言 × 一个章节', () => {
 describe('清单产物 catalog.json', () => {
   const catalog = readJson<RenderedCatalog>(path.join(GENERATED, 'catalog.json'))
 
-  it('featureIndex 的 key 是全局三段 id', () => {
+  it('featureIndex 的 key 是全局两段 id（没有章节段 —— 章节随基准变）', () => {
     const keys = Object.keys(catalog.featureIndex)
     expect(keys.length).toBeGreaterThan(0)
-    for (const k of keys) expect(k.split('/')).toHaveLength(3)
+    for (const k of keys) expect(k.split('/')).toHaveLength(2)
   })
 
-  it('catalogs 与 registry 的 section 对得上', () => {
-    for (const c of catalog.catalogs) expect(SECTION_IDS).toContain(c.section)
+  it('每份 catalogs 都带 baseline，且与 registry 的 section 对得上', () => {
+    expect(catalog.catalogs.length).toBeGreaterThan(0)
+    for (const c of catalog.catalogs) {
+      expect(SECTION_IDS).toContain(c.section)
+      expect(c.baseline).toBeTruthy()
+    }
+  })
+
+  it('章节里的 features 已 join 池字段 —— 视图读 feature.title 不需要再查池', () => {
+    for (const c of catalog.catalogs) {
+      for (const ch of c.chapters) {
+        expect(ch.features.length).toBeGreaterThan(0)
+        for (const f of ch.features) {
+          expect(f.title).toBeTruthy()
+          expect(f.kind).toBeTruthy()
+          // group 是运行时把「这一行」映射到「哪份分片」的唯一依据，缺了就是整页空白
+          expect(f.group).toBeTruthy()
+          expect(catalog.featureIndex[`${c.section}/${f.id}`]).toBeDefined()
+        }
+      }
+    }
+  })
+
+  it('章节分类确实随基准变 —— 同一板块下两个基准的分组不同', () => {
+    const bySection = new Map<string, string[][]>()
+    for (const c of catalog.catalogs) {
+      const list = bySection.get(c.section) ?? []
+      list.push(c.chapters.map((ch) => ch.title))
+      bySection.set(c.section, list)
+    }
+    const differing = [...bySection.values()].some((lists) => lists.length > 1 && new Set(lists.map((l) => l.join('|'))).size > 1)
+    expect(differing, '没有任何板块的两个基准给出不同的章节分组 —— 那说明每基准一份分类没生效').toBe(true)
   })
 })
 

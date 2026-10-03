@@ -11,7 +11,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { defaultCompareLanguageId } from '../../src/generated/registry.gen'
+import { defaultCompareLanguageId, getLanguageMeta } from '../../src/generated/registry.gen'
 import { resolveBasePath, resolveSiteUrl } from '../lib/env-paths'
 
 const DIST = path.resolve('dist')
@@ -34,10 +34,20 @@ interface Manifest {
   sections: Array<{ id: string; shape: string; scope: string; dataKey?: string }>
 }
 
-/** 章节树与 feature 索引在 v2 里单独成文件（清单与语言无关，见 RenderedCatalog） */
+/**
+ * 章节树与 feature 索引单独成文件（见 `RenderedCatalog`）。
+ *
+ * **`catalogs` 是每基准一份的**（S6.5）：章节分类按基准各来一份，所以查一章
+ * 必须同时给出 (板块, 基准) —— 只按板块查会拿到另一个基准的章节。另外章节 id
+ * 由**运行时的基准**决定，查不到时返回 null 就会静默跳过验收（见 `probeTextFor`）。
+ */
 interface Catalog {
   featureIndex: Record<string, { title: string }>
-  catalogs: Array<{ section: string; chapters: Array<{ id: string; title: string }> }>
+  catalogs: Array<{
+    section: string
+    baseline: string
+    chapters: Array<{ id: string; title: string }>
+  }>
 }
 
 if (!fs.existsSync(MANIFEST_PATH) || !fs.existsSync(CATALOG_PATH)) {
@@ -106,11 +116,11 @@ function pickPair(baseline: string, section: string) {
  * 改成 3 段时同理：**正则改漏一处，验收就悄悄不干活了**。
  */
 function probeTextFor(route: string): string | null {
-  // 章节型：/compare/<基准>/<板块>/<章节> —— 章节 id 即文件名，与语言无关
+  // 章节型：/compare/<基准>/<板块>/<章节> —— 章节分类每个基准各一份，必须带基准查
   const chapter = /^\/compare\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(route)
   if (chapter) {
-    const [, , section, chapterId] = chapter
-    const c = catalog.catalogs.find((x) => x.section === section)
+    const [, baseline, section, chapterId] = chapter
+    const c = catalog.catalogs.find((x) => x.section === section && x.baseline === baseline)
     return c?.chapters.find((x) => x.id === chapterId)?.title ?? null
   }
 
@@ -130,14 +140,32 @@ function probeTextFor(route: string): string | null {
     return (first?.title as string) ?? (first?.term as string) ?? null
   }
 
-  // 特性页：/feature/<板块>/<章节>/<feature> —— 全局 id 三段
-  const feature = /^\/feature\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(route)
-  if (feature) return catalog.featureIndex[`${feature[1]}/${feature[2]}/${feature[3]}`]?.title ?? null
+  // 特性页：/feature/<板块>/<feature> —— 全局 id 两段（与基准无关，章不在 id 里）
+  const feature = /^\/feature\/([^/]+)\/([^/]+)$/.exec(route)
+  if (feature) return catalog.featureIndex[`${feature[1]}/${feature[2]}`]?.title ?? null
+
+  // 语言入口：/lang/<语言 id> —— 探针用语言名（页面 H1 就是它）
+  const lang = /^\/lang\/([^/]+)$/.exec(route)
+  if (lang) return getLanguageMeta(lang[1]!)?.name ?? null
+
   return null
 }
 
+/**
+ * 这些路由**必须**有探针。
+ *
+ * 「探针查不到就跳过」是这条验收最危险的失效方式：正则跟着路由形状改漏一处，
+ * 检查会静默不干活，而构建照样绿。所以对内容型路由改成**硬要求**：
+ * 探针为 null 直接判失败，而不是跳过。
+ *
+ * `/` 与 `/attributions` 不在其列：它们是静态页，探针只能取到刚注入的 SEO 文案
+ * （自证），没有意义。
+ */
+const MUST_PROBE = /^\/(compare|feature|lang)\//
+
 let failed = 0
 let checked = 0
+let probed = 0
 
 /** 预渲染产出的全部路由，含不进 sitemap 的 /search —— 它们同样需要 title/canonical 收口 */
 const allRoutes = [...manifest.routes, ...(manifest.prerenderExtra ?? [])]
@@ -188,9 +216,19 @@ for (const route of allRoutes) {
   /* 验收：HTML 里必须出现该页的内容文本（否则就是渲染出了空壳） */
   checked += 1
   const probe = probeTextFor(route)
-  if (probe && !html.includes(probe)) {
-    console.error(`  ✗ ${route} 的预渲染 HTML 里找不到预期内容：「${probe}」`)
-    failed += 1
+  if (!probe) {
+    if (MUST_PROBE.test(route)) {
+      console.error(
+        `  ✗ ${route} 取不到内容探针 —— 路由形状变了但 probeTextFor 没跟上，这条验收会静默失效`,
+      )
+      failed += 1
+    }
+  } else {
+    probed += 1
+    if (!html.includes(probe)) {
+      console.error(`  ✗ ${route} 的预渲染 HTML 里找不到预期内容：「${probe}」`)
+      failed += 1
+    }
   }
   /*
    * 再看一眼「有没有格子还停在装载态」。标题探针只证明**页面**渲染了，
@@ -221,6 +259,8 @@ console.log(
   `[finalize] 已处理 ${checked}/${allRoutes.length} 条路由的 title/description` +
     (SITE_URL ? `，并写入 canonical（${SITE_URL}${BASE_PATH}）` : '（未设置 PC_SITE_URL，跳过 canonical）'),
 )
+// 打印实际检查条数 —— 「检查了 0 条」与「全部通过」看起来是一样的，必须能区分
+console.log(`[finalize] 其中 ${probed} 条做了内容探针检查（其余是静态页，无探针可查）`)
 
 if (failed) {
   console.error(`[finalize] 失败 ${failed} 项 —— 预渲染不完整，SEO 目标未达成。`)

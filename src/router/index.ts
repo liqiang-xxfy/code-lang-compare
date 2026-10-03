@@ -1,7 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router'
 import {
   chaptersOf,
-  hasBoxChapter,
+  hasChapterContent,
   landingSection,
   orderedSections,
   pairTargetsOf,
@@ -38,12 +38,14 @@ export const isEnabledLanguage = (v: string): boolean =>
  * 板块入口：落到该板块的第一个可用页面。
  *
  * 只在**没有 store 可用**的场合调用（路由的 redirect 函数）。
- * 章节型取「该基准确实有分片的第一章」—— 清单是语言无关的，但某个基准
- * 可能还没写这一章的内容，落到那里会是一页空白。
+ * 章节型取「在**该基准自己的**章节列表里，第一个它确实写了内容的章」——
+ * 章节分类每个基准各一份，而且某个基准可能还没写某一章的内容，落到那里会是一页空白。
  */
 export function sectionEntryPath(baseline: string, section: Section): string {
   if (sectionIsChapter(section)) {
-    const first = chaptersOf(section).find((c) => hasBoxChapter(baseline, section, c.id))
+    const first = chaptersOf(baseline, section).find((c) =>
+      hasChapterContent(baseline, baseline, section, c.id),
+    )
     return first ? `/compare/${baseline}/${section}/${first.id}` : '/404'
   }
   return pairTargetsOf(baseline, section).length ? sectionPathOf(baseline, section) : '/404'
@@ -124,8 +126,8 @@ export const routes: RouteRecordRaw[] = [
     props: true,
   },
   {
-    // 全局 feature id 是 `<板块>/<章节>/<feature>` 三段
-    path: '/feature/:section/:chapter/:feature',
+    // 全局 feature id 是 `<板块>/<feature>` 两段 —— feature 属于池，与基准无关
+    path: '/feature/:section/:feature',
     name: 'feature',
     component: () => import('@/views/FeatureView.vue'),
     props: true,

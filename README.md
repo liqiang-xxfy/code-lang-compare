@@ -5,10 +5,14 @@
 ```
 顶栏：☰ · 站点名 · 首页 · 多语言对比 · 速查 · 内容来源
 左侧（「多语言对比」的子菜单，顶栏 ☰ 可开合）：
-  基础语法 → 语言之内 → 语言之外 → 迁移陷阱 → 速语词典 → 迁移学习路线
+  基础表达 → 数据与抽象 → 语言机制 → 工程实践 → 迁移陷阱 → 速语词典 → 迁移学习路线
 
 每个板块页内：以 X 为基准 · [Y][Z][…]  ← 章节型板块多选，速查三兄弟单选
 ```
+
+**左栏的章节分类随基准变**。上面前四项是按「迁移者先关心什么」划的四个板块，而**每个板块里有哪些章、
+叫什么、什么顺序**是**每个基准各一份**的：以 Python 为参照系时看到的是 Python 心智模型下的组织方式，
+换成 Java 就是另一套。同一批知识点因此可以落在不同的章里，而内容只写一份。
 
 **基准与对比语言分开**：基准平铺在顶栏、单选、点击即切换；对比语言在**每个板块页内**——章节型板块是多选（勾几门并排几门），速查三兄弟是单选（逐方向撰写，一门目标 = 一篇文章）。控件形态本身就说明了这个板块是哪种。
 
@@ -43,7 +47,7 @@ npm run preview            # 本地预览 dist/
 
 ## 这个项目的四条核心设计
 
-### 0. 内容按**语言**组织，清单与内容分离
+### 0. 内容按**语言**组织，章节分类按**基准**各来一份
 
 **一个知识点在一门语言下的全部内容 = 一个「对比框」**，三个槽位：① 代码 ② 注释（代码内联的 `@note`）③ 说明。
 
@@ -51,14 +55,17 @@ npm run preview            # 本地预览 dist/
 
 ```
 content/
-  catalog/<板块>.yaml                    ← ① 清单：章节与 feature 的顺序、标题（与语言无关）
-  languages/<语言>/<板块>/<章节>.yaml     ← ② 内容：boxes，key = 清单里的 feature id
-  pairs/<基准>2<目标>/{pitfalls,glossary,roadmap}.yaml  ← ③ 唯一保留方向性的内容
+  catalog/<板块>/features.yaml           ← ① 池：这个板块有哪些知识点（与基准无关）
+  catalog/<板块>/<基准 id>.yaml           ← ② 分组：该基准怎么把它们讲给读者听
+  languages/<语言>/<板块>/<group>.yaml    ← ③ 内容：boxes，key = 池里的 feature id
+  pairs/<基准>2<目标>/{pitfalls,glossary,roadmap}.yaml  ← ④ 唯一保留方向性的内容
 ```
 
-**这意味着同一门语言要为每个基准各写一份差异解释**（视角无法互相推导，这是本架构的主要成本），换来的是**加语言从 N 倍降为常数**、且不再有会各自漂移的方向副本。
+**存放单位（`group`）与展示单位（章节）是分开的**，这是第 ① 与第 ② 层能拆开的原因，也是「**改章节分类不用动任何内容文件**」的原因：同一个知识点在 JS 视角下可以落在「对象与原型」章、在 Python 视角下落在「类与继承」章，而它的内容只写一份。
 
-**地址里只有基准，没有目标语言**：`/compare/javascript/basics/variables` 不指定对比哪几门，它由页内的勾选决定。基准进 URL 是因为每个基准是一套独立的浏览语境（要能预渲染、能分享）；对比语言不进 URL 是因为它是"我现在想看哪几门"——写进地址会让同一份内容散成几十个地址。
+**同一门语言要为每个基准各写一份差异解释**（视角无法互相推导，这是本架构的主要成本），换来的是**加语言从 N 倍降为常数**、且不再有会各自漂移的方向副本。而章节分类的自由度**不在这笔账里** —— 它只决定同一个知识点摆在哪个位置。
+
+**地址里只有基准，没有目标语言**：`/compare/javascript/express/bindings` 不指定对比哪几门，它由页内的勾选决定。基准进 URL 是因为每个基准是一套独立的浏览语境（要能预渲染、能分享）；对比语言不进 URL 是因为它是"我现在想看哪几门"——写进地址会让同一份内容散成几十个地址。
 
 **速查三兄弟是唯一的例外**：陷阱 / 词典 / 路线的主语本就是**方向**（「带着 JS 习惯写 Python 会踩的坑」换成「Python 的坑」就丢掉了最有价值的那半句），所以它们留在 `content/pairs/` 下按方向组织。
 
@@ -82,7 +89,7 @@ content/**/*.yaml  ──[validate → build]──▶  src/generated/**  ──
 | `Feature.kind: 'pitfall'` | 用 `Pitfall` 实体 + `featureId` 反查 | 同一个坑不该有两份内容 |
 | `weight` | 清单里 `features` 的数组顺序 | 一个可被忽略的字段 |
 | `LanguageMeta.status` | 只由 `content/registry.yaml` 的 `enabled` 控制 | 两个开关控同一件事必然冲突 |
-| 章节文件名带序号 | 文件名即章节 id，顺序由清单的数组位置表达 | 序号会在中间插一章时让后续全体改名 |
+| 章节文件名带序号 | 章节 id 由该基准的分组文件自己声明，顺序由数组位置表达 | 序号会在中间插一章时让后续全体改名 |
 
 ### 3. 高亮与 Markdown 都在构建期完成
 
@@ -98,11 +105,15 @@ Markdown 走 `markdown-it`，**`html: false`**（禁裸 HTML）—— 因为内�
 
 ## 内容怎么写
 
-### 加一个特性（最高频）
+### 加一个知识点（最高频）
 
-1. 在 `content/catalog/<板块>.yaml` 的某一章里加一条 feature（id 是**章内唯一**的 kebab-case slug）
-2. 在 `content/languages/<语言>/<板块>/<章节>.yaml` 的 `boxes` 里加一条同名的 key
-3. 跑 `npm run content:validate` 看缺口，`npm run dev` 看效果
+1. 在 `content/catalog/<板块>/features.yaml` 的池里加一条（id 是**板块内唯一**的 kebab-case slug），并给它一个 `group`（**存放组** = 内容文件名）
+2. 在**想展示它的**基准的 `content/catalog/<板块>/<基准 id>.yaml` 里，把它加进某一章的 `features`
+3. 在 `content/languages/<语言>/<板块>/<group>.yaml` 的 `boxes` 里加一条同名的 key
+4. 跑 `npm run content:validate` 看缺口，`npm run dev` 看效果
+
+> **只想在某个基准下展示，就只改那一份分组** —— 池与内容都不用动。反过来，
+> **调章节名 / 换顺序 / 重新分组**也只改分组文件，一个内容文件都不用碰。
 
 > **「还没写」与「本语言没有这个概念」是两回事**：前者是键缺失（渲染成更淡的留白），
 > 后者要显式写 `absent: true`（渲染成灰格 +「本语言无此概念」）。少了这个区分，
@@ -148,7 +159,7 @@ equivalence:
 ### 加一门语言
 
 1. 复制脚手架目录：`cp -r content/languages/_template content/languages/<新语言 id>`，填 `meta.yaml`（`id` 必须等于目录名，去掉前导下划线）
-2. 按板块填内容：`content/languages/<id>/<板块>/<章节>.yaml`
+2. 按板块填内容：`content/languages/<id>/<板块>/<存放组>.yaml`（文件名取自池里的 `group`）
 3. 在 `content/registry.yaml` 里登记并 `enabled: true`
 4. `npm run content:build && npm run verify:ext`
 
@@ -197,7 +208,7 @@ PC_SITE_URL=https://<user>.github.io PC_BASE_PATH=code-lang-compare npm run buil
 
 构建链里有两个「不做就一定出事」的步骤，都已经写进 `npm run build`：
 
-1. `dirStyle: 'nested'`（vite.config.ts）—— 产出 `/compare/javascript/basics/variables/index.html`。默认的 `flat` 会产出 `.html` 后缀文件，而 GitHub Pages 不做「无扩展名 → .html」的解析，结果就是**只有首页能打开**。
+1. `dirStyle: 'nested'`（vite.config.ts）—— 产出 `/compare/javascript/express/bindings/index.html`。默认的 `flat` 会产出 `.html` 后缀文件，而 GitHub Pages 不做「无扩展名 → .html」的解析，结果就是**只有首页能打开**。
 2. `dist/404.html`（scripts/build/finalize-dist.ts）—— GitHub Pages 没有 rewrite，深链直接命中 404 时必须回落到 SPA。
 
 构建最后还会**验收**两条：每条路由的 HTML 里必须含该页内容文本，且**不含「加载中…」**（后者是「页面结构在、内容没预渲染出来」这一类空壳的探针）。
@@ -236,8 +247,10 @@ rm -rf node_modules package-lock.json && npm install
 ```
 content/                  # 【唯一人工编辑入口】
   registry.yaml           #   语言启用开关 + 基准/对比语言默认值 + 发布策略 + 板块注册表
-  catalog/<板块>.yaml      #   清单：章节与 feature 的顺序、标题（与语言无关，唯一顺序真源）
-  languages/<语言>/        #   内容：<板块>/<章节>.yaml（boxes，key = 清单里的 feature id）
+  catalog/<板块>/          #   清单两层：
+    features.yaml         #     池 —— 知识点清单（与基准无关）
+    <基准 id>.yaml         #     章节分组 —— 该基准怎么讲（名称/分组/顺序/取舍）
+  languages/<语言>/        #   内容：<板块>/<存放组>.yaml（boxes，key = 池里的 feature id）
     meta.yaml             #     语言元信息（注释符驱动 @note 解析、shikiLang 驱动高亮、baseline 候选资格）
   pairs/<基准>2<目标>/      #   速查三兄弟：pitfalls / glossary / roadmap（唯一保留方向性的内容）
   languages/_template/    #   新增语言时复制的脚手架（`_` 前缀 = 私有目录）
@@ -249,8 +262,8 @@ scripts/
   lib/                    #   装载、@note 抽取、Markdown + Shiki 渲染、分析、环境变量
 src/
   generated/              #   【构建产物，禁止手改】
-    catalog.json                       # 清单 + feature 索引（与语言无关，eager import）
-    content/<语言>/<板块>/<章节>.json    # 内容分片：一门语言 × 一个章节
+    catalog.json                       # 每基准一份章节分组 + 与基准无关的 feature 索引（eager import）
+    content/<语言>/<板块>/<存放组>.json  # 内容分片：一门语言 × 一个存放组
     static/<基准>--<目标>.json          # 速查三兄弟
     search-index/<语言>.json            # 搜索倒排索引，按语言分片
   schemas/                #   内容契约（Zod，唯一真源）
@@ -262,7 +275,7 @@ src/
 tests/                    #   单元 + 内容契约测试
 ```
 
-**内容分片粒度是「一门语言 × 一个章节」**。清单与语言无关，所以章节标题/顺序走 `catalog.json`（小、eager）；格子的内容按语言拆开懒加载，一个章节页按可见列加载 2–5 份。
+**内容分片粒度是「一门语言 × 一个存放组」**。章节分类按基准各一份，所以章节标题/顺序走 `catalog.json`（小、eager）；格子的内容按语言与存放组拆开懒加载，一个章节页按「可见列 × 本章引用的存放组」加载若干份，再合并成一门语言一份的格子表。
 
 ---
 

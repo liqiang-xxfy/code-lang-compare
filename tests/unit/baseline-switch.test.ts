@@ -216,24 +216,31 @@ describe('全局选择：目标语言如何推导（它不在 URL 里）', () =>
 })
 
 describe('全局选择：切换基准时的回落', () => {
-  it('章节 id 就是文件名（没有序号）—— 同一章能保留就保留', () => {
-    // 清单与语言无关，所以章节集合对三个基准是同一套；差别在**写了没有**。
-    for (const baseline of ['javascript', 'python'] as const) {
-      expect(resolveSwitchPath(baseline, { section: 'basics', key: 'variables' })).toBe(
-        `/compare/${baseline}/basics/variables`,
-      )
-    }
+  it('同一章能保留就保留 —— 前提是**新基准的章节分类里也有这一章且有内容**', () => {
+    expect(resolveSwitchPath('javascript', { section: 'express', key: 'bindings' })).toBe(
+      '/compare/javascript/express/bindings',
+    )
+    // python 那边对应的一章叫 names 而不是 bindings —— 同名章节不代表同义（ADR-52）
+    expect(resolveSwitchPath('python', { section: 'express', key: 'names' })).toBe(
+      '/compare/python/express/names',
+    )
+    // 分类里有、但这一门还没写内容的章同样要回落（骨架期的常态）
+    expect(resolveSwitchPath('python', { section: 'express', key: 'values' })).toBe(
+      sectionEntryPath('python', 'express'),
+    )
   })
 
-  it('新基准还没有这一章的内容时，落到它自己第一个有内容的章节', () => {
-    // 不存在的章 key 一律回落
-    expect(resolveSwitchPath('javascript', { section: 'basics', key: '99-nonexistent' })).toBe(
-      '/compare/javascript/basics/variables',
+  it('新基准没有这一章（或还没写内容）时，落到它自己第一个有内容的章节', () => {
+    // 分类里不存在的章 → 回落
+    expect(resolveSwitchPath('javascript', { section: 'express', key: '99-nonexistent' })).toBe(
+      sectionEntryPath('javascript', 'express'),
     )
-    // java 目前一章都没写 —— 落到它确实有分片的第一章（没有就是 /404）
-    expect(resolveSwitchPath('java', { section: 'basics', key: 'variables' })).toBe(
-      sectionEntryPath('java', 'basics'),
+    // 'bindings' 只存在于 JS 的分类里 → python 基准下要回落
+    expect(resolveSwitchPath('python', { section: 'express', key: 'bindings' })).toBe(
+      sectionEntryPath('python', 'express'),
     )
+    // java 还没有 express 的章节分组 → 整块没有落点
+    expect(resolveSwitchPath('java', { section: 'express', key: 'bindings' })).toBe('/404')
   })
 
   it('列表板块：地址里没有目标，只要该基准下有内容就跳过去', () => {
@@ -248,14 +255,14 @@ describe('全局选择：切换基准时的回落', () => {
 
   it('非对比页（section 为 null）落到该基准第一个有内容的章节型板块', () => {
     expect(resolveSwitchPath('javascript', { section: null, key: null })).toBe(
-      sectionEntryPath('javascript', 'basics'),
+      sectionEntryPath('javascript', 'express'),
     )
   })
 
   it('有内容的基准候选有落点；还没写内容的落到 /404 而不是空白页', () => {
     for (const id of baselineLanguageIds) {
       const path = resolveSwitchPath(id, { section: null, key: null })
-      const sections = ['basics', 'inside', 'outside'] as const
+      const sections = ['express', 'model', 'mechanism', 'practice'] as const
       const hasContent = sections.some((s) => sectionEntryPath(id, s) !== '/404')
       expect(path === '/404', `${id} 的落点与内容存量的判断不一致`).toBe(!hasContent)
     }
@@ -298,7 +305,7 @@ describe('全局选择：manifest 是客户端唯一的「有哪些方向」来�
     }
   })
 
-  it('章节型板块是基准级的：清单与语言无关，不存在「哪个基准的那一套」', () => {
+  it('章节型板块是基准级的：它是参照系下的对照，不锁定任何单一方向', () => {
     const chapterSections = manifest.sections.filter((s) => s.shape === 'chapter')
     expect(chapterSections.length).toBeGreaterThan(0)
     for (const s of chapterSections) {

@@ -10,7 +10,8 @@ import { pickColumns } from '@/composables/useVisibleColumns'
 import {
   chapterOf,
   chapterPathOf,
-  hasBoxChapter,
+  groupsOfChapter,
+  hasChapterContent,
   sectionDefOf,
   siblingsOf,
 } from '@/content/repository'
@@ -18,7 +19,7 @@ import { sectionOfRoute } from '@/router'
 import { useContentStore } from '@/stores/content'
 import { useLanguageStore } from '@/stores/language'
 import { getLanguageMeta } from '@/generated/registry.gen'
-import type { RenderedBoxChapter } from '@/schemas'
+import type { RenderedBox } from '@/schemas'
 
 const route = useRoute()
 const content = useContentStore()
@@ -32,37 +33,54 @@ const baselineId = computed(() => String(route.params.baseline ?? ''))
  * 守卫保证只有已注册的章节型板块能走到这里，null 只是类型上的兜底。
  */
 const section = computed(() => sectionOfRoute(route))
-/** 章节 id 即文件名，直接来自地址 —— v2 取消了 topic 这一层，不再需要反查 */
+/** 章节 id 来自地址 —— 它在**该基准的**章节分类里定义（每个基准一套） */
 const chapterId = computed(() => String(route.params.chapter ?? ''))
-/** 章节元数据来自**清单**（与语言无关），不再从分片里读 */
-const chapter = computed(() => (section.value ? chapterOf(section.value, chapterId.value) : null))
+/** 章节元数据来自**该基准的章节分组** —— 同名章节在不同基准下不代表同义 */
+const chapter = computed(() =>
+  section.value ? chapterOf(baselineId.value, section.value, chapterId.value) : null,
+)
 
 /**
- * 可见列 = 基准 + 勾选的对比语言，并按「这一章真有分片」裁剪。
+ * 本章引用了哪些**存放组** —— 这一页要加载的内容分片就是它。
+ * 与守卫、与构建期的路由判据同源（同一个 `groupsOfChapter`）。
+ */
+const groups = computed(() =>
+  section.value ? groupsOfChapter(baselineId.value, section.value, chapterId.value) : [],
+)
+
+/**
+ * 可见列 = 基准 + 勾选的对比语言，并按「这一章真有内容」裁剪。
  *
  * 裁剪**不补位**（ADR-34）：勾选的语言一门都没写这一章时只留基准列。
- * 判据是「该语言本章有分片」（hasBoxChapter），不是「加载完了没有」——
+ * 判据是「该语言写了本章引用的某个存放组」，不是「加载完了没有」——
  * 后者会让列在加载完成前后跳一次。
  */
 const columns = computed(() => {
   const s = section.value
   if (!s) return []
   const present = new Set(
-    languages.orderedMeta.map((m) => m.id).filter((id) => hasBoxChapter(id, s, chapterId.value)),
+    languages.orderedMeta
+      .map((m) => m.id)
+      .filter((id) => hasChapterContent(id, baselineId.value, s, chapterId.value)),
   )
   return pickColumns(languages.orderedMeta, baselineId.value, present)
 })
 
 const columnIds = computed(() => columns.value.map((m) => m.id))
 
-/** 已加载的分片。没加载完的列会显示「加载中」而不是「还没写」*/
-const shards = computed(() => {
+/**
+ * 已加载的格子：把本章引用的若干存放组**合并**成一门语言一份的扁平表。
+ *
+ * 没加载完的列不设键 —— 布局据此显示「加载中」而不是「还没写」。
+ */
+const boxes = computed(() => {
   const s = section.value
-  if (!s) return {} as Record<string, RenderedBoxChapter>
-  const out: Record<string, RenderedBoxChapter> = {}
+  if (!s) return {} as Record<string, Record<string, RenderedBox>>
+  const gs = groups.value
+  const out: Record<string, Record<string, RenderedBox>> = {}
   for (const id of columnIds.value) {
-    const shard = content.getBoxChapterRaw(id, s, chapterId.value)
-    if (shard) out[id] = shard
+    const merged = content.boxesOf(id, s, gs)
+    if (merged) out[id] = merged
   }
   return out
 })
@@ -70,7 +88,7 @@ const shards = computed(() => {
 /**
  * 按需加载每一列的分片。
  *
- * 守卫已经加载过基准列那一份，但**换对比语言不产生导航** —— 用户只是在页内的
+ * 守卫已经加载过一遍，但**换对比语言不产生导航** —— 用户只是在页内的
  * 语言选择条里勾了一门，路由没变，守卫不会重跑。少了这个 watcher，
  * 新勾的那一列会永远停在空白。
  */
@@ -79,13 +97,15 @@ watch(
   (cols) => {
     const s = section.value
     if (!s || !cols.length) return
-    void content.ensureColumns(s, chapterId.value, cols)
+    void content.ensureChapter(s, groups.value, cols)
   },
   { immediate: true },
 )
 
 const nav = computed(() =>
-  section.value ? siblingsOf(section.value, chapterId.value) : { prev: null, next: null },
+  section.value
+    ? siblingsOf(baselineId.value, section.value, chapterId.value)
+    : { prev: null, next: null },
 )
 
 const baselineName = computed(() => getLanguageMeta(baselineId.value)?.name ?? baselineId.value)
@@ -93,8 +113,8 @@ const baselineName = computed(() => getLanguageMeta(baselineId.value)?.name ?? b
 /** 章内还有多少格是「未经人工校对」的 draft */
 const draftCount = computed(() => {
   let n = 0
-  for (const shard of Object.values(shards.value)) {
-    for (const box of Object.values(shard.boxes)) if (box.reviewState === 'draft') n += 1
+  for (const perLang of Object.values(boxes.value)) {
+    for (const box of Object.values(perLang)) if (box.reviewState === 'draft') n += 1
   }
   return n
 })
@@ -152,7 +172,7 @@ usePageMeta(
         :baseline="baselineId"
         :chapter="chapter"
         :columns="columns"
-        :shards="shards"
+        :boxes="boxes"
       />
 
       <nav class="pc-chapter-nav" aria-label="章节导航">

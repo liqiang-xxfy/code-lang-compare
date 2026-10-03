@@ -19,10 +19,13 @@
  */
 import path from 'node:path'
 import type {
+  BaselineCatalog,
   BoxSource,
+  CatalogChapter,
   Manifest,
   ManifestPair,
   PairPayload,
+  RenderedBaselineCatalog,
   RenderedBlock,
   RenderedBox,
   RenderedBoxChapter,
@@ -34,6 +37,7 @@ import {
   GENERATED_DIR,
   PUBLIC_DIR,
   extractNotes,
+  groupsOfPool,
   loadI18n,
   rmrf,
   writeJson,
@@ -97,6 +101,38 @@ function pickPairTarget(a: A, baseline: string, section: Section): string | null
     : available[0]!
 }
 
+/**
+ * 某一章引用了哪些**存放组** —— 这一页要加载的内容分片就是它。
+ *
+ * **必须与运行时的同名辅助函数同判据**（`src/content/repository.ts`）：构建期用它决定
+ * 「这一页值不值得产出」，运行时用它决定「加载哪几份分片」。两边分叉 = 空白页且不报错。
+ */
+function groupsOfChapter(a: A, baseline: string, section: string, chapter: string): string[] {
+  const cat = a.catalogOf[`${baseline}/${section}`]
+  const ch = cat?.chapters.find((x) => x.id === chapter)
+  const pool = a.poolBySection[section]
+  if (!ch || !pool) return []
+  const byId = new Map(pool.features.map((f) => [f.id, f]))
+  const out: string[] = []
+  for (const id of ch.features) {
+    const f = byId.get(id)
+    if (f && !out.includes(f.group)) out.push(f.group)
+  }
+  return out
+}
+
+/** 构建产物里的章节：源文件的 `features` 只是 id 引用，这里 join 成池里的对象 */
+function renderChapter(pool: A['pools'][number] | undefined, ch: BaselineCatalog['chapters'][number]): CatalogChapter {
+  const byId = new Map(pool?.features.map((f) => [f.id, f]) ?? [])
+  const out: CatalogChapter = {
+    id: ch.id,
+    title: ch.title,
+    features: ch.features.map((id) => byId.get(id)).filter((f): f is NonNullable<typeof f> => Boolean(f)),
+  }
+  if (ch.summary) out.summary = ch.summary
+  return out
+}
+
 function hasPairSection(p: A['pairs'][number], section: Section): boolean {
   switch (section) {
     case 'pitfalls':
@@ -157,16 +193,18 @@ function buildSeo(a: A, routes: string[]): Manifest['seo'] {
     if (chapterMatch) {
       const [, baseline, section, chapterId] = chapterMatch
       const def = a.registry.sections[section!]
-      const chapter = a.catalogBySection[section!]?.chapters.find((c) => c.id === chapterId)
+      // **按 (基准, 板块) 取章** —— 章节分组每个基准各一份，取错了会静默回落到站点默认文案
+      const chapter = a.catalogOf[`${baseline}/${section}`]?.chapters.find((c) => c.id === chapterId)
       if (!def || !chapter) {
         out[route] = { title: site.name, description: site.shortDescription }
         continue
       }
+      const byId = new Map(a.poolBySection[section!]?.features.map((f) => [f.id, f]) ?? [])
       const vars: Record<string, string> = {
         baseline: nameOf(baseline!),
         chapterTitle: chapter.title,
         sample: chapter.features
-          .map((f) => f.title)
+          .map((id) => byId.get(id)?.title ?? id)
           .slice(0, def.seo.sampleLimit ?? 8)
           .join('、'),
         compared: comparedOf(baseline!),
@@ -213,10 +251,10 @@ function buildSeo(a: A, routes: string[]): Manifest['seo'] {
       continue
     }
 
-    /* /feature/<板块>/<章节>/<feature> */
-    const featureMatch = /^\/feature\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(route)
+    /* /feature/<板块>/<feature> —— 全局 id 两段，与基准解耦 */
+    const featureMatch = /^\/feature\/([^/]+)\/([^/]+)$/.exec(route)
     if (featureMatch) {
-      const gid = `${featureMatch[1]}/${featureMatch[2]}/${featureMatch[3]}`
+      const gid = `${featureMatch[1]}/${featureMatch[2]}`
       const entry = a.featureIndex[gid]
       const feature = a.features.find((f) => f.id === gid)?.feature
       out[route] = {
@@ -337,37 +375,42 @@ async function main(): Promise<void> {
     return out
   }
 
-  /* 5. emit 内容分片 —— 一门语言 × 一个章节一个文件 */
+  /* 5. emit 内容分片 —— 一门语言 × 一个**存放组**一个文件 */
   const contentDir = path.join(GENERATED_DIR, 'content')
   rmrf(contentDir)
-  /** 实际产出的分片键 `<语言>/<板块>/<章节>` —— 路由生成要用它判断「这一页有没有内容」 */
+  /** 实际产出的分片键 `<语言>/<板块>/<存放组>` —— 路由生成要用它判断「这一页有没有内容」 */
   const emitted = new Set<string>()
   for (const lang of enabled) {
-    for (const c of a.catalogs) {
-      for (const chapter of c.chapters) {
-        const group = a.content.get(`${lang}/${c.section}/${chapter.id}`)
-        if (!group) continue
+    for (const pool of a.pools) {
+      for (const group of groupsOfPool(pool)) {
+        const g = a.content.get(`${lang}/${pool.section}/${group}`)
+        if (!g) continue
         const boxes: Record<string, RenderedBox> = {}
-        for (const [featureId, box] of Object.entries(group.boxes)) {
+        for (const [featureId, box] of Object.entries(g.boxes)) {
           boxes[featureId] = renderBox(lang, box)
         }
         const shard: RenderedBoxChapter = {
           lang,
-          section: c.section as Section,
-          chapter: chapter.id,
+          section: pool.section as Section,
+          group,
           boxes,
         }
-        writeJson(path.join(contentDir, lang, c.section, `${chapter.id}.json`), shard)
-        emitted.add(`${lang}/${c.section}/${chapter.id}`)
+        writeJson(path.join(contentDir, lang, pool.section, `${group}.json`), shard)
+        emitted.add(`${lang}/${pool.section}/${group}`)
       }
     }
   }
 
-  /* 清单产物 —— 与语言无关，客户端 eager import（小） */
+  /* 清单产物 —— 两层：每基准一份的章节分组（features 已 join 池字段）+ 与基准无关的索引 */
   const generatedAt = new Date().toISOString()
+  const renderedCatalogs: RenderedBaselineCatalog[] = a.catalogs.map((c) => ({
+    section: c.section as Section,
+    baseline: c.baseline,
+    chapters: c.chapters.map((ch) => renderChapter(a.poolBySection[c.section], ch)),
+  }))
   const catalogPayload: RenderedCatalog = {
     generatedAt,
-    catalogs: a.catalogs,
+    catalogs: renderedCatalogs,
     featureIndex: a.featureIndex as RenderedCatalog['featureIndex'],
   }
   writeJson(path.join(GENERATED_DIR, 'catalog.json'), catalogPayload)
@@ -379,15 +422,17 @@ async function main(): Promise<void> {
   const chapterPath = (baseline: string, section: string, chapter: string) =>
     `/compare/${baseline}/${section}/${chapter}`
   /*
-   * 章节页只在**该基准确实有这一章分片**时产出 ——
-   * 基准列必须有内容（R23），没有分片的基准页会是空白页，不该进 sitemap。
+   * 章节页只在**基准自己写了这一章引用的某个存放组**时产出 ——
+   * 否则基准列是一片空白，这一页没有参照系，不该进 sitemap。
+   *
+   * 迁移期只要求「至少一个」；内容铺满后应收紧成「全部齐备」（那时基准列才无空洞，
+   * 对应的信号是 R27 归零）。
    */
   for (const c of a.catalogs) {
     for (const chapter of c.chapters) {
-      for (const baseline of a.baselineIds) {
-        if (!emitted.has(`${baseline}/${c.section}/${chapter.id}`)) continue
-        routes.add(chapterPath(baseline, c.section, chapter.id))
-      }
+      const groups = groupsOfChapter(a, c.baseline, c.section, chapter.id)
+      if (!groups.some((g) => emitted.has(`${c.baseline}/${c.section}/${g}`))) continue
+      routes.add(chapterPath(c.baseline, c.section, chapter.id))
     }
   }
 

@@ -1,22 +1,26 @@
 /**
- * 内容分析与校验（v2）—— validate 与 build 共用同一份装载/合并/检查逻辑。
+ * 内容分析与校验（v2.1）—— validate 与 build 共用同一份装载/合并/检查逻辑。
  *
  * 为什么要共用：如果校验用一套装载、构建用另一套，「校验通过但构建出问题」
  * 就是必然结果。这里保证两者看到的内容完全一致。
  *
- * v2 的规则集换了口径：内容按**语言**组织（每门语言为每个基准各写一份差异），
- * 清单集中在 content/catalog/。旧架构里服务于「三轴 + 两种 scope」的大批规则
- * （覆盖率按 topic.languages 范围、板块成员资格、多列板块的正文归属…）在 v2
- * 只有一种形态后不再需要，取而代之的是 R20–R26。
+ * 清单是**两层**的（S6.5，docs/对比内容架构.md §2.5）：
+ *   · feature 池 `catalog/<板块>/features.yaml` —— 有哪些知识点，与基准无关，全站唯一
+ *   · 章节分组 `catalog/<板块>/<基准 id>.yaml` —— 某基准怎么把它们讲给读者听
+ * 接缝是 `group`（存放组）：内容的归属，与展示章解耦。
+ *
+ * **最承重的一条**：`features` / `featureIndex` 必须**从池构建**，不能遍历章节分组 ——
+ * 同一批知识点会被每个基准各引用一次，遍历分组等于把每个 feature 数三遍。
  */
 import type {
   AttributionEntry,
+  BaselineCatalog,
   BoxSource,
-  Catalog,
-  CatalogFeature,
   FeatureKind,
+  FeaturePool,
   Issue,
   LanguageMeta,
+  PoolFeature,
   Registry,
   ScopedGlossary,
   ScopedPitfall,
@@ -24,16 +28,17 @@ import type {
 } from '../../src/schemas'
 import {
   extractNotes,
+  groupsOfPool,
   isSafeUrl,
-  listLanguageContentFiles,
+  listLanguageGroupFiles,
   listLanguageIds,
   loadAllLanguageMeta,
-  loadCatalog,
+  loadBaselineCatalogs,
   loadFeaturePools,
-  loadLanguageContent,
   loadPairListsV2,
+  loadPoolLanguageContent,
   loadRegistry,
-  type LanguageChapterContent,
+  type LanguageGroupContent,
   type PairListsV2,
 } from './core'
 import { detectForeignLanguageMentions } from './lang-mention'
@@ -76,15 +81,31 @@ const NON_LEDGER_ORIGINS = new Set(['llm'])
 
 /* ────────────────────────── 分析结果 ────────────────────────── */
 
-/** 全局 feature id = `<板块>/<章节>/<feature>` —— 四处消费者必须拼同一套 */
-export const globalIdOf = (section: string, chapter: string, feature: string): string =>
-  `${section}/${chapter}/${feature}`
+/**
+ * 全局 feature id = `<板块>/<feature>` —— 四处消费者必须拼同一套。
+ *
+ * 没有章节段：章节随基准变，feature 没有唯一的章；也没有存放组：它是界面上看不见的
+ * 存放细节。见 `globalFeatureIdSchema` 的注释。
+ */
+export const globalIdOf = (section: string, feature: string): string => `${section}/${feature}`
 
 export interface FeatureEntry {
-  feature: CatalogFeature
+  feature: PoolFeature
   section: string
-  chapter: string
+  /** 存放组 —— 内容文件的第三段 */
+  group: string
   id: string
+}
+
+/** 构建产物里的知识点索引条目 —— 详情页与搜索共用，因此带上 summary / refFeatureId */
+export interface FeatureIndexEntry {
+  title: string
+  section: string
+  group: string
+  kind: FeatureKind
+  summary?: string
+  refFeatureId?: string
+  tags: string[]
 }
 
 export interface Analysis {
@@ -92,21 +113,25 @@ export interface Analysis {
   metas: LanguageMeta[]
   allLanguageIds: string[]
   enabledLanguageIds: string[]
-  /** 基准候选（v2 固定三门）—— `vs` 的 key 集合由它决定 */
+  /** 基准候选（固定三门）—— `vs` 的 key 集合由它决定 */
   baselineIds: string[]
   metaById: Record<string, LanguageMeta>
-  catalogs: Catalog[]
-  catalogBySection: Record<string, Catalog>
-  /** 有清单的板块（= 章节型板块） */
+  /** 每个板块一个池 —— 与基准无关 */
+  pools: FeaturePool[]
+  poolBySection: Record<string, FeaturePool>
+  /** 每基准一份的章节分组 */
+  catalogs: BaselineCatalog[]
+  /** key = `<基准 id>/<板块>` */
+  catalogOf: Record<string, BaselineCatalog>
+  /** 有池的板块（= 章节型板块） */
   chapterSections: string[]
   features: FeatureEntry[]
-  /** key = 全局 id */
-  featureIndex: Record<
-    string,
-    { title: string; section: string; chapter: string; kind: FeatureKind }
-  >
-  /** key = `<语言>/<板块>/<章节>` */
-  content: Map<string, LanguageChapterContent>
+  /** key = 全局 id `<板块>/<feature>` */
+  featureIndex: Record<string, FeatureIndexEntry>
+  /** 全局 id → 引用了它的基准列表（R22/R23/R24 的求值域） */
+  referencedBy: Record<string, string[]>
+  /** key = `<语言>/<板块>/<存放组>` */
+  content: Map<string, LanguageGroupContent>
   /** 全局 id -> 语言 -> 对比框 */
   boxes: Map<string, Map<string, BoxSource>>
   /** 按 (基准, 目标) 分组的三份列表资源 */
@@ -122,7 +147,7 @@ export interface Analysis {
     boxCount: number
     byState: Record<string, number>
     byOrigin: Record<string, number>
-    /** key = 语言；have = 该语言写了框的 feature 数，total = 清单 feature 总数 */
+    /** key = 语言；have = 该语言写了框的 feature 数，total = 池里的 feature 总数 */
     coverage: Record<string, { have: number; total: number }>
   }
 }
@@ -133,6 +158,17 @@ const isEmptyBox = (b: BoxSource): boolean =>
   !(b.blocks?.length ?? 0) &&
   !b.baseline?.trim() &&
   Object.values(b.vs).every((v) => !v.trim())
+
+/** 池里每个存放组各含哪些 feature id */
+function membersByGroup(pool: FeaturePool): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>()
+  for (const f of pool.features) {
+    const set = out.get(f.group) ?? new Set<string>()
+    set.add(f.id)
+    out.set(f.group, set)
+  }
+  return out
+}
 
 export function analyzeContent(): Analysis {
   const issues: Issue[] = []
@@ -171,8 +207,8 @@ export function analyzeContent(): Analysis {
    * 那边抛错终止、这边累积 error，两处必须同步改：判据不一致会产出
    * 「校验放行但构建 throw」这种最难定位的组合。
    *
-   * v2 里基准固定为三门（ADR-47）：加一个基准等于让**每一门语言**各补一份
-   * 差异说明，是 N 倍成本；定死之后 `vs` 的 key 集合封闭，内容总量可预估。
+   * 基准固定为三门（ADR-47）：加一个基准等于让**每一门语言**各补一份差异说明，
+   * 是 N 倍成本；定死之后 `vs` 的 key 集合封闭，内容总量可预估。
    */
   const baselineIds = metas.filter((m) => m.baseline).map((m) => m.id)
   if (!baselineIds.length) {
@@ -207,61 +243,123 @@ export function analyzeContent(): Analysis {
     )
   }
 
-  /* ── 清单 ── */
-  const { catalogs, issues: catalogIssues } = loadCatalog()
-  const catalogBySection: Record<string, Catalog> = {}
+  /* ── 池与章节分组 ── */
+  const { pools, issues: poolIssues } = loadFeaturePools()
+  for (const i of poolIssues) err('R20c', i.where, i.message)
 
-  // R20c 文件名与 section 字段一致（loadCatalog 报出来的）
-  for (const i of catalogIssues) err('R20', i.where, i.message)
-
-  for (const c of catalogs) {
-    if (!(c.section in registry.sections)) {
-      err('R20', `content/catalog/${c.section}.yaml`, `section '${c.section}' 不在 registry.yaml 的 sections 段里`)
+  const poolBySection: Record<string, FeaturePool> = {}
+  for (const p of pools) {
+    if (!(p.section in registry.sections)) {
+      err('R20c', `content/catalog/${p.section}/features.yaml`, `板块 '${p.section}' 不在 registry.yaml 的 sections 段里`)
     }
-    if (catalogBySection[c.section]) {
-      err('R20', `content/catalog/${c.section}.yaml`, `板块 '${c.section}' 有不止一份清单`)
-    }
-    catalogBySection[c.section] = c
+    poolBySection[p.section] = p
   }
-  const chapterSections = catalogs.map((c) => c.section)
+  const chapterSections = pools.map((p) => p.section)
 
-  /* 全局 feature 清单 */
+  const { catalogs, issues: catalogIssues } = loadBaselineCatalogs(baselineIds)
+  for (const i of catalogIssues) err('R20c', i.where, i.message)
+
+  const catalogOf: Record<string, BaselineCatalog> = {}
+  for (const c of catalogs) {
+    const key = `${c.baseline}/${c.section}`
+    if (catalogOf[key]) {
+      err('R20c', `content/catalog/${c.section}/${c.baseline}.yaml`, `${key} 有不止一份章节分组`)
+    }
+    if (!(c.section in poolBySection)) {
+      err(
+        'R20c',
+        `content/catalog/${c.section}/${c.baseline}.yaml`,
+        `板块 '${c.section}' 没有 feature 池 —— 章节分组引用的知识点无处解析`,
+      )
+    }
+    catalogOf[key] = c
+  }
+
+  /*
+   * ── 知识点清单：**从池构建** ──
+   *
+   * 这是本文件最承重的一处：遍历章节分组会把同一批 feature 按基准数重复插入，
+   * 于是 R20 报「全局 feature id 重复」、featureCount 也翻倍。
+   */
   const features: FeatureEntry[] = []
   const featureIndex: Analysis['featureIndex'] = {}
+  const referencedBy: Analysis['referencedBy'] = {}
+  for (const pool of pools) {
+    const seen = new Set<string>()
+    for (const f of pool.features) {
+      if (seen.has(f.id)) {
+        err('R20b', `content/catalog/${pool.section}/features.yaml`, `feature id 重复：${f.id}`)
+      }
+      seen.add(f.id)
+      const id = globalIdOf(pool.section, f.id)
+      features.push({ feature: f, section: pool.section, group: f.group, id })
+      featureIndex[id] = {
+        title: f.title,
+        section: pool.section,
+        group: f.group,
+        kind: f.kind,
+        ...(f.summary ? { summary: f.summary } : {}),
+        ...(f.refFeatureId ? { refFeatureId: f.refFeatureId } : {}),
+        tags: f.tags,
+      }
+    }
+  }
+
+  /* 章节分组：引用合法性（R20a）、同基准重复（R20h）、章内 id 唯一 */
   for (const c of catalogs) {
+    const pool = poolBySection[c.section]
+    const where = `content/catalog/${c.section}/${c.baseline}.yaml`
     const chapterIds = new Set<string>()
     for (const chapter of c.chapters) {
       if (chapterIds.has(chapter.id)) {
-        err('R20', `content/catalog/${c.section}.yaml`, `章节 id 重复：${chapter.id}`)
+        err('R20c', where, `章节 id 重复：${chapter.id}`)
       }
       chapterIds.add(chapter.id)
-      const featureIds = new Set<string>()
-      for (const feature of chapter.features) {
-        if (featureIds.has(feature.id)) {
-          err('R20', `content/catalog/${c.section}.yaml`, `章节 '${chapter.id}' 内 feature id 重复：${feature.id}`)
+      const inChapter = new Set<string>()
+      for (const fid of chapter.features) {
+        const gid = globalIdOf(c.section, fid)
+        if (pool && !pool.features.some((f) => f.id === fid)) {
+          err('R20a', where, `章节 '${chapter.id}' 引用了池里不存在的 feature：${fid}`)
+          continue
         }
-        featureIds.add(feature.id)
-        const id = globalIdOf(c.section, chapter.id, feature.id)
-        if (featureIndex[id]) err('R20', `content/catalog/${c.section}.yaml`, `全局 feature id 重复：${id}`)
-        features.push({ feature, section: c.section, chapter: chapter.id, id })
-        featureIndex[id] = { title: feature.title, section: c.section, chapter: chapter.id, kind: feature.kind }
+        if (inChapter.has(fid)) {
+          err('R20h', where, `章节 '${chapter.id}' 里 feature 重复：${fid}`)
+        }
+        inChapter.add(fid)
+        const list = (referencedBy[gid] ??= [])
+        if (list.includes(c.baseline)) {
+          warn('R20h', where, `'${fid}' 在 ${c.baseline} 视角下出现在多个章节里`)
+        } else {
+          list.push(c.baseline)
+        }
       }
     }
   }
 
-  /* R5 软引用 —— refFeatureId 写的是全局 id，可跨章 */
+  /* R20e 池里有、但没有被任何基准的章节分组引用 → 永远不会被展示 */
+  for (const f of features) {
+    if (!referencedBy[f.id]) {
+      warn(
+        'R20e',
+        `content/catalog/${f.section}/features.yaml`,
+        `'${f.feature.id}' 没有被任何基准的章节分组引用 —— 它永远不会出现在页面上`,
+      )
+    }
+  }
+
+  /* R5 软引用 —— refFeatureId 写的是全局 id，可跨板块 */
   for (const f of features) {
     const ref = f.feature.refFeatureId
     if (!ref) continue
     if (ref === f.id) {
-      err('R5', `content/catalog/${f.section}.yaml`, `feature '${f.id}' 的 refFeatureId 指向自己`)
+      err('R5', `content/catalog/${f.section}/features.yaml`, `feature '${f.id}' 的 refFeatureId 指向自己`)
     } else if (!featureIndex[ref]) {
-      err('R5', `content/catalog/${f.section}.yaml`, `feature '${f.id}' 的 refFeatureId '${ref}' 不存在`)
+      err('R5', `content/catalog/${f.section}/features.yaml`, `feature '${f.id}' 的 refFeatureId '${ref}' 不存在`)
     }
   }
 
-  /* ── 语言内容 ── */
-  const content = new Map<string, LanguageChapterContent>()
+  /* ── 语言内容（由池的存放组驱动） ── */
+  const content = new Map<string, LanguageGroupContent>()
   const boxes = new Map<string, Map<string, BoxSource>>()
   const byState: Record<string, number> = {}
   const byOrigin: Record<string, number> = {}
@@ -270,17 +368,11 @@ export function analyzeContent(): Analysis {
   const coverage: Record<string, { have: number; total: number }> = {}
   for (const lang of enabledLanguageIds) coverage[lang] = { have: 0, total: features.length }
 
-  /*
-   * S6.5 过渡期容忍：已经迁到「池 + 每基准分组」布局的板块（`catalog/<板块>/features.yaml`），
-   * 其内容文件由新装载器管，旧的按章清单里当然找不到它们 —— 不该报成孤儿。
-   *
-   * 这条与它下面的 `continue` 在 S6.5c 原子切换时**连同旧规则一起删除**。
-   */
-  const poolSections = new Set<string>(loadFeaturePools().pools.map((p) => p.section))
-
-  // R22 / R24 按 (语言, 板块) 汇总成一条 —— 逐条会打印上百行，把真正要看的 error 埋掉
+  // 逐条会刷屏的规则一律按 (语言, 板块) 汇总成一条 —— 把真正要看的 error 埋掉才是灾难
   const vsMissing = new Map<string, number>()
   const suspectedMissing = new Map<string, number>()
+  const chapterGap = new Map<string, number>()
+  const baselineGap = new Map<string, number>()
   let boxCount = 0
 
   for (const lang of dirIds) {
@@ -290,48 +382,43 @@ export function analyzeContent(): Analysis {
     const isEnabled = enabledLanguageIds.includes(lang)
     const commentLine = meta.comment.line
 
-    /* R20a 孤儿文件：语言目录里存在、但清单没登记的 (板块, 章节) */
-    const knownChapters = new Set(features.map((f) => `${f.section}/${f.chapter}`))
-    for (const f of listLanguageContentFiles(lang)) {
-      if (poolSections.has(f.section)) continue // S6.5 过渡，见上面 poolSections 的注释
-      if (!knownChapters.has(`${f.section}/${f.chapter}`)) {
+    /* R20d 孤儿文件：语言目录里存在、但存放组不在池里（拼错或孤儿） */
+    const knownGroups = new Set<string>()
+    for (const pool of pools) {
+      for (const g of groupsOfPool(pool)) knownGroups.add(`${pool.section}/${g}`)
+    }
+    for (const f of listLanguageGroupFiles(lang)) {
+      if (!knownGroups.has(`${f.section}/${f.group}`)) {
         err(
-          'R20',
+          'R20d',
           f.file,
-          `清单里没有 '${f.section}/${f.chapter}' 这一章 —— 板块目录名或章节文件名写错了，这份内容不会被渲染`,
+          `池里没有 '${f.section}/${f.group}' 这个存放组 —— 板块目录名或文件名写错了，这份内容不会被渲染`,
         )
       }
     }
 
-    for (const group of loadLanguageContent(lang, catalogs)) {
-      content.set(`${lang}/${group.section}/${group.chapter}`, group)
-      const catalogChapter = catalogBySection[group.section]?.chapters.find((c) => c.id === group.chapter)
-      if (!catalogChapter) continue
-      const chapterFeatureIds = new Set(catalogChapter.features.map((f) => f.id))
+    for (const g of loadPoolLanguageContent(lang, pools)) {
+      content.set(`${lang}/${g.section}/${g.group}`, g)
+      const pool = poolBySection[g.section]
+      if (!pool) continue
+      const members = membersByGroup(pool).get(g.group) ?? new Set<string>()
 
       /* R21 key 合法性 —— boxes 是 z.record，key 全靠这条兜底 */
-      for (const key of Object.keys(group.boxes)) {
-        if (!chapterFeatureIds.has(key)) {
-          err('R21', group.file, `box '${key}' 不在清单的 '${group.section}/${group.chapter}' 章里（拼写错误或孤儿条目）`)
+      for (const key of Object.keys(g.boxes)) {
+        if (!members.has(key)) {
+          err(
+            'R21',
+            g.file,
+            `box '${key}' 不在池的 '${g.section}/${g.group}' 存放组里（拼写错误或孤儿条目）`,
+          )
         }
       }
 
-      for (const feature of catalogChapter.features) {
-        const box = group.boxes[feature.id]
-        const gid = globalIdOf(group.section, group.chapter, feature.id)
-
-        /* R24 存疑的空框 —— 文件在、但这个 feature 没写 */
-        if (!box) {
-          if (isEnabled) {
-            const k = `${lang} · ${group.section}`
-            suspectedMissing.set(k, (suspectedMissing.get(k) ?? 0) + 1)
-          }
-          continue
-        }
-        if (isEnabled && !box.absent && isEmptyBox(box)) {
-          const k = `${lang} · ${group.section}`
-          suspectedMissing.set(k, (suspectedMissing.get(k) ?? 0) + 1)
-        }
+      for (const [featureId, box] of Object.entries(g.boxes)) {
+        if (!members.has(featureId)) continue // 已在 R21 报过，不再连带报别的
+        const gid = globalIdOf(g.section, featureId)
+        const refs = referencedBy[gid]
+        const isReferenced = Boolean(refs?.length)
 
         /* R4/R9 注记标记必须被解析干净 */
         const code = box.blocks?.length ? box.blocks.map((b) => b.code).join('\n') : box.code
@@ -340,23 +427,29 @@ export function analyzeContent(): Analysis {
           if (/@note/.test(extracted.code)) {
             err(
               'R4/R9',
-              `${group.file} → ${feature.id}`,
+              `${g.file} → ${featureId}`,
               `代码里残留 @note 标记 —— 标记必须写在注释前缀（'${commentLine}'）之后`,
             )
           }
         }
 
-        /* R22 vs 完整性 */
-        const required = isCandidate ? baselineIds.filter((b) => b !== lang) : baselineIds
-        const missing = required.filter((b) => !box.vs[b]?.trim())
-        if (missing.length && isEnabled) {
-          const k = `${lang} · ${group.section}`
-          vsMissing.set(k, (vsMissing.get(k) ?? 0) + missing.length)
+        /* R22 vs 完整性 —— 只对**被某个基准引用**的知识点求值 */
+        if (isReferenced) {
+          const required = isCandidate ? baselineIds.filter((b) => b !== lang) : baselineIds
+          const missing = required.filter((b) => !box.vs[b]?.trim())
+          if (missing.length && isEnabled) {
+            const k = `${lang} · ${g.section}`
+            vsMissing.set(k, (vsMissing.get(k) ?? 0) + missing.length)
+          }
         }
 
-        /* R23 基准列的 baseline 不可空 */
-        if (isCandidate && isEnabled && !box.baseline?.trim()) {
-          warn('R23', `${group.file} → ${feature.id}`, `'${lang}' 是基准候选，这个 feature 缺 baseline 说明（基准列不能空着）`)
+        /* R23 基准列的 baseline 不可空 —— 只对**该基准自己引用了的**知识点 */
+        if (isCandidate && isEnabled && refs?.includes(lang) && !box.baseline?.trim()) {
+          warn(
+            'R23',
+            `${g.file} → ${featureId}`,
+            `'${lang}' 是基准候选，${lang} 的章节分组引用了这个知识点，但它缺 baseline 说明（基准列不能空着）`,
+          )
         }
 
         /* R26 absent 且给了代码（惯用替代写法）→ 必须有说明 */
@@ -364,7 +457,7 @@ export function analyzeContent(): Analysis {
         if (box.absent && (box.code.trim() || (box.blocks?.length ?? 0)) && !hasExplain) {
           warn(
             'R26',
-            `${group.file} → ${feature.id}`,
+            `${g.file} → ${featureId}`,
             'absent 的格子给了代码（惯用替代写法），但没有 baseline / vs 说明 —— 读者无从知道这是「没有等价语法」而非「写法不同」',
           )
         }
@@ -376,7 +469,7 @@ export function analyzeContent(): Analysis {
             (m) => enabledLanguageIds.includes(m.id) && m.id !== lang && m.id !== base,
           )
           for (const hit of detectForeignLanguageMentions([{ line: 0, text, tone: 'info' }], lang, mentionable)) {
-            warn('R25', `${group.file} → ${feature.id}`, `vs.${base} 里点名了 ${hit.name}（「${hit.word}」）—— 屏幕外是 ${lang} 与 ${base} 两列`)
+            warn('R25', `${g.file} → ${featureId}`, `vs.${base} 里点名了 ${hit.name}（「${hit.word}」）—— 屏幕外是 ${lang} 与 ${base} 两列`)
           }
         }
         if (box.baseline?.trim()) {
@@ -386,7 +479,7 @@ export function analyzeContent(): Analysis {
             lang,
             mentionable,
           )) {
-            warn('R25', `${group.file} → ${feature.id}`, `baseline 里点名了 ${hit.name}（「${hit.word}」）—— 基准列只讲 ${lang} 自己`)
+            warn('R25', `${g.file} → ${featureId}`, `baseline 里点名了 ${hit.name}（「${hit.word}」）—— 基准列只讲 ${lang} 自己`)
           }
         }
 
@@ -394,7 +487,7 @@ export function analyzeContent(): Analysis {
 
         /* R17 校对状态升级需留记录 */
         if (box.review.state !== 'draft' && (!box.review.reviewedBy || !box.review.reviewedAt)) {
-          warn('R17', group.file, `'${feature.id}' 标为 ${box.review.state}，但缺少 reviewedBy / reviewedAt`)
+          warn('R17', g.file, `'${featureId}' 标为 ${box.review.state}，但缺少 reviewedBy / reviewedAt`)
         }
 
         /* R3 provenance / R7 url / R6 发布门槛 */
@@ -431,18 +524,66 @@ export function analyzeContent(): Analysis {
     }
   }
 
-  /* R20b 覆盖率缺口：清单的每章 × 每个已启用语言，都应有内容文件 */
-  for (const c of catalogs) {
-    for (const chapter of c.chapters) {
-      const missingLangs = enabledLanguageIds.filter(
-        (lang) => !content.has(`${lang}/${c.section}/${chapter.id}`),
-      )
-      if (missingLangs.length) {
+  /* R20f 悬空存放组：池里声明了，但没有任何已启用语言写这个文件 */
+  for (const pool of pools) {
+    for (const group of groupsOfPool(pool)) {
+      const hasAny = enabledLanguageIds.some((lang) => content.has(`${lang}/${pool.section}/${group}`))
+      if (!hasAny) {
         warn(
-          'R20',
-          `content/languages/*/${c.section}/${chapter.id}.yaml`,
-          `这一章还没有这些语言的内容：${missingLangs.join(', ')}（迁移期允许，补齐后这条会消失）`,
+          'R20f',
+          `content/languages/*/${pool.section}/${group}.yaml`,
+          `存放组 '${group}' 在池里声明了，但没有任何已启用语言写它的内容`,
         )
+      }
+    }
+  }
+
+  /*
+   * R20g 覆盖率缺口 / R27 基准列空洞 —— 都按「章引用了哪些存放组」来算。
+   * 逐条会刷屏，因此各自按 (基准, 板块) 与 (语言, 板块) 汇总。
+   */
+  for (const c of catalogs) {
+    const pool = poolBySection[c.section]
+    if (!pool) continue
+    for (const chapter of c.chapters) {
+      const groups = new Set<string>()
+      for (const fid of chapter.features) {
+        const f = pool.features.find((x) => x.id === fid)
+        if (f) groups.add(f.group)
+      }
+      if (!groups.size) continue
+
+      /* R27：基准自己缺某个被引用的存放组 → 基准列会出现空洞 */
+      const missingInBaseline = [...groups].filter(
+        (g) => !content.has(`${c.baseline}/${c.section}/${g}`),
+      )
+      if (missingInBaseline.length) {
+        const k = `${c.baseline} · ${c.section}`
+        baselineGap.set(k, (baselineGap.get(k) ?? 0) + missingInBaseline.length)
+      }
+
+      /* R20g：某个语言在这一章引用的存放组里一个都没写 */
+      for (const lang of enabledLanguageIds) {
+        if ([...groups].some((g) => content.has(`${lang}/${c.section}/${g}`))) continue
+        const k = `${lang} · ${c.section}`
+        chapterGap.set(k, (chapterGap.get(k) ?? 0) + 1)
+      }
+    }
+  }
+
+  /*
+   * R24 存疑的空框 —— 池里有、被某个基准引用、但这门语言没写 key（或三槽全空且未 absent）。
+   * 与旧的差别：判据从「清单的每一章」变成「被引用的每一个知识点」。
+   */
+  for (const lang of enabledLanguageIds) {
+    for (const f of features) {
+      if (!referencedBy[f.id]) continue
+      const box = boxes.get(f.id)?.get(lang)
+      const where = `${lang} · ${f.section}`
+      if (!box) {
+        suspectedMissing.set(where, (suspectedMissing.get(where) ?? 0) + 1)
+      } else if (!box.absent && isEmptyBox(box)) {
+        suspectedMissing.set(where, (suspectedMissing.get(where) ?? 0) + 1)
       }
     }
   }
@@ -455,7 +596,13 @@ export function analyzeContent(): Analysis {
     )
   }
   for (const [key, count] of [...suspectedMissing].sort(([a], [b]) => a.localeCompare(b))) {
-    warn('R24', key, `有 ${count} 个清单里的 feature 没有内容，也没有声明 absent —— 疑似漏写（刻意留空请写 absent: true）`)
+    warn('R24', key, `有 ${count} 个被基准引用的知识点没有内容，也没有声明 absent —— 疑似漏写（刻意留空请写 absent: true）`)
+  }
+  for (const [key, count] of [...chapterGap].sort(([a], [b]) => a.localeCompare(b))) {
+    warn('R20g', key, `有 ${count} 章这一门语言一个存放组都没写 —— 它在这些章里会整列留白`)
+  }
+  for (const [key, count] of [...baselineGap].sort(([a], [b]) => a.localeCompare(b))) {
+    warn('R27', key, `有 ${count} 处「章节引用了某个存放组、但基准自己没写」—— 基准列会出现空洞`)
   }
 
   /*
@@ -501,7 +648,7 @@ export function analyzeContent(): Analysis {
    * 速查三兄弟 —— 唯一保留方向性的内容，归属由 content/pairs/ 的目录名反查得到。
    */
   const { pairs, issues: pairIssues } = loadPairListsV2()
-  for (const i of pairIssues) err('R20', i.where, i.message)
+  for (const i of pairIssues) err('R20c', i.where, i.message)
 
   const pitfalls: ScopedPitfall[] = []
   const glossary: ScopedGlossary[] = []
@@ -513,8 +660,8 @@ export function analyzeContent(): Analysis {
 
     /*
      * featureId 是**软引用**，且搬过来的这批陷阱全指向 v1 的旧 id
-     * （`basics-javascript/truthiness` 那种），而 v2 的全局 id 是
-     * `<板块>/<章节>/<feature>` —— 悬空是预期的，等 S7 重写对应章节时接上。
+     * （`basics-javascript/truthiness` 那种），而现在的全局 id 是 `<板块>/<feature>` ——
+     * 悬空是预期的，等 S7 重写对应章节时接上。
      * 所以这里是 warn 而不是 error，且按目录汇总（一个方向动辄十几条）。
      */
     let dangling = 0
@@ -578,11 +725,14 @@ export function analyzeContent(): Analysis {
     enabledLanguageIds,
     baselineIds,
     metaById,
+    pools,
+    poolBySection,
     catalogs,
-    catalogBySection,
+    catalogOf,
     chapterSections,
     features,
     featureIndex,
+    referencedBy,
     content,
     boxes,
     pairs,

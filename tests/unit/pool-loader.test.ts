@@ -8,12 +8,19 @@
 import { describe, expect, it } from 'vitest'
 import {
   groupsOfPool,
+  listLanguageGroupFiles,
   loadAllLanguageMeta,
   loadBaselineCatalogs,
   loadFeaturePools,
+  loadPairListsV2,
   loadPoolLanguageContent,
 } from '../../scripts/lib/core'
-import { baselineCatalogSchema, featurePoolSchema } from '../../src/schemas'
+import {
+  baselineCatalogSchema,
+  boxSchema,
+  featurePoolSchema,
+  languageContentFileSchema,
+} from '../../src/schemas'
 
 const baselineIds = loadAllLanguageMeta()
   .filter((m) => m.baseline)
@@ -162,6 +169,124 @@ describe('私有目录约定', () => {
     const tpl = loadPoolLanguageContent('_template', pools, { includePrivate: true })
     expect(tpl).toHaveLength(1)
     expect(tpl[0].group).toBe('bindings')
+  })
+
+  it('孤儿扫描跳过 snippets/ 与 `_` 前缀目录', () => {
+    const files = listLanguageGroupFiles('javascript')
+    expect(files.map((f) => f.section)).toEqual(['express'])
+    for (const f of files) {
+      expect(f.section).not.toBe('snippets')
+      expect(f.section.startsWith('_')).toBe(false)
+    }
+  })
+})
+
+describe('语言内容装载的细节', () => {
+  it('归属全部由路径派生：section 取目录、group 取文件名', () => {
+    for (const g of loadPoolLanguageContent('javascript', pools)) {
+      expect(g.file.replace(/\\/g, '/')).toContain(`/${g.section}/${g.group}.yaml`)
+    }
+  })
+
+  it('文件级 review 被补齐到每一格', () => {
+    const py = loadPoolLanguageContent('python', pools)
+    expect(py).toHaveLength(1)
+    for (const box of Object.values(py[0]!.boxes)) {
+      expect(box.review.state).toBe('draft')
+      expect(box.review.provenance.origin).toBe('llm')
+    }
+  })
+
+  it('两套角色都读得进来：baseline（基准列）与 vs.<基准 id>（对比列）', () => {
+    const js = loadPoolLanguageContent('javascript', pools)[0]!.boxes
+    expect(js.declaration!.baseline).toBeTruthy()
+    expect(js.declaration!.vs).toEqual({})
+
+    const py = loadPoolLanguageContent('python', pools)[0]!.boxes
+    expect(py.declaration!.baseline).toBeUndefined()
+    expect(py.declaration!.vs.javascript).toBeTruthy()
+  })
+
+  it('absent 的格子被如实读出（与「还没写」可区分）', () => {
+    const py = loadPoolLanguageContent('python', pools)[0]!.boxes
+    expect(py.hoisting!.absent).toBe(true)
+    expect(py.hoisting!.vs.javascript).toBeTruthy()
+  })
+
+  it('没有内容的语言被跳过，而不是抛错', () => {
+    expect(loadPoolLanguageContent('rust', pools)).toEqual([])
+    expect(loadPoolLanguageContent('go', pools)).toEqual([])
+  })
+})
+
+describe('方向性内容装载（loadPairListsV2）', () => {
+  it('读到全部方向，且目录名都能反查出 (基准, 目标)', () => {
+    const r = loadPairListsV2()
+    expect(r.issues).toEqual([])
+    expect(r.pairs.length).toBeGreaterThan(0)
+    for (const p of r.pairs) {
+      // 目录名必须**恰好一种**拆法 —— 语言 id 允许含数字，简单 split('2') 会挂错方向
+      expect(p.dir.replace(/\\/g, '/')).toBe(`content/pairs/${p.baseline}2${p.target}`)
+      expect(p.baseline).not.toBe(p.target)
+    }
+  })
+
+  it('三份列表资源都按契约读出（顶层数组，pair 归属由目录名注入）', () => {
+    const r = loadPairListsV2()
+    const hit = r.pairs.find((p) => p.pitfalls.length > 0)
+    expect(hit).toBeDefined()
+    for (const p of hit!.pitfalls) {
+      expect(p.baseline).toBe(hit!.baseline)
+      expect(p.target).toBe(hit!.target)
+    }
+  })
+
+  it('未知语言 id 拼成的目录名 → 记入 issues，不静默挂到错误方向', () => {
+    // 用真实目录名之外的一对验证解析器：两边都得是已知语言
+    const r = loadPairListsV2(['javascript', 'python'])
+    // 只认这两门 → java2python / javascript2go 这类都会被报出来
+    expect(r.issues.length).toBeGreaterThan(0)
+  })
+})
+
+describe('对比框契约（R16 的 v2 版）', () => {
+  const base = {
+    review: {
+      state: 'draft' as const,
+      provenance: { origin: 'manual' as const, license: 'CC-BY-4.0' as const },
+    },
+  }
+
+  it('code 与 blocks 不能并存', () => {
+    const r = boxSchema.safeParse({
+      ...base,
+      code: 'x = 1',
+      blocks: [{ label: '写法一', code: 'x = 1' }],
+    })
+    expect(r.success).toBe(false)
+  })
+
+  it('absent 的格子可以三槽全空 —— 旧的「至少一个」已删除', () => {
+    expect(boxSchema.safeParse({ ...base, absent: true }).success).toBe(true)
+  })
+
+  it('既无代码也未标 absent 时 schema 不拦 —— 交给分析期判「疑似漏写」', () => {
+    expect(boxSchema.safeParse({ ...base }).success).toBe(true)
+  })
+
+  it('多段的每一段都必须有非空 label', () => {
+    expect(boxSchema.safeParse({ ...base, blocks: [{ label: '  ', code: 'x' }] }).success).toBe(
+      false,
+    )
+  })
+
+  it('语言内容文件顶层重复声明归属会被 .strict() 拒绝', () => {
+    expect(languageContentFileSchema.safeParse({ section: 'express', boxes: {} }).success).toBe(
+      false,
+    )
+    expect(languageContentFileSchema.safeParse({ group: 'bindings', boxes: {} }).success).toBe(
+      false,
+    )
   })
 })
 

@@ -21,7 +21,8 @@ lines.push(`发布策略        ${a.registry.publishPolicy}`)
 lines.push(`基准（候选）    ${a.baselineIds.join(', ')}`)
 lines.push(`语言（全集）    ${a.allLanguageIds.join(', ')}`)
 lines.push(`语言（启用）    ${a.enabledLanguageIds.join(', ')}`)
-lines.push(`Feature 总数    ${a.stats.featureCount}（${a.catalogs.length} 个板块的清单）`)
+lines.push(`Feature 总数    ${a.stats.featureCount}（${a.pools.length} 个板块的池）`)
+lines.push(`章节分组        ${a.catalogs.length} 份（每基准一份）`)
 lines.push(`对比框总数      ${a.stats.boxCount}`)
 lines.push('')
 
@@ -50,10 +51,14 @@ lines.push('')
  * 每门语言 × 每个板块：写了多少格、其中多少格把 vs 写全了。
  * 「vs 写全」是基准候选要两份、非基准要三份 —— 视角无法互相推导。
  */
+/*
+ * 账本按**池**走，不按章节分组 —— 池与基准无关，是内容的真实归属；
+ * 章节分组只是同一批知识点在不同基准下的摆法，按它统计会把同一个 feature 数三遍。
+ */
 lines.push('逐板块账本（格子数 / vs 写全的格子数）')
-for (const c of a.catalogs) {
-  const ids = c.chapters.flatMap((ch) => ch.features.map((f) => `${c.section}/${ch.id}/${f.id}`))
-  lines.push(`  ── ${c.section}（${ids.length} 个 feature）`)
+for (const pool of a.pools) {
+  const ids = pool.features.map((f) => `${pool.section}/${f.id}`)
+  lines.push(`  ── ${pool.section}（${ids.length} 个 feature）`)
   for (const lang of a.enabledLanguageIds) {
     let have = 0
     let vsFull = 0

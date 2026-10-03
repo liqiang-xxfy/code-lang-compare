@@ -11,15 +11,14 @@ import { usePageMeta } from '@/composables/usePageMeta'
 import { badgeOf, explanationOf } from '@/content/boxView'
 import { getCachedBlockDiffs, getCachedDiff } from '@/content/diff'
 import {
-  catalogOf,
-  chapterOf,
+  chapterContaining,
   chapterPathOf,
   featureMetaOf,
-  hasBoxChapter,
+  featurePathOf,
+  hasBoxGroup,
   orderedSections,
   pairTargetsOf,
   sectionDefOf,
-  featurePathOf,
 } from '@/content/repository'
 import { defaultCompareLanguageId } from '@/generated/registry.gen'
 import { useContentStore } from '@/stores/content'
@@ -33,19 +32,16 @@ const languages = useLanguageStore()
 const ui = useUiStore()
 const { t } = useI18n()
 
-/** 全局 feature id = `<板块>/<章节>/<feature>`，正好是路由的三段 */
+/**
+ * 全局 feature id = `<板块>/<feature>`，正好是路由的两段。
+ *
+ * 详情页**不需要章**：feature 属于池（与基准无关），box 的归属只由存放组决定。
+ * 章要等确定了基准才能问 —— 见下面的面包屑。
+ */
 const gid = computed(
-  () =>
-    `${String(route.params.section ?? '')}/${String(route.params.chapter ?? '')}/${String(
-      route.params.feature ?? '',
-    )}`,
+  () => `${String(route.params.section ?? '')}/${String(route.params.feature ?? '')}`,
 )
 const meta = computed(() => featureMetaOf(gid.value))
-const catalogFeature = computed(() => {
-  const m = meta.value
-  if (!m) return null
-  return catalogOf(m.section)?.chapters.find((c) => c.id === m.chapter)?.features.find((f) => f.id === route.params.feature) ?? null
-})
 
 /**
  * 本页的参照系 = **当前基准**。
@@ -56,8 +52,8 @@ const catalogFeature = computed(() => {
 const featureBaseline = computed(() => languages.effectiveBaseline)
 
 /**
- * 列顺序：基准恒在最左，其余跟随运行时勾选；再裁到**本特性真有 box 的语言**
- * （判据是该语言在这一章有分片 —— 与章节页同源）。
+ * 列顺序：基准恒在最左，其余跟随运行时勾选；再裁到**这个知识点真有 box 的语言**
+ * （判据是它写了这个存放组 —— 与章节页同源）。
  */
 const columns = computed(() => {
   const m = meta.value
@@ -69,16 +65,14 @@ const columns = computed(() => {
   ]
     .map((id) => languages.metaOf(id))
     .filter((x): x is LanguageMeta => Boolean(x))
-  return ordered.filter(
-    (x) => x.id === base || hasBoxChapter(x.id, m.section, m.chapter),
-  )
+  return ordered.filter((x) => x.id === base || hasBoxGroup(x.id, m.section, m.group))
 })
 
-/** 各列的 box（同一章分片里按 feature 取） */
+/** 各列的 box（本知识点的存放组里按 feature 取） */
 const boxOf = (langId: string) => {
   const m = meta.value
   if (!m) return undefined
-  return content.getBoxChapterRaw(langId, m.section, m.chapter)?.boxes[route.params.feature as string]
+  return content.boxesOf(langId, m.section, [m.group])?.[String(route.params.feature ?? '')]
 }
 
 /** 按需加载可见列的分片 —— 勾选变化不产生导航，必须靠 watcher */
@@ -87,7 +81,7 @@ watch(
   (cols) => {
     const m = meta.value
     if (!m || !cols.length) return
-    void content.ensureColumns(m.section, m.chapter, cols.map((x) => x.id))
+    void content.ensureChapter(m.section, [m.group], cols.map((x) => x.id))
   },
   { immediate: true },
 )
@@ -131,20 +125,21 @@ const relatedPitfalls = computed(() => {
   return (payload?.pitfalls ?? []).filter((p) => p.featureId === gid.value)
 })
 
+/**
+ * 面包屑里的章节层是**按当前基准现查的** —— 章节分类每个基准各一份，
+ * 这个知识点可能被某个基准取舍掉（那时就没有章节层可指）。
+ */
 const crumbs = computed(() => {
   const items: Array<{ label: string; to?: string }> = [{ label: t('nav.home'), to: '/' }]
   const m = meta.value
   if (m) {
     items.push({ label: sectionDefOf(m.section)?.title ?? '' })
-    const ch = chapterOf(m.section, m.chapter)
+    const ch = chapterContaining(featureBaseline.value, m.section, String(route.params.feature ?? ''))
     if (ch) {
-      items.push({
-        label: ch.title,
-        to: chapterPathOf(featureBaseline.value, m.section, m.chapter),
-      })
+      items.push({ label: ch.title, to: chapterPathOf(featureBaseline.value, m.section, ch.id) })
     }
   }
-  items.push({ label: catalogFeature.value?.title ?? gid.value })
+  items.push({ label: m?.title ?? gid.value })
   return items
 })
 
@@ -179,20 +174,20 @@ function blocksMismatch(langId: string): boolean {
 }
 
 usePageMeta(
-  () => (catalogFeature.value ? `${catalogFeature.value.title} 的跨语言对照` : undefined),
+  () => (meta.value ? `${meta.value.title} 的跨语言对照` : undefined),
   () =>
-    catalogFeature.value
-      ? `${catalogFeature.value.title}：在 ${baselineName.value} 与其它语言中的写法、差异与迁移陷阱。${catalogFeature.value.summary ?? ''}`
+    meta.value
+      ? `${meta.value.title}：在 ${baselineName.value} 与其它语言中的写法、差异与迁移陷阱。${meta.value.summary ?? ''}`
       : undefined,
 )
 </script>
 
 <template>
-  <div v-if="catalogFeature && meta">
+  <div v-if="meta">
     <PageCrumb :items="crumbs" />
 
     <section class="pc-page-head">
-      <h1>{{ catalogFeature.title }}</h1>
+      <h1>{{ meta.title }}</h1>
       <!-- 地址里没有基准，这一行是用户唯一能确认「本页在拿谁当参照系」的地方 -->
       <p class="pc-hint" style="margin: 4px 0 0">
         {{ t('compare.baselineLabel', { name: baselineName }) }}
@@ -209,7 +204,7 @@ usePageMeta(
         </template>
       </p>
       <div class="pc-feature-meta" style="margin: 6px 0">
-        <span class="pc-tag">{{ catalogFeature.kind }}</span>
+        <span class="pc-tag">{{ meta.kind }}</span>
         <!-- 排除基准（基准相对自己恒为 =，是废话），并标出语言短名 -->
         <template v-for="lang in columns" :key="lang.id">
           <EquivalenceBadge
@@ -219,10 +214,10 @@ usePageMeta(
           />
         </template>
       </div>
-      <p v-if="catalogFeature.summary">{{ catalogFeature.summary }}</p>
-      <p v-if="catalogFeature.refFeatureId" class="pc-hint" style="margin-top: 6px">
+      <p v-if="meta.summary">{{ meta.summary }}</p>
+      <p v-if="meta.refFeatureId" class="pc-hint" style="margin-top: 6px">
         概念详解：
-        <RouterLink :to="featurePathOf(catalogFeature.refFeatureId)">查看 →</RouterLink>
+        <RouterLink :to="featurePathOf(meta.refFeatureId)">查看 →</RouterLink>
       </p>
     </section>
 
@@ -265,7 +260,7 @@ usePageMeta(
           :key="p.id"
           :pitfall="p"
           :baseline-name="baselineName"
-          :feature-title="catalogFeature.title"
+          :feature-title="meta.title"
         />
       </div>
     </section>

@@ -8,12 +8,12 @@ import {
   chaptersOf,
   chapterPathOf,
   firstChapterSection,
-  hasBoxChapter,
+  hasChapterContent,
   manifest,
   orderedSections,
 } from '@/content/repository'
 import { sectionEntryPath } from '@/router'
-import { getLanguageMeta } from '@/generated/registry.gen'
+import { defaultBaselineLanguageId, getLanguageMeta } from '@/generated/registry.gen'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -37,8 +37,10 @@ usePageMeta(
 const asBaseline = computed(() => {
   const section = firstChapterSection()
   if (!section) return null
-  // 落到**这门语言确实写了**的第一章，而不是清单首章 —— 后者可能还没内容
-  const first = chaptersOf(section).find((c) => hasBoxChapter(langId.value, section, c.id))
+  // 落到**这门语言确实写了**的第一章（在它自己的章节分类里），而不是分类首章
+  const first = chaptersOf(langId.value, section).find((c) =>
+    hasChapterContent(langId.value, langId.value, section, c.id),
+  )
   return first ? chapterPathOf(langId.value, section, first.id) : null
 })
 
@@ -81,23 +83,27 @@ const languageFacts = computed(() => {
 })
 
 /**
- * 本语言写了内容的章节 —— 判据是**它真有这一章的分片**。
+ * 本语言写了内容的章节。
  *
- * 清单与语言无关（三个基准共用同一套章节），所以「本语言相关」这件事只能由
- * 「写没写」回答。此前这里是 `manifest.topics.flatMap(...)`，
- * **一门语言的页面列出了全站所有章节**。
+ * **先要定用谁的章节分类**：章节分类是每个基准各一份的，一门语言本身没有分类。
+ * 口径取「基准候选用自己的，其余语言用默认基准的」—— 这样一门语言的页面
+ * 有确定含义，不会随用户当前选着哪个基准而变。
  */
+const viewBaseline = computed(() =>
+  lang.value?.baseline ? langId.value : defaultBaselineLanguageId,
+)
+
 const chapters = computed(() =>
   orderedSections()
     .filter((s) => s.shape === 'chapter')
     .flatMap((s) =>
-      chaptersOf(s.id)
-        .filter((c) => hasBoxChapter(langId.value, s.id, c.id))
+      chaptersOf(viewBaseline.value, s.id)
+        .filter((c) => hasChapterContent(langId.value, viewBaseline.value, s.id, c.id))
         .map((c) => ({
           id: c.id,
           title: c.title,
           sectionTitle: s.title,
-          to: chapterPathOf(langId.value, s.id, c.id),
+          to: chapterPathOf(viewBaseline.value, s.id, c.id),
         })),
     ),
 )
