@@ -1,0 +1,187 @@
+# java —— practice / toolchain
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: toolchain` 的那批。
+# 这一组以 Java 为基准时，`compile-run` 归「构建工具与依赖」章、
+# 其余四个归「JDK 与工具链」章（见 catalog/practice/java.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-toolchain-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  compile-run:
+    code: |
+      javac -d out src/com/example/Main.java    // @note 编译成 .class
+      java -cp out com.example.Main             // @note 跑的时候要写全限定名
+
+      // 打成可分发的 jar
+      jar --create --file app.jar --main-class com.example.Main -C out .
+
+      // 或跑单文件（Java 11+，内部仍是先编译）
+      java Main.java
+
+      // @note! 编译产物是**字节码**，不是机器码 —— 由 JVM 在运行时
+      //        解释或即时编译。所以「一次编译，到处运行」
+      // @note 构建工具（Maven / Gradle）把这套包起来了，日常不直接敲 javac
+    baseline: |
+      **必须先编译**：`javac` 把源码变成字节码（`.class`），
+      `java` 启动 JVM 执行。产物是字节码而不是机器码，
+      由 JVM 在运行时解释或即时编译 —— 这是「一次编译、到处运行」的含义。
+      日常不直接敲 `javac`，构建工具把编译、测试、打包串在一起。
+      运行时要写全限定类名，并保证 classpath 对。
+    vs:
+      javascript: |
+        JavaScript 没有编译步骤，`node app.js` 直接跑；
+        Java 的编译是硬需求，运行还需要 classpath 与全限定名。
+        一边是「改了就能跑」，一边是「构建产物 + 启动参数」。
+      python: |
+        Python 也是直接跑源码（有个不影响使用的字节码缓存）。
+        Java 的编译产物是显式、必须存在的，而且要自己管 classpath ——
+        从这边换过去时，最容易忘的就是「得先编译」与「运行要写全限定名」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  bundler:
+    absent: true
+    baseline: |
+      **本语言没有打包器这一层**。编译产物就是 `.class`，打成 jar 就能分发，
+      依赖靠 classpath 声明 —— 没有「源码到产物之间还有几道工序」这种问题，
+      也就没有对应的工具。所谓「构建」是把编译、测试、打包**串起来**，
+      不是「把多份源码合成一份」。
+    vs:
+      javascript: |
+        JavaScript 的打包器解决的是浏览器那侧的约束（裸模块名、新语法、
+        请求数），Java 的代码只跑在 JVM 上，没有那些约束。
+      python: |
+        Python 也没有打包器，部署一般是装依赖加跑源码，
+        要做单文件可执行得把解释器一起打进去。
+        两边都少了「把多份源码合成一份并降级」这条需求。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  linter-formatter:
+    code: |
+      // @note 格式化生态比前两家弱，且**没有单一公认的工具**
+      //   google-java-format / Spotless / IDE 内置格式化器
+      //   团队一般选一个，绑进构建（Spotless 的 check 任务）
+
+      // 静态检查：编译器已经是很强的一层，额外检查要自己加
+      //   SpotBugs / Error Prone / PMD / Checkstyle
+      ./gradlew spotlessCheck checkstyleMain
+
+      // @note! 编译器本身就会拦下大量问题（未使用变量除外）——
+      //        所以「先跑编译器」已经覆盖了别的语言靠 linter 做的一部分事
+    baseline: |
+      格式化工具**没有公认的唯一选择**（google-java-format / Spotless /
+      IDE 内置），团队一般挑一个绑进构建。静态检查方面，
+      **编译器本身就是很强的一层** —— 类型错误、未处理异常、未实现的方法
+      它都拦，所以额外的检查工具（SpotBugs / Error Prone / Checkstyle）
+      更多是补充，而不是像别处那样必需。
+    vs:
+      javascript: |
+        JavaScript 有公认的格式化工具与检查工具（Prettier + ESLint），
+        而且因为语言本身不拦任何东西，linter 几乎是必需品；
+        Java 的编译器承担了大部分静态检查，额外工具的紧迫性低得多。
+      python: |
+        Python 这边 ruff 一个工具就能覆盖格式化与检查，生态也统一；
+        Java 的格式化工具各有各的风格、没有压倒性的那一个。
+        共同点是两边都把配置放进项目文件、绑进提交或构建。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  type-checker:
+    code: |
+      // @note 类型检查**就是编译器本身** —— 没有独立工具这一层
+      javac Main.java           // 类型不对就产不出 .class
+
+      // 更严格的额外检查要另装：
+      //   Error Prone（编译期插入检查）
+      //   SpotBugs（对字节码做分析）
+      //   NullAway / Checker Framework（空安全）
+
+      // @note! 类型擦除让泛型在运行时"消失"，但**编译期检查是真的** ——
+      //        List<String> 里塞 Integer 编译不过
+      // @note 反射与擦除是仅有的两个能绕过编译期检查的口子
+    baseline: |
+      类型检查**就是编译器**，没有「装一个工具才有类型检查」这一说 ——
+      类型不对根本产不出产物。更进一步的分析（空安全、常见错误模式）
+      要另装 Error Prone / SpotBugs / NullAway。要记住两个口子：
+      **反射与泛型擦除**能在运行时绕过编译期的约束。
+    vs:
+      javascript: |
+        JavaScript 要额外装 TypeScript 才有类型检查，而且它只管源码、
+        拦不住运行时数据；Java 的类型检查是编译的前提，
+        没有「可选」这一说。
+      python: |
+        Python 的类型检查完全是可选的外部工具、解释器一概不看；
+        Java 的检查由编译器强制执行。这是「写不写类型」与
+        「类型有没有约束力」之间的差别。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  runtime-version:
+    code: |
+      java -version              // @note 看的是**运行时**版本
+      javac -version             // @note 编译器可能是另一个版本
+
+      sdk install java 21-tem    // @note SDKMAN：多版本共存与切换
+      jenv local 21
+
+      // 项目里声明目标版本（构建工具里）
+      //   Maven: <maven.compiler.release>21</maven.compiler.release>
+      //   Gradle: java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+
+      // @note! 字节码版本不兼容会**直接拒跑**：
+      //        "class file version 65.0" 这类报错就是它
+    baseline: |
+      用 SDKMAN / jenv 管理多个版本，项目里在构建工具中声明目标版本
+      （`release` / toolchain）。这里有一处比别家尖锐：**字节码版本不兼容
+      会直接拒跑**（报错会长这样：`class file version 65.0`），
+      不是「某个语法不支持」那么温和。所以「编译目标版本」是一个要认真设的参数。
+    vs:
+      javascript: |
+        JavaScript 的版本差异主要是语法特性（能不能用某个新语法），
+        而且是运行时才遇到；Java 的字节码版本不匹配是启动就被拒绝，
+        问题暴露得更早也更硬。
+      python: |
+        两边的版本管理工具与做法对应（SDKMAN ↔ pyenv），
+        差异的表现形式也类似（新语法要新版本）。Java 多一道
+        「编译目标」参数 —— 因为编译与运行是两个版本。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  repl:
+    code: |
+      jshell                    // @note Java 9+ 才有
+      jshell> int x = 1;
+      jshell> x + 1;
+
+      // @note! 没有顶层语句这回事 —— REPL 里写的也是片段，
+      //        它会隐式包在类里
+      // @note 日常调试更常用的是 IDE 的求值窗口与断点，
+      //        而不是命令行 REPL
+    baseline: |
+      `jshell`（Java 9+）提供交互式环境，但它**来得晚、用得也不广** ——
+      静态类型加编译步骤让「随手跑一段」天生别扭。实际调试时，
+      IDE 的断点与表达式求值窗口用得更多。
+    vs:
+      javascript: |
+        JavaScript 的 REPL 是语言自带、随手可用的（`node` 与浏览器控制台）；
+        Java 的 `jshell` 是后来补的，而且社区习惯没建立起来。
+        这一格的差别更多是历史与文化，不是能力。
+      python: |
+        Python 的 REPL 生态最厚（IPython / Jupyter），
+        Java 的 `jshell` 最薄。共同点是「随手验证一小段」这件事
+        在动态语言里天然更顺 —— 不用先想类型。
+    equivalence:
+      javascript: divergent
+      python: divergent

@@ -1,0 +1,182 @@
+# python —— practice / toolchain
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: toolchain` 的那批。
+# 注释前缀是 `#`（见 meta.yaml 的 comment.line）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-toolchain-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  compile-run:
+    code: |
+      python app.py             # @note 直接跑，没有编译步骤
+      python -m mypackage       # @note 作为模块跑（会处理包导入）
+      python -c "print(1)"      # @note 直接跑一段
+
+      # @note __pycache__ 是自动生成的字节码缓存，别提交
+      # @note! 直接跑一个文件时它不属于任何包 —— 相对导入会失败，
+      #        要用 python -m 从包外启动
+    baseline: |
+      **没有编译步骤**：`python app.py` 直接跑。有一个隐式的字节码缓存
+      （`__pycache__`）作为实现细节，不提交进版本库。
+      有一处容易踩：**直接跑文件时它不属于任何包**，
+      所以文件里的相对导入（`from . import x`）会失败 ——
+      要用 `python -m 包名` 从外面启动。
+    vs:
+      javascript: |
+        两边都是直接跑、没有构建步骤，`python app.py` 与 `node app.js` 对应。
+        差别在包模型：Python 的「用 `-m` 启动才认包」是一条真实约束，
+        JavaScript 那边靠路径与 `package.json` 决定，没有这个启动方式之分。
+      java: |
+        Java 必须先编译成字节码才能运行，这一步不可省略；
+        所以「构建」在 Java 是硬需求，在这里更常见的是「不构建也能跑」。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  bundler:
+    code: |
+      # @note 没有打包器这一层 —— 部署通常是"装依赖 + 直接跑源码"
+      pip install -r requirements.txt
+      python -m myapp
+
+      # 要分发就打 wheel / sdist（那与打包器不是一回事）
+      python -m build
+
+      # 要做成单文件可执行：
+      pyinstaller app.py        # @note 把解释器一起打进去，属于另一条路
+      # @note! 它不是"把源码合成一份"，而是"把运行环境一起打包"，产物很大
+    baseline: |
+      **没有「打包器」这一层**：部署一般是装依赖加直接跑源码，
+      或者打成 wheel 分发。想做单文件可执行要靠 PyInstaller 这类工具 ——
+      那是把解释器一起打进去，与「把多份源码合成一份」不是一回事，
+      产物通常几十兆。
+    vs:
+      javascript: |
+        JavaScript 的打包器解决的是「浏览器不认识裸模块名、老浏览器不认新语法」
+        这类面向分发目标的问题；Python 的代码跑在服务端，
+        没有那个约束，所以也不需要那一层。
+      java: |
+        Java 也没有打包器：编译产物就是 `.class`，打成 jar 分发，
+        依赖靠 classpath。两边都少了「为浏览器降级与合并」这条需求。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  linter-formatter:
+    code: |
+      ruff check .              # @note 检查（很快，规则多）
+      ruff format .             # @note 格式化
+      black .                   # @note 另一个格式化器，风格更"不妥协"
+      mypy .                    # @note 类型检查（见另一格）
+
+      # 配置集中写在 pyproject.toml 的 [tool.ruff] / [tool.black] 里
+      # @note! 同一件事只留一个工具 —— black 与 ruff format 别同时开
+
+      pre-commit install        # @note 提交前自动跑（团队里常用）
+    baseline: |
+      格式化与检查通常**一个工具就够**：`ruff` 同时做这两件事且很快，
+      或者 `black` 格式化加 `flake8` 检查。配置集中写在 `pyproject.toml` 里，
+      提交前用 pre-commit 串起来。规矩只有一条：
+      同一件事别开两个工具（两个格式化器会互相改对方的输出）。
+    vs:
+      javascript: |
+        JavaScript 那边是「Prettier 管排版、ESLint 管规则」两个工具加两份配置，
+        还得特地关掉 ESLint 的格式规则避免打架；Python 可以一个工具全包，
+        配置也集中在一处。
+      java: |
+        Java 的格式化工具生态比前两家弱，检查主要靠编译器与 IDE，
+        严格检查（SpotBugs / ErrorProne）是可选加装。
+        所以「团队风格统一」在 Java 里更多靠约定与评审。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  type-checker:
+    code: |
+      mypy .                    # @note 独立进程，静态检查
+      mypy --strict .           # @note! 严格模式：不写标注就报错
+      pyright                   # @note 另一个实现，编辑器里常用
+
+      # 配置在 pyproject.toml 的 [tool.mypy] 里
+      # @note! 解释器**完全不看标注** —— 类型错了照样跑
+      # @note 外部数据（接口响应、表单）仍然是运行时才知道，
+      #       边界要自己校验（pydantic 之类）
+    baseline: |
+      类型检查是**外部工具**（mypy / pyright），解释器完全不看标注 ——
+      类型写错了照样跑。所以要打开严格模式（`--strict`）才有意义，
+      而且要知道它的边界：从外部进来的数据在类型系统眼里仍然
+      「就是你说的那个类型」，边界处必须自己做运行时校验。
+    vs:
+      javascript: |
+        两边的类型检查都是可选的独立工具，也都只在源码上生效、
+        拦不住外部数据。差别在语言层：Python 的标注是语法的一部分、
+        工具直接读；JavaScript 要先换 TypeScript 才有可标的语法。
+      java: |
+        Java 的类型检查就是编译器本身，没有「可选」这一说 ——
+        不通过就产不出产物。所以「运行时不检查」这个错觉在 Java 那边
+        只在反射与泛型擦除两处出现。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  runtime-version:
+    code: |
+      python -V
+      pyenv install 3.12 && pyenv local 3.12   # @note 多版本共存
+      conda create -n app python=3.12
+
+      # 项目里声明期望版本
+      #   pyproject.toml: requires-python = ">=3.11"
+      #   .python-version          ← pyenv 读它
+
+      # @note! 版本差异在 Python 里更常咬人：
+      #        3.9 的 dict 合并运算符、3.10 的 match、3.12 的泛型语法
+    baseline: |
+      用 pyenv / conda 管理多个版本，项目里在 `pyproject.toml` 声明
+      `requires-python`、用 `.python-version` 给工具读。要留意的是
+      **版本差异在这一块比较常咬人** —— `match`、`dict` 合并运算符、
+      新的泛型语法都带版本门槛，写库时要兼容多个版本。
+    vs:
+      javascript: |
+        工具与做法完全对应（pyenv ↔ nvm、`.python-version` ↔ `.nvmrc`）。
+        差别在「面向未知运行时」：JavaScript 还要考虑用户的浏览器，
+        Python 只需管好自己那一台。
+      java: |
+        Java 用 SDKMAN / jenv，项目里靠构建工具指定目标版本。
+        两边都简单：代码只跑在自己控制的环境里，
+        不用为「对方装了什么」做兼容。
+    equivalence:
+      javascript: analogous
+      java: analogous
+
+  repl:
+    code: |
+      python                    # @note 自带 REPL
+      ipython                   # @note 更好用：补全、历史、魔法命令
+      jupyter lab               # @note 笔记本，适合探索与出图
+
+      python -i app.py          # @note 跑完进入交互，变量还在
+
+      # @note `_` 是上一个结果；help(x) / dir(x) 随手可查
+    baseline: |
+      自带 REPL，而且这一块的生态是几家里面最厚的：IPython 提供补全与历史，
+      Jupyter 把交互式探索做成了文档（能出图、能分享）。
+      `python -i` 跑完脚本直接进交互、变量还在，调试小问题很方便。
+    vs:
+      javascript: |
+        两边的 REPL 都是日常工具。Python 这边 IPython / Jupyter
+        形成了一个用于数据探索的生态；JavaScript 那边浏览器控制台
+        承担了交互调试的角色，但没有形成同等规模的「笔记本」文化。
+      java: |
+        Java 到 Java 9 才有 `jshell`，而且用得不广 ——
+        静态类型加编译步骤让交互式执行天生别扭。所以「随手试一段」
+        这个习惯在 Java 里是后来才有的。
+    equivalence:
+      javascript: analogous
+      java: divergent

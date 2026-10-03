@@ -1,0 +1,185 @@
+# javascript —— practice / toolchain
+#
+# boxes 的 key 必须是 catalog/practice/features.yaml 里 `group: toolchain` 的那批：
+# compile-run / bundler / linter-formatter / type-checker / runtime-version / repl。
+#
+# 注释前缀是 `//` —— 写错前缀的 `@note` 不会被抽出来（R4/R9 会报）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-toolchain-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  compile-run:
+    code: |
+      node app.js               // @note 直接跑，没有编译步骤
+      node --watch app.js       // @note 改了自动重启（Node 18+）
+      node --experimental-strip-types app.ts    // @note 新版能直接跑 TS（只剥类型）
+
+      // @note 浏览器里靠 <script type="module"> 加载
+      // @note 没有「构建产物」也能跑 —— 这是它与编译型语言最直观的差别
+    baseline: |
+      **没有编译步骤**：`node app.js` 直接跑，浏览器里 `<script type="module">`
+      直接加载。所谓「构建」通常是可选的优化（打包、压缩、降级），
+      而不是运行的前提。这也是它上手最快的地方 ——
+      也是它在生产环境需要额外工程化（打包、转译）的原因。
+    vs:
+      python: |
+        两边都是解释执行、没有构建步骤，`python app.py` 与 `node app.js`
+        是对应的。差别在 Python 有个字节码缓存（`__pycache__`）作为实现细节，
+        而 JavaScript 引擎的编译优化完全在运行时内部，用户看不见。
+      java: |
+        Java 必须先 `javac` 编译成字节码（`.class` / `.jar`）才能运行 ——
+        这一步不是可选的。所以 Java 项目的「构建」是硬需求，
+        而这里更常见的是「不构建也能跑，构建只是为了优化」。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  bundler:
+    code: |
+      // @note 可选，但生产环境基本都要
+      vite build                // @note 打包 + 压缩 + 按需拆分
+      esbuild app.js --bundle --minify
+      tsc                       // @note 只做类型检查与降级，不打包
+
+      // @note 打包解决的几件事：
+      //   1. 模块解析与依赖图（浏览器不认识裸模块名）
+      //   2. 降到目标浏览器支持的语法
+      //   3. 减少请求数、压缩体积、代码分割
+      // @note! 现在也有「不打包」的路线：原生 ESM + import maps
+    baseline: |
+      打包器是**可选但几乎必需**的一环：浏览器不认识裸模块名、老浏览器不认新语法、
+      而且几十个请求的开销需要合并。现代工具（Vite / esbuild / swc）把这套做得
+      很快，`tsc` 则只管类型检查与降级、不打包。近些年也出现了
+      「原生 ESM + import maps」这种不打包的路线。
+    vs:
+      python: |
+        Python 没有打包器这一层 —— 部署一般是装依赖 + 直接跑源码，
+        或者打成 wheel 分发。要做成单文件可执行得靠 PyInstaller 这类工具，
+        属于另一条路。
+      java: |
+        Java 也没有打包器：编译产物就是 `.class`，打成 `.jar` 就能分发，
+        依赖靠 classpath。所谓「构建」是把编译、测试、打包串起来，
+        不是「把多份源码合成一份」。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  linter-formatter:
+    code: |
+      // 格式化：Prettier —— 配置极少，基本不给争论空间
+      npx prettier --write .
+
+      // 检查：ESLint —— 可插拔规则，能查 bug 也能管风格
+      npx eslint . --fix
+
+      // @note 分工惯例：格式交给 Prettier（只管排版），
+      //       ESLint 关掉所有格式类规则（避免两边打架）
+      // @note 提交前用 lint-staged 只检查改动过的文件
+    baseline: |
+      格式化与检查是**两个工具**：Prettier 只管排版（配置极少，故意不给争论空间），
+      ESLint 管规则（能查真 bug 也能管风格）。惯例是让 ESLint 关掉所有格式类规则、
+      把排版完全交给 Prettier，避免两边互相打架。提交前用 lint-staged
+      只跑改动过的文件。
+    vs:
+      python: |
+        Python 的对应物更简洁：`ruff`（或 black + flake8）一个工具同时管
+        格式化与检查，配置也都集中在 `pyproject.toml` 里。
+        JavaScript 这边则是两个工具加各自的配置文件。
+      java: |
+        Java 这边格式化工具（google-java-format 等）用得不如前两家普遍，
+        静态检查主要靠编译器与 IDE 提示，外加 SpotBugs / ErrorProne 这类
+        可选的严格检查。所以「团队统一风格」在 Java 里更多靠约定。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  type-checker:
+    code: |
+      // @note 类型检查**不是**运行时的一部分 —— 要另装
+      npx tsc --noEmit            // @note 只检查，不产出文件
+
+      // tsconfig.json 里的关键开关
+      //   strict: true             ← 一次打开所有严格检查（务必开）
+      //   noEmit: true             ← 由打包器负责产出时
+      //   allowJs / checkJs        ← 让它在 .js 上也工作
+
+      // @note! 运行时不检查任何类型 —— 外部来的数据（接口响应、表单）
+      //        仍然是 any，要在边界上自己校验（zod 之类）
+    baseline: |
+      类型检查**不是运行时的事**，要单独装 TypeScript 并跑 `tsc`。
+      它只管源码，**运行时不检查任何东西** —— 从接口、表单、`JSON.parse`
+      进来的数据在类型系统眼里仍然是「你说的那个类型」，
+      所以边界处必须自己做运行时校验（schema 库）。
+      这是「加了类型」之后最容易踩的一处错觉。
+    vs:
+      python: |
+        两边的类型检查都是可选的外部工具，而且都有同一个错觉：
+        标注不保证运行时的值。差别在工具形态：Python 用 mypy / pyright，
+        配置在 `pyproject.toml`；JavaScript 用 tsc，配置在 `tsconfig.json`。
+      java: |
+        Java 的类型检查就是编译器本身，**没有「可选」这一说** ——
+        代码不通过就产不出产物。所以「运行时不检查类型」这个错觉
+        在 Java 这边不存在（除了反射与泛型擦除那两处例外）。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  runtime-version:
+    code: |
+      node -v
+      nvm install 20 && nvm use 20      // @note nvm：多版本共存与切换
+      fnm use 20                        // @note 同类工具，更快
+
+      // 项目里声明期望的版本
+      //   package.json: "engines": { "node": ">=20" }
+      //   .nvmrc: 20                      ← nvm use 自动读它
+
+      // @note 浏览器那边没有「版本管理」这回事 ——
+      //       你面对的是「用户装了什么浏览器」，靠特性检测与转译兜住
+    baseline: |
+      服务端用 nvm / fnm 之类的工具管理多个运行时版本，项目里用 `.nvmrc`
+      或 `package.json` 的 `engines` 声明期望版本（前者是工具读的、后者是约定）。
+      浏览器里**没有版本管理这个动作** —— 你面对的是用户的浏览器，
+      只能靠特性检测与转译兜住旧版本。
+    vs:
+      python: |
+        概念完全对应：pyenv / conda 管多版本，`.python-version` 声明期望版本。
+        差别在浏览器那条线 —— Python 没有「代码跑在用户机器上」这个场景，
+        所以「面向未知运行时」这件事只在这里存在。
+      java: |
+        Java 用 SDKMAN / jenv 管多版本，项目里靠构建工具的
+        `<release>` / `toolchain` 指定目标版本。Java 的版本问题更尖锐
+        （字节码版本不兼容会直接拒跑），JavaScript 这边基本是语法特性差异。
+    equivalence:
+      python: analogous
+      java: analogous
+
+  repl:
+    code: |
+      node                      // @note 交互式环境
+      node -e "console.log(1)"  // @note 直接跑一段
+      node --inspect app.js     // @note 开调试器
+
+      // 浏览器里 F12 就是最好的 REPL —— 能直接操作当前页面
+      // @note ESM 的顶层 await 在 REPL 里可以直接用
+    baseline: |
+      `node` 就是 REPL，`node -e` 直接跑一段代码。浏览器开发者工具是更好的
+      交互环境（能直接操作当前页面）。日常用它验证一小段表达式、
+      看看某个 API 的行为，比写文件再跑快得多。
+    vs:
+      python: |
+        两边的 REPL 都是日常工具（`python` / `node`）。Python 的更有名一些
+        （IPython、Jupyter 生态），JavaScript 那边浏览器控制台承担了类似角色。
+      java: |
+        Java 传统上没有 REPL，Java 9 才补上 `jshell`。这与语言的血统有关：
+        静态类型加编译步骤让交互式执行变得别扭。所以「随手试一段」
+        这个习惯在 Java 里是后来才有的。
+    equivalence:
+      python: analogous
+      java: divergent
