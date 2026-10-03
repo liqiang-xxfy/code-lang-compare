@@ -137,7 +137,8 @@ boxes:
       class User(val id: Int)      // @note 类型也一样：整份文件里的声明都算数
       val u: User? = null
 
-      // @note! 但「能用」不等于「已经初始化」—— 顶层属性在初始化前读到的是默认值 0 / null
+      // @note! 但「能用」不等于「已经初始化」：顶层属性在初始化前读到什么
+      // @note! 属于**未定义行为**（JVM 上恰好是 0 / null，换个目标平台就未必），别依赖
     vs:
       javascript: |
         JavaScript 的提升是**引擎在运行时**做的事，所以「先用后声明」的结果
@@ -192,48 +193,52 @@ boxes:
         Kotlin 里它天然是一个新变量，出了块就回到外层那个。
         同一段嵌套结构在两边的含义完全不同，是迁移时最容易看漏的一处。
       java: |
-        两边都是块级遮蔽，同作用域重复声明都在编译期报错，规则可以逐条对应。
-        差别在类成员这一层：Java 的字段与参数重名时，
-        写在字段位置要靠 `this.x` 才能指到字段，方法里的 `x` 是参数；
-        Kotlin 用的是同一个 `this.x` 写法，但它在遮蔽外层变量时会额外警告，
-        比 Java 多一句提醒。
+        **这里两边其实不一样**：Kotlin 允许内层块里的局部变量遮蔽外层的
+        （只给一句 `name shadowed` 警告），而 Java **禁止**同方法内
+        嵌套块重名局部变量，那是编译错误。
+        所以同一段嵌套结构在 Java 里写不出来 —— 从 Java 过来时这条要反过来适应。
+        两边都允许的是「局部变量遮蔽同名字段」，那里才真的要靠 `this.x` 区分。
     equivalence:
       javascript: analogous
       python: divergent
-      java: identical
+      java: analogous
 
   naming-convention:
     code: |
       const val MAX_RETRY = 3     // @note 编译期常量：全大写下划线分隔
-      val defaultTimeout = 30     // @note 普通只读属性：小驼峰，不因为只读就大写
+      val DEFAULT_TIMEOUT = 30    // @note! 顶层（或 object 里）持不可变数据的 val 也是全大写
+      val defaultName = "匿名"     // @note 非顶层的只读属性：小驼峰
       var userName = "Ada"        // @note 变量：小驼峰
       class UserProfile           // @note 类型：大驼峰
       fun fetchData() { }         // @note 函数：小驼峰
 
       fun `空购物车的总价是零`() { }   // @note 反引号名字：只推荐在测试里用
 
-      // @note! 常量大小写看的是**是不是编译期常量**，不是看 val 还是 var
+      // @note! 判据不是「val 还是 var」，而是**编译期常量或深度不可变** ——
+      // @note! 所以顶层的 val 也写全大写，而类里的普通只读属性仍写小驼峰
     vs:
       javascript: |
         大部分惯例是共通的（大驼峰类型、小驼峰其余），两边都由社区约定
-        而非语言强制。Kotlin 多两条 JavaScript 没有的：一是**全大写专留给
-        编译期常量**（`const val`），普通 `val` 仍写小驼峰 —— 所以看到全大写
-        就知道它是编译期替换掉的；二是反引号名字，能让函数名直接写成中文句子，
-        官方只推荐测试用。JavaScript 那边这两条都靠自觉。
+        而非语言强制。Kotlin 多两条 JavaScript 没有的：一是**全大写留给
+        「常量性」的东西** —— 编译期常量，加上顶层或单例里持不可变数据的
+        只读属性，判据不是「val 还是 var」，所以看到全大写能推断出不少东西；
+        二是反引号名字，能让函数名直接写成中文句子，官方只推荐测试用。
+        JavaScript 那边这两条都靠自觉。
       python: |
-        Python 用全大写表示「这是常量」，全靠约定，解释器不管；
-        Kotlin 的全大写有个硬边界 —— 真正享受这个名字的是 `const val`
-        （编译期常量，只有基本类型和字符串能当）。
-        另一处是测试名：Python 那边测试函数名只能是合法标识符
-        （中文虽然合法但会有人反对），Kotlin 用反引号能把整句中文当函数名，
-        这是官方文档专门提到的用法。
+        两边都用全大写表示「这是常量」，但**判据不同**：
+        Python 纯靠约定，什么都能叫常量；Kotlin 的官方规范给了一个具体边界 ——
+        编译期常量，以及顶层或单例里持不可变数据的只读属性，
+        而类里的普通只读属性写小驼峰。
+        另一处是测试名：Python 那边测试函数名只能是合法标识符，
+        Kotlin 用反引号能把整句中文当函数名，这是官方文档专门提到的用法。
       java: |
         两边的类型与函数命名惯例一样（大驼峰 / 小驼峰），可以逐条对应。
-        差别在两处：Java 的常量是 `static final` 全大写，覆盖范围比 Kotlin 的
-        `const val` 宽（Kotlin 的 `const val` 只能是基本类型或字符串，
-        要对象就得用 `val`，那时按惯例写小驼峰）；另一处是包名 ——
-        Kotlin 官方明确要求包名全小写且**不鼓励用下划线**，Java 那边
-        下划线包名还相当常见。
+        差别在两处：Java 的常量就是 `static final`、一律全大写；
+        Kotlin 的判据分两档 —— `const val`（只能放基本类型与字符串）
+        与顶层/单例里持不可变数据的只读属性，两者都写全大写，
+        而类里的普通只读属性写小驼峰，所以「看到全大写」在 Kotlin 里
+        能推出更多东西。另一处是包名：Kotlin 官方要求全小写且**不用下划线**，
+        而 Java 那边下划线包名还相当常见。
     equivalence:
       javascript: analogous
       python: analogous

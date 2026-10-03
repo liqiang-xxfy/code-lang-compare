@@ -20,7 +20,7 @@ boxes:
   literals:
     code: |
       val i = 1                   // @note Int
-      val l = 1L                  // @note Long：后缀大写 L（小写 l 会被认为是数字 1）
+      val l = 1L                  // @note! Long 后缀**只能大写 L**（小写 l 编译不过 —— 大写正是为了不跟数字 1 看混）
       val d = 1.0                 // @note Double
       val f = 1.0f                // @note Float：必须带后缀
       val hex = 0xFF              // @note 十六进制；二进制 0b1010
@@ -40,7 +40,8 @@ boxes:
         不能和字符串混用（`c + 1` 得到的是字符而不是拼接）。
         还有 `undefined` —— Kotlin 没有这个值，只有 `null`，详见本组第三格。
       python: |
-        两边的数字字面量都很丰富（下划线分隔、进制前缀、`L` 后缀）。
+        两边的数字字面量都很丰富（下划线分隔、十六进制与二进制前缀都在）。
+        注意那边**没有 `L` 后缀** —— 那是 Python 2 的东西，3 里整数只有一种。
         差别在**类型有几档**：Python 的 `int` 是任意精度，多大都不会溢出；
         Kotlin 的 `Int` 是 32 位、`Long` 是 64 位，超了就静默回绕。
         另一处是单引号与双引号：Python 里两者完全等价，都是字符串；
@@ -70,8 +71,8 @@ boxes:
         return 3.14 * r * r
       }
 
-      // val n = null              // @note! 编译错误：什么都没有，推断不出类型
-      val n: String? = null         // @note 可空类型必须写出来
+      val n = null                  // @note! 合法，但推成 Nothing? —— 一个只能装 null 的类型
+      val s: String? = null         // @note 想要能装字符串的可空类型，必须显式写出来
     vs:
       javascript: |
         JavaScript 没有「推断出什么类型」这个问题 —— 变量里放的就是值本身，
@@ -84,8 +85,9 @@ boxes:
         Python 的标注与推断只对类型检查器有意义，运行时不看，
         所以 `x = 1` 之后再 `x = "文本"` 完全合法；
         Kotlin 的推断是编译器的结论，之后再赋别的类型直接编译不过。
-        另一处是 `null`：Python 的 `None` 随时能赋，Kotlin 里
-        `val n = null` 连类型都推不出来 —— 必须写明 `String?`。
+        另一处是 `null`：Python 的 `None` 随时能赋给任何变量，
+        Kotlin 里 `val n = null` 虽然合法，但会推成 `Nothing?`（只有一个值），
+        想得到能装别的东西的 `String?` 必须显式写出来 —— 推断在这件事上帮不上忙。
       java: |
         Java 的 `var` 只在局部变量上可用，字段、参数、返回值一律要写类型；
         Kotlin 的推断范围宽得多 —— 属性、表达式体函数的返回值都能推断。
@@ -152,7 +154,7 @@ boxes:
       "42".toInt()                // @note 42；解析不了会抛 NumberFormatException
       "x".toIntOrNull()           // @note 解析不了给 null —— 处理用户输入时用这个
 
-      val text = "共 ${'$'}{i + 1} 条"   // @note 字符串模板：任意的表达式都能塞进去
+      val text = "共 ${i + 1} 条"   // @note 字符串模板：任意的表达式都能塞进去
       val fromAny = 3.9.toString()  // @note 每个类型都有 toString()
     vs:
       javascript: |
