@@ -1,0 +1,215 @@
+# rust —— mechanism / async
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: async` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  event-loop:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有内建的事件循环**。标准库只有 `async` / `.await` 的语法
+        与 `Future` trait，驱动它们的执行器（executor）不在标准库里 ——
+        实际项目用 tokio 或 async-std。JavaScript 的运行时自带事件循环，
+        `await` 直接就能跑；Rust 里必须先在 `main` 上挂一个运行时
+        （`#[tokio::main]`），否则异步代码什么都不做。
+      python: |
+        Rust **没有内建事件循环** —— 标准库提供 `Future` 与 `async` 语法，
+        但谁来轮询得自己选（tokio / async-std）。Python 的 `asyncio`
+        是标准库的一部分，事件循环是现成的。这带来一个实际差别：
+        Python 里「用异步」是零依赖的选择，Rust 里几乎一定意味着
+        引入一个大依赖，且不同库的运行时不一定能混用。
+      java: |
+        Rust **没有内建事件循环**，与 Java 的传统线程模型不同 ——
+        Java 的并发一直是线程池，近年的虚拟线程也是运行时内建的。
+        Rust 把异步运行时做成了可替换的库，代价是选型与生态割裂
+        （tokio 生态与 async-std 生态不完全互通），
+        收益是标准库不用背这个包袱，嵌入式场景可以完全不要运行时。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  callback:
+    code: |
+      // 回调就是普通闭包
+      fn fetch(id: u32, on_done: impl Fn(String)) {
+        let data = format!("数据 {}", id);   // 假装是耗时操作
+        on_done(data);
+      }
+      fetch(1, |s| println!("{}", s));
+
+      // 但 Rust 里更常用 Future —— 回调地狱的问题在异步场景同样存在
+      // 而且回调要跨线程时必须 Send + 'static，比 JavaScript 严格得多
+
+      // 组合子风格
+      fn fetch_all(ids: &[u32]) -> Vec<String> {
+        ids.iter().map(|id| format!("数据 {}", id)).collect()
+      }
+    vs:
+      javascript: |
+        回调在两边都是普通函数值，写法接近。差别在约束：
+        JavaScript 的回调可以随便捕获外部变量；Rust 的闭包要被
+        跨线程调用时必须 `Send + 'static`，捕获引用往往编译不过 ——
+        于是需要把数据 clone 或 move 进去。这也是 Rust 里
+        回调风格不如 Future 常见的原因：借用检查让嵌套回调很快就写不动了。
+      python: |
+        Python 的闭包回调与 Rust 的差不多，但 Python 有 GIL、
+        不关心线程安全标记；Rust 的回调一旦要跨线程执行
+        （异步运行时基本都跨），就必须满足 `Send + 'static`，
+        捕获引用会编译失败。所以 Rust 里回调写起来更重，
+        惯用做法是返回 `Future` 交给执行器编排。
+      java: |
+        Java 的回调用 lambda 或函数式接口（`Consumer<String>`），
+        与 Rust 的 `impl Fn(String)` 形态接近。差别在捕获：
+        Java 的 lambda 捕获引用即可，Rust 的闭包要跨线程
+        就得 `Send + 'static`，常常需要显式 `move` 与 clone。
+        Java 的 lambda 还有装箱开销（`Consumer<String>` 是接口），
+        Rust 的 `impl Fn` 是单态化的、没有虚表。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  promise-future:
+    code: |
+      use std::future::Future;
+      use std::pin::Pin;
+      use std::task::{Context, Poll};
+
+      // Future 是一个 trait：poll 一次，要么就绪、要么说「还没好」
+      // fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output>
+
+      // @note! Rust 的 Future 是**惰性**的 —— 造出来不会跑
+      async fn work() -> i32 { 42 }
+      let f = work();          // @note 到这里什么都没发生，还会收到 unused 警告
+      // 必须交给执行器：tokio::spawn(f) 或 .await
+
+      // 组合子
+      // let both = futures::join!(a(), b());
+      // let either = futures::select! { … };
+    vs:
+      javascript: |
+        两边都是「代表未来结果的值」，但**激发的时机相反**：
+        JavaScript 的 Promise 一造出来就开始执行（`new Promise(executor)`
+        立刻调用 executor），Rust 的 `Future` 什么都不做，
+        直到被 `.await` 或交给执行器。所以 Rust 里
+        `let f = work();` 然后忘了 await，什么都不会发生（编译器会警告），
+        JavaScript 里 `const p = work()` 已经在跑了。
+      python: |
+        Python 的协程对象与 Rust 的 Future 一样是**惰性**的 ——
+        不 await 就不执行，这一点两边一致。差别在驱动方式：
+        Python 有 `asyncio.run` / `loop.create_task` 这样的标准入口，
+        Rust 的执行器是第三方库（tokio / async-std）。
+        另外 Rust 的 `Future` 要 `Pin` 才能轮询，Python 里没有这层包装。
+      java: |
+        Java 的 `CompletableFuture` 代表的是**已经在跑或已被提交**的任务
+        （`supplyAsync` 会立刻送进线程池），而 Rust 的 `Future`
+        是惰性的、必须有人轮询才会开始 —— 两边对「这个值代不代表
+        已经在执行的工作」的答案正好相反。
+        另一处根本差别：Java 的 `CompletableFuture` 自带线程池执行，
+        Rust 的 `Future` 与执行器完全解耦 —— 同一个 `Future`
+        可以跑在 tokio 上，也可以在嵌入式里手写个最简单的执行器。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  async-await:
+    code: |
+      async fn fetch(id: u32) -> String {      // @note async fn 返回 impl Future
+        format!("数据 {}", id)
+      }
+
+      async fn run() -> usize {
+        let a = fetch(1).await;                // @note .await 挂起直到就绪
+        let b = fetch(2).await;
+        a.len() + b.len()
+      }
+
+      // 并发执行两个（而不是顺序 await）
+      // let (a, b) = tokio::join!(fetch(1), fetch(2));
+
+      #[tokio::main]                             // @note! 必须有运行时
+      async fn main() {
+        println!("{}", run().await);
+      }
+    vs:
+      javascript: |
+        语法几乎一样（`async` / `await`），但有两处硬差别：
+        ① JavaScript 的 `await` 在顶层模块里可以直接用，Rust 需要
+        一个运行时把 `main` 驱动起来；② JavaScript 的 `async` 函数
+        返回 Promise，调用即执行；Rust 的 `async fn` 返回 `Future`，
+        调用不执行，要等 `.await`。顺序写得一样、执行时机不同。
+      python: |
+        `async` / `await` 的写法两边几乎相同，`asyncio.run` 对应
+        `#[tokio::main]`。差别在于 Rust 的异步函数返回的是
+        `impl Future`，需要执行器；Python 的协程由 asyncio 直接驱动。
+        并发写法上 Python 用 `asyncio.gather`，Rust 用 `tokio::join!` / `futures::join!` ——
+        注意直接 `.await` 两次是顺序执行，这一点两边一样容易写错。
+      java: |
+        Java 没有 `async` / `await` 语法 —— 这正是一个基准候选
+        在这一格标 absent 的原因。Java 表达异步靠
+        `CompletableFuture` 的链式组合子（`thenApply` / `thenCompose`），
+        或者虚拟线程 + 阻塞代码。Rust 走的是 async/await 这条路，
+        与 Java 的写法差异很大：一个是「写得像同步」，
+        一个是「用组合子把回调串起来」。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  cancellation:
+    code: |
+      use tokio::time::{timeout, Duration};
+
+      // 取消 = drop 掉那个 Future
+      let result = timeout(Duration::from_secs(1), slow()).await;
+      match result {
+        Ok(v) => println!("完成 {}", v),
+        Err(_) => println!("超时（Future 已被丢弃）"),   // @note! 超时就是把它 drop 了
+      }
+
+      // select：谁先就绪用谁，另一个被取消
+      // tokio::select! {
+      //   v = a() => …,      // @note 另一个分支的 Future 在这里被 drop
+      //   _ = sleep(…) => …,
+      // }
+
+      // @note! 取消是「在 await 点丢弃」，所以中途不会有清理回调 ——
+      // 想要清理就实现 Drop
+    vs:
+      javascript: |
+        JavaScript 用 `AbortController` 显式取消，被调方要主动检查
+        `signal.aborted` 才真的停下来 —— 忘了检查就没取消。
+        Rust 的取消是**结构性**的：Future 被 drop 掉就不再被轮询，
+        不需要被调方配合。代价是「取消可能发生在任意 await 点」，
+        要清理得靠 `Drop`，而不是写在某个 `catch` 里。
+      python: |
+        Python 用 `task.cancel()` 抛 `CancelledError` 进协程，
+        被取消方能捕获它做清理（但要重新抛出）——
+        也就是「取消是一次异常注入」。Rust 的取消是
+        直接把 Future 丢掉，没有异常、没有给被取消方反应的机会，
+        清理只能靠 `Drop`。两边的清理位置因此完全不同。
+      java: |
+        Java 传统上用中断（`Thread.interrupt()`）配合标志位检查，
+        `CompletableFuture` 的 `cancel()` 也不会真的停下正在跑的任务；
+        虚拟线程同样靠中断。Rust 的 drop 取消是自动且彻底的 ——
+        Future 不再被轮询，其占用的资源随 Drop 释放。
+        代价是异步代码的每一步（每个 await）都可能成为取消点，
+        写事务性逻辑时要额外小心。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

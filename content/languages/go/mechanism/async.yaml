@@ -1,0 +1,192 @@
+# go —— mechanism / async
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: async` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  event-loop:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有事件循环**。它的并发模型是 goroutine + 调度器：
+        Go 运行时把成千上万个 goroutine 复用到少量 OS 线程上，
+        阻塞调用会被运行时挂起 goroutine 并让出线程 ——
+        这一层替代了事件循环要解决的问题。
+        JavaScript 里你必须写异步代码才能不卡住主线程；
+        Go 里直接写阻塞代码即可，运行时替你调度。
+      python: |
+        Go **没有事件循环** —— goroutine 加调度器承担了同样的职责，
+        但形态完全不同：Python 的 asyncio 需要你把函数写成协程、
+        用 `await` 显式让出；Go 里函数就是普通函数，
+        运行时会在线程阻塞时自动切换 goroutine。
+        所以 Go 不需要「异步版」的库（没有 async 版 HTTP 客户端这种区分）。
+      java: |
+        Go **没有事件循环**，与 Java 一样 —— 两边的并发都是
+        「线程（或类线程）+ 调度」模型，只是 Go 的 goroutine
+        比 Java 传统线程轻得多（21 起的虚拟线程才追上这个量级）。
+        差别在调度器归属：Go 的运行时调度器是内建的、默认开启，
+        Java 的虚拟线程需要显式创建或选对应的 executor。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  callback:
+    code: |
+      // 回调就是普通函数值，通常配 goroutine 使用
+      func fetch(id int, onDone func(string)) {
+        go func() {                      // @note 丢到后台跑，完成时调回调
+          time.Sleep(100 * time.Millisecond)
+          onDone(fmt.Sprintf("数据 %d", id))
+        }()
+      }
+
+      done := make(chan string, 1)
+      fetch(1, func(s string) { done <- s })
+      fmt.Println(<-done)                // @note 也可以直接用 channel，绕开回调
+
+      // 多个回调要等齐：sync.WaitGroup
+      var wg sync.WaitGroup
+      for i := 0; i < 3; i++ {
+        wg.Add(1)
+        go func(n int) { defer wg.Done(); fetch(n, func(string) {}) }(i)
+      }
+      wg.Wait()
+    vs:
+      javascript: |
+        两边的回调都是普通函数值，写法接近。差别在**谁来执行** ——
+        JavaScript 的回调在事件循环里排队，永远不会并行；
+        Go 里 `go func(){…}` 丢出去就是真并行，回调也可能在别的线程上跑。
+        另一个实际差别是等待：JavaScript 用 `Promise.all` 等一组回调，
+        Go 用 `sync.WaitGroup` 或 channel —— 后者更繁琐但更显式。
+      python: |
+        Python 的回调函数写法一致，但执行模型不同：
+        Python 有 GIL，回调就算在别的线程里跑也不会真并行；
+        Go 的回调可能真的在另一个核上执行。等待一组回调时，
+        Python 常用 `concurrent.futures` 的 `as_completed`，
+        Go 用 `sync.WaitGroup` —— Go 更底层、也更啰嗦。
+      java: |
+        Java 的回调用 lambda 传给函数式接口，与 Go 传
+        `func(string)` 形态接近。差别在等待与编排：
+        Java 有 `CompletableFuture.allOf` 现成做组合，
+        Go 只有 `sync.WaitGroup` 与 channel，组合子要自己搭。
+        另一处是 Go 的回调可以直接在 goroutine 里跑（`go func`），
+        Java 里提交到线程池才是显式的一步。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  promise-future:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有 Promise / Future 这类「代表未来结果」的对象**。
+        并发任务直接把结果写进 channel，接收方 `<-ch` 阻塞等 ——
+        等待与取值是同一个动作，没有中间对象。
+        JavaScript 的 `Promise` 需要 `.then` 或 `await` 才能取到值，
+        Go 里 `ch` 本身就是那个「未来」，而且可以参与 `select` 多路等待。
+        代价是 Go 里没有 `Promise.all` 这样的现成组合子。
+      python: |
+        Go **没有 Future**（`asyncio.Future` / `Task` 那类对象），
+        结果通过 channel 传递。Python 里 Future 可以被多次 await、
+        可以取消、可以加回调；Go 的 channel 只能收一次，
+        想广播要用 `close` + 多接收者或 `sync.Cond`。
+        两边都能表达「等结果」，但 Go 的原语更少也更底层。
+      java: |
+        Go **没有 Future**，与 Java 的 `Future` / `CompletableFuture`
+        形成明显对照 —— Java 里提交任务拿到一个句柄、
+        再 `get()` 或链式组合；Go 里就是 `go` 一个函数往 channel 写。
+        好处是没有中间对象、也没有「Future 必须被取用」这类问题；
+        代价是缺少 `thenCompose` / `allOf` 那样的编排工具，
+        复杂流程要手写 select 与 WaitGroup。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  async-await:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有 `async` / `await`** —— 没有协程语法，也没有
+        「异步函数」这种类型。并发就是 `go` 关键字加 channel，
+        等待就是读 channel。这与 JavaScript 的差别不只是语法：
+        JavaScript 的 `await` 让异步代码写得像同步；
+        Go 里同步代码本来就是同步的，需要并发时才显式 `go` 出去。
+        心智模型正好相反：一个是「默认可挂起」，一个是「默认阻塞」。
+      python: |
+        Go **没有 `async` / `await`**，也没有协程对象 ——
+        并发靠 goroutine 与 channel。Python 里你必须把函数写成协程、
+        一路 `await` 下去（「颜色」问题：异步函数与同步函数不能混用）；
+        Go 里没有这层区分，同一个函数可以在 goroutine 里跑，
+        也可以直接调用。这是 Go 在工程上的一大优势。
+      java: |
+        Go **没有 `async` / `await`**，与 Java 一样 ——
+        但原因不同：Java 用 `CompletableFuture` 的组合子表达异步，
+        Go 干脆认为「阻塞是正常的，需要并发就开 goroutine」。
+        所以 Go 里不存在「异步版库」这种生态分裂，
+        而 Java 的虚拟线程（21 起）正是为了消除这种分裂 ——
+        这一点上 Go 一开始就走在前面。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  cancellation:
+    code: |
+      import "context"
+
+      func work(ctx context.Context) error {
+        // @note 取消信号通过 ctx 传递，用 Done() 拿到一个 channel
+        select {
+        case <-ctx.Done():
+          return ctx.Err()               // @note 被取消或超时
+        case <-time.After(time.Second):
+          return nil
+        }
+      }
+
+      ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+      defer cancel()                      // @note! 必须调用，否则泄漏定时器
+      err := work(ctx)
+
+      // WithCancel / WithDeadline / WithValue 都基于同一套机制
+      // @note 取消是**协作式**的 —— 被调方不检查 ctx 就不会停
+    vs:
+      javascript: |
+        JavaScript 用 `AbortController` 传 signal，Go 用 `context.Context`
+        传取消信号 —— 两者都是**协作式**取消：被调方必须主动检查
+        （JavaScript 看 `signal.aborted` / 监听 abort 事件，
+        Go 用 `select` 等 `ctx.Done()`），不检查就不会停。
+        形态差别是 Go 把超时、截止时间、键值都收进了同一个 Context 对象，
+        JavaScript 里超时要配 `Promise.race` 或 `AbortSignal.timeout`。
+      python: |
+        Python 的取消是**注入异常**（`task.cancel()` 让协程收到
+        `CancelledError`），被调方可以捕获做清理；
+        Go 的取消是**发信号**（`ctx.Done()` 关闭 channel），
+        被调方要主动 `select` 才感知 —— 两者都是协作式，但机制不同：
+        一个是异常、一个是通道。
+        Go 的 `context` 还承担超时与传值，Python 里超时用 `asyncio.wait_for`。
+      java: |
+        Java 用线程中断（`interrupt()` + `isInterrupted()` 检查），
+        Go 用 `context.Context` —— 都是协作式，都要被调方配合。
+        差别是 context 还能携带截止时间与跨调用链的值，
+        并且能一层层往下传（HTTP 请求的取消沿调用链传播是它的经典用法）。
+        Java 里对应的能力散在 `Future.cancel`、
+        `ExecutorService.shutdownNow` 与 `Thread.interrupt` 上，不成一套。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
