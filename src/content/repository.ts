@@ -126,6 +126,18 @@ export const chapterOf = (
 ): CatalogChapter | null => chaptersOf(baseline, section).find((c) => c.id === chapter) ?? null
 
 /**
+ * 某基准在某板块下**真正能打开的**章节 —— 判据是「该基准自己写了这一章引用的某个存放组」。
+ *
+ * **这是全站唯一的章节可见性判据**，必须与构建期的路由判据（`04-build` 的章节页判据）
+ * 和路由守卫的 404 判据（`guards`）同源。骨架期**章节分类先于内容落库**
+ * （清单一次列全、正文按批填），所以「章节列表」与「能打开的章节」是两件事 ——
+ * 左栏二级、首页计数、上一章 / 下一章、板块入口全部走这个函数；
+ * 任何一处漏了，那一处就会出现**点进去 404 的死链**（路由探针抓不到，因为不报错）。
+ */
+export const visibleChaptersOf = (baseline: string, section: Section): CatalogChapter[] =>
+  chaptersOf(baseline, section).filter((c) => hasChapterContent(baseline, baseline, section, c.id))
+
+/**
  * 某个 feature 在**该基准的**章节分类里落在哪一章。
  *
  * 可能返回 null —— 这个基准把该知识点取舍掉了（Python 视角下就没有「变量提升」这一行）。
@@ -181,13 +193,17 @@ export function groupsOfChapter(baseline: string, section: Section, chapter: str
   return out
 }
 
-/** 章内前后章（用于翻页）。章节顺序来自**该基准**的章节分组的数组顺序 */
+/**
+ * 章内前后章（用于翻页）。章节顺序来自**该基准**的章节分组的数组顺序。
+ *
+ * 在**能打开的章节**里取前后 —— 否则「下一章」会指向一个还没写内容的章，点进去 404。
+ */
 export function siblingsOf(
   baseline: string,
   section: Section,
   chapter: string,
 ): { prev: CatalogChapter | null; next: CatalogChapter | null } {
-  const list = chaptersOf(baseline, section)
+  const list = visibleChaptersOf(baseline, section)
   const i = list.findIndex((c) => c.id === chapter)
   if (i < 0) return { prev: null, next: null }
   return { prev: list[i - 1] ?? null, next: list[i + 1] ?? null }

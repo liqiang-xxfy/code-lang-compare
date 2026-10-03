@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from 'vue-router'
 import { computed } from 'vue'
-import { chapterPathOf, chaptersOf, orderedSections, sectionUsesTarget } from '@/content/repository'
+import {
+  chapterPathOf,
+  orderedSections,
+  sectionUsesTarget,
+  visibleChaptersOf,
+} from '@/content/repository'
 import { sectionEntryPath, sectionOfRoute } from '@/router'
 import { useLanguageStore } from '@/stores/language'
 import { useUiStore } from '@/stores/ui'
@@ -61,9 +66,13 @@ const groups = computed<NavGroup[]>(() => {
    * 章节来自**当前基准的章节分类** —— 每个基准一套（ADR-52），
    * 所以切基准时左栏的二级会跟着换名称、换分组，甚至换掉整个板块。
    * 这正是 S6.5 想要的效果：用户熟悉的语言怎么组织知识，就怎么给他看。
+   *
+   * **只列基准自己写了内容的章**（`visibleChaptersOf`）—— 骨架期章节分类先于内容落库，
+   * 不过滤的话左栏会出现一串点进去就是 404 的二级项。判据与路由、守卫同源，
+   * 章节于是会随内容铺开自己长出来。
    */
   const chaptersFor = (section: Section): NavChild[] =>
-    chaptersOf(b, section).map((c) => ({
+    visibleChaptersOf(b, section).map((c) => ({
       to: chapterPathOf(b, section, c.id),
       label: c.title,
     }))

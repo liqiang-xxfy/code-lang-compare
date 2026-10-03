@@ -2,7 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { usePageMeta } from '@/composables/usePageMeta'
-import { chaptersOf, manifest, orderedSections } from '@/content/repository'
+import { manifest, orderedSections, visibleChaptersOf } from '@/content/repository'
 import { compareEntryPath, sectionEntryPath } from '@/router'
 import { useContentStore } from '@/stores/content'
 import {
@@ -27,11 +27,16 @@ const nameOf = (id: string) => getLanguageMeta(id)?.name ?? id
 const defaultBaselineName = nameOf(defaultBaselineLanguageId)
 const defaultCompareName = nameOf(defaultCompareLanguageId)
 
-/** 某个基准在全部章节型板块下看到的章节 —— **每个基准一套分类**，所以逐基准算 */
+/**
+ * 某个基准在全部章节型板块下**真正能打开**的章节 —— **每个基准一套分类**，所以逐基准算。
+ *
+ * 走 `visibleChaptersOf` 而不是 `chaptersOf` 是必须的：章节分类先于内容落库
+ * （清单一次列全、内容按批填），不过滤的话卡片会写「N 个模块」而点进去 404。
+ */
 const chaptersFor = (baseline: string) =>
   orderedSections()
     .filter((s) => s.shape === 'chapter')
-    .flatMap((s) => chaptersOf(baseline, s.id))
+    .flatMap((s) => visibleChaptersOf(baseline, s.id))
 
 /**
  * 三个基准入口 —— 每个基准有自己的一套地址、**自己的章节分类**与浏览语境。
@@ -66,7 +71,7 @@ const sectionEntries = computed(() => {
    */
   const countOf = (section: Section, scope: string) =>
     scope === 'baseline'
-      ? chaptersOf(b, section).length
+      ? visibleChaptersOf(b, section).length
       : manifest.pairs.filter((p) => p.baseline === b && p.sections.includes(section)).length
 
   return orderedSections().map((def) => ({

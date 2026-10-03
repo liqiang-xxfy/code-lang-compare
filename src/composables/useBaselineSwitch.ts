@@ -9,12 +9,11 @@
  */
 import { useRoute, useRouter } from 'vue-router'
 import {
-  chapterOf,
-  hasChapterContent,
   orderedSections,
   pairTargetsOf,
   sectionIsChapter,
   sectionPathOf,
+  visibleChaptersOf,
 } from '@/content/repository'
 import { sectionEntryPath, sectionOfRoute } from '@/router'
 import { useLanguageStore } from '@/stores/language'
@@ -49,12 +48,13 @@ export function resolveSwitchPath(baseline: string, ctx: SwitchContext): string 
     /*
      * 同一章能保留就保留 —— 用户换的是参照系，不是想换一章。
      *
-     * 但两个判据都要过，缺一个就会落到空白页：
+     * 两个判据都要过，缺一个就会落到空白页：
      *   1. **章节本身存在于新基准的分类里** —— 每个基准一套章节分类（ADR-52），
      *      同名不代表同义，新基准可能根本没有这一章
      *   2. 新基准确实写了这一章引用的某个存放组（骨架期很多章还没内容）
+     * 两者合起来就是 `visibleChaptersOf` —— 全站唯一的章节可见性判据。
      */
-    if (key && chapterOf(baseline, section, key) && hasChapterContent(baseline, baseline, section, key)) {
+    if (key && visibleChaptersOf(baseline, section).some((c) => c.id === key)) {
       return `/compare/${baseline}/${section}/${key}`
     }
     return sectionEntryPath(baseline, section)

@@ -11,6 +11,7 @@ import {
   hasChapterContent,
   manifest,
   orderedSections,
+  visibleChaptersOf,
 } from '@/content/repository'
 import { sectionEntryPath } from '@/router'
 import { defaultBaselineLanguageId, getLanguageMeta } from '@/generated/registry.gen'
@@ -38,9 +39,7 @@ const asBaseline = computed(() => {
   const section = firstChapterSection()
   if (!section) return null
   // 落到**这门语言确实写了**的第一章（在它自己的章节分类里），而不是分类首章
-  const first = chaptersOf(langId.value, section).find((c) =>
-    hasChapterContent(langId.value, langId.value, section, c.id),
-  )
+  const first = visibleChaptersOf(langId.value, section)[0]
   return first ? chapterPathOf(langId.value, section, first.id) : null
 })
 
@@ -96,6 +95,9 @@ const viewBaseline = computed(() =>
 const chapters = computed(() =>
   orderedSections()
     .filter((s) => s.shape === 'chapter')
+    // 注意这一处与其他几处**判据不同**：这里问的是「**这门语言**在这一章有没有内容」，
+    // 不是「基准有没有」，所以用 `hasChapterContent(langId, viewBaseline, …)` 逐章筛 ——
+    // 列表要展示的正是「这门语言写过的章」
     .flatMap((s) =>
       chaptersOf(viewBaseline.value, s.id)
         .filter((c) => hasChapterContent(langId.value, viewBaseline.value, s.id, c.id))

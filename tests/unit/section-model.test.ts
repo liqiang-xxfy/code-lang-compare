@@ -133,6 +133,65 @@ describe('清单产物 catalog.json', () => {
   })
 })
 
+/*
+ * 骨架期最容易被忽略的一条：**章节分类先于内容落库**（清单一次列全、正文按批填），
+ * 所以「章节列表」与「能打开的章节」是两件事。左栏二级、首页计数、上一章/下一章、
+ * 板块入口全都必须按后者过滤 —— 漏一处就是一条点进去 404 的死链，而且不报错。
+ *
+ * 这里钉住的是**判据本身**（运行时 `visibleChaptersOf` / `hasChapterContent`），
+ * 以及它与构建期路由判据的同源关系。
+ */
+describe('章节可见性：骨架先于内容，判据只有一个', () => {
+  const catalog = readJson<RenderedCatalog>(path.join(GENERATED, 'catalog.json'))
+  const manifest = readJson<{ routes: string[] }>(path.join(GENERATED, 'manifest.json'))
+
+  /** 该语言在该存放组有没有分片 —— 与运行时 `hasBoxGroup` 同判据（都查 glob 键） */
+  const hasShard = (lang: string, section: string, group: string) =>
+    fs.existsSync(path.join(GENERATED, 'content', lang, section, `${group}.json`))
+
+  const groupsOf = (ch: { features: Array<{ group: string }> }) => [
+    ...new Set(ch.features.map((f) => f.group)),
+  ]
+
+  it('可见的章是全部章的**保序子序列** —— 过滤不该打乱章节顺序', () => {
+    for (const c of catalog.catalogs) {
+      const all = c.chapters.map((ch) => ch.id)
+      const visible = c.chapters
+        .filter((ch) => groupsOf(ch).some((g) => hasShard(c.baseline, c.section, g)))
+        .map((ch) => ch.id)
+      expect(visible.filter((id) => all.includes(id))).toEqual(visible)
+    }
+  })
+
+  it('章节路由只在基准自己写了内容时产出 —— 与 04-build 的判据同源', () => {
+    const chapterRoutes = manifest.routes.filter(
+      (r) => r.startsWith('/compare/') && r.split('/').length === 5,
+    )
+    expect(chapterRoutes.length).toBeGreaterThan(0)
+    for (const route of chapterRoutes) {
+      const [, , baseline, section, chapter] = route.split('/')
+      const c = catalog.catalogs.find((x) => x.section === section && x.baseline === baseline)
+      expect(c, `${route} 对应的章节分组不存在`).toBeTruthy()
+      const ch = c!.chapters.find((x) => x.id === chapter)
+      expect(ch, `${route} 对应的章节不存在`).toBeTruthy()
+      expect(
+        groupsOf(ch!).some((g) => hasShard(baseline, section, g)),
+        `${route} 进了路由，但基准自己没写这一章的任何一个存放组 —— 会是一页没有参照系的空白`,
+      ).toBe(true)
+    }
+  })
+
+  it('没内容的章不产出路由（骨架期大量如此）—— 反向也要成立', () => {
+    for (const c of catalog.catalogs) {
+      for (const ch of c.chapters) {
+        const openable = groupsOf(ch).some((g) => hasShard(c.baseline, c.section, g))
+        const inRoutes = manifest.routes.includes(`/compare/${c.baseline}/${c.section}/${ch.id}`)
+        expect(inRoutes, `${c.section}/${c.baseline} 的 '${ch.id}'`).toBe(openable)
+      }
+    }
+  })
+})
+
 describe('双角色取值（boxView）', () => {
   const box: RenderedBox = {
     lang: 'python',

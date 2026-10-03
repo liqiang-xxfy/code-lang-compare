@@ -12,10 +12,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 架构文档 [docs/对比内容架构.md](docs/对比内容架构.md)（讲「目标形态与为什么」）；迁移的阶段表与进度在 [docs/内容架构迁移实施步骤.md](docs/内容架构迁移实施步骤.md)。README 的「四条核心设计」是理解本仓库的最短路径。
 
-> **当前处于迁移中间态**：S0–S6.5 已完成（架构切换 + 每基准章节分类落地），**S7「内容爬坡」尚未开始**。
-> 站点现在的内容量是：`express` 板块的**章节骨架**（池里 26 个知识点，JS / Python 各一套章节分组）
-> + `bindings` 存放组里 JS/Python 的 5 格内容 + 速查三兄弟（从旧架构原样搬运）。
+> **当前处于内容爬坡期**：S0–S7.0 已完成（架构切换 + 每基准章节分类 + **骨架落齐**），
+> **S7.1… 正在按板块纵深填正文**。
+> 骨架现状：4 个板块 / **22 个存放组 / 104 个知识点 / 12 份章节分组**（4 板块 × 3 基准候选）。
+> 正文现状：只有 `express/bindings` 一个存放组写了内容（JS / Python 各 6 格）。
 > 旧内容完整存档在 `content.legacy/`，**不参与构建与校验**，填新内容时可对照旧写法。
+> 分批与写作口径见 [docs/内容架构迁移实施步骤.md](docs/内容架构迁移实施步骤.md) 第 6 章。
 
 ## 常用命令
 
@@ -188,7 +190,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 | 文件 | 钉住的不变量 |
 | --- | --- |
 | [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：0 error、全局 id 两段唯一、**`featureIndex` 来自池而非遍历章节分组**、R21、provenance（llm 无 license）、台账、@note 无残留、`vs` 的 key 必须是基准候选 |
-| [tests/unit/section-model.test.ts](tests/unit/section-model.test.ts) | **对真实 `src/generated/` 产物**断言：分片路径与声明的 (语言,板块,存放组) 一致、catalog.json 的 key 是两段、章节 features 已 join 且带 `group`、**章节分类确实随基准变**、**双角色取值**（基准列 null 徽章 / absent 短路 / vs 缺 key 才是 identical） |
+| [tests/unit/section-model.test.ts](tests/unit/section-model.test.ts) | **对真实 `src/generated/` 产物**断言：分片路径与声明的 (语言,板块,存放组) 一致、catalog.json 的 key 是两段、章节 features 已 join 且带 `group`、**章节分类确实随基准变**、**章节可见性与路由同源**（没内容的章不产出路由，反之亦然 —— 骨架期这条天天在跑）、**双角色取值**（基准列 null 徽章 / absent 短路 / vs 缺 key 才是 identical） |
 | [tests/unit/pool-loader.test.ts](tests/unit/pool-loader.test.ts) | 装载器：池与章节分组、**同一 feature 在不同基准下落到不同章**、池驱动的语言内容、`_` 私有目录跳过、`pairs/` 方向反查、**对比框契约**（code/blocks 至多一个、absent 可三槽全空、`.strict()` 拒绝重复声明） |
 | [tests/unit/baseline-switch.test.ts](tests/unit/baseline-switch.test.ts) | 基准候选与默认值、可见列计算、目标语言推导、切基准回落、diff 缓存 |
 | [tests/unit/search.test.ts](tests/unit/search.test.ts) | 中文 bigram 分词、按语言分片、查询无需过滤、pair 归目标语言 |
@@ -223,9 +225,10 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 ## 已知遗留
 
-- **S7 内容爬坡尚未开始**：`express` 有完整的章节骨架（池 26 个知识点、JS/Python 各一套分组），但只有 `bindings` 存放组写了内容（JS/Python 各 5 格）。`model` / `mechanism` / `practice` 三个板块的池与分组都还没建，`java` / `rust` / `go` 三门还没有任何内容 —— 它们在左栏会整组隐藏（没有章节分组 = 未开工）。
-- **`express` 池里的 26 个知识点是骨架期的设计**，S7 填充时可以自由增删改 —— 现在只有 5 个有内容，改名的代价最低。
-- **搬过来的 `pitfalls.yaml` 里 `featureId` 全指向旧架构的 id**（如 `basics-javascript/truthiness`），按方向汇总成 R5 warn。S7 重写对应章节时重新指向即可。
+- **S7.1… 正文还没填**：骨架已齐（4 板块 / 22 存放组 / 104 知识点 / 12 份分组），但正文只有 `express/bindings`（JS / Python 各 6 格）。`java` / `rust` / `go` 三门尚无任何内容 —— 它们在左栏会整组隐藏（**可见性判据是「基准自己写了内容」，不是「有没有章节分组」**）。
+- **骨架期的池与分组可以自由增删改**：改池或改分组**不动任何内容文件**，这正是骨架先行的意义。改动前跑一次 `npm run content:report` 看全貌。
+- **搬过来的 `pitfalls.yaml` 里 `featureId` 全指向旧架构的 id**（如 `basics-javascript/truthiness`），按方向汇总成 R5 warn。S7 收尾时按新板块重指。
+- **`npm run content:report` 的逐存放组账本**是爬坡期的进度表：`have/N` 是写没写，「vs 全」是三方视角写全没有，末尾 `✔` 表示三个基准都写满（这一批可以划掉）。
 - **`src/schemas/index.ts` 里仍留着 v1 的 schema**（`snippetSchema` / `chapterSchema` / `featureSchema` / `topicConfigSchema` 等）：`registrySchema` 仍需要 `topics` 字段（现在是必填的 `z.record`，所以新 `registry.yaml` 里显式写了 `topics: {}`）。清理它们属于 S8，但**不要再新增消费者**。
-- **`docs/内容书写标准.md` 还是 v1 的**（S8 重写）。它讲的「加特性 / 加方向」的操作路径已经不适用，看 README 与 `docs/对比内容架构.md` 更准。
+- **`docs/内容书写标准.md` 已按 v2 改写**（池 / 分组 / 存放组、`baseline` 与 `vs.<基准>`、R20–R27），但只到「操作路径准确」这一层，措辞与配图的润色留 S8。
 - **搜索索引预算**：`SEARCH_INDEX_BUDGET_KB = 280` 是承认现状的上调，不是取消红线。现在分片改按语言、总量降到 ≈ 1×，但内容补齐后会再涨。

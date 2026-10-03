@@ -68,6 +68,7 @@ describe('feature 池装载（loadFeaturePools）', () => {
       'control-flow',
       'functions',
       'strings',
+      'containers',
     ])
   })
 
@@ -82,19 +83,45 @@ describe('章节分组装载（loadBaselineCatalogs）', () => {
     for (const c of catalogs) expect(baselineIds).toContain(c.baseline)
   })
 
-  it('只装了真正写了分组的基准 —— 没写的视为未开工，不是错误', () => {
-    const written = catalogs.filter((c) => c.section === 'express').map((c) => c.baseline).sort()
-    expect(written).toEqual(['javascript', 'python'])
+  it('四个板块 × 三个基准的分组都在 —— 骨架期一次落齐，内容按批补', () => {
+    const keyed = catalogs.map((c) => `${c.section}/${c.baseline}`).sort()
+    expect(keyed).toEqual(
+      [
+        'express/javascript',
+        'express/python',
+        'express/java',
+        'model/javascript',
+        'model/python',
+        'model/java',
+        'mechanism/javascript',
+        'mechanism/python',
+        'mechanism/java',
+        'practice/javascript',
+        'practice/python',
+        'practice/java',
+      ].sort(),
+    )
   })
 
-  it('引用的 feature id 全部能在池里解析 —— 拼错会静默丢行', () => {
-    const known = new Set(expressPool.features.map((f) => f.id))
+  it('引用的 feature id 全部能在**本板块**的池里解析 —— 拼错会静默丢行', () => {
+    // 必须按板块取池：feature id 只在板块内唯一，跨板块同名（如 express 与 model
+    // 都有 collections 章）是合法的，拿错池子会得出相反的结论
+    const knownOf = new Map(pools.map((p) => [p.section, new Set(p.features.map((f) => f.id))]))
     for (const c of catalogs) {
+      const known = knownOf.get(c.section)
+      expect(known, `没有 ${c.section} 的池`).toBeTruthy()
       for (const ch of c.chapters) {
         for (const id of ch.features) {
-          expect(known.has(id), `${c.baseline}/${ch.id} 引用了不存在的 ${id}`).toBe(true)
+          expect(known!.has(id), `${c.section}/${c.baseline} 的 '${ch.id}' 引用了不存在的 ${id}`).toBe(true)
         }
       }
+    }
+  })
+
+  it('章节 id 只在「该基准 × 该板块」内唯一 —— 跨板块同名是合法的', () => {
+    for (const c of catalogs) {
+      const ids = c.chapters.map((ch) => ch.id)
+      expect(new Set(ids).size, `${c.section}/${c.baseline}`).toBe(ids.length)
     }
   })
 
@@ -167,8 +194,13 @@ describe('私有目录约定', () => {
 
   it('显式要求时能读到（作者靠它当脚手架）', () => {
     const tpl = loadPoolLanguageContent('_template', pools, { includePrivate: true })
-    expect(tpl).toHaveLength(1)
-    expect(tpl[0].group).toBe('bindings')
+    // 四个板块各示范一个存放组 —— 脚手架要覆盖骨架的全部形状
+    expect(tpl.map((g) => `${g.section}/${g.group}`).sort()).toEqual([
+      'express/bindings',
+      'mechanism/types',
+      'model/errors',
+      'practice/testing',
+    ])
   })
 
   it('孤儿扫描跳过 snippets/ 与 `_` 前缀目录', () => {

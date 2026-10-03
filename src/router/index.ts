@@ -1,12 +1,11 @@
 import type { RouteRecordRaw } from 'vue-router'
 import {
-  chaptersOf,
-  hasChapterContent,
   landingSection,
   orderedSections,
   pairTargetsOf,
   sectionIsChapter,
   sectionPathOf,
+  visibleChaptersOf,
 } from '@/content/repository'
 import { enabledLanguageIds } from '@/generated/registry.gen'
 import { isSectionId } from '@/generated/sections.gen'
@@ -43,9 +42,7 @@ export const isEnabledLanguage = (v: string): boolean =>
  */
 export function sectionEntryPath(baseline: string, section: Section): string {
   if (sectionIsChapter(section)) {
-    const first = chaptersOf(baseline, section).find((c) =>
-      hasChapterContent(baseline, baseline, section, c.id),
-    )
+    const first = visibleChaptersOf(baseline, section)[0]
     return first ? `/compare/${baseline}/${section}/${first.id}` : '/404'
   }
   return pairTargetsOf(baseline, section).length ? sectionPathOf(baseline, section) : '/404'

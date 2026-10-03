@@ -73,6 +73,26 @@ for (const pool of a.pools) {
     }
     lines.push(`     ${P(lang, 12)} ${String(have).padStart(3)}/${String(ids.length).padEnd(4)}  vs 全 ${vsFull}`)
   }
+
+  /*
+   * 逐**存放组**的明细 —— 骨架落库后板块级的合计会长期停在「全部欠账」，
+   * 真正在动的是这一层：S7 的一批 = 一个存放组 × 三基准。
+   * 末尾的「✔」表示三个基准都写全了这一组（这一批可以划掉了）。
+   */
+  const groups = [...new Set(pool.features.map((f) => f.group))]
+  const titleCol = Math.max(...groups.map((g) => g.length), 4) + 2
+  lines.push(`     ${P('存放组', titleCol)}${a.enabledLanguageIds.map((l) => P(l, 12)).join('')}`)
+  for (const group of groups) {
+    const members = pool.features.filter((f) => f.group === group).map((f) => `${pool.section}/${f.id}`)
+    const cells: string[] = []
+    let baselinesDone = true
+    for (const lang of a.enabledLanguageIds) {
+      const have = members.filter((gid) => a.boxes.get(gid)?.get(lang)).length
+      if (a.baselineIds.includes(lang) && have !== members.length) baselinesDone = false
+      cells.push(P(`${have}/${members.length}`, 12))
+    }
+    lines.push(`     ${P(group, titleCol)}${cells.join('')}${baselinesDone ? ' ✔' : ''}`)
+  }
 }
 lines.push('')
 
