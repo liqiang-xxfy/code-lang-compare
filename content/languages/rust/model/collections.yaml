@@ -1,0 +1,270 @@
+# rust —— model / collections
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: collections` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  list-array:
+    code: |
+      let mut xs: Vec<i32> = Vec::new();
+      xs.push(1);
+      xs.push(2);
+      let last = xs.pop();              // @note Option<i32>
+      let n = xs.len();
+
+      let ys = vec![1, 2, 3];           // @note vec! 宏是字面量写法
+      let zs: Vec<i32> = (0..5).collect();   // @note 从迭代器收集
+
+      let head = &ys[0];                // @note 借用（不复制）
+      let has = ys.contains(&2);        // @note 注意要传引用
+      let idx = ys.iter().position(|&x| x == 2);   // @note Option<usize>
+
+      // Vec 是「可变长数组」，LinkedList 在 Rust 里几乎不用 —— 缓存不友好
+    vs:
+      javascript: |
+        JavaScript 的数组一个类型什么都装，Rust 的 `Vec<T>` 元素类型固定 ——
+        想装不同类型得用枚举或 trait 对象。越界行为不同：JavaScript 读越界得
+        `undefined`，Rust 的 `ys[0]` 越界 panic，安全取法 `ys.get(0)`
+        返回 `Option`。最需要注意的是**借用**：`let head = &ys[0];`
+        之后在 `head` 还活着的时候不能 `push`，JavaScript 里没有这层约束。
+      python: |
+        Python 的 `list` 与 Rust 的 `Vec` 都是可变长序列，常用方法
+        （`append` 对 `push`、`pop`、`len`）也能对上。差别在类型：
+        Python 的列表什么都能装，`Vec<T>` 只装一种。
+        更要紧的是借用检查 —— `let head = &ys[0]` 借出去之后
+        就不能再改 `ys`，Python 里随时 `append` 都没事。
+        查找上 Python 有 `list.index`（找不到抛异常），
+        Rust 用 `iter().position()` 返回 `Option`。
+      java: |
+        Java 的 `ArrayList` 与 Rust 的 `Vec` 功能对得上，索引越界都报错，
+        但 Java 的集合只能装引用类型（`ArrayList<Integer>` 会装箱），
+        `Vec<i32>` 直接存值、没有装箱开销。扩容策略两边都有，
+        Rust 还可以 `with_capacity` 预分配。最大的差别仍是别名：
+        Java 里拿到 `list.get(0)` 的同时还能 `list.add(...)`，
+        Rust 的借用检查器不允许「一边持有元素引用一边改容器」。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  map-dict:
+    code: |
+      use std::collections::{HashMap, BTreeMap};
+
+      let mut m: HashMap<String, i32> = HashMap::new();
+      m.insert("a".into(), 1);
+      let v = m.get("a");                 // @note Option<&i32>
+      let v = m.get("a").copied().unwrap_or(0);
+
+      m.entry("b".into()).or_insert(0);   // @note 没有才插入
+      *m.entry("b".into()).or_insert(0) += 1;
+
+      let sorted: BTreeMap<&str, i32> = BTreeMap::new();   // @note 按 key 有序
+      for (k, v) in &m { }                // @note HashMap 顺序不保证
+
+      m.remove("a");                      // @note 返回 Option<V>
+      // HashMap 默认用 SipHash（抗 DoS），要求 K: Hash + Eq
+    vs:
+      javascript: |
+        JavaScript 的 `Map` 用 `get` 拿不到得 `undefined`、用 `has` 判断；
+        Rust 的 `HashMap::get` 返回 `Option`，想带默认值用 `unwrap_or`。
+        Rust 多一个 `entry` API：「没有就插入、有就改」一次查表完成，
+        JavaScript 里通常写三次（`has` + `get` + `set`）。
+        顺序上 `Map` 保持插入序，`HashMap` 明确不保证 ——
+        要按 key 有序得换 `BTreeMap`。
+      python: |
+        Python 的 `dict` 与 Rust 的 `HashMap` 都是哈希表，
+        `d.get(k)` 对应 `m.get(k)`、`d.setdefault` 对应 `entry().or_insert`，
+        但 Rust 的 `entry` 返回可写引用，能直接 `*entry += 1`，
+        Python 里要写 `d[k] = d.get(k, 0) + 1`（查两次）。
+        顺序上 Python 3.7 起 dict 保插入序，`HashMap` 不保证；
+        要排序用 `BTreeMap`，Python 里得 `sorted(d.items())`。
+      java: |
+        Java 的 `HashMap` 与 Rust 的 `HashMap` 都是哈希表，
+        `get` 缺失时 Java 给 `null`、Rust 给 `None`；
+        空值语义上 Rust 更干净 —— `HashMap<K, V>` 里没有「值是 null」这种东西。
+        Java 的 `putIfAbsent` / `computeIfAbsent` 对应 Rust 的 `entry` API，
+        但 Rust 用一个入口覆盖了这几种需求，且返回可写引用。
+        排序映射 Java 有 `TreeMap`，Rust 有 `BTreeMap`，用途一致。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  set:
+    code: |
+      use std::collections::{HashSet, BTreeSet};
+
+      let mut s: HashSet<i32> = HashSet::new();
+      s.insert(1);                        // @note 返回 bool：是否是新插入的
+      s.insert(1);                        // @note false —— 已存在
+      let has = s.contains(&1);
+      s.remove(&1);
+
+      let a: HashSet<i32> = [1, 2, 3].into_iter().collect();
+      let b: HashSet<i32> = [3, 4].into_iter().collect();
+      let union = &a | &b;                // @note 并集
+      let inter = &a & &b;                // @note 交集
+      let diff = &a - &b;                 // @note 差集
+
+      let ordered: BTreeSet<i32> = BTreeSet::new();   // @note 有序集合
+    vs:
+      javascript: |
+        JavaScript 的 `Set` 用 `add` 去重、`has` 判断，与 Rust 的
+        `HashSet` 对得上；但 Rust 的运算符重载让集合运算能写成
+        `&a & &b`（交集）、`&a | &b`（并集），JavaScript 里得手写循环。
+        插入返回值也不同：`Set.add` 返回集合本身（可以链式），
+        `HashSet::insert` 返回 `bool` 告诉你「是不是新加的」——
+        这个信息在「只处理第一次出现」时很有用。
+      python: |
+        Python 的 `set` 与 Rust 的 `HashSet` 都是哈希集，
+        `add` / `discard` / `in` 都能对上；集合运算两边都有语法糖 ——
+        Python 是 `a | b` / `a & b` / `a - b`，Rust 是
+        `&a | &b` / `&a & &b` / `&a - &b`（注意 Rust 要借用）。
+        差别在返回值：`set.add` 返回 None，`HashSet::insert` 返回 `bool`。
+        Python 有 `frozenset`，Rust 的 `HashSet` 本身就能当值用。
+      java: |
+        Java 的 `HashSet` 与 Rust 的 `HashSet` 用法接近，
+        `add` 同样返回 `boolean`（是否新增），两边的返回语义一致。
+        差别在集合运算：Java 没有运算符，要 `retainAll` / `addAll` / `removeAll`
+        就地改集合；Rust 用运算符且返回**新集合**，不修改操作数 ——
+        想看「不改原集合的交集」Java 得先复制一份。
+        Java 的 `TreeSet` 对应 Rust 的 `BTreeSet`。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  tuple-record:
+    code: |
+      let pair: (i32, &str) = (1, "a");      // @note 元组：长度固定、元素可异型
+      let (n, s) = pair;                     // @note 解构
+      let first = pair.0;                    // @note 按下标访问
+
+      #[derive(Debug, Clone, PartialEq)]
+      struct User { id: u64, name: String }  // @note 具名记录：字段有名字、有类型
+      let u = User { id: 1, name: "Ada".into() };
+      let User { id, .. } = u;               // @note 解构出部分字段
+
+      // 具名元组结构体：有名字但没有字段名
+      struct Meters(f64);
+      let d = Meters(3.0);
+      let Meters(v) = d;
+    vs:
+      javascript: |
+        JavaScript 没有元组，成对返回就是数组或对象；Rust 的元组是
+        **类型的一部分**（`(i32, &str)` 与 `(i32, String)` 是不同类型），
+        长度固定、可以装不同类型，用 `.0` 访问。具名记录上，
+        Rust 的 `struct` 字段必须全部初始化、少一个编译不过；
+        JavaScript 的对象可以随便少字段、多字段。
+        Rust 还有「元组结构体」这种中间形态，JavaScript 里没有对应物。
+      python: |
+        Python 的元组与 Rust 的元组很像（定长、可异型、可解构），
+        但 Python 的元组没有类型约束、长度也不在类型里；
+        Rust 的 `(i32, &str)` 是精确类型，传错位置编译不过。
+        具名记录上 Python 用 `dataclass` 或 `NamedTuple`，
+        Rust 用 `struct` —— 都需要写字段类型，但 Rust 还多一层
+        「字段默认私有」与「元组结构体」的选项。
+      java: |
+        Java 没有元组，成对返回要造类或用 `Map.Entry`（16 起有 `record`）；
+        Rust 的元组是一等类型，`.0` / `.1` 直接访问。
+        Java 16 的 `record` 与 Rust 的 `struct` 最接近：
+        都是「不可变的数据载体」，但 Rust 的 struct 可变性由使用处的
+        `mut` 决定，record 天生不可变；Rust 还能 `#[derive]` 出
+        `Clone` / `PartialEq` 等实现，Java 的 record 只有固定的几个。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  collection-mutability:
+    code: |
+      let xs = vec![1, 2, 3];
+      // xs.push(4);                   // @note! 编译错误：xs 不是 mut
+      let mut ys = vec![1, 2, 3];
+      ys.push(4);                       // @note 声明时写了 mut 才能改
+
+      let mut m = HashMap::new();
+      m.insert("a", 1);                 // @note 连插入都要 mut
+
+      // 借用与修改不能同时存在
+      let first = &ys[0];
+      // ys.push(5);                    // @note! first 还活着，不能改 ys
+      println!("{}", first);
+
+      // 想同时读写：先取出值（复制），或用 interior mutability（RefCell）
+    vs:
+      javascript: |
+        JavaScript 的 `const` 只冻结绑定，`const xs = []; xs.push(1)`
+        完全合法；Rust 的不可变是**深**的，`let xs = vec![]` 之后
+        连 `push` 都编译不过，必须写 `let mut xs`。
+        还有一层 JavaScript 完全没有的约束：只要还有引用借出去
+        （`&ys[0]`），就不能修改容器 —— 这消灭了「遍历时改数组」
+        这类难查的 bug，代价是要重写一些习惯写法。
+      python: |
+        Python 里可不可变由**类型**决定（list 可变、tuple 不可变），
+        变量本身没有这层标记；Rust 的可变性由**绑定**决定 ——
+        同一个 `Vec` 类型，`let` 出来的不能改、`let mut` 出来的能改。
+        另一个差别是别名：Python 里 `for x in xs` 的同时 `xs.append(...)`
+        会出现诡异行为（但不报错），Rust 直接在编译期拦住。
+      java: |
+        Java 的 `final List<String> xs` 只冻结引用、不冻结内容，
+        `xs.add(...)` 照样合法；Rust 的 `let` 冻结的是整个值。
+        想要只读集合 Java 得用 `List.copyOf` 或 `Collections.unmodifiableList`
+        包一层；Rust 只要不写 `mut`。
+        并发视角上 Rust 的借用规则顺带解决了「遍历时修改」，
+        Java 里这种错误要靠 `ConcurrentModificationException` 在运行时抓。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  slicing:
+    code: |
+      let xs = vec![1, 2, 3, 4, 5];
+      let s = &xs[1..3];                // @note 元素 1、2（左闭右开）
+      let head = &xs[..2];              // @note 前两个
+      let tail = &xs[3..];              // @note 从第 4 个到末尾
+      let all = &xs[..];                // @note 整个切片
+
+      let n = s.len();
+      let first = s.first();            // @note Option<&i32>
+      let chunks = xs.chunks(2);        // @note 按 2 个一组切分（迭代器）
+      let rev = &xs[1..3];              // @note 切片是**视图**，不复制
+
+      let owned = s.to_vec();           // @note 想要独立副本时显式复制
+    vs:
+      javascript: |
+        JavaScript 的 `slice(1, 3)` 是**复制**，改结果不影响原数组；
+        Rust 的 `&xs[1..3]` 是**视图**，借用原数据，所以它活着的时候
+        不能改 `xs`。这是从 JavaScript 过来最容易忽略的语义差别 ——
+        看到 `&xs[..]` 不要以为在复制。
+        另外 Rust 的切片越界或区间颠倒会 panic，`get(1..3)` 则返回 `Option`。
+      python: |
+        Python 的 `xs[1:3]` 是复制，`xs[1:3] = [...]` 还能就地替换；
+        Rust 的 `&xs[1..3]` 是借用视图，不复制也不能赋值替换。
+        写法上 Python 用冒号、Rust 用 `..`，且 Rust 必须显式写 `&`
+        才拿到视图（不写 `&` 会尝试移动，通常编译不过）。
+        区间语义两边都是左闭右开。想要独立副本 Rust 要 `to_vec()`。
+      java: |
+        Java 的 `subList(1, 3)` 是**视图**（改它会改原列表，这点与 Rust 一致），
+        但 `Arrays.copyOfRange` 是复制 —— Java 里两种语义都存在，
+        得看清用的哪个方法；Rust 用 `&` 表示视图、`to_vec()` 表示复制，
+        语法上分得更开。越界行为不同：Java 抛
+        `IndexOutOfBoundsException`，Rust 的切片越界 panic，
+        安全版本 `get(1..3)` 返回 `Option`。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

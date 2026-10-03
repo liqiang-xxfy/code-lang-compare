@@ -1,0 +1,246 @@
+# go —— model / collections
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: collections` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  list-array:
+    code: |
+      xs := []int{1, 2, 3}          // @note 切片：最常用的「列表」
+      xs = append(xs, 4)            // @note! append 可能换底层数组，必须接住返回值
+      n := len(xs)
+      last := xs[len(xs)-1]
+      xs = xs[:len(xs)-1]           // @note 弹出末尾（不改底层数组，只是缩短视图）
+
+      var arr [3]int = [3]int{1, 2, 3}   // @note 数组：定长、值类型
+
+      for i, v := range xs { _ = i; _ = v }
+
+      s := make([]int, 0, 10)       // @note 预分配容量，避免反复扩容
+      s = append(s, 1)
+    vs:
+      javascript: |
+        JavaScript 的数组一个类型什么都装，Go 的切片元素类型固定。
+        `append` 是 Go 特有的写法：它**返回**新切片，必须接住
+        （`xs = append(xs, 4)`）—— 忘了接住就等于什么都没做，
+        而且编译器不会提醒。JavaScript 的 `push` 是就地修改、不用返回值。
+        另一处是越界：JavaScript 读越界得 `undefined`，Go 直接 panic。
+      python: |
+        Python 的 `list` 与 Go 的切片都是可变长序列，但 `append`
+        形态不同：Python 的 `append` 就地修改返回 None，
+        Go 的 `append` 返回新切片、必须赋值回去 —— 这是从 Python
+        过来最容易写错的一行。切片还多一个「容量」概念，
+        `make([]int, 0, 10)` 能预分配，Python 的列表容量不可控。
+      java: |
+        Java 的 `ArrayList` 与 Go 的切片功能对应，
+        但 Java 的 `add` 就地修改、Go 的 `append` 返回新值 ——
+        这个差别最容易被忽略。Go 还有数组与切片两种类型
+        （数组是值类型、赋值整体复制），Java 的数组是对象、赋值复制引用。
+        索引越界两边都会 panic/抛异常，Go 没有 `get` 这种安全取值方法。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  map-dict:
+    code: |
+      m := map[string]int{"a": 1}
+      m["b"] = 2                      // @note 键不存在就插入
+      v := m["nope"]                  // @note 得到零值 0，分不清「不存在」
+      v, ok := m["a"]                 // @note comma-ok：ok 表示键在不在
+      delete(m, "a")
+
+      for k, v := range m { _, _ = k, v }   // @note! 遍历顺序随机
+
+      // 集合运算要自己写
+      // 用 struct{} 当值表示「只关心键」—— 零内存占用
+      set := map[string]struct{}{}
+      set["x"] = struct{}{}
+      _, exists := set["x"]
+    vs:
+      javascript: |
+        JavaScript 的 `Map` 取缺失键得 `undefined`，Go 的 map 取缺失键得
+        **零值**（int 是 0、string 是 ""），所以想判断存在必须用
+        `v, ok := m[k]` —— 这是 Go 里最常写的第二个返回值。
+        遍历顺序上 `Map` 保持插入序，Go 的 map **每次随机**（刻意设计），
+        要稳定输出得自己排序键。删除是 `delete(m, k)` 内建函数而不是方法。
+      python: |
+        Python 的 `d[k]` 缺失抛 KeyError，Go 的 `m[k]` 缺失给零值 ——
+        两种设计各有各的坑：Python 容易忘 try，Go 容易把「零值」
+        当成「存在且为零」。判断存在 Python 用 `k in d`，
+        Go 用 `v, ok := m[k]`（顺便拿到值）。
+        顺序上 Python 3.7 起保插入序，Go 的 map 随机 —— 这是最实际的一处差别。
+      java: |
+        Java 的 `HashMap.get` 缺失返回 `null`、`containsKey` 判断存在（查两次），
+        Go 用 `v, ok := m[k]` 一次搞定，这是 Go 更顺手的地方。
+        删除上 Java 是 `map.remove(k)`，Go 是内建 `delete(m, k)`。
+        顺序上 Java 的 `HashMap` 同样不保证遍历顺序（`LinkedHashMap` 才保序），
+        这一点与 Go 一致；要排序映射 Java 用 `TreeMap`，
+        Go 没有内建有序映射，只能自己维护键的切片再排序。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  set:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有内建的集合类型**。惯用替代是 `map[T]struct{}` ——
+        值用空结构体（零内存占用），判断存在靠 `_, ok := set[k]`。
+        JavaScript 的 `Set` 提供了 `add` / `has` / `delete` 与迭代，
+        这些在 Go 里都要手写或封装。所以 Go 代码里看到 `map[string]struct{}`
+        就该反应过来：这是一个集合。
+      python: |
+        Go **没有内建的集合类型**，惯用 `map[T]struct{}` 代替 ——
+        插入是 `set[k] = struct{}{}`、判断是 `_, ok := set[k]`、
+        删除是 `delete(set, k)`，都不如 Python 的 `set` 直观。
+        集合运算（并、交、差）Go 完全没有，只能自己写循环；
+        Python 的 `a | b` / `a & b` / `a - b` 在 Go 里没有对应语法。
+      java: |
+        Go **没有内建的集合类型**，用 `map[T]struct{}` 代替；
+        Java 有 `HashSet` / `TreeSet`，`add` 还返回「是否新增」的布尔值。
+        Go 的替代方案连 `add` 方法都没有，就是一次 map 赋值。
+        集合运算 Java 有 `retainAll` / `addAll` / `removeAll`（就地改），
+        Go 一个都没有，要自己循环 —— 这是 Go 标准库刻意保持精简的体现。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  tuple-record:
+    code: |
+      type User struct {            // @note 结构体：具名字段 + 类型
+        ID   int
+        Name string
+      }
+      u := User{ID: 1, Name: "Ada"}
+      u.Name = "Bob"                // @note 结构体默认可变
+
+      // 多返回值充当元组
+      func minmax(xs []int) (int, int) { return 0, 0 }
+      lo, hi := minmax([]int{1})
+
+      type Meters float64           // @note 想给基本类型加语义就定义新类型
+      d := Meters(3.0)
+
+      // 匿名结构体：临时用一下
+      p := struct{ X, Y int }{1, 2}
+    vs:
+      javascript: |
+        JavaScript 的「记录」就是对象，字段随便加、类型不限；
+        Go 的结构体字段**必须声明**，少一个字段编译不过，
+        多一个也不行。Go 没有元组，但**多返回值**承担了这个角色
+        （`lo, hi := minmax(...)`），JavaScript 里得返回数组或对象再解构。
+        Go 的匿名结构体 `struct{ X, Y int }{1, 2}` 接近 JavaScript
+        的对象字面量，但没有类型的话字段名拼错就编译不过。
+      python: |
+        Python 用 `dataclass` 或 `NamedTuple` 定义记录，Go 用 `struct` ——
+        都需要写字段类型。差别在可变性：Python 的 dataclass 可选 frozen，
+        Go 的结构体默认可变，想不可变只能靠不加修改。
+        Go 的多返回值代替了元组（Python 返回元组再解构，其实是一回事）。
+        Go 还能给基本类型定义新类型（`type Meters float64`），
+        Python 里对应的是自定义类或 `NewType`。
+      java: |
+        Java 16 的 `record` 与 Go 的结构体最接近，但 record 天生不可变，
+        Go 的结构体字段可以直接赋值改。字段可见性上 Java 用 `private` + getter，
+        Go 用**首字母大小写**（大写才导出）。
+        Java 的 `record` 自动带 `equals` / `hashCode` / `toString`，
+        Go 的结构体可用 `==` 逐字段比较（字段都可比较时），
+        但没有自动的字符串输出，要用 `%+v` 或自己写 `String()`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  collection-mutability:
+    code: |
+      xs := []int{1, 2, 3}
+      xs[0] = 9                     // @note 切片内容随时可改，没有可变性标记
+
+      ys := xs                      // @note! 只是复制切片头 —— 改 ys 会改到 xs
+      zs := make([]int, len(xs))
+      copy(zs, xs)                  // @note 真的要独立副本得显式 copy
+
+      m := map[string]int{}
+      m["a"] = 1                    // @note map 也是引用语义
+
+      type Config struct{ Retries int }
+      c := Config{Retries: 3}
+      d := c                        // @note! 结构体是值类型 —— 这一行真的复制了
+      d.Retries = 9                 // @note c.Retries 仍是 3
+    vs:
+      javascript: |
+        JavaScript 里数组与对象都是引用语义，`const xs = []` 之后还能 `push`；
+        Go 的**切片与映射**同样是引用语义（`ys := xs` 是别名），
+        但**结构体与数组是值类型** —— `d := c` 真的复制了一份。
+        这个「有的类型复制、有的类型共享」的区分是 Go 特有的，
+        JavaScript 里所有对象都是共享的，读 Go 时必须先分清手上是什么类型。
+      python: |
+        Python 的可变性由类型决定（list 可变、tuple 不可变），
+        赋值一律是引用绑定；Go 的切片与映射是引用语义（与 Python 一致），
+        但结构体与数组是**值语义** —— 赋值即复制。
+        Python 里 `d = c` 让两者指向同一个对象，Go 里
+        `d := c`（c 是结构体）得到的是独立副本，改 d 不影响 c。
+      java: |
+        Java 的数组与对象都是引用语义，赋值复制引用；
+        Go 只有切片、映射、通道、指针是引用语义，
+        **数组与结构体是值类型**，赋值整体复制 —— 这是从 Java
+        过来最容易出错的一处（以为 `d := c` 是别名，其实已经复制了）。
+        想要引用语义就用指针（`d := &c`），Go 里这个选择是显式的。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  slicing:
+    code: |
+      xs := []int{1, 2, 3, 4, 5}
+      s := xs[1:3]                  // @note 元素 1、2（左闭右开）
+      head := xs[:2]
+      tail := xs[3:]
+      all := xs[:]
+
+      s[0] = 9                      // @note! s 与 xs 共享底层数组 —— xs[1] 也变成 9
+
+      safe := xs[1:3:3]             // @note 三索引切片：限定容量，之后的 append 会分配新数组
+
+      cp := make([]int, 2)
+      copy(cp, xs[1:3])             // @note 真要副本就 copy
+
+      // 越界会 panic: slice bounds out of range
+    vs:
+      javascript: |
+        JavaScript 的 `slice(1, 3)` 是**复制**，改结果不影响原数组；
+        Go 的 `xs[1:3]` 是**共享底层数组的视图**，改 `s[0]` 会改到 `xs[1]` ——
+        语义正相反，这是从 JavaScript 过来最危险的一处。
+        想要独立副本 Go 要 `copy` 到一个新切片。
+        写法上 JavaScript 用逗号、Go 用冒号，且 Go 支持三索引形式限定容量。
+      python: |
+        Python 的 `xs[1:3]` 是复制，Go 的 `xs[1:3]` 是共享视图 ——
+        这是两门语言最容易搞混的一处，Python 里 `sub[0] = 9`
+        绝不会影响 `xs`，Go 里一定会。要副本得 `copy`。
+        区间语义两边都是左闭右开，写法上 Python 用冒号、Go 也用冒号但写成
+        `xs[1:3]`（Python 切片是 `[start:stop]`，形态几乎一样，
+        所以更容易误以为行为也相同）。
+      java: |
+        Java 的 `subList(1, 3)` 也是**视图**（改它会改原列表），
+        这一点与 Go 的切片一致，Java 也有 `Arrays.copyOfRange` 做复制 ——
+        两边都有「视图」与「副本」两种，只是 Java 用不同方法区分，
+        Go 用切片语法与 `copy` 区分。越界行为：Java 抛
+        `IndexOutOfBoundsException`，Go 直接 panic，两者都没有安全取值版本。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
