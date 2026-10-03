@@ -58,7 +58,7 @@ boxes:
 
       let x = 1;                  // @note 推断出 number
       let y: number = 1;          // @note 显式标注
-      let z;                      // @note! 推断成 any，检查在这里漏掉
+      let z;                      // @note! 隐式 any：赋值前访问会被拦下
 
       interface Point { x: number; y: number }   // @note 描述形状，编译后消失
 
@@ -69,8 +69,9 @@ boxes:
         写法上 TypeScript 的标注是**外加**的：同一段 JavaScript 代码
         去掉冒号和类型就是合法的 JavaScript —— 这也是它被接受的原因，
         迁移可以一个文件一个文件地做。但标注不是装饰：`let z;` 这种
-        不写初值也不写类型的声明，JavaScript 里毫无问题，
-        TypeScript 里会推断成 `any`，等于在这个变量上关掉了检查。
+        不写初值也不写类型的声明，JavaScript 里毫无问题，TypeScript 里
+        虽然也当作 `any`，编译器却还盯着它 —— 赋值前访问会被拦下，
+        一旦赋了值就按赋进去的类型检查。真想关掉检查，得显式写 `any`。
       python: |
         两边都把类型写在名字后面（`x: number` / `x: int`），也都能只标注一部分；
         差别是**谁在检查**：Python 的标注运行时不生效，写错了代码照跑，
@@ -80,9 +81,10 @@ boxes:
         但同样只有类型检查器在意。
       java: |
         位置相反：Java 写 `int x`（类型在前），TypeScript 写 `x: number`（类型在后）。
-        能省的范围也不同 —— Java 的 `var` 只用于局部变量，
-        而 TypeScript 的函数签名、字段、常量全都**可以**省（靠推断），
-        所以更容易写出「一处漏了标注、检查从这里断掉」的代码。
+        能省的范围也不同 —— Java 的 `var` 只用于局部变量；TypeScript 能省的更多
+        （返回类型、有初值的字段与变量都能靠推断省掉），但**函数参数的类型不能省**，
+        漏了直接报错。所以它的风险不在「漏标了还不报」，而在推断出来的类型
+        未必是你想要的那个。
         Java 的类型运行时还在，TypeScript 的编译后消失。
     equivalence:
       javascript: divergent
@@ -181,20 +183,22 @@ boxes:
       let a: string = "hi";
       // a = null;                  // @note! strictNullChecks 下编译错误
 
-      let b: string | null = null;  // @note 空是类型的一部分，必须显式写出来
+      declare const raw: string | null;   // @note 外部来的数据：类型里就可能是空
+      let b: string | null = raw;         // @note 空是类型的一部分，必须显式写出来
       // b.length;                  // @note! 错误：可能为 null
       b?.length;                    // @note 可选链：为 null 时整个表达式是 undefined
-      b ?? "默认";                  // @note 空值合并：只在 null/undefined 时取右边
+      let s: string = b ?? "默认";   // @note 空值合并：只在 null/undefined 时取右边
 
       function f(x?: string) { }    // @note 可选参数的类型是 string | undefined
-      // f(undefined); f(null);     // @note! null 不能传给可选参数
+      f(undefined);                 // @note 合法：等价于不传
+      // f(null);                   // @note! 错误：null 不能传给可选参数
     vs:
       javascript: |
         JavaScript 里 `null` 与 `undefined` 能赋给任何变量，读属性就抛
         「Cannot read properties of null」；TypeScript 打开 `strictNullChecks`
         后把它们变成类型的一部分 —— 想让它可能是空，就得在类型里写出来。
-        注意这是**编译开关**：关掉它（或不写 `strict`）两边就没有区别，
-        这也解释了为什么老项目里 `?.` 到处都在、新项目里反而少见。
+        注意这是**编译开关**：关掉它（或不写 `strict`），这层保护就不存在了，
+        两边也就没有区别。
       python: |
         Python 的 `None` 同样能赋给任何变量，`x.y` 到运行时才抛 AttributeError；
         TypeScript 把它提到编译期拦下。两边的可选写法还差一层语义：
@@ -221,8 +225,9 @@ boxes:
       const n = x as number;
       // n.toFixed(2);            // @note! 运行时可能炸：x 也许是个字符串
 
-      // 双重断言绕过兼容性检查
-      const y = x as unknown as number;   // @note! 两步跳，危险信号
+      // 双重断言：借 unknown 这个中转站绕开兼容性检查
+      const o: { a: number } = { a: 1 };
+      const y = o as unknown as number;   // @note! 两步跳 —— 编译器不再问「这两个像不像」
 
       // 真的想确认，只能自己写运行时检查
       if (typeof x === "string") { /* 到这里才是真的 */ }

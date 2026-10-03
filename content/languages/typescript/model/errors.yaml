@@ -1,0 +1,227 @@
+# typescript —— model / errors
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: errors` 的那批：
+# throw-raise / try-catch / finally-cleanup / error-types / custom-error / error-propagation。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「JS」这类简称同样会被算作屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：抛异常、try/catch/finally、Error 基类这些运行时行为与 JavaScript
+# 逐字相同，编译后原样保留。这一份只写**编译器那一层**读得出的差异 ——
+# 「不检查抛什么、不记录会不会抛」以及「catch 绑定被收窄成 unknown」。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  throw-raise:
+    code: |
+      throw new Error("出错了");             // @note 惯例：抛 Error 的实例
+      throw new TypeError("类型不对");       // @note 内建子类表达具体问题
+      throw "字符串";                         // @note! 合法 —— 类型系统不拦，但会丢掉堆栈
+      throw { code: 500 };                    // @note! 也合法 —— 抛什么都可以
+
+      function fail(msg: string): never {    // @note never：这个函数不会正常返回
+        throw new Error(msg);
+      }
+
+      // @note! 函数签名只记参数与返回值，不记「会抛什么」—— 调用方看不出来
+    vs:
+      javascript: |
+        抛出这件事与 JavaScript 逐字同构 —— `throw` 语句编译后原样保留，
+        运行时行为一样，抛任意值照样合法。TypeScript 只在类型层补了一步：
+        一个「总是抛」的函数可以把返回类型写成 `never`，让编译器知道它后面没有
+        代码可达。此外它**不检查抛什么** —— `throw "字符串"` 编译期一声不吭，
+        与 JavaScript 一样，代价是要接的一方可能拿到没有 `message` 的值。
+      python: |
+        Python 的 `raise` 只接受异常类的实例（或类本身），抛字符串当场 TypeError；
+        TypeScript 的 `throw` 完全放开，字符串、对象都能抛，代价是接的一方
+        可能拿到没有任何结构的值。想原样再抛一次，Python 有裸 `raise`，
+        TypeScript 只能显式写 `throw e`，并自己记着别把它丢了。
+        两边都会带上堆栈，但 Python 的异常还多一条显式的因果链。
+      java: |
+        Java 只能抛 `Throwable` 的子类，抛字符串编译不过，而且受检异常还要写进
+        方法签名的 `throws`；TypeScript 把「抛什么」和「会不会抛」都留在类型系统
+        之外 —— `throw` 任何值都合法，函数签名上也没有任何标记。好处是迁移时
+        不必给每个函数补声明，坏处是「这个调用可能抛」在编译期完全看不见。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  try-catch:
+    code: |
+      try {
+        risky();
+      } catch (e) {
+        // @note catch 的绑定在 useUnknownInCatchVariables 下是 unknown
+        if (e instanceof Error) {
+          log(e.message);          // @note 窄化之后才敢读 message
+        } else {
+          throw e;                 // @note 不是 Error 就原样抛回去
+        }
+      }
+    vs:
+      javascript: |
+        语法与 JavaScript 完全一致，编译后一字不改。唯一的差别在类型层：打开
+        `useUnknownInCatchVariables` 之后，catch 的绑定是 `unknown` 而不是 `any`，
+        想读 `e.message` 必须先窄化（`instanceof Error` 之类）；JavaScript 里
+        `e` 一开始就能随便取属性，取错了到运行时才炸。
+      python: |
+        两边都只有一个接住的入口，但 Python 的 `except` 可以按类型写多个分支、
+        从头往下匹配，TypeScript 只能在一个块里手写 `instanceof` 判断，
+        漏掉一种编译器也不提醒。另一处是 TypeScript 把 catch 变量收窄成 `unknown`，
+        逼你先确认类型再用；Python 接到的就是一个能直接取属性的异常对象。
+      java: |
+        两边都是「一块代码 + 接住」，但 Java 的多个 `catch` 按类型分支、顺序由
+        编译器检查；TypeScript 只有一个 catch 块，类型判断靠手写的 `instanceof` 链，
+        写反了也不报错。捕获变量的类型也相反：Java 接到的就是声明过的异常类型，
+        TypeScript 接到的是 `unknown`，得先窄化才能用。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  finally-cleanup:
+    code: |
+      let fh: FileHandle | undefined;
+      try {
+        fh = open(path);
+        return fh.read();       // @note! 即使这里 return，finally 也会执行
+      } finally {
+        fh?.close();            // @note 无论如何都跑
+      }
+
+      // @note! finally 里的 return / throw 会吞掉原来的返回值或异常
+      try { return 1; } finally { return 2; }   // 返回 2
+    vs:
+      javascript: |
+        `finally` 的语义与 JavaScript 完全一样，编译后不变：正常返回、抛异常、
+        `return` 都会执行，`finally` 里的 `return` 或 `throw` 同样会吞掉原来的结果。
+        类型层没有任何补充 —— TypeScript 既没有资源相关的语法，也没给「资源」
+        一个特殊地位，该手写清理还是手写。
+      python: |
+        两边都会执行收尾代码，也都会在某处 `return` 时先跑完 finally 再返回。
+        差别在资源释放的惯用写法：Python 有 `with` 语句，把清理交给上下文管理器，
+        比手写 try/finally 更难写错；TypeScript 只有手写的 finally，
+        没有等价的「可释放对象」机制。
+      java: |
+        Java 的 `finally` 语义一致（同样会吞掉 finally 里的 return / throw）。
+        真实的差距在资源管理：Java 有 **try-with-resources**，把资源写进 `try (...)`
+        里由编译器生成关闭代码，还会把「关闭时又出错」记成 suppressed、
+        不盖掉原始异常；TypeScript 只能手写 finally，关闭时的异常会盖掉原来那个。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: analogous
+
+  error-types:
+    code: |
+      new Error("通用");            // @note 基类
+      new TypeError("类型错");
+      new RangeError("越界");
+      new SyntaxError("语法错");
+      new ReferenceError("未定义的名字");
+
+      e instanceof Error;           // @note 内建错误都继承自 Error
+      e.message;                    // @note 人类可读的描述
+      e.cause;                      // @note ES2022：包住下层错误
+      // @note! 别把 Error 的子类当分类体系：标准类型只覆盖引擎自身的错误
+    vs:
+      javascript: |
+        错误类型这套与 JavaScript 共用一份 —— 同样是 `Error` 基类加几个引擎内部
+        用的子类，`cause` 也一样。TypeScript 没有给「错误的原因」加类型约束：
+        `cause` 的类型是 `unknown`，想用里面的信息仍然得自己窄化。
+      python: |
+        Python 的异常体系大得多，而且是**语言的一部分**：所有异常继承 `BaseException`，
+        业务代码继承 `Exception`，标准库为文件、键、类型等各自定义了具体类型；
+        TypeScript 的标准错误类型基本只对应引擎自己抛出的那几种，
+        文件与网络没有标准类型，业务错误一律自己定义。
+      java: |
+        Java 的异常是一棵庞大的标准层级（`Throwable` → `Error` / `Exception` →
+        一堆子类），文件、网络、SQL 各有自己的类型；TypeScript 的标准类型只覆盖
+        引擎自身的错误，业务错误一律自己定义。两边都靠 `instanceof` 分派，
+        但 Java 还有受检 / 不受检这条语言级的分线，TypeScript 没有。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  custom-error:
+    code: |
+      class ValidationError extends Error {
+        field: string;
+        constructor(field: string) {
+          super(`字段 ${field} 不合法`);   // @note 先调 super
+          this.name = "ValidationError";   // @note! 默认是 "Error"，要手动改
+          this.field = field;              // @note 可以带上下文
+          Object.setPrototypeOf(this, ValidationError.prototype);   // @note! 目标低于 ES2015 时补回原型链
+        }
+      }
+
+      new ValidationError("email") instanceof ValidationError;   // @note true
+    vs:
+      javascript: |
+        写法与 JavaScript 同构：`class … extends Error`、先 `super(message)`、
+        再把 `name` 改成自己的类名，这条「必须手动改 name」两边一样。TypeScript
+        额外多一层麻烦：编译目标低于 ES2015 时，`extends` 编出来的原型链是断的，
+        `instanceof` 会失灵，要在构造器里补一次 `Object.setPrototypeOf` ——
+        类型标注本身管不到这类运行时差异。
+      python: |
+        Python 继承 `Exception` 定义自定义异常，**不用手动改名字也不用管原型链** ——
+        类名就是类型名，`except MyError` 直接可用。TypeScript 这边要记得把 `name`
+        改对，编译目标较老时还得自己补原型链，否则 `instanceof` 认不出来。
+        另一处是 TypeScript 的字段要声明类型（`field: string`），Python 的属性随手挂。
+      java: |
+        Java 定义异常类时**必须选父类**（受检还是不受检），这个选择会影响所有
+        调用方的签名；TypeScript 没有受检异常这一层，自定义错误想抛就抛，
+        签名上不留痕迹。两边都靠 `instanceof` 分派，但 Java 的类名即类型名、
+        不用额外做什么，TypeScript 还得手动改 `name`、留意编译目标下的原型链。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  error-propagation:
+    code: |
+      function readConfig(): Config {
+        try {
+          return parse(fs.readFileSync(path));
+        } catch (e) {
+          throw new Error("读配置失败", { cause: e });   // @note 包一层，保留原因
+        }
+      }
+
+      // @note! 同步函数里抛的错不会变成 rejected promise —— 只有 async 里才会
+      async function f(): Promise<void> { throw new Error("x"); }   // 返回 rejected promise
+      f();   // @note! 没人接的拒绝：浏览器只报错，Node 默认终止进程
+    vs:
+      javascript: |
+        传播路径与 JavaScript 完全一致 —— 不接就沿调用栈冒泡，包上下文用 `cause`，
+        async 里的 `throw` 变成 rejected promise，没人接时浏览器只报一条错，
+        Node 上默认直接终止进程（v15 起就是默认行为）。
+        TypeScript 能补的只有类型：把可能失败的返回写成 `Promise<T>` 只是提醒，
+        它不会因为你没 `catch` 就报错，函数签名上也看不出会抛什么。
+      python: |
+        两边都是「不接就自动上抛」，都用显式包装保留原因（TypeScript 是 `cause`
+        字段，Python 是 `raise … from e`）。差别在两处：Python 的未捕获异常会终止
+        程序并打印完整堆栈；TypeScript 的未处理拒绝在浏览器里只是控制台报错，
+        在 Node 上同样终止进程 —— 别把它当「只是警告」；
+        另外 TypeScript 没有裸 `raise` 那种「把当前异常原样再抛一次」的写法，
+        只能 `throw e` 显式写。
+      java: |
+        Java 的**受检异常会写进方法签名**（`throws IOException`），调用方必须处理
+        或继续声明 —— 「这个函数会不会抛」是签名的一部分。TypeScript 完全看不出来，
+        只能靠读代码或文档，好处是中间层不必到处写声明。包装保留原因两边都有：
+        Java 是把原异常作为 `cause` 传进构造函数，TypeScript 用 `cause` 选项。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

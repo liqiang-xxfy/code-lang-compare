@@ -1,0 +1,172 @@
+# typescript —— model / abstraction
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: abstraction` 的那批：
+# interface / abstract-class / mixin-trait / duck-typing。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「TS」这类简称同样会被算作屏幕外的语言，泛指时写「另一门语言」。
+#
+# 这一份的枢纽是**结构化类型**：interface 只看形状、不要求 implements，
+# 整个类型系统都建立在「形状对得上就算数」之上 —— 但它只在编译期生效，
+# 运行时不做任何自动检查。这一层与三门基准的差别是本文件的主线。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  interface:
+    code: |
+      interface Shape {                  // @note 只描述形状，不要求谁显式实现
+        name: string;
+        area(): number;
+      }
+
+      class Circle {                     // @note! 没写 implements，形状对就算 Shape
+        name = "圆";
+        area(): number { return 3.14 * 1 * 1 }
+      }
+
+      function total(xs: Shape[]): number { return xs.reduce((s, x) => s + x.area(), 0) }
+      total([new Circle()]);             // @note 结构化：编译期按形状核对
+
+      interface Point { x: number }
+      interface Point { y: number }      // @note 同名接口自动合并成 { x, y }；type 不能合并
+    vs:
+      javascript: |
+        JavaScript 语言层面没有接口，一个对象要满足什么契约只能写在注释里、或运行时
+        自己检查方法在不在。TypeScript 的 `interface` **只在编译期存在**：它核对形状对不对，
+        编译完就被抹掉，运行时不留任何痕迹 —— 所以读到的外部数据仍然要在运行时自己验。
+        另一层是 TypeScript 是结构化的：没写 `implements` 的类，只要形状对得上也算数 ——
+        这与 JavaScript「有那个方法就能用」是同一套判据，只是搬到了编译期。
+      python: |
+        Python 也用 `abc.ABC`（要显式继承、能强制）与 `typing.Protocol`（结构化）表达接口，
+        两条路 TypeScript 都有：`interface` 是结构化的，抽象类那一格才算「显式继承」。
+        差别在谁执行：TypeScript 的核对是编译器的输入，写错就编译不过；
+        Python 的 `Protocol` 要另跑一个类型检查器才看得到，解释器一概不看 —— 写错了照样跑。
+      java: |
+        Java 的 `interface` 必须由实现类显式写 `implements`，是**名义类型**：
+        形状一模一样但没声明，就通不过编译。TypeScript 反过来 —— 形状对就相容，
+        `implements` 只是让编译器替你提前核对，漏写不影响相容性。
+        另一处差别是合并：TypeScript 的同名 `interface` 会自动合并成员，Java 一个名字只能声明一次。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  abstract-class:
+    code: |
+      abstract class Repository {        // @note abstract：不能 new，但可以带实现
+        abstract find(id: string): User; // @note 子类必须实现这个方法
+        save(u: User): void { this.write(u) }   // @note 已实现的成员照常复用
+        protected write(u: User): void { /* ... */ }
+      }
+
+      class UserRepo extends Repository {
+        find(id: string): User { return db.get(id) }   // @note 实现了抽象方法
+      }
+
+      new Repository();                  // @note! 编译错误：抽象类不能实例化
+      // class A extends B, C {}         // @note! 编译错误：extends 只能一个
+    vs:
+      javascript: |
+        JavaScript 没有 `abstract` 关键字，「抽象类」要靠构造函数里检查 `new.target`
+        加一个抛错的占位方法手工模拟 —— 忘了覆写不会在定义时报错，只有真调用到才炸。
+        TypeScript 把它变成编译期规则：抽象类不能 `new`、抽象方法没实现都直接编译不过。
+        代价是 `extends` 仍然只有一格，想要多份行为得走 mixin（见下一格）。
+      python: |
+        Python 用 `abc.ABC` 加 `@abstractmethod` 表达同一件事，缺实现的对象在
+        **实例化那一刻**报错；TypeScript 在编译期就拦下，是更早的一档。
+        两处结构差异：Python 允许多继承，mixin 就靠它；TypeScript 的 `extends` 只有一格。
+        另一处是 TypeScript 里「描述类型」（interface）与「带实现的类」是分开的两件事，
+        抽象类同时干这两件事，也因此带 private / protected 成员时不再按形状相容。
+      java: |
+        Java 的 `abstract class` 与 TypeScript 的几乎一一对应：都在编译期检查
+        「抽象方法有没有被实现」，都只能单继承，都不能实例化。差别在类型相容：
+        Java 严格名义 —— 没写 `extends` 就不是子类；TypeScript 里只含公开成员的
+        抽象类仍然按形状相容，一个没继承它的类也可能被当成它来用。
+        想要真正封闭的层级，得靠 private / protected 成员把它锁住。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  mixin-trait:
+    code: |
+      class User { constructor(public name: string) {} }
+
+      // @note 惯用法一：交叉类型把几份能力拼成一个类型（编译期按形状核对）
+      type Entity = { name: string } & { createdAt: number };
+
+      // @note 惯用法二：混入工厂 —— 收一个基类，返回增强后的类
+      function withLogging<T extends new (...a: any[]) => object>(Base: T) {
+        return class extends Base {
+          log(msg: string) { console.log(msg) }
+        }
+      }
+
+      class Service extends withLogging(User) {}   // @note! extends 只有一格，多份要层层套
+      new Service("a").log("hi");
+    vs:
+      javascript: |
+        JavaScript 也没有 mixin 关键字，惯用做法是把方法对象 `Object.assign` 进原型，
+        或者用高阶类。TypeScript 一样跑这些写法，但多了一层**类型**：交叉类型能把
+        「这份混入带来哪些成员」写成类型、让编译器核对，`Object.assign` 那一套则检查不到。
+        两边的共同点是都没有编译器强制的「多份实现」—— 冲突靠人工保证。
+      python: |
+        Python 的 mixin 是「一个只提供小块行为、不单独实例化的父类」，靠多继承与
+        MRO 组合是语言内的正规写法；TypeScript 的 `extends` 只有一格，
+        多个混入要么把工厂层层套起来、要么退回交叉类型，顺序得自己排。
+        另一处差别是状态：Python 的 mixin 能直接带实例字段，
+        TypeScript 的混入工厂也能塞字段，但构造链要自己串，编译器不帮你对。
+      java: |
+        Java 的接口带 `default` 方法之后能提供实现，是语言层面的「多份行为」通道，
+        而且可以一次 `implements` 好几个；TypeScript 没有 trait，混入是惯用法而非语言构造。
+        差别在状态：Java 的 default 方法**不能访问实例字段**（接口没有字段）；
+        TypeScript 的混入工厂可以连状态一起带进来，代价是没有编译器帮你检查冲突。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  duck-typing:
+    code: |
+      type Quacker = { quack(): string };    // @note 只要形状对，就是 Quacker
+
+      class Robot { quack(): string { return "哔" } }   // @note 没 implements 也算
+
+      function use(q: Quacker): string { return q.quack() }
+      use(new Robot());                      // @note 编译期按形状核对，通过
+
+      const raw: unknown = JSON.parse(text); // @note! 运行时拿不到任何类型信息
+      const duck = raw as Quacker;           // @note as 只是让编译器改主意，不做运行时检查
+      duck.quack();                          // @note! 若 raw 里没有 quack，运行时才炸
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型是**运行时**的：对象只要有 `quack()` 就能当鸭子用，
+        没人检查它是不是鸭子。TypeScript 的整个类型系统就建立在这套判据上 ——
+        不看名字、只看形状 —— 但它把判断搬到了**编译期**，而且编译完就抹掉：
+        运行时没有任何自动检查，`as` 也不会替你验。差别因此只在什么时候发现错：
+        JavaScript 到调用那一刻才炸，TypeScript 在编译时就拦住形状不符的写法。
+      python: |
+        Python 同样是鸭子类型，而且能临时造个对象冒充协议、能给已有类型动态补方法；
+        TypeScript 只在编译期按形状核对，运行时数据是不是那个形状它管不了。
+        差别在检查时机：Python 的兼容性要到调用那一刻才验证（或另跑一个类型检查器），
+        TypeScript 在编译期就拦住形状不符的写法。但落点在运行时数据上时
+        （从网络拿到的 JSON 之类），两边都只能靠显式校验，类型标注帮不上忙。
+      java: |
+        Java 是**名义类型**：一个对象能不能传给某个参数，看它有没有**声明**实现
+        那个接口 —— 与它实际有没有那个方法无关。TypeScript 反过来按形状相容，
+        「形状对但没声明」照样通过编译，所以 Java 里常见的「为了类型包装一层适配器」
+        在 TypeScript 里不需要。代价是 TypeScript 的相容性只在编译期成立、运行时无人核对，
+        而 Java 的类型信息还在，`instanceof` 与反射都能拿来兜底。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

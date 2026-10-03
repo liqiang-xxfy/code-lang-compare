@@ -24,30 +24,32 @@ review:
 boxes:
   function-declaration:
     code: |
-      function greet(name: string): string {   // @note 参数与返回值都要有类型
+      function greet(name: string): string {   // @note 参数类型必须有；返回类型可以推断
         return "你好，" + name;
       }
-      const hi = function (name: string): string { return name; };   // @note 函数表达式
-      const yo = (name: string): string => "你好，" + name;          // @note 箭头函数
+      const yo = (name: string): string => "你好，" + name;   // @note 箭头函数
+      // const hi = function (name: string) { };              // @note! 不支持函数表达式
 
       function apply(f: (x: number) => number, v: number): number {   // @note 函数类型写在签名里
-        return f(v);
+        return f(v);                         // @note! return 的是个调用，返回类型就得写明
       }
 
-      // @note! 参数类型不能省，也没有 any 可以兜底
-      // function bad(x) { return x; }     // @note! 编译错误：x 的类型推断不出来
+      // @note! 参数类型推断不出来就编译不过，也没有 any 可以兜底
+      // function bad(x) { return x; }        // @note! 编译错误：x 的类型推断不出来
     vs:
       javascript: |
-        三种写法的形态是一样的：函数是一等值，可以赋给变量、当参数传、当返回值，
-        这些两边都能做。差别全在签名上 —— JavaScript 的参数与返回值不写类型，
-        ArkTS 的它们是必需的，推断不出来的位置直接编译不过。最明显的是回调：
-        JavaScript 里随手写 `(x) => x` 就能传，ArkTS 要写成 `(x: number): number => x`，
-        因为没有可以兜底的动态类型，每个值都得在编译期能推出类型来。
+        函数是一等值，可以赋给变量、当参数传、当返回值，这些两边都能做。
+        差别在签名：JavaScript 的参数与返回值不写类型；ArkTS 的参数类型是必需的，
+        推断不出来就编译不过，也没有 any 可以兜底。写法上还少一种 ——
+        匿名函数只能用箭头函数，`function (x) { }` 这种函数表达式不合法。
+        回调上体现得最清楚：JavaScript 里随手 `(x) => x` 就能传，
+        ArkTS 里箭头函数照写不误，参数类型能从上下文推出来时可以省，
+        推不出来时才必须标。
       python: |
         Python 只有 `def`（外加 `lambda` 表达式），方法的接收者是显式的 `self` 参数；
-        ArkTS 有声明式、函数表达式、箭头函数三种写法，函数是一等值。
+        ArkTS 有函数声明与箭头函数两种写法，函数是一等值。
         两边都能标类型，但态度相反：Python 的标注是可选文档、运行时不生效，
-        ArkTS 的参数与返回值类型是编译的输入，缺了或对不上就出不了包。
+        ArkTS 的参数类型是编译的输入，缺了或对不上就出不了包。
       java: |
         Java 没有自由函数，所有方法都要写在类里；ArkTS 的顶层函数随便写，
         这一点更接近脚本语言的习惯。签名上两边都要求写类型、都要给出返回值。
@@ -172,17 +174,15 @@ boxes:
       const next = counter();
       next(); next();                  // @note 1 2
 
-      // @note 回调也是闭包：捕获外层变量，参数与返回值都要写出类型
+      // @note 回调也是闭包：捕获外层变量，参数类型由数组元素类型推出来
       const xs: number[] = [1, 2, 3];
       let total = 0;
-      xs.forEach((x: number) => { total += x; });   // @note 闭包里改外层变量是允许的
-
-      // @note! 没有动态类型兜底：回调参数省掉类型就编译不过
+      xs.forEach((x) => { total += x; });   // @note 闭包里改外层变量是允许的
     vs:
       javascript: |
         闭包的机制两边完全一样 —— 函数记住定义处的外层变量，返回出去之后那些变量
         仍然存活，同一套语义、同一个运行时行为。ArkTS 在这里没有加任何新规则，
-        唯一的差别落在类型上：回调的参数与返回值要写出来，也没有动态类型可以兜底。
+        唯一的差别落在类型上：回调的参数通常由上下文推出来，推不出来时才要写。
         所以这一格的 `identical` 是如实标注 —— 这个知识点本身没有差异。
       python: |
         Python 的闭包同样能记住外层变量，只是「在闭包里改外层」要显式写 `nonlocal`，

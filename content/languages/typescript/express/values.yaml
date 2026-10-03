@@ -57,7 +57,7 @@ boxes:
     code: |
       let n = 42;                 // @note 由初值推断出 number
       let s: string = "hi";       // @note 也可以显式标注
-      // let z;                   // @note! 推断成 any，检查从这里断掉
+      // let z;                   // @note! 隐式 any：赋值前访问会被拦下
 
       function area(r: number): number { return 3.14 * r * r }   // @note 参数与返回值要写
 
@@ -69,7 +69,8 @@ boxes:
         标注在 TypeScript 里是**外加**的语法：同一段代码去掉冒号和类型就是合法的
         JavaScript，所以迁移能一个文件一个文件地做。但「不写类型」这条默认路径两边
         分道扬镳 —— JavaScript 里 `let x` 装什么都行，TypeScript 里 `let z;`
-        （不写初值也不写类型）会推断成 `any`，等于在这个名字上把检查关掉了。
+        （不写初值也不写类型）虽然也当作 `any`，编译器却还盯着它：赋值前访问会被拦下，
+        赋了值之后按赋进去的类型检查。真要把检查关掉，得显式写 `any`。
       python: |
         两边都把类型写在名字后面（`x: number` / `x: int`），也都能只标注一部分。
         差别在**谁在检查**：Python 的标注运行时不生效，写错了代码照跑，要靠外部检查器
@@ -77,9 +78,10 @@ boxes:
         `const K = 10` 在 TypeScript 里推出类型 `10`，Python 里 `K = 10` 只是拿到一个值。
       java: |
         位置相反：Java 写 `int x`（类型在前），TypeScript 写 `x: number`（类型在后）。
-        能省的范围也不同 —— Java 只有局部变量能用 `var` 让编译器推断，
-        TypeScript 的函数签名、字段、常量全都**可以**省，所以更容易写出
-        「某一处漏了标注、检查从这里断掉」的代码，而漏掉的写法还完全合法。
+        能省的范围也不同 —— Java 只有局部变量能用 `var` 让编译器推断；
+        TypeScript 能省的更多（返回类型、有初值的字段与变量都能靠推断省掉），
+        但函数参数的类型不能省。所以风险不在「漏标了还不报」，
+        而在推断出来的类型未必是你想要的那个 —— 那时它照样是合法的代码。
     equivalence:
       javascript: divergent
       python: analogous
@@ -99,7 +101,7 @@ boxes:
         JavaScript 里 null 与 undefined 能赋给任何变量，读属性就抛 TypeError；
         TypeScript 打开 strictNullChecks 后把它们变成类型的一部分 —— 想让一个名字
         可能为空，就得在类型里写出来。注意这是**编译开关**：关掉它，两边行为就没有
-        区别，这也解释了老代码里为什么满是防御性的空检查、新代码里反而少见。
+        区别了。
       python: |
         Python 只有一种空值 None，「还没赋值」与「有意为空」不做区分，读属性到运行时
         才抛 AttributeError；TypeScript 把 null 与 undefined 分成两个类型，都在编译期检查。

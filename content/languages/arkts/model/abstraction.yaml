@@ -1,0 +1,169 @@
+# arkts —— model / abstraction
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: abstraction` 的那批：
+# interface / abstract-class / mixin-trait / duck-typing。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「TS」这类简称同样会被检测成屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：ArkTS 与语法相近的那门静态方言共享大量写法，但**结构化类型被禁用** ——
+# 本组四个知识点全部压在这一条约束上：形状相同不算数，必须显式声明。
+# 拿不准的语法细节一律不编造，写不出差异的格子如实标 analogous，不灌水。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  interface:
+    code: |
+      interface Shape {                  // @note 只声明「能做什么」
+        name: string;
+        area(): number;
+      }
+
+      class Circle implements Shape {    // @note! 必须显式 implements，形状对不算数
+        name: string = "圆";
+        area(): number { return 3.14 * 1 * 1 }
+      }
+
+      class Blob { area(): number { return 3.14 } }   // @note! 形状对也不行：声明里没实现
+
+      function total(xs: Shape[]): number { return xs.reduce((s, x) => s + x.area(), 0) }
+      total([new Circle()]);
+      // total([new Blob()]);            // @note! 编译错误：Blob 在声明上不是 Shape
+    vs:
+      javascript: |
+        JavaScript 语言层面没有接口，靠约定或运行时自检；ArkTS 的 `interface` 是编译期的
+        类型，只是它**只认显式声明** —— 类必须写 `implements Shape`，光有 `area()` 不算数。
+        这与 JavaScript 的鸭子类型正好相反：那边看形状，这边看声明。好处是
+        「谁实现了这个接口」搜得到；坏处是给外部数据临时描述一个形状变得很啰嗦 ——
+        JavaScript 里随手造个对象就能用，ArkTS 里得先有一个实现了该接口的类。
+      python: |
+        Python 的 `abc.ABC` 也要求显式继承，思路接近；但它还留着 `typing.Protocol`
+        这条结构化路子，ArkTS 没有 —— 除 `implements` 与 `extends` 之外没有别的相容方式。
+        差别还在检查时机：Python 的抽象基类要到**实例化那一刻**才报错，
+        （或交给另跑的类型检查器），ArkTS 的核对是编译器的输入，写错就出不了包。
+      java: |
+        Java 与 ArkTS 在这里是同一套规则：类必须显式 `implements` 才算实现了接口，
+        有同名方法不算数 —— 两边都是名义类型，也都能靠搜索找到实现者。
+        差别在接口的形态与运行时：Java 的接口可以带默认方法、继承关系更丰富，
+        运行时还留着类型信息可供反射核对；ArkTS 的接口只声明签名，类型信息编译后不保留。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  abstract-class:
+    code: |
+      abstract class Repository {        // @note abstract：不能直接 new
+        abstract find(id: string): User; // @note 子类必须实现
+        save(u: User): void { this.write(u) }   // @note 也可以带已实现的成员
+        protected write(u: User): void { /* ... */ }
+      }
+
+      class UserRepo extends Repository {
+        find(id: string): User { return db.get(id) }
+      }
+
+      // new Repository();               // @note! 编译错误：抽象类不能实例化
+    vs:
+      javascript: |
+        JavaScript 没有 `abstract` 关键字，「抽象类」要靠构造函数里检查 `new.target`
+        加一个抛错的占位方法手工模拟 —— 忘了覆写不会在定义时报错，只有真调用到才炸。
+        ArkTS 把它变成编译期规则：抽象类不能 `new`、抽象方法没实现，都直接编译不过，
+        也不需要那套运行时的手工检查。
+      python: |
+        Python 用 `abc.ABC` 加 `@abstractmethod` 表达同一件事，缺实现的子类在
+        **实例化那一刻**报错；ArkTS 在编译期就拦下，是更早的一档。
+        两处结构差异：Python 允许多继承，mixin 靠它；ArkTS 的 `extends` 只有一格。
+      java: |
+        Java 的 `abstract class` 与 ArkTS 的几乎一一对应：都在编译期检查「抽象方法
+        有没有被实现」，都只能单继承，都不能实例化。差别在接口与类的分工：
+        Java 的接口能带默认方法，所以「共享实现」有一条不依赖继承的通道；
+        ArkTS 的接口只声明签名，共享实现只能靠抽象类或把代码再写一遍。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  mixin-trait:
+    code: |
+      interface Logger { log(msg: string): void }
+
+      class ConsoleLogger implements Logger {     // @note 能力是「一个显式实现接口的类」
+        log(msg: string): void { console.log(msg) }
+      }
+
+      class Service {
+        private logger: Logger = new ConsoleLogger();   // @note! 组合 + 转发，不是混入
+        doWork(): void { this.logger.log("work") }
+      }
+
+      // ArkTS 没有 mixin / trait 关键字，结构化类型又被禁用：
+      // 没法用交叉类型给一个类「补」一份能力（那需要形状相容），只能像上面这样组合。
+    vs:
+      javascript: |
+        JavaScript 的惯用做法是把方法对象 `Object.assign` 进原型，或用高阶类拼；
+        ArkTS 两条都不通 —— `Object.assign` 与原型改写都在禁用名单上，
+        结构化类型也被禁用，没法用交叉类型宣称一个类「多了这份能力」。
+        所以复用只能写成组合加显式转发：把一个实现了接口的对象放进字段里，
+        需要时自己调过去。
+      python: |
+        Python 的 mixin 是一个只提供小块行为、不单独实例化的父类，靠多继承与 MRO
+        组合，是语言内的正规写法；ArkTS 只有单继承、没有 mixin，
+        横向复用只能靠组合与转发，比 Python 更啰嗦、也更显式。
+      java: |
+        Java 的接口带 `default` 方法之后能提供实现，是语言层面的多份行为通道，
+        一个类可以同时 `implements` 好几个；ArkTS 的接口只声明签名、不能带实现，
+        所以「一次拿到多份行为」这件事它办不到，只能逐个显式实现、或者组合进来。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  duck-typing:
+    code: |
+      interface Quacker { quack(): string }
+
+      class Duck implements Quacker {            // @note 必须显式声明
+        quack(): string { return "嘎" }
+      }
+
+      class Toy { quack(): string { return "吱" } }   // @note! 方法一样，没实现就不是
+
+      function use(q: Quacker): string { return q.quack() }
+      use(new Duck());
+      // use(new Toy());                         // @note! 编译错误：只看声明，不看形状
+
+      // 改不了源码的类型（第三方 / 平台 API）也没法事后给它描述一个接口 —— 这是最痛的一处
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型在运行时判定：对象只要有 `quack()` 就能当鸭子用，
+        没人要求它声明过什么。ArkTS 把判据整个换成**显式声明** ——
+        形状相同、方法同名都不算数，必须有一个真的写了 `implements Quacker` 的类。
+        这条约束最痛的地方在**改不了源码的类型**上：JavaScript 里可以为一个平时
+        用不到源码的对象临时描述形状、直接按形状去用；ArkTS 里做不到 ——
+        第三方库或平台 API 返回的对象，除非它自己实现了那个接口，否则你没法把它
+        当作那个接口来用，只能包一层自己的类。
+      python: |
+        Python 默认也按类型名字识别，但它保留了运行时鸭子类型（有方法就能用），
+        还提供 `Protocol` 做结构化标注；ArkTS 把这一路彻底关掉，只剩显式声明。
+        差别在什么时候发现不相容：Python 要等调用到那一行（或另跑类型检查器），
+        ArkTS 在编译期就拒绝出包；代价是 ArkTS 里给外来数据「临时描述形状」这条路不存在。
+      java: |
+        Java 与 ArkTS 是同一套规则：接口必须由类显式 `implements`，有同名方法不算数，
+        两边也都在编译期检查 —— 这一点上它们与鸭子类型正好相反。
+        差别在运行时：Java 的类型信息还在，`instanceof` 与反射能用来兜底或做适配；
+        ArkTS 的类在运行时仍认得出自己（`instanceof` 照常能用），编译后丢掉的
+        只是接口那一层 —— 判不了「它有没有实现某个接口」，也没有反射可以兜底。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

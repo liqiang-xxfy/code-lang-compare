@@ -1,0 +1,143 @@
+# arkts —— model / iteration
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: iteration` 的那批：
+# generator-yield / comprehension / lazy-evaluation / destructuring。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：ArkTS 对「生成器函数」与「解构」两项是真的不支持（编译期错误，
+# 规则 arkts-no-generators / arkts-no-destruct-decls / arkts-no-destruct-assignment /
+# arkts-no-destruct-params），这两格按 absent 处理并说明原因。其余两格只写能核实的
+# 形态：数组方法链、`for...of`、`Map` / `Set`；`Object.fromEntries` 与对象展开被禁用，
+# 造映射改用 `Map` 逐个 `set`。语法上与 ArkTS 相近的那门静态方言本文件不点名，
+# 需要泛指时写「另一门语言」。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-iteration-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generator-yield:
+    absent: true
+    vs:
+      javascript: |
+        JavaScript 的 `function*` / `yield` 能写出「调用时不执行、每次推进到下一个
+        暂停点」的生成器；ArkTS **不支持生成器函数**（编译期错误），这段语法在这里
+        写不出来。所以「惰性产出一串值」在 ArkTS 里没有语言级的写法 ——
+        官方给的替代方向是用 `async` / `await` 处理，但那是异步任务、不是可暂停的
+        序列：「按需拉取下一个值」这件事本身，这里没有对应机制。
+      python: |
+        Python 的 `yield` 让一个普通函数变成生成器，需要时才算出下一个值；ArkTS 没有
+        生成器函数，这套写法整体缺席。想在 ArkTS 里逐个产出值，只能先把它们全部算进
+        一个数组再用 —— `for...of` 遍历没有问题，但没有「边算边取、算到用的时候
+        才算」的暂停机制，Python 那种能表示无限序列的生成器在这里无从写起。
+      java: |
+        两边都没有生成器语法，这是它们在这一点上最接近的地方；差别在替代手段。
+        Java 有 `Stream`（配合 `Iterator` 与 lambda）来表达惰性序列，虽然不能中途
+        暂停再恢复，但至少能按需拉取；ArkTS 没有对应的流式抽象，只能先把整个序列
+        造出来。要写带状态、可暂停的序列，Java 手写 `Iterator` 是一条路，ArkTS 连
+        这条也没有 —— 缺的正是把状态机写进函数体的那种语法。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  comprehension:
+    code: |
+      class User { id: number = 0; name: string = "" }
+
+      let xs: number[] = [1, 2, 3];
+      // @note! 没有推导式语法 —— 批量构造靠数组方法链
+      let doubles: number[] = xs.map((x: number): number => x * 2);
+      let evens: number[] = xs.filter((x: number): boolean => x % 2 === 0);
+
+      // 造映射：Object.fromEntries 被禁用，只能用 Map 逐个填
+      let users: User[] = [];
+      let byId: Map<number, User> = new Map<number, User>();
+      for (const u of users) {
+        byId.set(u.id, u);              // @note for...of 可用，for...in 不行
+      }
+    vs:
+      javascript: |
+        两边都没有推导式。ArkTS 保留了 `map` / `filter` 这类数组方法，所以造数组的
+        写法与 JavaScript 相近；但两处辅助手段被砍掉了 —— `Object.fromEntries` 被
+        禁用，从键值对造映射只能改用 `Map` 逐个 `set`；对象展开 `{...obj}` 也不支持，
+        复制对象得逐字段写。所以「造一个对象映射」这一条在 ArkTS 里明显更长、更啰嗦。
+      python: |
+        Python 的推导式把「从一个序列造出另一个序列」写成一个表达式，列表 / 字典 /
+        集合各有各的写法；ArkTS 没有推导式，全靠数组方法链，造映射还得用一个 `Map`
+        加循环去填。两边都能把常用构造写得比较紧凑，但 Python 是一行表达式，
+        ArkTS 是一串方法再加一个循环。
+      java: |
+        Java 用 `Stream` 管道加 `Collectors` 批量构造（`Collectors.toMap` / `toSet`），
+        形态与 ArkTS 的数组方法链相近。差别在惰性与映射容器：Java 的 `Stream` 是
+        惰性的，ArkTS 的每一步都急切求值；造映射两边都归到 `Map`，这一点一致，
+        但 Java 有 `Collectors` 一步到位，ArkTS 得手写循环去填。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  lazy-evaluation:
+    code: |
+      let xs: number[] = [1, 2, 3, 4];
+      // @note 数组方法全是急切的：每一步都产生一个真实数组
+      let r: number[] = xs.map((x: number): number => x * 2)
+        .filter((x: number): boolean => x > 2);   // 整个数组都跑过，中间数组真实存在
+
+      // @note! 没有生成器函数，搭不出「算到用的时候才算」的无限序列；
+      // 想要惰性，只能自己实现一套逐个取值的迭代协议（手写状态与 next），
+      // 没有那种一行写出状态机的写法。
+
+      // @note 所以这里的常态是「先全部算完，再取需要的部分」
+    vs:
+      javascript: |
+        JavaScript 里数组方法同样急切，但它有生成器 —— 惰性序列、无限序列都能用
+        `function*` 搭出来。ArkTS 保留了急切的那一半，砍掉了生成器，于是惰性这一半
+        整个缺失：没有生成器，也就没有「不取完就不算完」的无限序列。想要类似效果，
+        只能手写一套迭代协议，把「走到哪了」记在字段里，长度和易错度都远高于
+        一行 `function*`。
+      python: |
+        Python 用生成器与 `itertools` 做惰性：`(x for x in xs)` 一行得到惰性序列，
+        `islice` / `count` 直接给出常用算子；ArkTS 没有生成器，这套写法整体缺席，
+        只能先把整个序列算成数组再用。差别是根本性的 —— Python 能表达无限序列，
+        ArkTS 里「无限」无从写起，因为任何数组方法都会先跑完整个输入。
+      java: |
+        Java 的 `Stream` 天生惰性：中间操作只记账，直到终止操作才真正跑一遍，
+        所以「先筛再取前几个」不会碰完整数组。ArkTS 没有对应的流式抽象，数组方法
+        每一步都急切执行、每一步都产出真实数组，`map` 之后 `filter` 会把中间的整个
+        数组先算出来。遇到大输入或「只要前几个」的场景，这个差别直接决定开销。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  destructuring:
+    absent: true
+    vs:
+      javascript: |
+        JavaScript 的数组解构（`const [a, b] = xs`）、对象解构（`const { x } = obj`）、
+        剩余元素与默认值，在 ArkTS 里**都不支持** —— 解构变量声明、解构赋值、参数
+        解构分别对应三条编译期错误。要取几个值只能逐个写 `let a = xs[0]` / `obj.x`，
+        交换两个变量还得借一个临时变量。所以从 JavaScript 搬代码时，凡是解构的地方
+        都得改写成显式取值。
+      python: |
+        Python 的元组解包（`a, b = pair`）与 `*rest` 是日常写法，ArkTS 没有任何解构
+        语法，这套写法整个不在。代价落在取值上：Python 一行拆开，ArkTS 要逐下标 /
+        逐字段手动取，交换变量还要临时变量。作为补偿，ArkTS 的类字段是具名的，
+        取值时写 `obj.field` 本身也够直白 —— 但表达力和紧凑度确实少了一截。
+      java: |
+        Java 与 ArkTS 在这一点上很接近：都没有解构赋值，取多个值都得逐个写
+        `arr[0]` / `obj.field`。Java 较新的版本给 record 加了模式匹配，能在
+        `instanceof` 与 `switch` 里一次拆出字段；ArkTS 没有对等的语法，只有逐字段
+        访问这一条路。两边都靠具名访问换取静态上的确定性。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

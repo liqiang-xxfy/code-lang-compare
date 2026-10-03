@@ -1,0 +1,256 @@
+# typescript —— model / collections
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: collections` 的那批：
+# list-array / map-dict / set / tuple-record / collection-mutability / slicing。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「JS」这类简称同样会被算作屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径：运行时容器就是 JavaScript 那几个 —— 数组、Map、Set、普通对象，
+# TypeScript 在各个容器上补的是「元素类型 / 键值类型 / 只读视图」这一层，
+# 编译后全部消失。本文件只写这一层带来的差别（形态选择、键的约束、
+# 可变性的说法、切片的深浅），运行时行为与 JavaScript 相同的部分不重复讲。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  list-array:
+    code: |
+      const xs: number[] = [1, 2, 3];        // @note T[] 写法，元素类型标在类型位置
+      const ys: Array<number> = [4, 5];      // @note Array<T> 与 T[] 是同一个类型的两种写法
+      xs.push(6);                            // @note 尾部追加（摊还 O(1)）
+      xs.unshift(0);                         // @note! 头部插入要把整个数组往后搬，O(n)
+      xs.pop();                              // @note 尾部弹出
+      const n = xs.length;                   // @note 长度随时可读 —— 数组不是定长
+      // const bad: number[] = [1, "a"];     // @note! 编译错误：元素类型必须一致
+      const mixed: (number | string)[] = [1, "a"];   // @note 要混放得显式写成联合类型
+      const last = xs[-1];                   // @note! 类型说 number，运行时其实是 undefined
+    vs:
+      javascript: |
+        同一个数组、同一批方法（`push` / `unshift` / `splice` / `slice`）、同一套稀疏与
+        越界行为：读越界得 `undefined` 而不报错，长度随时可变。TypeScript 只加**元素类型**
+        这一层 —— `number[]` 让 `push("x")` 编译不过，想混放要显式声明联合类型。
+        这一层编译后消失，值一旦绕过类型进来（JSON、第三方库），保护随即失效。
+        还有一处值得记住：越界读的类型仍写成 `number`，运行时的 `undefined` 不在类型里。
+      python: |
+        Python 的 `list` 与这里的数组都是可变长序列，`append` 对应 `push`、`len()` 对应
+        `.length`。差别在元素：Python 的列表天生可混放，这里要先声明元素类型，混放得写
+        联合类型。另一处是「定长」：Python 的 tuple 长度固定、且不进类型系统，这里表达
+        定长靠元组类型（见「元组与记录」），普通数组一律可变长。越界行为也不同：Python 抛
+        `IndexError` 且支持负下标，这里读越界得 `undefined`、负数下标拿不到末尾元素。
+      java: |
+        Java 的数组长度固定、要显式 `new`，动态增删得换 `ArrayList`；这里一个 `T[]`
+        兼顾两头，长度随时可变。共同底线是元素类型静态确定 —— 但 Java 的类型运行时还在，
+        往父类型数组里塞错类型会抛 `ArrayStoreException`；这里的元素类型编译后整个抹掉，
+        运行时不检查任何东西。另一处是装箱：Java 的 `ArrayList` 不能装基本类型（`int`
+        要包成 `Integer`），这里的数组直接存数字，没有这层开销。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  map-dict:
+    code: |
+      const m = new Map<string, number>();   // @note 运行时就是 JavaScript 的 Map
+      m.set("Ada", 90);
+      m.get("nope");                         // @note number | undefined —— 类型逼你处理「键不在」
+      // m.set(1, 2);                        // @note! 编译错误：键的类型是 string
+
+      // 同一个「字典」，三种类型层的表达
+      const counts: Record<string, number> = { Ada: 90 };   // @note 键与值的类型写全
+      interface Scores { [name: string]: number }           // @note 索引签名：键是任意 string
+      const strict: Record<"a" | "b", number> = { a: 1, b: 2 };   // @note 键收窄成字面量联合
+      // const bad: Record<"a" | "b", number> = { c: 1 };   // @note! 编译错误：c 不是允许的键
+    vs:
+      javascript: |
+        运行时与 JavaScript 的 `Map` 一致：同样按插入顺序遍历、同样有 `size`、
+        取不到给 `undefined`。差别有两处。一是类型参数 `Map<string, number>` 把键值钉死，
+        `get` 的返回类型自动带上 `| undefined`，等于在类型上提醒你判空。二是「拿对象当
+        字典」这条路：JavaScript 里 `obj[k]` 随手加键，这里要先声明索引签名或
+        `Record<K, V>`，否则编译不过。选型也因此更清楚 —— 键运行时才知道的用 `Map`，
+        键固定的写 `Record`；顺带一提，对象自身的键顺序还有「整数键提前」的特殊规则，
+        而 `Map` 是纯插入序，两种容器的遍历顺序并不一致。
+      python: |
+        Python 只有一种 `dict`：键任意可哈希、保插入序，把「动态键」与「固定字段」
+        两个角色合在一起。这里要把它们拆开 —— 动态键用 `Map`，固定字段要声明类型
+        （`Record<K, V>` 或索引签名）。取缺失键两边都不静默出错：Python 抛 `KeyError`
+        （除非用 `get`），这里 `Map.get` 给 `undefined`。顺序上两边都保插入序，这一条一致。
+        差别在键的约束：Python 的键要可哈希，这里的 `Map` 按 SameValueZero 比较、
+        对象键一律按引用，没有「重写 `__hash__`」这类可调项。
+      java: |
+        Java 的 `Map` 是「一个概念、多个实现」（`HashMap` 无序、`LinkedHashMap` 保插入序、
+        `TreeMap` 按键排序）；这里的 `Map` 只有一种、按插入顺序遍历。两边都要求键值类型
+        显式写出来，这一点接近。差别在运行时：Java 的类型还在（反射读得到，泛型虽被擦除、
+        类文件里仍有痕迹），这里的类型编译后整个消失。取不到时 Java 给 `null`、这里给
+        `undefined`；键的相等判断 Java 靠 `equals` / `hashCode`，这里按 SameValueZero、
+        对象键一律按引用。还有一处 Java 表达不出来：`Record<"a" | "b", number>` 把键收窄
+        成字面量联合 —— 泛型参数不能是具体的值。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  set:
+    code: |
+      const s = new Set<number>([1, 2, 2]);  // @note 构造时就去重，size 是 2
+      s.add(3);                              // @note 返回集合本身（可链式），不是 boolean
+      s.has(2);                              // @note 成员判定
+      s.delete(2);
+      s.size;                                // @note 元素个数
+
+      // 元素相等按 SameValueZero：NaN 视为相等，对象一律按引用比
+      // 并集 / 交集 / 差集：标准 Set 不内置运算符，惯常自己写循环
+    vs:
+      javascript: |
+        运行时与 JavaScript 的 `Set` 是同一个对象：去重、`add` / `has` / `delete` / `size`、
+        保插入顺序，全部一致。TypeScript 补的仍是类型那一层 —— `Set<number>` 让
+        `add("x")` 编译不过，元素是什么类型写得出。元素相等的判定两边同源
+        （SameValueZero：`NaN` 算相等，对象按引用，所以内容相同的两个对象是两个成员）——
+        这条属运行时语义，在类型之外，两边共享。
+      python: |
+        Python 的 `set` 与这里的 `Set` 都是哈希集合，去重、`in` / `has`、`add` 都能对上。
+        差别有两处。一是顺序：Python 的 `set` 不保证遍历顺序，这里的 `Set` 按插入顺序
+        遍历 —— 要稳定输出，Python 得另排序。二是元素类型：Python 的 `set` 可装不同类型
+        的可哈希值，这里要先声明元素类型、混放得写联合类型。集合运算 Python 有
+        `a | b` / `a & b` / `a - b` 运算符；这里的 `Set` 没有运算符，方法倒是有
+        （ES2025 起 `union` / `intersection` / `difference`，按 `lib` 配置可用）。
+      java: |
+        Java 的 `HashSet` 与这里的 `Set` 都是哈希集合，`contains` 对应 `has`；`add` 都
+        回答「是不是新增」，只是 Java 返回 `boolean`、这里返回集合本身（所以这里能链式、
+        Java 不能）。顺序上 Java 的 `HashSet` 不保证遍历顺序（`LinkedHashSet` 才保序），
+        这里的 `Set` 天然按插入顺序。集合运算形态相反：Java 用 `retainAll` / `addAll` /
+        `removeAll` 就地改集合，这里对应 `union` / `difference` 这些方法（ES2025 起），
+        而且返回新集合、不改原集合。元素相等
+        判断也不同：Java 靠 `equals` / `hashCode`（同名不重写就会重复），这里按
+        SameValueZero、对象一律按引用。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  tuple-record:
+    code: |
+      // 元组：定长、每位类型可不同，位置本身携带语义
+      const pair: [string, number] = ["Ada", 36];      // @note 第一位 string、第二位 number
+      const named: [name: string, age: number] = ["Bob", 40];   // @note 命名元组：给位置起名
+      const maybe: [string, number?] = ["x"];          // @note 可选元素：尾部可以省
+      const tail: [string, ...number[]] = ["x", 1, 2]; // @note 剩余元素
+      // const bad: [string, number] = [36, "Ada"];    // @note! 编译错误：顺序与类型都不能错
+      const ro: readonly [string, number] = ["Ada", 36];   // @note 只读元组
+
+      // 记录：有名字的固定字段
+      type User = { id: number; name: string };
+      const u: User = { id: 1, name: "Ada" };
+      // const v: User = { id: 1 };                    // @note! 编译错误：少一个字段也不行
+    vs:
+      javascript: |
+        JavaScript 没有元组：成对返回习惯借数组或对象，位置含义只写在文档里。这里把
+        「第一位是 `string`、第二位是 `number`」写进类型，反着放就编译不过；命名元组
+        更接近对象字面量，但运行时它还是数组、仍按位置访问。记录这一侧，JavaScript 的
+        对象字段可多可少，这里 `type User = { ... }` 之后少一个字段编译不过，字面量里
+        多写未声明的字段也会被拦下。两样都只在编译期成立 —— 运行时仍是普通数组与对象。
+      python: |
+        Python 的 `tuple` 与这里的元组很像：定长、可装不同类型、能解构。差在两点：
+        Python 的元组长度与元素类型不进类型系统，传错位置要跑到那一行才知道，这里的
+        `[string, number]` 是精确类型、编译期就核对；可变性也相反 —— Python 的元组运行时
+        真的不可改，这里的「元组」运行时只是普通数组、照样能改，想要不可变得加
+        `readonly`，而那也只在编译期成立。记录这一侧两边等价：Python 用 `dataclass` 或
+        `NamedTuple`，这里用 `type` / `interface`，都要把字段类型写出来。
+      java: |
+        Java 没有元组，成对返回要造类或借 `Map.Entry`（16 起有 `record`）；这里的元组是
+        类型里的第一等形态，`[string, number]` 直接写出来，除了按位置访问还能解构。
+        记录这一侧，Java 的 `record` 与这里的对象类型最接近：都是「一组建好就不打算改的
+        具名字段」。差别在不可变性 —— Java 的 `record` 字段是 `final`、天生不可改，这里
+        声明的对象类型默认可变，想只读要给字段加 `readonly`。另一处是运行时：Java 的
+        `record` 与类型信息都在运行时保留、自带 `equals` / `hashCode` / `toString`，
+        这里的类型编译后消失、运行时是普通对象，相等要自己比。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  collection-mutability:
+    code: |
+      const xs: number[] = [1, 2, 3];
+      xs.push(4);                     // @note const 只锁绑定，内容照样能改
+      const ro: readonly number[] = xs;    // @note 只读视图：编译期禁止改写
+      // ro.push(5);                  // @note! 编译错误：只读数组没有 push
+      // ro[0] = 9;                   // @note! 编译错误：只读视图不能改元素
+
+      const ys = xs;                  // @note! 只是别名 —— 改 ys 会改到 xs
+      const zs = [...xs];             // @note 浅拷贝：顶层独立
+      const objs = [{ n: 1 }];
+      const copy = [...objs];
+      copy[0].n = 9;                  // @note! 浅拷贝只到第一层，objs 里那个对象也被改了
+
+      const frozen = Object.freeze(xs);   // @note 冻结在运行时；接住返回值才拿到只读类型
+    vs:
+      javascript: |
+        `const` 只锁绑定、不锁内容，这一条两边完全一样：`const xs = []` 之后照样 `push`。
+        TypeScript 多的是编译期的只读视图 `readonly number[]` —— 它不改变运行时（那个数组
+        该能改还是能改），只是让「不该改」的地方编译不过；想真冻结仍靠 JavaScript 那一套
+        （`Object.freeze`）。别名语义也一致：`ys = xs` 是同一个数组，改动互相可见 ——
+        类型层不区分别名与副本，这是类型系统管不到的地方。
+      python: |
+        可变性在这两边由不同的东西决定。Python 里是**类型**决定的：`list` 可变、`tuple`
+        不可变，写出来就定了，`xs = ys` 是引用绑定。这里没有「不可变容器」这种类型，
+        可变与否取决于怎么用 —— 想只读就在类型上加 `readonly`（编译期），想真冻结在运行时
+        另想办法。别名语义两边高度一致：`xs = ys` 都是别名，改一个另一个看得见；浅拷贝
+        也都要显式做（Python 用 `list(xs)` 或切片，这里用 `[...xs]`）。
+      java: |
+        最像的是 `final`：Java 的 `final List<String> xs` 只冻结引用、不冻结内容，
+        `xs.add(...)` 照样合法 —— 与这里的 `const` 完全对应。差别在 Java 另有一整套
+        运行时的只读包装（`List.of`、`unmodifiableList`），被包的集合真的改不动；
+        这里的只读（`readonly`）只在编译期成立，类型编译后就消失，运行时不会保留
+        「这个容器是只读的」这类信息。另一头是别名：两边都靠引用共享、赋值即别名，
+        改一个另一个看得见，都不会自动复制 —— 而这里的类型层同样不区分别名与副本。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  slicing:
+    code: |
+      const xs = [1, 2, 3, 4, 5];
+      xs.slice(1, 3);                 // @note 元素 1、2（左闭右开），返回新数组
+      const tail = xs.slice(-2);      // @note 负下标从末尾数：拿到最后两个
+      const cp = xs.slice();          // @note 整体的一层拷贝，等价于 [...xs]
+      const last = xs.at(-1);         // @note 读末尾元素的写法
+
+      xs.splice(1, 2);                // @note! 就地删除并返回被删部分 —— 与 slice 只差一个字母
+
+      const objs = [{ n: 1 }, { n: 2 }];
+      const part = objs.slice(0, 1);
+      part[0].n = 9;                  // @note! 浅拷贝：里面那个对象与原件是同一个
+    vs:
+      javascript: |
+        `slice` 的语义与 JavaScript 完全一致：左闭右开、返回新数组（复制，不是视图）、
+        负数从末尾数、浅拷贝 —— 改结果数组本身不影响原数组，但里面的对象仍是共享的。
+        TypeScript 在这里没有加任何运行时行为，加的只是类型；而且浅拷贝之后那些共享的
+        对象仍是同一个对象类型，编译器不会提醒你「这一改两边都变」—— 深浅这件事始终在
+        类型系统之外。
+      python: |
+        切片在两边都返回新序列（不是视图）、左闭右开、负下标都能从末尾数，这几条高度一致。
+        差别在写法：Python 用一对中括号 `xs[1:3]` 同时兼顾读片段与就地替换
+        （`xs[1:3] = [...]`），这里读片段是方法 `slice(1, 3)`、就地改动要换 `splice`；
+        两类操作在这里分得更开。深浅也一样：两边都是浅拷贝，嵌套对象仍共享，要真正独立
+        的副本都得自己往下走一层。
+      java: |
+        Java 的 `subList(1, 3)` 是**视图** —— 改它会影响原列表，与这里的 `slice`
+        正相反（这里返回的是复制）。Java 里要复制得用 `Arrays.copyOfRange` 或
+        `new ArrayList<>(list.subList(...))`，也就是「视图」与「副本」在 Java 里由不同
+        方法承担，而这里的 `slice` 永远是复制。越界行为也不同：Java 抛
+        `IndexOutOfBoundsException`，这里读越界得 `undefined`、不抛错；负数从末尾数是
+        这里多出来的。深浅两边都是浅的。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

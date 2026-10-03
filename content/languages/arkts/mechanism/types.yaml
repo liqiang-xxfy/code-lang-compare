@@ -63,7 +63,7 @@ boxes:
 
       let x = 1;                    // @note 局部变量可以由初值推断出类型
       let y: number = 1;            // @note 也可以显式标注
-      // let z;                     // @note! 推不出类型，不允许留着不写
+      // let z;                     // @note! 编译错误：局部变量声明时就得有值
 
       interface Point { x: number; y: number }   // @note 描述形状，编译后消失
 
@@ -74,7 +74,7 @@ boxes:
     vs:
       javascript: |
         JavaScript 没有类型标注这回事，参数与返回值都不写；ArkTS 里它们是签名的一部分，
-        不写就是编译错误（局部变量可以由初值推断，这是唯一的省略）。
+        不写就是编译错误（局部变量有初值时可以省，别处基本都要写）。
         另一处差别是标注的性质：JavaScript 想描述一个对象的形状只能靠文档
         或运行时自检，ArkTS 的接口写在代码里、编译时就能核对 ——
         代价是编译后这些描述全部消失，运行时拿不到。
@@ -155,8 +155,8 @@ boxes:
         JavaScript 里 `typeof` / `instanceof` 只是运行时的判断，判断完的类型不会「留下来」——
         引擎不会因此更了解这个变量。ArkTS 把同一个 `if` 变成编译器掌握的事实：
         分支里可以直接调用收窄后类型的方法，出了分支又恢复成联合类型。
-        另一处差别是完整性检查：ArkTS 会指出没被任何分支覆盖的类型，
-        JavaScript 只能等运行时那一行报错。
+        在 JavaScript 里，「刚判断过」这件事得靠人记住；
+        在 ArkTS 里它由编译器替你记着，判断与使用之间那段路不用再自己保证。
       python: |
         Python 用 `isinstance` 判断再分支，收窄只对另跑的类型检查器有意义；
         ArkTS 的收窄是编译器内置的，`typeof`、`instanceof`、真值判断都能触发，
@@ -165,9 +165,10 @@ boxes:
         编辑器和命令行看到的结果一致。
       java: |
         Java 传统上是 `instanceof` 判断加显式强转（两步，中间那一转可能写错）；
-        Java 16 起有模式匹配，形态上与 ArkTS 越来越像。差别在穷尽性：
-        Java 的编译器不检查你有没有覆盖所有分支，ArkTS 在联合类型上会指出漏掉的那一支。
-        另一处是判断手段：Java 基本只有 `instanceof`，ArkTS 还有 `typeof` 这类原始类型的收窄。
+        Java 16 起有模式匹配，形态上与 ArkTS 越来越像。
+        另一处是判断手段：Java 用 `instanceof` 判断的是引用类型，基本类型得靠装箱绕一圈；
+        ArkTS 的 `typeof` 直接作用在值上 —— `string | number` 这样的联合类型，
+        一个 `typeof` 就把两支分开了，不需要先变成包装类型再去判断。
     equivalence:
       javascript: divergent
       python: analogous
@@ -180,8 +181,8 @@ boxes:
 
       let b: string | null = null;   // @note 可空必须显式写进类型
       // b.length;                   // @note! 编译错误：b 可能是 null
-      b?.length;                     // @note 可选链：为 null 时整体得 undefined
-      b ?? "默认";                   // @note 空值合并：只认 null / undefined
+      let len: number | undefined = b?.length;   // @note 可选链：b 为 null 时整体得 undefined
+      let text: string = b ?? "默认";            // @note 空值合并：只认 null / undefined
 
       function greet(who?: string): string {   // @note 可选参数相当于 string | undefined
         return "你好，" + (who ?? "访客");
@@ -214,32 +215,41 @@ boxes:
       class Cat extends Animal { meow(): string { return "喵" } }
 
       let a: Animal = new Cat();
-      let c: Cat = a as Cat;          // @note 向子类断言：运行时校验，a 确实是 Cat 才通过
-      // let d = new Animal() as Cat; // @note! 运行时抛异常：它不是 Cat
+      let c: Cat = a as Cat;          // @note 向子类断言：编译器放行，运行时不核对
 
       let v: string | number = "hello";
-      let s: string = v as string;     // @note 从联合类型里窄化，运行时对得上才通过
+      let s: string = v as string;     // @note 合法：类型上 v 也可能是 string
+      let n: number = v as number;
+      // n.toFixed(2);                 // @note! 运行时会炸：此刻 v 其实是字符串
 
-      // 断言之外的转换要显式调用：Number(v)、String(v) —— as 不承担数值转换
+      // 断言不转换任何东西，它只改变编译器对这个值的看法；
+      // 而编译器只放行「类型上可能成立」的断言 ——
+      // 两个毫不相干的类型之间，`as` 直接是编译错误。
+      // 真想确认，只能自己写 typeof / instanceof 的运行时检查。
     vs:
       javascript: |
-        JavaScript 里没有「断言」这个概念：值就是值，没有一层类型声明需要被说服。
-        ArkTS 的 `as` 是**真的运行时检查**：向下断言时，运行时会确认这个对象确实是那个类型，
-        不是就抛异常 —— 所以它更像一次带保底的放宽，而不是「让编译器闭嘴」。
-        在 JavaScript 里想做同样的事，只能自己写 `instanceof` 判断，
-        写漏了要等到调用错方法那一刻才炸。
+        JavaScript 里没有「断言」这回事：值就是值，没有一层类型声明需要被说服，
+        也就没有「主动放弃检查」这个动作。ArkTS 的 `as` 是你向编译器下的保证 ——
+        有时候你确实比它知道得多（刚取出来的值、刚校验过的数据），
+        问题是编译器无法验证这个保证，断言之后它就不再看这个值了。
+        代价落在这里：写错不会当场报错，错误推迟到运行时，
+        而且报错的位置往往离出事的地方很远。
+        编译器只守住一条底线：两个毫不相干的类型之间不许断言 ——
+        所以 `as` 说的是「据我所知它可能是」，不是「转成什么都行」。
       python: |
-        Python 的 `cast(T, x)` 只是给类型检查器下的指令，运行时什么都不做，写错了没人拦；
-        ArkTS 的 `as` 在运行时真的校验，不匹配就抛异常 —— 这是两者最实质的差别。
-        姿态也相反：Python 不加标注本来就是动态的，`cast` 是补一张声明；
-        ArkTS 默认检查，`as` 是一次受控的放宽，但底下仍留着运行时保底。
+        Python 的 `cast(T, x)` 与 ArkTS 的 `as T` 是同一类东西：都是给类型检查器下的指令，
+        运行时是空操作，写错了没人拦。差别在默认姿态：Python 不加标注就是动态的，
+        本来也没有检查可绕；ArkTS 默认检查，`as` 是一次主动放弃，
+        所以它读起来更像危险信号，代码评审时值得多看一眼。
+        另有一处小的差别：Python 的 `cast` 不挑对象，转成什么类型都放行；
+        ArkTS 会挡住两个毫不相干的类型，把「随手一转」拦在编译期。
       java: |
-        两边都是**运行时检查**的强转：Java 的 `(Cat) x` 与 ArkTS 的 `as Cat` 不匹配都抛异常，
-        也都只对能向下窄化的引用类型有意义。差别在语法负担与可见性：
-        Java 的强转是括号前缀，读代码时容易和普通括注看混；
-        ArkTS 的 `as` 是后缀关键字，位置固定，一眼能认出这里在做转换。
-        另一处：Java 对基本类型的强转兼任数值转换（`(int) 3.9`），ArkTS 的 `as` 不干这件事。
+        编译期两边同样严格：不相干的类型之间强转，Java 与 ArkTS 都直接报错。
+        分岔在运行时 —— Java 的强转 `(Cat) x` **真的核对**，类型不对就抛 ClassCastException；
+        ArkTS 的 `as` 不核对，所以它比 Java 的强转更不安全：
+        Java 至少在那一刻告诉你错了，ArkTS 会让你带着一个错误的理解继续跑下去。
+        想在 ArkTS 里得到 Java 式的保证，只能自己写 `instanceof` 检查再断言。
     equivalence:
       javascript: divergent
-      python: divergent
-      java: analogous
+      python: analogous
+      java: divergent

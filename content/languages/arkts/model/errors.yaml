@@ -1,0 +1,211 @@
+# arkts —— model / errors
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: errors` 的那批：
+# throw-raise / try-catch / finally-cleanup / error-types / custom-error / error-propagation。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「TS」这类简称同样会被检测成屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：错误处理的语法与运行时语义与语法相近的那门动态语言**同形** ——
+# throw / try / catch / finally / Error 基类都没有新增或收窄。本文件只写
+# **能核实**的差别（没有 any、禁用原型改写、更严的静态检查），
+# 拿不准的细节一律不编造 —— 写不出的差异如实标 identical / analogous，不灌水。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  throw-raise:
+    code: |
+      throw new Error("出错了");        // @note 只能抛 Error 及其子类 —— 编译期规则
+      throw new TypeError("类型不对");  // @note 内建子类表达具体问题
+
+      function fail(msg: string): void {
+        throw new Error(msg);           // @note 抛出会打断当前函数，沿调用栈上抛
+      }
+
+      // @note 抛出是一次控制流跳转：调用栈上没有 catch 接住，就一直往外抛
+    vs:
+      javascript: |
+        抛出机制与 JavaScript 同形：`throw` 是一次沿调用栈上抛的控制流跳转。
+        差别在**能抛什么** —— JavaScript 里 `throw 4`、`throw "出错了"` 都合法，
+        这里只许抛 `Error` 及其子类，抛别的直接是编译错误。也就是说
+        「拿数字或字符串当异常」这种写法在这里根本写不出来，
+        同一段代码搬过来会先被编译器拦住。
+      python: |
+        Python 的 `raise` 只接受异常类的实例（或类本身），抛别的当场 TypeError；
+        ArkTS 的 `throw` 与这套静态类型系统配合，抛出的值同样要能通过检查。
+        两边都是一次打断流程、沿调用栈上抛的跳转，差别在「谁把关」：
+        Python 的约束在运行时兑现，ArkTS 在编译期就拒绝不合规的写法。
+      java: |
+        Java 只能抛 `Throwable` 的子类，抛别的编译不过，受检异常还要写进方法签名
+        的 `throws`；ArkTS 没有受检异常这一层，方法签名上不体现「会不会抛」，
+        抛出的写法也更轻。差别在「会不会抛」看不看得见：Java 把它摊在签名上，
+        ArkTS 只能靠读代码。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  try-catch:
+    code: |
+      try {
+        risky();
+      } catch (e) {
+        // @note 只有一个 catch 块，要按类型分就自己写 instanceof
+        if (e instanceof TypeError) {
+          handle(e);
+        } else {
+          throw e;                 // @note 不处理的要原样抛回去
+        }
+      }
+    vs:
+      javascript: |
+        两边都是**一个 catch 块**：不分类型，要区分就在块里手写 `instanceof`
+        分支，机制完全同形。ArkTS 没有给「接住错误」这件事加语言级的新东西，
+        差别仍落在它整体更严的静态检查上。
+      python: |
+        Python 的 `except` 可以按类型写多个分支、从上往下匹配，还多一个 `else`
+        分支；ArkTS 只有一个 catch 块，类型判断全靠手写的 `instanceof` 链，
+        漏掉一种既不报错也不提醒。不处理的异常两边都要原样抛回去。
+      java: |
+        Java 同样支持多个 `catch` 按类型分支，而且**编译器会检查顺序**
+        （子类写在父类之后直接编译不过）；ArkTS 只有一个 catch 块，
+        `instanceof` 链写反了只是逻辑错，没人提醒。两边不处理的异常都该原样抛出。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  finally-cleanup:
+    code: |
+      try {
+        acquire();
+        doWork();                // @note! 即使这里 return，finally 也会执行
+      } finally {
+        release();               // @note 无论正常还是出错，都会执行
+      }
+
+      // @note! finally 里的 return / throw 会吞掉原来的返回值或异常
+      function f(): number {
+        try { return 1; } finally { return 2; }   // 返回 2
+      }
+    vs:
+      javascript: |
+        `finally` 的语义与 JavaScript 完全一样 —— 正常返回、抛异常、`return`
+        都会执行，`finally` 里的 `return` / `throw` 同样会吞掉原来的结果。
+        ArkTS 也没有「可释放对象」式的资源语法，清理只能手写。
+      python: |
+        两边都会执行收尾代码，也都会在某处 `return` 时先跑完 finally 再返回结果。
+        差别在资源释放的惯用写法：Python 有 `with` 语句，把清理交给上下文管理器，
+        比手写 try/finally 更难写错；ArkTS 只有手写的 finally，没有等价的机制。
+      java: |
+        Java 的 `finally` 语义一致，但资源管理有 **try-with-resources**：把资源写进
+        `try (...)` 由编译器生成关闭代码，还会把「关闭时又出错」记成 suppressed、
+        不盖掉原始异常；ArkTS 只能手写 finally，关闭时的异常会盖掉原来那个。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: analogous
+
+  error-types:
+    code: |
+      let e = new Error("通用");    // @note 基类
+      new TypeError("类型错");
+      new RangeError("越界");
+      new SyntaxError("语法错");
+
+      e instanceof Error;           // @note 内建错误都继承自 Error
+      e.message;                    // @note 人类可读的描述
+
+      // @note! 标准类型只对应引擎自身抛出的错误 —— 业务错误要自己定义
+    vs:
+      javascript: |
+        错误类型这套与 JavaScript 共用一份 —— 同样是 `Error` 基类加几个引擎内部
+        用的子类，靠 `instanceof` 分派。ArkTS 没有为业务错误提供新的标准类型，
+        差别仍是它更严的静态检查。
+      python: |
+        Python 的异常体系大得多，而且是**语言的一部分**：所有异常继承 `BaseException`，
+        业务代码继承 `Exception`，标准库为文件、键、类型等各自定义了具体类型；
+        ArkTS 的标准错误类型基本只对应引擎自己抛出的那几种，业务错误一律自己定义。
+      java: |
+        Java 的异常是一棵庞大的标准层级（`Throwable` → `Error` / `Exception` →
+        一堆子类），文件、网络、SQL 各有自己的类型；ArkTS 的标准类型只覆盖引擎
+        自身的错误，业务错误一律自己定义。两边都靠 `instanceof` 分派，
+        但 Java 还有受检 / 不受检这条语言级的分线，ArkTS 没有。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  custom-error:
+    code: |
+      class ValidationError extends Error {
+        field: string;                       // @note 字段要写类型
+        constructor(field: string) {
+          super(`字段 ${field} 不合法`);      // @note 先调 super
+          this.name = "ValidationError";      // @note! 默认是 "Error"，要手动改
+          this.field = field;                 // @note 可以带上下文
+        }
+      }
+
+      // @note 不需要补原型链 —— 原型改写在这里被禁止，静态编译下也没有老目标的问题
+      new ValidationError("email") instanceof ValidationError;   // @note true
+    vs:
+      javascript: |
+        写法同形：`extends Error`、先 `super(message)`、再把 `name` 改成自己的类名。
+        差别在一处：JavaScript 在老编译目标下要补原型链才能让 `instanceof` 生效，
+        ArkTS 禁止原型改写，也不需要这一步 —— 它不做「降级到老目标」的那种编译。
+      python: |
+        Python 继承 `Exception` 定义自定义异常，不用手动改名字也不用管原型链，
+        类名就是类型名；ArkTS 这边要记得把 `name` 改对，字段还得声明类型
+        （`field: string`），属性不能随手挂。两边都很轻，差别是 ArkTS 多一层静态约束。
+      java: |
+        Java 定义异常类时**必须选父类**（受检还是不受检），这个选择会影响所有
+        调用方的签名；ArkTS 没有受检异常这一层，自定义错误想抛就抛。
+        两边都靠 `instanceof` 分派，但 ArkTS 还得手动把 `name` 改对，
+        Java 的类名本身就是类型名。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  error-propagation:
+    code: |
+      function readConfig(): string {
+        return parse(read(path));       // @note 不在这里处理，出错自然上抛
+      }
+
+      // @note 想加一层语境：抛一个自己定义的错误，把原错误放进字段里
+      class ConfigError extends Error {
+        original: Error;
+        constructor(msg: string, original: Error) {
+          super(msg);
+          this.original = original;     // @note 保留底层原因
+        }
+      }
+    vs:
+      javascript: |
+        传播路径与 JavaScript 完全一致：不接就沿调用栈冒泡，要加一层语境就包一个
+        新的错误抛出。ArkTS 用同一套异常机制，差别只在它更严的静态检查上 ——
+        错误对象同样得是声明过的类型。
+      python: |
+        两边都是「不接就自动上抛」，签名上都看不出会不会抛。想加一层语境时，
+        Python 用 `raise … from e` 把原异常记成 `__cause__`，链显式保留；
+        ArkTS 的方式是抛一个自己定义的、带原因字段的错误，同样把底层错误留在对象里。
+      java: |
+        Java 的受检异常会写进方法签名（`throws`），调用方必须处理或继续声明 ——
+        「会不会抛」在 Java 里是签名的一部分，在 ArkTS 里完全看不出来，
+        只能靠读代码或文档，好处是中间层不必到处写声明。加一层语境两边都能做：
+        ArkTS 靠自定义错误的字段，Java 靠把原异常作为 `cause` 传进构造函数。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

@@ -1,0 +1,170 @@
+# typescript —— model / iteration
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: iteration` 的那批：
+# generator-yield / comprehension / lazy-evaluation / destructuring。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 泛指时写「另一门语言」。
+#
+# 口径说明：运行时行为与 JavaScript 逐字相同，可写的差异几乎都在「编译期多出来的
+# 那一层类型」上 —— 生成器与解构的**语义**不重复讲，只讲类型标注带来的差别；
+# 没有推导式语法这一点与 JavaScript 一致，写法照方法链写。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-iteration-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generator-yield:
+    code: |
+      function* countdown(n: number): Generator<number> {
+        while (n > 0) yield n--;        // @note 每次 yield 暂停在这里
+      }
+      [...countdown(3)];               // @note [3, 2, 1]
+
+      function* chain(): Generator<number> {
+        yield 1;
+        yield* countdown(2);           // @note yield* 委托给另一个可迭代对象
+        yield 4;
+      }
+
+      const g: Generator<number> = countdown(2);
+      g.next();                        // @note { value: 2, done: false }
+      g.next(); g.next();              // @note 最后一次 done: true
+    vs:
+      javascript: |
+        TypeScript 的 `function*` 与 JavaScript 的生成器是同一套运行时语义：调用时
+        函数体不执行、每次 `next()` 推进到下一个 `yield`、`yield*` 委托给另一个
+        可迭代对象。多出来的只有类型那一层 —— 返回值标成 `Generator<number>` 之后，
+        产出的值与 `next()` 的返回值就都参与检查；`Generator<T, TReturn, TNext>`
+        三个参数各管一段，不写也能由函数体推断。所以同一段生成器代码可以直接搬，
+        差别只在有没有类型。
+      python: |
+        两边是同一个机制：函数体里出现 `yield` 就成为生成器，调用时不执行、
+        推进到下一个 `yield` 才继续。差别在表面写法与委托形态：TypeScript 要写
+        `function*`（星号是入口标记），Python 直接用 `def`；`yield*` 对应 Python 的
+        `yield from`，两边都能把子生成器接进来。类型侧，TypeScript 的
+        `Generator<number>` 标注是编译器的输入，Python 的 `Iterator[int]` 标注只有
+        类型检查器在意，运行时不看，写错照样跑。
+      java: |
+        Java 没有生成器语法 —— 惰性产出一串值要么手写 `Iterator`，要么用 `Stream`，
+        但 `Stream` 一旦开始就不能中途暂停再恢复，写不出「每次推进到下一个暂停点」
+        这种状态机。TypeScript 的 `function*` 一行就能表达带状态的惰性序列，
+        `yield*` 还能把几段拼起来。想要 Java 式的 `Stream` 管道，TypeScript 这边
+        没有对应物。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: divergent
+
+  comprehension:
+    code: |
+      // @note! 没有推导式语法 —— 批量构造靠方法链
+      const doubles = xs.map((x) => x * 2);
+      const evens = xs.filter((x) => x % 2 === 0);
+      const pairs = xs.flatMap((x) => ys.map((y) => [x, y]));   // @note 嵌套
+
+      // 造映射：先造键值对数组，再 Object.fromEntries
+      const byId = Object.fromEntries(users.map((u) => [u.id, u]));
+
+      // 造集合
+      new Set(xs.map((x) => x.kind));
+
+      // @note 想要惰性只能自己写生成器函数，没有链式的惰性管道
+    vs:
+      javascript: |
+        两边都没有推导式，写法逐字相同：`map` / `filter` / `flatMap` 链，配
+        `Object.fromEntries` 与 `new Set(...)`。TypeScript 只在链上多一层类型 ——
+        回调参数与返回值能推断，`Object.fromEntries` 的结果按键值对的元组推出来。
+        把一段 JavaScript 的构造代码搬过来，得到的通常就是带类型的那份，行为不变，
+        差别只在少了类型信息时编译器会抱怨。
+      python: |
+        Python 的推导式把「造一个容器」写成一个表达式，列表 / 字典 / 集合 / 生成器
+        各有各的写法；TypeScript 全靠方法链，造映射还要额外 `Object.fromEntries`
+        转一道。两边都是急切求值，但 Python 的生成器表达式（`(x for x in xs)`）
+        一行就能得到惰性版本，TypeScript 这边没有对应语法。
+      java: |
+        Java 用 `Stream` 管道加 `Collectors`：`xs.stream().filter(...).map(...).toList()`，
+        造映射用 `Collectors.toMap`、造集合用 `Collectors.toSet`。形态与这里的方法链
+        很像，但 Java 的 `Stream` 是**惰性**的 —— 中间操作只记账，直到终止操作才真正
+        跑一遍；TypeScript 的每一步都急切求值，链多长就跑几遍，中间数组是真实存在的。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
+
+  lazy-evaluation:
+    code: |
+      // @note 数组方法全是急切的：每一步都产生一个真实数组
+      const r = xs.map(f).filter(g).slice(0, 3);   // 跑了三遍，中间数组都在
+
+      // @note 惰性要自己用生成器搭
+      function* take<T>(iter: Iterable<T>, n: number): Generator<T> {
+        let i = 0;
+        for (const x of iter) { if (i++ >= n) return; yield x; }
+      }
+      function* nat(): Generator<number> { let i = 0; while (true) yield i++; }  // @note 无限序列
+      [...take(nat(), 3)];                         // @note [0, 1, 2] —— 不卡死
+    vs:
+      javascript: |
+        这一格与 JavaScript 逐字相同：内建数组方法急切求值，惰性要自己用生成器搭，
+        无限序列因此可行 —— 只要不取完就不会算完。TypeScript 加的还是类型那一层：
+        `take<T>` 的 `Iterable<T>` / `Generator<T>` 标注让泛型跟着推断走。
+        两边都没有内建的惰性管道，想要「管道式」的惰性都得靠自己写或引第三方库。
+      python: |
+        两边都靠生成器实现惰性，`take` 这类算子都得自己写。差别在标准库：
+        Python 的 `itertools` 直接提供 `islice` / `count`，常用算子拿来就用；
+        TypeScript 这边没有对应的内建惰性算子，只能每一处自己搭。另外 Python 的
+        生成器表达式（`(x for x in xs)`）一行就得到一个惰性序列，TypeScript 必须
+        显式写一个生成器函数，形态上更重一些。
+      java: |
+        Java 的 `Stream` 天生惰性：`filter` / `map` 这些中间操作只是记账，直到终止
+        操作（`toList` / `forEach`）才真正跑一遍，而且每个元素是「一个走完全部步骤
+        再走下一个」。TypeScript 的方法链是急切的，`xs.map(f).filter(g)` 会先造出
+        完整中间数组再筛，语义差别很大 —— 遇到大数组或无限序列时，这个差别直接
+        决定能不能算完。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: divergent
+
+  destructuring:
+    code: |
+      const [a, b = 2, ...rest] = [1];           // @note 数组解构 + 默认值 + 剩余
+      const { name, age: years = 0 } = user;     // @note 对象解构 + 改名 + 默认值
+      const { a: { b: inner } } = nested;        // @note 嵌套
+
+      function f({ x, y }: Point) {}             // @note 参数位置直接解构
+      let [p, q] = [1, 2];
+      [p, q] = [q, p];                           // @note 交换：解构赋值要求绑的是 let 变量
+      const [, second] = xs;                     // @note 跳过第一个
+
+      const { name: who }: User = user;          // @note 整个模式也能标注类型
+    vs:
+      javascript: |
+        语义与 JavaScript 完全一致：数组与对象都能解构、默认值只在值是 `undefined`
+        时生效、`...` 收集剩余、`:` 改名、参数位置能直接解构、取不到不报错只是
+        `undefined`。TypeScript 多出来的是能给**整个模式**标注类型 —— 写
+        `const { name }: User = user` 之后，解出来的每个名字都带类型；字段名拼错、
+        类型对不上，在编译期就报出来，而不是留到运行时。
+      python: |
+        Python 的元组解包与这里的数组解构几乎一一对应（含 `*rest`、嵌套、交换）。
+        明显的差别是字典不能解构 —— 想按名字取只能 `d["name"]`，或者用 `match` 的
+        模式匹配；TypeScript 写 `const { name } = obj` 就行。另一处是默认值：
+        Python 的解包没有默认值，缺项直接报错，TypeScript 的 `= 0` 能在字段缺失或
+        值为 `undefined` 时补上。
+      java: |
+        Java 没有解构赋值这个语法。record 的模式匹配能在 `instanceof` 与 `switch` 里
+        拆字段，但那是模式匹配、不是「给几个变量同时赋值」，而且只对 record 有意义；
+        想从数组或任意对象上取几个值，只能一个个写 `arr[0]` / `obj.field`。
+        TypeScript 的 `const [a, b] = xs` 与 `const { x } = obj` 是通用语法，不挑类型。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: divergent

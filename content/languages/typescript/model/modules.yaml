@@ -1,0 +1,204 @@
+# typescript —— model / modules
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: modules` 的那批：
+# module-unit / export-import / default-vs-named / namespace-alias / module-resolution。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「JS」这类简称同样会被算作屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：模块系统本身就是 JavaScript 的模块系统，写法逐字相同；
+# TypeScript 加的只有「类型也能导入导出」这一层（`import type` /
+# `export type` 与编译后消失的声明），以及一套**编译期**的路径解析配置。
+# 这一份的内容口径照此收窄，运行时的导入导出行为不重复讲。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-modules-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  module-unit:
+    code: |
+      // 一个 .ts 文件就是一个模块
+      const secret = 1;              // @note 模块作用域，外部看不见
+      export const shared = 2;       // @note 只有导出的才可见
+
+      // @note! 顶层既没有 import 也没有 export 的文件不是模块，而是**全局脚本**
+      // 它的顶层名字会进全局作用域，与别的全局脚本重名直接编译报错
+
+      export {};                     // @note 补一句空导出，就把脚本变回模块
+      // .d.ts 是只描述类型的声明文件：同样可以写成模块，也可以写成全局声明
+    vs:
+      javascript: |
+        模块单位的定义两边一字不差：一个文件一个模块、顶层名字默认私有、`export`
+        出去的才可见，模块只在第一次被导入时执行一次。TypeScript 多出来的是
+        **编译器的判定** —— 没有 import / export 的文件会被当成全局脚本，顶层名字进了
+        全局作用域，与别的脚本重名立刻报错；JavaScript 里同样的代码只会各写各的。
+        另一处是 `.d.ts`：只描述类型、不产出运行时代码的声明文件，JavaScript 没有对应物。
+      python: |
+        Python 也是「一个文件一个模块」，但顶层名字默认**全公开**，靠下划线表示内部；
+        TypeScript 反过来，不导出就是私有。更大的差别在包：Python 用「目录加
+        `__init__.py`」构成包，是多出来的一级作用域；TypeScript 没有「包」这个代码层
+        单位，目录只决定文件摆放的位置，分组要靠解析规则去表达。
+      java: |
+        Java 的模块单位是**类**而不是文件（一个文件可以放多个类），命名空间靠
+        `package` 声明；TypeScript 的单位就是文件本身，文件与模块是同一件事。
+        Java 还有一层可选的模块声明（显式列出依赖与对外导出的包），TypeScript 没有
+        对应物 —— 依赖关系完全由文件之间的导入导出表达。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  export-import:
+    code: |
+      export const x = 1;                          // @note 值可以导出
+      export interface Config { retries: number }  // @note 接口、类型别名同样可以导出
+
+      import { x, Config } from './a';             // @note 相对路径不写 .ts 扩展名
+      import type { Config as Cfg } from './a';    // @note 只导入类型：编译后整行消失
+      import { type Config, x } from './a';        // @note 也可以只给某一个名字加 type
+
+      export type { Config };                      // @note 类型可以再导出
+      export * from './b';                         // @note 把 b 的导出整体再导出
+
+      // @note! 类型不是运行时值；要求保留导入的工具链下，只当类型用的导入要标 type
+    vs:
+      javascript: |
+        语法位置与 JavaScript 完全一致：import / export 只能写在顶层，路径必须是字面量。
+        TypeScript 加的是**类型也能走这条通道** —— 接口与类型别名可以导出、导入、再导出，
+        而它们在编译后什么都不剩，因此没有对应的运行时行为。为了让工具能按文件逐个
+        编译，TypeScript 还提供 `import type` / `export type` 显式声明「这一行只为类型
+        存在」。开启 `verbatimModuleSyntax`（或只做单文件转译）时，没标 `type`
+        的那一行会被原样保留，于是留下一条指向不存在东西的引用 —— 标注是给这类
+        工具链用的。
+      python: |
+        Python 的 import 是**运行时语句**，会真的把模块执行一遍，也能写在函数里、
+        条件执行；TypeScript 的导入是静态声明，写在 `if` 里直接不合法，依赖图因此
+        编译期就完整。另一处是「只取类型」这件事：Python 里被注解引用的名字照样是
+        普通导入、照样会执行，想避开得用条件导入那类绕法；TypeScript 用 `import type`
+        直接把这件事写进语言，编译后整行消失。
+      java: |
+        Java 的 `import` 只是给类型起短名的**编译期声明**，不加载任何东西，被导入的也
+        必须是类这种有运行时身份的东西；TypeScript 的导入两者兼顾 —— 既起短名、也真的
+        把模块纳入依赖并执行一次。因此 TypeScript 可以导入一个纯类型（接口、类型别名），
+        Java 里没有这种「只存在于编译期」的东西可供导入。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  default-vs-named:
+    code: |
+      // 默认导出：一个模块最多一个
+      export default function make() { return 1; }
+
+      export const named = 1;             // @note 具名导出可以有多个
+      export type Named = string;         // @note 类型只能走具名导出
+
+      // 导入侧
+      import make2 from './a';            // @note 默认导出可以随便起名
+      import { named } from './a';
+      import make3, { named as n } from './a';
+
+      // @note! 具名导入拿到的是**活绑定**：模块里改了，导入方也看得见
+      // 给老式「单导出」模块补描述时，还有一套等号形式的写法可用
+    vs:
+      javascript: |
+        两种导出形态与 JavaScript 逐条对应：默认导出一个、具名多个，导入方对默认导出
+        可以自由起名、对具名导出必须名字对上。TypeScript 把**类型**也放进具名那一侧 ——
+        接口与类型别名可以当具名导出，但它们没有运行时形态，当不了默认导出。
+        另一处是为老式单导出模块准备的那套写法（`export =` 与等号形式的导入），
+        那是编译期对模块形状的投影，不是运行时事实。
+      python: |
+        Python 只有具名这一种：模块顶层的名字就是它的全部导出，没有默认导出，
+        也没有活绑定 —— 导入时取到值，之后各是各的。TypeScript 两种导出都有，
+        默认导出让导入方可以自由起名，具名导入则跟着被导入模块后来的修改走。
+      java: |
+        Java 没有「导出什么」这个动作：可见性写在每个成员上，`public` 的谁都能用、
+        `private` 的谁都不能用，也没有默认导出与具名导出之分。TypeScript 在**模块
+        层面**列导出清单，单位是名字而不是成员，另有默认导出这种「无名主角」的写法。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  namespace-alias:
+    code: |
+      import * as ns from './a';                     // @note 整包挂到一个命名空间对象
+      ns.named;                                      // @note 默认导出在 ns.default 上
+
+      import { veryLongName as short } from './a';   // @note 导入时改名
+      export { short as publicName };                // @note 导出时也能改名
+
+      namespace Geometry {                           // @note TypeScript 自己的声明
+        export function area(r: number) { return 3.14 * r * r }
+      }
+      Geometry.area(1);                              // @note 名字就在本文件的普通作用域里
+
+      // @note! namespace 是早期「内部模块」的遗留写法，新代码直接模块化即可
+    vs:
+      javascript: |
+        别名那一半完全一致：`import * as ns` 把整个模块收成一个对象、`as` 在导入与
+        导出两侧都能改名，语法与语义逐条对应。TypeScript 多出来的是 **`namespace`
+        这个声明** —— JavaScript 里根本没有这个关键字，同样的效果只能手写一个对象
+        再往上挂方法。TypeScript 的 namespace 编译后也就是一个对象，今天主要留在
+        描述外部形状的声明文件里。
+      python: |
+        Python 的 `import m as alias` 与 `from m import n as alias` 覆盖同样两种需求，
+        写法几乎一一对应。差别在通配：Python 的 `from m import *` 把名字直接摊进
+        当前作用域，TypeScript 的 `import * as ns` 是收进一个对象、不污染本地作用域。
+        另一处是分组：Python 靠模块本身，TypeScript 多一个命名空间声明，但它只是
+        编译期把一组名字收到一个对象里，与文件位置无关。
+      java: |
+        Java 没有给类型起别名的手段，同名只能写全限定名；TypeScript 的 `as` 随手
+        就能解决重名。分组单位也不同：Java 靠包与嵌套类，TypeScript 的命名空间形态上
+        更接近嵌套类 —— 都是把一组名字收进一个带名字的容器，但 Java 的包名与目录
+        结构绑定，命名空间与文件放在哪里没有关系。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  module-resolution:
+    code: |
+      import './sibling';                  // @note 相对路径：编译期解析到 sibling.ts
+      import { x } from '@app/x';          // @note 路径别名，由 tsconfig 的 paths 定义
+
+      // tsconfig.json
+      // {
+      //   "compilerOptions": {
+      //     "baseUrl": ".",
+      //     "paths": { "@app/*": ["src/*"] },
+      //     "moduleResolution": "bundler"
+      //   }
+      // }
+
+      // @note! 代码里的路径不会被改写成编译后文件的位置
+      // @note! paths 只作用于编译期：运行时还得让打包器认同一套别名
+    vs:
+      javascript: |
+        JavaScript 的解析由路径本身与包清单决定，规则写在代码与清单里，一眼能读懂；
+        TypeScript 多了一层**编译期**的解析配置 —— 基准目录、路径别名、按哪种规则
+        去找，都在 tsconfig 里声明，能把一个短名字映射到任意位置的文件。这一层编译后
+        就不存在了，所以别名必须在运行时那一侧再配一遍，否则编译通过、跑起来找不到。
+        另一处是扩展名：JavaScript 的 ESM 要写全 `./a.js`，TypeScript 通常省掉扩展名。
+      python: |
+        Python 靠运行时的搜索路径列表逐级找模块，同名模块看谁先被找到，环境变量与
+        当前目录都能改变结果；TypeScript 的解析在编译期由显式配置确定，不依赖搜索顺序。
+        差别在**层数**：Python 只有运行时这一套解析，TypeScript 编译期与运行时各有一套，
+        两边不一致时会出现「编译能过、运行时才报找不到」。
+      java: |
+        Java 用类路径按顺序搜索，编译与运行各可以给一份，同名谁先生效取决于顺序；
+        TypeScript 同样是编译期与运行时两套配置，但解析依据不同 —— 相对路径与别名
+        是代码里写死的，不做「按顺序找第一个」的搜索。另一处是绑定强度：Java 的包名
+        必须与目录结构对应，TypeScript 的别名可以把任意短名字映射到任意目录。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
