@@ -1,0 +1,84 @@
+# javascript —— express / containers
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: containers` 的那批：
+# arrays / maps。
+#
+# 这一组与 strings 组**同属一章**（「字符串与容器」）—— 一章跨两组是允许的，
+# 见 catalog/express/javascript.yaml。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-containers-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arrays:
+    code: |
+      const xs = [1, 2, 3];         // @note 长度可变，元素类型不限
+      xs.push(4);                   // @note 改的是原数组
+      const ys = xs.map((x) => x * 2);   // @note 返回新数组
+      xs.filter((x) => x > 1);
+      xs.reduce((a, b) => a + b, 0);
+
+      [10, 9, 1].sort();            // @note! [1, 10, 9] —— 默认按字符串排
+
+      xs[10] = 1;                   // @note! 中间留出「空洞」，长度变成 11
+      new Array(3);                 // @note! 三个空洞，不是三个 0
+      xs.slice(1, 3);               // @note 取一段（副本）
+      xs.splice(1, 1);              // @note! 删除/插入，改原数组
+    baseline: |
+      数组长度可变、元素类型不限，字面量 `[...]` 直接写。有两点必须先记住：
+      **`sort()` 默认按字符串排**（`[10, 9, 1]` 排出来是 `[1, 10, 9]`，
+      数字排序要传比较函数）；**数组可以是稀疏的**——给越界下标赋值会留下「空洞」，
+      `new Array(3)` 造的也是空洞而不是三个 0。`slice` 返回副本、
+      `splice` 改原数组，这一对名字只差一个字母。
+    vs:
+      python: |
+        Python 的 list 与这里的数组最接近，下标、切片、可变性都对得上。
+        三处差别要记住：Python 的 sort 默认按值排（不会退化成字符串比较）、
+        没有稀疏数组这回事，以及 `list` 与 `tuple` 分成了可变与不可变两种，
+        JavaScript 只有一种。
+      java: |
+        Java 的数组**长度固定**，动态增删要换 `ArrayList`；这里一个 `[]` 就
+        两头都占。另外 Java 的 `List.of(...)` 是不可变的、`Arrays.asList` 是
+        定长视图（不能 add），这一串区分在这里统统不存在 —— JavaScript 的数组
+        没有「可变 / 不可变」这一层。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  maps:
+    code: |
+      const obj = { a: 1 };         // @note 普通对象：键只能是字符串或 symbol
+      obj.a;                        // @note 取不到给 undefined
+      Object.keys(obj).length;      // @note 数大小要绕一下
+      "a" in obj;                   // @note! 会顺着原型链找
+      Object.hasOwn(obj, "a");      // @note 只看自己的属性
+
+      const m = new Map();          // @note Map：键可以是任何类型
+      m.set({}, "值");               // @note 对象当键也行
+      m.get(missing);               // @note undefined
+      m.size;                       // @note 直接有 size
+      m.has(k);
+      [...m.entries()];             // @note 插入顺序
+    baseline: |
+      **两种「映射」**：普通对象字面量（键只能是字符串 / symbol、大小要
+      `Object.keys` 数、`in` 会顺着原型链找）与 `Map`（键可以是任何类型、
+      有 `size`、按插入顺序遍历）。当字典用就选 `Map` —— 用对象当字典时
+      `in` 与原型链、`__proto__` 这类历史包袱会陆续找上门。
+    vs:
+      python: |
+        Python 只有一种 dict：键必须可哈希、有 `len()`、按插入顺序遍历 ——
+        它同时覆盖了这里「对象字面量」与 `Map` 两个角色。所以从 Python 过来时
+        要注意：JavaScript 里 `{}` 与 `Map` 是两样东西，选错会踩原型链的坑。
+      java: |
+        Java 也是「一个概念、多个实现」：`HashMap`（无序）、`LinkedHashMap`
+        （按插入序）、`TreeMap`（按键排序）—— 像这里的 `Map` 但要多选一次。
+        另一处差别是 `get` 取不到时 Java 给 `null`（与基本类型混用时容易炸），
+        JavaScript 的 `Map` 同样给 undefined，两边都得自己判。
+    equivalence:
+      python: divergent
+      java: analogous
