@@ -1,0 +1,166 @@
+{
+  "lang": "javascript",
+  "section": "model",
+  "group": "errors",
+  "boxes": {
+    "throw-raise": {
+      "lang": "javascript",
+      "code": "throw new Error(\"出错了\");     // 惯例：抛 Error 的实例\nthrow \"字符串\";                // ⚠ 合法，但没堆栈、没法按类型接\nthrow { code: 500 };           // ⚠ 也合法 —— 抛什么都可以\n\nfunction f() { throw new TypeError(\"类型不对\"); }   // 内建错误类型",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"出错了\"</span><span style=\"color:var(--shiki-foreground)\">);     </span><span style=\"color:var(--shiki-token-comment)\">// 惯例：抛 Error 的实例</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-string-expression)\"> \"字符串\"</span><span style=\"color:var(--shiki-foreground)\">;                </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 合法，但没堆栈、没法按类型接</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-foreground)\"> { code</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> 500</span><span style=\"color:var(--shiki-foreground)\"> };           </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 也合法 —— 抛什么都可以</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> f</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"类型不对\"</span><span style=\"color:var(--shiki-foreground)\">); }   </span><span style=\"color:var(--shiki-token-comment)\">// 内建错误类型</span></span></code></pre>",
+      "lineCount": 5,
+      "notes": [
+        {
+          "line": 2,
+          "text": "合法，但没堆栈、没法按类型接",
+          "tone": "warn"
+        },
+        {
+          "line": 3,
+          "text": "也合法 —— 抛什么都可以",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>throw</code> <strong>可以抛任何值</strong> —— 字符串、对象、数字都行。惯例是抛 <code>Error</code> 的实例，\n因为它自带 <code>message</code> 与 <code>stack</code>。抛别的值不但丢掉堆栈，还会让接的一方\n没法用统一的方式处理。异步代码里的抛出会变成 rejected promise，\n没人接就是「未处理的拒绝」。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的 <code>raise</code> <strong>只能抛异常类的实例</strong>（或类本身），抛字符串直接\nTypeError；这里抛什么都可以，代价是容易抛出没法处理的东西。\n两边都会带堆栈，但 Python 的异常还多一条「链」。</p>\n",
+        "java": "<p>Java 只能抛 <code>Throwable</code> 的子类，抛字符串编译不过 —— 类型系统强制了\n「异常是有类型的东西」。这里完全放开，好处是灵活，坏处是 <code>catch</code> 到的东西\n可能连 <code>message</code> 都没有。</p>\n"
+      }
+    },
+    "try-catch": {
+      "lang": "javascript",
+      "code": "try {\n  risky();\n} catch (e) {\n  // ⚠ 只有一个 catch 块，没有按类型分支\n  if (e instanceof TypeError) { /* ... */ }\n  else { throw e; }          // 不处理的要原样抛回去\n}\n\ntry { risky(); } catch { }   // 可以省略绑定（ES2019）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  risky</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">  // ⚠ 只有一个 catch 块，没有按类型分支</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (e </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">) { </span><span style=\"color:var(--shiki-token-comment)\">/* ... */</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  else</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-foreground)\"> e; }          </span><span style=\"color:var(--shiki-token-comment)\">// 不处理的要原样抛回去</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">risky</span><span style=\"color:var(--shiki-foreground)\">(); } </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> { }   </span><span style=\"color:var(--shiki-token-comment)\">// 可以省略绑定（ES2019）</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [
+        {
+          "line": 4,
+          "text": "只有一个 catch 块，没有按类型分支",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>一个 <code>try</code> 只有一个 <code>catch</code></strong>，不分类型 —— 要区分就得在块里自己写\n<code>instanceof</code> 分支。忘了写 <code>catch</code> 的参数名也没关系（可以省略绑定）。\n接不住或不想接的异常要显式 <code>throw e</code> 抛回去，否则它会静默消失。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的 <code>except SomeError:</code> 可以按类型写多个分支，从上往下匹配第一个；\n这里只有一个 catch 块，类型判断要手写。Python 还多一个 <code>else</code>\n分支（没出错时执行），这里没有。</p>\n",
+        "java": "<p>Java 同样支持多个 <code>catch</code> 按类型分支，而且<strong>编译器会检查顺序</strong>\n（子类必须在父类之前，否则编译错误）。这里的 <code>instanceof</code> 链写反了\n只是逻辑错，没人会提醒。</p>\n"
+      }
+    },
+    "finally-cleanup": {
+      "lang": "javascript",
+      "code": "let fh;\ntry {\n  fh = open(path);\n  return fh.read();       // ⚠ 即使这里 return，finally 也会执行\n} finally {\n  fh?.close();            // 无论如何都跑\n}\n\n// ⚠ finally 里 return / throw 会**吞掉**原来的返回值或异常\ntry { return 1; } finally { return 2; }    // 返回 2",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> fh;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  fh </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> open</span><span style=\"color:var(--shiki-foreground)\">(path);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-constant)\"> fh</span><span style=\"color:var(--shiki-token-function)\">.read</span><span style=\"color:var(--shiki-foreground)\">();       </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 即使这里 return，finally 也会执行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">} </span><span style=\"color:var(--shiki-token-keyword)\">finally</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">  fh</span><span style=\"color:var(--shiki-token-function)\">?.close</span><span style=\"color:var(--shiki-foreground)\">();            </span><span style=\"color:var(--shiki-token-comment)\">// 无论如何都跑</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ finally 里 return / throw 会**吞掉**原来的返回值或异常</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">; } </span><span style=\"color:var(--shiki-token-keyword)\">finally</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">; }    </span><span style=\"color:var(--shiki-token-comment)\">// 返回 2</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 4,
+          "text": "即使这里 return，finally 也会执行",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "finally 里 return / throw 会**吞掉**原来的返回值或异常",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>finally</code> 无论正常返回、抛异常还是 <code>return</code> 都会执行，是释放资源的地方。\n但<strong>在 <code>finally</code> 里 <code>return</code> 或 <code>throw</code> 会把原来的结果吞掉</strong> ——\n这是它唯一真正危险的地方，代码检查工具一般会警告。现代写法更常见的是\n把资源做成可释放对象（或者干脆用作用域外的管理）。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的 <code>finally</code> 语义完全一样（同样会吞掉 return 与异常），\n但它还多一个更常用的替代品：<code>with</code> 语句 —— 上下文管理器负责清理，\n比手写 try/finally 更难写错。这里没有等价的语言级机制。</p>\n",
+        "java": "<p>语义一致，但 Java 有 <strong>try-with-resources</strong>：把资源写在 <code>try (...)</code>\n里，编译器自动生成关闭代码，还能保留「关闭时又出错」的原始异常\n（suppressed）。这里只能手写 finally，且关闭时的异常会盖掉原来的。</p>\n"
+      }
+    },
+    "error-types": {
+      "lang": "javascript",
+      "code": "new Error(\"通用\");          // 基类\nnew TypeError(\"类型错\");\nnew RangeError(\"越界\");\nnew SyntaxError(\"语法错\");\nnew ReferenceError(\"未定义的名字\");\n\ne instanceof Error;        // 所有内建错误都继承自 Error\ne.message;                 // 人类可读的描述\ne.stack;                   // 非标准但各家都有\ne.cause;                   // ES2022：包住下层错误",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"通用\"</span><span style=\"color:var(--shiki-foreground)\">);          </span><span style=\"color:var(--shiki-token-comment)\">// 基类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"类型错\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> RangeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"越界\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> SyntaxError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"语法错\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> ReferenceError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"未定义的名字\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">e </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// 所有内建错误都继承自 Error</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">e</span><span style=\"color:var(--shiki-foreground)\">.message;                 </span><span style=\"color:var(--shiki-token-comment)\">// 人类可读的描述</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">e</span><span style=\"color:var(--shiki-foreground)\">.stack;                   </span><span style=\"color:var(--shiki-token-comment)\">// 非标准但各家都有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">e</span><span style=\"color:var(--shiki-foreground)\">.cause;                   </span><span style=\"color:var(--shiki-token-comment)\">// ES2022：包住下层错误</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>Error</code> 是基类，内建子类有 <code>TypeError</code> / <code>RangeError</code> / <code>SyntaxError</code> /\n<code>ReferenceError</code> 等，各自对应引擎自己抛出的那类问题。<strong>没有</strong>\n「按业务分层的错误体系」这种惯例 —— 标准库里也没有 IO 错误、网络错误之类的\n标准类型，都得自己定义。<code>cause</code> 是官方给的「包住下层错误」的字段。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的异常体系大得多，而且是<strong>语言的一部分</strong>：所有异常继承\n<code>BaseException</code>（业务代码继承 <code>Exception</code>），标准库还为 IO、键不存在、\n类型等定义了具体类型。这里的 Error 体系基本只覆盖引擎内部错误。</p>\n",
+        "java": "<p>Java 的异常是一个<strong>庞大的标准层级</strong>（<code>Throwable</code> → <code>Error</code> /\n<code>Exception</code> → 一堆子类），而且文件、网络、SQL 各有自己的异常类型。\n这里的标准类型只对应引擎自身的错误，业务错误一律自己定义。</p>\n"
+      }
+    },
+    "custom-error": {
+      "lang": "javascript",
+      "code": "class ValidationError extends Error {\n  constructor(field) {\n    super(`字段 ${field} 不合法`);   // 先调 super\n    this.name = \"ValidationError\";   // ⚠ 默认是 \"Error\"，要手动改\n    this.field = field;              // 可以带上下文\n  }\n}\n\nnew ValidationError(\"email\") instanceof ValidationError;   // true\n// ⚠ 编译到 ES5 时 instanceof 会失效，需要 setPrototypeOf 补救",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> ValidationError</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  constructor</span><span style=\"color:var(--shiki-foreground)\">(field) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    super</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">`字段 </span><span style=\"color:var(--shiki-token-keyword)\">${</span><span style=\"color:var(--shiki-foreground)\">field</span><span style=\"color:var(--shiki-token-keyword)\">}</span><span style=\"color:var(--shiki-token-string-expression)\"> 不合法`</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// 先调 super</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    this</span><span style=\"color:var(--shiki-foreground)\">.name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"ValidationError\"</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 默认是 \"Error\"，要手动改</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">    this</span><span style=\"color:var(--shiki-foreground)\">.field </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> field;              </span><span style=\"color:var(--shiki-token-comment)\">// 可以带上下文</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> ValidationError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"email\"</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> ValidationError</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 编译到 ES5 时 instanceof 会失效，需要 setPrototypeOf 补救</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 4,
+          "text": "默认是 \"Error\"，要手动改",
+          "tone": "warn"
+        },
+        {
+          "line": 10,
+          "text": "编译到 ES5 时 instanceof 会失效，需要 setPrototypeOf 补救",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>继承 <code>Error</code> 定义自己的错误类型，抛出与捕获都照常。<strong>两个必须手写的动作</strong>：\n调 <code>super(message)</code>、把 <code>name</code> 改成自己的类名（否则打印出来永远是 &quot;Error&quot;）。\n转译到老版本时 <code>instanceof</code> 会失效，那需要额外处理 —— 用原生的 class 就没这问题。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 继承 <code>Exception</code> 定义自定义异常，<strong>不用手动改名字也不用管原型链</strong> ——\n类名就是类型名，<code>except MyError</code> 直接可用。这里要记得改 <code>name</code>、\n还要留心转译后的 <code>instanceof</code>。</p>\n",
+        "java": "<p>Java 定义异常类时<strong>必须选父类</strong>：继承 <code>Exception</code> 就是受检异常、\n继承 <code>RuntimeException</code> 就是不受检 —— 这个选择会影响所有调用方。\n这里没有这个维度，自定义错误想抛就抛。</p>\n"
+      }
+    },
+    "error-propagation": {
+      "lang": "javascript",
+      "code": "function readConfig() {\n  try {\n    return parse(fs.readFileSync(path));\n  } catch (e) {\n    throw new Error(\"读配置失败\", { cause: e });   // 包一层，保留原因\n  }\n}\n\n// ⚠ 同步函数里抛的错不会变成 rejected promise —— async 里才会\nasync function f() { throw new Error(\"x\"); }        // 返回 rejected promise\n\n// 没人接的 promise 拒绝只是个警告，程序不会停\nf();",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> readConfig</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-function)\"> parse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">fs</span><span style=\"color:var(--shiki-token-function)\">.readFileSync</span><span style=\"color:var(--shiki-foreground)\">(path));</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  } </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"读配置失败\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> { cause</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-foreground)\"> e });   </span><span style=\"color:var(--shiki-token-comment)\">// 包一层，保留原因</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 同步函数里抛的错不会变成 rejected promise —— async 里才会</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> f</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"x\"</span><span style=\"color:var(--shiki-foreground)\">); }        </span><span style=\"color:var(--shiki-token-comment)\">// 返回 rejected promise</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没人接的 promise 拒绝只是个警告，程序不会停</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">f</span><span style=\"color:var(--shiki-foreground)\">();</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 9,
+          "text": "同步函数里抛的错不会变成 rejected promise —— async 里才会",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>函数签名上<strong>看不出它会不会抛</strong> —— 任何函数都可能抛。不想处理就让它自然往上\n冒泡，想加一层上下文就用 <code>cause</code> 包住（原来的错误留在 <code>e.cause</code> 里）。\n异步那边的坑更大：async 函数里的 <code>throw</code> 变成 rejected promise，\n没人接只是控制台一条警告，程序照跑 —— 这类错误最容易漏。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 用 <code>raise ... from e</code> 表达「这个错是因为那个错」，链会显式记下来；\n这里用 <code>cause</code> 字段，思路相同。另一处差别是 Python 的未捕获异常会终止\n程序并打印堆栈，这里的未处理 promise 拒绝默认只是警告。</p>\n",
+        "java": "<p>Java 的<strong>受检异常会写进方法签名</strong>（<code>throws IOException</code>），调用方必须\n处理或继续声明 —— 「这个函数会不会抛」是签名的一部分。这里完全看不出来，\n只能靠读代码或文档。</p>\n"
+      }
+    }
+  }
+}

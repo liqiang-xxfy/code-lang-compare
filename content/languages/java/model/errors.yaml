@@ -1,0 +1,208 @@
+# java —— model / errors
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: errors` 的那批。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  throw-raise:
+    code: |
+      throw new IllegalArgumentException("参数不对");   // @note 只能抛 Throwable 子类
+      // throw "字符串";                               // @note! 编译错误
+
+      // 受检异常必须在签名里声明
+      void read(String p) throws IOException {          // @note 写在签名上
+        throw new IOException("读失败");
+      }
+
+      // 不受检异常（RuntimeException 及其子类）不用声明
+      void check(int n) {
+        if (n < 0) throw new IllegalArgumentException("n 不能为负");
+      }
+    baseline: |
+      只能抛 `Throwable` 的子类（抛字符串编译不过），而且分两类：
+      **受检异常**必须写进方法签名的 `throws`，调用方必须处理或继续声明；
+      **不受检异常**（`RuntimeException` 及其子类）想抛就抛、签名上不体现。
+      这个分类是 Java 独有的设计，也是它最常被争论的一点。
+    vs:
+      javascript: |
+        JavaScript 什么都能抛，签名上什么都看不出来；Java 把「会抛什么」
+        写进了类型系统。好处是漏接异常编译期就能发现，代价是层层 `throws`
+        会污染整条调用链。
+      python: |
+        两边都只能抛类型化的异常，但 Python 的签名上看不出会不会抛
+        （除了标注），也没有「必须处理」这条规则。Java 用它换来了
+        「不可能忘记处理」，代价是样板代码多。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  try-catch:
+    code: |
+      try {
+        risky();
+      } catch (FileNotFoundException e) {    // @note 子类必须写在父类之前
+        handle(e);
+      } catch (IOException e) {              // @note 编译器检查这个顺序
+        log(e);
+      } catch (Exception e) {
+        throw new RuntimeException(e);       // @note 包成不受检再抛
+      } finally {
+        cleanup();
+      }
+
+      try { risky(); } catch (IOException | SQLException e) { }   // @note 一次接多种
+    baseline: |
+      多个 `catch` 按类型顺序匹配，**编译器会检查顺序**：子类写在父类之后就是
+      编译错误。可以用 `A | B` 一次接多种类型。捕获后包成 `RuntimeException`
+      再抛是常见的「把受检异常转成不受检」手法。
+    vs:
+      javascript: |
+        JavaScript 只有一个 `catch`、类型要自己 `instanceof` 判断；
+        Java 按类型分支且顺序由编译器保证。两边的 `finally` 语义一致。
+      python: |
+        两边都按类型分支，但 Python 写错顺序不报错、只是后面的分支永远进不去；
+        Java 直接编译不过。另外 Java 的 `A | B` 一次接多种，Python 写
+        `except (A, B)`，作用相同。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  finally-cleanup:
+    code: |
+      // 手写 finally：容易漏，而且关资源时的异常会盖掉原来的
+      BufferedReader r = null;
+      try {
+        r = new BufferedReader(new FileReader(path));
+        return r.readLine();
+      } finally {
+        if (r != null) r.close();
+      }
+
+      // @note 惯用写法：try-with-resources —— 资源实现 AutoCloseable 就行
+      try (var r = new BufferedReader(new FileReader(path))) {
+        return r.readLine();
+      }   // @note 编译器自动生成 close()，而且保留原始异常
+
+      // @note 关闭时又抛异常 -> 它被记为 suppressed，不会盖掉原来的那个
+    baseline: |
+      **try-with-resources 是标准写法**：把资源声明在 `try (...)` 里，
+      编译器负责生成关闭代码，并且当「关闭时又出错」时把新异常记为
+      `suppressed` 而不是盖掉原始异常 —— 手写 `finally` 做不到这一点。
+      资源只要实现 `AutoCloseable` 就能这么用。
+    vs:
+      javascript: |
+        JavaScript 只有手写 `try/finally`，且 finally 里抛的错会盖掉原来的；
+        这里用 try-with-resources 能同时保证「一定关闭」与「原始异常不丢」。
+      python: |
+        Python 的 `with` 与这里思路一致（把清理交给语言），而且都会保留
+        原始异常。差别在声明方式：Python 靠上下文管理器协议，
+        Java 靠 `AutoCloseable` 接口，本质上都是「编译器替你写清理代码」。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  error-types:
+    code: |
+      Throwable
+       ├── Error                      // @note 不该接：JVM 级别的严重问题
+       │    └── OutOfMemoryError / StackOverflowError
+       └── Exception
+            ├── IOException           // @note 受检：编译器逼你处理
+            │    └── FileNotFoundException
+            ├── SQLException
+            └── RuntimeException      // @note 不受检：签名上看不到
+                 ├── NullPointerException
+                 ├── IllegalArgumentException
+                 └── IllegalStateException
+    baseline: |
+      异常体系是一棵大类树，分两个维度切：`Error`（JVM 级问题，不该接）与
+      `Exception`；`Exception` 下面再分**受检**（`IOException` 这类，
+      编译器强制处理）与**不受检**（`RuntimeException` 及其子类，通常是编程错误）。
+      标准库为文件、网络、SQL、并发都定义了具体类型，所以 `catch` 能写得很精确。
+    vs:
+      javascript: |
+        JavaScript 的标准错误类型只覆盖引擎自身的错误，IO 与网络没有标准类型；
+        Java 有完整的层级，并且用受检 / 不受检把「必须处理」与「可以不管」
+        区分开 —— 这一维度在 JavaScript 里完全不存在。
+      python: |
+        两边的层级都很完整，标准库都为常见场景定义了具体类型。
+        差别只有一处但很关键：Java 按「编译器是否强制处理」把异常分成两类，
+        Python 一视同仁，接不接全凭自觉。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  custom-error:
+    code: |
+      // @note 选父类就是选「受检还是不宁检」—— 这个决定影响所有调用方
+      class ValidationException extends RuntimeException {   // @note 不受检
+        private final String field;
+        ValidationException(String field) {
+          super("字段 " + field + " 不合法");
+          this.field = field;
+        }
+        String field() { return field; }
+      }
+
+      class ConfigException extends Exception {              // @note 受检
+        ConfigException(String msg, Throwable cause) { super(msg, cause); }
+      }
+    baseline: |
+      自定义异常**必须选一个父类**，而选择本身就是设计决策：继承
+      `RuntimeException` 就不受检、调用方不需要声明；继承 `Exception`
+      就是受检、所有经过的方法都要写 `throws`。惯例是带上 `field()` 这类
+      访问器传递上下文，并提供收 `cause` 的构造器。
+    vs:
+      javascript: |
+        JavaScript 继承 `Error` 时要手动改 `name`、还要操心转译后的 `instanceof`；
+        Java 的类名即类型名，什么都不用额外做，但要多做一个决定（受检与否）。
+      python: |
+        Python 只要继承 `Exception` 就完事，没有「选父类即选契约」这层含义 ——
+        那边不存在受检异常。Java 的每个自定义异常都要先回答「调用方该不该
+        被迫处理它」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  error-propagation:
+    code: |
+      // 受检异常必须表态：要么接住，要么继续往签名上写
+      String read(String p) throws IOException {          // @note 往上抛
+        return Files.readString(Path.of(p));
+      }
+
+      String safeRead(String p) {
+        try {
+          return read(p);
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);              // @note 包成不受检
+        }
+      }
+
+      // 保留原因：构造函数收 cause，或事后 initCause
+      throw new ConfigException("读配置失败", original);
+      e.getCause();                                       // @note 取回根因
+    baseline: |
+      传播有两条路：受检异常要么当场处理，要么写进签名继续上抛（调用方接着面对
+      同样的选择）；不受检异常直接冒泡、签名上不体现。加一层上下文时把原异常
+      作为 `cause` 传进构造函数，`getCause()` 能把根因取回来 ——
+      堆栈里会打印「Caused by:」那一段。
+    vs:
+      javascript: |
+        JavaScript 的异常传播没有任何签名约束，谁都能抛、谁都不用声明；
+        Java 的受检异常会沿着调用链一路逼出 `throws`。代价是模板代码，
+        收益是「这个调用可能失败」在编译期就摆在眼前。
+      python: |
+        Python 用 `raise X from e` 显式记录原因，Java 用构造函数收 `cause` ——
+        两者都会在堆栈里打印出因果链。真正的差别还是那条：Java 的受检异常
+        迫使每个调用方表态，Python 完全自由。
+    equivalence:
+      javascript: divergent
+      python: divergent

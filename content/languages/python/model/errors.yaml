@@ -1,0 +1,196 @@
+# python —— model / errors
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: errors` 的那批。
+# 这一组以 Python 为基准时展示在「异常与资源管理」章（见 catalog/model/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  throw-raise:
+    code: |
+      raise ValueError("值不对")          # @note 只能抛异常类的实例
+      raise ValueError                    # @note 也可以只给类，解释器替你实例化
+      raise                               # @note! 裸 raise：把当前异常原样再抛一次
+
+      # raise "字符串"                     # @note! TypeError —— 抛非异常直接报错
+
+      assert n > 0, "n 必须为正"           # @note 断言失败抛 AssertionError
+    baseline: |
+      `raise` **只能抛异常类的实例**（或类本身），抛字符串会当场 TypeError ——
+      这一点让「异常一定有类型」成为语言保证。裸 `raise` 是「把当前正在处理的
+      异常原样重新抛出」，只能在 `except` 块里用。
+    vs:
+      javascript: |
+        JavaScript 的 `throw` 什么都能抛（字符串、对象都合法），代价是接的一方
+        可能拿到没有任何结构的值；Python 从语法层面堵死了这条路。
+      java: |
+        两边都强制「只能抛类型化的异常」，思路一致。差别在 Java 把异常分成了
+        受检与不受检两类，抛受检异常要写进签名；Python 没有这一层区分。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  try-catch:
+    code: |
+      try:
+          risky()
+      except ValueError as e:          # @note 按类型分支，从上往下匹配第一个
+          handle(e)
+      except (TypeError, KeyError):    # @note 一个分支接多种
+          pass
+      except Exception as e:           # @note 兜底：业务异常的根
+          log(e); raise                # @note 处理不了就原样抛回去
+      else:                            # @note 没出错时才执行
+          after()
+      finally:
+          cleanup()
+    baseline: |
+      `except` 可以写多个分支、按类型依次匹配（第一个命中的生效），一个分支也能
+      接多种类型。**顺序有讲究**：宽的类型写在前面会把窄的挡住。
+      另有 `else` 分支表示「没出错时执行」—— 把「正常路径」与「异常路径」分开，
+      比全塞进 `try` 里更清楚。兜底用 `Exception`（不要用 `BaseException`，
+      那是给退出信号留的）。
+    vs:
+      javascript: |
+        JavaScript 只有一个 `catch` 块，类型判断要手写 `instanceof`；
+        Python 的 `except` 按类型分支，还多一个 `else`。
+        两边不处理的异常都该原样抛出，Python 里裸 `raise` 就是干这个的。
+      java: |
+        Java 同样按类型分支，而且**编译器检查顺序**（子类必须在父类之前）；
+        Python 写反了不报错，只是后面的分支永远进不去 —— 错误更隐蔽。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  finally-cleanup:
+    code: |
+      f = open("data.txt")
+      try:
+          data = f.read()
+      finally:
+          f.close()              # @note 无论如何都执行
+
+      # @note 惯用写法是 with —— 上下文管理器负责关闭，还能正确处理异常
+      with open("data.txt") as f:
+          data = f.read()
+
+      # 自定义上下文：实现 __enter__ / __exit__
+      with lock:
+          ...
+    baseline: |
+      `finally` 保证执行，但**日常几乎不用手写** —— `with` 语句是它的标准替代：
+      上下文管理器在 `__exit__` 里做清理，即使块里抛异常也保证跑到，
+      而且能正确处理「清理本身又出错」的情况。涉及资源（文件、锁、连接）时
+      优先用 `with`。
+    vs:
+      javascript: |
+        JavaScript 只有手写 `try/finally`，没有 `with` 这样的语言级机制
+        （那个 `with` 是完全不同的、已被弃用的东西）。Python 的上下文管理器
+        是「资源管理」这件事的一等写法。
+      java: |
+        Java 的对应物是 **try-with-resources**（`try (var f = open()) { ... }`），
+        编译器自动生成关闭代码，并且会保留「关闭时又出错」的原始异常。
+        Python 的 `with` 与它思路一致，都是把清理交给语言。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  error-types:
+    code: |
+      # 全部继承自 BaseException，业务异常继承 Exception
+      BaseException
+       ├── SystemExit / KeyboardInterrupt     # @note 别接，那是退出信号
+       └── Exception
+            ├── ValueError / TypeError
+            ├── KeyError / IndexError
+            ├── OSError                        # @note IO 错误的根
+            │    └── FileNotFoundError
+            └── RuntimeError
+
+      try: d["missing"]
+      except KeyError as e: ...      # @note 按具体类型接
+    baseline: |
+      异常是一棵**语言自带的层级树**：根是 `BaseException`，业务代码只该继承
+      `Exception`，`SystemExit` / `KeyboardInterrupt` 那几支是给解释器退出用的，
+      接住它们会让 Ctrl-C 失效。标准库为各类问题都定义了具体类型
+      （`FileNotFoundError`、`KeyError`…），所以「按类型接」在 Python 里非常好用。
+    vs:
+      javascript: |
+        JavaScript 的标准错误类型只覆盖引擎自身的错误（类型、范围、语法…），
+        文件与网络错误**没有**标准类型；Python 的标准库为这些场景定义了完整层级。
+        所以 Python 里 `except FileNotFoundError` 写得出来，那边只能自己判断。
+      java: |
+        两边都有庞大的标准异常层级，而且都限制「只能抛类型化的异常」。
+        差别在 Java 还多一层受检 / 不受检的分类，Python 没有这个维度。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  custom-error:
+    code: |
+      class ValidationError(Exception):        # @note 继承 Exception 就够了
+          def __init__(self, field):
+              super().__init__(f"字段 {field} 不合法")
+              self.field = field               # @note 可以带上下文
+
+      try:
+          raise ValidationError("email")
+      except ValidationError as e:
+          e.field                              # @note 直接取
+
+      # 分组：定义一个基类，业务异常都继承它
+      class AppError(Exception): pass
+    baseline: |
+      继承 `Exception` 定义即可 —— **类名就是类型名**，`except MyError` 直接可用，
+      不用像别的语言那样手动登记或改名字。惯例是给一个应用定义共同的基类
+      （`class AppError(Exception)`），这样调用方能一次接住自家所有异常。
+    vs:
+      javascript: |
+        JavaScript 要 `super(message)` 再手动把 `name` 改对，转译后还要操心
+        `instanceof`；Python 什么都不用做，类名即类型名。
+      java: |
+        Java 定义异常类时**必须选父类**（受检还是不宁检），这个选择会影响所有
+        调用方的签名；Python 只要继承 `Exception`，没有这个负担。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  error-propagation:
+    code: |
+      def read_config():
+          try:
+              return parse(open(path).read())
+          except OSError as e:
+              raise ConfigError("读配置失败") from e   # @note 显式记录原因
+
+      # 链会完整保留：
+      #   ConfigError ... The above exception was the direct cause of ...
+      try:
+          read_config()
+      except ConfigError as e:
+          e.__cause__                  # @note 就是那个 OSError
+
+      # @note 不想处理就让异常自然冒泡 —— 不写 except 就是往上抛
+    baseline: |
+      异常沿调用栈**自动冒泡**，不写 `except` 就等于往上抛。要加一层上下文就用
+      `raise X from e` —— 它把原来的异常记成 `__cause__`，打印时两段堆栈都在，
+      排查时不会丢掉根因。函数签名上看不出会不会抛（除了类型标注里的
+      `-> NoReturn` 之类），这一点要靠文档。
+    vs:
+      javascript: |
+        两边都是「不接就冒泡」，都用显式的包装保留原因（那边是 `cause` 字段）。
+        差别在未处理的异常：Python 会让程序终止并打印完整堆栈，
+        JavaScript 的未处理 promise 拒绝默认只是一条警告。
+      java: |
+        Java 的受检异常必须写进签名、调用方必须表态；Python 什么都不用写，
+        抛不抛只有读代码才知道。代价是维护成本，收益是「漏接异常」在 Java 里
+        更容易在编译期被发现。
+    equivalence:
+      javascript: analogous
+      java: divergent

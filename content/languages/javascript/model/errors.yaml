@@ -1,0 +1,188 @@
+# javascript —— model / errors
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: errors` 的那批：
+# throw-raise / try-catch / finally-cleanup / error-types / custom-error / error-propagation。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  throw-raise:
+    code: |
+      throw new Error("出错了");     // @note 惯例：抛 Error 的实例
+      throw "字符串";                // @note! 合法，但没堆栈、没法按类型接
+      throw { code: 500 };           // @note! 也合法 —— 抛什么都可以
+
+      function f() { throw new TypeError("类型不对"); }   // @note 内建错误类型
+    baseline: |
+      `throw` **可以抛任何值** —— 字符串、对象、数字都行。惯例是抛 `Error` 的实例，
+      因为它自带 `message` 与 `stack`。抛别的值不但丢掉堆栈，还会让接的一方
+      没法用统一的方式处理。异步代码里的抛出会变成 rejected promise，
+      没人接就是「未处理的拒绝」。
+    vs:
+      python: |
+        Python 的 `raise` **只能抛异常类的实例**（或类本身），抛字符串直接
+        TypeError；这里抛什么都可以，代价是容易抛出没法处理的东西。
+        两边都会带堆栈，但 Python 的异常还多一条「链」。
+      java: |
+        Java 只能抛 `Throwable` 的子类，抛字符串编译不过 —— 类型系统强制了
+        「异常是有类型的东西」。这里完全放开，好处是灵活，坏处是 `catch` 到的东西
+        可能连 `message` 都没有。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  try-catch:
+    code: |
+      try {
+        risky();
+      } catch (e) {
+        // @note! 只有一个 catch 块，没有按类型分支
+        if (e instanceof TypeError) { /* ... */ }
+        else { throw e; }          // @note 不处理的要原样抛回去
+      }
+
+      try { risky(); } catch { }   // @note 可以省略绑定（ES2019）
+    baseline: |
+      **一个 `try` 只有一个 `catch`**，不分类型 —— 要区分就得在块里自己写
+      `instanceof` 分支。忘了写 `catch` 的参数名也没关系（可以省略绑定）。
+      接不住或不想接的异常要显式 `throw e` 抛回去，否则它会静默消失。
+    vs:
+      python: |
+        Python 的 `except SomeError:` 可以按类型写多个分支，从上往下匹配第一个；
+        这里只有一个 catch 块，类型判断要手写。Python 还多一个 `else`
+        分支（没出错时执行），这里没有。
+      java: |
+        Java 同样支持多个 `catch` 按类型分支，而且**编译器会检查顺序**
+        （子类必须在父类之前，否则编译错误）。这里的 `instanceof` 链写反了
+        只是逻辑错，没人会提醒。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  finally-cleanup:
+    code: |
+      let fh;
+      try {
+        fh = open(path);
+        return fh.read();       // @note! 即使这里 return，finally 也会执行
+      } finally {
+        fh?.close();            // @note 无论如何都跑
+      }
+
+      // @note! finally 里 return / throw 会**吞掉**原来的返回值或异常
+      try { return 1; } finally { return 2; }    // 返回 2
+    baseline: |
+      `finally` 无论正常返回、抛异常还是 `return` 都会执行，是释放资源的地方。
+      但**在 `finally` 里 `return` 或 `throw` 会把原来的结果吞掉** ——
+      这是它唯一真正危险的地方，代码检查工具一般会警告。现代写法更常见的是
+      把资源做成可释放对象（或者干脆用作用域外的管理）。
+    vs:
+      python: |
+        Python 的 `finally` 语义完全一样（同样会吞掉 return 与异常），
+        但它还多一个更常用的替代品：`with` 语句 —— 上下文管理器负责清理，
+        比手写 try/finally 更难写错。这里没有等价的语言级机制。
+      java: |
+        语义一致，但 Java 有 **try-with-resources**：把资源写在 `try (...)`
+        里，编译器自动生成关闭代码，还能保留「关闭时又出错」的原始异常
+        （suppressed）。这里只能手写 finally，且关闭时的异常会盖掉原来的。
+    equivalence:
+      python: analogous
+      java: analogous
+
+  error-types:
+    code: |
+      new Error("通用");          // @note 基类
+      new TypeError("类型错");
+      new RangeError("越界");
+      new SyntaxError("语法错");
+      new ReferenceError("未定义的名字");
+
+      e instanceof Error;        // @note 所有内建错误都继承自 Error
+      e.message;                 // @note 人类可读的描述
+      e.stack;                   // @note 非标准但各家都有
+      e.cause;                   // @note ES2022：包住下层错误
+    baseline: |
+      `Error` 是基类，内建子类有 `TypeError` / `RangeError` / `SyntaxError` /
+      `ReferenceError` 等，各自对应引擎自己抛出的那类问题。**没有**
+      「按业务分层的错误体系」这种惯例 —— 标准库里也没有 IO 错误、网络错误之类的
+      标准类型，都得自己定义。`cause` 是官方给的「包住下层错误」的字段。
+    vs:
+      python: |
+        Python 的异常体系大得多，而且是**语言的一部分**：所有异常继承
+        `BaseException`（业务代码继承 `Exception`），标准库还为 IO、键不存在、
+        类型等定义了具体类型。这里的 Error 体系基本只覆盖引擎内部错误。
+      java: |
+        Java 的异常是一个**庞大的标准层级**（`Throwable` → `Error` /
+        `Exception` → 一堆子类），而且文件、网络、SQL 各有自己的异常类型。
+        这里的标准类型只对应引擎自身的错误，业务错误一律自己定义。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  custom-error:
+    code: |
+      class ValidationError extends Error {
+        constructor(field) {
+          super(`字段 ${field} 不合法`);   // @note 先调 super
+          this.name = "ValidationError";   // @note! 默认是 "Error"，要手动改
+          this.field = field;              // @note 可以带上下文
+        }
+      }
+
+      new ValidationError("email") instanceof ValidationError;   // @note true
+      // @note! 编译到 ES5 时 instanceof 会失效，需要 setPrototypeOf 补救
+    baseline: |
+      继承 `Error` 定义自己的错误类型，抛出与捕获都照常。**两个必须手写的动作**：
+      调 `super(message)`、把 `name` 改成自己的类名（否则打印出来永远是 "Error"）。
+      转译到老版本时 `instanceof` 会失效，那需要额外处理 —— 用原生的 class 就没这问题。
+    vs:
+      python: |
+        Python 继承 `Exception` 定义自定义异常，**不用手动改名字也不用管原型链** ——
+        类名就是类型名，`except MyError` 直接可用。这里要记得改 `name`、
+        还要留心转译后的 `instanceof`。
+      java: |
+        Java 定义异常类时**必须选父类**：继承 `Exception` 就是受检异常、
+        继承 `RuntimeException` 就是不受检 —— 这个选择会影响所有调用方。
+        这里没有这个维度，自定义错误想抛就抛。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  error-propagation:
+    code: |
+      function readConfig() {
+        try {
+          return parse(fs.readFileSync(path));
+        } catch (e) {
+          throw new Error("读配置失败", { cause: e });   // @note 包一层，保留原因
+        }
+      }
+
+      // @note! 同步函数里抛的错不会变成 rejected promise —— async 里才会
+      async function f() { throw new Error("x"); }        // 返回 rejected promise
+
+      // @note 没人接的 promise 拒绝只是个警告，程序不会停
+      f();
+    baseline: |
+      函数签名上**看不出它会不会抛** —— 任何函数都可能抛。不想处理就让它自然往上
+      冒泡，想加一层上下文就用 `cause` 包住（原来的错误留在 `e.cause` 里）。
+      异步那边的坑更大：async 函数里的 `throw` 变成 rejected promise，
+      没人接只是控制台一条警告，程序照跑 —— 这类错误最容易漏。
+    vs:
+      python: |
+        Python 用 `raise ... from e` 表达「这个错是因为那个错」，链会显式记下来；
+        这里用 `cause` 字段，思路相同。另一处差别是 Python 的未捕获异常会终止
+        程序并打印堆栈，这里的未处理 promise 拒绝默认只是警告。
+      java: |
+        Java 的**受检异常会写进方法签名**（`throws IOException`），调用方必须
+        处理或继续声明 —— 「这个函数会不会抛」是签名的一部分。这里完全看不出来，
+        只能靠读代码或文档。
+    equivalence:
+      python: analogous
+      java: divergent
