@@ -1,0 +1,191 @@
+# rust —— model / modules
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: modules` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-modules-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  module-unit:
+    code: |
+      // src/lib.rs —— crate 根
+      mod parser;            // @note 声明一个子模块，对应 src/parser.rs 或 src/parser/mod.rs
+      mod lexer {            // @note 也可以内联写
+        pub fn next() {}
+      }
+
+      pub mod api {          // @note! pub 才能被 crate 外看见，默认私有
+        pub fn run() {}
+      }
+
+      // crate 是最外层单位：一个 lib 或一个 bin，由 Cargo.toml 定义
+    vs:
+      javascript: |
+        JavaScript 的一个文件就是一个模块，没有更外层的单位；
+        Rust 有**三层**：crate（一个库或可执行文件，由 Cargo.toml 定义）、
+        module（`mod` 声明，一个文件或一段内联代码）、以及文件本身。
+        更实际的区别是可见性：JavaScript 靠「导出什么就是什么」，
+        Rust 的模块默认**全私有**，得逐个加 `pub`，连模块自身都要 `pub mod`。
+      python: |
+        Python 的一个文件就是一个模块、一个目录（带 `__init__.py`）就是一个包，
+        单位由文件系统决定；Rust 的模块要在代码里用 `mod` **显式声明**，
+        漏写 `mod parser;` 那个文件根本不会被编译进去。
+        可见性上两边都默认私有（Python 靠下划线约定、Rust 由编译器强制），
+        但 Rust 需要逐项 `pub`，粒度更细。
+      java: |
+        Java 的包由目录结构与 `package` 声明共同决定，一个文件一个公开类；
+        Rust 的 crate 更接近 Java 的一个 jar/模块，module 接近包。
+        最大的差别在可见性：Java 的 `public` 类随处可见，
+        Rust 的模块树默认全私有，父模块**看不到**子模块的私有项 ——
+        这与 Java 的包私有（同包可见）方向相反，刚转过来时最容易被这一点绊住。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  export-import:
+    code: |
+      // 导出：在定义处加 pub
+      pub fn parse(s: &str) -> i32 { 0 }
+      pub struct Config { pub retries: u32 }   // @note! 结构体 pub 了，字段还要各自 pub
+
+      // 导入
+      use crate::parser::parse;        // @note 绝对路径从 crate 根开始
+      use crate::parser::parse as p;   // @note 重命名
+      use std::collections::{HashMap, HashSet};   // @note 一次导入多个
+
+      mod inner {
+        pub(crate) fn shared() {}      // @note 只在这个 crate 内可见
+      }
+    vs:
+      javascript: |
+        JavaScript 在文件末尾用 `export` 列出对外的东西，
+        导入方按路径 `import`；Rust 的导出**写在定义处**（`pub fn`），
+        哪里都能看到它是不是公开的，不必翻到文件末尾。
+        另一处容易踩的是结构体：`pub struct Config` 之后字段仍然是私有的，
+        每个字段要单独 `pub` —— JavaScript 的对象没有这种分层。
+      python: |
+        Python 的导入是运行时行为，`from x import y` 真的去取属性；
+        Rust 的 `use` 只是**路径别名**，不加载任何东西 —— 模块早就在编译单元里了。
+        导出上，Python 靠下划线约定（`_foo` 表示内部），
+        Rust 由 `pub` 强制，并且有 `pub(crate)` 这种中间粒度，
+        Python 里想表达「包内可见」只能靠约定。
+      java: |
+        Java 用 `import` 引入类，用 `public` 标记可见性 —— 形态上与 Rust 接近，
+        但 Java 的 `import` 不影响可见性，Rust 的 `pub` 与模块树绑定。
+        Rust 多出 `pub(crate)` 这一档，对应 Java 的包私有但范围是**整个 crate**
+        （可能含多个模块），比 Java 的包更大。
+        另外 Rust 可以给同一个东西起别名（`as`），Java 的 `import` 没有重命名。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  default-vs-named:
+    code: |
+      // Rust 没有「默认导出」—— 所有公开项都是具名的，按名字取
+      use crate::parser::parse;
+
+      // 想让调用方少写路径，惯用做法是提供一个「预导入」模块
+      pub mod prelude {
+        pub use crate::parser::parse;
+        pub use crate::config::Config;
+      }
+      // 调用方：use mycrate::prelude::*;
+    vs:
+      javascript: |
+        JavaScript 有 `export default`（一个模块只能有一个无名主角），
+        Rust **完全没有这个概念** —— 每个公开项都必须有名字，
+        调用的地方也就永远写得出它是谁。想让常用项好拿，
+        Rust 的惯用法是提供一个 `prelude` 模块再 `use …::*`，
+        而不是给某个东西一个「默认」身份。
+      python: |
+        Python 没有默认导出，导入必须点名（或 `import *` 全拿）——
+        这一点与 Rust 一致。差别在 `from x import *`：
+        Python 会真的把一堆名字灌进当前命名空间（还包括没写进 `__all__` 的），
+        Rust 的 `use …::*` 只拿 `pub` 的项，而且名字冲突会编译错误而不是静默覆盖。
+      java: |
+        Java 没有默认导出，一切按类名点出来；Rust 同样全部具名，
+        这两边一致。形式上 Rust 的 `use …::*` 接近 Java 的
+        `import static …*`（静态导入），但 Java 只在静态成员上可用，
+        Rust 对任何 pub 项都行。两边都不会有「这个 import 到底指向谁」的歧义。
+    equivalence:
+      javascript: divergent
+      python: identical
+      java: identical
+
+  namespace-alias:
+    code: |
+      use std::collections::HashMap as Map;        // @note 给类型起别名
+      use crate::parser::parse as parse_line;      // @note 给函数起别名
+      use mycrate::prelude::*;                     // @note 通配导入（glob）
+
+      type UserId = u64;                           // @note! 类型别名：另一个东西，不是导入
+      use crate::config::Config;
+      use crate::other::Config as OtherConfig;     // @note 同名冲突靠 as 解决
+    vs:
+      javascript: |
+        JavaScript 用 `import { x as y }` 重命名，语法位置与 Rust 的
+        `use … as …` 对应。Rust 多一层 `type X = Y` 类型别名 ——
+        它不引入新类型、只是换个写法，JavaScript 没有对应物
+        （TS 的 `type` 才有）。另外 Rust 的 glob 导入 `use …::*`
+        在名字冲突时直接编译错误，JavaScript 的 `import *` 拿到的是命名空间对象，不冲突。
+      python: |
+        Python 用 `import x as y` / `from m import f as g`，与 Rust 的形式接近。
+        差别在冲突处理：Python 同名导入会静默覆盖，
+        Rust 会报 `the name is defined multiple times`，必须 `as` 掉一个。
+        Rust 还有 `type UserId = u64` 这种类型别名，Python 里对应的是
+        赋值 `UserId = int`，但它就是个普通变量，不参与类型检查。
+      java: |
+        Java 没有导入别名 —— 同名类冲突时只能写全限定名。
+        Rust 的 `use … as …` 是实打实的能力，同名类型可以各自改名共存。
+        Java 也没有类型别名（没有 typedef），Rust 的 `type X = Y`
+        能省掉一长串泛型签名，这在 Java 里只能靠继承或包装类绕过。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  module-resolution:
+    code: |
+      use crate::parser::parse;     // @note crate 根开始
+      use super::sibling;           // @note 父模块
+      use self::child::thing;       // @note 当前模块
+
+      // Cargo.toml 里声明外部依赖，代码里按 crate 名引用
+      // [dependencies]
+      // serde = "1"
+      use serde::Serialize;
+
+      // 同一目录下的 src/bin/*.rs 各自是一个可执行 crate
+    vs:
+      javascript: |
+        JavaScript 的解析规则是文件路径加 `node_modules` 逐级向上找；
+        Rust 的路径**从 crate 根算起**（`crate::`），或者用 `super::` / `self::`
+        在模块树里走 —— 与文件系统的对应关系弱得多，同名文件放在不同模块下
+        完全不会互相干扰。外部依赖走 Cargo.toml，代码里写 crate 名，
+        没有「同名包装了两份、不知道解析到哪个」这种问题。
+      python: |
+        Python 按 `sys.path` 顺序找模块，运行时可能被环境变量、
+        当前目录、虚拟环境改变，同一个 `import x` 在不同机器上可能指向不同的东西；
+        Rust 的解析在编译期由模块树和 Cargo.toml 完全确定，
+        运行时不参与。代价是得显式写 `mod` 声明，
+        不能像 Python 那样「文件在那儿就能 import」。
+      java: |
+        Java 靠 classpath 在运行时解析类名，同名类谁在前面谁生效，
+        环境不同结果可能不同；Rust 在编译期锁定，没有这种不确定性。
+        Rust 的 `crate::` / `super::` / `self::` 是相对模块树的路径，
+        Java 只有「同包直接写、跨包写全限定名」两档，没有父模块这种相对写法。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

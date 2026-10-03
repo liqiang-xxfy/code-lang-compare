@@ -1,0 +1,198 @@
+# go —— model / modules
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: modules` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-modules-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  module-unit:
+    code: |
+      // 目录 = 包（package），同目录下所有 .go 文件同属一个包
+      package parser        // @note! 每个文件开头都要写包名，不是靠目录名推断
+
+      // go.mod 定义 module —— 依赖与导入路径的根
+      // module github.com/me/myapp
+      // go 1.23
+
+      // 一个 module = 一组包；一个包 = 一个目录
+      // 可执行程序必须叫 main 包，并包含 func main()
+      package main
+    vs:
+      javascript: |
+        JavaScript 的模块单位是**文件**，目录只是组织方式；
+        Go 的模块单位是**目录**（包）—— 同一个目录里的所有 `.go` 文件
+        共享一个命名空间，不能有重名函数。更外层还有 module（`go.mod`），
+        它定义了导入路径的根。所以 Go 的「一个包」可能跨很多文件，
+        这与 JavaScript 的「一个文件一个模块」习惯很不一样。
+      python: |
+        Python 的包是带 `__init__.py` 的目录，模块是文件 —— 两个层次；
+        Go 只有包（目录）这一层，加上 module（`go.mod`）作为依赖边界。
+        差别最实际的是：Go 同目录下的文件**共享命名空间**，
+        在 `a.go` 里定义的函数 `b.go` 直接用；Python 必须显式 import，
+        哪怕两个文件在同一个目录里。
+      java: |
+        Java 的包与目录对应，一个文件一个公开类，包之间靠 import；
+        Go 的包是目录，但同一个包内的文件**互相直接可见**，
+        不需要 import —— 这一点与 Java 差别很大，Go 里没有
+        「import 同包的另一个文件」这种写法。Java 的 jar 与 Go 的 module
+        大致对应，但 Go 的 module 还承担了版本与依赖管理的职责。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  export-import:
+    code: |
+      // 导出 = 首字母大写，没有关键字
+      func Parse(s string) int { return 0 }   // @note 导出
+      func helper() {}                         // @note 包内私有
+
+      type Config struct {
+        Retries int        // @note 导出字段
+        timeout int        // @note 私有字段 —— 包外拿不到，连 JSON 也序列化不了
+      }
+
+      // 导入
+      import (
+        "fmt"
+        "github.com/me/myapp/parser"    // @note 导入的是**包**，不是符号
+      )
+      // 用的时候写 包名.Parse(...)
+    vs:
+      javascript: |
+        JavaScript 靠 `export` 关键字列出对外的东西，导入方按文件名 import；
+        Go **没有 export 关键字** —— 首字母大写就是导出、小写就是私有，
+        改一个字母就改了 API。另一个大差别：Go 导入的是**包**而不是符号，
+        用的地方一律写 `parser.Parse(...)`，不能只 import 一个函数。
+        这让读代码时每个名字的来源一目了然。
+      python: |
+        Python 靠下划线约定表达内部（解释器不拦），Go 靠首字母大小写
+        而且**编译器强制** —— 小写的名字从别的包引用直接编译不过。
+        导入形态也不同：Python 的 `from x import y` 可以把符号直接搬进来，
+        Go 只能导入包、再通过包名访问，因此永远不会出现
+        「这个名字是从哪来的」这种疑问，代价是每次都要多写一个包名前缀。
+      java: |
+        Java 用 `public` 关键字标记可见性、用 `import` 引入具体类；
+        Go 用首字母大小写、且只能导入包。Java 的字段可以单独设可见性
+        （`private` 字段配 `public` getter），Go 也一样
+        （大写字段导出、小写私有），但 Go 没有 getter 惯例 ——
+        要么把字段导出、要么提供 `GetX()` 方法，社区更倾向前者。
+        Java 的 `import` 可以带通配符引入整个包，Go 不带通配符。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  default-vs-named:
+    code: |
+      // Go 没有默认导出 —— 包里的每个导出项都按名字访问
+      parser.Parse(s)
+
+      // 惯用的「把常用东西凑一起」不是 prelude，而是把这些东西
+      // 放进同一个包里，或提供一个顶层包做门面
+    vs:
+      javascript: |
+        JavaScript 的 `export default` 让一个模块有个无名主角，
+        导入方可以随便起名 —— 同一个东西在不同文件里叫不同名字。
+        Go **完全没有这个概念**：导出项一律具名，名字在定义处定死，
+        调用方也照写。所以 Go 代码里「这个函数到底是谁」永远是确定的，
+        重命名一次就是全局替换，不会有别名漂移。
+      python: |
+        Python 没有默认导出，导入必须点名 —— 这一点与 Go 一致。
+        差别在 `from x import *`：Python 会往当前命名空间灌一堆名字
+        （包括没写进 `__all__` 的），容易撞名；Go 不带通配导入
+        （点导入 `. "pkg"` 存在但是反模式），一律写包名，
+        所以不会有「这些名字哪来的」这种问题。
+      java: |
+        Java 没有默认导出，一切按类名点出来；Go 按包名点出来。
+        两边都没有「无名主角」这种东西，读代码时名字都能追溯。
+        形式上 Java 的静态导入 `import static Foo.*` 有点像
+        想省掉类名前缀的做法，Go 里对应的 `. "pkg"` 点导入
+        被社区明确劝阻 —— 两边都觉得「省掉前缀」得不偿失。
+    equivalence:
+      javascript: divergent
+      python: identical
+      java: identical
+
+  namespace-alias:
+    code: |
+      import (
+        "github.com/me/myapp/parser"            // @note 默认用包名 parser
+        p "github.com/other/parse"              // @note 起别名 p
+        _ "github.com/lib/pq"                   // @note! 空导入：只为触发 init()，不用它的符号
+      )
+
+      type UserID = int64        // @note 类型别名（=）：与 int64 是同一个类型
+      type Celsius float64       // @note! 定义新类型：与 float64 不同，要显式转换
+    vs:
+      javascript: |
+        JavaScript 用 `import { x as y }` 或 `import * as ns`，粒度到符号；
+        Go 的别名粒度是**整个包** —— 只能给包改名，不能单独给某个函数改名。
+        另一个 Go 特有的东西是空导入 `_ "pkg"`：只为了执行它的 `init()`
+        （数据库驱动注册就是靠这个），JavaScript 里对应的是
+        `import 'pkg'` 这种副作用导入，形态相似但用途没这么集中。
+      python: |
+        Python 用 `import x as y` 给模块改名，与 Go 的包别名对应；
+        但 Python 还能 `from m import f as g` 给单个函数改名，Go 不能。
+        Go 的空导入 `_ "pkg"` 对应 Python 的 `import pkg`（只为执行模块顶层代码），
+        不过 Go 用 `_` 把它标记成「显式不需要」。
+        类型别名上 Go 有两种：`type A = B`（同一个类型）与 `type A B`（新类型），
+        Python 没有这层区分。
+      java: |
+        Java 的 `import` **不能改名**，同名类冲突只能写全限定名；
+        Go 的包别名 `p "path"` 是常规手段，冲突时改名即可，这一点方便得多。
+        Go 的 `type Celsius float64` 定义新类型，比 Java 的包装类轻量：
+        它是真的数值类型，参与算术（要显式转换），没有装箱开销。
+        Java 没有类型别名，`type A = B` 这种写法也不存在。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  module-resolution:
+    code: |
+      import "github.com/me/myapp/parser"   // @note 完整路径 = module 路径 + 包目录
+
+      // go.mod
+      // module github.com/me/myapp
+      // require github.com/lib/pq v1.10.9
+      // go.sum 记录校验和，锁死内容
+
+      // 同 module 内的包用完整路径导入；标准库直接写名字
+      import "fmt"
+
+      // 内部包：路径中含 internal 的包只能被其父目录子树导入
+      import "github.com/me/myapp/internal/store"
+    vs:
+      javascript: |
+        JavaScript 的 `node_modules` 逐级向上找，同一个包名可能解析到不同版本；
+        Go 的导入路径是**绝对且唯一**的（module 路径 + 目录），
+        `go.mod` 锁定版本、`go.sum` 锁内容，没有「装了两份」这种状态。
+        Go 还有 `internal/` 这个语言级约定：路径里含 internal 的包
+        只有其父目录子树能导入，JavaScript 里没有对应机制。
+      python: |
+        Python 按 `sys.path` 顺序找，运行时可能被环境变量或当前目录影响；
+        Go 的解析在编译期完成，由 `go.mod` 完全确定，不存在
+        「同一份代码在两台机器上 import 到不同东西」。Go 的 `internal/`
+        是语言强制的可见性边界，Python 里想表达「这是包内部实现」
+        只能靠下划线命名，拦不住别人导入。
+      java: |
+        Java 靠 classpath 解析，同名类先到先得；Go 的导入路径全局唯一、
+        版本在 `go.mod` 里锁死，不存在 jar 冲突这种问题。
+        Go 多一个 `internal` 包机制：语言层面禁止外部导入，
+        Java 里对应的手段是拆成不同 jar 或靠模块系统（JPMS），
+        比 Go 重得多。两边都要求完整路径而不是相对路径。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
