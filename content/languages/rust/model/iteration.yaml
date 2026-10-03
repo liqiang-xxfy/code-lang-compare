@@ -1,0 +1,174 @@
+# rust —— model / iteration
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: iteration` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-iteration-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generator-yield:
+    code: |
+      // Rust 没有 yield 关键字 —— 造迭代器要么手写 Iterator，要么用闭包 + 适配器
+      struct Fib { a: u64, b: u64 }
+      impl Iterator for Fib {
+        type Item = u64;
+        fn next(&mut self) -> Option<u64> {
+          let out = self.a;
+          let next = self.a + self.b;
+          self.a = self.b;
+          self.b = next;
+          Some(out)                     // @note 返回 None 表示结束
+        }
+      }
+
+      // 也可用闭包造无限序列
+      let mut n = 0;
+      let mut counter = move || { n += 1; n };
+
+      // 异步场景有 async-stream 之类的库提供 yield 语法，但那是库不是语言
+    vs:
+      javascript: |
+        JavaScript 有 `function*` 与 `yield`，函数体可以「暂停再恢复」——
+        写起来就是普通循环，状态由引擎保存。Rust **没有这个语法**：
+        要造迭代器就得把状态显式放进一个结构体、实现 `next()`，
+        或者在异步场景用第三方库。代价是啰嗦，收益是「迭代器的状态是什么」
+        在类型里写得明明白白，没有隐藏的协程帧。
+      python: |
+        Python 的 `yield` 让生成器写起来像普通函数，解释器负责保存状态；
+        Rust 没有 `yield`，等价物是把状态放进结构体再实现 `Iterator::next`——
+        手写时要把「循环变量」变成结构体字段，这是从 Python 过来
+        最不适应的一处。好处是编译器能看到全部状态，没有隐式的协程开销。
+      java: |
+        Java 的 `Iterator` 也是手写 `hasNext` / `next`，与 Rust 思路接近；
+        Java 还可以用 Stream 的 `iterate` / `generate` 造序列。
+        Rust 把「结束」表达成 `next()` 返回 `None`（一个值），
+        Java 是 `hasNext()` 返回 false（两个方法配合）——
+        Rust 的形态让 `for` 循环的实现更简单，也更容易接 `?`。
+        Java 没有 `yield`（除非用虚拟线程或第三方库），这点与 Rust 一致。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  comprehension:
+    code: |
+      // Rust 没有推导式 —— 用迭代器适配器链表达同样的事
+      let squares: Vec<i32> = (1..=5).map(|x| x * x).collect();       // @note 等价 [x*x for x in 1..5]
+      let evens: Vec<i32> = (1..=10).filter(|x| x % 2 == 0).collect(); // @note 等价 [x for x in … if …]
+
+      let pairs: Vec<(i32, char)> = (1..3)
+        .flat_map(|i| ('a'..='b').map(move |c| (i, c)))
+        .collect();                                                    // @note 嵌套推导
+
+      use std::collections::HashMap;
+      let m: HashMap<i32, i32> = (1..=3).map(|x| (x, x * x)).collect(); // @note 推导出 map
+    vs:
+      javascript: |
+        JavaScript 用 `map` / `filter` / `flatMap` 链式调用，与 Rust 的
+        适配器链形态一致 —— 两边都靠方法名表达、都惰性（JS 的数组方法其实是立即执行，
+        这一点不同）。Rust 的 `collect()` 必须写出目标类型
+        （`Vec<_>` / `HashMap<_,_>`），同一个链能收集成不同类型；
+        JavaScript 里 `map` 固定返回数组，想要 Map 得另写循环。
+      python: |
+        Python 的推导式（`[x*x for x in …]`）是一种**语法**，
+        Rust 用方法链（`.map().filter().collect()`）——
+        两者能表达的东西一样，可读性偏好不同：推导式更像数学记法，
+        方法链适合一层层加。Rust 的 `collect()` 目标类型自由，
+        Python 的推导式类型由方括号/花括号决定；另外 Rust 的链是惰性的，
+        Python 的推导式立即求值。
+      java: |
+        Java 的 Stream（`map` / `filter` / `collect`）与 Rust 的适配器链
+        几乎一一对应，都是惰性、都要终结操作才执行。
+        差别在收集：Java 要写 `Collectors.toList()`，Rust 写 `.collect()`
+        并靠类型推断决定收集成什么；Rust 还能直接收集成 `HashMap`，
+        Java 要 `Collectors.toMap` 并处理键冲突。
+        Java 没有推导式语法，与 Rust 一致。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  lazy-evaluation:
+    code: |
+      let xs = vec![1, 2, 3, 4, 5];
+
+      let it = xs.iter().map(|x| { println!("计算 {}", x); x * 2 });
+      // @note! 到此为止什么都没打印 —— 适配器只是接好了管子
+
+      let v: Vec<i32> = it.collect();     // @note collect 才真正跑一遍
+
+      let first = xs.iter().map(|x| x * 2).next();   // @note 只要第一个 —— 其余不计算
+
+      let total: i32 = xs.iter().filter(|x| **x > 2).sum();   // @note 一次遍历
+    vs:
+      javascript: |
+        JavaScript 的 `map` / `filter` 是**立即执行**的，每一步都产生一个新数组 ——
+        链得越长中间数组越多。Rust 的适配器是**惰性**的，
+        整条链只遍历一次、不产生中间集合；也因此 `map` 里写 `println!`
+        什么都不会发生，直到 `collect` 或 `for` 才跑。
+        另一处：Rust 的迭代器可能无限（`(0..)`），JavaScript 的数组方法不能。
+      python: |
+        Python 的 `map` / `filter` 是惰性的（返回迭代器），
+        但列表推导式与生成器表达式是两种不同的东西 ——
+        方括号立即求值、圆括号惰性。Rust 的适配器链**一律惰性**，
+        要立即求值得显式 `collect()`。所以 Rust 里
+        「这条链算了几遍」永远是一遍，Python 里要看清用的是哪种括号。
+      java: |
+        Java 的 Stream 与 Rust 的适配器一样是惰性的，都要终结操作才执行，
+        这一点最接近。差别在重用：Java 的 Stream 只能消费一次，
+        第二次用会抛 `IllegalStateException`；Rust 的迭代器同样只能消费一次，
+        但那是**编译期**的（所有权被移走，再用编译不过）。
+        另外 Java 的 Stream 有 `parallel()`，Rust 要并行得换 rayon 之类的库。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: identical
+
+  destructuring:
+    code: |
+      let (a, b) = (1, 2);                       // @note 元组解构
+      let [x, y, z] = [1, 2, 3];                 // @note 数组解构
+
+      struct User { id: u64, name: String }
+      let u = User { id: 1, name: "Ada".into() };
+      let User { id, name } = u;                 // @note 结构体解构
+      let User { id, .. } = u;                   // @note 只要一部分
+
+      let Some(v) = opt else { return };         // @note let-else：解不出就提前返回
+      if let Ok(n) = "3".parse::<i32>() { }      // @note 只处理成功的分支
+
+      fn dist((x1, y1): (f64, f64), (x2, y2): (f64, f64)) -> f64 { 0.0 }  // @note 参数也能解构
+    vs:
+      javascript: |
+        JavaScript 的解构语法与 Rust 很像（`const { id, name } = u`），
+        但 Rust 的解构是**穷尽性检查**的一部分：`let User { id, .. } = u`
+        里 `..` 是必须显式写的，而且解构 `enum` 时必须覆盖所有变体
+        （`match` 里）。JavaScript 解构一个不存在的字段得到 `undefined`，
+        Rust 里字段名写错直接编译错误 —— 拼错属性名在 JavaScript 里
+        是经典 bug，在 Rust 里写不出来。
+      python: |
+        Python 的 `a, b = 1, 2` 与 Rust 的元组解构形式一致；
+        但 Python 没有结构体解构（`dataclass` 要 `asdict` 再取），
+        Rust 的 `let User { id, name } = u` 是语言级能力。
+        另一处差别是 Rust 的 `let … else`：解构不出来就执行 else 分支
+        （通常 `return`），这让「取出来否则退出」不必嵌套；
+        Python 里要写 try 或提前判断。
+      java: |
+        Java 没有解构 —— record 的字段只能一个个 `u.id()` 取出来，
+        16 起的模式匹配（`instanceof` 模式）能解出 record 的组件，
+        但只用在条件判断里。Rust 的解构用在 `let`、`match`、`if let`、
+        函数参数上，覆盖面大得多。Java 的 switch 模式匹配（21 起）
+        接近 Rust 的 `match` 解构，但穷尽性检查是后来才补的。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

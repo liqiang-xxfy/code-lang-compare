@@ -1,0 +1,118 @@
+# go —— model / iteration
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: iteration` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-iteration-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generator-yield:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有 `yield`**，也没有生成器函数。要造一个「按需产出」的序列，
+        只有两条路：写一个结构体加 `Next()` 方法（自己管状态），
+        或者用 1.23 起的 range-over-func —— 提供一个接收 `yield` 回调的函数，
+        由 `for … range` 调用它。后者形态上最接近生成器，
+        但写法是「把循环体交出去」而不是「在函数里暂停」。
+      python: |
+        Go **没有 `yield`**，生成器写不出来。替代方案是把状态放进结构体加
+        `Next()` 方法，或用 1.23 的 range-over-func（提供一个接收回调的函数）。
+        Python 里 `yield` 让「惰性序列」写起来像普通循环，
+        Go 里必须显式把状态外化成结构体字段或闭包变量 ——
+        啰嗦，但状态在哪一目了然。
+      java: |
+        Go **没有 `yield`**，与 Java 一致 —— 两边造惰性序列都要自己写
+        `Next()` 风格的方法（Java 是 `Iterator`，Go 是自定义结构体配方法）。
+        差别是 Go 1.23 起有了 range-over-func，可以让
+        `for … range` 直接消费一个回调式函数；Java 的 Stream
+        `generate` / `iterate` 也能造序列，但那是库层面的工具，
+        与 for-each 语法不打通。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  comprehension:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有推导式**，也没有 `map` / `filter` 这类链式方法 ——
+        要用一个普通的 `for` 循环加 `append` 手写。JavaScript 的
+        `xs.map(x => x * 2)` 在 Go 里是四行：
+        `out := make([]int, 0, len(xs)); for _, x := range xs { out = append(out, x*2) }`。
+        这是 Go 「显式优于巧妙」的一个典型取舍。
+      python: |
+        Go **没有推导式**。Python 的 `[x*x for x in xs if x > 0]`
+        在 Go 里是一段 for 循环：建一个空切片、遍历、按条件 append。
+        代价是代码更长，收益是每一步都看得见 —— 没有隐式的收集、
+        没有嵌套推导那种需要反复读的表达式。
+      java: |
+        Go **没有推导式**，与 Java 的传统写法一致；
+        但 Java 8 起有 Stream（`.map().filter().collect()`）可以一行表达，
+        Go 至今没有等价物，只能写 for 循环。
+        这是从 Java 过来一个明显的落差：一个筛选求和
+        Java 写 `xs.stream().filter(x -> x > 2).mapToInt(x -> x).sum()`，
+        Go 要写循环加累加变量。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lazy-evaluation:
+    absent: true
+    vs:
+      javascript: |
+        Go 的循环与切片操作**一律立即执行**，没有惰性求值这一层 ——
+        `for … range` 遍历多少就处理多少，中间结果实实在在存在。
+        想要惰性得自己造（返回 channel 或回调），但那已经超出了
+        「集合操作」的范畴。JavaScript 的数组方法同样立即执行，
+        这一点两边一致；差别是 JavaScript 至少有惰性的迭代器协议可以自己实现。
+      python: |
+        Go **没有惰性求值** —— 遍历就是执行，切片就是内存里的一份数据。
+        Python 的 `map` / `filter` 与生成器表达式是惰性的，
+        可以处理无限序列；Go 里想做同样的事得用 channel 或
+        range-over-func 自己搭，标准做法仍是把数据先算出来。
+      java: |
+        Go **没有惰性求值**，Java 的 Stream 有 —— 这是两者在集合处理上
+        最大的能力差距。Java 的 `.filter().map()` 可以只遍历一次、
+        不产生中间集合（但仍是立即执行，除非配 `parallel`）；
+        Go 里同样的逻辑就是循环加累加，中间状态是显式的局部变量。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: divergent
+
+  destructuring:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有解构赋值** —— 从结构体里取值只能一个个写
+        （`name := u.Name`），从切片里取要写两行。多返回值是唯一
+        「一次拿多个」的形式（`a, b := f()`），但它只适用于函数返回，
+        不能用在结构体或切片上。JavaScript 的 `const { a, b } = obj`
+        与 `const [x, y] = arr` 在 Go 里都没有对应语法。
+      python: |
+        Go **没有解构赋值**，`a, b := f()` 这种多返回值是唯一的例外，
+        从切片或结构体取值都要逐个写。Python 的
+        `a, b = tup` / `a, *rest = xs` 在 Go 里都没有。
+        从 Python 过来会明显觉得取字段啰嗦，但好处是每个字段的
+        来源在代码里完全显式，读的时候不用回推模式。
+      java: |
+        Go **没有解构赋值**，与 Java 的传统写法一致（record 组件要一个个取）。
+        Java 21 的模式匹配可以在 `instanceof` 与 `switch` 里解出组件，
+        Go 的类型开关 `switch v := x.(type)` 只解出接口里的值本身，
+        不能解构结构体字段。两边的字段访问都要写点号。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
