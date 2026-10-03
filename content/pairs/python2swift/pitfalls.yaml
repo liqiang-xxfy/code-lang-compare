@@ -1,0 +1,202 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 Swift 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-py2swift-no-implicit-conversion
+  featureId: express/type-conversion
+  title: 数值不隐式转换，一个都不行
+  symptom: |
+    Python 的 int 与 float 可以自由混合运算；Swift 里 `let x: Double = someInt`
+    编译不过，必须 `Double(someInt)`。
+  cause: |
+    官方原话是「Values of one type are never implicitly converted to another type」。
+    Python 的数值模型是「int 与 float 自动适配」，Swift 是强类型、零隐式转换。
+  fix: |
+    写显式转换：`Double(n)` / `Int(d)` / `Int64(x)`。
+    字面量能参与推断，变量之间必须显式转。
+  severity: 3
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [数值, 类型转换]
+
+- id: pitfall-py2swift-string-index
+  featureId: express/string-common-ops
+  title: 字符串不能用整数下标
+  symptom: |
+    Python 的 `s[0]`、`s[-1]` 在 Swift 里写不出来 —— 要用 String.Index 或 first / last。
+  cause: |
+    Python 的字符串下标按码点，且支持负索引与切片。
+    Swift 的 String 按**字素簇**处理，`count` 数的是用户感知的字符，
+    所以不能简单整数索引，也没有负下标。
+  fix: |
+    取首尾用 `str.first` / `str.last`；取前 n 个用 `prefix(n)`；
+    按位置取用 `str.index(str.startIndex, offsetBy: n)`。
+  severity: 3
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [字符串]
+
+- id: pitfall-py2swift-value-types
+  featureId: mechanism/value-vs-reference
+  title: 数组、字典、字符串都是值类型
+  symptom: |
+    Python 里 `b = a; b.append(1)` 会改到 a；Swift 里 `var b = a; b.append(1)`
+    不影响 a —— 因为数组是值类型。
+  cause: |
+    Python 的 list / dict 是可变对象、引用语义，赋值传的是同一份。
+    Swift 的 Array / Dictionary / Set / String / struct 都是**值类型**：
+    赋值传参都是拷贝（写时复制只是优化）。
+  fix: |
+    要共享可变状态得用 class。反过来，值语义消除了「意外共享」的 bug。
+  severity: 3
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [值语义]
+
+- id: pitfall-py2swift-optional-enum
+  featureId: mechanism/null-safety
+  title: Optional 是枚举，不是 None
+  symptom: |
+    Python 的 None 随手传；Swift 里可能为空的值要标 `?`，不判空编译不过。
+  cause: |
+    Swift 的 `Optional` 是标准库的泛型枚举（`.none` / `.some`），`Int?` 只是语法糖。
+    它把「可能没有」编进类型系统，逼你处理 —— 比 Python 的 None（运行时才炸）强得多。
+  fix: |
+    用 `if let` / `guard let` 解包，`??` 给默认值，`?.` 可选链。
+    这是从 Python 过来明显更省心的一块。
+  severity: 3
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [空值]
+
+- id: pitfall-py2swift-struct-default
+  featureId: model/inheritance
+  title: struct 是默认选择，而且不能继承
+  symptom: |
+    Python 里随手继承一个类；Swift 里数据模型默认是 struct，根本不能继承。
+  cause: |
+    Python 的类默认开放、可以继承。Swift 里 struct 是值类型、不能继承，
+    且是官方推荐的默认选择；复用靠**协议与扩展**。
+  fix: |
+    默认用 struct；需要共享可变状态、继承、析构器时才用 class。
+    复用逻辑用协议 + 扩展。
+  severity: 2
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [类型系统, 继承]
+
+- id: pitfall-py2swift-overflow-traps
+  featureId: express/arithmetic
+  title: 整数会溢出，而且溢出就崩
+  symptom: |
+    Python 的 int 是任意精度、永不溢出；Swift 的整数溢出会**直接终止程序**。
+  cause: |
+    Swift 的整数运算默认检查溢出，溢出即陷阱（crash）；想回绕必须显式用
+    `&+` / `&-` / `&*`。这与 Python 的任意精度整数是根本不同的模型。
+  fix: |
+    大数场景用 `Double` 或先检查边界；确实要回绕才用 `&+`。
+    别把 Python 的「不会溢出」直觉带过来。
+  severity: 3
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-py2swift-no-finally
+  featureId: model/finally-cleanup
+  title: 没有 finally，清理用 defer
+  symptom: |
+    Python 的 try / finally 在 Swift 里没有对应，得用 defer。
+  cause: |
+    Swift 用 `defer` 块做清理：离开当前作用域时执行（LIFO，抛错时也执行）。
+    Python 的 finally 包在外层，而 defer 写在**拿到资源之后**。
+  fix: |
+    拿到资源立刻写 `defer { ... }`。多个 defer 按逆序执行。
+    可以理解成「离开作用域时的自动清理」，但比 with 更轻。
+  severity: 2
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [资源, 错误处理]
+
+- id: pitfall-py2swift-access-control
+  featureId: model/access-control
+  title: private 不是类级，public 成员默认 internal
+  symptom: |
+    Python 的 `_foo` 是约定、`__foo` 是名称改写；Swift 的 private 是
+    「作用域 + 同文件扩展」，文件级的是 fileprivate。
+  cause: |
+    Python 没有强制的访问控制（靠约定）。Swift 有真正的层级：
+    private / fileprivate / internal（默认）/ public / open。
+    而且 public 类型的成员默认是 internal。
+  fix: |
+    跨模块继承 / 重写标 `open`；只是跨模块使用标 `public`；模块内默认 internal 即可。
+  severity: 2
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [可见性]
+
+- id: pitfall-py2swift-no-comprehension
+  featureId: model/comprehension
+  title: 没有列表推导式
+  symptom: |
+    `[x*2 for x in xs if x > 0]` 写不出来，得换成 filter / map。
+  cause: |
+    Swift 没有推导式语法，对应的是集合的 `filter` / `map` / `compactMap` 等。
+    语义与 Python 推导式接近（先过滤后映射），写法是链式的。
+  fix: |
+    `xs.filter { $0 > 0 }.map { $0 * 2 }` —— `$0` 是第一个参数的简写。
+  severity: 2
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [集合]
+
+- id: pitfall-py2swift-protocol-extension
+  featureId: model/mixin-trait
+  title: 复用靠协议加扩展，不是继承
+  symptom: |
+    Python 里用 mixin 类或继承复用逻辑；Swift 里 struct 不能继承，
+    得改用协议 + 扩展。
+  cause: |
+    Python 的 mixin 是多重继承的用法。Swift 的 struct（默认类型）不能继承，
+    官方推荐的复用方式是**协议 + 扩展**（给协议写默认实现，等价于 mixin）。
+  fix: |
+    把共享行为写进协议，用 extension 提供默认实现。
+    这样值类型也能用，不依赖继承树。
+  severity: 2
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [协议, 复用]
+
+- id: pitfall-py2swift-some-vs-any
+  featureId: mechanism/generic-constraint
+  title: some 与 any 是两件事
+  symptom: |
+    看到 `some Protocol` 和 `any Protocol` 以为是同义写法，其实一个保留具体类型身份、
+    一个不保留。
+  cause: |
+    官方原句：opaque type（`some`）「preserve the identity of the underlying type」；
+    boxed / existential（`any`）「don't preserve type identity」且多一层 box。
+    简单说：`some` 是「某个具体但我不写出来的类型」，`any` 是「任意符合的类型、运行时装箱」。
+  fix: |
+    返回具体类型（调用方不关心是什么）用 `some`；需要存异构集合、运行时动态类型用 `any`。
+    新语言模式下协议当类型用必须显式写 `any` 或 `some`。
+  severity: 2
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [泛型, 协议]
+
+- id: pitfall-py2swift-assert-levels
+  featureId: practice/assertions
+  title: 断言分三档，语义不同
+  symptom: |
+    Python 只有 assert（-O 关掉）；Swift 有 assert / precondition / fatalError 三档，
+    用错会在发布构建里失效或误伤。
+  cause: |
+    `assert` **只在调试构建检查**（发布构建里条件都不求值）；
+    `precondition` 两边都检查；`fatalError` 永远生效。
+    选择标准：内部一致性用 assert，调用方契约用 precondition。
+  fix: |
+    校验调用方传参用 `precondition`；内部不变量用 `assert`；
+    绝不该发生的情况用 `fatalError`。
+  severity: 1
+  languages: [python, swift]
+  fromBaseline: true
+  tags: [断言]

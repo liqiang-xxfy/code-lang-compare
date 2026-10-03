@@ -1,0 +1,94 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 值类型 / 引用类型
+  aliases: [value-type, reference-type, struct, class]
+  perLanguage:
+    java: 8 种原始类型是值类型，其余对象都是引用类型
+    swift: struct / enum / 数组 / 字典 / 字符串都是值类型；class 才是引用类型
+  note: |
+    Swift 的默认选择是值类型，Java 的默认是引用类型 —— 取向正好相反。
+    赋值传参在 Swift 里默认是拷贝。
+
+- term: 内存管理
+  aliases: [gc, arc, memory]
+  perLanguage:
+    java: 垃圾回收器，能自动处理循环引用
+    swift: 自动引用计数（ARC），处理不了循环引用，要 weak / unowned
+  note: |
+    ARC 的释放是确定性的（最后一个引用消失时立刻），
+    代价是循环引用必须手动打断。Java 的 GC 不用操心这个。
+
+- term: 协议 / 扩展
+  aliases: [protocol, extension, interface]
+  perLanguage:
+    java: interface 加默认方法（Java 8+），实现者必须是类
+    swift: 协议加扩展；struct / enum 也能实现，等价于默认方法加 mixin
+  note: |
+    Swift 的协议能被值类型实现，这让抽象不再绑定到类。
+    扩展还能给已有类型加方法（连标准库类型都行）。
+
+- term: 继承
+  aliases: [inheritance, struct, open]
+  perLanguage:
+    java: 类默认可继承（除 final），单继承加接口
+    swift: struct 不能继承且是默认选择；类要 open 才能跨模块继承
+  note: |
+    Swift 的设计取向是「组合优于继承」。数据模型默认用 struct + 协议。
+
+- term: 相等
+  aliases: [equality, identity, equals]
+  perLanguage:
+    java: '`==` 比引用，`.equals()` 比值'
+    swift: '`==` 比值（需 Equatable），`===` 比引用（只对 class）'
+  note: |
+    含义相反：Java 的 `==` 是引用比较，Swift 的 `===` 才是。
+    日常比较在 Swift 里用 `==`。
+
+- term: 访问控制
+  aliases: [private, public, open, internal]
+  perLanguage:
+    java: private / protected / public，类与包粒度
+    swift: private / fileprivate / internal / public / open，作用域与模块粒度
+  note: |
+    Swift 的 private 是「作用域加同文件扩展」，public 类型的成员默认 internal。
+    跨模块继承 / 重写要 open。
+
+- term: defer
+  aliases: [defer, finally, try-with-resources]
+  perLanguage:
+    java: finally 或 try-with-resources
+    swift: 没有 finally；用 defer，写在拿到资源之后，离开作用域时执行
+  note: |
+    defer 可以看作 try-with-resources 的泛化版（不限于资源）。
+    多个 defer 按逆序执行。
+
+- term: Optional
+  aliases: [optional, nullable, 'null']
+  perLanguage:
+    java: null 是特殊值，可空性靠 @Nullable 注解与工具
+    swift: Optional 是泛型枚举（.none / .some），不判空编译不过
+  note: |
+    Swift 把可空性编进类型系统，Java 靠注解与工具补。
+    理解 Optional 是枚举，就理解了它为什么能模式匹配。
+
+- term: 类型转换
+  aliases: [conversion, cast, widening]
+  perLanguage:
+    java: int 自动提升为 long，有装箱拆箱
+    swift: 从不隐式转换，一律显式 Double(n)；也没有装箱
+  note: |
+    官方措辞是 never implicitly converted。好处是没有装箱问题，
+    代价是到处要写转换。
+
+- term: 断言
+  aliases: [assert, precondition]
+  perLanguage:
+    java: assert 默认关，要 -ea 打开
+    swift: 三档 —— assert（仅调试）、precondition（都检查）、fatalError（永远生效）
+  note: |
+    选择标准：内部一致性用 assert，调用方契约用 precondition。
+    可恢复错误用 throws。

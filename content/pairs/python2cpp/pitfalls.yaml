@@ -1,0 +1,191 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 C++ 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-py2cpp-manual-memory
+  featureId: mechanism/ownership-borrow
+  title: 没有 GC，析构时机是确定的
+  symptom: |
+    Python 里不用管内存；C++ 里 new 出来的对象要靠 delete，或者用栈对象自动析构。
+  cause: |
+    Python 有引用计数加循环 GC。C++ 没有 GC：
+    栈对象离开作用域时**确定性地**析构，堆对象由智能指针管理。
+  fix: |
+    优先用栈对象；需要堆分配时用 unique_ptr / shared_ptr，别裸 new / delete。
+    这就是 RAII。好处是释放时机确定，不像 Python 的 GC 那样不可预测。
+  severity: 3
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [内存]
+
+- id: pitfall-py2cpp-value-semantics
+  featureId: mechanism/value-vs-reference
+  title: 值语义是默认，赋值就是拷贝
+  symptom: |
+    Python 的 `b = a` 让两个名字指向同一个列表；C++ 的 `auto b = a` 是拷贝，
+    改 b 不影响 a。
+  cause: |
+    Python 的 list / dict 是可变对象、引用语义。
+    C++ 的对象默认是值类型：赋值、传参默认都是拷贝。
+  fix: |
+    要引用语义用 `T&` / `T*`；大对象传参用 `const T&` 避免拷贝。
+  severity: 3
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [值语义]
+
+- id: pitfall-py2cpp-overflow-ub
+  featureId: express/arithmetic
+  title: 整数会溢出，而且有符号溢出是 UB
+  symptom: |
+    Python 的 int 任意精度、永不溢出；C++ 的有符号整数溢出是 **UB**。
+  cause: |
+    C++ 的有符号整数溢出是 UB（编译器可以假设不发生），无符号整数回绕是确定的。
+    Python 是任意精度整数，两者完全不同。
+  fix: |
+    用足够宽的类型（int64_t）或检查边界；明确要回绕用无符号。
+    需要任意精度整数得用第三方大数库（标准库没有内置）。
+  severity: 3
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [数值, UB]
+
+- id: pitfall-py2cpp-bounds-ub
+  featureId: model/list-array
+  title: 越界访问是未定义行为
+  symptom: |
+    Python 的 `xs[100]` 抛 IndexError；C++ 的 `v[100]` 是 UB，不报错。
+  cause: |
+    Python 的下标有边界检查（越界抛异常，负索引还有特殊语义）。
+    C++ 的 `operator[]` 不做检查，越界即 UB；也没有负索引。
+  fix: |
+    用 `at()`（会抛 out_of_range）或自己检查边界。
+    C++ 的容器不支持负索引，要倒数就用 `rbegin` / `rend` 或从 size 算。
+  severity: 3
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [数组, UB]
+
+- id: pitfall-py2cpp-iterator-invalidation
+  featureId: express/iteration-protocol
+  title: 迭代器会失效
+  symptom: |
+    在 vector 上 push_back 之后，之前保存的迭代器 / 指针 / 引用全都失效，
+    再用就是 UB。
+  cause: |
+    Python 的 list 在修改时已有引用仍然有效（列表对象不变）。
+    C++ 的 vector 扩容会重新分配内存，旧迭代器指向已释放的内存。
+  fix: |
+    修改容器后重新获取迭代器；需要稳定引用用 list / map，或先 reserve。
+  severity: 3
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [迭代, UB]
+
+- id: pitfall-py2cpp-integer-division
+  featureId: express/arithmetic
+  title: 整除向零截断，余数跟着被除数
+  symptom: |
+    Python 的 `-7 // 2` 是 -4（向下取整）、`-7 % 3` 是 2（非负）；
+    C++ 的 `-7 / 2` 是 -3（向零截断）、`-7 % 3` 是 -1（跟着被除数）。
+  cause: |
+    C++ 的整数除法向零截断、余数符号跟被除数 —— 与 Python 的 floor 语义相反。
+    正数时一致，负数时两者都不同。
+  fix: |
+    涉及负数的整除 / 取模要特别小心，必要时自己写 floor 语义的辅助函数。
+  severity: 2
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-py2cpp-shared-ptr-cycle
+  featureId: mechanism/garbage-collection
+  title: shared_ptr 互指就永不析构
+  symptom: |
+    两个对象用 shared_ptr 互相持有，析构函数都不跑。
+  cause: |
+    Python 有循环 GC 能回收循环引用。shared_ptr 是引用计数，互指计数降不到 0。
+  fix: |
+    一头换 weak_ptr。Python 里从来不用操心这件事。
+  severity: 2
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [内存, 引用计数]
+
+- id: pitfall-py2cpp-compilation-model
+  featureId: model/module-unit
+  title: 头文件与源文件，编译是分单元的
+  symptom: |
+    Python 的 import 直接加载 .py；C++ 要写头文件放声明、源文件放定义，
+    还要编译再链接。
+  cause: |
+    Python 的模块是运行时加载的。C++ 的 `#include` 是文本插入，
+    每个编译单元独立编译再链接 —— 所以有声明 / 定义分离的惯例。
+  fix: |
+    头文件放声明（加 `#pragma once`），源文件放定义；模板要在头文件里给定义。
+  severity: 2
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [模块, 编译]
+
+- id: pitfall-py2cpp-no-comprehension
+  featureId: model/comprehension
+  title: 没有列表推导式
+  symptom: |
+    `[x*2 for x in xs if x > 0]` 没有直接对应。
+  cause: |
+    C++ 没有推导式，对应的做法是算法库加 lambda，或者循环手动 push_back。
+    C++20 的 ranges 用管道语法接近一些，但语法更重。
+  fix: |
+    用 `std::views::filter` / `std::views::transform`（C++20 ranges）写管道，
+    或者用 std::copy_if + std::transform 组合。
+  severity: 2
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [集合]
+
+- id: pitfall-py2cpp-static-typing
+  featureId: mechanism/static-vs-dynamic
+  title: 静态类型，而且要编译
+  symptom: |
+    Python 是运行时类型加解释执行；C++ 是编译期类型加编译执行，类型错了直接编译不过。
+  cause: |
+    Python 的类型跟着值走、在运行时确定。C++ 的类型在编译期完全确定，
+    模板还会为每种类型生成独立代码（单态化，不是擦除）。
+  fix: |
+    写类型；用 auto 让编译器推断局部变量。
+    理解模板是编译期展开 —— 这带来零开销抽象，也带来冗长的编译错误。
+  severity: 3
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-py2cpp-no-with
+  featureId: model/finally-cleanup
+  title: 没有 with，清理靠 RAII
+  symptom: |
+    Python 的 `with open(...) as f:` 在 C++ 里没有对应语法。
+  cause: |
+    Python 用上下文管理器加 with 做资源清理。
+    C++ 靠 RAII：对象在离开作用域时自动析构，所以清理逻辑写在**析构函数**里。
+  fix: |
+    用现成的 RAII 类型（ifstream、lock_guard、智能指针）；
+    自己写资源包装类时把释放逻辑放进析构函数。
+  severity: 2
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [资源]
+
+- id: pitfall-py2cpp-coroutines
+  featureId: mechanism/concurrency-unit
+  title: 协程是无栈的，也不给调度器
+  symptom: |
+    Python 的 async/await 有内建事件循环；C++20 的协程只给挂起原语。
+  cause: |
+    Python 的 asyncio 提供事件循环与任务；C++ 的协程语言层只给
+    co_await / co_yield / co_return 与定制点，调度器与任务类型要自己补。
+  fix: |
+    用现成的协程库或框架（如 asio 的协程支持）来补调度那一层。
+  severity: 2
+  languages: [python, cpp]
+  fromBaseline: true
+  tags: [并发, 协程]

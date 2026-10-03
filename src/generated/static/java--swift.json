@@ -1,0 +1,521 @@
+{
+  "baseline": "java",
+  "target": "swift",
+  "pitfalls": [
+    {
+      "id": "pitfall-java2swift-struct-no-inheritance",
+      "title": "struct 不能继承，复用靠协议",
+      "symptomHtml": "<p>Java 里随手 extends；Swift 里数据模型默认是 struct，不能继承。</p>\n",
+      "causeHtml": "<p>Java 的复用主要靠继承。Swift 的默认类型 struct 不能继承，\n复用靠<strong>协议 + 扩展</strong>；类之间才有继承，且要 <code>open</code> 才能跨模块继承。</p>\n",
+      "fixHtml": "<p>默认用 struct + 协议 + 扩展；确实需要继承时才用 class（并标 open）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/inheritance",
+      "tags": [
+        "类型系统",
+        "继承"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-value-types",
+      "title": "值类型是默认选择",
+      "symptomHtml": "<p>Java 里对象赋值是传引用；Swift 里数据模型默认是 struct（值类型），\n赋值传参都是拷贝。</p>\n",
+      "causeHtml": "<p>Java 除了 8 种原始类型，其余都是引用类型。\nSwift 反过来：struct / enum / 数组 / 字典 / 字符串都是值类型，\n且是官方推荐的默认选择；class 才是引用类型。</p>\n",
+      "fixHtml": "<p>默认用 struct；需要共享身份、继承、析构器时才用 class。\n值语义让「意外共享」的 bug 消失。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "值语义"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-access-control",
+      "title": "private 不是类级，public 成员默认 internal",
+      "symptomHtml": "<p>Java 的 private 是类级；Swift 的 private 是「作用域 + 同文件扩展」，\n文件级的是 fileprivate。而且 public 类型的成员默认 internal。</p>\n",
+      "causeHtml": "<p>Java 的访问控制是类 / 包粒度。Swift 是作用域 / 文件 / 模块粒度，\n五档：private / fileprivate / internal（默认）/ public / open。</p>\n",
+      "fixHtml": "<p>跨模块继承 / 重写标 <code>open</code>；跨模块使用标 <code>public</code>；模块内用默认 internal。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/access-control",
+      "tags": [
+        "可见性"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-arc-not-gc",
+      "title": "是引用计数，不是垃圾回收",
+      "symptomHtml": "<p>Java 靠 GC，对象迟早会被回收，循环引用无所谓；\nSwift 用 ARC，<strong>循环引用会导致内存永不释放</strong>。</p>\n",
+      "causeHtml": "<p>Java 的 GC 能识别并回收循环引用。\nSwift 的 ARC 是编译期插入 retain / release 的引用计数，处理不了循环引用 ——\n两个对象互指，计数都降不到 0。</p>\n",
+      "fixHtml": "<p>用 <code>weak</code> / <code>unowned</code> 打断引用环（尤其是闭包捕获 self 时）。\n好处是释放时机确定（最后一个引用消失即释放），不像 GC 那样不可预测。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/garbage-collection",
+      "tags": [
+        "内存"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-cancellation",
+      "title": "取消是协作式的",
+      "symptomHtml": "<p>Java 的 Future.cancel(true) 会尝试中断线程；\nSwift 的 Task.cancel() 只设标志，不查就一直跑完。</p>\n",
+      "causeHtml": "<p>Java 有线程中断机制（虽然是协作的，但会打断阻塞调用）。\nSwift 的 <code>cancel()</code> 只设标志，代码自己得查 <code>Task.isCancelled</code> 或\n<code>checkCancellation()</code>。不查的代码对 cancel 无感。</p>\n",
+      "fixHtml": "<p>在长任务循环里定期 <code>try Task.checkCancellation()</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/cancellation",
+      "tags": [
+        "并发",
+        "取消"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-identity",
+      "title": "三个等号只对类实例成立",
+      "symptomHtml": "<p>Java 的 <code>==</code> 比引用；Swift 里 <code>==</code> 比值、<code>===</code> 比引用，\n而 <code>===</code> 只对类的实例有效。</p>\n",
+      "causeHtml": "<p>Java 的 <code>==</code> 比引用、<code>.equals()</code> 比值。\nSwift 反过来：<code>==</code> 比值（需 Equatable），<code>===</code> 比引用（只对 class）。\n值类型用 <code>===</code> 会编译错误。</p>\n",
+      "fixHtml": "<p>值比较用 <code>==</code>；判「同一对象」用 <code>===</code>，且只对类。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/equality",
+      "tags": [
+        "相等"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-no-finally",
+      "title": "没有 finally，清理用 defer",
+      "symptomHtml": "<p>Java 的 try / catch / finally 在 Swift 里没有 finally，得用 defer。</p>\n",
+      "causeHtml": "<p>Swift 用 <code>defer</code> 块做清理：离开作用域时执行（LIFO，抛错时也执行）。\nJava 的 finally 包在外层，而 defer 写在<strong>拿到资源之后</strong>，\n更接近 try-with-resources。</p>\n",
+      "fixHtml": "<p>拿到资源立刻写 <code>defer { ... }</code>，可以看作 try-with-resources 的泛化版\n（不限于资源，任意清理逻辑都行）。多个 defer 按逆序执行。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/finally-cleanup",
+      "tags": [
+        "资源"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-no-implicit-conversion",
+      "title": "没有隐式数值拓宽，也没有装箱",
+      "symptomHtml": "<p>Java 的 int 会自动提升为 long；Swift 不隐式转换，必须 Double(n) / Int64(x)。</p>\n",
+      "causeHtml": "<p>Java 有隐式数值拓宽与自动装箱。Swift <strong>从不隐式转换</strong>，\n官方原话是 never implicitly converted，也没有基本类型 / 包装类型的区分。</p>\n",
+      "fixHtml": "<p>写显式转换。好在没有装箱问题 —— Swift 的 Int / Double 都是值类型，\n不像 Java 要操心 Integer 与 int。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/type-conversion",
+      "tags": [
+        "数值",
+        "类型转换"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-overflow-traps",
+      "title": "整数溢出会崩，不是静默回绕",
+      "symptomHtml": "<p>Java 的 int 溢出是静默回绕（MAX_VALUE + 1 = MIN_VALUE）；\nSwift 的整数溢出<strong>直接终止程序</strong>。</p>\n",
+      "causeHtml": "<p>Java 的整数运算静默回绕。Swift 默认<strong>检查溢出</strong>，溢出即陷阱（crash）；\n想回绕必须显式用 <code>&amp;+</code> / <code>&amp;-</code> / <code>&amp;*</code>。</p>\n",
+      "fixHtml": "<p>确认不会溢出，或用 <code>&amp;+</code> 明确表达「我知道要回绕」。\nJava 那种「溢出就回绕」的直觉在 Swift 里会变成崩溃。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-protocol-extension",
+      "title": "协议可以带默认实现，值类型也能用",
+      "symptomHtml": "<p>Java 8+ 的接口默认方法在 Swift 里对应协议扩展，\n但 Swift 的协议能让值类型（struct）也实现。</p>\n",
+      "causeHtml": "<p>Java 的接口实现者必须是类。Swift 的协议可以<strong>被 struct / enum 实现</strong>，\n用 extension 提供默认实现 —— 等价于 Java 的默认方法 + mixin 的组合。</p>\n",
+      "fixHtml": "<p>把共享行为写进协议 + 扩展。这让值类型也能参与抽象，\n不被迫为了实现接口而用 class。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/mixin-trait",
+      "tags": [
+        "协议",
+        "复用"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-string-index",
+      "title": "字符串不能用整数下标",
+      "symptomHtml": "<p>Java 的 <code>s.charAt(0)</code> 在 Swift 里没有直接对应，<code>s[0]</code> 编译不过。</p>\n",
+      "causeHtml": "<p>Java 的 String 按 UTF-16 码元、charAt 按索引取。\nSwift 的 String 按<strong>字素簇</strong>处理，count 数的是用户感知的字符数，\n不能整数索引，要用 String.Index。</p>\n",
+      "fixHtml": "<p>取首尾用 <code>str.first</code> / <code>str.last</code>；按位置取用\n<code>str.index(str.startIndex, offsetBy: n)</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-java2swift-assert-levels",
+      "title": "断言分三档，语义不同",
+      "symptomHtml": "<p>Java 的 assert 默认关（要 -ea）；Swift 有三档，选错会在发布构建里失效或误伤。</p>\n",
+      "causeHtml": "<p><code>assert</code> 只在调试构建检查（发布构建里条件都不求值）；\n<code>precondition</code> 两边都检查；<code>fatalError</code> 永远生效。\nSwift 用 <code>throws</code> + <code>try</code> 表达可恢复错误，而不是受检异常。</p>\n",
+      "fixHtml": "<p>内部不变量用 <code>assert</code>；调用方契约用 <code>precondition</code>；\n绝不该发生的用 <code>fatalError</code>。可恢复错误用 throws。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "practice/assertions",
+      "tags": [
+        "断言"
+      ],
+      "baseline": "java",
+      "target": "swift"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "值类型 / 引用类型",
+      "aliases": [
+        "value-type",
+        "reference-type",
+        "struct",
+        "class"
+      ],
+      "perLanguage": {
+        "java": "8 种原始类型是值类型，其余对象都是引用类型",
+        "swift": "struct / enum / 数组 / 字典 / 字符串都是值类型；class 才是引用类型"
+      },
+      "note": "Swift 的默认选择是值类型，Java 的默认是引用类型 —— 取向正好相反。\n赋值传参在 Swift 里默认是拷贝。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "内存管理",
+      "aliases": [
+        "gc",
+        "arc",
+        "memory"
+      ],
+      "perLanguage": {
+        "java": "垃圾回收器，能自动处理循环引用",
+        "swift": "自动引用计数（ARC），处理不了循环引用，要 weak / unowned"
+      },
+      "note": "ARC 的释放是确定性的（最后一个引用消失时立刻），\n代价是循环引用必须手动打断。Java 的 GC 不用操心这个。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "协议 / 扩展",
+      "aliases": [
+        "protocol",
+        "extension",
+        "interface"
+      ],
+      "perLanguage": {
+        "java": "interface 加默认方法（Java 8+），实现者必须是类",
+        "swift": "协议加扩展；struct / enum 也能实现，等价于默认方法加 mixin"
+      },
+      "note": "Swift 的协议能被值类型实现，这让抽象不再绑定到类。\n扩展还能给已有类型加方法（连标准库类型都行）。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "继承",
+      "aliases": [
+        "inheritance",
+        "struct",
+        "open"
+      ],
+      "perLanguage": {
+        "java": "类默认可继承（除 final），单继承加接口",
+        "swift": "struct 不能继承且是默认选择；类要 open 才能跨模块继承"
+      },
+      "note": "Swift 的设计取向是「组合优于继承」。数据模型默认用 struct + 协议。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "相等",
+      "aliases": [
+        "equality",
+        "identity",
+        "equals"
+      ],
+      "perLanguage": {
+        "java": "`==` 比引用，`.equals()` 比值",
+        "swift": "`==` 比值（需 Equatable），`===` 比引用（只对 class）"
+      },
+      "note": "含义相反：Java 的 `==` 是引用比较，Swift 的 `===` 才是。\n日常比较在 Swift 里用 `==`。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "访问控制",
+      "aliases": [
+        "private",
+        "public",
+        "open",
+        "internal"
+      ],
+      "perLanguage": {
+        "java": "private / protected / public，类与包粒度",
+        "swift": "private / fileprivate / internal / public / open，作用域与模块粒度"
+      },
+      "note": "Swift 的 private 是「作用域加同文件扩展」，public 类型的成员默认 internal。\n跨模块继承 / 重写要 open。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "defer",
+      "aliases": [
+        "defer",
+        "finally",
+        "try-with-resources"
+      ],
+      "perLanguage": {
+        "java": "finally 或 try-with-resources",
+        "swift": "没有 finally；用 defer，写在拿到资源之后，离开作用域时执行"
+      },
+      "note": "defer 可以看作 try-with-resources 的泛化版（不限于资源）。\n多个 defer 按逆序执行。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "Optional",
+      "aliases": [
+        "optional",
+        "nullable",
+        "null"
+      ],
+      "perLanguage": {
+        "java": "null 是特殊值，可空性靠 @Nullable 注解与工具",
+        "swift": "Optional 是泛型枚举（.none / .some），不判空编译不过"
+      },
+      "note": "Swift 把可空性编进类型系统，Java 靠注解与工具补。\n理解 Optional 是枚举，就理解了它为什么能模式匹配。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "conversion",
+        "cast",
+        "widening"
+      ],
+      "perLanguage": {
+        "java": "int 自动提升为 long，有装箱拆箱",
+        "swift": "从不隐式转换，一律显式 Double(n)；也没有装箱"
+      },
+      "note": "官方措辞是 never implicitly converted。好处是没有装箱问题，\n代价是到处要写转换。\n",
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "term": "断言",
+      "aliases": [
+        "assert",
+        "precondition"
+      ],
+      "perLanguage": {
+        "java": "assert 默认关，要 -ea 打开",
+        "swift": "三档 —— assert（仅调试）、precondition（都检查）、fatalError（永远生效）"
+      },
+      "note": "选择标准：内部一致性用 assert，调用方契约用 precondition。\n可恢复错误用 throws。\n",
+      "baseline": "java",
+      "target": "swift"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2swift-1-values-and-memory",
+      "order": 1,
+      "title": "值语义与内存模型",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 Xcode（macOS）或用 Swift Playgrounds 跑通一段代码",
+        "写一段熟悉的 Java 逻辑用 Swift 重写，体会「值类型是默认」",
+        "验证把数组传给函数是拷贝而不是共享",
+        "对照本工具「语言机制」板块里 Swift 列的「值语义」「内存管理」两格"
+      ],
+      "acceptance": [
+        "能说清 struct 与 class 的取舍，以及为什么 Swift 默认用 struct",
+        "能说清 ARC 与 GC 的差别，以及循环引用为什么要手动打断"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        },
+        {
+          "label": "The Swift Programming Language（官方书）",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/"
+        }
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "java2swift-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1-2 天",
+      "todo": [
+        "过一遍字符串、数组、字典的操作，注意字符串不能用整数下标",
+        "试一次整数溢出，理解它崩溃而不是回绕",
+        "把 try / finally 改成 do / catch / defer",
+        "注意 `==` 比值、`===` 比引用（只对类）"
+      ],
+      "acceptance": [
+        "能独立写出变量、容器、控制流、函数定义，无语法错误",
+        "知道哪些写法会编译不过（字符串下标、隐式转换、值类型用 ===）"
+      ],
+      "resources": [
+        {
+          "label": "The Swift Programming Language（官方书）",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/"
+        }
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "java2swift-3-protocols",
+      "order": 3,
+      "title": "协议、扩展与可见性",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用协议 + 扩展做复用，对比 Java 的接口与默认方法",
+        "用 struct 建数据模型，体会自动生成的逐成员构造器",
+        "搞清 private / fileprivate / internal / public / open 的区别",
+        "处理一次闭包捕获造成的循环引用（加 [weak self]）"
+      ],
+      "acceptance": [
+        "能说清 Swift 的协议与 Java 接口的异同（值类型也能实现）",
+        "能在需要共享状态时正确选择 class 并处理引用环"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        }
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "java2swift-4-concurrency",
+      "order": 4,
+      "title": "并发：async / await 与 actor",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把一段 ExecutorService 的代码改写成 async / await 与 TaskGroup",
+        "用 actor 保护共享状态，理解数据竞争在编译期就被拦",
+        "试一次协作式取消：cancel() 之后不检查标志，任务照样跑完",
+        "对比 Swift 的 actor 与 Java 的 synchronized / 锁"
+      ],
+      "acceptance": [
+        "能说清 actor 模型与共享内存加锁的差别",
+        "能写出正确响应的可取消任务"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档 · 并发",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency/"
+        }
+      ],
+      "baseline": "java",
+      "target": "swift"
+    },
+    {
+      "id": "java2swift-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 Swift Package Manager 管依赖，理解它与 Maven / Gradle 的差别",
+        "用 swift-testing 或 XCTest 写测试",
+        "处理一次跨模块的访问控制问题（open vs public）",
+        "对照本工具「工程实践」板块里 Swift 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖、测试的 Swift Package",
+        "能说清 Swift 的构建与依赖管理和 JVM 生态的差别"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档 · Package Manager",
+          "url": "https://www.swift.org/documentation/package-manager/"
+        },
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        }
+      ],
+      "baseline": "java",
+      "target": "swift"
+    }
+  ]
+}

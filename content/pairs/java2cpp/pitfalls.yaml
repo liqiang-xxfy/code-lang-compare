@@ -1,0 +1,203 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 C++ 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-java2cpp-no-gc-raii
+  featureId: mechanism/ownership-borrow
+  title: 没有 GC，析构时机是确定的
+  symptom: |
+    Java 靠 GC 自动回收；C++ 里 new 出来的对象要靠 delete，
+    或者用栈对象 / 智能指针自动管理。
+  cause: |
+    Java 有 GC（finalize 早被废弃且不可靠）。C++ 没有 GC：
+    栈对象离开作用域时确定性地析构，堆对象由智能指针管理。
+    RAII 把「资源的生命周期」绑到「对象的生命周期」上。
+  fix: |
+    优先用栈对象；需要堆分配时用 unique_ptr / shared_ptr，别裸 new / delete。
+    好处是释放时机确定 —— 不像 Java 的 GC 那样不可预测。
+  severity: 3
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [内存]
+
+- id: pitfall-java2cpp-value-semantics
+  featureId: mechanism/value-vs-reference
+  title: 值语义是默认，赋值就是拷贝
+  symptom: |
+    Java 的对象赋值传引用；C++ 的 `auto b = a` 是拷贝，改 b 不影响 a。
+  cause: |
+    Java 除原始类型外都是引用类型。C++ 的对象默认是值类型：
+    赋值、传参默认都是拷贝。
+  fix: |
+    要引用语义用 `T&` / `T*`；大对象传参用 `const T&` 避免拷贝。
+    这与 Java 的引用语义正好相反。
+  severity: 3
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [值语义]
+
+- id: pitfall-java2cpp-signed-overflow-ub
+  featureId: express/arithmetic
+  title: 有符号溢出是 UB，不是静默回绕
+  symptom: |
+    Java 的 int 溢出静默回绕（MAX_VALUE + 1 = MIN_VALUE）；
+    C++ 的有符号溢出是 **UB**，编译器可以做任何事。
+  cause: |
+    Java 明确定义了整数溢出为回绕。C++ 里**有符号溢出是 UB**，
+    无符号回绕才是确定的 —— 这是两个语言对同一件事的相反规定。
+  fix: |
+    确认运算不会溢出，或明确要回绕时用无符号。
+    别把 Java 的「溢出就回绕」当成 C++ 的保证。
+  severity: 3
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [数值, UB]
+
+- id: pitfall-java2cpp-bounds-ub
+  featureId: model/list-array
+  title: 越界访问是未定义行为，不抛异常
+  symptom: |
+    Java 的 `arr[100]` 抛 ArrayIndexOutOfBoundsException；
+    C++ 的 `v[100]` 是 UB，不报错。
+  cause: |
+    Java 的所有数组访问都有边界检查（抛异常）。C++ 的 `operator[]`
+    不做检查，越界即 UB —— 没有异常、没有错误码。
+  fix: |
+    用 `at()`（会抛 out_of_range）替代 `[]`，或自己检查边界。
+    Java 的「越界必抛」保障在 C++ 里要靠自觉。
+  severity: 3
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [数组, UB]
+
+- id: pitfall-java2cpp-iterator-invalidation
+  featureId: express/iteration-protocol
+  title: 迭代器会失效
+  symptom: |
+    Java 的迭代器在修改集合时会抛 ConcurrentModificationException；
+    C++ 的迭代器失效后**不报错**，用了就是 UB。
+  cause: |
+    Java 的集合迭代器有 fail-fast 检查（修改就抛异常）。
+    C++ 的 vector 扩容会重新分配内存，旧迭代器指向已释放内存，再用即 UB。
+  fix: |
+    修改容器后重新获取迭代器；需要稳定引用用 list / map，或先 reserve。
+    在循环里删元素要用 erase 的返回值更新迭代器。
+  severity: 3
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [迭代, UB]
+
+- id: pitfall-java2cpp-shared-ptr-cycle
+  featureId: mechanism/garbage-collection
+  title: shared_ptr 互指就永不析构
+  symptom: |
+    两个对象用 shared_ptr 互相持有，析构函数都不跑。
+  cause: |
+    Java 的 GC 能回收循环引用。shared_ptr 是引用计数，互指计数降不到 0。
+  fix: |
+    一头换 weak_ptr。Java 里从来不用操心这件事。
+  severity: 2
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [内存, 引用计数]
+
+- id: pitfall-java2cpp-raii-vs-finally
+  featureId: model/finally-cleanup
+  title: 用 RAII 代替 finally 与 try-with-resources
+  symptom: |
+    Java 的 try-with-resources / finally 在 C++ 里没有对应语法。
+  cause: |
+    Java 靠 finally 与 AutoCloseable 做清理。
+    C++ 靠 RAII：清理逻辑写在析构函数里，对象离开作用域就执行 ——
+    不需要显式的 try 块。
+  fix: |
+    用现成的 RAII 类型（lock_guard、ifstream、智能指针）；
+    自己写资源包装类时把释放放进析构函数。
+    lock_guard 相当于 synchronized 块的作用域版。
+  severity: 2
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [资源]
+
+- id: pitfall-java2cpp-compilation-model
+  featureId: model/module-unit
+  title: 头文件、编译单元与链接
+  symptom: |
+    Java 的 package / import 是整体加载；C++ 要写头文件放声明、
+    源文件放定义，还要链接。
+  cause: |
+    Java 的类从 .class 文件加载，编译单元与包结构绑定。
+    C++ 的 `#include` 是文本插入，每个编译单元独立编译再链接 ——
+    所以有「重复定义」「未定义引用」这类 Java 里不存在的错误。
+  fix: |
+    头文件放声明（加 `#pragma once`），源文件放定义；模板要在头文件里给定义。
+    理解「声明 vs 定义」「编译 vs 链接」这两组区分。
+  severity: 2
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [模块, 编译]
+
+- id: pitfall-java2cpp-coroutines
+  featureId: mechanism/concurrency-unit
+  title: 协程是无栈的，也不给调度器
+  symptom: |
+    Java 的虚拟线程开箱即用；C++20 的协程只给挂起原语，要自己接调度器。
+  cause: |
+    Java 21 的虚拟线程由运行时调度。C++ 的协程语言层只给
+    co_await / co_yield / co_return 与定制点，没有调度器、没有任务类型。
+  fix: |
+    用现成的协程库补上调度层；也可以先用 std::thread 与线程池，不急着上协程。
+  severity: 2
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [并发, 协程]
+
+- id: pitfall-java2cpp-rtti-limited
+  featureId: mechanism/reflection
+  title: RTTI 能力很有限
+  symptom: |
+    Java 的 getClass().getName() 给可读类名、能反射调用方法；
+    C++ 的 typeid 给修饰名，也没有方法反射。
+  cause: |
+    Java 的反射完整且名字可读。C++ 的 RTTI 只有 typeid 与 dynamic_cast，
+    类型名是**实现定义的修饰名**（mangled），也没有属性 / 方法遍历。
+  fix: |
+    需要可读类型名就 demangle；需要「按名字创建对象」得自己做注册表。
+    C++ 没有 Java 那样的运行期反射。
+  severity: 2
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [元编程]
+
+- id: pitfall-java2cpp-templates-vs-generics
+  featureId: mechanism/generic-declaration
+  title: 模板是编译期展开，不是泛型擦除
+  symptom: |
+    Java 的泛型擦除后运行期看不到类型参数；C++ 的模板为每种类型
+    生成独立代码，编译错误也长得完全不同。
+  cause: |
+    Java 的泛型是擦除的（类型检查在编译期，运行期无类型参数）。
+    C++ 的模板是**编译期单态化**：`vector<int>` 与 `vector<double>` 是两份独立代码。
+    这带来零开销抽象，也带来代码膨胀与冗长的错误信息。
+  fix: |
+    理解「模板是编译期的代码生成」，不是运行期的类型参数。
+    遇到长错误信息从**第一条** error 读起（后面多是连锁反应）。
+  severity: 2
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [泛型, 模板]
+
+- id: pitfall-java2cpp-reserved-identifiers
+  featureId: express/naming-convention
+  title: 用错保留标识符，编译器一声不吭
+  symptom: |
+    定义了 `_Foo` 或 `__bar` 这样的名字，编译器不报错也不警告，但行为未定义。
+  cause: |
+    C++ 保留了以下划线开头、含双下划线等一批标识符给实现。
+    用了它们**没有诊断**。Java 的命名规则更宽松，也没有这类保留模式。
+  fix: |
+    别用 `_` 开头或含 `__` 的标识符（成员变量尾随下划线 `foo_` 安全）。
+    也注意 C++ 的自定义属性不被支持（`[[my_attr]]` 只给一条警告然后照编）。
+  severity: 1
+  languages: [java, cpp]
+  fromBaseline: true
+  tags: [命名]

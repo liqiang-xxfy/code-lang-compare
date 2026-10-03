@@ -1,0 +1,93 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 值语义 / 引用语义
+  aliases: [value-semantics, reference, pointer]
+  perLanguage:
+    java: 除原始类型外都是引用类型，赋值共享
+    cpp: 对象默认是值类型，赋值即拷贝；要共享得显式用引用或指针
+  note: |
+    与 Java 的引用语义正好相反。「传参会不会改到原对象」默认答案是「不会」。
+
+- term: 内存管理
+  aliases: [raii, gc, ownership]
+  perLanguage:
+    java: 垃圾回收，自动且时机不确定
+    cpp: 没有 GC；栈对象离开作用域即析构，堆对象靠智能指针
+  note: |
+    RAII 的核心：资源获取即初始化，析构即释放。
+    释放时机确定是好事，代价是循环引用要自己用 weak_ptr 打断。
+
+- term: 未定义行为
+  aliases: [ub, undefined-behavior]
+  perLanguage:
+    java: 没有这个概念；越界抛异常，溢出回绕，都是明确定义的行为
+    cpp: 越界、有符号溢出、用失效迭代器都是 UB，编译器可以做任何事
+  note: |
+    Java 把所有错误都定义成了确定的异常行为，C++ 里很多是 UB。
+    这是从 Java 过来最需要建立的新概念。
+
+- term: 迭代器
+  aliases: [iterator, invalidation]
+  perLanguage:
+    java: 迭代器有 fail-fast 检查，修改集合就抛异常
+    cpp: 迭代器失效后不报错，用了就是 UB
+  note: |
+    vector 扩容会重新分配内存，所有旧迭代器一起失效。
+    在循环里删元素要用 erase 的返回值更新迭代器。
+
+- term: 智能指针
+  aliases: [smart-pointer, shared-ptr, unique-ptr]
+  perLanguage:
+    java: 只有引用，GC 统一管理
+    cpp: unique_ptr 独占、shared_ptr 共享计数、weak_ptr 不增计数
+  note: |
+    shared_ptr 是引用计数，互指会永不析构（Java 的 GC 能处理循环引用）。
+    打破环用 weak_ptr。
+
+- term: 模板 / 泛型
+  aliases: [template, generic]
+  perLanguage:
+    java: 泛型擦除，运行期无类型参数，编译一次
+    cpp: 模板单态化，为每种类型生成独立代码
+  note: |
+    这是两个完全不同机制的同名概念。
+    模板带来零开销抽象与代码膨胀，编译错误也冗长得多。
+
+- term: 编译 / 链接
+  aliases: [compile, link, header]
+  perLanguage:
+    java: 编译成 .class，由 JVM 加载；没有单独的链接步骤
+    cpp: 头文件文本包含、每个编译单元独立编译、最后链接
+  note: |
+    理解「声明 vs 定义」「编译 vs 链接」这两组区分，
+    很多 Java 里不存在的错误（重复定义、未定义引用）就说得通了。
+
+- term: 反射
+  aliases: [reflection, rtti, typeid]
+  perLanguage:
+    java: 完整反射，类名可读，能调用方法、遍历字段
+    cpp: RTTI 只有 typeid 与 dynamic_cast，类型名是实现定义的修饰名
+  note: |
+    C++ 没有 Java 那样的运行期反射。
+    要「按名字创建对象」得自己做注册表。
+
+- term: 协程 / 线程
+  aliases: [coroutine, virtual-thread]
+  perLanguage:
+    java: 虚拟线程由运行时调度，开箱即用
+    cpp: 无栈协程，语言只给挂起原语，调度器与任务类型靠库
+  note: |
+    C++20 的协程不是开箱即用的。没有事件循环、没有任务类型。
+
+- term: 资源管理
+  aliases: [raii, try-with-resources]
+  perLanguage:
+    java: try-with-resources 与 AutoCloseable，finally 兜底
+    cpp: RAII —— 清理写在析构函数里，离开作用域自动执行
+  note: |
+    lock_guard 相当于 synchronized 块的作用域版；
+    智能指针相当于「自动 close 的 AutoCloseable」。

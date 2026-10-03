@@ -1,0 +1,530 @@
+{
+  "baseline": "java",
+  "target": "cpp",
+  "pitfalls": [
+    {
+      "id": "pitfall-java2cpp-bounds-ub",
+      "title": "越界访问是未定义行为，不抛异常",
+      "symptomHtml": "<p>Java 的 <code>arr[100]</code> 抛 ArrayIndexOutOfBoundsException；\nC++ 的 <code>v[100]</code> 是 UB，不报错。</p>\n",
+      "causeHtml": "<p>Java 的所有数组访问都有边界检查（抛异常）。C++ 的 <code>operator[]</code>\n不做检查，越界即 UB —— 没有异常、没有错误码。</p>\n",
+      "fixHtml": "<p>用 <code>at()</code>（会抛 out_of_range）替代 <code>[]</code>，或自己检查边界。\nJava 的「越界必抛」保障在 C++ 里要靠自觉。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/list-array",
+      "tags": [
+        "数组",
+        "UB"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-iterator-invalidation",
+      "title": "迭代器会失效",
+      "symptomHtml": "<p>Java 的迭代器在修改集合时会抛 ConcurrentModificationException；\nC++ 的迭代器失效后<strong>不报错</strong>，用了就是 UB。</p>\n",
+      "causeHtml": "<p>Java 的集合迭代器有 fail-fast 检查（修改就抛异常）。\nC++ 的 vector 扩容会重新分配内存，旧迭代器指向已释放内存，再用即 UB。</p>\n",
+      "fixHtml": "<p>修改容器后重新获取迭代器；需要稳定引用用 list / map，或先 reserve。\n在循环里删元素要用 erase 的返回值更新迭代器。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/iteration-protocol",
+      "tags": [
+        "迭代",
+        "UB"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-no-gc-raii",
+      "title": "没有 GC，析构时机是确定的",
+      "symptomHtml": "<p>Java 靠 GC 自动回收；C++ 里 new 出来的对象要靠 delete，\n或者用栈对象 / 智能指针自动管理。</p>\n",
+      "causeHtml": "<p>Java 有 GC（finalize 早被废弃且不可靠）。C++ 没有 GC：\n栈对象离开作用域时确定性地析构，堆对象由智能指针管理。\nRAII 把「资源的生命周期」绑到「对象的生命周期」上。</p>\n",
+      "fixHtml": "<p>优先用栈对象；需要堆分配时用 unique_ptr / shared_ptr，别裸 new / delete。\n好处是释放时机确定 —— 不像 Java 的 GC 那样不可预测。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/ownership-borrow",
+      "tags": [
+        "内存"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-signed-overflow-ub",
+      "title": "有符号溢出是 UB，不是静默回绕",
+      "symptomHtml": "<p>Java 的 int 溢出静默回绕（MAX_VALUE + 1 = MIN_VALUE）；\nC++ 的有符号溢出是 <strong>UB</strong>，编译器可以做任何事。</p>\n",
+      "causeHtml": "<p>Java 明确定义了整数溢出为回绕。C++ 里<strong>有符号溢出是 UB</strong>，\n无符号回绕才是确定的 —— 这是两个语言对同一件事的相反规定。</p>\n",
+      "fixHtml": "<p>确认运算不会溢出，或明确要回绕时用无符号。\n别把 Java 的「溢出就回绕」当成 C++ 的保证。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "UB"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-value-semantics",
+      "title": "值语义是默认，赋值就是拷贝",
+      "symptomHtml": "<p>Java 的对象赋值传引用；C++ 的 <code>auto b = a</code> 是拷贝，改 b 不影响 a。</p>\n",
+      "causeHtml": "<p>Java 除原始类型外都是引用类型。C++ 的对象默认是值类型：\n赋值、传参默认都是拷贝。</p>\n",
+      "fixHtml": "<p>要引用语义用 <code>T&amp;</code> / <code>T*</code>；大对象传参用 <code>const T&amp;</code> 避免拷贝。\n这与 Java 的引用语义正好相反。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "值语义"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-compilation-model",
+      "title": "头文件、编译单元与链接",
+      "symptomHtml": "<p>Java 的 package / import 是整体加载；C++ 要写头文件放声明、\n源文件放定义，还要链接。</p>\n",
+      "causeHtml": "<p>Java 的类从 .class 文件加载，编译单元与包结构绑定。\nC++ 的 <code>#include</code> 是文本插入，每个编译单元独立编译再链接 ——\n所以有「重复定义」「未定义引用」这类 Java 里不存在的错误。</p>\n",
+      "fixHtml": "<p>头文件放声明（加 <code>#pragma once</code>），源文件放定义；模板要在头文件里给定义。\n理解「声明 vs 定义」「编译 vs 链接」这两组区分。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/module-unit",
+      "tags": [
+        "模块",
+        "编译"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-coroutines",
+      "title": "协程是无栈的，也不给调度器",
+      "symptomHtml": "<p>Java 的虚拟线程开箱即用；C++20 的协程只给挂起原语，要自己接调度器。</p>\n",
+      "causeHtml": "<p>Java 21 的虚拟线程由运行时调度。C++ 的协程语言层只给\nco_await / co_yield / co_return 与定制点，没有调度器、没有任务类型。</p>\n",
+      "fixHtml": "<p>用现成的协程库补上调度层；也可以先用 std::thread 与线程池，不急着上协程。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发",
+        "协程"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-raii-vs-finally",
+      "title": "用 RAII 代替 finally 与 try-with-resources",
+      "symptomHtml": "<p>Java 的 try-with-resources / finally 在 C++ 里没有对应语法。</p>\n",
+      "causeHtml": "<p>Java 靠 finally 与 AutoCloseable 做清理。\nC++ 靠 RAII：清理逻辑写在析构函数里，对象离开作用域就执行 ——\n不需要显式的 try 块。</p>\n",
+      "fixHtml": "<p>用现成的 RAII 类型（lock_guard、ifstream、智能指针）；\n自己写资源包装类时把释放放进析构函数。\nlock_guard 相当于 synchronized 块的作用域版。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/finally-cleanup",
+      "tags": [
+        "资源"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-rtti-limited",
+      "title": "RTTI 能力很有限",
+      "symptomHtml": "<p>Java 的 getClass().getName() 给可读类名、能反射调用方法；\nC++ 的 typeid 给修饰名，也没有方法反射。</p>\n",
+      "causeHtml": "<p>Java 的反射完整且名字可读。C++ 的 RTTI 只有 typeid 与 dynamic_cast，\n类型名是<strong>实现定义的修饰名</strong>（mangled），也没有属性 / 方法遍历。</p>\n",
+      "fixHtml": "<p>需要可读类型名就 demangle；需要「按名字创建对象」得自己做注册表。\nC++ 没有 Java 那样的运行期反射。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/reflection",
+      "tags": [
+        "元编程"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-shared-ptr-cycle",
+      "title": "shared_ptr 互指就永不析构",
+      "symptomHtml": "<p>两个对象用 shared_ptr 互相持有，析构函数都不跑。</p>\n",
+      "causeHtml": "<p>Java 的 GC 能回收循环引用。shared_ptr 是引用计数，互指计数降不到 0。</p>\n",
+      "fixHtml": "<p>一头换 weak_ptr。Java 里从来不用操心这件事。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/garbage-collection",
+      "tags": [
+        "内存",
+        "引用计数"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-templates-vs-generics",
+      "title": "模板是编译期展开，不是泛型擦除",
+      "symptomHtml": "<p>Java 的泛型擦除后运行期看不到类型参数；C++ 的模板为每种类型\n生成独立代码，编译错误也长得完全不同。</p>\n",
+      "causeHtml": "<p>Java 的泛型是擦除的（类型检查在编译期，运行期无类型参数）。\nC++ 的模板是<strong>编译期单态化</strong>：<code>vector&lt;int&gt;</code> 与 <code>vector&lt;double&gt;</code> 是两份独立代码。\n这带来零开销抽象，也带来代码膨胀与冗长的错误信息。</p>\n",
+      "fixHtml": "<p>理解「模板是编译期的代码生成」，不是运行期的类型参数。\n遇到长错误信息从<strong>第一条</strong> error 读起（后面多是连锁反应）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-declaration",
+      "tags": [
+        "泛型",
+        "模板"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "pitfall-java2cpp-reserved-identifiers",
+      "title": "用错保留标识符，编译器一声不吭",
+      "symptomHtml": "<p>定义了 <code>_Foo</code> 或 <code>__bar</code> 这样的名字，编译器不报错也不警告，但行为未定义。</p>\n",
+      "causeHtml": "<p>C++ 保留了以下划线开头、含双下划线等一批标识符给实现。\n用了它们<strong>没有诊断</strong>。Java 的命名规则更宽松，也没有这类保留模式。</p>\n",
+      "fixHtml": "<p>别用 <code>_</code> 开头或含 <code>__</code> 的标识符（成员变量尾随下划线 <code>foo_</code> 安全）。\n也注意 C++ 的自定义属性不被支持（<code>[[my_attr]]</code> 只给一条警告然后照编）。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "cpp"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/naming-convention",
+      "tags": [
+        "命名"
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "值语义 / 引用语义",
+      "aliases": [
+        "value-semantics",
+        "reference",
+        "pointer"
+      ],
+      "perLanguage": {
+        "java": "除原始类型外都是引用类型，赋值共享",
+        "cpp": "对象默认是值类型，赋值即拷贝；要共享得显式用引用或指针"
+      },
+      "note": "与 Java 的引用语义正好相反。「传参会不会改到原对象」默认答案是「不会」。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "内存管理",
+      "aliases": [
+        "raii",
+        "gc",
+        "ownership"
+      ],
+      "perLanguage": {
+        "java": "垃圾回收，自动且时机不确定",
+        "cpp": "没有 GC；栈对象离开作用域即析构，堆对象靠智能指针"
+      },
+      "note": "RAII 的核心：资源获取即初始化，析构即释放。\n释放时机确定是好事，代价是循环引用要自己用 weak_ptr 打断。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "未定义行为",
+      "aliases": [
+        "ub",
+        "undefined-behavior"
+      ],
+      "perLanguage": {
+        "java": "没有这个概念；越界抛异常，溢出回绕，都是明确定义的行为",
+        "cpp": "越界、有符号溢出、用失效迭代器都是 UB，编译器可以做任何事"
+      },
+      "note": "Java 把所有错误都定义成了确定的异常行为，C++ 里很多是 UB。\n这是从 Java 过来最需要建立的新概念。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "迭代器",
+      "aliases": [
+        "iterator",
+        "invalidation"
+      ],
+      "perLanguage": {
+        "java": "迭代器有 fail-fast 检查，修改集合就抛异常",
+        "cpp": "迭代器失效后不报错，用了就是 UB"
+      },
+      "note": "vector 扩容会重新分配内存，所有旧迭代器一起失效。\n在循环里删元素要用 erase 的返回值更新迭代器。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "智能指针",
+      "aliases": [
+        "smart-pointer",
+        "shared-ptr",
+        "unique-ptr"
+      ],
+      "perLanguage": {
+        "java": "只有引用，GC 统一管理",
+        "cpp": "unique_ptr 独占、shared_ptr 共享计数、weak_ptr 不增计数"
+      },
+      "note": "shared_ptr 是引用计数，互指会永不析构（Java 的 GC 能处理循环引用）。\n打破环用 weak_ptr。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "模板 / 泛型",
+      "aliases": [
+        "template",
+        "generic"
+      ],
+      "perLanguage": {
+        "java": "泛型擦除，运行期无类型参数，编译一次",
+        "cpp": "模板单态化，为每种类型生成独立代码"
+      },
+      "note": "这是两个完全不同机制的同名概念。\n模板带来零开销抽象与代码膨胀，编译错误也冗长得多。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "编译 / 链接",
+      "aliases": [
+        "compile",
+        "link",
+        "header"
+      ],
+      "perLanguage": {
+        "java": "编译成 .class，由 JVM 加载；没有单独的链接步骤",
+        "cpp": "头文件文本包含、每个编译单元独立编译、最后链接"
+      },
+      "note": "理解「声明 vs 定义」「编译 vs 链接」这两组区分，\n很多 Java 里不存在的错误（重复定义、未定义引用）就说得通了。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "反射",
+      "aliases": [
+        "reflection",
+        "rtti",
+        "typeid"
+      ],
+      "perLanguage": {
+        "java": "完整反射，类名可读，能调用方法、遍历字段",
+        "cpp": "RTTI 只有 typeid 与 dynamic_cast，类型名是实现定义的修饰名"
+      },
+      "note": "C++ 没有 Java 那样的运行期反射。\n要「按名字创建对象」得自己做注册表。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "协程 / 线程",
+      "aliases": [
+        "coroutine",
+        "virtual-thread"
+      ],
+      "perLanguage": {
+        "java": "虚拟线程由运行时调度，开箱即用",
+        "cpp": "无栈协程，语言只给挂起原语，调度器与任务类型靠库"
+      },
+      "note": "C++20 的协程不是开箱即用的。没有事件循环、没有任务类型。\n",
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "term": "资源管理",
+      "aliases": [
+        "raii",
+        "try-with-resources"
+      ],
+      "perLanguage": {
+        "java": "try-with-resources 与 AutoCloseable，finally 兜底",
+        "cpp": "RAII —— 清理写在析构函数里，离开作用域自动执行"
+      },
+      "note": "lock_guard 相当于 synchronized 块的作用域版；\n智能指针相当于「自动 close 的 AutoCloseable」。\n",
+      "baseline": "java",
+      "target": "cpp"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2cpp-1-toolchain",
+      "order": 1,
+      "title": "工具链与编译模型",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 g++ 或 clang++，写一个 hello world 编译运行",
+        "显式指定 `-std=c++20`，确认默认标准是 C++17（不给 -std 时）",
+        "理解头文件 / 源文件 / 编译单元 / 链接，对比 Java 的 .class 加载",
+        "对照本工具「语言机制」板块里 C++ 列的静态类型与编译期相关格"
+      ],
+      "acceptance": [
+        "能独立编译一个多文件的 C++ 程序，说清编译与链接的分工",
+        "知道哪些错误是编译错误、哪些是链接错误"
+      ],
+      "resources": [
+        {
+          "label": "cppreference（在线参考）",
+          "url": "https://en.cppreference.com/w/"
+        },
+        {
+          "label": "ISO C++ 官网",
+          "url": "https://isocpp.org/"
+        }
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "java2cpp-2-values-and-memory",
+      "order": 2,
+      "title": "值语义、内存与 UB",
+      "durationHint": "3-5 天",
+      "todo": [
+        "验证赋值是拷贝：改副本不影响原对象",
+        "用栈对象与智能指针各写一遍资源管理，体会 RAII 与 try-with-resources 的差别",
+        "试一次越界访问与有符号溢出，理解 UB 的含义",
+        "用 shared_ptr 造一个循环引用，再用 weak_ptr 修好"
+      ],
+      "acceptance": [
+        "能说清值语义与 Java 引用语义的差别",
+        "能识别三类常见 UB（越界、有符号溢出、失效迭代器）"
+      ],
+      "resources": [
+        {
+          "label": "cppreference · 智能指针",
+          "url": "https://en.cppreference.com/w/cpp/memory"
+        },
+        {
+          "label": "cppreference（在线参考）",
+          "url": "https://en.cppreference.com/w/"
+        }
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "java2cpp-3-containers-and-templates",
+      "order": 3,
+      "title": "容器、迭代器与模板",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 vector / map / string 各写几个操作，边界检查用 at",
+        "验证一次迭代器失效（push_back 之后用旧迭代器）",
+        "写一个模板函数，体会单态化与 Java 泛型擦除的差别",
+        "从长编译错误里找出第一条真正的错误"
+      ],
+      "acceptance": [
+        "能说清哪些操作会让迭代器失效",
+        "能说清模板与 Java 泛型的根本差别"
+      ],
+      "resources": [
+        {
+          "label": "cppreference · 容器",
+          "url": "https://en.cppreference.com/w/cpp/container"
+        },
+        {
+          "label": "cppreference · 模板",
+          "url": "https://en.cppreference.com/w/cpp/language/templates"
+        }
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "java2cpp-4-concurrency",
+      "order": 4,
+      "title": "并发与协程",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 std::thread 与 mutex 写一段并发代码，对比 Java 的 synchronized",
+        "理解数据竞争在 C++ 里是 UB（不是「可能出错」）",
+        "试一次 C++20 协程，体会语言只给原语、不给调度器",
+        "对比 Java 虚拟线程，理解两者在调度层上的差别"
+      ],
+      "acceptance": [
+        "能说清 C++ 的并发原语与 Java 的对应关系",
+        "能说清 C++ 协程为什么不是开箱即用的"
+      ],
+      "resources": [
+        {
+          "label": "cppreference · 并发支持",
+          "url": "https://en.cppreference.com/w/cpp/thread"
+        },
+        {
+          "label": "cppreference · 协程",
+          "url": "https://en.cppreference.com/w/cpp/language/coroutines"
+        }
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    },
+    {
+      "id": "java2cpp-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 CMake 组织一个多文件工程，理解它与 Maven / Gradle 的差别",
+        "用一个包管理器（vcpkg 或 Conan）装第三方库",
+        "配 clang-tidy 与 sanitizer（ASan / UBSan），让 UB 现形",
+        "对照本工具「工程实践」板块里 C++ 列的工具链"
+      ],
+      "acceptance": [
+        "能独立用 CMake 搭起一个带依赖、测试的 C++ 工程",
+        "能用 sanitizer 抓出隐藏的 UB"
+      ],
+      "resources": [
+        {
+          "label": "CMake 官方文档",
+          "url": "https://cmake.org/documentation/"
+        },
+        {
+          "label": "ISO C++ 官网",
+          "url": "https://isocpp.org/"
+        }
+      ],
+      "baseline": "java",
+      "target": "cpp"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+# 速语词典 —— 从 JavaScript 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 值语义 / 引用语义
+  aliases: [value-semantics, reference, pointer]
+  perLanguage:
+    javascript: 数组、对象是引用类型，赋值共享
+    cpp: 对象默认是值类型，赋值即拷贝；要共享得显式用引用或指针
+  note: |
+    这是与 JS 最大的语义差异。「传参会不会改到原对象」的答案默认是「不会」。
+
+- term: 内存管理
+  aliases: [raii, gc, ownership]
+  perLanguage:
+    javascript: 垃圾回收，自动且时机不确定
+    cpp: 没有 GC；栈对象离开作用域即析构，堆对象靠智能指针
+  note: |
+    RAII 的核心：资源获取即初始化，析构即释放。
+    释放时机是确定的 —— 这是 C++ 与 GC 语言最本质的差别之一。
+
+- term: 未定义行为
+  aliases: [ub, undefined-behavior]
+  perLanguage:
+    javascript: 没有这个概念；越界读得 undefined，溢出无其事
+    cpp: 越界、有符号溢出、用失效迭代器都是 UB，编译器可以做任何事
+  note: |
+    UB 不是「会崩溃」，而是「没有保证」—— 可能正常、可能崩、可能被优化掉。
+    JS 没有这一层，这是迁移时最需要建立的新概念。
+
+- term: 迭代器
+  aliases: [iterator, invalidation]
+  perLanguage:
+    javascript: 数组方法返回新数组，旧引用始终有效
+    cpp: 迭代器在容器修改后可能失效，再用即 UB
+  note: |
+    vector 扩容会重新分配内存，所有旧迭代器 / 指针 / 引用一起失效。
+    与 JS 的「数组对象不变」完全不同。
+
+- term: 智能指针
+  aliases: [smart-pointer, shared-ptr, unique-ptr]
+  perLanguage:
+    javascript: 没有手动所有权概念
+    cpp: unique_ptr 独占、shared_ptr 共享计数、weak_ptr 不增计数
+  note: |
+    shared_ptr 是引用计数，互指会永不析构（JS 的 GC 能处理循环引用）。
+    打破环用 weak_ptr。
+
+- term: 移动
+  aliases: [move, rvalue]
+  perLanguage:
+    javascript: 没有移动语义，赋值就是引用或拷贝
+    cpp: std::move 只是 cast，真正搬东西的是移动构造 / 移动赋值
+  note: |
+    std::move 不移动任何东西 —— 这个名字最容易误导。
+    被移走的对象处于「有效但未指定」状态。
+
+- term: 编译 / 链接
+  aliases: [compile, link, header]
+  perLanguage:
+    javascript: 模块运行时加载，没有单独的编译步骤
+    cpp: 头文件文本包含、每个编译单元独立编译、最后链接
+  note: |
+    #include 不是 import，是文本插入。理解这层才能理解
+    「重复定义」「未定义引用」这类 JS 里不存在的错误。
+
+- term: 协程
+  aliases: [coroutine, async]
+  perLanguage:
+    javascript: async / await 有内建事件循环与 Promise
+    cpp: 无栈协程，语言只给挂起原语，调度器与任务类型靠库
+  note: |
+    C++20 的协程不是开箱即用的 async/await。
+    没有事件循环、没有任务类型，这些都要自己补。
+
+- term: 反射
+  aliases: [reflection, typeid, rtti]
+  perLanguage:
+    javascript: 反射能拿到构造函数名、可遍历属性
+    cpp: typeid 给实现定义的修饰名；没有属性遍历
+  note: |
+    C++ 的 RTTI 能力很有限（typeid、dynamic_cast），
+    且类型名是 mangled 的。要「按名字找类型」得自己做注册表。
+
+- term: 类型
+  aliases: [type, compile-time]
+  perLanguage:
+    javascript: 运行时类型，值决定
+    cpp: 编译期类型，模板在编译期实例化
+  note: |
+    C++ 的类型是完全静态的，模板不是泛型擦除而是编译期展开 ——
+    这带来零开销抽象，也带来冗长的编译错误。

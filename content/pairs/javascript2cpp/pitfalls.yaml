@@ -1,0 +1,217 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 C++ 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-js2cpp-value-semantics
+  featureId: mechanism/value-vs-reference
+  title: 值语义是默认，赋值就是拷贝
+  symptom: |
+    JS 里 `const b = a` 之后两个名字指向同一个数组；C++ 里 `auto b = a`
+    是**拷贝**，改 b 不影响 a。
+  cause: |
+    JS 的数组、对象是引用类型，赋值共享。
+    C++ 的对象默认是**值类型**：赋值、传参默认都是拷贝（调用拷贝构造）。
+    要共享得显式用指针或引用（`T*` / `T&`）。
+  fix: |
+    想要引用语义就写 `T&`（引用）或 `T*`（指针）；
+    大对象传参用 `const T&` 避免拷贝。
+    把「默认拷贝」记牢 —— 这是与 JS 最大的语义差异。
+  severity: 3
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [值语义]
+
+- id: pitfall-js2cpp-no-gc-raii
+  featureId: mechanism/ownership-borrow
+  title: 没有 GC，析构时机是确定的
+  symptom: |
+    JS 里不用管内存；C++ 里 new 出来的对象要靠 delete，或者用栈对象自动析构 ——
+    忘了就泄漏。
+  cause: |
+    JS 有 GC，内存自动回收且时机不确定。
+    C++ 没有 GC：栈对象在离开作用域时**确定性地**调用析构函数，
+    堆对象由智能指针（unique_ptr / shared_ptr）在所有者消失时释放。
+  fix: |
+    优先用**栈对象**（自动析构）；需要堆分配时用智能指针，别裸 new / delete。
+    这就是 RAII：资源获取即初始化，析构即释放。
+    好处是释放时机确定，不像 GC 那样不可预测。
+  severity: 3
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [内存]
+
+- id: pitfall-js2cpp-signed-overflow-ub
+  featureId: express/arithmetic
+  title: 有符号溢出是未定义行为
+  symptom: |
+    JS 的数值是浮点，不会溢出；C++ 的有符号整数溢出是 **UB** ——
+    编译器可以假设它不发生，进而优化出意想不到的结果。
+  cause: |
+    JS 只有一个 number。C++ 要分清三种情况：
+    **有符号整数溢出是 UB**（不是回绕，编译器可以任意处理）；
+    **无符号整数回绕是确定的**（`0u - 1` 得最大值）；
+    浮点溢出得到 inf。
+  fix: |
+    确认运算在有符号范围内，或明确要回绕时用无符号。
+    需要检查溢出可以用 `__builtin_add_overflow` 或先比较再算。
+    别把「溢出就回绕」当成 C++ 的保证。
+  severity: 3
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [数值, UB]
+
+- id: pitfall-js2cpp-bounds-ub
+  featureId: model/list-array
+  title: 越界访问是未定义行为，不报错
+  symptom: |
+    JS 的 `arr[100]` 得 undefined；C++ 的 `arr[100]` 是 **UB** ——
+    可能读到垃圾、可能崩溃、可能看起来正常。
+  cause: |
+    JS 的数组访问有边界语义（越界返回 undefined）。
+    C++ 的 `operator[]` 不做任何边界检查，越界即 UB（没有异常、没有错误码）。
+  fix: |
+    用 `at()`（会抛 out_of_range）替代 `[]`，或自己检查边界。
+    这是 C++ 最需要小心的一类 UB。
+  severity: 3
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [数组, UB]
+
+- id: pitfall-js2cpp-iterator-invalidation
+  featureId: express/iteration-protocol
+  title: 迭代器会失效，用了就是 UB
+  symptom: |
+    在 vector 上 push_back 之后，之前保存的迭代器 / 指针 / 引用全都失效 ——
+    再用就是 UB，实测读到的是垃圾值。
+  cause: |
+    JS 的数组扩容时旧引用仍指向同一个数组对象。
+    C++ 的 vector 扩容会**重新分配内存**，旧迭代器 / 指针 / 引用指向已释放的内存。
+  fix: |
+    修改容器后重新获取迭代器；需要稳定引用时用 `std::list` / `std::map`（有别的代价），
+    或先 `reserve` 预留容量（只对「不超容量」的情况有效）。
+  severity: 3
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [迭代, UB]
+
+- id: pitfall-js2cpp-shared-ptr-cycle
+  featureId: mechanism/garbage-collection
+  title: shared_ptr 互指就永不析构
+  symptom: |
+    两个对象用 shared_ptr 互相持有，程序结束时它们的析构函数**都不跑** ——
+    内存永久泄漏。
+  cause: |
+    JS 的 GC 能回收循环引用。shared_ptr 是**引用计数**：互指让两个计数都为 1，
+    永远降不到 0。实测：两个析构都不跑。
+  fix: |
+    把其中一头换成 `weak_ptr`（不增加计数），用的时候 `lock()` 提升。
+    这与 Swift 的 weak / unowned 是同一个问题。
+  severity: 3
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [内存, 引用计数]
+
+- id: pitfall-js2cpp-move-is-cast
+  featureId: mechanism/value-vs-reference
+  title: std::move 不移动任何东西
+  symptom: |
+    调用 `std::move(x)` 以为 x 就被搬走了，其实 x 还在原地 —— 它只是一个类型转换。
+  cause: |
+    `std::move` **不移动任何东西**，它只是把参数转成右值引用（一个 cast），
+    真正搬东西的是随后的**移动构造 / 移动赋值**。
+    所以「move 之后 x 一定为空」是误解 —— 移后状态由类型的移动构造函数决定。
+  fix: |
+    理解成「标记这个对象可以被搬」。要真的搬，得有接收方（构造函数或赋值）。
+    被 move 过的对象处于「有效但未指定」的状态，别依赖它的具体值。
+  severity: 2
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [值语义]
+
+- id: pitfall-js2cpp-compilation-model
+  featureId: model/module-unit
+  title: 头文件与声明分离，编译是分单元的
+  symptom: |
+    JS 的模块是「运行时加载并执行」，C++ 的 #include 是**文本插入**，
+    而且声明与定义要分开写在头文件与源文件里。
+  cause: |
+    JS 的 import 在运行时解析模块。C++ 的 `#include` 是预处理器把文件内容
+    直接插进来，每个翻译单元独立编译再链接 —— 所以有「声明放头文件、
+    定义放源文件」的惯例，也有「重复定义」「未定义引用」这类 JS 没有的错误。
+  fix: |
+    头文件放声明（加 include guard 或 `#pragma once`），源文件放定义。
+    模板与 inline 函数要在头文件里给定义。
+    理解「编译单元」这个概念，很多链接错误就说得通了。
+  severity: 2
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [模块, 编译]
+
+- id: pitfall-js2cpp-coroutines-no-scheduler
+  featureId: mechanism/concurrency-unit
+  title: 协程是无栈的，而且不给调度器
+  symptom: |
+    以为 C++20 的协程像 JS 的 async/await 一样开箱即用，
+    结果发现语言只给挂起原语，调度器与任务类型要自己写或用库。
+  cause: |
+    JS 的 async/await 后面有一个内建的事件循环和 Promise 实现。
+    C++ 的协程是**无栈协程加编译器原语**：语言只提供 co_await / co_yield / co_return
+    和一套定制点，**不给调度器、不给事件循环、不给任务类型**。
+  fix: |
+    用现成的协程库或框架（如 asio 的协程支持）来补调度那一层。
+    理解「语言只给原语」这层，就不会以为它开箱即用。
+  severity: 2
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [并发, 协程]
+
+- id: pitfall-js2cpp-typeid-mangled
+  featureId: mechanism/reflection
+  title: typeid 给的是实现定义的修饰名
+  symptom: |
+    用 typeid 想拿到类型名做日志，得到的是 `St6vectorIiSaIiEE` 这类看不懂的字符串。
+  cause: |
+    C++ 的 `typeid(...).name()` 返回**实现定义的修饰名**（mangled name），
+    不是可读类型名。要可读名得 demangle。
+    这与 JS 的「反射能拿到构造函数名」差别很大。
+  fix: |
+    需要可读类型名就做 demangle，或用别的方式标识类型（枚举、字符串常量）。
+    `typeid` 的正确用途是比较两个类型是否相同，不是显示。
+  severity: 1
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [元编程]
+
+- id: pitfall-js2cpp-char-signedness
+  featureId: express/string-literals
+  title: char 的符号性由实现决定
+  symptom: |
+    把一个大于 127 的 char 当负数用，在不同平台上结果不同。
+  cause: |
+    C++ 的 `char` 是有符号还是无符号，**由实现决定**（标准不规定）。
+    处理字节数据时这会造成跨平台差异。
+    JS 的字符串是 UTF-16，charCodeAt 给的是无符号数，没有这个问题。
+  fix: |
+    处理原始字节时显式用 `unsigned char` 或 `std::byte`；
+    要明确范围用 `int8_t` / `uint8_t`。
+  severity: 1
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [字符串, 字符]
+
+- id: pitfall-js2cpp-reserved-identifiers
+  featureId: express/naming-convention
+  title: 用错保留标识符，编译器一声不吭
+  symptom: |
+    定义了 `_Foo` 或 `__bar` 这样的名字，编译器不报错也不警告
+    （`-Wall -Wextra` 下零警告），但行为未定义。
+  cause: |
+    C++ 保留了一批标识符给实现（下划线开头、含双下划线、
+    或下划线加大写字母开头的）。用了它们**没有诊断** —— 编译器不会提醒你踩线。
+    这与 JS 的命名自由完全不同。
+  fix: |
+    别用 `_` 开头或含 `__` 的标识符（成员变量尾随下划线 `foo_` 是安全的）。
+    自定义宏别用保留名。
+  severity: 1
+  languages: [javascript, cpp]
+  fromBaseline: true
+  tags: [命名]

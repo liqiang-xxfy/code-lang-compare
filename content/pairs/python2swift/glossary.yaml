@@ -1,0 +1,94 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: Optional
+  aliases: [optional, none, nullable]
+  perLanguage:
+    python: None 是单例对象，任何类型都能是 None
+    swift: Optional 是泛型枚举（.none / .some），`Int?` 是语法糖，不判空编译不过
+  note: |
+    Optional 是枚举这层含义，解释了它为什么能模式匹配、能用 map。
+    这比 Python 的 None 强得多 —— 「可能没有」被编进类型。
+
+- term: 值类型 / 引用类型
+  aliases: [value-type, reference-type, struct, class]
+  perLanguage:
+    python: list / dict 是可变对象、引用语义；tuple 不可变但是引用
+    swift: struct / 数组 / 字典 / 字符串都是值类型（赋值即拷贝）；class 是引用类型
+  note: |
+    这是从 Python 过来最大的语义转变：传列表默认是拷贝，不是共享。
+    要共享可变状态得用 class。
+
+- term: 协议 / 扩展
+  aliases: [protocol, extension, mixin, abc]
+  perLanguage:
+    python: 复用靠继承与 mixin 类；抽象靠 ABC
+    swift: 复用靠协议 + 扩展（默认实现）；struct 不能继承，是默认选择
+  note: |
+    Swift 的协议 + 扩展等价于 Python 的 mixin，但不依赖继承树。
+    值类型也能用，这是它比继承更受推荐的原因。
+
+- term: 类型转换
+  aliases: [conversion, cast]
+  perLanguage:
+    python: int 与 float 自动适配，也有显式 int() / float()
+    swift: 从不隐式转换，一律显式 Double(n) / Int(d)
+  note: |
+    官方措辞是 never implicitly converted。
+    Python 的数值混合运算直觉在这里完全不适用。
+
+- term: 字符串
+  aliases: [string, index, subscript]
+  perLanguage:
+    python: 支持整数下标、负索引、切片
+    swift: 不能用整数下标，要用 String.Index；count 数字素簇
+  note: |
+    Swift 的字符串按「用户感知的字符」处理。
+    取首字符用 first，取前 n 个用 prefix(n)，没有负索引。
+
+- term: 访问控制
+  aliases: [private, fileprivate, open, internal]
+  perLanguage:
+    python: 靠命名约定（_ 与 __），没有强制
+    swift: private / fileprivate / internal（默认）/ public / open 五档，真的强制
+  note: |
+    Swift 的 private 是「作用域加同文件扩展」，不是文件级也不是类级。
+    跨模块继承 / 重写要 open。
+
+- term: defer
+  aliases: [defer, finally, context-manager]
+  perLanguage:
+    python: try / finally，或用 with 与上下文管理器
+    swift: 没有 finally；用 defer，写在拿到资源之后，离开作用域时执行
+  note: |
+    defer 的位置与 finally 不同：它靠近资源，不是包在外层。
+    多个 defer 按逆序执行。
+
+- term: 内存管理
+  aliases: [arc, gc, reference-counting]
+  perLanguage:
+    python: 引用计数加循环 GC，能自动处理循环引用
+    swift: 自动引用计数（ARC），编译期插入 retain / release，处理不了循环引用
+  note: |
+    Swift 的释放是确定性的（最后一个引用消失时立刻），
+    但循环引用要自己用 weak / unowned 打断 —— Python 有循环 GC，不用操心。
+
+- term: 整数
+  aliases: [int, overflow, number]
+  perLanguage:
+    python: 任意精度，永不溢出
+    swift: 固定宽度，溢出即崩溃；回绕要显式用 &+
+  note: |
+    这是与 Python 最根本的数值差别。大数运算要特别小心。
+
+- term: 断言
+  aliases: [assert, precondition]
+  perLanguage:
+    python: 只有 assert，-O 优化模式会被剥掉
+    swift: 三档 —— assert（仅调试）、precondition（都检查）、fatalError（永远生效）
+  note: |
+    选择标准：内部一致性用 assert，调用方契约用 precondition。
+    比 Python 的单档 assert 更细致。

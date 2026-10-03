@@ -1,0 +1,523 @@
+{
+  "baseline": "javascript",
+  "target": "swift",
+  "pitfalls": [
+    {
+      "id": "pitfall-js2swift-no-implicit-conversion",
+      "title": "数值不隐式转换，一个都不行",
+      "symptomHtml": "<p>JS 里 <code>1 + 1.5</code> 天经地义；Swift 里 <code>let x: Double = someInt</code> 编译不过，\n必须写 <code>Double(someInt)</code>。</p>\n",
+      "causeHtml": "<p>官方原话是「Values of one type are never implicitly converted to another type」。\nJS 只有一个 number（外加一堆隐式转换规则），数值类型之间没有墙。\nSwift 是强类型：整数与浮点、不同宽度的整数之间<strong>从不隐式转换</strong>。</p>\n",
+      "fixHtml": "<p>到处写显式转换：<code>Double(n)</code> / <code>Int(d)</code> / <code>Int64(x)</code>。\n字面量可以参与推断（<code>let x: Double = 1</code> 里的 1 会被当 Double），\n但变量之间不行。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/type-conversion",
+      "tags": [
+        "数值",
+        "类型转换"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-optional-enum",
+      "title": "Optional 是枚举，不是 null 那个空值",
+      "symptomHtml": "<p>以为 <code>Int?</code> 就是「可能是 null 的 Int」，其实它是 <code>Optional&lt;Int&gt;</code> 枚举\n（<code>.none</code> / <code>.some(Int)</code>），<code>Int?</code> 只是语法糖。</p>\n",
+      "causeHtml": "<p>JS 的 null / undefined 是特殊值。Swift 的 <code>Optional</code> 是标准库里的<strong>泛型枚举</strong>，\n所以它能被模式匹配、能用 <code>map</code>、<code>??</code> 是运算符而不是语言空值。\n理解这层，很多「Optional 为什么能这样用」就通了。</p>\n",
+      "fixHtml": "<p>用 <code>if let</code> / <code>guard let</code> 解包，<code>??</code> 给默认值，<code>?.</code> 可选链。\n<code>!</code> 是强制解包（空则崩），慎用。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-string-index",
+      "title": "字符串不能用整数下标",
+      "symptomHtml": "<p><code>str[0]</code> 编译不过 —— Swift 的 String 不能用 Int 索引，要用 <code>String.Index</code>。</p>\n",
+      "causeHtml": "<p>JS 的字符串下标按 UTF-16 码元，<code>str[0]</code> 随手可用。\nSwift 的 String 按<strong>字素簇</strong>处理，<code>count</code> 数的是「用户感知的字符数」，\n所以不能简单地整数索引。</p>\n",
+      "fixHtml": "<p>用 <code>str.first</code> / <code>str.prefix(n)</code> / <code>str.index(_:offsetBy:)</code> 取。\n要按下标随机访问，先转成 <code>Array(str)</code>（但那样就丢掉了字素簇语义）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-struct-default",
+      "title": "struct 是默认选择，而且不能继承",
+      "symptomHtml": "<p>想继承一个数据模型，发现它是 struct —— struct 根本不能继承。\nSwift 社区还说「默认用 struct，别用 class」。</p>\n",
+      "causeHtml": "<p>JS 只有一种「对象」，继承靠原型链 / class。\nSwift 里 <code>struct</code> 是<strong>值类型、不能继承</strong>，且是官方推荐的默认选择；\n复用靠<strong>协议与扩展</strong>。<code>class</code> 是引用类型，用于需要共享身份或继承的场景。</p>\n",
+      "fixHtml": "<p>默认用 struct；需要共享可变状态、需要继承、需要析构器时才用 class。\n复用逻辑用协议 + 扩展，而不是继承树。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/inheritance",
+      "tags": [
+        "类型系统",
+        "继承"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-value-types",
+      "title": "数组、字典、字符串都是值类型",
+      "symptomHtml": "<p>把数组传给函数、赋给另一个变量，改动其中一个，另一个<strong>不受影响</strong> ——\n与 JS 的引用语义正好相反。</p>\n",
+      "causeHtml": "<p>JS 里数组、对象是引用类型，赋值传的是同一份。\nSwift 里 <code>Array</code> / <code>Dictionary</code> / <code>Set</code> / <code>String</code> / <code>struct</code> 都是<strong>值类型</strong>：\n赋值与传参都是拷贝（写时复制只是优化，行为上「总是像立刻拷贝了」）。</p>\n",
+      "fixHtml": "<p>要共享可变状态得用<strong>类</strong>（引用类型）或显式用 inout 参数。\n反过来看，值语义让「意外共享」的 bug 消失 —— 这是 Swift 的设计取向。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "值语义"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-access-control",
+      "title": "private 不是文件级，public 成员默认 internal",
+      "symptomHtml": "<p>以为 <code>private</code> 是「这个文件私有」，其实它是「作用域 + 同文件的扩展」；\n文件级的是 <code>fileprivate</code>。另外 <code>public</code> 类型的成员默认是 <code>internal</code>。</p>\n",
+      "causeHtml": "<p>Swift 的访问控制层级与多数语言直觉不同：<code>private</code> = 声明所在作用域加同文件扩展；\n<code>fileprivate</code> = 整个文件；<code>internal</code>（默认）= 整个模块；\n<code>public</code> = 跨模块可见但<strong>默认不能继承 / 重写</strong>（要 <code>open</code>）。\n官方专门提示「A public type defaults to having internal members」。</p>\n",
+      "fixHtml": "<p>要跨模块继承 / 重写就标 <code>open</code>；只是跨模块使用标 <code>public</code>。\n模块内可见用默认的 internal 即可。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/access-control",
+      "tags": [
+        "可见性"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-cancellation",
+      "title": "取消是协作式的",
+      "symptomHtml": "<p>调用 <code>Task.cancel()</code> 以为任务就停了，实际它只是设了个标志，\n任务自己不去查就会<strong>一直跑完</strong>。</p>\n",
+      "causeHtml": "<p>Swift 的并发取消是<strong>协作式</strong>的：<code>cancel()</code> 只设标志，\n代码自己得调用 <code>Task.isCancelled</code> 或 <code>checkCancellation()</code>（会抛错）来响应。\n与 JS 的 AbortController 类似（也要自己检查 signal），都不是强制杀。</p>\n",
+      "fixHtml": "<p>在长任务的循环里定期 <code>try Task.checkCancellation()</code>，或检查 <code>Task.isCancelled</code>。\n不检查的代码，cancel() 对它没有效果。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/cancellation",
+      "tags": [
+        "并发",
+        "取消"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-closure-capture",
+      "title": "闭包是引用类型，捕获会造成强引用环",
+      "symptomHtml": "<p>闭包里捕获了 self 或外部对象，造成循环引用、对象永不释放 ——\n而 JS 的闭包捕获不会有这个问题（有 GC）。</p>\n",
+      "causeHtml": "<p>Swift 的<strong>函数与闭包是引用类型</strong>，闭包捕获外部变量时会强引用它们。\n对象持有闭包、闭包又捕获了对象，就构成强引用环，ARC 无法回收。\nJS 有 GC 能处理循环引用，Swift 的引用计数不能。</p>\n",
+      "fixHtml": "<p>在闭包的捕获列表里用 <code>[weak self]</code> 或 <code>[unowned self]</code> 打断环。\n值类型（struct）的捕获是拷贝，不会有这个问题。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/closures",
+      "tags": [
+        "闭包",
+        "内存"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-identity",
+      "title": "三个等号只对类实例成立",
+      "symptomHtml": "<p>想用 <code>===</code> 比较两个数组或字符串，编译不过 —— <code>===</code> 只对类的实例有效。</p>\n",
+      "causeHtml": "<p>JS 的 <code>===</code> 是所有值都能用的严格相等。Swift 的 <code>===</code> 是<strong>身份比较</strong>，\n只对引用类型（类、闭包）成立；值类型用它会编译错误。\n值比较用 <code>==</code>（类型需实现 Equatable）。</p>\n",
+      "fixHtml": "<p>值比较用 <code>==</code>；要判断「是不是同一个对象」才用 <code>===</code>，且只对类。\n字符串、数组直接 <code>==</code> 比值。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/equality",
+      "tags": [
+        "相等"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-no-finally",
+      "title": "没有 finally，清理用 defer",
+      "symptomHtml": "<p>习惯 JS 的 try / catch / finally，Swift 里没有 finally，得用 <code>defer</code>。</p>\n",
+      "causeHtml": "<p>Swift 用 <code>defer</code> 块做清理：它在<strong>离开当前作用域时</strong>执行（LIFO 顺序，\n抛错时也执行）。这与 JS 的 finally 位置不同 ——\ndefer 写在<strong>使用资源之后</strong>，而不是包在外层。</p>\n",
+      "fixHtml": "<p>拿到资源后立刻写 <code>defer { ... }</code>，清理逻辑就放这里。\n多个 defer 按<strong>逆序</strong>执行（像栈）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/finally-cleanup",
+      "tags": [
+        "资源",
+        "错误处理"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-overflow-traps",
+      "title": "整数溢出会崩，不是回绕",
+      "symptomHtml": "<p>JS 的数值是浮点，不会溢出（只会丢精度）；Swift 的整数溢出会<strong>直接终止程序</strong>。</p>\n",
+      "causeHtml": "<p>Swift 的整数运算默认<strong>检查溢出</strong>，溢出即陷阱（crash）。\n想 C 语言那种回绕必须显式写 <code>&amp;+</code> / <code>&amp;-</code> / <code>&amp;*</code>。\n这与 JS 的「浮点不会溢出」是完全不同的失败模式。</p>\n",
+      "fixHtml": "<p>确认运算不会溢出，或显式用溢出运算符（<code>&amp;+</code> 等）表达「我知道会回绕」。\n大数场景用 <code>Double</code> 或先检查边界。别把 JS 的「不会溢出」直觉带过来。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-js2swift-memberwise-init",
+      "title": "结构体自动生成构造器，写一个就没了",
+      "symptomHtml": "<p>依赖 struct 自动生成的逐成员构造器，结果在类型本体里加了一个自定义构造器后，\n自动的那个消失了，编译报错。</p>\n",
+      "causeHtml": "<p>Swift 的 struct 会<strong>自动生成逐成员构造器</strong>，但如果你在<strong>类型本体</strong>里\n写了自己的构造器，就不再自动生成；写在 <code>extension</code> 里则保留。</p>\n",
+      "fixHtml": "<p>想保留自动构造器，就把自定义构造器写进 <code>extension</code>。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/constructor",
+      "tags": [
+        "构造"
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "Optional",
+      "aliases": [
+        "optional",
+        "nullable"
+      ],
+      "perLanguage": {
+        "javascript": "null 与 undefined 是语言内置的特殊值",
+        "swift": "Optional 是标准库的泛型枚举（.none / .some），`Int?` 只是语法糖"
+      },
+      "note": "理解「Optional 是枚举」这层，就能理解它为什么能模式匹配、能用 map、\n`??` 为什么是运算符。这与 JS 的 null 是完全不同的东西。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "值类型 / 引用类型",
+      "aliases": [
+        "value-type",
+        "reference-type",
+        "struct",
+        "class"
+      ],
+      "perLanguage": {
+        "javascript": "数组、对象都是引用类型（赋值传同一份）",
+        "swift": "struct 是值类型（拷贝），class 是引用类型；数组、字典、字符串都是值类型"
+      },
+      "note": "这是从 JS 过来最大的语义转变：传数组默认是拷贝，不是共享。\n要共享可变状态得用 class。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "身份比较",
+      "aliases": [
+        "identity",
+        "equality"
+      ],
+      "perLanguage": {
+        "javascript": "`===` 是所有值的严格相等",
+        "swift": "`===` 只对类的实例成立；值比较一律用 `==`"
+      },
+      "note": "Swift 的 `===` 是「是不是同一个对象」，对值类型用它会编译错误。\n日常比较用 `==`。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "conversion",
+        "cast"
+      ],
+      "perLanguage": {
+        "javascript": "隐式转换满天飞（+、==、比较）",
+        "swift": "从不隐式转换，一律显式 Double(n) / Int(d)"
+      },
+      "note": "官方措辞是 never implicitly converted。从 JS 过来要习惯到处写转换。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "字符串下标",
+      "aliases": [
+        "string-index",
+        "substring"
+      ],
+      "perLanguage": {
+        "javascript": "字符串可以整数下标，str[0] 随手可用",
+        "swift": "不能用整数下标，要用 String.Index；count 数字素簇"
+      },
+      "note": "Swift 的字符串按「用户感知的字符」处理，所以不能简单整数索引。\n取首字符用 str.first，取前 n 个用 str.prefix(n)。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "访问控制",
+      "aliases": [
+        "private",
+        "fileprivate",
+        "open",
+        "internal"
+      ],
+      "perLanguage": {
+        "javascript": "没有语言级访问控制（靠约定与",
+        "swift": "private 是「作用域加同文件扩展」；fileprivate 才是文件级；public 成员默认 internal"
+      },
+      "note": "Swift 的 private 不是文件级 —— 这条与多数语言的直觉相反。\n跨模块继承 / 重写还要 open。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "defer",
+      "aliases": [
+        "defer",
+        "finally",
+        "cleanup"
+      ],
+      "perLanguage": {
+        "javascript": "try / catch / finally，清理写在 finally",
+        "swift": "没有 finally；用 defer，写在拿到资源之后，离开作用域时执行"
+      },
+      "note": "defer 的位置与 finally 不同：它靠近资源，不是包在外层。\n多个 defer 按逆序执行。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "闭包捕获",
+      "aliases": [
+        "closure",
+        "capture",
+        "weak"
+      ],
+      "perLanguage": {
+        "javascript": "闭包捕获变量，靠 GC 回收循环引用",
+        "swift": "闭包是引用类型，强引用捕获会造成循环引用，要写 [weak self]"
+      },
+      "note": "ARC 处理不了循环引用，所以必须显式用捕获列表打断。\nJS 因为有 GC，从来不用操心这件事。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "协议 / 扩展",
+      "aliases": [
+        "protocol",
+        "extension",
+        "inheritance"
+      ],
+      "perLanguage": {
+        "javascript": "复用靠原型链与 class 继承",
+        "swift": "复用靠协议 + 扩展；struct 不能继承，是默认选择"
+      },
+      "note": "Swift 的设计取向是「组合优于继承」。数据模型默认用 struct + 协议扩展。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "term": "ARC",
+      "aliases": [
+        "arc",
+        "gc",
+        "memory"
+      ],
+      "perLanguage": {
+        "javascript": "有垃圾回收器，循环引用能自动处理",
+        "swift": "自动引用计数（ARC），编译期插入 retain / release，处理不了循环引用"
+      },
+      "note": "引用计数是确定性的（对象在最后一个引用消失时立刻释放），\n但循环引用要自己用 weak / unowned 打断。\n",
+      "baseline": "javascript",
+      "target": "swift"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "javascript2swift-1-types-and-values",
+      "order": 1,
+      "title": "类型与值语义",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 Xcode（macOS）或用 Swift Playgrounds / 命令行工具跑通一段代码",
+        "写一段熟悉的 JS 逻辑用 Swift 重写，体会「处处显式转换」与「数组是值类型」",
+        "理解 Optional 是枚举，试一次 if let / guard let / ?? 的解包",
+        "对照本工具「语言机制」板块里 Swift 列的「值语义」「空安全」两格"
+      ],
+      "acceptance": [
+        "能说清把数组传给函数时 JS 与 Swift 的行为差别",
+        "能说清 Optional 是枚举这层含义，以及它与 JS 的 null 的差别"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        },
+        {
+          "label": "The Swift Programming Language（官方书）",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "javascript2swift-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1-2 天",
+      "todo": [
+        "过一遍字符串、数组、字典的常用操作，注意字符串不能用整数下标",
+        "试一次整数溢出（用 &+ 对比默认行为），理解它会崩",
+        "把 try / finally 的写法改成 do / catch / defer",
+        "对照本工具「基础表达」板块里 Swift 列的写法差异"
+      ],
+      "acceptance": [
+        "能独立写出变量、容器、控制流、函数定义，无语法错误",
+        "知道哪些写法在 Swift 里会编译不过（字符串下标、隐式转换）"
+      ],
+      "resources": [
+        {
+          "label": "The Swift Programming Language（官方书）",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "javascript2swift-3-structs-and-protocols",
+      "order": 3,
+      "title": "值类型、协议与扩展",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 struct 建几个数据模型，体会自动生成的逐成员构造器",
+        "用协议 + 扩展做复用，对比 JS 的 class 继承",
+        "处理一次闭包捕获造成的循环引用（加 [weak self]）",
+        "搞清 private / fileprivate / internal / public / open 的区别"
+      ],
+      "acceptance": [
+        "能说清 struct 与 class 的取舍，以及为什么 Swift 默认用 struct",
+        "能在需要共享状态时正确选择 class 并处理引用环"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        },
+        {
+          "label": "Swift 官方文档 · 并发",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "javascript2swift-4-concurrency",
+      "order": 4,
+      "title": "并发：async / await 与 actor",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把一段 Promise 链改写成 async / await",
+        "用 Task 与 TaskGroup 表达并发，体会结构化并发",
+        "用 actor 保护共享状态，理解数据竞争在编译期就被拦",
+        "试一次协作式取消：cancel() 之后不检查标志，任务照样跑完"
+      ],
+      "acceptance": [
+        "能说清 Swift 的 actor 与 JS 事件循环在并发安全上的差别",
+        "能写出正确响应的可取消任务"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档 · 并发",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    },
+    {
+      "id": "javascript2swift-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 Swift Package Manager 管依赖，理解它与 npm 的差别",
+        "用 XCTest 或 swift-testing 写测试，注意 assert / precondition 的三档语义",
+        "处理一次跨模块的访问控制问题（open vs public）",
+        "对照本工具「工程实践」板块里 Swift 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖、测试的 Swift Package",
+        "能说清 Swift 的构建与依赖管理和 npm 生态的差别"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档 · Package Manager",
+          "url": "https://www.swift.org/documentation/package-manager/"
+        },
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "swift"
+    }
+  ]
+}

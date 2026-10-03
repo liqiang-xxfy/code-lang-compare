@@ -1,0 +1,204 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 Swift 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-java2swift-value-types
+  featureId: mechanism/value-vs-reference
+  title: 值类型是默认选择
+  symptom: |
+    Java 里对象赋值是传引用；Swift 里数据模型默认是 struct（值类型），
+    赋值传参都是拷贝。
+  cause: |
+    Java 除了 8 种原始类型，其余都是引用类型。
+    Swift 反过来：struct / enum / 数组 / 字典 / 字符串都是值类型，
+    且是官方推荐的默认选择；class 才是引用类型。
+  fix: |
+    默认用 struct；需要共享身份、继承、析构器时才用 class。
+    值语义让「意外共享」的 bug 消失。
+  severity: 3
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [值语义]
+
+- id: pitfall-java2swift-struct-no-inheritance
+  featureId: model/inheritance
+  title: struct 不能继承，复用靠协议
+  symptom: |
+    Java 里随手 extends；Swift 里数据模型默认是 struct，不能继承。
+  cause: |
+    Java 的复用主要靠继承。Swift 的默认类型 struct 不能继承，
+    复用靠**协议 + 扩展**；类之间才有继承，且要 `open` 才能跨模块继承。
+  fix: |
+    默认用 struct + 协议 + 扩展；确实需要继承时才用 class（并标 open）。
+  severity: 3
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [类型系统, 继承]
+
+- id: pitfall-java2swift-arc-not-gc
+  featureId: mechanism/garbage-collection
+  title: 是引用计数，不是垃圾回收
+  symptom: |
+    Java 靠 GC，对象迟早会被回收，循环引用无所谓；
+    Swift 用 ARC，**循环引用会导致内存永不释放**。
+  cause: |
+    Java 的 GC 能识别并回收循环引用。
+    Swift 的 ARC 是编译期插入 retain / release 的引用计数，处理不了循环引用 ——
+    两个对象互指，计数都降不到 0。
+  fix: |
+    用 `weak` / `unowned` 打断引用环（尤其是闭包捕获 self 时）。
+    好处是释放时机确定（最后一个引用消失即释放），不像 GC 那样不可预测。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [内存]
+
+- id: pitfall-java2swift-no-implicit-conversion
+  featureId: express/type-conversion
+  title: 没有隐式数值拓宽，也没有装箱
+  symptom: |
+    Java 的 int 会自动提升为 long；Swift 不隐式转换，必须 Double(n) / Int64(x)。
+  cause: |
+    Java 有隐式数值拓宽与自动装箱。Swift **从不隐式转换**，
+    官方原话是 never implicitly converted，也没有基本类型 / 包装类型的区分。
+  fix: |
+    写显式转换。好在没有装箱问题 —— Swift 的 Int / Double 都是值类型，
+    不像 Java 要操心 Integer 与 int。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [数值, 类型转换]
+
+- id: pitfall-java2swift-overflow-traps
+  featureId: express/arithmetic
+  title: 整数溢出会崩，不是静默回绕
+  symptom: |
+    Java 的 int 溢出是静默回绕（MAX_VALUE + 1 = MIN_VALUE）；
+    Swift 的整数溢出**直接终止程序**。
+  cause: |
+    Java 的整数运算静默回绕。Swift 默认**检查溢出**，溢出即陷阱（crash）；
+    想回绕必须显式用 `&+` / `&-` / `&*`。
+  fix: |
+    确认不会溢出，或用 `&+` 明确表达「我知道要回绕」。
+    Java 那种「溢出就回绕」的直觉在 Swift 里会变成崩溃。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-java2swift-string-index
+  featureId: express/string-common-ops
+  title: 字符串不能用整数下标
+  symptom: |
+    Java 的 `s.charAt(0)` 在 Swift 里没有直接对应，`s[0]` 编译不过。
+  cause: |
+    Java 的 String 按 UTF-16 码元、charAt 按索引取。
+    Swift 的 String 按**字素簇**处理，count 数的是用户感知的字符数，
+    不能整数索引，要用 String.Index。
+  fix: |
+    取首尾用 `str.first` / `str.last`；按位置取用
+    `str.index(str.startIndex, offsetBy: n)`。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [字符串]
+
+- id: pitfall-java2swift-identity
+  featureId: express/equality
+  title: 三个等号只对类实例成立
+  symptom: |
+    Java 的 `==` 比引用；Swift 里 `==` 比值、`===` 比引用，
+    而 `===` 只对类的实例有效。
+  cause: |
+    Java 的 `==` 比引用、`.equals()` 比值。
+    Swift 反过来：`==` 比值（需 Equatable），`===` 比引用（只对 class）。
+    值类型用 `===` 会编译错误。
+  fix: |
+    值比较用 `==`；判「同一对象」用 `===`，且只对类。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [相等]
+
+- id: pitfall-java2swift-access-control
+  featureId: model/access-control
+  title: private 不是类级，public 成员默认 internal
+  symptom: |
+    Java 的 private 是类级；Swift 的 private 是「作用域 + 同文件扩展」，
+    文件级的是 fileprivate。而且 public 类型的成员默认 internal。
+  cause: |
+    Java 的访问控制是类 / 包粒度。Swift 是作用域 / 文件 / 模块粒度，
+    五档：private / fileprivate / internal（默认）/ public / open。
+  fix: |
+    跨模块继承 / 重写标 `open`；跨模块使用标 `public`；模块内用默认 internal。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [可见性]
+
+- id: pitfall-java2swift-no-finally
+  featureId: model/finally-cleanup
+  title: 没有 finally，清理用 defer
+  symptom: |
+    Java 的 try / catch / finally 在 Swift 里没有 finally，得用 defer。
+  cause: |
+    Swift 用 `defer` 块做清理：离开作用域时执行（LIFO，抛错时也执行）。
+    Java 的 finally 包在外层，而 defer 写在**拿到资源之后**，
+    更接近 try-with-resources。
+  fix: |
+    拿到资源立刻写 `defer { ... }`，可以看作 try-with-resources 的泛化版
+    （不限于资源，任意清理逻辑都行）。多个 defer 按逆序执行。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [资源]
+
+- id: pitfall-java2swift-protocol-extension
+  featureId: model/mixin-trait
+  title: 协议可以带默认实现，值类型也能用
+  symptom: |
+    Java 8+ 的接口默认方法在 Swift 里对应协议扩展，
+    但 Swift 的协议能让值类型（struct）也实现。
+  cause: |
+    Java 的接口实现者必须是类。Swift 的协议可以**被 struct / enum 实现**，
+    用 extension 提供默认实现 —— 等价于 Java 的默认方法 + mixin 的组合。
+  fix: |
+    把共享行为写进协议 + 扩展。这让值类型也能参与抽象，
+    不被迫为了实现接口而用 class。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [协议, 复用]
+
+- id: pitfall-java2swift-cancellation
+  featureId: mechanism/cancellation
+  title: 取消是协作式的
+  symptom: |
+    Java 的 Future.cancel(true) 会尝试中断线程；
+    Swift 的 Task.cancel() 只设标志，不查就一直跑完。
+  cause: |
+    Java 有线程中断机制（虽然是协作的，但会打断阻塞调用）。
+    Swift 的 `cancel()` 只设标志，代码自己得查 `Task.isCancelled` 或
+    `checkCancellation()`。不查的代码对 cancel 无感。
+  fix: |
+    在长任务循环里定期 `try Task.checkCancellation()`。
+  severity: 2
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [并发, 取消]
+
+- id: pitfall-java2swift-assert-levels
+  featureId: practice/assertions
+  title: 断言分三档，语义不同
+  symptom: |
+    Java 的 assert 默认关（要 -ea）；Swift 有三档，选错会在发布构建里失效或误伤。
+  cause: |
+    `assert` 只在调试构建检查（发布构建里条件都不求值）；
+    `precondition` 两边都检查；`fatalError` 永远生效。
+    Swift 用 `throws` + `try` 表达可恢复错误，而不是受检异常。
+  fix: |
+    内部不变量用 `assert`；调用方契约用 `precondition`；
+    绝不该发生的用 `fatalError`。可恢复错误用 throws。
+  severity: 1
+  languages: [java, swift]
+  fromBaseline: true
+  tags: [断言]

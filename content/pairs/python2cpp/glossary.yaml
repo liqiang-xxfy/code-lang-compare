@@ -1,0 +1,94 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 值语义 / 引用语义
+  aliases: [value-semantics, reference, pointer]
+  perLanguage:
+    python: list / dict 是对象、引用语义，赋值共享
+    cpp: 对象默认是值类型，赋值即拷贝；要共享得显式用引用或指针
+  note: |
+    这是与 Python 最大的语义差异。「传参会不会改到原对象」默认答案是「不会」。
+
+- term: 内存管理
+  aliases: [raii, gc, ownership]
+  perLanguage:
+    python: 引用计数加循环 GC，自动回收
+    cpp: 没有 GC；栈对象离开作用域即析构，堆对象靠智能指针
+  note: |
+    RAII 的核心：资源获取即初始化，析构即释放。
+    释放时机确定是好事，代价是循环引用要自己打断（Python 的 GC 能处理）。
+
+- term: 未定义行为
+  aliases: [ub, undefined-behavior]
+  perLanguage:
+    python: 没有这个概念；越界抛 IndexError，整数不会溢出
+    cpp: 越界、有符号溢出、用失效迭代器都是 UB，编译器可以做任何事
+  note: |
+    UB 不是「会崩溃」，而是「没有保证」。
+    Python 里所有错误都有明确行为（抛异常），C++ 里很多是 UB。
+
+- term: 迭代器
+  aliases: [iterator, invalidation]
+  perLanguage:
+    python: 迭代器是一次性消耗品；列表修改时索引仍有效
+    cpp: 迭代器在容器修改后可能失效，再用即 UB
+  note: |
+    vector 扩容会重新分配内存，所有旧迭代器 / 指针 / 引用一起失效。
+    注意 C++ 的迭代器与 Python 的迭代器不是一回事：
+    C++ 迭代器更像「位置指针」，可以随机访问。
+
+- term: 智能指针
+  aliases: [smart-pointer, shared-ptr, unique-ptr]
+  perLanguage:
+    python: 没有手动所有权概念
+    cpp: unique_ptr 独占、shared_ptr 共享计数、weak_ptr 不增计数
+  note: |
+    shared_ptr 是引用计数，互指会永不析构。
+    打破环用 weak_ptr —— 这与 Python 的 weakref 用途类似但语义不同。
+
+- term: 编译 / 链接
+  aliases: [compile, link, header]
+  perLanguage:
+    python: import 运行时加载 .py，没有单独编译步骤
+    cpp: 头文件文本包含、每个编译单元独立编译、最后链接
+  note: |
+    #include 不是 import，是文本插入。理解这层才能理解
+    「重复定义」「未定义引用」这类 Python 里不存在的错误。
+
+- term: 整除 / 取模
+  aliases: [division, modulo]
+  perLanguage:
+    python: '`//` 向下取整；`%` 结果与除数同号（非负）'
+    cpp: '`/` 向零截断；`%` 结果与被除数同号'
+  note: |
+    正数时一致，负数时都不同。`-7 // 2` 是 -4，`-7 / 2` 是 -3。
+    涉及负数的取整运算要特别小心。
+
+- term: 协程
+  aliases: [coroutine, async]
+  perLanguage:
+    python: async / await 有内建事件循环与 Task
+    cpp: 无栈协程，语言只给挂起原语，调度器与任务类型靠库
+  note: |
+    C++20 的协程不是开箱即用的 async/await，没有事件循环。
+
+- term: 类型
+  aliases: [type, template, static]
+  perLanguage:
+    python: 运行时类型；typing 提示可擦除
+    cpp: 编译期类型完全确定；模板为每种类型生成独立代码（单态化）
+  note: |
+    C++ 的模板不是擦除而是编译期展开，与 Python 的泛型提示完全不同。
+    好处是零开销，代价是编译错误冗长。
+
+- term: 资源管理
+  aliases: [raii, context-manager, with]
+  perLanguage:
+    python: with 与上下文管理器（__enter__ / __exit__）
+    cpp: RAII —— 清理写在析构函数里，离开作用域自动执行
+  note: |
+    Python 的 with 是显式的，C++ 的 RAII 是隐式的（靠作用域）。
+    lock_guard、ifstream、智能指针都是 RAII 的例子。

@@ -1,0 +1,93 @@
+# 速语词典 —— 从 JavaScript 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: Optional
+  aliases: [optional, nullable]
+  perLanguage:
+    javascript: null 与 undefined 是语言内置的特殊值
+    swift: Optional 是标准库的泛型枚举（.none / .some），`Int?` 只是语法糖
+  note: |
+    理解「Optional 是枚举」这层，就能理解它为什么能模式匹配、能用 map、
+    `??` 为什么是运算符。这与 JS 的 null 是完全不同的东西。
+
+- term: 值类型 / 引用类型
+  aliases: [value-type, reference-type, struct, class]
+  perLanguage:
+    javascript: 数组、对象都是引用类型（赋值传同一份）
+    swift: struct 是值类型（拷贝），class 是引用类型；数组、字典、字符串都是值类型
+  note: |
+    这是从 JS 过来最大的语义转变：传数组默认是拷贝，不是共享。
+    要共享可变状态得用 class。
+
+- term: 身份比较
+  aliases: [identity, equality]
+  perLanguage:
+    javascript: '`===` 是所有值的严格相等'
+    swift: '`===` 只对类的实例成立；值比较一律用 `==`'
+  note: |
+    Swift 的 `===` 是「是不是同一个对象」，对值类型用它会编译错误。
+    日常比较用 `==`。
+
+- term: 类型转换
+  aliases: [conversion, cast]
+  perLanguage:
+    javascript: 隐式转换满天飞（+、==、比较）
+    swift: 从不隐式转换，一律显式 Double(n) / Int(d)
+  note: |
+    官方措辞是 never implicitly converted。从 JS 过来要习惯到处写转换。
+
+- term: 字符串下标
+  aliases: [string-index, substring]
+  perLanguage:
+    javascript: 字符串可以整数下标，str[0] 随手可用
+    swift: 不能用整数下标，要用 String.Index；count 数字素簇
+  note: |
+    Swift 的字符串按「用户感知的字符」处理，所以不能简单整数索引。
+    取首字符用 str.first，取前 n 个用 str.prefix(n)。
+
+- term: 访问控制
+  aliases: [private, fileprivate, open, internal]
+  perLanguage:
+    javascript: 没有语言级访问控制（靠约定与 # 私有字段）
+    swift: private 是「作用域加同文件扩展」；fileprivate 才是文件级；public 成员默认 internal
+  note: |
+    Swift 的 private 不是文件级 —— 这条与多数语言的直觉相反。
+    跨模块继承 / 重写还要 open。
+
+- term: defer
+  aliases: [defer, finally, cleanup]
+  perLanguage:
+    javascript: try / catch / finally，清理写在 finally
+    swift: 没有 finally；用 defer，写在拿到资源之后，离开作用域时执行
+  note: |
+    defer 的位置与 finally 不同：它靠近资源，不是包在外层。
+    多个 defer 按逆序执行。
+
+- term: 闭包捕获
+  aliases: [closure, capture, weak]
+  perLanguage:
+    javascript: 闭包捕获变量，靠 GC 回收循环引用
+    swift: 闭包是引用类型，强引用捕获会造成循环引用，要写 [weak self]
+  note: |
+    ARC 处理不了循环引用，所以必须显式用捕获列表打断。
+    JS 因为有 GC，从来不用操心这件事。
+
+- term: 协议 / 扩展
+  aliases: [protocol, extension, inheritance]
+  perLanguage:
+    javascript: 复用靠原型链与 class 继承
+    swift: 复用靠协议 + 扩展；struct 不能继承，是默认选择
+  note: |
+    Swift 的设计取向是「组合优于继承」。数据模型默认用 struct + 协议扩展。
+
+- term: ARC
+  aliases: [arc, gc, memory]
+  perLanguage:
+    javascript: 有垃圾回收器，循环引用能自动处理
+    swift: 自动引用计数（ARC），编译期插入 retain / release，处理不了循环引用
+  note: |
+    引用计数是确定性的（对象在最后一个引用消失时立刻释放），
+    但循环引用要自己用 weak / unowned 打断。

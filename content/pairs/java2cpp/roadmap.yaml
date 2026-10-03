@@ -1,0 +1,95 @@
+# 迁移学习路线 —— 按「基准 → 目标语言」分路径
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+#
+# id 前缀就是这个方向的目录名（java2cpp），后面接序号与短名 ——
+# 它只在本文件内唯一，但带上方向前缀之后整份内容里也能一眼看出归属。
+
+- id: java2cpp-1-toolchain
+  order: 1
+  title: 工具链与编译模型
+  durationHint: 2-3 小时
+  todo:
+    - 装 g++ 或 clang++，写一个 hello world 编译运行
+    - 显式指定 `-std=c++20`，确认默认标准是 C++17（不给 -std 时）
+    - 理解头文件 / 源文件 / 编译单元 / 链接，对比 Java 的 .class 加载
+    - 对照本工具「语言机制」板块里 C++ 列的静态类型与编译期相关格
+  acceptance:
+    - 能独立编译一个多文件的 C++ 程序，说清编译与链接的分工
+    - 知道哪些错误是编译错误、哪些是链接错误
+  resources:
+    - label: cppreference（在线参考）
+      url: https://en.cppreference.com/w/
+    - label: ISO C++ 官网
+      url: https://isocpp.org/
+
+- id: java2cpp-2-values-and-memory
+  order: 2
+  title: 值语义、内存与 UB
+  durationHint: 3-5 天
+  todo:
+    - 验证赋值是拷贝：改副本不影响原对象
+    - 用栈对象与智能指针各写一遍资源管理，体会 RAII 与 try-with-resources 的差别
+    - 试一次越界访问与有符号溢出，理解 UB 的含义
+    - 用 shared_ptr 造一个循环引用，再用 weak_ptr 修好
+  acceptance:
+    - 能说清值语义与 Java 引用语义的差别
+    - 能识别三类常见 UB（越界、有符号溢出、失效迭代器）
+  resources:
+    - label: cppreference · 智能指针
+      url: https://en.cppreference.com/w/cpp/memory
+    - label: cppreference（在线参考）
+      url: https://en.cppreference.com/w/
+
+- id: java2cpp-3-containers-and-templates
+  order: 3
+  title: 容器、迭代器与模板
+  durationHint: 3-5 天
+  todo:
+    - 用 vector / map / string 各写几个操作，边界检查用 at
+    - 验证一次迭代器失效（push_back 之后用旧迭代器）
+    - 写一个模板函数，体会单态化与 Java 泛型擦除的差别
+    - 从长编译错误里找出第一条真正的错误
+  acceptance:
+    - 能说清哪些操作会让迭代器失效
+    - 能说清模板与 Java 泛型的根本差别
+  resources:
+    - label: cppreference · 容器
+      url: https://en.cppreference.com/w/cpp/container
+    - label: cppreference · 模板
+      url: https://en.cppreference.com/w/cpp/language/templates
+
+- id: java2cpp-4-concurrency
+  order: 4
+  title: 并发与协程
+  durationHint: 3-5 天
+  todo:
+    - 用 std::thread 与 mutex 写一段并发代码，对比 Java 的 synchronized
+    - 理解数据竞争在 C++ 里是 UB（不是「可能出错」）
+    - 试一次 C++20 协程，体会语言只给原语、不给调度器
+    - 对比 Java 虚拟线程，理解两者在调度层上的差别
+  acceptance:
+    - 能说清 C++ 的并发原语与 Java 的对应关系
+    - 能说清 C++ 协程为什么不是开箱即用的
+  resources:
+    - label: cppreference · 并发支持
+      url: https://en.cppreference.com/w/cpp/thread
+    - label: cppreference · 协程
+      url: https://en.cppreference.com/w/cpp/language/coroutines
+
+- id: java2cpp-5-engineering
+  order: 5
+  title: 工程化收口
+  durationHint: 1 周
+  todo:
+    - 用 CMake 组织一个多文件工程，理解它与 Maven / Gradle 的差别
+    - 用一个包管理器（vcpkg 或 Conan）装第三方库
+    - 配 clang-tidy 与 sanitizer（ASan / UBSan），让 UB 现形
+    - 对照本工具「工程实践」板块里 C++ 列的工具链
+  acceptance:
+    - 能独立用 CMake 搭起一个带依赖、测试的 C++ 工程
+    - 能用 sanitizer 抓出隐藏的 UB
+  resources:
+    - label: CMake 官方文档
+      url: https://cmake.org/documentation/
+    - label: ISO C++ 官网
+      url: https://isocpp.org/

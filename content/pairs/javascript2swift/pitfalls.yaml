@@ -1,0 +1,214 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 Swift 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-js2swift-no-implicit-conversion
+  featureId: express/type-conversion
+  title: 数值不隐式转换，一个都不行
+  symptom: |
+    JS 里 `1 + 1.5` 天经地义；Swift 里 `let x: Double = someInt` 编译不过，
+    必须写 `Double(someInt)`。
+  cause: |
+    官方原话是「Values of one type are never implicitly converted to another type」。
+    JS 只有一个 number（外加一堆隐式转换规则），数值类型之间没有墙。
+    Swift 是强类型：整数与浮点、不同宽度的整数之间**从不隐式转换**。
+  fix: |
+    到处写显式转换：`Double(n)` / `Int(d)` / `Int64(x)`。
+    字面量可以参与推断（`let x: Double = 1` 里的 1 会被当 Double），
+    但变量之间不行。
+  severity: 3
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [数值, 类型转换]
+
+- id: pitfall-js2swift-overflow-traps
+  featureId: express/arithmetic
+  title: 整数溢出会崩，不是回绕
+  symptom: |
+    JS 的数值是浮点，不会溢出（只会丢精度）；Swift 的整数溢出会**直接终止程序**。
+  cause: |
+    Swift 的整数运算默认**检查溢出**，溢出即陷阱（crash）。
+    想 C 语言那种回绕必须显式写 `&+` / `&-` / `&*`。
+    这与 JS 的「浮点不会溢出」是完全不同的失败模式。
+  fix: |
+    确认运算不会溢出，或显式用溢出运算符（`&+` 等）表达「我知道会回绕」。
+    大数场景用 `Double` 或先检查边界。别把 JS 的「不会溢出」直觉带过来。
+  severity: 2
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-js2swift-string-index
+  featureId: express/string-common-ops
+  title: 字符串不能用整数下标
+  symptom: |
+    `str[0]` 编译不过 —— Swift 的 String 不能用 Int 索引，要用 `String.Index`。
+  cause: |
+    JS 的字符串下标按 UTF-16 码元，`str[0]` 随手可用。
+    Swift 的 String 按**字素簇**处理，`count` 数的是「用户感知的字符数」，
+    所以不能简单地整数索引。
+  fix: |
+    用 `str.first` / `str.prefix(n)` / `str.index(_:offsetBy:)` 取。
+    要按下标随机访问，先转成 `Array(str)`（但那样就丢掉了字素簇语义）。
+  severity: 3
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [字符串]
+
+- id: pitfall-js2swift-value-types
+  featureId: mechanism/value-vs-reference
+  title: 数组、字典、字符串都是值类型
+  symptom: |
+    把数组传给函数、赋给另一个变量，改动其中一个，另一个**不受影响** ——
+    与 JS 的引用语义正好相反。
+  cause: |
+    JS 里数组、对象是引用类型，赋值传的是同一份。
+    Swift 里 `Array` / `Dictionary` / `Set` / `String` / `struct` 都是**值类型**：
+    赋值与传参都是拷贝（写时复制只是优化，行为上「总是像立刻拷贝了」）。
+  fix: |
+    要共享可变状态得用**类**（引用类型）或显式用 inout 参数。
+    反过来看，值语义让「意外共享」的 bug 消失 —— 这是 Swift 的设计取向。
+  severity: 3
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [值语义]
+
+- id: pitfall-js2swift-optional-enum
+  featureId: mechanism/null-safety
+  title: Optional 是枚举，不是 null 那个空值
+  symptom: |
+    以为 `Int?` 就是「可能是 null 的 Int」，其实它是 `Optional<Int>` 枚举
+    （`.none` / `.some(Int)`），`Int?` 只是语法糖。
+  cause: |
+    JS 的 null / undefined 是特殊值。Swift 的 `Optional` 是标准库里的**泛型枚举**，
+    所以它能被模式匹配、能用 `map`、`??` 是运算符而不是语言空值。
+    理解这层，很多「Optional 为什么能这样用」就通了。
+  fix: |
+    用 `if let` / `guard let` 解包，`??` 给默认值，`?.` 可选链。
+    `!` 是强制解包（空则崩），慎用。
+  severity: 3
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [空值]
+
+- id: pitfall-js2swift-identity
+  featureId: express/equality
+  title: 三个等号只对类实例成立
+  symptom: |
+    想用 `===` 比较两个数组或字符串，编译不过 —— `===` 只对类的实例有效。
+  cause: |
+    JS 的 `===` 是所有值都能用的严格相等。Swift 的 `===` 是**身份比较**，
+    只对引用类型（类、闭包）成立；值类型用它会编译错误。
+    值比较用 `==`（类型需实现 Equatable）。
+  fix: |
+    值比较用 `==`；要判断「是不是同一个对象」才用 `===`，且只对类。
+    字符串、数组直接 `==` 比值。
+  severity: 2
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [相等]
+
+- id: pitfall-js2swift-closure-capture
+  featureId: express/closures
+  title: 闭包是引用类型，捕获会造成强引用环
+  symptom: |
+    闭包里捕获了 self 或外部对象，造成循环引用、对象永不释放 ——
+    而 JS 的闭包捕获不会有这个问题（有 GC）。
+  cause: |
+    Swift 的**函数与闭包是引用类型**，闭包捕获外部变量时会强引用它们。
+    对象持有闭包、闭包又捕获了对象，就构成强引用环，ARC 无法回收。
+    JS 有 GC 能处理循环引用，Swift 的引用计数不能。
+  fix: |
+    在闭包的捕获列表里用 `[weak self]` 或 `[unowned self]` 打断环。
+    值类型（struct）的捕获是拷贝，不会有这个问题。
+  severity: 2
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [闭包, 内存]
+
+- id: pitfall-js2swift-access-control
+  featureId: model/access-control
+  title: private 不是文件级，public 成员默认 internal
+  symptom: |
+    以为 `private` 是「这个文件私有」，其实它是「作用域 + 同文件的扩展」；
+    文件级的是 `fileprivate`。另外 `public` 类型的成员默认是 `internal`。
+  cause: |
+    Swift 的访问控制层级与多数语言直觉不同：`private` = 声明所在作用域加同文件扩展；
+    `fileprivate` = 整个文件；`internal`（默认）= 整个模块；
+    `public` = 跨模块可见但**默认不能继承 / 重写**（要 `open`）。
+    官方专门提示「A public type defaults to having internal members」。
+  fix: |
+    要跨模块继承 / 重写就标 `open`；只是跨模块使用标 `public`。
+    模块内可见用默认的 internal 即可。
+  severity: 2
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [可见性]
+
+- id: pitfall-js2swift-no-finally
+  featureId: model/finally-cleanup
+  title: 没有 finally，清理用 defer
+  symptom: |
+    习惯 JS 的 try / catch / finally，Swift 里没有 finally，得用 `defer`。
+  cause: |
+    Swift 用 `defer` 块做清理：它在**离开当前作用域时**执行（LIFO 顺序，
+    抛错时也执行）。这与 JS 的 finally 位置不同 ——
+    defer 写在**使用资源之后**，而不是包在外层。
+  fix: |
+    拿到资源后立刻写 `defer { ... }`，清理逻辑就放这里。
+    多个 defer 按**逆序**执行（像栈）。
+  severity: 2
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [资源, 错误处理]
+
+- id: pitfall-js2swift-struct-default
+  featureId: model/inheritance
+  title: struct 是默认选择，而且不能继承
+  symptom: |
+    想继承一个数据模型，发现它是 struct —— struct 根本不能继承。
+    Swift 社区还说「默认用 struct，别用 class」。
+  cause: |
+    JS 只有一种「对象」，继承靠原型链 / class。
+    Swift 里 `struct` 是**值类型、不能继承**，且是官方推荐的默认选择；
+    复用靠**协议与扩展**。`class` 是引用类型，用于需要共享身份或继承的场景。
+  fix: |
+    默认用 struct；需要共享可变状态、需要继承、需要析构器时才用 class。
+    复用逻辑用协议 + 扩展，而不是继承树。
+  severity: 3
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [类型系统, 继承]
+
+- id: pitfall-js2swift-memberwise-init
+  featureId: model/constructor
+  title: 结构体自动生成构造器，写一个就没了
+  symptom: |
+    依赖 struct 自动生成的逐成员构造器，结果在类型本体里加了一个自定义构造器后，
+    自动的那个消失了，编译报错。
+  cause: |
+    Swift 的 struct 会**自动生成逐成员构造器**，但如果你在**类型本体**里
+    写了自己的构造器，就不再自动生成；写在 `extension` 里则保留。
+  fix: |
+    想保留自动构造器，就把自定义构造器写进 `extension`。
+  severity: 1
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [构造]
+
+- id: pitfall-js2swift-cancellation
+  featureId: mechanism/cancellation
+  title: 取消是协作式的
+  symptom: |
+    调用 `Task.cancel()` 以为任务就停了，实际它只是设了个标志，
+    任务自己不去查就会**一直跑完**。
+  cause: |
+    Swift 的并发取消是**协作式**的：`cancel()` 只设标志，
+    代码自己得调用 `Task.isCancelled` 或 `checkCancellation()`（会抛错）来响应。
+    与 JS 的 AbortController 类似（也要自己检查 signal），都不是强制杀。
+  fix: |
+    在长任务的循环里定期 `try Task.checkCancellation()`，或检查 `Task.isCancelled`。
+    不检查的代码，cancel() 对它没有效果。
+  severity: 2
+  languages: [javascript, swift]
+  fromBaseline: true
+  tags: [并发, 取消]

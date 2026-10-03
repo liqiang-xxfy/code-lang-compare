@@ -1,0 +1,522 @@
+{
+  "baseline": "python",
+  "target": "swift",
+  "pitfalls": [
+    {
+      "id": "pitfall-py2swift-no-implicit-conversion",
+      "title": "数值不隐式转换，一个都不行",
+      "symptomHtml": "<p>Python 的 int 与 float 可以自由混合运算；Swift 里 <code>let x: Double = someInt</code>\n编译不过，必须 <code>Double(someInt)</code>。</p>\n",
+      "causeHtml": "<p>官方原话是「Values of one type are never implicitly converted to another type」。\nPython 的数值模型是「int 与 float 自动适配」，Swift 是强类型、零隐式转换。</p>\n",
+      "fixHtml": "<p>写显式转换：<code>Double(n)</code> / <code>Int(d)</code> / <code>Int64(x)</code>。\n字面量能参与推断，变量之间必须显式转。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/type-conversion",
+      "tags": [
+        "数值",
+        "类型转换"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-optional-enum",
+      "title": "Optional 是枚举，不是 None",
+      "symptomHtml": "<p>Python 的 None 随手传；Swift 里可能为空的值要标 <code>?</code>，不判空编译不过。</p>\n",
+      "causeHtml": "<p>Swift 的 <code>Optional</code> 是标准库的泛型枚举（<code>.none</code> / <code>.some</code>），<code>Int?</code> 只是语法糖。\n它把「可能没有」编进类型系统，逼你处理 —— 比 Python 的 None（运行时才炸）强得多。</p>\n",
+      "fixHtml": "<p>用 <code>if let</code> / <code>guard let</code> 解包，<code>??</code> 给默认值，<code>?.</code> 可选链。\n这是从 Python 过来明显更省心的一块。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-overflow-traps",
+      "title": "整数会溢出，而且溢出就崩",
+      "symptomHtml": "<p>Python 的 int 是任意精度、永不溢出；Swift 的整数溢出会<strong>直接终止程序</strong>。</p>\n",
+      "causeHtml": "<p>Swift 的整数运算默认检查溢出，溢出即陷阱（crash）；想回绕必须显式用\n<code>&amp;+</code> / <code>&amp;-</code> / <code>&amp;*</code>。这与 Python 的任意精度整数是根本不同的模型。</p>\n",
+      "fixHtml": "<p>大数场景用 <code>Double</code> 或先检查边界；确实要回绕才用 <code>&amp;+</code>。\n别把 Python 的「不会溢出」直觉带过来。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-string-index",
+      "title": "字符串不能用整数下标",
+      "symptomHtml": "<p>Python 的 <code>s[0]</code>、<code>s[-1]</code> 在 Swift 里写不出来 —— 要用 String.Index 或 first / last。</p>\n",
+      "causeHtml": "<p>Python 的字符串下标按码点，且支持负索引与切片。\nSwift 的 String 按<strong>字素簇</strong>处理，<code>count</code> 数的是用户感知的字符，\n所以不能简单整数索引，也没有负下标。</p>\n",
+      "fixHtml": "<p>取首尾用 <code>str.first</code> / <code>str.last</code>；取前 n 个用 <code>prefix(n)</code>；\n按位置取用 <code>str.index(str.startIndex, offsetBy: n)</code>。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-value-types",
+      "title": "数组、字典、字符串都是值类型",
+      "symptomHtml": "<p>Python 里 <code>b = a; b.append(1)</code> 会改到 a；Swift 里 <code>var b = a; b.append(1)</code>\n不影响 a —— 因为数组是值类型。</p>\n",
+      "causeHtml": "<p>Python 的 list / dict 是可变对象、引用语义，赋值传的是同一份。\nSwift 的 Array / Dictionary / Set / String / struct 都是<strong>值类型</strong>：\n赋值传参都是拷贝（写时复制只是优化）。</p>\n",
+      "fixHtml": "<p>要共享可变状态得用 class。反过来，值语义消除了「意外共享」的 bug。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "值语义"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-access-control",
+      "title": "private 不是类级，public 成员默认 internal",
+      "symptomHtml": "<p>Python 的 <code>_foo</code> 是约定、<code>__foo</code> 是名称改写；Swift 的 private 是\n「作用域 + 同文件扩展」，文件级的是 fileprivate。</p>\n",
+      "causeHtml": "<p>Python 没有强制的访问控制（靠约定）。Swift 有真正的层级：\nprivate / fileprivate / internal（默认）/ public / open。\n而且 public 类型的成员默认是 internal。</p>\n",
+      "fixHtml": "<p>跨模块继承 / 重写标 <code>open</code>；只是跨模块使用标 <code>public</code>；模块内默认 internal 即可。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/access-control",
+      "tags": [
+        "可见性"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-no-comprehension",
+      "title": "没有列表推导式",
+      "symptomHtml": "<p><code>[x*2 for x in xs if x &gt; 0]</code> 写不出来，得换成 filter / map。</p>\n",
+      "causeHtml": "<p>Swift 没有推导式语法，对应的是集合的 <code>filter</code> / <code>map</code> / <code>compactMap</code> 等。\n语义与 Python 推导式接近（先过滤后映射），写法是链式的。</p>\n",
+      "fixHtml": "<p><code>xs.filter { $0 &gt; 0 }.map { $0 * 2 }</code> —— <code>$0</code> 是第一个参数的简写。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/comprehension",
+      "tags": [
+        "集合"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-no-finally",
+      "title": "没有 finally，清理用 defer",
+      "symptomHtml": "<p>Python 的 try / finally 在 Swift 里没有对应，得用 defer。</p>\n",
+      "causeHtml": "<p>Swift 用 <code>defer</code> 块做清理：离开当前作用域时执行（LIFO，抛错时也执行）。\nPython 的 finally 包在外层，而 defer 写在<strong>拿到资源之后</strong>。</p>\n",
+      "fixHtml": "<p>拿到资源立刻写 <code>defer { ... }</code>。多个 defer 按逆序执行。\n可以理解成「离开作用域时的自动清理」，但比 with 更轻。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/finally-cleanup",
+      "tags": [
+        "资源",
+        "错误处理"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-protocol-extension",
+      "title": "复用靠协议加扩展，不是继承",
+      "symptomHtml": "<p>Python 里用 mixin 类或继承复用逻辑；Swift 里 struct 不能继承，\n得改用协议 + 扩展。</p>\n",
+      "causeHtml": "<p>Python 的 mixin 是多重继承的用法。Swift 的 struct（默认类型）不能继承，\n官方推荐的复用方式是<strong>协议 + 扩展</strong>（给协议写默认实现，等价于 mixin）。</p>\n",
+      "fixHtml": "<p>把共享行为写进协议，用 extension 提供默认实现。\n这样值类型也能用，不依赖继承树。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/mixin-trait",
+      "tags": [
+        "协议",
+        "复用"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-some-vs-any",
+      "title": "some 与 any 是两件事",
+      "symptomHtml": "<p>看到 <code>some Protocol</code> 和 <code>any Protocol</code> 以为是同义写法，其实一个保留具体类型身份、\n一个不保留。</p>\n",
+      "causeHtml": "<p>官方原句：opaque type（<code>some</code>）「preserve the identity of the underlying type」；\nboxed / existential（<code>any</code>）「don't preserve type identity」且多一层 box。\n简单说：<code>some</code> 是「某个具体但我不写出来的类型」，<code>any</code> 是「任意符合的类型、运行时装箱」。</p>\n",
+      "fixHtml": "<p>返回具体类型（调用方不关心是什么）用 <code>some</code>；需要存异构集合、运行时动态类型用 <code>any</code>。\n新语言模式下协议当类型用必须显式写 <code>any</code> 或 <code>some</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-constraint",
+      "tags": [
+        "泛型",
+        "协议"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-struct-default",
+      "title": "struct 是默认选择，而且不能继承",
+      "symptomHtml": "<p>Python 里随手继承一个类；Swift 里数据模型默认是 struct，根本不能继承。</p>\n",
+      "causeHtml": "<p>Python 的类默认开放、可以继承。Swift 里 struct 是值类型、不能继承，\n且是官方推荐的默认选择；复用靠<strong>协议与扩展</strong>。</p>\n",
+      "fixHtml": "<p>默认用 struct；需要共享可变状态、继承、析构器时才用 class。\n复用逻辑用协议 + 扩展。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/inheritance",
+      "tags": [
+        "类型系统",
+        "继承"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "pitfall-py2swift-assert-levels",
+      "title": "断言分三档，语义不同",
+      "symptomHtml": "<p>Python 只有 assert（-O 关掉）；Swift 有 assert / precondition / fatalError 三档，\n用错会在发布构建里失效或误伤。</p>\n",
+      "causeHtml": "<p><code>assert</code> <strong>只在调试构建检查</strong>（发布构建里条件都不求值）；\n<code>precondition</code> 两边都检查；<code>fatalError</code> 永远生效。\n选择标准：内部一致性用 assert，调用方契约用 precondition。</p>\n",
+      "fixHtml": "<p>校验调用方传参用 <code>precondition</code>；内部不变量用 <code>assert</code>；\n绝不该发生的情况用 <code>fatalError</code>。</p>\n",
+      "severity": 1,
+      "languages": [
+        "python",
+        "swift"
+      ],
+      "fromBaseline": true,
+      "featureId": "practice/assertions",
+      "tags": [
+        "断言"
+      ],
+      "baseline": "python",
+      "target": "swift"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "Optional",
+      "aliases": [
+        "optional",
+        "none",
+        "nullable"
+      ],
+      "perLanguage": {
+        "python": "None 是单例对象，任何类型都能是 None",
+        "swift": "Optional 是泛型枚举（.none / .some），`Int?` 是语法糖，不判空编译不过"
+      },
+      "note": "Optional 是枚举这层含义，解释了它为什么能模式匹配、能用 map。\n这比 Python 的 None 强得多 —— 「可能没有」被编进类型。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "值类型 / 引用类型",
+      "aliases": [
+        "value-type",
+        "reference-type",
+        "struct",
+        "class"
+      ],
+      "perLanguage": {
+        "python": "list / dict 是可变对象、引用语义；tuple 不可变但是引用",
+        "swift": "struct / 数组 / 字典 / 字符串都是值类型（赋值即拷贝）；class 是引用类型"
+      },
+      "note": "这是从 Python 过来最大的语义转变：传列表默认是拷贝，不是共享。\n要共享可变状态得用 class。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "协议 / 扩展",
+      "aliases": [
+        "protocol",
+        "extension",
+        "mixin",
+        "abc"
+      ],
+      "perLanguage": {
+        "python": "复用靠继承与 mixin 类；抽象靠 ABC",
+        "swift": "复用靠协议 + 扩展（默认实现）；struct 不能继承，是默认选择"
+      },
+      "note": "Swift 的协议 + 扩展等价于 Python 的 mixin，但不依赖继承树。\n值类型也能用，这是它比继承更受推荐的原因。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "conversion",
+        "cast"
+      ],
+      "perLanguage": {
+        "python": "int 与 float 自动适配，也有显式 int() / float()",
+        "swift": "从不隐式转换，一律显式 Double(n) / Int(d)"
+      },
+      "note": "官方措辞是 never implicitly converted。\nPython 的数值混合运算直觉在这里完全不适用。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "字符串",
+      "aliases": [
+        "string",
+        "index",
+        "subscript"
+      ],
+      "perLanguage": {
+        "python": "支持整数下标、负索引、切片",
+        "swift": "不能用整数下标，要用 String.Index；count 数字素簇"
+      },
+      "note": "Swift 的字符串按「用户感知的字符」处理。\n取首字符用 first，取前 n 个用 prefix(n)，没有负索引。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "访问控制",
+      "aliases": [
+        "private",
+        "fileprivate",
+        "open",
+        "internal"
+      ],
+      "perLanguage": {
+        "python": "靠命名约定（_ 与 __），没有强制",
+        "swift": "private / fileprivate / internal（默认）/ public / open 五档，真的强制"
+      },
+      "note": "Swift 的 private 是「作用域加同文件扩展」，不是文件级也不是类级。\n跨模块继承 / 重写要 open。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "defer",
+      "aliases": [
+        "defer",
+        "finally",
+        "context-manager"
+      ],
+      "perLanguage": {
+        "python": "try / finally，或用 with 与上下文管理器",
+        "swift": "没有 finally；用 defer，写在拿到资源之后，离开作用域时执行"
+      },
+      "note": "defer 的位置与 finally 不同：它靠近资源，不是包在外层。\n多个 defer 按逆序执行。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "内存管理",
+      "aliases": [
+        "arc",
+        "gc",
+        "reference-counting"
+      ],
+      "perLanguage": {
+        "python": "引用计数加循环 GC，能自动处理循环引用",
+        "swift": "自动引用计数（ARC），编译期插入 retain / release，处理不了循环引用"
+      },
+      "note": "Swift 的释放是确定性的（最后一个引用消失时立刻），\n但循环引用要自己用 weak / unowned 打断 —— Python 有循环 GC，不用操心。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "整数",
+      "aliases": [
+        "int",
+        "overflow",
+        "number"
+      ],
+      "perLanguage": {
+        "python": "任意精度，永不溢出",
+        "swift": "固定宽度，溢出即崩溃；回绕要显式用 &+"
+      },
+      "note": "这是与 Python 最根本的数值差别。大数运算要特别小心。\n",
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "term": "断言",
+      "aliases": [
+        "assert",
+        "precondition"
+      ],
+      "perLanguage": {
+        "python": "只有 assert，-O 优化模式会被剥掉",
+        "swift": "三档 —— assert（仅调试）、precondition（都检查）、fatalError（永远生效）"
+      },
+      "note": "选择标准：内部一致性用 assert，调用方契约用 precondition。\n比 Python 的单档 assert 更细致。\n",
+      "baseline": "python",
+      "target": "swift"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "python2swift-1-types-and-values",
+      "order": 1,
+      "title": "类型与值语义",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 Xcode（macOS）或用 Swift Playgrounds 跑通一段代码",
+        "写一段熟悉的 Python 逻辑用 Swift 重写，体会「处处显式转换」",
+        "验证列表传参是拷贝而不是共享（值类型）",
+        "对照本工具「语言机制」板块里 Swift 列的「值语义」「空安全」两格"
+      ],
+      "acceptance": [
+        "能说清把列表传给函数时 Python 与 Swift 的行为差别",
+        "能说清 Optional 是枚举，以及它与 None 的差别"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        },
+        {
+          "label": "The Swift Programming Language（官方书）",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/"
+        }
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "python2swift-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1-2 天",
+      "todo": [
+        "把推导式改写成 filter / map 链",
+        "过一遍字符串操作，注意不能用整数下标",
+        "试一次整数溢出，理解它会崩而不是回绕",
+        "把 try / finally 改成 do / catch / defer"
+      ],
+      "acceptance": [
+        "能独立写出变量、容器、控制流、函数定义，无语法错误",
+        "知道哪些写法在 Swift 里会编译不过（字符串下标、隐式转换）"
+      ],
+      "resources": [
+        {
+          "label": "The Swift Programming Language（官方书）",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/"
+        }
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "python2swift-3-structs-and-protocols",
+      "order": 3,
+      "title": "值类型、协议与扩展",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 struct 建几个数据模型，体会自动生成的逐成员构造器",
+        "用协议 + 扩展做复用，对比 Python 的 mixin",
+        "搞清 some 与 any 的区别",
+        "处理一次闭包捕获造成的循环引用"
+      ],
+      "acceptance": [
+        "能说清 struct 与 class 的取舍，以及为什么 Swift 默认用 struct",
+        "能用协议 + 扩展替代多重继承"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        }
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "python2swift-4-concurrency",
+      "order": 4,
+      "title": "并发：async / await 与 actor",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把一段 asyncio 代码改写成 async / await",
+        "用 Task 与 TaskGroup 表达并发，体会结构化并发",
+        "用 actor 保护共享状态，理解数据竞争在编译期就被拦",
+        "试一次协作式取消：cancel() 之后不检查标志，任务照样跑完"
+      ],
+      "acceptance": [
+        "能说清 Swift 的 actor 与 Python 的 asyncio 在并发安全上的差别",
+        "能写出正确响应的可取消任务"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档 · 并发",
+          "url": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency/"
+        }
+      ],
+      "baseline": "python",
+      "target": "swift"
+    },
+    {
+      "id": "python2swift-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 Swift Package Manager 管依赖，理解它与 pip / venv 的差别",
+        "用 swift-testing 或 XCTest 写测试，注意 assert / precondition 的三档语义",
+        "把一个 Python 小工具改写成 Swift 并跑起来",
+        "对照本工具「工程实践」板块里 Swift 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖、测试的 Swift Package",
+        "能说清 Swift 的构建与依赖管理和 Python 生态的差别"
+      ],
+      "resources": [
+        {
+          "label": "Swift 官方文档 · Package Manager",
+          "url": "https://www.swift.org/documentation/package-manager/"
+        },
+        {
+          "label": "Swift 官方文档",
+          "url": "https://www.swift.org/documentation/"
+        }
+      ],
+      "baseline": "python",
+      "target": "swift"
+    }
+  ]
+}
