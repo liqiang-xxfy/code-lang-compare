@@ -462,7 +462,7 @@ export function analyzeContent(): Analysis {
             err(
               'R4/R9',
               `${g.file} → ${featureId}`,
-              `代码里残留 @note 标记 —— 标记必须写在注释前缀（'${commentLine}'）之后`,
+              `代码里残留 @note 标记 —— 两个条件都要满足：① 写在注释前缀（'${commentLine}'）之后；② 标记之后要有一个空白字符（\`@note 说明\` 而不是 \`@note说明\`）`,
             )
           }
         }

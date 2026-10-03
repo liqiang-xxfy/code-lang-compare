@@ -1,0 +1,232 @@
+{
+  "lang": "php",
+  "section": "mechanism",
+  "group": "async",
+  "boxes": {
+    "event-loop": {
+      "lang": "php",
+      "code": "// ⚠ PHP 核心**没有事件循环** —— 没有 loop、没有调度器\n// 核心只有底层的 I/O 多路复用：\n$r = [$socket]; $w = null; $e = null;\nstream_select($r, $w, $e, 1, 0);   // 这就是核心的全部「事件」能力\n// 它是**阻塞式的一次查询**，不是「注册回调然后一直跑」的循环\n\n// 脚本的真实形态是**同步的**：从第一行跑到最后一行，跑完进程结束\n$data = file_get_contents('https:// example.com/a');   // —— 阻塞到拿完\n$more = file_get_contents('https:// example.com/b');   // —— 再阻塞一次\n// 两次请求串行，总耗时是两者之和\n\n// ⚠ 想要事件循环，路子只有两条，**都不在核心**：\n// ① 用户态库：ReactPHP / Amp / Revolt（纯 PHP 实现）\n// ② PECL 扩展：Event（libevent 移植）/ Ev / Eio\n// 另有 Swoole（扩展，自带协程与事件循环，改写了整个运行模型）\n\n// 本机实测的否定结论：class_exists('EventBase') 为 false —— 没装",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ PHP 核心**没有事件循环** —— 没有 loop、没有调度器</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 核心只有底层的 I/O 多路复用：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$r </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> [$socket]; $w </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">; $e </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">stream_select</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">$r</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> $w</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> $e</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// 这就是核心的全部「事件」能力</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 它是**阻塞式的一次查询**，不是「注册回调然后一直跑」的循环</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 脚本的真实形态是**同步的**：从第一行跑到最后一行，跑完进程结束</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$data </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> file_get_contents</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'https:// example.com/a'</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// —— 阻塞到拿完</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$more </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> file_get_contents</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'https:// example.com/b'</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// —— 再阻塞一次</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两次请求串行，总耗时是两者之和</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 想要事件循环，路子只有两条，**都不在核心**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ① 用户态库：ReactPHP / Amp / Revolt（纯 PHP 实现）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ② PECL 扩展：Event（libevent 移植）/ Ev / Eio</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 另有 Swoole（扩展，自带协程与事件循环，改写了整个运行模型）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 本机实测的否定结论：class_exists('EventBase') 为 false —— 没装</span></span></code></pre>",
+      "lineCount": 17,
+      "notes": [
+        {
+          "line": 1,
+          "text": "PHP 核心**没有事件循环** —— 没有 loop、没有调度器",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "想要事件循环，路子只有两条，**都不在核心**：",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p><strong>这一格是两边差别最根本的地方</strong>。JavaScript 的运行时\n<strong>本身就是</strong>一个事件循环：所有 I/O 都是异步的，\n回调与微任务排队执行，「跑完一行等下一行」需要显式写 <code>await</code>。\nPHP 反过来：脚本是<strong>同步顺序执行</strong>的，每个 I/O 调用\n老老实实阻塞到返回 —— 事件循环要另外引库或装扩展。\n也就是说 JavaScript 那边「异步」是默认、同步要刻意做，\nPHP 这边「同步」是默认、异步要刻意做。\n另一处是这个差异的后果：那边的服务器能在单线程上撑住大量并发连接，\n这边「一个请求一个进程」的模型靠<strong>多开进程</strong>来扛 ——\n这也是 PHP 经典部署形态（Nginx + 一堆 FPM 进程）的由来。</p>\n",
+        "python": "<p>Python 把两条路都放在标准库里：同步代码是一般写法，\n而 <code>asyncio</code> 提供完整的事件循环、<code>async</code> / <code>await</code> 语法、\n任务调度 —— <code>asyncio.run(main())</code> 就能跑起来。\nPHP <strong>标准库里什么都没有</strong>：核心只有 <code>stream_select()</code>，\n想要事件循环得引 ReactPHP / Amp / Revolt 这种第三方，\n或者装扩展。\n所以两边都能写异步，但一边是「语言自带的一等公民」，\n另一边是「生态补上的能力」。共同点是两边都保留了\n同步阻塞的写法作为默认（PHP 是唯一写法，Python 至今仍是主流）。</p>\n",
+        "java": "<p>Java 传统上是<strong>同步阻塞 + 线程池</strong>：想要并发就多开线程，\n让每个线程各阻塞各的。PHP 连这条路都没有 ——\n<strong>核心没有线程</strong>，所以「同步阻塞」就真的是一个个排队。\nJava 较新版本有 <code>CompletableFuture</code> 与虚拟线程，\nNetty 这类框架也提供事件循环；PHP 这边对应的东西\n全在扩展与第三方库里。\n另一处是「谁在扛并发」：Java 靠线程池（一个进程内），\nPHP 靠进程池（FPM 起一堆进程）—— 后者的内存开销大得多，\n也正是 PHP 单请求内存必须小的原因。</p>\n"
+      }
+    },
+    "callback": {
+      "lang": "php",
+      "code": "// 回调本身在 PHP 里是**一等公民** —— 这一格反而是 PHP 的强项\n// 一个「可调用」可以是：闭包、箭头函数、字符串函数名、\n// 数组 [对象, 方法]、静态数组 [类名, 方法]、或第一类可调用\n\narray_map(fn($n) => $n * 2, [1, 2, 3]);\n\n$f = strlen(...);                 // ⚠ 8.1 起的第一类可调用语法\necho $f('abcd');                  // 4\n\nusort($list, fn($a, $b) => $a <=> $b);\npreg_replace_callback('/\\d+/', fn($m) => \"[{$m[0]}]\", 'a1b2');\n\n// 8.5 起还有管道运算符 `|>`，能把值串过一串可调用\n// $out = ' hello ' |> trim(...) |> strtoupper(...);\n\n// ⚠ 但**回调不等于异步** —— PHP 的回调绝大多数是**同步调用**：\n// ⚠ array_map 会等在回调返回之后才继续，它是「把函数当参数」，\n// ⚠ 不是「把事情丢出去稍后通知你」\n// ⚠ 真正的异步回调要等事件循环，那要引库（见上一格）\n\n// 「回调地狱」在 PHP 里其实少见，因为同步顺序执行的代码\n// 本来就是一维的；嵌套回调主要出现在「回调即异步」的那类生态里",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 回调本身在 PHP 里是**一等公民** —— 这一格反而是 PHP 的强项</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 一个「可调用」可以是：闭包、箭头函数、字符串函数名、</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 数组 [对象, 方法]、静态数组 [类名, 方法]、或第一类可调用</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">array_map</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\">($n) => $n </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> [</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-function)\">]</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$f </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> strlen</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-keyword)\">...</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;                 </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 8.1 起的第一类可调用语法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">echo</span><span style=\"color:var(--shiki-token-function)\"> $f</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'abcd'</span><span style=\"color:var(--shiki-foreground)\">);                  </span><span style=\"color:var(--shiki-token-comment)\">// 4</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">usort</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">$list</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\">($a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> $b) => $a </span><span style=\"color:var(--shiki-token-keyword)\">&#x3C;=></span><span style=\"color:var(--shiki-token-function)\"> $b</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">preg_replace_callback</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'/\\d</span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-string-expression)\">/'</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\">($m) => </span><span style=\"color:var(--shiki-token-string-expression)\">\"[{$m[</span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-token-string-expression)\">]}]\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> 'a1b2'</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 8.5 起还有管道运算符 `|>`，能把值串过一串可调用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// $out = ' hello ' |> trim(...) |> strtoupper(...);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 但**回调不等于异步** —— PHP 的回调绝大多数是**同步调用**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ array_map 会等在回调返回之后才继续，它是「把函数当参数」，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不是「把事情丢出去稍后通知你」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 真正的异步回调要等事件循环，那要引库（见上一格）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 「回调地狱」在 PHP 里其实少见，因为同步顺序执行的代码</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 本来就是一维的；嵌套回调主要出现在「回调即异步」的那类生态里</span></span></code></pre>",
+      "lineCount": 22,
+      "notes": [
+        {
+          "line": 7,
+          "text": "8.1 起的第一类可调用语法",
+          "tone": "warn"
+        },
+        {
+          "line": 16,
+          "text": "但**回调不等于异步** —— PHP 的回调绝大多数是**同步调用**：",
+          "tone": "warn"
+        },
+        {
+          "line": 17,
+          "text": "array_map 会等在回调返回之后才继续，它是「把函数当参数」，",
+          "tone": "warn"
+        },
+        {
+          "line": 18,
+          "text": "不是「把事情丢出去稍后通知你」",
+          "tone": "warn"
+        },
+        {
+          "line": 19,
+          "text": "真正的异步回调要等事件循环，那要引库（见上一格）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>两边的回调机制高度相似：都是「把函数当值传」，\n连 <code>array_map(cb, arr)</code> ↔ <code>arr.map(cb)</code> 的形状都一样。\n差别在<strong>回调什么时候被执行</strong>：JavaScript 的回调\n常常是<strong>异步</strong>的（I/O 完成后由事件循环调），\n所以顺序要靠 Promise / async 来理；\nPHP 的回调<strong>几乎全是同步</strong>的（<code>array_map</code>、<code>usort</code>、\n<code>preg_replace_callback</code> 都是当场调用、当场返回）——\n也就是说 PHP 里没有「回调地狱」这个经典问题，\n因为根本没有异步的回调。\n另一处是写法：JavaScript 的箭头函数是主要形态，\nPHP 到 7.4 才有箭头函数（之前只有 <code>function () use (...)</code>），\n8.1 又补了第一类可调用语法。</p>\n",
+        "python": "<p>Python 的函数也是一等值，<code>map</code> / <code>filter</code> / <code>sorted(key=...)</code>\n都能接回调 —— 与 PHP 逐条对应（<code>array_map</code> / <code>array_filter</code> / <code>usort</code>）。\n差别在<strong>装饰器</strong>：Python 有一整套 <code>@decorator</code> 语法，\n回调与元编程结合得深；PHP 没有装饰器语法，\n8.0 起的 <code>#[...]</code> <strong>属性</strong>是纯元数据（不执行代码），\n与 Python 的装饰器不是一回事。\n另一处是「回调是不是异步」：Python 的 <code>asyncio</code>\n让回调可以挂在事件循环上；PHP 核心的回调全是同步的。\n共同点是两边都能把任意可调用当值传。</p>\n",
+        "java": "<p>Java 到 8 才有 lambda，之前要写匿名内部类 ——\n所以「把函数当参数」这件事在 Java 里比 PHP 晚得多、也重得多。\nPHP 的闭包、箭头函数、第一类可调用三种写法都能用，\n而且 <code>array_map</code> 这类函数从很早就接受「字符串函数名」这种形式。\n差别在<strong>类型</strong>：Java 的 lambda 必须匹配一个函数式接口\n（<code>Comparator&lt;T&gt;</code>、<code>Runnable</code>…），签名不匹配编译不过；\nPHP 的 <code>callable</code> 是个宽泛的形状式类型，\n接不接受要到运行时才知道（而且 <code>callable</code> <strong>不能做属性类型</strong>）。\n另一处是异步：Java 有 <code>CompletableFuture</code> 能把回调串起来，\nPHP 核心连异步回调都没有。</p>\n"
+      }
+    },
+    "promise-future": {
+      "lang": "php",
+      "code": "// ⚠ PHP 核心**没有 Promise / Future** —— 无此概念\n// 本机实测：class_exists('Promise') 与 class_exists('Future')\n// 都是 false，核心包里一个都没有\n\n// 名字里带 Future 的只有 `parallel\\Future`（PECL 扩展，本机没装）：\n// 它表示「另一个线程里正在跑的任务」，用 ->value() 取值（会阻塞）\n\n// 生态里的 Promise 都在第三方库里：\n// · ReactPHP 有自己的 Promise 实现（deferred / then / catch）\n// · Amp 用的是 Future + 协程\n// · Guzzle 也带一套 Promise（给并发 HTTP 用）\n// 这些**互相不兼容**，各有各的 await 语义\n\n// 而在最主流的写法（同步阻塞）里，根本不需要 Promise：\n$a = file_get_contents($urlA);     // 阻塞\n$b = file_get_contents($urlB);     // 再阻塞\n// 两次串行。想并发得引库（Guzzle 的 Pool、ReactPHP 的 all()）\n\n// ⚠ 这也是为什么 PHP 生态里 Promise 的普及度远低于其他语言 ——\n// ⚠ 「一个请求一个进程、跑完就死」的模型下，\n// ⚠ 请求内并发的收益有限，而引一套异步框架会改写整个调用栈",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ PHP 核心**没有 Promise / Future** —— 无此概念</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 本机实测：class_exists('Promise') 与 class_exists('Future')</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 都是 false，核心包里一个都没有</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 名字里带 Future 的只有 `parallel\\Future`（PECL 扩展，本机没装）：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 它表示「另一个线程里正在跑的任务」，用 ->value() 取值（会阻塞）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 生态里的 Promise 都在第三方库里：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// · ReactPHP 有自己的 Promise 实现（deferred / then / catch）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// · Amp 用的是 Future + 协程</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// · Guzzle 也带一套 Promise（给并发 HTTP 用）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这些**互相不兼容**，各有各的 await 语义</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 而在最主流的写法（同步阻塞）里，根本不需要 Promise：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$a </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> file_get_contents</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">$urlA</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// 阻塞</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$b </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> file_get_contents</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">$urlB</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// 再阻塞</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两次串行。想并发得引库（Guzzle 的 Pool、ReactPHP 的 all()）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 这也是为什么 PHP 生态里 Promise 的普及度远低于其他语言 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 「一个请求一个进程、跑完就死」的模型下，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 请求内并发的收益有限，而引一套异步框架会改写整个调用栈</span></span></code></pre>",
+      "lineCount": 21,
+      "notes": [
+        {
+          "line": 1,
+          "text": "PHP 核心**没有 Promise / Future** —— 无此概念",
+          "tone": "warn"
+        },
+        {
+          "line": 19,
+          "text": "这也是为什么 PHP 生态里 Promise 的普及度远低于其他语言 ——",
+          "tone": "warn"
+        },
+        {
+          "line": 20,
+          "text": "「一个请求一个进程、跑完就死」的模型下，",
+          "tone": "warn"
+        },
+        {
+          "line": 21,
+          "text": "请求内并发的收益有限，而引一套异步框架会改写整个调用栈",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 Promise <strong>是语言的一部分</strong>：<code>new Promise</code>、\n<code>then</code> / <code>catch</code> / <code>finally</code>、<code>Promise.all</code> / <code>race</code> / <code>allSettled</code>\n全在运行时里，而且 <code>await</code> 直接消费 Promise。\nPHP <strong>核心一样都没有</strong> —— Promise 只存在于第三方库里，\n而且各家实现互不兼容（ReactPHP 的与 Guzzle 的就不是一个东西）。\n也就是说 JavaScript 那边「并发几个请求然后等全部完成」\n是一行 <code>Promise.all</code>，PHP 这边要么用库、要么串行、\n要么自己开多进程。\n另一处是错误传播：Promise 的 rejection 是链式的、有明确语义；\nPHP 生态里各家的错误模型不统一，切换库就等于换一套语义。</p>\n",
+        "python": "<p>Python 的 <code>asyncio.Future</code> / <code>Task</code> 在<strong>标准库</strong>里，\n与 <code>async</code> / <code>await</code> 语法配套；<code>gather</code> 相当于 <code>Promise.all</code>。\nPHP <strong>标准库里没有</strong> Future 或 Promise，\n第三方库又各做各的。\n差别在「有没有统一语义」：Python 的 Future 只有一套\n（标准库那套），所有库都基于它；\nPHP 这边 ReactPHP / Amp / Guzzle 各有各的 Promise 实现，\n互相桥接要靠适配器 —— 这是没有语言级原语的直接代价。\n共同点是两边的「并发等待」都最终要落到一个事件循环上，\nPython 的循环在标准库，PHP 的循环在第三方库里。</p>\n",
+        "java": "<p>Java 的 <code>Future</code> / <code>CompletableFuture</code> 在<strong>标准库</strong>里，\n配套还有 <code>ExecutorService</code> 线程池，<code>allOf</code> / <code>anyOf</code>\n相当于 <code>Promise.all</code> / <code>race</code> —— 一整套都在 JDK 里。\nPHP 核心一个都没有，最接近的 <code>parallel\\Future</code>\n还是个 PECL 扩展，而且语义是「另一个线程里的任务」，\n不是「一个可组合的承诺」。\n另一处是组合能力：<code>CompletableFuture</code> 能链式组合、异常恢复、\n超时控制；PHP 生态里的 Promise 实现能力参差，\n而且要先把整个调用栈改成异步风格才用得上。</p>\n"
+      }
+    },
+    "async-await": {
+      "lang": "php",
+      "code": "// ⚠ PHP **没有 async / await 这两个关键字** —— 语法层面就不存在\n// ⚠ `Fiber`（8.1）只做「协作式挂起 / 恢复」，\n// ⚠ **不含调度器**，官方 RFC 明说它是给库作者用的底层原语，\n// ⚠ 不该在业务代码里直接用\n\n$f = new Fiber(function (): void {\n  $x = Fiber::suspend('把控制权交出去');   // 像 await 的那一半\n  echo $x;\n});\n$f->start();                        // 跑到 suspend 停住\n$f->resume('继续');                  // 谁来 resume？—— 没人管，你自己管\n\n// ⚠ 这就是它和 await 的关键差别：\n// ⚠ `await` 会**自动**把控制权交给调度器，等 I/O 好了再回来；\n// ⚠ `Fiber::suspend()` 只是停下，**什么时候恢复、由谁恢复，核心不管**\n// ⚠ 官方把事件循环明确留给了框架 —— 所以 Fiber 是「积木」不是「特性」\n\n// 真正的 async 写法在生态里：\n// · Amp / Revolt：把 Fiber 包成协程，提供 await 风格的 API\n// · Swoole：自带协程（`Co\\run` + 协程化 I/O），改写运行模型\n// 这些都不是语言的一部分，换库就要换一套写法",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ PHP **没有 async / await 这两个关键字** —— 语法层面就不存在</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `Fiber`（8.1）只做「协作式挂起 / 恢复」，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ **不含调度器**，官方 RFC 明说它是给库作者用的底层原语，</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 不该在业务代码里直接用</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$f </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-constant)\"> Fiber</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-foreground)\"> ()</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-keyword)\"> void</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  $x </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> Fiber</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">suspend</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'把控制权交出去'</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;   </span><span style=\"color:var(--shiki-token-comment)\">// 像 await 的那一半</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  echo</span><span style=\"color:var(--shiki-foreground)\"> $x;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">});</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$f</span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\">start</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-foreground)\">;                        </span><span style=\"color:var(--shiki-token-comment)\">// 跑到 suspend 停住</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$f</span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\">resume</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">'继续'</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;                  </span><span style=\"color:var(--shiki-token-comment)\">// 谁来 resume？—— 没人管，你自己管</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 这就是它和 await 的关键差别：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `await` 会**自动**把控制权交给调度器，等 I/O 好了再回来；</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ `Fiber::suspend()` 只是停下，**什么时候恢复、由谁恢复，核心不管**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 官方把事件循环明确留给了框架 —— 所以 Fiber 是「积木」不是「特性」</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 真正的 async 写法在生态里：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// · Amp / Revolt：把 Fiber 包成协程，提供 await 风格的 API</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// · Swoole：自带协程（`Co\\run` + 协程化 I/O），改写运行模型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 这些都不是语言的一部分，换库就要换一套写法</span></span></code></pre>",
+      "lineCount": 21,
+      "notes": [
+        {
+          "line": 1,
+          "text": "PHP **没有 async / await 这两个关键字** —— 语法层面就不存在",
+          "tone": "warn"
+        },
+        {
+          "line": 2,
+          "text": "`Fiber`（8.1）只做「协作式挂起 / 恢复」，",
+          "tone": "warn"
+        },
+        {
+          "line": 3,
+          "text": "**不含调度器**，官方 RFC 明说它是给库作者用的底层原语，",
+          "tone": "warn"
+        },
+        {
+          "line": 4,
+          "text": "不该在业务代码里直接用",
+          "tone": "warn"
+        },
+        {
+          "line": 13,
+          "text": "这就是它和 await 的关键差别：",
+          "tone": "warn"
+        },
+        {
+          "line": 14,
+          "text": "`await` 会**自动**把控制权交给调度器，等 I/O 好了再回来；",
+          "tone": "warn"
+        },
+        {
+          "line": 15,
+          "text": "`Fiber::suspend()` 只是停下，**什么时候恢复、由谁恢复，核心不管**",
+          "tone": "warn"
+        },
+        {
+          "line": 16,
+          "text": "官方把事件循环明确留给了框架 —— 所以 Fiber 是「积木」不是「特性」",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 <code>async</code> / <code>await</code> 是<strong>语法</strong>：\n函数标 <code>async</code>、调用时 <code>await</code>，控制权自动交给事件循环再回来。\nPHP <strong>没有这两个关键字</strong> —— 最接近的 <code>Fiber::suspend()</code> 只有\n「停下」这一半，没有「自动恢复」那一半，调度得自己写。\n所以 PHP 的异步体验是「用库模拟出来的语法」，\n而不是引擎给的语法。\n另一处是传染性：JavaScript 的 <code>async</code> 会沿着调用链传染\n（调用者也得 async），PHP 的 Fiber 同样要求调用栈配合，\n但因为没有语法标记，传染这件事变得<strong>隐式</strong>、更难看出来。</p>\n",
+        "python": "<p>Python 的 <code>async</code> / <code>await</code> 也是<strong>语法</strong>（3.5 起），\n配套 <code>asyncio.run()</code> 与事件循环 —— 也就是说「异步」在那里\n是写进语法的东西。PHP 一样都没有，只有 Fiber 这个底层原语。\n差别在<strong>标准库的厚度</strong>：Python 的事件循环、任务调度、\n超时、同步原语（<code>asyncio.Lock</code> / <code>Queue</code>）全在标准库里，\n所以「写异步」是一件自足的事；\nPHP 要把这些都从第三方库或扩展里凑齐，\n而且选哪套库会决定你的整个代码风格。\n共同点是两边都要求「一路异步到底」，\n中间混进一个阻塞调用就会卡住整个循环。</p>\n",
+        "java": "<p>Java 到较新版本才有虚拟线程，让「同步写法获得并发能力」，\n之前主流的异步写法是 <code>CompletableFuture</code> 的链式回调\n（<code>thenApply</code> / <code>thenCompose</code>），不是 <code>async</code> / <code>await</code> 语法。\nPHP 既没有 <code>async</code> / <code>await</code>，也没有虚拟线程，\n只有 Fiber 这个原语加一堆上层库 —— 也就是说\nJava 那边「让同步写法获得并发能力」这条路线，PHP 至今没有。\n两边的共同点是都在处理同一个问题：<strong>怎么在等 I/O 的时候\n不占着执行流</strong>；区别是 Java 把答案做进了语言与标准库，\nPHP 把它留给了生态。</p>\n"
+      }
+    },
+    "cancellation": {
+      "lang": "php",
+      "code": "// ⚠ PHP 核心**没有取消机制** —— 没有 CancellationToken、\n// ⚠ 没有 AbortSignal 那种东西。一旦开始执行，就只能跑完\n\n// 能做的三件事，都是「绕」：\n// ① 超时：给 stream / socket 设超时，让 I/O 自己失败\n$ctx = stream_context_create(['http' => ['timeout' => 3]]);\nfile_get_contents($url, false, $ctx);        // ⚠ 超时抛 Warning，不是取消\n\n// ② 自己检查标志位（协作式取消）—— 约定靠应用层\nforeach ($items as $it) {\n  if ($shouldStop()) { break; }              // 只有轮询到才停得下来\n  work($it);\n}\n\n// ③ 硬停：set_time_limit 会中断脚本，但那是致命错误不是取消\n// 进程层面还有 pcntl 的信号（Unix）—— 但那是「杀掉」不是「优雅取消」\n\n// 生态里：ReactPHP 的 Promise 有 cancel()、\n// Amp 有 CancellationToken、Guzzle 支持传 AbortSignal 类的东西 ——\n// 都是各自设计的，互不通用，而且只在异步调用链里有效\n\n// ⚠ 根因还是那个执行模型：**同步阻塞的代码没有「取消点」** ——\n// ⚠ 一行 file_get_contents 卡在那里时，没有任何代码有机会跑",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ PHP 核心**没有取消机制** —— 没有 CancellationToken、</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有 AbortSignal 那种东西。一旦开始执行，就只能跑完</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 能做的三件事，都是「绕」：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ① 超时：给 stream / socket 设超时，让 I/O 自己失败</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">$ctx </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> stream_context_create</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">[</span><span style=\"color:var(--shiki-token-string-expression)\">'http'</span><span style=\"color:var(--shiki-token-keyword)\"> =></span><span style=\"color:var(--shiki-token-function)\"> [</span><span style=\"color:var(--shiki-token-string-expression)\">'timeout'</span><span style=\"color:var(--shiki-token-keyword)\"> =></span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-function)\">]]</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">file_get_contents</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">$url</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> false</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-function)\"> $ctx</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 超时抛 Warning，不是取消</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ② 自己检查标志位（协作式取消）—— 约定靠应用层</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">foreach</span><span style=\"color:var(--shiki-foreground)\"> ($items </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> $it) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-function)\">$shouldStop</span><span style=\"color:var(--shiki-foreground)\">()) { </span><span style=\"color:var(--shiki-token-keyword)\">break</span><span style=\"color:var(--shiki-foreground)\">; }              </span><span style=\"color:var(--shiki-token-comment)\">// 只有轮询到才停得下来</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  work</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">$it</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ③ 硬停：set_time_limit 会中断脚本，但那是致命错误不是取消</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 进程层面还有 pcntl 的信号（Unix）—— 但那是「杀掉」不是「优雅取消」</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 生态里：ReactPHP 的 Promise 有 cancel()、</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Amp 有 CancellationToken、Guzzle 支持传 AbortSignal 类的东西 ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 都是各自设计的，互不通用，而且只在异步调用链里有效</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 根因还是那个执行模型：**同步阻塞的代码没有「取消点」** ——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 一行 file_get_contents 卡在那里时，没有任何代码有机会跑</span></span></code></pre>",
+      "lineCount": 23,
+      "notes": [
+        {
+          "line": 1,
+          "text": "PHP 核心**没有取消机制** —— 没有 CancellationToken、",
+          "tone": "warn"
+        },
+        {
+          "line": 2,
+          "text": "没有 AbortSignal 那种东西。一旦开始执行，就只能跑完",
+          "tone": "warn"
+        },
+        {
+          "line": 7,
+          "text": "超时抛 Warning，不是取消",
+          "tone": "warn"
+        },
+        {
+          "line": 22,
+          "text": "根因还是那个执行模型：**同步阻塞的代码没有「取消点」** ——",
+          "tone": "warn"
+        },
+        {
+          "line": 23,
+          "text": "一行 file_get_contents 卡在那里时，没有任何代码有机会跑",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的取消靠 <code>AbortController</code> / <code>AbortSignal</code>，\n已经是运行时的一部分，<code>fetch</code> 等一批 API 原生支持\n（<code>fetch(url, { signal })</code>）。PHP <strong>核心没有对应物</strong> ——\n最接近的是给 stream 设超时，那只能让 I/O 自己失败，\n不是「调用方主动取消」。\n也就是说 JavaScript 那边「这个请求我不要了」是一行代码，\nPHP 这边只能等它超时或者把进程杀掉。\n另一处是异步前提：那边的取消之所以有效，是因为控制权\n经常回到事件循环，有机会检查信号；PHP 的同步代码里\n<strong>根本没有可以插入检查的时刻</strong>。</p>\n",
+        "python": "<p>Python 的 <code>asyncio</code> 有完整的取消机制（<code>Task.cancel()</code>、\n<code>CancelledError</code> 会抛进协程里），同步代码里也能靠超时与信号\n（<code>signal.alarm</code>）做粗粒度中断。\nPHP <strong>核心什么都没有</strong>：<code>set_time_limit</code> 是「到点抛致命错误」，\n不是可捕获的取消；同步 I/O 卡住时也没有插检查的机会。\n差别在<strong>取消是不是可捕获的事件</strong>：Python 的 <code>CancelledError</code>\n是异常，可以被 <code>finally</code> 收拾；PHP 的超时是致命错误，\n清理逻辑能不能跑完都不一定。\n共同点是两边都要求代码「配合」才能优雅取消 ——\n但 Python 有语言级的钩子，PHP 只能靠约定。</p>\n",
+        "java": "<p>Java 的取消是<strong>中断模型</strong>：<code>Thread.interrupt()</code> 设标志位、\n阻塞方法抛 <code>InterruptedException</code>、<code>Future.cancel()</code> 还能尝试打断。\n这是一套语言与标准库协同的机制。\nPHP 没有线程，也就没有中断；进程级别的 <code>pcntl</code> 信号（Unix）\n更接近「杀」而不是「取消」。\n另一处是「能不能中途退出」：Java 的阻塞调用会因为中断抛异常，\n给你一个可捕获的清理点；PHP 的阻塞调用只会在超时后失败，\n而且失败形式是 Warning 或致命错误，清理时机不可靠。\n两边的共同点是都承认「只有协作式的取消才优雅」；\n区别在有没有一套现成的钩子来协作 —— Java 有，PHP 没有。</p>\n"
+      }
+    }
+  }
+}

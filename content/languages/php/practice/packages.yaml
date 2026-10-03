@@ -1,0 +1,372 @@
+# php —— practice / packages
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: packages` 的那批：
+# package-manager / dependency-declaration / version-constraint /
+# lockfile / environment-isolation / publishing。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：PHP 的包管理是 **Composer**，而它是**社区项目**（不是 PHP 官方的一部分），
+# 官方自带的口径是「**依赖管理器**（dependency manager）」而不是「包管理器」。
+# 另外名字相近的两个东西要分清：**Composer 装依赖、Packagist 存元数据**
+# （代码仍在各自的 VCS 里，Packagist 只放 packages.json）。
+#
+# 三条要写准的：
+# ① `~1.2` 的语义与 npm **不一致**（Composer 是 `>=1.2 <2.0.0`，
+#    npm 是 `>=1.2.0 <1.3.0`）—— 已在 getcomposer.org 的 versions.md 上逐条核对；
+# ② `composer.lock` 该不该入库要分应用与库（官方明说库**不必**入库）；
+# ③ PHP **没有虚拟环境** —— `vendor/` 隔离的是库，不是解释器。
+#
+# 本文件里 Composer 的约束语义来自官方文档原文核对；
+# `~1.2` 那条我另外用 npm 的官方 semver 规则对过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-packages-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  package-manager:
+    code: |
+      // @note! PHP 语言本身**不附带包管理器** —— 事实标准是 Composer（第三方）
+      // @note! 而且官方对它的定位是「**依赖管理器**」，不是「包管理器」：
+      // @note! 官方原话是「Composer is not a package manager in the same sense
+      // @note! as Yum or Apt are」—— 它是**按项目**把依赖装进 `vendor/`，
+      // @note! 默认不往全局装任何东西
+
+      composer init                      // @note 生成 composer.json
+      composer require monolog/monolog   // @note 加依赖并写进 composer.json
+      composer install                   // @note 按 lock 装
+      composer update                    // @note 重新解析并重写 lock
+      composer show                      // @note 看已装了什么
+
+      // @note! 另一个名字相近的东西是 **Packagist** —— 那是**默认的包仓库**，
+      // @note! 但它只托管**元数据**（packages.json），
+      // @note! 代码仍然在各自的 VCS 仓库里。所以「发我的包」是发到 Packagist，
+      // @note! 「装依赖」是用 Composer —— 两件事、两个东西
+
+      // @note 一条实务提醒：Composer 与 Packagist 都不是 PHP 官方项目
+    vs:
+      javascript: |
+        两边都有事实标准的包管理器，用起来也像（`composer require` ↔
+        `npm install`），但**拆分方式不同**。npm 一个工具同时扮演
+        「解析器」与「中央仓库的客户端」；PHP 这边拆成两半 ——
+        **Composer** 负责解析与安装、**Packagist** 负责存元数据。
+        这正是 Composer 官方自称「依赖管理器」而不是「包管理器」的原因。
+        另一处是安装位置：npm 默认装进项目的 `node_modules`（与 Composer 一样），
+        但 npm 另有 `-g` 的全局安装惯例；Composer **默认不装全局**，
+        想要全局可用的命令要用 `composer global require` 显式说明。
+      python: |
+        两边的生态结构不一样。Python 同时有 pip（安装）、PyPI（仓库）、
+        以及一堆上层工具（poetry / pipenv / uv）；
+        PHP 这边是 **Composer 一个工具全包**（既是 CLI 也是解析器），
+        Packagist 只是它默认指向的仓库。
+        所以「该用哪个工具」这个问题在 PHP 里没有歧义，在 Python 里
+        反而要先做选择（虽然 uv 正在统一）。
+        另一处是全局安装：Python 有 `pip install --user` 与系统级安装，
+        Composer **默认按项目装**，全局要显式 `global` ——
+        这一点比 Python 更克制，也正是它不需要虚拟环境的原因之一。
+      java: |
+        结构上倒是接近：Java 用 Maven / Gradle（既是构建工具也是依赖管理器），
+        中央仓库是 Maven Central；PHP 用 Composer，仓库是 Packagist。
+        差别在**绑定关系**：Java 的依赖管理**长在构建工具里**
+        （用 Maven 就有 Maven 的解析，用 Gradle 就是 Gradle 的），
+        换构建工具就换一套；Composer 在 PHP 里**既是依赖管理也是事实上的
+        自动加载生成器**，而且与构建工具没有绑定（PHP 本来也没有构建步骤）。
+        另一处是仓库的独占性：Maven Central 是发布坐标的正统去处，
+        Packagist 只是「默认的那个」，完全可以关掉换别的源。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  dependency-declaration:
+    code: |
+      // @note! 依赖写在项目根目录的 **composer.json**，分两个段：
+      // {
+      //   "require": {
+      //     "php": ">=8.2",                 // @note! 可以声明 PHP 本体版本
+      //     "ext-mbstring": "*",            // @note! 扩展要写 `ext-` 前缀
+      //     "monolog/monolog": "^3.0"
+      //   },
+      //   "require-dev": {
+      //     "phpunit/phpunit": "^13.0"
+      //   }
+      // }
+
+      // @note! 三个与别的生态不同的地方：
+      // @note! ① **可以声明运行时本体与扩展**（`php` / `ext-*`）——
+      // @note!    这类叫「平台包（platform packages）」，是 PHP 特有的
+      // @note! ② 扩展必须写 `ext-mbstring`，**不能只写 `mbstring`** ——
+      // @note!    否则 Composer 会去 Packagist 找一个叫 mbstring 的包然后失败
+      // @note! ③ `require-dev` **默认就会被安装**（那是别的生态的惯例，
+      // @note!    不是 PHP 的）—— 要在生产环境不装必须显式 `--no-dev`
+
+      composer install --no-dev           // @note 不装 require-dev
+    vs:
+      javascript: |
+        两边的声明文件都是 JSON，都分「运行时依赖」与「开发依赖」两段
+        （`dependencies` / `devDependencies` ↔ `require` / `require-dev`）。
+        差别在**两个默认值**。第一，dev 依赖要不要装：
+        那边 `npm install` 默认**会装** dev 依赖，生产要用
+        `npm ci --omit=dev`；这边 `composer install` 同样**默认装**，
+        生产要 `--no-dev` —— 这一点两边其实一样，但很多人以为
+        Composer 默认不装。
+        第二，也是更实质的：**PHP 能把运行时本体与扩展写进依赖声明**
+        （`"php": ">=8.2"`、`ext-mbstring`），那边只能靠 `engines` 字段
+        写个提示（npm 默认只警告不阻止）。
+        另一处是命名：那边包名就是一个名字，这边是 `vendor/project` 两段。
+      python: |
+        声明文件的形态差别明显：Python 用 `pyproject.toml`（TOML，
+        声明式，PEP 621 统一了字段名），PHP 用 `composer.json`（JSON）。
+        两边都能声明「开发依赖」与「运行时版本」
+        （`requires-python` ↔ `require.php`）。
+        差别在**扩展**：Python 的扩展依赖通常写作普通包名
+        （`psycopg2` 之类，由 wheel 解决）；
+        PHP 的扩展是**编译进解释器的**，所以写成独立的平台包 `ext-*`，
+        而且「装不上」与「包不存在」是两种完全不同的失败。
+        共同点是两边都能依赖本地路径的包
+        （`path` repository ↔ `pip install -e .`）。
+      java: |
+        形态差得最远：Java 的依赖声明在构建工具的配置里
+        （`pom.xml` 的 `<dependencies>` 或 `build.gradle`），
+        用的是 `groupId:artifactId:version` 三段坐标；
+        PHP 用 `vendor/project` 两段加版本约束。
+        两边都能声明「构建/开发期依赖」（`<scope>test</scope>` ↔
+        `require-dev`），也能声明插件的编译范围。
+        差别在**运行时本体能不能声明**：Java 靠 `maven.compiler.release`
+        这类属性间接表达，PHP 把 `php` 直接当成一个依赖包写进 `require` ——
+        于是「PHP 版本不够」和「包版本冲突」用同一套机制报告，
+        这在 Java 那边是两套东西。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  version-constraint:
+    code: |
+      // @note! 这一格**最容易写错**：Composer 的 `~` 与 npm 的 `~` 不是一回事
+      //
+      //   `^1.2.3`   Composer: >=1.2.3 <2.0.0      npm: >=1.2.3 <2.0.0     ✅ 一致
+      //   `~1.2.3`   Composer: >=1.2.3 <1.3.0      npm: >=1.2.3 <1.3.0     ✅ 一致
+      //   `~1.2`     Composer: >=1.2.0 <2.0.0      npm: >=1.2.0 <1.3.0     ❌ **不一致**
+      //
+      // @note! 根因：Composer 的规则是「只锁**写出来的最后一位**」——
+      // @note! 写两段就只锁 major（允许 minor 升），写三段才锁 minor；
+      // @note! 而 npm 的 `~` 只要给了 minor 就只放 patch。
+
+      "monolog/monolog": "^3.0"          // @note 官方推荐（库代码用这个，互操作性最好）
+      "symfony/console": "~6.4"          // @note! 注意这里锁的是 major，不是 minor
+      "foo/bar": "6.4.*"                 // @note 通配
+      "foo/baz": ">=1.0 <2.0"            // @note 空格或逗号 = AND；`||` = OR
+      "foo/qux": "dev-main"              // @note 分支（会 clone 到 vendor）
+      "foo/early": "^1.0@beta"           // @note 稳定性标记，覆盖 minimum-stability
+
+      // @note 稳定性等级从松到紧：dev < alpha < beta < RC < stable
+      // @note `minimum-stability` 默认是 **stable** —— 默认装不到预发布版
+    vs:
+      javascript: |
+        **这一格两边基本一致，但恰好有一处不一致，而那处最常见。**
+        `^` 的语义两边完全相同（`^1.2.3` 都是 `>=1.2.3 <2.0.0`），
+        `~1.2.3` 也相同；**唯独 `~1.2` 这种「只写两段」的写法差了一档**——
+        那边锁住 minor（只放到 1.3.0 以下），这边只锁 major
+        （能一路升到 2.0.0 以下）。
+        另一处是预发布：npm 默认排除预发布版本，除决非比较符自带标签；
+        Composer 用 `minimum-stability` 加 `@beta` 这类标记来控制 ——
+        机制完全不同，别用那边的直觉套。
+        共同点是两边都用语义化版本、都能钉死、都能按分支依赖（写法不同）。
+      python: |
+        两边的约束**没有直接可搬的对应关系**：Python 用 PEP 440 规范版本号
+        与 PEP 508 规范约束（`>=1.2,<2.0`），所有工具都按它解析；
+        Composer 的 `^` / `~` 是**它自己的 API**，别的工具不认。
+        也就是 Python 那边「约束语法」是一个跨工具的标准，
+        PHP 这边是 Composer 一家定义的方言。
+        能对上的只有语义：Python 的 `~=1.2` 表示「同主版本内升」
+        （`>=1.2, ==1.*`），与 Composer 的 `^1.2` 含义接近；
+        而 Composer 的 `~1.2`（只锁 major）在 Python 里没有短写法，
+        得写 `>=1.2,<2.0`。
+        共同点是两边都有预发布版本的概念，也都要显式放行才能装到。
+      java: |
+        两边的版本约束都很简陋：Maven 只支持精确版本与**区间**
+        （`[1.0,2.0)`），`LATEST` / `RELEASE` 早被弃用；
+        Gradle 有 `1.+` 与 `latest.release` —— 都没有 `^` / `~` 这种
+        「按语义化版本承诺推断」的写法。
+        也就是说 Java 那边想表达「同主版本内升级」得手写区间，
+        PHP 的 `^` 一行就够 —— 这一格 PHP 更省事。
+        另一处是版本号的意义：Java 的版本是 Maven Central 里的坐标记录，
+        Composer 的版本是 **git tag** —— 所以「这个版本存不存在」
+        在这边等于「这个 tag 打没打」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lockfile:
+    code: |
+      // @note Composer **有锁文件**：`composer.lock`，钉住整棵依赖树
+      composer install                    // @note 有 lock 就严格按 lock 装（可复现）
+      composer install --no-dev           // @note 生产装法
+      composer install -o                 // @note --optimize-autoloader：转 classmap 加速
+      composer update                     // @note! 重新解析并**重写 lock** —— 部署时不要跑这个
+      composer update monolog/monolog     // @note 只升一个
+
+      // @note! 该不该入库：**分应用与库**（官方明确区分）
+      // @note!   应用 / 项目 → **要入库**（保证所有人装到同一套）
+      // @note!   库（library）→ **不必入库**（官方原话）
+      // @note! 这一点与别的生态「一律入库」的惯例不同
+
+      // @note `--no-dev` 不只是不装 dev 包，还会**跳过 autoload-dev 段**的规则
+
+      // @note 官方对它的定位：「Composer enables reproducible builds by default」
+    vs:
+      javascript: |
+        两边都有锁文件、都该在 CI/部署时用「按锁装」的那条命令
+        （`npm ci` ↔ `composer install`），思路一致。
+        差别在**入库惯例**：npm 的 `package-lock.json` 一律入库
+        （包括库项目）；Composer 官方对**库项目**明确说**不必**入库 ——
+        因为库的使用者会用自己的 lock 决定版本，库自己的 lock 没有意义。
+        另一处是「什么时候重新解析」：npm 要显式 `npm install` 新包
+        才会动 lock；Composer 的 `composer update` 会重新解析**整棵树**
+        （包括你没改的那些），所以它在部署时是危险的命令 —— 两边都有
+        这个陷阱，但 Composer 这边更常被误用。
+      python: |
+        两边的可复现机制成熟度不同。Python 的锁文件有**好几种格式**
+        （`requirements.txt` 手工钉、pip-tools 的 `.txt`、`uv.lock`、
+        `poetry.lock`），取决于你用哪个上层工具；
+        PHP **只有一种**（`composer.lock`），因为只有 Composer 一个工具。
+        也就是说这一格 PHP 简单得多 —— 不需要先选工具再谈锁。
+        共同点是两边都把「锁文件入库」当作保证可复现的关键，
+        而且都区分「按锁装」与「重新解析」两条命令
+        （`uv sync` / `poetry install` ↔ `composer install`）。
+      java: |
+        **这一格两边差别明显**：Maven 传统上**不需要锁文件** ——
+        版本写死在 `pom.xml` 里，同一个坐标拉到的就是同一份
+        （前提是没人重新发布同一个版本）。Gradle 后来才加了依赖锁定。
+        Composer 像 npm 一样**默认就生成并使用** `composer.lock`。
+        所以 Java 那边「可复现」靠的是「中心仓库不可变 + 版本写死」，
+        这边靠的是「锁文件钉住整棵树」—— 两种思路，前者依赖仓库的纪律，
+        后者不依赖。
+        共同点是两边都认识到「同一份声明装出不同结果」是个真问题。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  environment-isolation:
+    code: |
+      // @note! PHP **没有虚拟环境这个概念** —— 没有 venv、没有 conda
+      // @note! 但**依赖层面其实已经隔离了**：Composer 把依赖装进**项目内**的
+      // @note! `vendor/`，默认不装到全局 —— 所以「多个项目用不同版本的同一个库」
+      // @note! 开箱就是可行的，不需要额外造一个环境
+
+      // @note! 真正没隔离的是**解释器与扩展** —— 那是系统级或容器级的：
+      // @note   · 推荐做法：Docker 镜像按 tag 固定版本
+      // @note       services: { app: { image: "php:8.4-fpm" } }
+      // @note   · 宿主机多版本：phpenv / phpbrew（`.php-version` 文件）
+      // @note       —— 但这是**第三方的**，不是语言自带的标准
+
+      // @note Composer 有两个「伪隔离」开关（只影响依赖解析，不改运行时）：
+      // { "config": { "platform": { "php": "8.3.0" } } }   // @note! 让解析按线上版本算
+      // @note config.platform 官方警告：解析会失真，可能「本地能装、线上报错」
+      // @note 补救：部署时跑 composer check-platform-reqs
+
+      // @note! 最经典的一类事故：**CLI 的 PHP 版本与 Web（FPM/Apache）不是同一个**
+      // @note! 两者各读各的 php.ini —— 「本地 php -v 是 8.4，页面跑的是 8.2」
+    vs:
+      javascript: |
+        两边的隔离层次**恰好互补**。JavaScript 的 `node_modules`
+        **天然是项目级**的（每个项目一份）—— 与 PHP 的 `vendor/` 一样，
+        所以「库不互相干扰」在两边都是默认的。
+        但**运行时版本**那边有 nvm 这种成熟的多版本管理器，
+        切版本是一行命令；PHP 这边没有统一标准，
+        要么装多套（phpenv / phpbrew，第三方），要么上容器。
+        另一处是「隔离谁」：那边只需要管 Node 版本（依赖本来就在项目里），
+        PHP 既要管 PHP 版本**还要管扩展**（扩展是编译进解释器的），
+        所以容器化的动机更强。
+      python: |
+        **这一格两边差别最大的地方**。Python 的虚拟环境隔离的是
+        「解释器 + site-packages」，因为 pip 默认装到**全局**去，
+        不造环境就会互相打架 —— 所以 venv 是必需品。
+        PHP 的 Composer **默认就装进项目的 `vendor/`**，
+        所以根本不需要造环境；缺的是「换个 PHP 版本」这件事，
+        而那件事 venv 也解决不了（venv 不能换解释器版本，
+        要靠 pyenv）—— 两边其实都需要「版本管理器」，
+        只是 Python 把「装依赖」也塞进了 venv，PHP 没这个需求。
+        另一处是「环境变量与激活」：Python 要先 `activate` 才有隔离效果，
+        PHP 没有激活这一步，`vendor/autoload.php` 引进来就完事。
+      java: |
+        两边的模型**结构上接近**：Java 用「本地仓库缓存（共享）+
+        classpath（项目级的可见集）」，PHP 用「Composer 缓存（共享）+
+        项目内 `vendor/`（项目级）」—— 都是「装一份、按项目选可见范围」。
+        差别在**运行时版本**：Java 靠装多个 JDK 加 `JAVA_HOME` 切换，
+        这几乎是标准做法；PHP 这边没有对应的标准做法，
+        官方推荐的路线是**容器**（php:8.4-fpm 之类的镜像 tag）。
+        另一处是 PHP 特有的坑：CLI 与 Web SAPI 读不同的 php.ini、
+        可能是不同版本 —— Java 里没有这种「同一个 JVM 两套配置」的情形。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  publishing:
+    code: |
+      // @note! 发布到 Packagist 的流程（**代码不上传**，只登记仓库地址）：
+      //   ① 仓库里放好 composer.json
+      //   ② composer validate                      // @note 检查清单合法
+      //   ③ 用账号登录 packagist.org，填**公开仓库 URL** 并提交
+      //   ④ 之后新版本靠 VCS 的 **webhook**：你打 tag，它就来拉
+
+      // @note! 所以「发布一个版本」在 PHP 里 = **打一个 git tag**
+      // @note! 版本号**来自 VCS 的 tag**，不是 composer.json 的 version 字段
+      git tag v1.3.0 && git push origin v1.3.0
+
+      // @note Packagist 没有 webhook 的仓库是**每周抓一次**；有 hook 则 push 即抓
+      // @note 包名是 `vendor/project` 两段，vendor 名一旦被占用就受保护
+
+      // @note 私有包有四条路（别只知道商业的那条）：
+      //   ① Private Packagist —— 商业产品（hosted / self-hosted）
+      //   ② Satis —— 静态仓库生成器（自建源，轻量）
+      //   ③ VCS repository：  {"type":"vcs","url":"git@github.com:me/lib.git"}
+      //   ④ path repository： {"type":"path","url":"../mylib"}    // @note 本地目录，默认软链
+
+      // @note 也可以整个关掉官方源：repositories 里写 {"packagist.org": false}
+    vs:
+      javascript: |
+        两边的发布模型**看起来像、底层不同**。npm 是「把打包产物
+        **上传**到 registry」，registry 里存的是 tarball；
+        Packagist **不存代码**，只存元数据，代码始终在你的 git 仓库里 ——
+        所以「上传」这一步在 PHP 这边根本不存在，打 tag 就是发布。
+        这带来一处实际差别：npm 的包可以与被发布的仓库不同步
+        （你上传什么就是什么），PHP 的包永远等于那个 tag 的内容。
+        另一处是发现机制：两边都能按名字搜（registry 搜索 ↔ Packagist 搜索），
+        但 PHP 的包名是 `vendor/project` 两段，而且 vendor 名会被占用保护。
+      python: |
+        两边的差别在**发布动作**。Python 要显式构建并上传
+        （`python -m build` 然后 `twine upload`），PyPI 存的是
+        构建出来的 sdist/wheel；PHP **没有上传这一步** ——
+        把仓库公开、打个 tag、在 Packagist 登记仓库地址就完事，
+        包的内容永远等于那个 tag。
+        也就是说 Python 那边「发布」是一次性的制品投递，
+        PHP 这边「发布」是给一个 git 引用加个索引。
+        共同点是两边都要先去中心站点登记/注册包名，
+        也都能用私有源（私有索引 ↔ Private Packagist / Satis）。
+      java: |
+        两边的发布形态差得最远。Java 发布的是**编译产物**：
+        构建出 JAR、连同 POM 一起传上 Maven Central，
+        而且要走签名、校验、审核流程；别人拉的是二进制。
+        PHP 发布的是**源码仓库**：打 tag、登记地址，
+        别人拉源码自己（其实也不用自己编）用。
+        所以那边「发布」是一次需要构建与签名的仪式，
+        这边是「打个 tag」——门槛低得多，代价是**没有统一的审核与签名**，
+        安全性靠的是 Packagist 与 GitHub 那一层。
+        共同点是两边的版本都以不可变的发布记录为依据
+        （Maven Central 不允许覆盖已发布版本 ↔ tag 一般也不重打）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

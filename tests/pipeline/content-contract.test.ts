@@ -132,6 +132,7 @@ describe('架构决策的可执行断言', () => {
       'java',
       'javascript',
       'kotlin',
+      'php',
       'python',
       'rust',
       'swift',

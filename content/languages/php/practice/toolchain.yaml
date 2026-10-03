@@ -1,0 +1,386 @@
+# php —— practice / toolchain
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: toolchain` 的那批：
+# compile-run / bundler / linter-formatter / type-checker /
+# runtime-version / repl。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的中心事实是「**没有构建步骤，但有编译**」——
+# 措辞要准：说「解释执行、没有构建产物」可以，说「PHP 没有编译」会被懂行的人挑
+# （它编译到 opcode，OPcache 与 JIT 正是在这一层）。
+#
+# 几条实测过的默认值（用 `php -n` 去掉 ini 之后读的，不是照文档抄的）：
+#   opcache.enable        1
+#   opcache.enable_cli    **0**（CLI 默认不启用缓存 —— 所以命令行基准测试
+#                              与 Web 表现可以完全两回事）
+#   opcache.jit           **disable**（8.4 起默认；之前是 tracing）
+#   opcache.jit_buffer_size 64M
+#   phar.readonly         **1**（所以默认状态下创建不了 PHAR）
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-toolchain-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  compile-run:
+    code: |
+      // @note! 措辞要准：PHP **没有独立的构建步骤**，但**有编译** ——
+      // @note! 源码先编译成 opcode（字节码），再交给虚拟机执行。
+      // @note! OPcache 与 JIT 就作用在这一层
+
+      php app.php                        // @note 直接跑，没有 build 这一步
+      php -r 'echo PHP_VERSION;'         // @note 直接执行一小段
+      php -l src/Foo.php                 // @note! 只做**语法**检查（lint）
+      // @note php -l 查不出「函数不存在」这类问题 —— 那要跑起来才知道
+      // @note 8.3 起 php -l 可以一次传多个文件
+
+      // @note! OPcache：把 opcode 缓存下来，省掉每次的编译
+      // @note! 实测的默认值（`php -n`，即不带 ini）：
+      // @note!   opcache.enable        = 1     （Web SAPI 默认开）
+      // @note!   opcache.enable_cli    = 0     （**CLI 默认不开**）
+      // @note!   opcache.jit           = disable（8.4 起默认关；之前是 tracing）
+      // @note!   opcache.jit_buffer_size = 64M （8.4 起默认；之前是 0）
+      php -d opcache.enable_cli=1 -d opcache.jit=tracing app.php   // @note 命令行想开得自己写
+
+      // @note! 所以「命令行测出来的性能」与「线上 Web 的性能」可以完全两回事
+      php --ini                          // @note 看当前加载了哪个 php.ini
+      php --ini=diff                     // @note 只看与内建默认值不同的那些项
+    vs:
+      javascript: |
+        两边「跑起来」的体验很像（都是命令行直接执行、没有构建），
+        但底层不一样：JavaScript 由引擎在运行时即时编译
+        （JIT 是引擎默认行为，不需要你配），PHP 先编译成 opcode
+        再执行，而且 opcode 缓存**默认只在 Web 侧开**。
+        所以 PHP 这边命令行跑基准测试时，默认是**每次重新编译**的 ——
+        与线上表现脱节，要显式加开关才对得上。
+        另一处是语法检查：JavaScript 有 `node --check`，
+        PHP 有 `php -l`，两边都只查语法、不查语义 —— 这一层对应得上。
+        共同点是两边都不需要「先构建再运行」这一步。
+      python: |
+        两边的执行模型最接近：都是「解释执行、没有构建步骤」。
+        差别在**字节码缓存怎么来**：Python 会在导入模块时
+        **自动**把 `.pyc` 写到 `__pycache__`（默认就开），
+        PHP 的 OPcache 在 **CLI 下默认是关的**（`opcache.enable_cli=0`），
+        要自己开。
+        另一处是编译阶段的存在感：Python 的 `.pyc` 是看得见摸得着的文件，
+        谁都能看到；PHP 的 opcode 只存在共享内存里，
+        除非你去查 `opcache_get_status()`，否则感觉不到它存在。
+        共同点是两边都有「先编译成中间形式再执行」这一层，
+        而且这一层都能缓存。
+      java: |
+        **这一格两边差别最根本**：Java 有明确的构建步骤
+        （`javac` 出 `.class`，或者 Maven/Gradle 出 JAR），
+        编译与运行是分开的两件事，产物可以搬运、可以分发。
+        PHP **没有构建产物** —— 源码就是运行的东西，
+        所谓「编译」发生在每次执行时（除非 OPcache 命中），
+        你看不到也拿不到中间产物。
+        所以 Java 那边「编译期」是一个真实的、可以报错的阶段；
+        PHP 那边只有运行时的语法检查（`php -l`）——
+        也就是说「写错了一个不存在的方法」在 Java 里编译不过，
+        在 PHP 里要跑到那一行才炸。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  bundler:
+    code: |
+      // @note! PHP **没有 webpack / vite 那种打包器** —— 代码是按源文件解释执行的，
+      // @note! 运行时不需要 bundle。这一格在 PHP 里要讲的是**替代形态**
+
+      // ① 单文件分发用 **PHAR**（PHP Archive）—— 官方直接类比 Java 的 JAR：
+      //    「Phar archives are similar in concept to Java JAR archives」
+      php coolapp.phar                   // @note 直接执行一个 phar
+      // @note 里面还能用 phar:// 流包装器访问内部文件
+
+      // @note! 但创建 PHAR 需要 **phar.readonly=0**，而它**默认是 1**
+      // @note! （实测 `php -n` 读出来就是 1）—— 很多人第一次 build 就卡在这
+      // @note! 生产服务器通常只**执行** phar，不创建
+
+      // ② 生产环境的「构建期产物」其实是**优化过的自动加载表**：
+      composer install --no-dev --optimize-autoloader   // @note -o
+      // @note 把 PSR-4 的按需查找转成一张 classmap（"Convert PSR-0/4
+      // @note autoloading to classmap to get a faster autoloader."）
+      // @note 这算是「构建期生成产物」，但**不是打包**
+
+      // ③ 前端资源（CSS / JS）另用 npm / vite，与 PHP 运行时无关
+    vs:
+      javascript: |
+        **这一格两边的「打包」含义完全不同**。JavaScript 的打包器
+        解决的是「运行时不支持模块、浏览器要下载几百个文件」这个问题 ——
+        打包是**必需品**。
+        PHP 的代码跑在服务器上，`include` / 自动加载直接从文件系统读，
+        根本没有「下载」这一步，所以不需要打包器。
+        PHP 的 PHAR 是**分发形态**（把一堆文件塞进一个可执行文件，
+        像 JAR），目的与那边完全不同 —— 是为了让命令行工具能单文件分发。
+        也就是说那边「build」是每天都要跑的，这边「build」只是打包发布工具时
+        偶尔做一次。
+        共同点是两边都会在「生产装法」里做一点预处理
+        （那边是压缩与 tree-shaking，这边是 `--optimize-autoloader`）。
+      python: |
+        两边的处境接近：Python 也没有「打包器」这个概念
+        （代码按模块直接导入），分发形态是 wheel / sdist /
+        zipapp / PyInstaller 打出的单文件 —— 与 PHAR 最像的是 **zipapp**
+        （一个能直接执行的 zip）。
+        差别在「入口在哪」：Python 的 zipapp 要指定入口函数，
+        而且是给命令行工具用的；PHP 的 PHAR 同样主要用于 CLI 工具
+        （Composer 与 PHPUnit 自己就是 phar），
+        而且还能当流包装器访问内部文件。
+        共同点是两边都不需要「为了运行而打包」，
+        打包只是为了分发。
+      java: |
+        **这一格两边对应得最整齐**：PHP 的 PHAR ↔ Java 的 JAR，
+        连官方手册都是拿 JAR 类比的 —— 都是「把一堆文件塞进一个归档、
+        加个清单、能直接执行」。
+        差别在**依赖怎么办**：Java 的 JAR 可以带 `Class-Path` 清单
+        指向别的 JAR，或者打成 fat jar（把依赖全塞进去）；
+        PHP 的 phar 可以把 `vendor/` 一起装进去，
+        也可以用 `phar.readonly=0` 动态构建。
+        另一处是频率：Java 几乎每个项目都要构建 JAR（那是交付物），
+        PHP 的 phar 只在做命令行工具时才用 —— 网站部署是
+        「代码目录 + `composer install`」，不打包。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  linter-formatter:
+    code: |
+      // @note 分两层：**语法层是内置的，风格层全是第三方的**
+
+      php -l src/Foo.php                  // @note! 内置，但只查语法
+
+      // ① PHP-CS-Fixer —— 检测 + 自动修复
+      vendor/bin/php-cs-fixer check        // @note 只报（CI 用这个）
+      vendor/bin/php-cs-fixer fix          // @note 自动改
+      // @note 配置 .php-cs-fixer.dist.php；内置规则集有 @PER-CS / @Symfony / @PhpCsFixer
+
+      // ② PHP_CodeSniffer —— phpcs 报、phpcbf 修
+      vendor/bin/phpcs --standard=PSR12 src
+      vendor/bin/phpcbf --standard=PSR12 src
+
+      // ③ Laravel Pint —— Laravel 官方的**零配置包装器**，底层就是 PHP-CS-Fixer
+      vendor/bin/pint
+
+      // @note! 标准谱系要知道：PSR-2 → PSR-12 → **PER Coding Style**
+      // @note! PER 是 PHP-FIG 现行标准（官方原话「extends, expands and replaces
+      // @note! PSR-12」）—— 所以「最新标准是 PSR-12」这句话已经过时了
+      // @note! 但 PSR-12 仍是广泛支持的基线，多数项目还在用它
+    vs:
+      javascript: |
+        两边的工具链**形态不同**。JavaScript 的 lint 与 format
+        是两件事、两个工具（ESLint 管规则、Prettier 管排版），
+        而且都靠配置文件，生态里还有一堆预设；PHP 这边
+        **PHP-CS-Fixer 一个工具既检测又修复**，规则集是内置的名字
+        （`@PER-CS`、`@Symfony`），配置比那边简单。
+        另一处是**标准的来源**：JavaScript 没有跨社区的统一风格标准
+        （Prettier 是事实标准但那是工具，不是规范）；
+        PHP 有 PHP-FIG 这个组织发布正式标准（PSR-12、PER Coding Style），
+        所以「该按哪个风格写」在 PHP 里有一个**有出处的答案**。
+        共同点是两边都能一条命令修掉大部分问题（`--fix` ↔ `fix`）。
+      python: |
+        两边的生态形状很像：Python 有 Black（只管排版）、
+        Ruff（lint + 修，一个工具两用）、flake8（只报）——
+        与 PHP 的 PHP-CS-Fixer、PHP_CodeSniffer 大致对得上；
+        而且两边都有「官方风格文档」：Python 的 PEP 8、
+        PHP 的 PHP-FIG 标准（PSR-12 / PER）。
+        差别在**强制度**：Python 的 PEP 8 被工具广泛实现，
+        基本是共识；PHP 的 PSR-12 / PER 是社区组织发布的，
+        不是语言官方（PHP 官方手册对风格只说过「常量约定全大写」这类零星建议）。
+        另一处是配置：Ruff 用 `pyproject.toml`，PHP-CS-Fixer 用自己的
+        `.php-cs-fixer.dist.php`（一个 PHP 文件），后者能写逻辑但也更重。
+      java: |
+        两边都有成熟的格式化工具（google-java-format / Checkstyle /
+        Spotless ↔ PHP-CS-Fixer / PHP_CodeSniffer），也都有
+        「官方风格指南」（Oracle 的 Java 风格约定 ↔ PHP-FIG 的标准）。
+        差别在**能不能一条命令修**：Java 的 Checkstyle **只检查不改**，
+        要改得靠 Spotless 或 IDE；PHP 的 PHP-CS-Fixer 与 phpcbf
+        自带修复能力 —— 这一格 PHP 顺一些。
+        另一处是「风格标准的权威性」：Java 的风格指南由语言维护方发布，
+        PHP 的由社区组织（PHP-FIG）发布，语言本身不管 ——
+        所以 PHP 这边「该按哪套」有时会有分歧。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  type-checker:
+    code: |
+      // @note! 这一格必须**分清两层**，混起来是最常见的写错方式
+
+      // ① 第一层：**PHP 自己的类型**是语言级的、**运行时执行**的
+      declare(strict_types=1);
+      function area(float $r): float { return 3.14 * $r * $r; }
+      class Point { public int $x = 0; public ?int $y = null; }
+      // @note 联合类型（8.0）、交集类型（8.1）、DNF（8.2）、
+      // @note readonly（8.1/8.2）、枚举（8.1）、属性钩子（8.4）
+      // @note! 这些**运行时真的会检查** —— 类型不对抛 TypeError
+
+      // ② 第二层：**静态分析器是第三方的、可选的**
+      vendor/bin/phpstan analyse -l 6 src tests     // @note 规则等级 0–10，还有 --level max
+      vendor/bin/psalm                              // @note 错误等级 1（最严）– 8，默认 2
+      // @note 用 PHPDoc 表达语言里还没有的东西（泛型、array shape 等）
+
+      // @note! 两层的分工：
+      // @note!   · 语言级类型 = 运行时关卡（值流过函数边界那一刻）
+      // @note!   · 静态分析   = 源码检查，**与运行时完全无关**，不装也能跑 PHP
+      // @note 本机实测：PHPStan / Psalm 都没装，PHP 照跑 —— 它们不是语言的一部分
+
+      // @note 另一处默认值提醒：PHPStan 默认等级是 **0**（很松），
+      // @note 装完不设等级几乎查不出东西；Psalm 反过来默认就偏严（2）
+    vs:
+      javascript: |
+        两边的分工**正好相反**。JavaScript 运行时**没有类型检查**
+        （类型标注只在注释或别的方言里，编译后就没了），
+        所以那边「类型检查」就是「一个可选的静态工具」这一件事。
+        PHP 是**两层都有**：语言自带的类型声明在运行时真的执行
+        （不匹配抛 TypeError），静态分析器是额外的一层。
+        也就是说从 JavaScript 过来，最容易低估的是
+        「PHP 的类型声明不是文档，是关卡」这一点。
+        共同点是两边都能上静态检查（tsc / eslint ↔ PHPStan / Psalm），
+        而且都是可选的、要在 CI 里自己加。
+      python: |
+        **这一格两边几乎完全对应**：Python 的标注运行时**不生效**
+        （要另跑 mypy / pyright），PHP 的 PHPDoc 泛型标注也不生效
+        （要另跑 PHPStan / Psalm）—— 这一层是平行的。
+        差别在**PHP 还有一层 Python 没有的**：语言自带的类型声明
+        是运行时会执行的。所以 PHP 是「运行时关卡 + 可选静态检查」，
+        Python 是「只有可选静态检查」（`isinstance` 之类的自检不算类型系统）。
+        另一处是等级制：mypy 有 `--strict`，PHPStan 有 0–10 级、
+        Psalm 有 1–8 级 —— 都给了一个「严到什么程度」的旋钮。
+      java: |
+        **这一格两边是光谱的两端**：Java 的类型检查全在**编译期**，
+        运行时只剩强制转换的检查（还有泛型擦除之后剩下的那点）；
+        PHP 的类型检查**在运行时**，没有编译期那一关。
+        也就是说「写错了类型」在 Java 里是编译错误、
+        在 PHP 里是运行到那一行才抛的 TypeError。
+        另一处是静态分析：Java 的 IDE 与编译器已经把大部分检查做了，
+        SpotBugs / ErrorProne 是补充；PHP 这边 PHPStan / Psalm
+        承担的是**从无到有**的检查，所以它们的重要性高得多 ——
+        在 PHP 项目里不跑静态分析几乎等于没有类型安全网。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  runtime-version:
+    code: |
+      // @note! PHP **没有统一的「项目级版本文件」** —— 没有 .nvmrc 那种标准
+      // @note 常见的三条路：
+      //   ① Docker 镜像 tag 固定版本（**推荐**）
+      //        services: { app: { image: "php:8.4-fpm" } }
+      // @note      扩展用 docker-php-ext-install / docker-php-ext-enable 装
+      //   ② phpenv / phpbrew（宿主机切版本，写 `.php-version`）—— 第三方的
+      //   ③ 系统包 + update-alternatives --config php
+
+      // @note 项目内能声明的只有**下限**（不是一个确定的版本）：
+      // { "require": { "php": ">=8.2" } }
+
+      // @note! 最经典的一类事故：**CLI 与 Web 不是同一个 PHP**
+      php -v                             // @note! 这只是 CLI 的版本
+      php --ini                          // @note 看 CLI 读的是哪个 php.ini
+      // @note FPM / Apache 各读各的 php.ini，版本可能不同 ——
+      // @note 「本地 php -v 是 8.4，页面跑的是 8.2」就是这么来的
+
+      // @note composer.json 的 config.platform 只影响**依赖解析**（让解析
+      // @note 按线上的版本算），**不改实际运行的 PHP** ——
+      // @note 解析失真时部署要补 composer check-platform-reqs
+    vs:
+      javascript: |
+        两边的版本管理成熟度差不少。JavaScript 有 nvm / fnm
+        这类成熟工具，`.nvmrc` 是社区通用惯例，切版本一行命令 ——
+        而且因为依赖装在项目里（`node_modules`），
+        换 Node 版本不会影响别的项目。
+        PHP 这边**没有统一标准**：要么装多套工具链（phpenv / phpbrew，
+        第三方），要么上容器；`composer.json` 里的 `php` 要求
+        只是**下限**，不是「就锁定这个版本」。
+        另一处是 PHP 特有的麻烦：CLI 与 Web SAPI 是**两套配置、
+        可能两个版本** —— JavaScript 里没有这种「同一个运行时两套环境」的情形。
+      python: |
+        两边的处境很像：都有「绑定下限」的做法（`requires-python`
+        ↔ `require.php`），也都有版本管理工具（pyenv / uv ↔ phpenv / phpbrew），
+        而且**都不是语言官方的一部分**。
+        差别在**标配程度**：Python 的 pyenv 几乎是默认答案，
+        `.python-version` 是通用惯例；
+        PHP 这边没有同样地位的工具，官方与社区更推**容器**
+        （Docker 官方的 php 镜像 tag 就是「版本」的载体）。
+        另一处是扩展：Python 的扩展是包（能按项目装），
+        PHP 的扩展是编译进解释器的（只能按版本/镜像装）——
+        所以要固定的东西更多，这也解释了为什么 PHP 更依赖容器。
+      java: |
+        两边的模型不同：Java 靠装多个 JDK 加 `JAVA_HOME`（或 SDKMAN）
+        切换，而且编译时与运行时可以用不同的 JDK；
+        PHP 没有编译期，版本就是运行它的那个二进制的版本。
+        差别在**有没有标准文件**：Java 有 `maven.compiler.release`
+        这类属性（写在构建配置里，是项目声明的一部分）；
+        PHP 的 `composer.json` 只能写「不低于」，要精确固定版本
+        只能靠容器 tag 或部署脚本 —— 语言与工具层都不提供。
+        共同点是两边都容易出现「本地和服务器版本不一致」，
+        而 PHP 因为 CLI 与 Web 分家，这种不一致更隐蔽。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  repl:
+    code: |
+      // @note! PHP **有**交互式环境，而且是**内置**的
+      php -a                             // @note 交互式 shell（CLI SAPI 的一个模式）
+      // @note! 但它**依赖 readline 扩展**：
+      // @note! 8.1.0 起，没装 readline 时 `php -a` **直接失败**
+      // @note! （更早的版本会退化成「从 stdin 读整段脚本再执行」—— 行为完全不同）
+      // @note 历史记录存在 ~/.php_history；8.4 起可用环境变量 PHP_HISTFILE 指定
+
+      php -r 'echo 1 + 1;'               // @note 跑一行就退出 —— 这不是 REPL
+
+      // @note 随 PHP 一起发布的还有一个交互式调试器 **phpdbg**
+      // @note 官方称它是「按 SAPI 模块实现的」，支持断点、单步、内建 eval
+
+      // @note 日常更常用的是 **PsySH**（第三方，psysh.org）——
+      // @note Laravel Tinker、Drush、WP-CLI 用的都是它
+
+      // @note 注意 REPL 只在 CLI 里有；Web 上下文没有这种东西
+    vs:
+      javascript: |
+        JavaScript 的 REPL 是运行时自带的（`node` 直接进交互模式），
+        开箱即用、体验完整。PHP 也有内置的 `php -a`，
+        但它**依赖 readline 扩展** —— 8.1 起没装就直接失败，
+        而且功能比 `node` 的 REPL 朴素得多（没有自动补全那种体验）。
+        所以实际开发里 PHP 开发者更常用 PsySH 这类第三方 REPL。
+        另一处是「值怎么显示」：那边 `node` 会自动打印表达式结果，
+        PHP 的 `php -a` 同样会 —— 这一层体验接近。
+        共同点是两边都能在命令行里试一小段代码。
+      python: |
+        两边都有内置 REPL，而且**都不需要额外装东西**
+        （`python` ↔ `php -a`），这是很实际的一点。
+        差别在**功能厚度**：Python 的 REPL 有几个成熟的替代品
+        （IPython / bpython），而 PHP 这边对应的是 PsySH ——
+        两边都是「内置的够用、第三方的好用」这个格局。
+        另一处是依赖：Python 的 REPL 依赖 readline 做行编辑，
+        没有时**降级**（只能退格）而不是失败；
+        PHP 8.1 起没有 readline 则**直接失败** —— 一个降级、一个拒绝启动。
+        共同点是两边都能 `-c` / `-r` 跑一行（不算 REPL）。
+      java: |
+        **这一格 PHP 反而更顺手**：Java 到 JDK 9 才有官方的 `jshell`，
+        之前要写个类再编译运行才能试一行代码。
+        PHP 从很早就有 `php -a`，而且还有随包发布的 `phpdbg` 调试器。
+        差别在**交互体验**：`jshell` 有类型推断、自动补全、能定义类与方法；
+        `php -a` 朴素得多，而且依赖 readline（没有就失败）。
+        另一处是「能不能定义函数」：jshell 里定义方法很自然，
+        `php -a` 里定义函数在历史上有些限制（手册用户注记提到过函数定义
+        不进历史之类的小坑）。
+        共同点是两边的 REPL 都主要用来「验证一小段语法」，
+        不用来写完整程序。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
