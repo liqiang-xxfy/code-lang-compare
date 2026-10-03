@@ -38,20 +38,27 @@ boxes:
       }
 
       // @note 协程不是线程：它可以在一根线程上挂起、换到另一根上恢复
-      // @note! 但它**默认会并行** —— Dispatchers.Default 背后是多线程池
+      // @note! 但**「不占线程」不等于「会并行」**：launch 不带调度器时
+      // @note! 继承外层的调度器 —— 上面这个 runBlocking 里就是**单线程事件循环**，
+      // @note! 两个 launch 其实是一个接一个跑的。要真并行得显式给多线程调度器：
+      // @note!   launch(Dispatchers.Default) { }   或   launch(Dispatchers.IO) { }
       // @note 「轻」指的是开销：几万个协程没问题，几万个线程会先耗尽内存
     vs:
       javascript: |
         **最容易被想当然的一处**：JavaScript 只有一根线程加事件循环，
-        所以「同时只跑一段代码」是免费的保证；
-        Kotlin 的协程**可以在多根线程上并行跑**，只是「挂起不占线程」而已 ——
-        共享可变状态的问题照旧，不会因为你用了协程就消失。
-        写法上两边很像（`async` / `await` 这套形状接近），
-        但调度模型不同：那边是单线程排队，这边是真并行。
+        所以「同时只跑一段代码」是免费的保证；Kotlin 的协程**可以**在多根线程上
+        并行跑 —— 但那不是默认的。`launch` 不带调度器时继承外层的调度器，
+        在一个单线程的事件循环作用域里就仍然是排队执行；
+        只有显式给 `Dispatchers.Default` / `IO` 才真的并行。
+        **一旦并行，共享可变状态的问题就照旧**，不会因为用了协程而消失 ——
+        这一点与那边「单线程所以不用担心」正好相反。
       python: |
-        Python 的 `async` / `await` 与 Kotlin 的协程形状像，但**并发模型不同**：
-        Python 的协程跑在单线程事件循环上（要并行得另起进程或线程），
-        Kotlin 的协程默认调度到多线程池上，是真的并行。
+        Python 的 `async` / `await` 与 Kotlin 的协程形状像，
+        而且**「光写 async 不等于并行」这一点两边也一致**：
+        Python 要并发得显式提交任务，Kotlin 要并发得显式给多线程调度器。
+        差别在**能不能并行**：Python 的协程只能跑在单线程事件循环上
+        （要真并行得另起进程或线程），Kotlin 的协程给个调度器就能分布到多根线程 ——
+        所以那边「不用担心竞态」是模型给的保证，这边得自己选。
         另一处是**结构化并发**：Kotlin 的 `coroutineScope` 保证
         「父等子、父取消子一起取消」，Python 那边得自己用 `TaskGroup` 或手工管理。
       java: |
@@ -72,8 +79,9 @@ boxes:
       // 危险：多个协程同时读改写
       // repeat(1000) { launch { counter++ } }        // @note! 结果小于 1000
 
-      // @note 办法一：把状态限制在单线程上（线程封闭）
-      val single = newSingleThreadContext("only")
+      // @note 办法一：把状态限制在同一根线程上（线程封闭）
+      val single = Dispatchers.Default.limitedParallelism(1)   // @note 官方现在推荐这个；
+      // @note 老写法 newSingleThreadContext("only") 属于「精细 API」，要显式 opt-in
       // @note 办法二：用挂起的互斥锁（见 lock-mutex 一格）
       // @note 办法三：用原子类型（见 atomicity 一格）
 
@@ -87,11 +95,11 @@ boxes:
         JavaScript 的任务之间不会真正同时跑，所以 `counter++` 不可能被
         从中间打断；Kotlin 的协程在多线程上并行时，`counter++` 是三步操作，
         中间随时可能被换出去 —— 结果是少加了一些。
-        所以那边「随便写」的代码搬到这边会变成一个真实的竞态。
+        所以那边「随便写」的代码，搬到这边一旦给了多线程调度器就会变成真实的竞态。
       python: |
         两边都可能撞上竞态，但**成因不同**：Python 的 `asyncio` 只在
         `await` 处切换，所以没有 `await` 的 `counter++` 是安全的；
-        Kotlin 的协程在多线程上并行，任何一行都可能与另一根线程交错。
+        Kotlin 的协程一旦跑在多线程调度器上，任何一行都可能与另一根线程交错。
         结果是 Python 那边「看着像原子」的代码在这边不安全 ——
         这一条从 Python 过来最容易误判。
         共同点是两边都要有意识地选一种保护手段。
@@ -136,7 +144,7 @@ boxes:
       python: |
         两边都有锁，但**默认需不需要**不同：Python 的 `asyncio` 只在
         `await` 处切换任务，所以没有 `await` 的临界区天然是安全的，
-        锁是可选的；Kotlin 的协程在多线程上并行，临界区必须显式保护。
+        锁是可选的；Kotlin 的协程一旦放到多线程调度器上，临界区就必须显式保护。
         另一处是锁的种类：Python 的 `asyncio.Lock` 是挂起式的，
         与 Kotlin 的 `Mutex` 对应；而 Python 还有个线程版的 `threading.Lock`，
         两者不能混用 —— Kotlin 这边同样要分清 `Mutex` 与 JVM 的锁。
@@ -216,7 +224,7 @@ boxes:
     vs:
       javascript: |
         JavaScript 里没有「原子类型」这个概念 —— 单线程模型下
-        `count++` 本来就不会被打断。Kotlin 这边并行是真并行，
+        `count++` 本来就不会被打断。Kotlin 这边给了多线程调度器就是真并行，
         所以需要专门的原子类型（或锁）。
         所以这一格是**需求有无之别**：那边没有这个工具，
         不是因为没想到，而是因为用不上。
@@ -224,13 +232,13 @@ boxes:
         Python 的 `asyncio` 下没有 `await` 的 `counter += 1` 是安全的，
         所以也没有内建的原子类型；多线程场景靠 `threading.Lock`
         或者 `itertools.count` 这类特例。
-        Kotlin 这边因为协程默认并行，原子类成了常用工具 ——
+        Kotlin 这边一旦把协程放到多线程调度器上，原子类就成了常用工具 ——
         这一格同样是「需求有没有」的差别。
       java: |
         两边**用的是同一批类**（`AtomicInteger`、`AtomicReference`、
         `LongAdder` 等），语义完全一样，可以逐条对应。
         差别在**用不用得上**：Java 里只有在真开多线程时才有这个问题，
-        而 Kotlin 里一个 `launch` 就可能已经并行了 ——
+        而 Kotlin 里一个 `launch` 只要带了多线程调度器就已经并行了 ——
         所以同样的代码在 Kotlin 里更容易在不知不觉中踩到竞态。
         另一处是 `@Volatile`：Java 是关键字，Kotlin 是注解，语义相同。
     equivalence:

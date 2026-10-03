@@ -124,7 +124,10 @@ boxes:
         （`async` / `await` 这一对名字都对得上）。差别在**异常**：
         JavaScript 的 Promise 一旦 reject 且没人接，控制台会报未处理拒绝；
         Kotlin 的 `async` 把异常**存在 Deferred 里**，
-        不 `await` 就永远不会有人知道 —— 静默失败的风险更大。
+        不 `await` 就没人知道 —— 但**这只在它没有父协程时成立**：
+        作为普通子协程时，失败会照结构化并发立刻向上传播并取消父作用域，
+        哪怕你从不 `await`。所以「忘了 await 会静默吞掉异常」这个说法
+        要限定在根协程或监督作用域的场景。
         另一处是取消：JavaScript 的 Promise 不能取消，
         Kotlin 的 `Deferred` 能（这是它有优势的一处）。
       python: |
@@ -164,7 +167,8 @@ boxes:
         val y = async { fetch(4) }
         println(x.await() + y.await())               // @note 两个一起跑，一起等
 
-        // @note! 光写 async 不 await，异常会丢；要结果就一定要 await
+        // @note! 子协程里的 async 抛异常会立刻向上传播、取消父作用域；
+        // @note! 但**根协程**（或监督作用域下）的 async 不 await 就没人接
       }
 
       // @note suspend 只表示「这个函数可能挂起」，**不等于**「它在别的线程上跑」
@@ -233,11 +237,12 @@ boxes:
         另一处是 `finally` 里的清理：JavaScript 那边要靠监听 abort 事件，
         这边 `finally` 照常执行，还能在 `NonCancellable` 里挂起。
       python: |
-        两边的取消都是靠**抛异常**实现的（Python 抛 `CancelledError`，
-        Kotlin 抛 `CancellationException`），也都因此有同一个陷阱：
-        `except Exception` 会把它一起吞掉，取消就此失效。
-        Python 要求显式 `raise` 回去，Kotlin 要求显式 `throw e` 放行 ——
-        写法不同，纪律一样。
+        **这里两边其实不一样，而且差别很关键**：Python 的取消异常
+        早就被挪到了「不该被顺手接住」的那一支下面，所以
+        `except Exception` **根本抓不到**它 —— 想吞掉得显式写出那个类型。
+        Kotlin 的取消异常则仍然是普通异常的子类，`catch (e: Exception)`
+        **会**把它一起吞掉，取消就此失效，必须单独放行。
+        所以同一个陷阱在 Python 那边被语言堵住了，在 Kotlin 这边要自己防。
         另一处是**传播**：Kotlin 靠结构化并发自动沿父子关系传播，
         Python 得自己管任务树。
       java: |

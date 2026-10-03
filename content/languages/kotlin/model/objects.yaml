@@ -126,8 +126,8 @@ boxes:
 
   fields-and-properties:
     code: |
-      class User(name: String) {
-        var age: Int = 0
+      class User(val name: String) {          // @note! 不带 val/var 的构造参数**不是属性**，
+        var age: Int = 0                       // @note! 它只能在 init 块与属性初始化器里用
           set(value) {                     // @note 自定义 setter，field 指幕后字段
             require(value >= 0) { "年龄不能为负" }
             field = value
@@ -265,9 +265,11 @@ boxes:
         但**默认值相反**：Java 的类默认可继承、方法默认可覆盖
         （除非标 `final`）；Kotlin 的类与方法**默认都是 final**，
         要开放必须写 `open`。
-        这一条有个很实际的后果：Java 的 Mockito 默认无法代理 Kotlin 的类，
-        因为字节码层面它们就是 final —— 这也是 Kotlin 项目改用 MockK
-        的根因（动机来自默认 final，与工具推荐无关）。
+        这一条有个很实际的后果，而且**有过时效性**：
+        代理式的测试替身框架早期绕不过 final，所以 Kotlin 社区改用能处理
+        final 的工具（这个因果是默认 final 带来的）；
+        但主流替身库从 5.0.0 起默认换成了能在运行期改写字节码的实现，
+        已经可以替 final 类 —— **这条结论要看版本，别当成永久事实**。
         另一处是初始化顺序，两边都有「基类先初始化」的坑，规则相似。
     equivalence:
       javascript: divergent
@@ -288,8 +290,9 @@ boxes:
       private fun topLevel() { }           // @note! 顶层 private = 只在这个文件里可见
       internal class Cache { }             // @note 跨 module 就看不到了
 
-      // @note! `internal` 在字节码里其实还是 public，只是名字被改了 ——
-      // @note! 它是「别用」的信号，不是安全边界
+      // @note! `internal` 不是安全边界：它的**成员**（函数 / 属性）
+      // @note! 在字节码里会被改名，但可见性其实还是 public；
+      // @note! `internal` **类**则连名字都不改，直接就是 public 类
     vs:
       javascript: |
         JavaScript 的可见性手段是 `#` 前缀（真私有，运行期强制）
