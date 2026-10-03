@@ -321,6 +321,21 @@ export const registrySchema = z
    * 不再需要一个全局常量（ADR-24）。
    */
   defaultCompareLanguage: z.string().min(1),
+  /**
+   * **指称同族组** —— R25（幽灵语言）的唯一例外（ADR-71）。
+   *
+   * 同组语言互相点名**不算**「屏幕外的语言」。判据按**两门**算：一格的说明里
+   * 提到 M 是合法的，只要 M 与「本语言」或「该格面对的基准」同族。
+   *
+   * 为什么需要它：JavaScript 与 TypeScript 在读者眼里是同一套生态的两面 ——
+   * 「JavaScript 自己没有泛型，要靠 TypeScript」这句话里，TypeScript 不是
+   * 屏幕上冒出来的第三门语言，而是那一列本身的两个层次。按逐字点名的字面规则判，
+   * 这类句子会被报成幽灵语言，而改写成「另一门静态超集」只会让说明变含糊。
+   *
+   * 组内成员是**语言目录名**；R8 会核对它们确实已登记。成员不必都已启用 ——
+   * 未启用的成员本来就不参与检测，先声明后启用是合法的。
+   */
+  mentionGroups: z.array(z.array(z.string().min(1)).min(2)).default([]),
   site: z.object({
     name: z.string().min(1),
     shortDescription: z.string().min(1),

@@ -79,6 +79,49 @@ export function detectForeignLanguageMentions(
 }
 
 /**
+ * 由「指称同族组」算出每门语言的同族集合（不含自己）。
+ *
+ * R25 问的是「这一格的说明讲了屏幕外的语言吗」。同族语言是这条规则的**唯一例外**，
+ * 理由见 `content/registry.yaml` 的 `mentionGroups` 段：JavaScript 与 TypeScript
+ * 在读者眼里是同一套生态的两面，讲其中一门时提到另一门，不是屏幕上冒出来的第三门，
+ * 而是那一列本身的两个层次。
+ */
+export function kindredIds(groups: string[][]): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>()
+  for (const group of groups) {
+    for (const id of group) {
+      let set = out.get(id)
+      if (!set) {
+        set = new Set()
+        out.set(id, set)
+      }
+      for (const other of group) if (other !== id) set.add(other)
+    }
+  }
+  return out
+}
+
+/**
+ * R25 的例外判据：`m` 出现在「本语言 selfId、该格面对的基准 baseId」这一格时，
+ * 算不算「屏幕外」。
+ *
+ * 判据按**两门**算，不是只看本语言 —— 一格的说明描述的是**那一列**：
+ * `vs.javascript` 讲的就是 JavaScript 那一列，读者从哪门语言进来都一样。
+ * 于是「JavaScript 自己不做静态检查，要靠 TypeScript」写在以 Python 为基准的
+ * JavaScript 列里，提的仍是那一列自己的两个层次，不该被报成幽灵语言。
+ */
+export function isKindredMention(
+  m: string,
+  selfId: string,
+  baseId: string | null,
+  kindred: Map<string, Set<string>>,
+): boolean {
+  return (
+    (kindred.get(selfId)?.has(m) ?? false) || (baseId !== null && (kindred.get(baseId)?.has(m) ?? false))
+  )
+}
+
+/**
  * 在一段**任意文本**里找语言指称词（不排除任何一门）。
  *
  * 用途与 R12 相反：R12 问「这条注记有没有讲屏幕外的语言」，这里问

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { detectForeignLanguageMentions, findLanguageWords } from '../../scripts/lib/lang-mention'
+import {
+  detectForeignLanguageMentions,
+  findLanguageWords,
+  isKindredMention,
+  kindredIds,
+} from '../../scripts/lib/lang-mention'
 import type { Annotation, LanguageMeta } from '../../src/schemas'
 
 const lang = (id: string, name: string, shortName: string, aliases: string[] = []): LanguageMeta =>
@@ -96,5 +101,41 @@ describe('findLanguageWords —— 文案里写死的语言名（verify:ext 第�
 
   it('两字母别名同样不参与（.js 后缀不是语言点名）', () => {
     expect(find('配置文件是 .js 后缀')).toEqual([])
+  })
+})
+
+describe('kindredIds / isKindredMention —— R25 的同族豁免（ADR-71）', () => {
+  const kindred = kindredIds([['javascript', 'typescript']])
+
+  it('同族关系是**互相**的，且不含自己', () => {
+    expect([...kindred.get('javascript')!]).toEqual(['typescript'])
+    expect([...kindred.get('typescript')!]).toEqual(['javascript'])
+    expect(kindred.get('javascript')!.has('javascript')).toBe(false)
+    expect(kindred.get('python')).toBeUndefined()
+  })
+
+  it('没有声明任何组时是空表 —— 豁免默认关闭', () => {
+    expect(kindredIds([]).size).toBe(0)
+  })
+
+  it('判据按**两门**算：本语言同族，或该格面对的基准同族', () => {
+    // JavaScript 列说自己要靠 TypeScript（读者以 Python 为基准）
+    expect(isKindredMention('typescript', 'python', 'javascript', kindred)).toBe(true)
+    // JavaScript 基准列自己提到 TypeScript
+    expect(isKindredMention('typescript', 'javascript', null, kindred)).toBe(true)
+    // TypeScript 列反过来提 JavaScript
+    expect(isKindredMention('javascript', 'typescript', 'java', kindred)).toBe(true)
+  })
+
+  it('两门都不沾 JS 家族的格子照常拦截', () => {
+    expect(isKindredMention('typescript', 'go', 'python', kindred)).toBe(false)
+    expect(isKindredMention('typescript', 'go', null, kindred)).toBe(false)
+    // 被点名的不是同族，也不是自己或基准
+    expect(isKindredMention('python', 'javascript', 'java', kindred)).toBe(false)
+  })
+
+  it('ArkTS 刻意不在同族里 —— 它不是 JavaScript 的超集，是独立的语言', () => {
+    expect(isKindredMention('arkts', 'javascript', 'python', kindred)).toBe(false)
+    expect(isKindredMention('javascript', 'arkts', null, kindred)).toBe(false)
   })
 })

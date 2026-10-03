@@ -41,7 +41,7 @@ import {
   type LanguageGroupContent,
   type PairListsV2,
 } from './core'
-import { detectForeignLanguageMentions } from './lang-mention'
+import { detectForeignLanguageMentions, isKindredMention, kindredIds } from './lang-mention'
 
 /* ────────────────────────── 许可台账 ────────────────────────── */
 
@@ -200,6 +200,19 @@ export function analyzeContent(): Analysis {
   }
 
   const enabledLanguageIds = allLanguageIds.filter((id) => registry.languages[id]?.enabled)
+
+  /* R25 的同族豁免（ADR-71）：组内成员必须是已登记的语言，否则那句豁免永远不生效、也不报错 */
+  const kindred = kindredIds(registry.mentionGroups)
+  for (const group of registry.mentionGroups) {
+    if (new Set(group).size !== group.length) {
+      err('R8', 'content/registry.yaml', `mentionGroups 里有一组写重了成员：${group.join('、')}`)
+    }
+    for (const id of group) {
+      if (!(id in registry.languages)) {
+        err('R8', 'content/registry.yaml', `mentionGroups 里的 '${id}' 不是已登记的语言 —— 这条豁免不会生效`)
+      }
+    }
+  }
 
   /**
    * 基准相关约束 —— 与 scripts/build/generate-registry.ts 是**同一套判据**。
@@ -379,6 +392,10 @@ export function analyzeContent(): Analysis {
    * 只是它们当时未启用、检测不到。这跟 R20g / R22 / R24 / R27 是同一类问题
    * （「把真正要看的 error 埋掉才是灾难」这条理由对 warn 一样成立），所以一并汇总。
    * 定位线索不丢：汇总那条 message 里带上存放组名，仍能直接翻到要改的地方。
+   *
+   * **同族豁免**（ADR-71）：`registry.yaml` 的 `mentionGroups` 里同组的语言互相点名
+   * 不算幽灵（当前只有 JavaScript ↔ TypeScript）。判据按**本语言与该格基准两门**算，
+   * 见 `isKindredMention`。
    */
   const ghostMentions = new Map<string, { names: Map<string, number>; groups: Set<string> }>()
   const noteGhost = (key: string, name: string, group: string): void => {
@@ -490,14 +507,23 @@ export function analyzeContent(): Analysis {
         for (const [base, text] of Object.entries(box.vs)) {
           if (!text.trim()) continue
           const mentionable = metas.filter(
-            (m) => enabledLanguageIds.includes(m.id) && m.id !== lang && m.id !== base,
+            (m) =>
+              enabledLanguageIds.includes(m.id) &&
+              m.id !== lang &&
+              m.id !== base &&
+              !isKindredMention(m.id, lang, base, kindred),
           )
           for (const hit of detectForeignLanguageMentions([{ line: 0, text, tone: 'info' }], lang, mentionable)) {
             noteGhost(ghostKey, hit.name, g.group)
           }
         }
         if (box.baseline?.trim()) {
-          const mentionable = metas.filter((m) => enabledLanguageIds.includes(m.id) && m.id !== lang)
+          const mentionable = metas.filter(
+            (m) =>
+              enabledLanguageIds.includes(m.id) &&
+              m.id !== lang &&
+              !isKindredMention(m.id, lang, null, kindred),
+          )
           for (const hit of detectForeignLanguageMentions(
             [{ line: 0, text: box.baseline, tone: 'info' }],
             lang,
@@ -653,7 +679,8 @@ export function analyzeContent(): Analysis {
       'R25',
       key,
       `有 ${total} 处提到了屏幕外的语言（${detail}）—— 涉及 ${[...rec.groups].sort().join('、')}。` +
-        `多列板块里，一格的说明只该讲本语言与该基准那两门`,
+        `多列板块里，一格的说明只该讲本语言与该基准那两门` +
+        `（同族语言不算，见 registry.yaml 的 mentionGroups）`,
     )
   }
 

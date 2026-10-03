@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import { analyzeContent, globalIdOf } from '../../scripts/lib/analyze'
 import { loadAllLanguageMeta, loadRegistry } from '../../scripts/lib/core'
-import { findLanguageWords } from '../../scripts/lib/lang-mention'
+import { findLanguageWords, isKindredMention, kindredIds } from '../../scripts/lib/lang-mention'
 import { baselineCatalogSchema, languageContentFileSchema, provenanceSchema } from '../../src/schemas'
 
 const a = analyzeContent()
@@ -169,6 +169,23 @@ describe('架构决策的可执行断言', () => {
         }
       }
     }
+  })
+
+  /*
+   * ADR-71 的同族豁免。判定逻辑在 lang-mention.test.ts 里单测，这里守的是**配置本身**：
+   * 配置一删，那边的单测仍然全绿，而启用 TypeScript 时既有内容里 53 处 R25 会集体冒出来 ——
+   * 「逻辑对、配置没了」正是最不容易被发现的那种坏法。
+   */
+  it('ADR-71：R25 的同族豁免在注册表里声明着，且只豁免 JS 与 TS 这一对', () => {
+    const kindred = kindredIds(a.registry.mentionGroups)
+    expect(kindred.get('javascript')).toEqual(new Set(['typescript']))
+    // 同族豁免按两门算：本语言同族，或该格面对的基准同族
+    expect(isKindredMention('typescript', 'python', 'javascript', kindred)).toBe(true)
+    expect(isKindredMention('typescript', 'javascript', null, kindred)).toBe(true)
+    // 两门都不沾 JS 家族的格子不受影响
+    expect(isKindredMention('typescript', 'go', 'python', kindred)).toBe(false)
+    // ArkTS 不在同族里 —— 它不是 JavaScript 的超集，是独立的语言
+    expect(isKindredMention('arkts', 'javascript', 'python', kindred)).toBe(false)
   })
 
   it('ADR-08：llm 来源的 schema 里根本没有 license 字段', () => {
