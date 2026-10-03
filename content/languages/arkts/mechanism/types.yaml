@@ -214,33 +214,32 @@ boxes:
       class Cat extends Animal { meow(): string { return "喵" } }
 
       let a: Animal = new Cat();
-      let c: Cat = a as Cat;          // @note 向子类断言：编译器信你，运行时不检查
+      let c: Cat = a as Cat;          // @note 向子类断言：运行时校验，a 确实是 Cat 才通过
+      // let d = new Animal() as Cat; // @note! 运行时抛异常：它不是 Cat
 
       let v: string | number = "hello";
-      let s: string = v as string;     // @note 合法：类型上 v 也可能是 string
-      let n: number = v as number;
-      // n.toFixed(2);                 // @note! 运行时会炸：此刻 v 其实是字符串
+      let s: string = v as string;     // @note 从联合类型里窄化，运行时对得上才通过
 
-      // 断言不做任何转换 —— 它只改变编译器对这个值的看法。
-      // 真想确认，只能自己写 typeof / instanceof 的运行时检查。
+      // 断言之外的转换要显式调用：Number(v)、String(v) —— as 不承担数值转换
     vs:
       javascript: |
         JavaScript 里没有「断言」这个概念：值就是值，没有一层类型声明需要被说服。
-        ArkTS 的 `as` 存在的唯一原因是有时候你比编译器知道得多；风险也在这里 ——
-        断言之后编译器不再检查，写错的话错误推迟到运行时，报错位置离出事的地方很远。
-        JavaScript 的类型错误本来就到运行时才暴露，两边「什么时候炸」一样，
-        差别是 ArkTS 里你至少有机会在编译期把事情问清楚。
+        ArkTS 的 `as` 是**真的运行时检查**：向下断言时，运行时会确认这个对象确实是那个类型，
+        不是就抛异常 —— 所以它更像一次带保底的放宽，而不是「让编译器闭嘴」。
+        在 JavaScript 里想做同样的事，只能自己写 `instanceof` 判断，
+        写漏了要等到调用错方法那一刻才炸。
       python: |
-        Python 的 `cast(T, x)` 与 ArkTS 的 `as T` 是同一类东西：都是给类型检查器下的指令，
-        运行时是空操作，写错了没人拦。差别在默认姿态：Python 不加标注就是动态的，
-        本来也没有检查可绕；ArkTS 默认检查，`as` 是一次主动放弃，
-        所以它读起来更像危险信号，代码评审时值得多看一眼。
+        Python 的 `cast(T, x)` 只是给类型检查器下的指令，运行时什么都不做，写错了没人拦；
+        ArkTS 的 `as` 在运行时真的校验，不匹配就抛异常 —— 这是两者最实质的差别。
+        姿态也相反：Python 不加标注本来就是动态的，`cast` 是补一张声明；
+        ArkTS 默认检查，`as` 是一次受控的放宽，但底下仍留着运行时保底。
       java: |
-        方向相反：Java 的强转 `(Cat) x` 在运行时**会**检查，类型不对就抛 ClassCastException；
-        ArkTS 的 `as` 不做运行时检查，所以它比 Java 的强转更不安全 ——
-        Java 至少在那一刻告诉你错了，ArkTS 会让你带着一个错误的理解继续跑。
-        想在 ArkTS 里得到 Java 式的保证，只能自己写 `instanceof` 检查再断言。
+        两边都是**运行时检查**的强转：Java 的 `(Cat) x` 与 ArkTS 的 `as Cat` 不匹配都抛异常，
+        也都只对能向下窄化的引用类型有意义。差别在语法负担与可见性：
+        Java 的强转是括号前缀，读代码时容易和普通括注看混；
+        ArkTS 的 `as` 是后缀关键字，位置固定，一眼能认出这里在做转换。
+        另一处：Java 对基本类型的强转兼任数值转换（`(int) 3.9`），ArkTS 的 `as` 不干这件事。
     equivalence:
       javascript: divergent
-      python: analogous
-      java: divergent
+      python: divergent
+      java: analogous
