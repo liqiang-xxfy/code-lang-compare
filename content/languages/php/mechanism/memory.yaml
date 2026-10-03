@@ -1,0 +1,345 @@
+# php —— mechanism / memory
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: memory` 的那批：
+# value-vs-reference / garbage-collection / ownership-borrow /
+# lifetime / weak-reference。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组的中心事实是**引用计数**，四条推论 ——
+# ① 非环对象的析构是**确定性的**（计数归零立刻析构），这一点像 RAII 而不像 tracing GC；
+# ② **成环**的对象要等周期回收器，析构时机不确定（本机实测：unset 之后没析构，
+#    gc_collect_cycles() 跑完才析构，返回回收的环数是 2）；
+# ③ 没有所有权 / 借用这套东西，`&` 是**别名**不是借用；
+# ④ 弱引用只能指向**对象**（标量、数组不行）。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  value-vs-reference:
+    code: |
+      // @note! PHP 的划分**不按类型种类，按语言构造**：
+      // @note! **数组是值**、**对象是句柄** —— 就这两种，别的都是标量
+
+      $a = [1, 2];
+      $b = $a;                          // @note 复制（语义上）
+      $b[] = 3;
+      echo count($a), count($b);        // @note 2 与 3
+
+      $o1 = new stdClass;
+      $o2 = $o1;                        // @note 同一个对象
+      $o2->x = 1;
+      echo $o1->x;                      // @note 1
+
+      // @note 复制是**按需**的（写时复制）：赋值那一刻不真的拷内存
+      // @note 实测：给一个大数组赋值，内存占用几乎不变；写其中一个才复制
+
+      // @note `&` 造的是**别名**，不是「引用类型」
+      $c = &$a;
+      $c[] = 9;                         // @note 现在 $a 也变了
+      // @note! 别名可以到处传、可以长期持有，没有排他性也没有生命周期约束
+
+      // @note 函数参数默认按值；写成 `&$x` 才是别名传进去
+      function bump(array &$arr): void { $arr[] = 'x'; }
+      function noop(array $arr): void { $arr[] = 'x'; }   // @note 改的是副本
+    vs:
+      javascript: |
+        **这一格两边正好相反**。JavaScript 的划分是按**类型种类**：
+        基本类型（数字、字符串、布尔）按值，对象与数组按引用 ——
+        数组属于后者，所以 `const b = a; b.push(3)` 会改到 `a`。
+        PHP 的数组是**值**，只有对象才是句柄 ——
+        也就是说「数组传进函数改不到外面」在 PHP 里是默认行为
+        （要加 `&`），在 JavaScript 里反倒要刻意复制才做得到。
+        另一处是 `&`：JavaScript 完全没有「别名」这个机制，
+        变量之间要么各存各的要么指向同一对象；PHP 的 `&` 能让
+        两个名字共享同一块存储，这是那边没有的能力（也是那边没有的坑）。
+      python: |
+        **两边的默认值正相反**。Python 里**一切都是引用**：
+        `b = a` 让两个名字指向同一个对象，`b.append(3)` 会改到 `a`，
+        要复制得显式 `a.copy()`。PHP 的数组赋值就是复制，
+        要共享反而要写 `$c = &$a`。
+        所以从 Python 过来最容易出的错是「以为函数改到了外面的数组」——
+        实际改的是副本，函数返回后什么都没发生，而且不报错。
+        共同点是两边的自定义对象都是引用语义，只有容器不同；
+        另一处是 Python 有可变 / 不可变类型的区分（tuple 与 list），
+        PHP 的数组只有一种，可变性不体现在类型上。
+      java: |
+        **两边最接近**：Java 的基本类型是值语义（与 PHP 的标量、数组一致），
+        引用类型是句柄语义（与 PHP 的对象一致）。
+        差别在**划分的依据**：Java 按「是不是基本类型」分，
+        PHP 按「是不是对象」分 —— 于是 PHP 的 `array` 成了
+        唯一一个「既是容器又是值语义」的东西，
+        在 Java 里得想象成「数组整体按值传」才对得上
+        （Java 的数组是对象，传的是引用）。
+        另一处是 `&`：Java 完全没有别名机制，
+        两个变量要么各存各的要么指向同一对象 ——
+        PHP 的 `&` 能造出真正的共享存储，Java 里做不到。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  garbage-collection:
+    code: |
+      // @note PHP 用**引用计数**为主：计数归零**立刻、确定性**地释放
+      class D { public function __construct(public string $n) {} public function __destruct() { echo "  析构 {$this->n}\n"; } }
+
+      (function () {
+        $local = new D("局部");
+        echo "  出作用域前\n";
+      })();                               // @note! 函数一返回就析构 —— 不用等 GC
+
+      // @note! 但**成环**的对象计数归不了零，要等周期回收器
+      $a = new D("A"); $b = new D("B");
+      $a->peer = $b; $b->peer = $a;
+      unset($a, $b);
+      echo "  unset 之后还没析构\n";
+      gc_collect_cycles();                // @note 强制跑一遍，返回回收的环数（这里是 2）
+
+      // @note 控制手段
+      gc_enabled(); gc_enable(); gc_disable();
+      gc_collect_cycles();
+      // @note INI: zend.enable_gc
+      // @note 候选根放在一个**固定大小的 root buffer**（10,000 个槽），满了才跑
+
+      // @note 回收器**不移动对象**（地址稳定），也没有分代压缩 —— 暂停很短
+    vs:
+      javascript: |
+        两边都是 GC，但**机制与后果完全不同**。JavaScript 是
+        标记清除式的 tracing GC：对象什么时候被回收**没有保证**，
+        `FinalizationRegistry` 的回调时机不确定。
+        PHP 是**引用计数**：非环对象在计数归零那一刻**确定性地**析构，
+        于是「文件句柄、数据库连接在对象消失时立刻关掉」在 PHP 里
+        是可靠的行为 —— 那边要靠 `try/finally` 或者显式 close。
+        代价是 PHP 需要额外的**周期回收器**处理环，
+        而环里的对象析构时机又变回不确定 —— 也就是说 PHP 这边
+        「有没有环」决定了析构是确定的还是不确定的，这个分界线那边不存在。
+      python: |
+        两边都用引用计数（这是两者最像的地方），
+        而且都有「环要靠额外的回收器」这个补充机制
+        （Python 的 `gc` 模块 ↔ PHP 的周期回收器）。
+        差别在**析构的语义与可靠性**：Python 的 `__del__`
+        在有环时可能永远不被调用，而且它与 GC 的交互历史上有过麻烦；
+        PHP 的 `__destruct` 在非环场景下是**确定**的，
+        官方也明确说了成环时要靠回收器。
+        另一处是控制粒度：Python 的 `gc` 可以按「代数」调、
+        能冻结对象；PHP 只有开关与「强制跑一遍」两个动作，
+        外加一个固定大小的候选根缓冲区。
+      java: |
+        **这一格差别最大**：Java 是纯 tracing GC（分代、可压缩），
+        对象什么时候回收完全不确定，`finalize` 早已被弃用，
+        资源清理要靠 try-with-resources 或 Cleaner。
+        PHP 是引用计数，**非环对象的析构是确定的** ——
+        也就是说 PHP 在「资源何时释放」这件事上比 Java **更可预测**，
+        更接近 RAII 那一派。
+        代价在别处：引用计数意味着每次赋值都要动计数
+        （循环里的数组操作有额外开销），而且环需要单独的回收器；
+        Java 的 tracing GC 没有环的问题，但要停世界。
+        另一处是内存占用：PHP 的短生命周期请求结束时整块内存直接归还，
+        Java 的长驻进程才需要关心堆的形态。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  ownership-borrow:
+    code: |
+      // @note! PHP **没有所有权 / 借用这套东西** —— 无此概念
+      // @note 没有 move 语义、没有借用检查器、没有生命周期标注
+
+      // @note `&` 看着像「借用」，其实是**别名**：
+      $data = ['n' => 1];
+      $ref  = &$data;                   // @note 不是借用，是同一个存储的另一个名字
+      $ref['n'] = 2;                    // @note 直接改到 $data
+      $ref2 = &$ref;                    // @note 别名还能继续复制，没有排他性
+      echo $data['n'];                  // @note 2
+
+      // @note 赋值也不是「移交」：原变量照样能用
+      $copy = $data;                    // @note 值拷贝（写时复制），不是 move
+      echo count($data);                // @note 还在
+
+      // @note `unset()` 只是去掉一个**名字**，不是销毁对象
+      $obj = new stdClass;
+      $alias = $obj;
+      unset($obj);                      // @note $alias 还指着那个对象
+      var_dump($alias instanceof stdClass);   // @note true
+
+      // @note 内存安全由引用计数保证，不是由类型系统保证
+    vs:
+      javascript: |
+        两边都没有所有权概念 —— 这一格其实可以对应，
+        因为 JavaScript 里也没有「移交后原变量失效」这种事。
+        差别在**别名**：JavaScript 里两个变量可以指向同一个对象
+        （那是共享引用），但**做不到**「两个变量共享同一块存储、
+        改一个另一个的名字也跟着变」—— 数组元素与对象属性级别做不到。
+        PHP 的 `&` 能做到，这是那边完全没有的机制，
+        也带来那边没有的坑（比如函数签名里漏写 `&` 导致改了个寂寞）。
+        共同点是两边的内存安全都靠运行时（GC / 引用计数），
+        不靠类型系统。
+      python: |
+        两边都没有所有权，都是引用计数式的自动内存管理，
+        连「`del` 只是去掉一个名字」这一点都一样
+        （Python 的 `del x` 与 PHP 的 `unset($x)` 语义相同）。
+        差别在**别名**：Python 没有 `&`，两个名字指向同一对象
+        但你不能让一个「基本类型变量」变成另一个的别名
+        （`y = x` 对 int 是复制值）。
+        PHP 的 `$ref = &$data` 是真正的共享存储，Python 里没有对应写法 ——
+        最接近的是把值装进可变容器再共享那个容器。
+        共同点是两边都不会出现「用了已释放的对象」这类错误。
+      java: |
+        两边的处境类似：都没有所有权，都靠运行时管理内存，
+        都不存在「变量移交后失效」。
+        差别在**别名与引用**：Java 的引用就只是「指向对象」，
+        没法让两个局部变量共享同一块**存储单元**
+        （`int a; int &b = a;` 这种在 Java 里不存在），
+        PHP 的 `&` 可以。
+        另一处是「对象什么时候消失」：Java 靠 GC 保证不会用悬垂引用，
+        PHP 靠引用计数 —— 两者都能保证安全，但 PHP 还额外给了
+        「计数归零立刻析构」这个可预测性，Java 那边没有。
+        共同点是两边都需要靠工具或纪律来发现内存问题（长驻进程里）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  lifetime:
+    code: |
+      // @note! 生命周期**没有编译期标注** —— 由引用计数在运行时决定
+      // @note 最后一个强引用消失即销毁（非环场景立刻析构）
+
+      function scope() {
+        $o = new stdClass;
+        $r = WeakReference::create($o);
+      }                                   // @note 出作用域 → 计数归零 → 立刻销毁
+
+      // @note 延长寿命的三条常见路径：
+      // @note   ① 存进数组 / 对象属性 / 全局变量
+      // @note   ② 被闭包捕获
+      // @note   ③ 被 SplObjectStorage 之类的容器强引用
+
+      // @note! 一条很隐蔽的：**非 static 闭包会自动绑定 $this**，
+      // @note! 于是闭包活着就等于把它创建时所在的对象也拖住了 ——
+      // @note! 哪怕闭包里根本没用 $this
+      class Service {
+        public function makeClosure(): Closure {
+          return function () { return "没用到 \$this"; };   // @note! 仍绑定着 $this
+        }
+        public function makeStatic(): Closure {
+          return static function () { return "不绑定"; };    // @note 用 static 切断绑定
+        }
+      }
+
+      // @note 想「记着但不拖住」，用 WeakReference / WeakMap（下一格）
+    vs:
+      javascript: |
+        两边的生命周期都由运行时决定，都没有编译期标注 ——
+        这一层一致。差别在**什么时候能知道对象要没了**：
+        JavaScript 完全没有保证，闭包捕获、事件监听、定时器
+        造成的「意外留存」要靠开发者工具的内存快照去找；
+        PHP 在非环场景下是**确定**的（计数归零就析构），
+        所以「这个对象什么时候被释放」是可推理的。
+        另一处是 `$this` 的自动绑定：JavaScript 的箭头函数
+        也会捕获外层 `this`，同样可能拖住对象 —— 这一点两边像；
+        但 PHP 有个 `static function` 能显式切断，JavaScript 没有对应写法。
+      python: |
+        两边的生命周期都归引用计数管，连「意外留存」的成因都像：
+        Python 里闭包捕获、循环引用、全局缓存都会延长寿命，
+        PHP 里也一样。差别在**怎么切断**：
+        Python 用 `weakref` 模块（`weakref.ref` / `WeakValueDictionary`），
+        PHP 用 `WeakReference` / `WeakMap` —— 两边都只能弱引用**对象**，
+        标量与不可变值不行，这一点也一致。
+        另一处是析构时机：Python 的 `__del__` 在有环时可能不调用，
+        PHP 的 `__destruct` 在非环时确定调用 —— PHP 更可预测。
+      java: |
+        **两边的可预测性差得最远**：Java 的对象什么时候被回收
+        没有任何保证（`System.gc()` 只是建议），所以「对象消失时做点什么」
+        在 Java 里是**反模式**（`finalize` 已经弃用）。
+        PHP 引用计数让非环对象的销毁**确定发生**，
+        于是「析构函数里关文件」是可靠的写法。
+        另一处是 `$this` 绑定：Java 的 lambda 捕获外层 `this`
+        同样会拖住对象（这是 Android 里泄漏的经典成因），
+        与 PHP 的非 static 闭包一模一样 —— 但 Java 没有
+        `static function` 那种切断写法，只能手动避免捕获。
+        共同点是两边都需要工具来找长驻进程里的泄漏。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  weak-reference:
+    code: |
+      // @note `WeakReference`（7.4）：不增加引用计数，对象没了就返回 null
+      $o = new stdClass;
+      $r = WeakReference::create($o);
+      var_dump($r->get() instanceof stdClass);   // @note true
+      unset($o);
+      var_dump($r->get());                       // @note NULL
+
+      // @note `WeakMap`（8.0）：以对象为键的字典，键不增加计数
+      $wm = new WeakMap;
+      $key = new stdClass;
+      $wm[$key] = "值（这个值是**强**引用）";
+      count($wm);                                // @note 1
+      unset($key);
+      count($wm);                                // @note! 0 —— 键没了，条目自动消失
+
+      // @note! 两条硬约束：
+      // @note! ① **只能弱引用对象** —— 标量、数组都不行
+      // WeakReference::create(42);               // @note! TypeError
+      // @note! ② WeakMap 的**值**是强引用，只有**键**是弱的
+
+      // @note! 别拿 SplObjectStorage 当弱引用 —— 它**会**增加引用计数
+      $os = new SplObjectStorage;
+      $strong = new stdClass;
+      $os->offsetSet($strong);
+      unset($strong);
+      count($os);                                // @note 1 —— 对象被容器拖住了
+
+      // @note 用途：缓存、观察者表、父子双向引用里把「子指向父」那一边做成弱的
+    vs:
+      javascript: |
+        JavaScript 有 `WeakMap` / `WeakSet`，用途与 PHP 的 `WeakMap` 一样
+        （键是弱引用、对象消失条目就没了），而且同样**只能以对象为键** ——
+        这一格两边高度对应，连限制都一样。
+        差别在 **`WeakReference` 这个单点弱引用**：
+        那边没有对应的东西（`WeakRef` 是较新才有的），
+        想「记着一个对象但不拖住它」通常只能靠 WeakMap 绕。
+        PHP 从 7.4 起就有 `WeakReference::create()`，用起来更直接。
+        另一处是可枚举性：那边的 WeakMap 不可枚举（拿不到键列表），
+        PHP 的 `WeakMap` 实现了 `IteratorAggregate`，可以遍历 ——
+        这一点 PHP 更方便，但也更容易写出「遍历时条目消失」的代码。
+      python: |
+        Python 的 `weakref` 模块提供同样的能力，而且更细：
+        `weakref.ref`（单点）、`WeakValueDictionary`（值是弱的）、
+        `WeakSet`、还能给对象挂回调（对象被回收时触发）。
+        PHP 只有两件：`WeakReference`（单点）与 `WeakMap`（键是弱的）——
+        **没有「值是弱的」那种字典**，也没有回收回调。
+        共同点是两边都**只能弱引用对象**：Python 的 `weakref.ref(42)` 会抛
+        TypeError（int 不支持弱引用），PHP 的 `WeakReference::create(42)`
+        同样抛 TypeError —— 这条限制完全一致。
+      java: |
+        Java 的弱引用是一套**四档**的体系：
+        `WeakReference` / `SoftReference` / `PhantomReference`
+        加 `ReferenceQueue`，能按「回收压力」区分策略 ——
+        比 PHP 的两件（`WeakReference` / `WeakMap`）细得多。
+        差别在**能不能知道对象被回收了**：Java 靠 `ReferenceQueue`
+        拿到通知（清理动作可以挂在那里），
+        PHP 没有任何回调，只能下次访问时发现 `get()` 返回了 null。
+        另一处是键的约束：Java 的 `WeakHashMap` 键也是弱的、
+        同样会在键消失后移除条目 —— 这一点两边一致。
+        共同点是两边都用它来解决「缓存 / 观察者 / 双向引用」里的泄漏，
+        而且都会因为「忘了它是弱的、访问时可能已经是 null」而写错。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

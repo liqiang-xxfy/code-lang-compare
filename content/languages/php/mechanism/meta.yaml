@@ -1,0 +1,309 @@
+# php —— mechanism / meta
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: meta` 的那批：
+# reflection / decorator-annotation / dynamic-eval / proxy-interception。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组要写准的四件事 ——
+# ① `#[...]` **属性（attributes）本身不执行任何代码**，是纯元数据；
+#    要 `getAttributes()` 读出来、再 `newInstance()` 才会构造它 ——
+#    **它不是装饰器**，与本格标题里的「注解」是一路的，与另外两个基准的「装饰器」不是；
+# ② 反射是**只读内省**：不能建类、不能改已加载类的结构；
+#    而且 **8.1 起 private / protected 默认就能读**，`setAccessible()` 基本是空操作；
+# ③ 动态求值这条路上 PHP 的可用点很多（`eval`、可变函数、变量变量、
+#    `__call` 兜底），比多数语言宽松；
+# ④ 没有内建 Proxy —— 拦截要靠魔术方法与手写代理类。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  reflection:
+    code: |
+      // @note 反射是**只读内省** —— 读得到的很多，改不了的也很多
+      $r = new ReflectionClass(SomeClass::class);
+      $r->getMethods(); $r->getProperties(); $r->getConstants();
+      $r->getConstructor(); $r->getInterfaces(); $r->getParentClass();
+      $r->isAbstract(); $r->isFinal(); $r->implementsInterface(Foo::class);
+
+      // @note! **8.1 起 private / protected 默认就能读**，不用先 setAccessible
+      class Vault { private string $secret = "藏起来的"; private function open(): string { return "开了"; } }
+      $rp = new ReflectionClass(Vault::class);
+      $rp->getProperty('secret')->getValue(new Vault());   // @note "藏起来的"
+      $rp->getMethod('open')->invoke(new Vault());          // @note "开了"
+      // @note setAccessible() 还在，但 8.1 起基本是空操作
+
+      // @note! 两件**做不到**的事：
+      // @note! ① 不能创建新类（没有 newClass / defineClass 这种 API）
+      // @note! ② 不能修改已加载类的结构（没有 addMethod / addProperty）
+      // @note 想在运行时造一个新类型，只能走 eval 或匿名类
+
+      // @note 反射拿得到 PHPDoc 原文（字符串），但不解析它
+      $rp->getDocComment();
+
+      // @note 性能提示：反射调用比直接调用慢得多，热点路径上要缓存
+      // @note （缓存 ReflectionClass 对象，或者干脆生成一份静态代码）
+    vs:
+      javascript: |
+        JavaScript 的反射能力散在几处语法上：`Object.keys`、
+        `Object.getOwnPropertyNames`、`Object.getPrototypeOf`、
+        `obj.constructor`、`instanceof` —— 能读能改（
+        `Object.defineProperty` 甚至能改属性的可枚举性），
+        而且**没有可见性概念**，所以不存在「读私有成员」这个说法
+        （较新的 `#field` 是例外，那个反射真读不到）。
+        PHP 的反射是一套**类与方法的对象模型**（`ReflectionClass` 等），
+        读得到类型、参数、默认值、属性、注解；但**只读**，
+        改不了已有类的结构。
+        另一处是私有成员：PHP 8.1 起反射**默认就能读私有**，
+        JavaScript 的 `#field` 反射读不到 —— 一边敞开、一边关死。
+      python: |
+        Python 的反射更接近「直接操作对象」：`getattr` / `setattr` /
+        `hasattr`、`vars()`、`type()`、`inspect` 模块 ——
+        而且**能改**（`setattr(obj, 'x', 1)` 随时加属性、
+        甚至能改类的属性影响所有实例）。
+        PHP 的反射是**只读**的：读得到一切，但改不了类的结构，
+        要动态加属性还会触发 8.2 起的动态属性弃用警告。
+        另一处是私有访问：Python 靠名字改写（`_Class__x`）绕过去，
+        属于「约定」；PHP 8.1 起反射直接读，属于「语言允许」。
+        共同点是两边都有一套成熟的 inspect 类工具
+        （`inspect` ↔ `Reflection*`），能拿到签名与文档注释。
+      java: |
+        **两边最接近**：`java.lang.reflect` 与 PHP 的 `Reflection*`
+        几乎逐条对应（`getMethods` / `getDeclaredFields` /
+        `getAnnotations` / `newInstance`），而且**都是只读的**——
+        都不能在运行时往已加载的类里加方法。
+        差别在**访问控制**：Java 的反射读私有成员需要显式
+        `setAccessible(true)`，而且模块系统（JPMS）会拦；
+        PHP 8.1 起**默认就能读**，`setAccessible()` 反而变成空操作 ——
+        也就是说 PHP 这边反射的权限比 Java 松。
+        另一处是注解：Java 的注解默认保留到运行时才能被反射读到，
+        PHP 的 `#[...]` 天生就在运行时（见下一格）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  decorator-annotation:
+    code: |
+      // @note! 核心事实：`#[...]` 是**属性（attribute）**，是纯元数据 ——
+      // @note! 它**本身不执行任何代码**
+      #[Attribute]                        // @note 先声明这是一个可用的属性类
+      class Route {
+        public function __construct(public string $path) { echo "Route 被构造了\n"; }
+      }
+
+      #[Route('/home')]
+      class Controller {
+        #[Route('/index')]
+        public function index(): void {}
+      }
+
+      // @note! 上面两处标了 Route，但**构造函数一次都没跑** —— 一个字节都没执行
+      // @note! 这是最需要说清的一点：它不是装饰器，不会包住/改写被标注的东西
+
+      // @note 想让属性「起作用」，得自己去读它：
+      $rc = new ReflectionClass(Controller::class);
+      $attrs = $rc->getAttributes();              // @note 拿到的是「还没实例化的」属性
+      $attrs[0]->getName();                       // @note 'Route'
+      $attrs[0]->getArguments();                  // @note ['/home'] —— 读参数也不用实例化
+      $inst = $attrs[0]->newInstance();           // @note! 到这一刻构造函数才跑
+      $inst->path;                                // @note '/home'
+
+      $rc->getMethod('index')->getAttributes();   // @note 方法上的属性
+
+      // @note! 名字拼错或忘了 `use` 时**静默失效**：
+      // @note! 属性类不要求实现任何接口，PHP 也不会校验它存不存在 ——
+      // @note! getAttributes() 只是返回空数组，不报错
+      // @note 实际起作用的是「读属性的那段代码」（框架里的路由扫描器）
+
+      // @note 内建属性有几个，是真的会被引擎执行的：
+      // @note   #[\Override]（8.3）  #[\AllowDynamicProperties]  #[\Deprecated]（8.4）
+      // @note   #[\SensitiveParameter]  #[\NoDiscard]（8.5）  #[\ReturnTypeWillChange]
+    vs:
+      javascript: |
+        JavaScript **没有装饰器**（那个语法还在提案里，且就算落地
+        也是运行时会执行代码的）。PHP 的 `#[...]` 在**语法位置**上像装饰器，
+        但语义完全不同：它**不执行任何代码**，只是一段可以被反射读到的
+        元数据，读不读、怎么解释，全看你的代码。
+        也就是说那边「加个装饰器就改变了行为」，
+        这边「加个属性只是留了张便条，得有代码去读它」。
+        另一处是失效方式：那边的装饰器写错了会报错；
+        PHP 的属性名写错（或忘了 import）**静默失效** ——
+        不报错、不警告，只是那段扫描代码读不到东西。
+      python: |
+        **这一格是两边差别最大的地方之一**。Python 的装饰器是
+        **真的会执行的可调用对象**：`@decorator` 等价于
+        `f = decorator(f)`，能包住函数、改写行为、替换返回值 ——
+        所以它天然能做缓存、鉴权、重试这类事。
+        PHP 的 `#[Attribute]` **一行代码都不执行**，只是元数据；
+        想做同样的事必须**另写一个读取器**（框架里的扫描逻辑），
+        由那个读取器决定怎么处理。
+        也就是说同样是「加个标注」，那边是语言机制，
+        这边是「约定 + 你自己的解释器」。
+        共同点是两边都能把「参数」写进标注里（`@route('/x')` ↔ `#[Route('/x')]`）。
+      java: |
+        **两边最接近**：Java 的注解与 PHP 的属性都是**元数据**，
+        本身不执行代码，都要靠反射读出来再自己处理 ——
+        连 `@Retention(RUNTIME)` 这一层顾虑在 PHP 里都不存在
+        （PHP 的属性天生就在运行时）。
+        差别在**失效方式**：Java 的注解类写错名字是**编译错误**，
+        而且注解可以有 `@Target` 限制能标在哪里；
+        PHP 的属性名写错**静默失效**（`getAttributes()` 返回空数组），
+        也没有 Target 之外的强校验 —— 所以 PHP 那边出错更难发现。
+        另一处是内建注解：Java 有一批编译器会处理的注解
+        （`@Override` / `@Deprecated` / `@SuppressWarnings`），
+        PHP 也在往这个方向补（`#[\Override]` 8.3、`#[\Deprecated]` 8.4），
+        但数量少得多。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  dynamic-eval:
+    code: |
+      // @note PHP 在「按名字办事」这条路上给的口子相当多：
+
+      // ① eval —— 把字符串当代码执行（8.0 起遇到语法错误抛 ParseError，可以接）
+      $code = 'return 1 + 1;';
+      eval($code);                        // @note 2
+
+      // ② 可变函数：函数名存在字符串里
+      $fn = 'strlen';
+      $fn('abcd');                        // @note 4
+
+      // ③ 变量变量：变量名存在另一个变量里
+      $key = 'name'; $name = 'Ada';
+      $$key;                              // @note 'Ada'
+
+      // ④ 动态类名 / 动态方法名
+      $cls = 'App\\Mailer';  new $cls();  // @note! 注意：**不走 `use` 别名表**，得写完全限定名
+      $m = 'send';  $obj->$m();           // @note 动态方法名
+      $prop = 'email';  $obj->$prop;      // @note 动态属性名
+
+      // ⑤ 魔术方法兜底：调一个不存在的方法时转给 __call
+      class Proxy2 { public function __call($m, $a) { return "转给 $m"; } }
+      (new Proxy2)->whatever();           // @note "转给 whatever"
+
+      // ⑥ call_user_func / call_user_func_array（老写法，现在多数场景有更直接的形式）
+
+      // @note! 8.0 起 `assert("字符串")` 不再被求值（以前字符串会被 eval）——
+      // @note! 这个大坑已经堵上了
+    vs:
+      javascript: |
+        两边在这条路上都很宽松，但**强点不同**。
+        JavaScript 的 `eval` 与 `new Function` 是主要手段，
+        再加上「对象就是字典」带来的天然动态性
+        （`obj[name]`、`obj[name]()` 都是一行）。
+        PHP 的 `eval` 同样在，另外还有一整套**名字层面的动态**：
+        可变函数、变量变量（`$$key`）、动态类名与方法名 ——
+        尤其是变量变量这种「名字本身可以是变量」的写法，
+        JavaScript 里没有直接对应物。
+        差别在作用域：JavaScript 的 `eval` 有直接与间接之分，
+        作用域行为很绕；PHP 的 `eval` 明确「继承当前作用域」。
+        共同点是两边的动态调用都绕过了静态检查，是错误高发区。
+      python: |
+        两边都有 `eval`，而且都**继承当前作用域**（Python 的
+        `eval(expr, globals, locals)` 可以显式指定）。
+        差别在「按名字办事」的顺滑程度：Python 有
+        `getattr` / `setattr` / `hasattr` 三个内建函数，
+        还有 `globals()` / `locals()` 能直接拿到名字表 ——
+        做动态派发很自然。PHP 要靠 `$$name`、`$obj->$m()`、
+        `${...}` 这些**语法层面的展开**，没有统一的「按名字取值」API
+        （`call_user_func` 只解决函数那一块）。
+        共同点是两边的动态求值都会让静态分析失效。
+      java: |
+        **Java 在这条路上窄得多**：没有 `eval`，
+        动态调用要靠反射（`Method.invoke`）或者动态代理，
+        而且类型系统全程在场。PHP 的 `eval`、变量变量、
+        可变函数让「名字可以是数据」成为语法级能力 ——
+        代价是静态工具看不懂。
+        也就是说 Java 那边「动态」是一个**需要显式跨过的门槛**，
+        PHP 这边是**到处都是的低成本写法**。
+        共同点是两边都得为动态付出性能与可读性的代价；
+        另一处是 PHP 8.0 之后 `eval` 的语法错误变成可捕获的 `ParseError`,
+        比 Java 那种「反射失败抛一堆检查异常」的体验要轻。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  proxy-interception:
+    code: |
+      // @note! PHP **没有内建的 Proxy** —— 没有可以拦截任意操作的机制
+      // @note 拦截只能靠魔术方法一个个补，覆盖面比 Proxy 窄得多
+
+      class Interceptor {
+        private array $data = [];
+        public function __get($k) { return $this->data[$k] ?? null; }      // @note 读
+        public function __set($k, $v) { $this->data[$k] = $v; }           // @note 写
+        public function __isset($k) { return isset($this->data[$k]); }    // @note isset
+        public function __unset($k) { unset($this->data[$k]); }           // @note unset
+        public function __call($m, $a) { return "方法 $m 不存在"; }         // @note 实例方法
+        public static function __callStatic($m, $a) { return "静态 $m"; }  // @note 静态方法
+        public function __invoke() { return "当函数调"; }                   // @note $obj()
+        public function __toString(): string { return "当字符串用"; }       // @note 拼进字符串
+      }
+
+      // @note! 三条边界必须说清：
+      // @note! ① 魔术方法**只在成员不存在或不可见时**才触发 ——
+      // @note!    已经声明过的 public 属性/方法不会走 __get / __call
+      // @note! ② 拦不住「运算符」「类型转换」「foreach」这些 ——
+      // @note!    那几样要靠实现接口（ArrayAccess / Countable / IteratorAggregate）
+      // @note! ③ 没有 Proxy 那种「连 in / delete / 属性枚举都拦」的能力
+
+      // @note 想拦截一个**已有对象**（不改它的类），只能手写代理类：
+      class Proxy3 {
+        public function __construct(private object $inner) {}
+        public function __call($m, $a) { return $this->inner->$m(...$a); }
+        public function __get($k) { return $this->inner->$k; }
+      }
+      (new Proxy3(new Real))->hi();       // @note 转发到真对象
+
+      // @note 装饰器模式在 PHP 里很常见，就是因为没有内建 Proxy 可以省掉这层手写
+    vs:
+      javascript: |
+        **这一格 JavaScript 的能力强得多**。它有 `Proxy`：
+        传一个 handler 就能拦截 `get` / `set` / `has` / `deleteProperty` /
+        `ownKeys` / `apply` / `construct`……几乎全部内部操作，
+        而且是**包装一个已有对象**，不用改它的类。
+        PHP 的魔术方法是另一条路：靠**在类里定义方法**去拦截
+        「不存在或不可见的成员」，拦不住运算符与 `foreach`，
+        也没法在不改类的前提下包住一个对象（只能手写代理类）。
+        也就是说那边「拦截」是一个通用机制，
+        这边是「给类补几个钩子 + 手写转发」。
+        共同点：两边的拦截都会让代码的可预测性下降，都需要克制使用。
+      python: |
+        Python 的对应物是「双下划线协议」：`__getattr__` / `__setattr__` /
+        `__getitem__` / `__call__` / `__iter__`……一整套，
+        覆盖面比 PHP 的魔术方法宽（能拦下标、能拦迭代、能拦运算符）。
+        PHP 的魔术方法只覆盖「成员访问」那一块，
+        下标与迭代得**额外实现接口**（`ArrayAccess` / `IteratorAggregate`）。
+        差别在「包住已有对象」：Python 里 `__getattr__` 转发一行就够，
+        PHP 要写一个完整的代理类把所有方法转发一遍 ——
+        因为它没有「未定义就到钩子里」的统一入口。
+        共同点是两边都用这套东西做 ORM 的惰性加载与远程代理。
+      java: |
+        Java 有 `java.lang.reflect.Proxy`（**动态代理**）：
+        运行时生成一个实现了指定接口的类，把所有方法调用转给
+        `InvocationHandler` —— 这正是 PHP **没有**的能力。
+        PHP 只能手写代理类，或者引第三方库（用代码生成或 eval 造一个）。
+        差别在**拦截面**：Java 的动态代理只拦接口方法
+        （要拦类得用 CGLIB / ByteBuddy 这类字节码工具），
+        PHP 的魔术方法连属性访问都能拦（但拦不住运算符与下标）。
+        另一边是 PHP 有 `__get` / `__call` 这种「类内部兜底」，
+        Java 里没有对应物（不存在的方法就是不存在，编译不过）。
+        共同点：两边的大框架（ORM、AOP）都重度依赖这些机制。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

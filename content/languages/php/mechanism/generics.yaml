@@ -1,0 +1,265 @@
+# php —— mechanism / generics
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: generics` 的那批：
+# generic-declaration / generic-constraint / variance / type-erasure。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组的四格讲的是**同一件事的四个侧面** ——
+# 「PHP 没有泛型」。所以四格都不能写成「PHP 的泛型是怎样的」，
+# 而要写「这个位置在 PHP 里是空的，惯例用什么顶上」。
+# 顶上来的那套叫 PHPDoc + 静态分析器（PHPStan / Psalm），
+# 关键点是：**它只在另跑一次静态分析时生效，运行时完全不参与**。
+#
+# 另一条要写准的：**2026-05 有一份给 PHP 加原生泛型的 RFC，状态是 Declined**
+# （已在 wiki.php.net 上确认状态字段），所以「以后会有」这句话今天还不能说。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  generic-declaration:
+    code: |
+      // @note! PHP **没有泛型语法** —— 没有 <T> 这种东西
+      // class Box<T> { }              // @note! Parse error
+
+      // @note 惯例是「用 PHPDoc 标注 + 靠静态分析器检查」，运行时零参与
+      class Collection {
+        /** @var array<int, string> */
+        public array $items = [];
+
+        /** @param array<int, string> $items */
+        public function __construct(array $items = []) { $this->items = $items; }
+
+        /** @return array<int, string> */
+        public function all(): array { return $this->items; }
+      }
+
+      // @note! 上面那份标注**运行时一个字都不管** —— 塞 int 进去照收
+      $c = new Collection([1, 2, 3]);        // @note 声明说 string，实际是 int
+      $c->all();                             // @note 返回的也确实是 int
+
+      // @note 运行时能拿到的属性类型只是 `array`，泛型参数不见了
+      (new ReflectionProperty(Collection::class, 'items'))->getType();   // @note array
+
+      // @note 真正检查的是 PHPStan / Psalm 这类**第三方静态分析器**：
+      //   vendor/bin/phpstan analyse -l 6 src
+      // @note PHPStan 的规则等级 0–10（10 是 2.0 新增），还有 --level max 别名
+      // @note 不装、不跑，那份标注就跟普通注释没区别
+
+      // @note 已知的事实：2026-05 有一份给 PHP 加原生泛型的 RFC
+      // @note （bound-erased 方案、用 `::<...>` 传类型实参），
+      // @note 官方状态字段是 **Declined** —— 所以「以后会有」今天还说不了
+    vs:
+      javascript: |
+        两边**都没有泛型**（能写的那种是另一个语言的方言，编译完就没了）。
+        所以这一格不是「语法怎么不一样」，而是「顶替方案是什么」：
+        那边靠类型系统加注释，这边靠 **PHPDoc 注释加静态分析器**。
+        差别在**工具链的默认状态**：那边的类型检查通常就在构建流程里，
+        这边 PHPStan / Psalm 是**要另外装的第三方**，
+        不装的话那句 `@var array<int, string>` 就真的只是注释 ——
+        运行时不会有任何提示。
+        另一处是运行时可见性：那边类型在编译后被抹掉，
+        这边本来就只存在注释里，反射拿到的属性类型只有 `array`。
+      python: |
+        Python 的标注（`list[str]`、`TypeVar`、`Generic[T]`）
+        与 PHP 的 PHPDoc 处境**很像**：都只是标注，
+        运行时都不生效，都要靠另跑一个检查器（mypy / pyright ↔ PHPStan / Psalm）。
+        差别在**表达式能力**：Python 有 `TypeVar`、`Generic`、
+        `ParamSpec` 这些**真类**，能参与运算、能 `isinstance` 一部分；
+        PHP 的泛型表达力完全活在注释文本里，没有对应的类或对象
+        —— 反射能读到注释字符串，但读不到结构。
+        共同点是两边都能写出「参数化的类型」，也都能选择不检查它。
+      java: |
+        **这一格两边是光谱的两端**：Java 的泛型是**语言级的**，
+        编译器强制检查、类型实参写在语法里、擦除发生在编译之后；
+        PHP **没有泛型**，只有注释里的约定 + 一个可选的第三方工具。
+        所以 Java 那边「写错了编不过」，PHP 那边「写错了要等静态分析
+        或者干脆跑起来才发现」。
+        另一处是「有没有尽头」：Java 的泛型已经在语言里二十年了，
+        PHP 这边 2026 年还有一份 RFC 被否决 —— 也就是说这不是
+        「还没轮到」，而是一个反复讨论后仍然没有结论的设计问题。
+        共同点是两边都能表达「容器里装的是什么」这件事，只是一个能兑现。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  generic-constraint:
+    code: |
+      // @note! 没有泛型，也就没有「泛型约束」这个位置
+      // @note 约束在 PHP 里的替代品是**普通类型声明**（它本来就在运行时检查）
+
+      interface Comparable { public function compareTo(mixed $o): int; }
+
+      // @note 用 PHPDoc 表达「T 必须实现 Comparable」—— 只有静态分析器看
+      /**
+       * @template T of Comparable
+       * @param T $a
+       * @param T $b
+       * @return T
+       */
+      function maxOf(object $a, object $b): object {
+        return $a->compareTo($b) >= 0 ? $a : $b;
+      }
+
+      // @note! 上面那个 `object` 才是**运行时真正的约束**：
+      // @note! 传两个完全不相干的对象进来，运行时一声不吭，
+      // @note! 直到真的调到 compareTo() 才炸
+
+      // @note 想让它真的在入口就拦下，只能放宽 + 自己检查
+      function maxOf2(Comparable $a, Comparable $b): Comparable {
+        return $a->compareTo($b) >= 0 ? $a : $b;
+      }
+      // @note 代价是丢掉了「两个参数是同一个具体类型」这层信息 ——
+      // @note 没有泛型就没法表达「同类型」，只能表达「都满足这个接口」
+    vs:
+      javascript: |
+        约束这件事在两边都不存在，但原因不同：那边是没有类型系统
+        可以去约束，这边是**有类型系统但没有参数化** ——
+        所以 PHP 能表达「这个参数得实现某个接口」（运行时真的查），
+        但表达不了「两个参数必须是同一个类型」（这个位置是空的）。
+        实际写法上，两边都会落到「放宽到最宽 + 手工检查」：
+        那边检查属性在不在，这边可以检查 `instanceof`。
+        另一处是文档化的方式：那边靠注释与文档约定，
+        这边有 PHPDoc 加静态分析器这条更成型的路。
+      python: |
+        两边都能写「约束」，但**兑现方式差一层**：Python 的
+        `TypeVar('T', bound=Comparable)` 是真对象，检查器读它、
+        运行时也能拿到（虽然不强制）；PHP 的 `@template T of Comparable`
+        只是注释里的一段文本，除了静态分析器没人认。
+        差别在「谁在管」：Python 的约束写在**代码里**（一个变量声明），
+        PHP 的约束写在**注释里**（一段字符串）—— 重构时代码会被工具改，
+        注释不会，所以 PHP 那边标注与代码脱节是常态。
+        共同点是两边都不在运行时强制，都得靠工具。
+      java: |
+        Java 的 `<T extends Comparable<T>>` 是**编译期强制**的：
+        传错类型编译不过，而且能把「两个参数是同一个 T」表达出来。
+        PHP **两样都没有** —— 既没有泛型参数，也就没有类型变量，
+        「两个参数同类型」这件事在 PHP 里根本写不出来，
+        只能退化成「都实现某个接口」。
+        另一处是递归约束：Java 的 `T extends Comparable<T>`
+        这种「自己约束自己」的写法在 PHP 的 PHPDoc 里能写
+        （`@template T of Comparable`），但同样只有分析器认。
+        共同点是两边都能表达「参数得满足某个能力」，
+        区别在于能不能表达「参数之间的关系」。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  variance:
+    code: |
+      // @note! 语言里**没有型变这个概念** —— 因为没有参数化类型就没有型变
+      // @note 数组在 PHP 里也不带元素类型，所以「数组能不能协变」无从谈起
+
+      // @note 唯一沾点边的是**类继承的型变**，那是另一回事：
+      class Animal {}
+      class Dog extends Animal {}
+
+      function needsAnimal(Animal $a): Animal { return $a; }
+      needsAnimal(new Dog());           // @note 可以 —— 参数**逆变**（子类能当父类用）
+
+      function feeds(): Animal { return new Dog(); }
+      // @note 返回值**协变**：声明 Animal 返回 Dog 是允许的
+      // @note 反过来（声明 Dog 却返回 Animal）不兼容，8.0 起是致命错误
+
+      // @note PHPDoc 里能标注变型（@template-covariant / @template-contravariant），
+      // @note 但那只对静态分析器有意义，运行时不检查
+    vs:
+      javascript: |
+        型变这个概念在两边都不存在于语言层 —— 都是因为没有参数化类型
+        可以谈型变。所以这一格两边其实是「都没有」。
+        能对上的部分只剩函数签名上的宽窄：两边都允许
+        「传子类型给声明父类型的参数」（鸭子类型那边更宽松，连继承都不需要）。
+        差别在检查时机：那边靠运行时能不能调到方法，
+        这边在**传参那一刻**按类型声明检查。
+        另一处是返回值：两边的「返回子类型」都是合理的，
+        但那边没有声明可写，这边写了就要满足协变规则，写反了直接致命错误。
+      python: |
+        两边的类继承型变规则一致：参数逆变、返回值协变，
+        传子类实例给声明父类的参数都可以。
+        差别在**有没有地方标注型变**：Python 的 `TypeVar` 支持
+        `covariant=True` / `contravariant=True`，是代码里的真对象；
+        PHP 的泛型根本不存在，所以型变只能出现在 PHPDoc 的
+        `@template-covariant` 标注里 —— 而且同样只有分析器看。
+        也就是说 Python 那边「型变」是类型系统的一个属性，
+        PHP 这边「型变」只存在于一段注释文本中。
+        共同点是运行时的继承型变规则两边一样。
+      java: |
+        **这一格差别最大**：Java 的型变靠**使用点的通配符**表达
+        （`List<? extends Animal>` 协变、`List<? super Dog>` 逆变），
+        而且是编译器强制的；PHP **既没有泛型也没有通配符**，
+        所以「容器里的元素能不能协变」这件事在 PHP 里根本没法表达。
+        能对上的只有类继承那一层：参数逆变、返回值协变，两边规则一致。
+        另一处是数组：Java 的数组是**协变**的（`Object[] = String[]` 合法），
+        PHP 的数组不带元素类型，不存在这个问题 ——
+        也就没有 Java 那个「数组协变导致运行时 ArrayStoreException」的坑。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-erasure:
+    code: |
+      // @note! PHP **没有「类型擦除」这回事** —— 因为本来就没有泛型可以擦
+      // @note 说出来是：运行时**根本不存在**类型实参这个概念
+      // @note   Java 那种「编译期有、运行期抹掉」的两阶段在 PHP 里没有对应物
+
+      class Box {
+        /** @var string */
+        public mixed $value = null;
+      }
+      $b = new Box;
+      $b->value = 42;                   // @note! 注释说 string，运行时照收 int
+
+      // @note 运行时能看到的东西只有：
+      // @note   ① 真实的类型声明（array、int、Box…）—— 这些是保留的
+      // @note   ② PHPDoc 注释字符串（反射能读，但不解析、不检查）
+      (new ReflectionProperty(Box::class, 'value'))->getType();   // @note mixed
+
+      // @note! 所以「泛型信息在运行时还在不在」这个问题，
+      // @note! 在 PHP 里的答案是：**从来没有过，谈不上在不在**
+    vs:
+      javascript: |
+        两边都没有泛型，所以都没有「擦除」这回事 —— 这一格反而是
+        **最容易对应**的：运行时拿不到的东西，两边都拿不到。
+        差别在「运行时能拿到什么」：那边的类型标注在编译后完全消失，
+        这边本来就不存在于代码里（只是注释），PHP 的类型声明反而
+        **有一部分是运行时真实存在的**（参数、返回值、属性类型），
+        反射读得到。也就是说 PHP 这边「运行时的类型信息」比那边多，
+        只是多出来的那部分不包括泛型。
+        另一处是检查手段：两边都只能靠静态分析工具补。
+      python: |
+        两边都没有擦除，原因一样：都没有真正的泛型。
+        但 Python 有一个 PHP 没有的东西 —— **泛型是可反射的**：
+        `list[int]` 是一个真实的 `types.GenericAlias` 对象，
+        `typing.get_origin` / `get_args` 能把它拆开，
+        甚至能 `isinstance(x, list)` 而 `isinstance(x, list[int])` 会报错。
+        PHP 那边类型实参只活在一段注释字符串里，反射拿到的是原文本，
+        没有任何结构可解析。
+        共同点是两边**运行时都不会因为泛型标注而拒绝一个值**。
+      java: |
+        **这一格是两边差别最有意思的地方**。Java 的泛型是
+        「编译期存在、运行期擦除」：`List<String>` 与 `List<Integer>`
+        运行时是同一个类，`instanceof List<String>` 甚至编译不过。
+        PHP **没有这个两阶段** —— 因为从来没有泛型，
+        所以既没有「编译期的那一份」也没有「被擦掉的那一份」。
+        实际后果上两边有点像（运行时都拿不到类型实参），
+        但**原因完全不同**：一个是设计上主动抹掉，
+        一个是根本没有过。另一处是 Java 保留了真实的声明类型
+        （`List` 这个原始类型还在），PHP 也一样保留真实类型声明 ——
+        这部分两边倒是一致的。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous

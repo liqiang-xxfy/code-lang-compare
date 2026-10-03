@@ -1,0 +1,334 @@
+# php —— mechanism / concurrency
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: concurrency` 的那批：
+# concurrency-unit / shared-state / lock-mutex / channel / atomicity。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组的中心事实只有一句 ——
+# **PHP 核心既没有线程，也没有语言级并发原语**。
+# 语言层唯一的设施是 `Fiber`（8.1，协作式、单线程、**不含调度器**）；
+# 真正的并行要靠扩展（`pcntl` 进程、`parallel` 线程），
+# 而默认执行模型是**共享无状态的逐请求进程**。
+# 五格是这一句话的五个侧面，不要把 Fiber 写成「PHP 的协程」。
+#
+# **实跑范围的诚实说明**：本机是 Windows NTS 构建，
+# `pcntl` / `posix` / `parallel` / `shmop` / `sysvsem` / `sync` **都没装**
+# （`pcntl` 本身就是 Unix-only）。所以下面标注了「本机实测」的
+# 只有 Fiber、`flock`、以及「核心包里没有这些类」的否定结论；
+# 涉及那些扩展的写法是按官方手册写的，**没有在本机跑过**。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-concurrency-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  concurrency-unit:
+    code: |
+      // @note! 默认的并发单元是**请求进程** —— 一个 HTTP 请求一个进程（FPM），
+      // @note! 请求之间不共享任何用户态状态。这不是「有并发原语」，是「没有」
+
+      // @note 语言层唯一的设施：Fiber（8.1）—— **协作式、单线程、不含调度器**
+      $f = new Fiber(function (): string {
+        $v = Fiber::suspend('挂起');     // @note 在调用栈任意深度挂起
+        return "恢复了，收到 $v";
+      });
+      echo $f->start();                  // @note 挂起
+      echo $f->isSuspended() ? "（还挂着）" : "";
+      echo $f->resume('喂进去');          // @note 恢复了，收到 喂进去
+
+      // @note! Fiber **不会自己跑** —— 只有你调 resume() 它才前进。
+      // @note! 核心**不提供事件循环**，把「什么时候 resume」交给库/框架
+      // @note! 官方 RFC 明说 Fiber 是给库作者用的底层原语，不是给业务代码的
+
+      // @note 在 Fiber 之外调 suspend 会抛 FiberError（本机实测）
+      // Fiber::suspend('x');            // @note! FiberError: Cannot suspend outside of a fiber
+
+      // @note 真正的并行要靠扩展，而且都不是核心捆绑：
+      // @note   pcntl（进程）—— **仅 Unix**，官方明确不建议在 Web SAPI 下用
+      // @note   parallel（线程）—— PECL 扩展
+      // @note   pthreads —— PECL，已标记停止维护，官方建议改用 parallel
+    vs:
+      javascript: |
+        两边的「并发模型」压根不是一回事。JavaScript 靠**事件循环**
+        在单线程上跑异步任务，`async` 函数与微任务队列是语言的一部分；
+        PHP **核心没有事件循环**，一个请求就是从头跑到尾的一段同步代码，
+        跑完进程结束。
+        PHP 有的 `Fiber` 只是「可以中途挂起、等别人 resume」的底层原语，
+        官方明说是给库作者用的 —— 它不含调度器，所以「挂起之后谁来恢复」
+        这件事得由外部框架决定。也就是说 JavaScript 那边
+        「并发」是一个现成的运行时特性，PHP 这边是一堆积木。
+        另一处是共享：JavaScript 的单线程意味着没有数据竞争，
+        PHP 的请求进程之间也天然隔离 —— 这一点两边反而都省心。
+      python: |
+        Python 的处境与 PHP 最像：**语言层也没有真正的并行**
+        （CPython 有 GIL），并发靠 `asyncio` 事件循环，
+        而 `asyncio` 是**标准库**里就有的一整套（循环、Future、Task、await）。
+        PHP **标准库里一样都没有** —— Fiber 只是 `asyncio` 里
+        「协程挂起」那一层的等价物，没有循环、没有任务调度、没有 await 语法。
+        想要完整的异步，得引第三方（ReactPHP / Amp / Revolt）
+        或者装扩展（Swoole）。
+        另一处是进程/线程：Python 有 `multiprocessing` / `threading` 在标准库里，
+        PHP 连这两个都要靠扩展（而且 pcntl 只在 Unix）。
+      java: |
+        **两边是光谱的两端**。Java 从第一天起就有线程，
+        标准库里有完整的并发工具箱（线程池、`synchronized`、
+        `java.util.concurrent`、`AtomicInteger`、`CompletableFuture`），
+        较新版本还有虚拟线程。PHP **核心一个都没有** ——
+        没有线程、没有锁、没有原子类型、没有 Future。
+        PHP 的默认模型是「一个请求一个进程、跑完就死」，
+        所以「请求内」根本不存在并发；跨请求的共享要外接 Redis / 数据库。
+        也就是说 Java 那边并发是日常，PHP 这边并发是**架构问题**
+        （靠多进程 + 外部存储解决），而不是语言问题。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  shared-state:
+    code: |
+      // @note! PHP 是**共享无状态（shared nothing）**：
+      // @note! 每个请求在自己的进程里跑，变量、全局、static **都不会跨请求存活**
+      $GLOBALS['n'] = 1;                 // @note 只在这个请求里存在
+      static $s = 0;                     // @note 只在这个请求里存在
+
+      // @note 会话（session）不是内存共享 —— 它是序列化到请求之外的存储
+      session_start();
+      $_SESSION['n'] = 1;                // @note 存到文件/Redis，下次请求再读回来
+
+      // @note! 想真正跨进程共享，只能靠**外部设施**：
+      // @note   · 文件 / 数据库 / Redis / Memcached
+      // @note   · APCu（PECL 扩展）—— 进程内的共享缓存
+      // @note   · SysV 共享内存 shmop / sysvshm（Unix；本机没装）
+      // @note   · Sync 扩展的 SyncSharedMemory（跨平台）
+
+      // @note! 官方哲学页的原话是 CSP 那一套：
+      // @note! 「不要靠共享内存来通信，要靠通信来共享内存」
+      // @note parallel 扩展里，Task 参数、Future 返回值、Channel 传输
+      // @note **一律按值传递** —— 所以「意外共享」在那边不会发生
+    vs:
+      javascript: |
+        两边的「共享」层次完全不同。JavaScript 是单进程单线程，
+        同一个页面里所有代码共享同一份内存 —— 所以「共享状态」
+        是默认的，「隔离」反而要刻意做（Web Worker、iframe）。
+        PHP **正好相反**：请求之间天然隔离，「共享」要刻意做
+        （写文件、写数据库、用缓存服务）。
+        另一处是持久性：JavaScript 的 Node 进程活着，模块级变量就一直在；
+        PHP 的请求结束，一切用户态内存直接归还 ——
+        所以 PHP 里那种「启动时建个连接池一直用」的写法需要
+        FPM 之外的形态（常驻进程 / Swoole）才成立。
+      python: |
+        两边都有「进程内共享、进程间靠通信」这个层次，
+        但**默认落在哪一边不同**。Python 的长驻进程里，
+        模块级全局变量在整个进程生命周期都共享 ——
+        「启动时加载一次配置，处处可用」是常规写法。
+        PHP 的请求进程**跑完就死**，全局变量只在这一次请求里有效，
+        下次请求要从头来过 —— 所以 PHP 里那些「全局缓存」
+        必须落在 APCu / Redis 这类进程外的地方。
+        共同点是两边的多进程模型下，跨进程共享都得靠外部设施
+        （Python 的 `multiprocessing` 也是按值/序列化传的）。
+      java: |
+        **两边的默认假设正相反**。Java 的长驻进程里，
+        静态字段、单例、缓存都是跨线程共享的 ——
+        所以 Java 并发编程的核心议题是「怎么安全地共享」。
+        PHP 的请求模型里，进程之间什么都不共享，
+        「请求内」又是单线程 —— 所以**数据竞争在 PHP 里基本不存在**，
+        并发问题被挪到了「多个请求同时读写同一份外部存储」这个层面
+        （经典的读-改-写丢失更新）。
+        另一处是共享内存：Java 要么同进程共享，要么用 `MappedByteBuffer`；
+        PHP 要外接 `shmop` / `SysvShm`（Unix）或 APCu，
+        **都不是核心自带的**。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  lock-mutex:
+    code: |
+      // @note! PHP 核心**没有互斥锁类型** —— 没有 Mutex、没有 synchronized
+      // @note 可用的三套都在扩展里：
+
+      // ① flock —— **建议性**文件锁（本机实测可用；Windows 上是强制锁）
+      $fp = fopen(__DIR__ . '/job.lock', 'c');
+      if (flock($fp, LOCK_EX | LOCK_NB, $wouldBlock)) {
+        // 临界区
+        flock($fp, LOCK_UN);
+      } else {
+        // $wouldBlock 为真 ⇒ 别人持着锁
+      }
+      fclose($fp);
+      // @note! 「建议性」的意思是：**不调 flock 的进程照样能随便读写那个文件** ——
+      // @note! 互斥只在合作方之间成立，它不是真正的 mutex
+
+      // ② SysV 信号量 sem_get / sem_acquire / sem_release（Unix；本机没装）
+      // ③ Sync 扩展的 SyncMutex / SyncSemaphore（跨平台；本机没装）
+
+      // @note! 三个坑：
+      // @note!  · 给文件句柄重新赋值、fclose、句柄被回收，都会**意外释放**锁
+      // @note!  · 多线程 SAPI 下 flock 不可靠（官方手册有警告）
+      // @note!  · NFS 上 flock 不可靠；FAT 等文件系统干脆不支持
+
+      // @note 实际项目里最常见的做法是**不用锁**：
+      // @note 把互斥交给数据库（事务 / SELECT ... FOR UPDATE）或 Redis（SET NX）
+    vs:
+      javascript: |
+        JavaScript 的单线程模型让「锁」这件事基本不需要 ——
+        共享状态不会被打断，所以没有互斥的概念
+        （`Atomics` 只在 SharedArrayBuffer 那套里才有意义）。
+        PHP **需要锁**，因为并发发生在**多个请求进程同时读写同一份外部资源**
+        的时候 —— 但语言又不给锁，得自己用文件锁或数据库事务解决。
+        也就是说 JavaScript 那边「并发安全」是运行时替你解决的，
+        PHP 这边是应用层要自己设计的。
+        共同点是两边都没有互斥锁类型。
+      python: |
+        两边的处境**几乎一样**：Python 的 `threading.Lock`
+        只在多线程进程内有意义，跨进程要用 `multiprocessing.Lock`
+        或者外部设施 —— 而 CPython 全局解释器锁让线程本来就跑不了真并行。
+        PHP 连线程都没有（核心层），只有进程，
+        所以「锁」在 PHP 里的唯一现实形态就是**跨进程的文件锁或外部存储**。
+        差别在标准库：Python 的锁在标准库里，PHP 的 `flock` 在核心但语义弱
+        （建议性），SysV 信号量在扩展里且 Unix-only。
+        共同点是两边最终都常常退回到「用数据库/Redis 来互斥」。
+      java: |
+        **这一格两边差得最远**。Java 有完整的锁体系：
+        `synchronized` 是语言关键字，`java.util.concurrent.locks`
+        有 `ReentrantLock` / `ReadWriteLock` / `Semaphore` / `Condition`，
+        还有 `AtomicInteger` 这类无锁工具。
+        PHP 核心**一个都没有** —— 最接近的 `flock` 还是「建议性」的，
+        而且句柄一被回收锁就没了。
+        另一处是「谁在争」：Java 争的是同进程内的线程，
+        锁的生命周期与对象绑定；PHP 争的是不同进程，
+        锁得挂在文件或外部存储上，生命周期靠句柄维持 ——
+        后者明显更脆。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  channel:
+    code: |
+      // @note! PHP 核心**没有通道** —— 无此概念
+      // @note 唯一的通道实现在 `parallel` 扩展里（PECL，本机没装）
+
+      // 官方手册的样子（**本机未跑**，仅按文档转写）：
+      // $runtime = new \parallel\Runtime(__DIR__ . '/autoload.php');
+      // $ch = new \parallel\Channel();
+      // $future = $runtime->run(function () use ($ch) {
+      //   return $ch->recv();          // 从通道**按值**接收
+      // }, [$ch]);
+      // $ch->send(42);
+      // echo $future->value();
+
+      // @note! 关键点：`parallel` 的哲学是 **CSP**（消息传递），
+      // @note! 而且 Task 参数、Future 返回值、Channel 传输**一律按值** ——
+      // @note! 所以「两个任务意外共享了同一块可变状态」这种事在那边不会发生
+      // @note 官方哲学页的原话就是那句「不要靠共享内存通信，要靠通信共享内存」
+
+      // @note 用户态还有 ReactPHP / Amp 的异步流、Swoole 的协程通道，
+      // @note 那些是第三方库，不是语言特性
+
+      // @note 本机实测的否定结论：class_exists('parallel\Runtime') 为 false，
+      // @note 也没有 EventLoop / Promise / Future 这些类 —— 核心包里确实没有
+    vs:
+      javascript: |
+        JavaScript 的对应物是 `MessageChannel` / `postMessage`（跨线程）
+        或者 `ReadableStream`（数据流），都在运行时里。
+        PHP 核心**什么都没有** —— 通道只存在于 `parallel` 扩展里。
+        所以这一格是「一边有内建的消息传递、一边要装扩展」。
+        共同点是两边传递时都走**值拷贝/结构化克隆**，
+        （`postMessage` 用结构化克隆，`parallel` 用值传递）——
+        「传过去的是副本不是同一块内存」这一点一致，
+        而这正是消息传递模型安全的原因。
+      python: |
+        Python 的 `multiprocessing.Queue` / `Pipe` 就是通道，
+        在**标准库**里；`asyncio.Queue` 是单进程内的版本。
+        PHP 的通道只在 `parallel` 扩展里（PECL，不在核心）——
+        所以同样一件事，Python 那边 `import` 一下就有，
+        PHP 那边要装扩展（而且那个扩展在 Windows 上的可用性还要另说）。
+        共同点是两边的跨进程消息都**按值**传（要序列化），
+        所以传大对象有成本，也不会有意外共享。
+        另一处是哲学：Python 的 `multiprocessing` 默认允许共享内存
+        （`Value` / `Array`），PHP 的 `parallel` 刻意只给消息传递。
+      java: |
+        Java 的对应物是 `BlockingQueue`（`ArrayBlockingQueue`
+        有界、`LinkedBlockingQueue` 无界），在标准库里，
+        而且是**同一进程内线程之间**用的。
+        PHP 的通道是**跨进程/跨线程**的（`parallel`），
+        还得装扩展。
+        另一处是阻塞语义：Java 的 `put` / `take` 会阻塞、
+        有超时重载、还有 `offer` / `poll` 非阻塞版；
+        `parallel\Channel` 也支持有界与无缓冲两种，思路一致。
+        共同点是两边都把它当「不共享内存、靠传递来协作」的手段 ——
+        这一条正好与 Java 里更常见的「共享 + 加锁」形成对照。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  atomicity:
+    code: |
+      // @note! PHP 核心**没有面向脚本的原子操作 API** ——
+      // @note! 没有 compare-and-swap、没有原子整数、没有内存屏障
+      // @note! 引擎内部（FPM、zend_atomic）在 C 层用 CAS，但**不暴露给脚本**
+
+      // @note! 于是「读-改-写」这件事在 PHP 里天生不原子：
+      // @note! 而且它甚至不需要多线程就能出问题 —— 两个请求同时跑就够了
+      //
+      //   $n = $cache->get('counter');   // 请求 A 与 B 都读到 1
+      //   $cache->set('counter', $n + 1); // 都写回 2 —— 一次自增丢了
+
+      // @note 能用的手段都在核心之外：
+      // @note   · Redis 的 INCR / SET NX / WATCH（最常用）
+      // @note   · 数据库事务 + SELECT ... FOR UPDATE，或乐观锁版本号
+      // @note   · APCu 的 apcu_inc / apcu_cas（PECL；本机没装）
+      // @note   · 文件锁 flock —— 但只对**合作方**有效（见上一格）
+
+      // @note! 本机实测的否定结论：
+      // @note! apcu_cas / apcu_inc / shmop_write / sem_acquire 全部不存在 ——
+      // @note! 这套东西在裸装的核心里一件都没有
+
+      // @note 另有一条容易忽略的：`shmop` 的读写**不保证 CPU 级原子性**，
+      // @note 也不提供 CAS，并发写会互相覆盖
+    vs:
+      javascript: |
+        JavaScript 单线程，所以「读-改-写」在同一个事件循环里
+        天然是原子的（没有别的代码能插进来）——
+        真正需要原子性只在 SharedArrayBuffer + Worker 那一套里，
+        那里有 `Atomics` 一整套 API。
+        PHP **没有 `Atomics` 这类东西**：核心不给原子操作，
+        而并发又真实存在（多个请求进程同时读写同一份缓存/数据库）——
+        所以 PHP 里的原子性只能靠**外部存储自己提供的原子命令**
+        （Redis 的 INCR、数据库的锁）。
+        也就是说 JavaScript 那边原子性是「多线程才需要」的问题，
+        PHP 这边是「多进程也躲不掉」的日常问题。
+      python: |
+        两边的处境类似：CPython 有 GIL，单条字节码不会被打断，
+        所以「a += 1」在纯 Python 层看着像原子的（但**不要依赖这一点**）；
+        真要原子性得用 `threading.Lock` 或标准库的
+        `multiprocessing.Value`（带锁的共享内存）。
+        PHP **没有任何核心层的原子手段**，连「单条语句原子」这个假象都没有 ——
+        因为并发是跨进程的，而你操作的共享资源本来就在进程之外。
+        差别在标准库：Python 的 `multiprocessing` 自带带锁的共享内存，
+        PHP 要外接 APCu / shmop（而且后者还明确不原子）。
+        共同点是两边最终都常常落到「让数据库或 Redis 来保证原子」。
+      java: |
+        **这一格两边差得最远**。Java 有完整的原子工具箱：
+        `AtomicInteger` / `AtomicReference` / `LongAdder`、
+        `compareAndSet` 是标准 API，还有 `volatile` 与内存模型规范。
+        PHP 核心**一件都没有**，脚本层连 CAS 都够不到。
+        也就是说 Java 那边「无锁并发」是一门正经技术，
+        PHP 这边根本无从谈起 —— 要原子就得靠外部存储的原子命令。
+        另一处是「在哪儿争」：Java 争的是同一个堆里的内存，
+        PHP 争的是缓存服务/数据库里的那条记录 ——
+        后者天然带网络往返，所以 PHP 的「原子」往往是「一条命令」，
+        而不是「一段临界区」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
