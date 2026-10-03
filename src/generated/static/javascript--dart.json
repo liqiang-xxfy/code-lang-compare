@@ -1,0 +1,517 @@
+{
+  "baseline": "javascript",
+  "target": "dart",
+  "pitfalls": [
+    {
+      "id": "pitfall-js2dart-const-final",
+      "title": "Dart 的 const 不是 JS 的 const",
+      "symptomHtml": "<p>把 JS 的 <code>const x = ...</code> 直译成 Dart 的 <code>const x = ...</code>，发现要求编译期常量；\n以为 <code>const</code> 数组改不了，结果运行期才抛错。</p>\n",
+      "causeHtml": "<p>三个关键字在两边对不上号：JS 的 const（不能再赋值）在 Dart 里对应 <strong>final</strong>；\nDart 的 const 是「编译期常量、深度冻结」，要求值在编译期就能算出。\n注意 <code>const [1,2]</code> 的静态类型仍是 <code>List&lt;int&gt;</code>，<code>add</code> 静态合法，\n<strong>运行期</strong>才抛 UnsupportedError。</p>\n",
+      "fixHtml": "<p>要「只锁绑定」用 <code>final</code>；要「编译期常量、深度共享」才用 <code>const</code>。\n别指望 const 的写操作在编译期被拦 —— 它是运行期抛错。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/mutability",
+      "tags": [
+        "不可变"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-division",
+      "title": "整除要另写，取模永远非负",
+      "symptomHtml": "<p>JS 里 <code>7 % 3</code> 是 1，负数的直觉也直接搬。但 Dart 的 <code>%</code> 结果<strong>永远非负</strong>：\n<code>-7 % 3</code> 是 <strong>2</strong>，不是 -1。除号 <code>/</code> 也永远给小数。</p>\n",
+      "causeHtml": "<p>Dart 的 <code>/</code> 永远返回 double（浮点除法）；整除要写 <code>~/</code>。\n<strong><code>%</code> 的语义与 JS 不同</strong>：Dart 保证结果非负，要带符号的余数得用 <code>remainder()</code>。\n这一行之差会算出不同的数，是最容易静默出错的一处。</p>\n",
+      "fixHtml": "<p>整除用 <code>~/</code>（如 <code>7 ~/ 2</code> 得 3）；取模若需要符号就用 <code>a.remainder(b)</code>。\n涉及负数的取模（环形缓冲、哈希、时间计算）尤其要写测试确认。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "运算符"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-isolate",
+      "title": "isolate 内存隔离 —— 没有锁，也没有原子类型",
+      "symptomHtml": "<p>想用锁保护共享状态，发现 Dart 里既没有锁也没有原子类型；跨 isolate 传对象要拷贝。</p>\n",
+      "causeHtml": "<p>Dart 的并发单元是 <strong>isolate</strong>，各自有独立内存，<strong>不共享可变状态</strong>。\n所以传统意义上的锁与原子类型<strong>失去了对象</strong>（不是「还没提供」）。\n通信靠消息传递：不可变对象会被共享，其余传递式拷贝。</p>\n",
+      "fixHtml": "<p>设计成「消息传递」而不是「共享内存加锁」。\n计算密集任务用 <code>Isolate.run()</code> 或 <code>compute()</code>。\n需要避免拷贝的大块数据可以用 TransferableTypedData 之类。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-equality",
+      "title": "有 int 与 double 之分，但 == 跨类型也相等",
+      "symptomHtml": "<p>JS 只有一个 number 类型，到 Dart 分成 int 与 double。\n但 <code>1 == 1.0</code> 仍然为 <strong>true</strong>，<code>identical(1, 1.0)</code> 才是 false。</p>\n",
+      "causeHtml": "<p>Dart 的 <code>==</code> 是值相等：数值按数值比，与具体类型无关，\n所以 int 的 1 与 double 的 1.0 相等（hashCode 也一致，Set / Map 里能互相命中）。\nJS 没有 int / double 的区分，这层差异在那边根本不存在。</p>\n",
+      "fixHtml": "<p>判值用 <code>==</code>；判「同一实例」用 <code>identical(a, b)</code>。Dart 没有 <code>===</code> 运算符。\n留意 int / double 的区分对显示的影响（<code>1.0</code> 打印出来带小数点）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/equality",
+      "tags": [
+        "相等",
+        "数值"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-future-wait",
+      "title": "Future.wait 默认等全部完成才报错",
+      "symptomHtml": "<p>用 Promise.all 的直觉以为「一出错就立刻返回」，Dart 的 <code>Future.wait</code>\n默认会<strong>等所有任务都结束</strong>，才报第一个错误。</p>\n",
+      "causeHtml": "<p><code>Future.wait</code> 默认不是 eager 的：所有任务都跑完（或失败）后才抛第一个错误。\n要「一出错就返回」得显式传 <code>eagerError: true</code>。这与 Promise.all 的\n「首个拒绝即返回」不同。</p>\n",
+      "fixHtml": "<p>需要快速失败就写 <code>Future.wait([...], eagerError: true)</code>。\n默认行为（等全部完成）在「要收齐所有结果」的场景反而合适，看需求选。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/promise-future",
+      "tags": [
+        "异步"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-generics",
+      "title": "泛型是协变且具体化的",
+      "symptomHtml": "<p><code>List&lt;int&gt;</code> 能当 <code>List&lt;num&gt;</code> 用，而且 <code>x is List&lt;int&gt;</code> 在运行期真的能判断；\n但往协变的列表里写会运行期抛错。</p>\n",
+      "causeHtml": "<p>Dart 的泛型是<strong>协变 + 具体化</strong>的：类型参数在运行期保留，<code>is</code> 检查能跑。\n协变的代价是 <code>List&lt;num&gt; xs = &lt;int&gt;[1]; xs.add(1.5);</code> 编译通过、运行期抛 TypeError。\n另外 Dart <strong>没有下界</strong>（没有 <code>? super T</code>）。</p>\n",
+      "fixHtml": "<p>只读的容器用协变是安全的；要往里写就得声明成可变的具体类型。\n<code>x is List&lt;int&gt;</code> 这类具体化检查是 Dart 特有的能力，可以放心用。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/variance",
+      "tags": [
+        "泛型",
+        "型变"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-no-varargs",
+      "title": "没有可变参数",
+      "symptomHtml": "<p>JS 的 rest 参数（<code>...args</code>）在 Dart 里没有对应物，<code>fn(...args)</code> 写不出来。</p>\n",
+      "causeHtml": "<p>Dart 不支持可变参数（variadic）。要收不定长参数只能显式传一个\n<code>List</code> 或 <code>Iterable</code> 参数。</p>\n",
+      "fixHtml": "<p>把参数定义成 <code>void f(List&lt;int&gt; xs)</code>，调用方传列表。\n展开运算符 <code>...</code> 是有的（用于集合字面量），但那是集合展开，不是参数展开。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/variadic",
+      "tags": [
+        "函数"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-stream-single-subscription",
+      "title": "Stream 默认是单订阅的",
+      "symptomHtml": "<p>把一个 Stream 交给两个地方监听，第二个报错：\n「Stream has already been listened to」。</p>\n",
+      "causeHtml": "<p>Dart 的 <code>Stream</code> 默认是<strong>单订阅</strong>的（只能消费一次），不是广播。\n这与 JS 的 EventTarget / RxJS Subject 那种「多播」直觉不同。</p>\n",
+      "fixHtml": "<p>需要多播就把 Stream 转成广播流（<code>.asBroadcastStream()</code>），\n或在源头用 <code>StreamController.broadcast()</code> 创建。\n另外 Stream 也是「可取消」的那一个 —— <code>StreamSubscription.cancel()</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/async-await",
+      "tags": [
+        "异步",
+        "流"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-switch-no-break",
+      "title": "switch 不需要 break，也不贯穿",
+      "symptomHtml": "<p>从 JS 带过来写 switch 都会加 break；Dart 里非空分支<strong>不需要 break</strong>，\n也<strong>不会贯穿</strong> —— 只有空的 case 会落到下一个。</p>\n",
+      "causeHtml": "<p>Dart 的 switch 语义与 C / JS 相反：非空分支自动结束，不贯穿。\n这与 Java 也相反。想要「多个 case 共享逻辑」就把 case 留空让它落下。</p>\n",
+      "fixHtml": "<p>非空分支直接写代码，不用 break；共享逻辑时把 case 留空。\n注意 Dart 3 起 switch 还能当表达式用（配合模式匹配）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/conditionals",
+      "tags": [
+        "控制流"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-assert-disabled",
+      "title": "断言默认是关的",
+      "symptomHtml": "<p>用 <code>assert</code> 做参数校验，以为它会一直生效；实际生产构建里默认被关掉，什么都不检查。</p>\n",
+      "causeHtml": "<p>Dart 的 <code>assert</code> 只在开启断言时生效（<code>--enable-asserts</code>，或 debug 模式）。\n与「断言默认开」相反，发布构建里 assert 语句被整个忽略。</p>\n",
+      "fixHtml": "<p>运行时必须生效的校验用显式抛错：<code>if (x &lt; 0) throw ArgumentError(...)</code>。\n<code>assert</code> 只用于开发期的自检，别拿它当生产校验。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "practice/assertions",
+      "tags": [
+        "测试",
+        "断言"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-mirrors",
+      "title": "反射只在 Native 的 JIT 上有",
+      "symptomHtml": "<p>想用 <code>dart:mirrors</code> 做反射，发现 Flutter / 编译成原生 AOT / web 时都用不了。</p>\n",
+      "causeHtml": "<p><code>dart:mirrors</code> 只在 Native 的 JIT 上可用（且标记为 Experimental），\nFlutter、AOT 编译、web 都不支持。\n这也是 Dart 生态靠 <code>build_runner</code> 做<strong>编译期代码生成</strong>的原因 ——\n运行期反射这条路在很多部署形态下不存在。</p>\n",
+      "fixHtml": "<p>需要「按名字操作」时用 build_runner 之类的代码生成，把反射需求前移到编译期。\n这与 JS 内建反射的可用性差别很大。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/reflection",
+      "tags": [
+        "元编程"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-js2dart-no-in-operator",
+      "title": "没有 in 运算符",
+      "symptomHtml": "<p><code>'key' in obj</code> 判断属性存在，Dart 里报语法错误 —— <code>in</code> 只用于 for-in 与模式匹配。</p>\n",
+      "causeHtml": "<p>JS 的 <code>in</code> 能判断对象是否含某属性。Dart 的 <code>in</code> 不是运算符，\n只出现在 for-in 循环和模式匹配里。判断成员要用别的方式。</p>\n",
+      "fixHtml": "<p>Map 判断键用 <code>map.containsKey(key)</code>；List 判断元素用 <code>list.contains(x)</code>。\nDart 的类结构是固定的，没有「动态属性」这回事。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/logical",
+      "tags": [
+        "运算符"
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "const",
+      "aliases": [
+        "const",
+        "final"
+      ],
+      "perLanguage": {
+        "javascript": "const 只表示「不能再赋值」，对象内容随便改",
+        "dart": "const 是编译期常量、深度冻结；「只锁绑定」那一档叫 final"
+      },
+      "note": "三个关键字在两边对不上号，这是最需要重新记的一处。\nJS 的 const ≈ Dart 的 final；Dart 的 const 比 JS 的 const 强得多。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "相等",
+      "aliases": [
+        "equality",
+        "identical"
+      ],
+      "perLanguage": {
+        "javascript": "`===` 严格比较、`==` 宽松比较；没有 identical",
+        "dart": "`==` 是值相等；判同一实例用 `identical(a, b)`，没有 `===`"
+      },
+      "note": "Dart 的 `==` 跨数值类型也相等（`1 == 1.0` 为 true）。\n要判「是不是同一个对象」得用 identical。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "数值",
+      "aliases": [
+        "int",
+        "double",
+        "number"
+      ],
+      "perLanguage": {
+        "javascript": "只有一个 number（双精度浮点）",
+        "dart": "有 int 与 double 之分；`/` 给小数，整除用 `~/`，`%` 永远非负"
+      },
+      "note": "取模非负是与 JS 最危险的差异：`-7 % 3` 在 Dart 是 2。\n要带符号余数用 remainder()。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic",
+        "variance"
+      ],
+      "perLanguage": {
+        "javascript": "没有类型参数",
+        "dart": "协变且具体化 —— `x is List<int>` 运行期能判断，但协变带来运行期类型错误"
+      },
+      "note": "具体化（reified）是 Dart 的特色：类型参数在运行期保留。\n代价是 List<num> 里塞 double 会在运行期抛 TypeError。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "isolate",
+      "aliases": [
+        "isolate",
+        "worker",
+        "concurrency"
+      ],
+      "perLanguage": {
+        "javascript": "Worker 之间不能共享可变对象，靠消息传递",
+        "dart": "isolate 内存隔离，没有锁、没有原子类型，靠消息传递"
+      },
+      "note": "两者都不共享内存，但 Dart 的并发单元是 isolate（独立内存 + 独立事件循环）。\n因为没有共享，锁与原子类型这整套概念失去了对象。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "Future",
+      "aliases": [
+        "future",
+        "promise",
+        "async"
+      ],
+      "perLanguage": {
+        "javascript": "Promise；Promise.all 首个拒绝即返回",
+        "dart": "Future；Future.wait 默认等全部完成才报第一个错误"
+      },
+      "note": "Future 与 Promise 大体对应，但 wait / all 的失败时机相反。\n要快速失败得给 Future.wait 传 eagerError: true。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "Stream",
+      "aliases": [
+        "stream",
+        "observable"
+      ],
+      "perLanguage": {
+        "javascript": "没有内建 Stream；用事件、异步迭代器或库",
+        "dart": "内建 Stream，默认单订阅；广播流要显式创建"
+      },
+      "note": "Dart 的 Stream 是被语言内建支持的异步序列，默认只能消费一次。\n它也是唯一能真正取消的东西（StreamSubscription.cancel）。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "断言",
+      "aliases": [
+        "assert"
+      ],
+      "perLanguage": {
+        "javascript": "没有语言级 assert（console.assert 只是打印）",
+        "dart": "有 assert，但默认关闭，只在 --enable-asserts 或 debug 下生效"
+      },
+      "note": "别用 assert 做生产期的参数校验 —— 发布构建里它被整个忽略。\n要真校验就 throw。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "空安全",
+      "aliases": [
+        "null-safety",
+        "nullable"
+      ],
+      "perLanguage": {
+        "javascript": "null / undefined 通用，出错在运行时",
+        "dart": "空安全默认开启（健全空安全），可能为空的值要标 `?`"
+      },
+      "note": "Dart 的空安全是「健全」的：类型系统保证非空类型真的不会是 null。\n这与 JS 的「空值满天飞」正相反，是从 JS 过来明显更省心的一块。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "term": "反射",
+      "aliases": [
+        "reflection",
+        "mirrors"
+      ],
+      "perLanguage": {
+        "javascript": "Reflect / Proxy 等是语言内建，到处能用",
+        "dart": "dart:mirrors 只在 Native 的 JIT 上（Experimental），Flutter / AOT / web 都没有"
+      },
+      "note": "运行期反射在多数部署形态下不可用，所以 Dart 生态靠 build_runner 做编译期代码生成。\n",
+      "baseline": "javascript",
+      "target": "dart"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "javascript2dart-1-syntax-and-numbers",
+      "order": 1,
+      "title": "先改语言的「手边习惯」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 Dart SDK，跑一个 `dart create` 的工程",
+        "把 const / final 的对应关系记牢（JS 的 const 等于 Dart 的 final）",
+        "写一段熟悉的 JS 逻辑用 Dart 重写，重点试除法、取模、switch",
+        "对照本工具「基础表达」板块里 Dart 列的运算符与空值两格"
+      ],
+      "acceptance": [
+        "能说出 `-7 % 3` 在 JS 与 Dart 里各得几，以及为什么",
+        "能分清 const 与 final 在该用哪个"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档（中文）",
+          "url": "https://dart.cn/"
+        },
+        {
+          "label": "Dart 语言之旅",
+          "url": "https://dart.dev/language"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "javascript2dart-2-types-and-generics",
+      "order": 2,
+      "title": "类型系统、空安全与泛型",
+      "durationHint": "2-3 天",
+      "todo": [
+        "体会空安全默认开启：可能为空的值要标 `?`，不判空编译不过",
+        "试一次协变泛型的运行期错误（往 List<num> 里塞 double）",
+        "用 `x is List<int>` 验证泛型是具体化的",
+        "对照本工具「语言机制」板块里 Dart 列的「类型标注」「型变」两格"
+      ],
+      "acceptance": [
+        "能说清 Dart 的健全空安全与 JS 的运行时判空差别",
+        "能说清协变泛型什么时候安全、什么时候会在运行期炸"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 空安全",
+          "url": "https://dart.dev/null-safety"
+        },
+        {
+          "label": "Dart 官方文档 · 泛型",
+          "url": "https://dart.dev/language/generics"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "javascript2dart-3-async",
+      "order": 3,
+      "title": "异步：Future 与 Stream",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把一段 Promise 链改写成 async / await",
+        "验证 Future.wait 默认等全部完成，再试 eagerError: true",
+        "用 Stream 处理一串事件，体会它默认单订阅",
+        "试试 StreamSubscription.cancel()，理解它是唯一能真正取消的东西"
+      ],
+      "acceptance": [
+        "能说清 Future 与 Promise 的异同，尤其是失败时机",
+        "能写出正确处理多播的 Stream 代码"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 异步",
+          "url": "https://dart.dev/libraries/async/async-await"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "javascript2dart-4-isolates",
+      "order": 4,
+      "title": "并发：isolate 与消息传递",
+      "durationHint": "2-3 天",
+      "todo": [
+        "用 `Isolate.run()` 跑一个计算密集任务，感受它与事件循环的差别",
+        "试着跨 isolate 传一个可变对象，理解它是拷贝而非共享",
+        "接受「没有锁」这件事：设计成消息传递而不是共享状态",
+        "对照本工具「语言机制」板块里 Dart 列的并发模型"
+      ],
+      "acceptance": [
+        "能说清 isolate 与 JS Worker 的异同",
+        "能把一个「共享状态加锁」的设计改写成消息传递式"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 并发",
+          "url": "https://dart.dev/language/concurrency"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    },
+    {
+      "id": "javascript2dart-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 pub 管依赖，注意 pubspec.lock 对应用与库的不同建议",
+        "用 dart analyze 与 dart test，理解断言默认关的影响",
+        "给一个类写 build_runner 的代码生成，理解为什么不用反射",
+        "对照本工具「工程实践」板块里 Dart 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖管理、analyze、测试的 Dart 工程",
+        "能说清为什么 Dart 生态偏好编译期代码生成而不是运行期反射"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 包与库",
+          "url": "https://dart.dev/tools/pub/packages"
+        },
+        {
+          "label": "Dart 官方文档（中文）",
+          "url": "https://dart.cn/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "dart"
+    }
+  ]
+}

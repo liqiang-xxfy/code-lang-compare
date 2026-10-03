@@ -1,0 +1,209 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 Kotlin 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-py2kt-static-types
+  featureId: mechanism/static-vs-dynamic
+  title: 静态类型，而且没有鸭子类型
+  symptom: |
+    Python 里「有 quack() 就能当鸭子」的写法，到 Kotlin 必须先是某个类型；
+    一个变量也不能先后装不同类型的东西。
+  cause: |
+    Python 在运行时按实际属性判断，Kotlin 在编译期按声明类型判断。
+    而且 Kotlin（JVM 上）是**名义类型**：要「是」某个接口，必须显式实现它，
+    不像 Python 的 Protocol 那样形状匹配即可。
+  fix: |
+    用 interface + 显式实现表达契约。Kotlin 的类型推断能省掉很多重复标注，
+    但「一个变量先后装不同类型」没有了 —— 该拆成不同变量或用密封类。
+  severity: 3
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-py2kt-null-safety
+  featureId: mechanism/null-safety
+  title: None 对应的空值要写进类型里
+  symptom: |
+    一个可能为 None 的值直接调用方法，Kotlin 编译不过；得写成 `String?` 并先判空。
+  cause: |
+    Python 的 None 对任何类型都通用，出错在运行时（AttributeError）。
+    Kotlin 把可空性编进类型：`String` 与 `String?` 不同，后者不判空不能用。
+  fix: |
+    用 `?.` / `?:` / `if (x != null)` 处理。把可空性设计进类型，
+    别用 `!!` 把检查关掉 —— 那等于退回 Python 的运行时炸。
+  severity: 3
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [空值]
+
+- id: pitfall-py2kt-no-implicit-widening
+  featureId: express/arithmetic
+  title: 数值不隐式拓宽，也没有任意精度
+  symptom: |
+    `val l: Long = someInt` 编译不过；大整数也没有 Python 那种任意精度，会溢出回绕。
+  cause: |
+    Python 的 int 是任意精度、int 与 float 可自由混合。
+    Kotlin 有 Int / Long / Double 等固定宽度类型，不隐式拓宽（要显式 toLong()），
+    溢出会静默回绕。这是与 Python 数值模型最根本的差别。
+  fix: |
+    赋值 / 传参显式转换：`someInt.toLong()`。
+    需要大整数用 `BigInteger`（JVM 的，不是语言内建）。
+    涉及金额、计数的地方留意溢出。
+  severity: 2
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-py2kt-final-by-default
+  featureId: model/inheritance
+  title: 类和成员默认是 final 的
+  symptom: |
+    Python 里随手继承、覆写方法很自然；Kotlin 里不写 `open` 默认不可继承 / 覆写。
+  cause: |
+    Python 的类默认开放，任何方法都能覆写。
+    Kotlin 默认 final，要显式 open —— 这是刻意的设计取向。
+  fix: |
+    要继承就标 `open class` / `open fun`。
+    先问「真的需要继承吗」—— Kotlin 鼓励组合与接口。
+  severity: 2
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [类, 继承]
+
+- id: pitfall-py2kt-readonly-not-immutable
+  featureId: express/mutability
+  title: val 只锁引用，List 也不是不可变
+  symptom: |
+    `val list = mutableListOf(1)` 之后还能 `list.add(2)`；
+    `List` 类型的集合也可能被底层改动。
+  cause: |
+    Kotlin 的 val 锁的是引用不变，不是对象内容不变。
+    List / Set / Map 是**只读接口**而非不可变实现 —— 底层可能是可变的。
+    Python 里 tuple 真不可变、list 可变，语义边界比 Kotlin 清楚。
+  fix: |
+    不可变就用 `listOf(...)` 且不留可变引用；可变用 `MutableList` 明确表达。
+    别把 `val` 当成「只读」的代名词。
+  severity: 2
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [不可变, 集合]
+
+- id: pitfall-py2kt-no-comprehension
+  featureId: model/comprehension
+  title: 没有列表推导式，但有整套集合操作
+  symptom: |
+    `[x*2 for x in xs if x > 0]` 写不出来，得换成 filter / map。
+  cause: |
+    Kotlin 没有推导式语法，对应的是标准库的 `filter` / `map` / `associate` 等
+    扩展函数。语义与 Python 推导式接近（先过滤后映射），但写法是链式的。
+  fix: |
+    `xs.filter { it > 0 }.map { it * 2 }` —— lambda 用 `it` 指代单个参数。
+    注意 List 上的操作立即求值，Sequence 才惰性 —— 这与 Python 生成器的直觉不同。
+  severity: 2
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [集合]
+
+- id: pitfall-py2kt-no-kwargs
+  featureId: express/variadic
+  title: 没有 kwargs，vararg 是数组
+  symptom: |
+    Python 的 `*args` / `**kwargs` 到 Kotlin 只剩 `vararg`（对应 *args），
+    没有 `**kwargs` 那种任意关键字参数。
+  cause: |
+    Kotlin 是静态语言，参数必须在签名里写全。`vararg nums: Int` 在函数体里是
+    IntArray（基本类型）或 Array<out T>（引用类型），不是 List。
+    命名参数有，但那是调用侧写法，不是「收任意关键字」。
+  fix: |
+    变长参数用 `vararg`，要当列表用就 `toList()`，展开传出去用 `*nums`。
+    需要「任意键值」就显式收一个 `Map<String, Any>` 参数。
+  severity: 2
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [函数, 可变参数]
+
+- id: pitfall-py2kt-when-not-match
+  featureId: express/switch-and-match
+  title: when 代替 match，但不贯穿、能返回值
+  symptom: |
+    把 Python 的 match 直译成 when，发现不需要 case 关键字，
+    而且每个分支写完不会「落」到下一个。
+  cause: |
+    Kotlin 的 `when` 对应 Python 的 match 与 Java 的 switch：
+    不需要 break、**不贯穿**，还能当表达式返回值。
+    匹配方式也更灵活（值、范围、类型、条件）。
+  fix: |
+    `when (x) { 1 -> ...; in 2..5 -> ...; is String -> ...; else -> ... }`。
+    当作「能返回值的 match」用，别担心贯穿。
+  severity: 2
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [控制流]
+
+- id: pitfall-py2kt-coroutines
+  featureId: mechanism/concurrency-unit
+  title: 协程是结构化并发，默认也不并行
+  symptom: |
+    用 asyncio 的直觉以为 `launch { }` 就并发了；实际它继承外层调度器，
+    在单线程环境里仍是一个个跑。
+  cause: |
+    Python 的 asyncio 是单线程事件循环；Kotlin 的协程可以跑在多线程上，
+    但**默认调度器可能是单线程的**（继承外层上下文），要真并行得显式给
+    Dispatchers.Default 之类。另外它是**结构化并发**：子协程失败会取消父作用域，
+    与 asyncio 任务的「自生自灭」不同。
+  fix: |
+    计算密集任务用 `launch(Dispatchers.Default) { ... }`。
+    用 `coroutineScope { }` 表达「这几个子任务要么全成要么全败」。
+  severity: 3
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [并发]
+
+- id: pitfall-py2kt-exceptions
+  featureId: model/throw-raise
+  title: 异常都不受检，catch 要写类型
+  symptom: |
+    习惯 Python 的 `except (A, B)` 或多分支捕获，到 Kotlin 发现
+    每个 catch 块只能接一个类型，方法签名也不提示会抛什么。
+  cause: |
+    Python 的异常也不受检，这点两边接近；
+    但 Kotlin 的 catch 是 `catch (e: SomeException)` 显式单一类型，
+    没有 Python 那种一次列多个类型、或裸 except 的写法。
+  fix: |
+    `try { } catch (e: SomeException) { } finally { }`，多类型就写多个 catch。
+    别写「捕获一切」的写法 —— Kotlin 的类型系统在这儿帮不上忙，得自己克制。
+  severity: 2
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [异常]
+
+- id: pitfall-py2kt-block-body-return-type
+  featureId: express/function-declaration
+  title: 块体函数的返回类型不能省
+  symptom: |
+    `fun f() { return 1 }` 报错：需要显式返回类型。
+  cause: |
+    Kotlin 只有表达式体函数能推断返回类型；块体函数必须写出（Unit 除外）。
+    Python 的返回类型标注是可选的，Kotlin 在块体上是强制的。
+  fix: |
+    简单的用表达式体 `fun f() = 1`；块体写 `fun f(): Int { ... }`。
+    这在公开 API 上是好事 —— 签名始终明确。
+  severity: 2
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [函数]
+
+- id: pitfall-py2kt-toplevel-lazy
+  featureId: express/scope
+  title: 顶层变量首次使用时才初始化
+  symptom: |
+    顶层 `val config = load()` 以为模块加载时就跑了，实际首次访问才初始化。
+  cause: |
+    Kotlin 的顶层属性惰性初始化（首次使用时求值），与 Python 模块
+    「import 即执行顶层代码」不同。初始化前读到什么是未定义行为。
+  fix: |
+    有副作用的初始化放进显式的 `init` 块或初始化函数，
+    别依赖顶层属性的求值时机。
+  severity: 1
+  languages: [python, kotlin]
+  fromBaseline: true
+  tags: [作用域]

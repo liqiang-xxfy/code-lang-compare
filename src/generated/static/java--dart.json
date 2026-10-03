@@ -1,0 +1,520 @@
+{
+  "baseline": "java",
+  "target": "dart",
+  "pitfalls": [
+    {
+      "id": "pitfall-java2dart-generics",
+      "title": "泛型两轴都与 Java 相反",
+      "symptomHtml": "<p>Java 是「不变 + 擦除」，Dart 是<strong>协变 + 具体化</strong>：\n<code>List&lt;int&gt;</code> 能当 <code>List&lt;num&gt;</code> 用，<code>x is List&lt;int&gt;</code> 运行期也能判断。</p>\n",
+      "causeHtml": "<p>Java 的泛型擦除（运行期拿不到类型参数）、且不变（要通配符表达协变）。\nDart 反过来，类型参数在运行期保留。协变的代价是\n<code>List&lt;num&gt; xs = &lt;int&gt;[1]; xs.add(1.5);</code> 编译通过、运行期抛 TypeError ——\n更像 Java 的<strong>数组协变</strong>。另外 Dart <strong>没有下界</strong>（没有 <code>? super T</code>）。</p>\n",
+      "fixHtml": "<p>只读容器用协变是安全的；要写入就声明可变的具体类型。\n需要「下界」的场景要换设计（Dart 不支持 <code>? super T</code>）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/variance",
+      "tags": [
+        "泛型",
+        "型变"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-isolate",
+      "title": "isolate 内存隔离 —— 没有锁，也没有原子类型",
+      "symptomHtml": "<p>想用 synchronized 或 AtomicInteger 保护共享状态，\n发现 Dart 里既没有锁也没有原子类型；跨 isolate 传对象要拷贝。</p>\n",
+      "causeHtml": "<p>Java 的并发是共享内存加锁。Dart 的并发单元是 <strong>isolate</strong>，各自有独立内存，\n<strong>不共享可变状态</strong> —— 所以锁与原子类型<strong>失去了对象</strong>。\n通信靠消息传递：不可变对象会被共享，其余传递式拷贝。</p>\n",
+      "fixHtml": "<p>设计成消息传递式；计算密集任务用 <code>Isolate.run()</code> 或 <code>compute()</code>。\n别找 synchronized / Atomic —— 它们在这门语言里没有对应物。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-modulo",
+      "title": "取模永远非负，整除要另写",
+      "symptomHtml": "<p>Java 的 <code>-7 % 3</code> 是 <strong>-1</strong>（保留符号），Dart 里是 <strong>2</strong>（永远非负）。\n而且整除不能写 <code>/</code> —— Dart 的 <code>/</code> 永远给 double。</p>\n",
+      "causeHtml": "<p>Dart 的 <code>%</code> 保证结果非负（要带符号余数用 <code>remainder()</code>）。\nJava 的 <code>%</code> 保留被除数的符号 —— 两边对负数给出不同的数，且不报错。\nDart 的 <code>/</code> 是浮点除法，整除写 <code>~/</code>。</p>\n",
+      "fixHtml": "<p>取模若依赖「与 Java 同样的符号」，改用 <code>a.remainder(b)</code>；整除用 <code>~/</code>。\n涉及负数取模的代码要写测试比对。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "运算符"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-const-final",
+      "title": "const 是编译期常量，final 才是「只赋一次」",
+      "symptomHtml": "<p>Java 的 final 字段可以运行期赋值（构造函数里），直译成 Dart 的 const 会报错。</p>\n",
+      "causeHtml": "<p>Dart 把两者分得很清：final 是「只能赋值一次」（运行期确定即可），\nconst 是「编译期常量」（值必须在编译期算出，且深度冻结）。\nJava 的 final 对应 Dart 的 final，不是 const。</p>\n",
+      "fixHtml": "<p>对应 Java final 的用 <code>final</code>；要真正编译期常量、且值得共享的才用 <code>const</code>。\n类常量用 <code>static const</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/mutability",
+      "tags": [
+        "不可变"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-exceptions",
+      "title": "没有受检异常",
+      "symptomHtml": "<p>方法签名里写 throws 没有意义；编译器不强制处理任何异常。</p>\n",
+      "causeHtml": "<p>Java 有受检异常（编译器强制处理或声明）。Dart 完全没有这层 ——\n任何方法都可能抛，签名里也不表达。</p>\n",
+      "fixHtml": "<p>自己 throw 时抛明确类型（ArgumentError / StateError / 自定义 Exception）。\nDart 的 catch 是 <code>on SomeException catch (e)</code>，可按类型分支，\n比 Java 更接近 Python 的 except。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/throw-raise",
+      "tags": [
+        "异常"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-future-cancel",
+      "title": "Future 不能取消",
+      "symptomHtml": "<p>习惯 Java 的 Future.cancel()，到 Dart 发现 Future 根本没有 cancel 方法。</p>\n",
+      "causeHtml": "<p>Java 的 Future / CompletableFuture 有取消能力（配合线程中断）。\nDart 的 Future 一旦启动就无法取消。能真正取消的只有 <code>StreamSubscription.cancel()</code>。</p>\n",
+      "fixHtml": "<p>需要可取消的长任务，用 Stream 并持有 Subscription，或自己设计取消标志。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/cancellation",
+      "tags": [
+        "异步"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-iterator-protocol",
+      "title": "迭代器协议不一样",
+      "symptomHtml": "<p>Java 的 Iterator 是 hasNext() + next()，Dart 是 moveNext() + current。</p>\n",
+      "causeHtml": "<p>Dart 的迭代器用 <code>moveNext()</code> 移动并把结果放进 <code>current</code> 属性 ——\n要先 moveNext() 再读 current。Java 是先 hasNext() 判断、再 next() 取值。</p>\n",
+      "fixHtml": "<p>自己实现 Iterable 时注意这个协议差别。日常用 for-in 就好，不必手写迭代器。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/iteration-protocol",
+      "tags": [
+        "迭代"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-mirrors",
+      "title": "反射只在 Native 的 JIT 上有",
+      "symptomHtml": "<p>Java 的反射到处能用，Dart 的 <code>dart:mirrors</code> 在 Flutter / AOT / web 上都用不了。</p>\n",
+      "causeHtml": "<p><code>dart:mirrors</code> 只在 Native 的 JIT 上可用（且是 Experimental），\nFlutter、AOT 编译、web 都不支持。\n这是 Dart 生态靠 <code>build_runner</code> 做编译期代码生成的原因。</p>\n",
+      "fixHtml": "<p>需要「按名字操作」时用 build_runner 之类的代码生成，把反射需求前移到编译期。\n这与 Java 反射的可用性差别很大。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/reflection",
+      "tags": [
+        "元编程"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-no-varargs",
+      "title": "没有可变参数",
+      "symptomHtml": "<p>Java 的 <code>void f(int... xs)</code> 到 Dart 没有对应物。</p>\n",
+      "causeHtml": "<p>Dart 不支持可变参数。要收不定长参数只能显式传一个 List。</p>\n",
+      "fixHtml": "<p>定义成 <code>void f(List&lt;int&gt; xs)</code>。\n展开运算符 <code>...</code> 是集合展开，不是参数展开。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/variadic",
+      "tags": [
+        "函数"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-privacy",
+      "title": "下划线是库级私有，不是类级",
+      "symptomHtml": "<p>以为 <code>_foo</code> 是「这个类私有」，结果同库的其它类照样能访问。</p>\n",
+      "causeHtml": "<p>Dart 没有 private / protected 关键字，用下划线前缀表示<strong>库级私有</strong>\n（同一个库里可见，跨库不可见）—— 不是类级。\n而且私有成员在同库内属于隐式接口（同库 implements 必须实现它）。</p>\n",
+      "fixHtml": "<p>用 <code>_</code> 前缀表达「库内可见」。需要跨文件共享但不想公开的部分，\n拆成同一个库的多个文件（用 <code>part</code>）；跨库隐藏靠库的边界划分。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/access-control",
+      "tags": [
+        "可见性"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-switch-no-break",
+      "title": "switch 不需要 break，也不贯穿",
+      "symptomHtml": "<p>从 Java 带过来写 switch 都会加 break；Dart 里非空分支<strong>不需要 break</strong>，\n也<strong>不会贯穿</strong> —— 只有空的 case 会落下。</p>\n",
+      "causeHtml": "<p>Dart 的 switch 与 C / Java 的贯穿语义相反：非空分支自动结束。\n多 case 共享逻辑时把 case 留空即可。</p>\n",
+      "fixHtml": "<p>非空分支直接写代码，不用 break。注意 Dart 3 起 switch 还能当表达式用。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/conditionals",
+      "tags": [
+        "控制流"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-java2dart-assert-disabled",
+      "title": "断言默认是关的",
+      "symptomHtml": "<p>Java 的 assert 默认关着（要 -ea），Dart 同样默认关，\n容易以为它一直生效。</p>\n",
+      "causeHtml": "<p>两边默认都关 —— Java 要 <code>-ea</code>，Dart 要 <code>--enable-asserts</code> 或 debug 模式。\n发布构建里 assert 语句被整个忽略。</p>\n",
+      "fixHtml": "<p>运行时必须生效的校验用显式抛错（<code>throw ArgumentError(...)</code>），\n与 Java 里抛 IllegalArgumentException 的写法等价。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "practice/assertions",
+      "tags": [
+        "测试",
+        "断言"
+      ],
+      "baseline": "java",
+      "target": "dart"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic",
+        "variance"
+      ],
+      "perLanguage": {
+        "java": "擦除（运行期无类型参数）且不变；协变靠通配符",
+        "dart": "具体化（运行期保留类型参数）且协变；没有下界"
+      },
+      "note": "两轴都与 Java 相反。Dart 的 `x is List<int>` 能跑，\n但协变会在写入时运行期抛 TypeError —— 更像 Java 的数组协变。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "数值",
+      "aliases": [
+        "int",
+        "double",
+        "modulo"
+      ],
+      "perLanguage": {
+        "java": "`/` 是整除（整数），`%` 保留被除数符号",
+        "dart": "`/` 永远给 double，整除写 `~/`；`%` 永远非负"
+      },
+      "note": "取模符号是最危险的差异：`-7 % 3` 在 Java 是 -1、Dart 是 2。\n要 Java 那种符号用 remainder()。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "可见性",
+      "aliases": [
+        "private",
+        "protected",
+        "access"
+      ],
+      "perLanguage": {
+        "java": "private / protected / public 由运行时强制",
+        "dart": "没有这些关键字；下划线前缀表示库级私有（不是类级）"
+      },
+      "note": "Dart 的私有是「库」粒度，不是类粒度。同库的其它类能访问 `_foo`。\n没有 protected 这个概念。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "const / final",
+      "aliases": [
+        "const",
+        "final"
+      ],
+      "perLanguage": {
+        "java": "final 表示「只能赋值一次」（运行期可确定）",
+        "dart": "final 对应 Java 的 final；const 是编译期常量且深度冻结"
+      },
+      "note": "Java 的 final 直译成 Dart 的 final，不是 const。\nconst 要求值在编译期算出。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "并发",
+      "aliases": [
+        "isolate",
+        "thread",
+        "synchronized"
+      ],
+      "perLanguage": {
+        "java": "共享内存加锁（synchronized / AtomicInteger / volatile）",
+        "dart": "isolate 内存隔离，不共享可变状态，靠消息传递"
+      },
+      "note": "因为不共享内存，锁与原子类型这整套概念在 Dart 里失去了对象。\n设计思路从「共享加锁」变成「消息传递」。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "Future",
+      "aliases": [
+        "future",
+        "completablefuture"
+      ],
+      "perLanguage": {
+        "java": "Future / CompletableFuture 可取消（配合线程中断）",
+        "dart": "Future 不可取消；能取消的只有 StreamSubscription"
+      },
+      "note": "取消能力是最大的差别。需要可取消的长任务得换 Stream 设计。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "迭代器",
+      "aliases": [
+        "iterator",
+        "iterable"
+      ],
+      "perLanguage": {
+        "java": "Iterator 是 hasNext() 加 next() 两个方法",
+        "dart": "Iterator 是 moveNext() 加 current 属性"
+      },
+      "note": "协议不同：Dart 先移动再读 current，Java 先判断再取值。\n日常用 for-in，手写迭代器时才会碰到。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "异常",
+      "aliases": [
+        "exception",
+        "checked",
+        "throws"
+      ],
+      "perLanguage": {
+        "java": "受检异常由编译器强制处理或声明 throws",
+        "dart": "完全没有受检异常；签名里没有 throws"
+      },
+      "note": "Dart 与 Java 相反：任何方法都可能抛，编译器不管。\n但 Dart 的 catch 能按类型分支（on Type catch），比 Java 灵活。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "断言",
+      "aliases": [
+        "assert"
+      ],
+      "perLanguage": {
+        "java": "assert 默认关，要 -ea 打开",
+        "dart": "assert 默认关，要 --enable-asserts 或 debug 模式"
+      },
+      "note": "两边默认都关，别用它做生产期校验。\n",
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "term": "反射",
+      "aliases": [
+        "reflection",
+        "mirrors"
+      ],
+      "perLanguage": {
+        "java": "java.lang.reflect 到处可用",
+        "dart": "dart:mirrors 只在 Native 的 JIT 上，Flutter / AOT / web 都没有"
+      },
+      "note": "运行期反射在多数部署形态下不可用，所以 Dart 生态靠 build_runner\n做编译期代码生成。\n",
+      "baseline": "java",
+      "target": "dart"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2dart-1-syntax-and-numbers",
+      "order": 1,
+      "title": "语法与数值",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 Dart SDK，跑一个 `dart create` 的工程",
+        "写一段熟悉的 Java 逻辑用 Dart 重写，重点试除法、取模、switch",
+        "记住 `-7 % 3` 在两边各得几，以及整除用 `~/`",
+        "对照本工具「基础表达」板块里 Dart 列的运算符与控制流"
+      ],
+      "acceptance": [
+        "能说出取模与整除在 Java 与 Dart 的差异，以及什么时候会出错",
+        "能写出不带 break 的 switch"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档（中文）",
+          "url": "https://dart.cn/"
+        },
+        {
+          "label": "Dart 语言之旅",
+          "url": "https://dart.dev/language"
+        }
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "java2dart-2-types-and-generics",
+      "order": 2,
+      "title": "类型系统与泛型",
+      "durationHint": "2-3 天",
+      "todo": [
+        "体会空安全默认开启：可能为空的值要标 `?`",
+        "试一次协变泛型的运行期错误（往 List<num> 里塞 double）",
+        "用 `x is List<int>` 验证泛型是具体化的",
+        "对照本工具「语言机制」板块里 Dart 列的「类型标注」「型变」两格"
+      ],
+      "acceptance": [
+        "能说清 Dart 泛型与 Java 泛型在两轴上的相反之处",
+        "能说清协变泛型什么时候安全、什么时候会在运行期炸"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 空安全",
+          "url": "https://dart.dev/null-safety"
+        },
+        {
+          "label": "Dart 官方文档 · 泛型",
+          "url": "https://dart.dev/language/generics"
+        }
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "java2dart-3-classes-and-async",
+      "order": 3,
+      "title": "类、集合与异步",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用下划线表达库级私有，体会它没有 private / protected",
+        "把一段 CompletableFuture 代码改写成 async / await",
+        "验证 Future.wait 默认等全部完成；接受 Future 不可取消",
+        "用 Stream 处理一串事件，体会它默认单订阅"
+      ],
+      "acceptance": [
+        "能说清 Dart 的库级私有与 Java 的类级可见性差别",
+        "能写出正确处理多播的 Stream 代码"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 类",
+          "url": "https://dart.dev/language/classes"
+        },
+        {
+          "label": "Dart 官方文档 · 异步",
+          "url": "https://dart.dev/libraries/async/async-await"
+        }
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "java2dart-4-isolates",
+      "order": 4,
+      "title": "并发：从线程到 isolate",
+      "durationHint": "2-3 天",
+      "todo": [
+        "用 `Isolate.run()` 跑一个计算密集任务",
+        "试着跨 isolate 传一个可变对象，理解它是拷贝而非共享",
+        "接受「没有锁、没有原子类型」：改成消息传递设计",
+        "对照本工具「语言机制」板块里 Dart 列的并发模型"
+      ],
+      "acceptance": [
+        "能说清 isolate 与 Java 线程 / 锁模型的根本差别",
+        "能把一个共享状态加锁的 Java 设计改写成消息传递式"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 并发",
+          "url": "https://dart.dev/language/concurrency"
+        }
+      ],
+      "baseline": "java",
+      "target": "dart"
+    },
+    {
+      "id": "java2dart-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 pub 管依赖，理解它与 Maven 的差别",
+        "用 dart analyze 与 dart test，注意断言默认关的影响",
+        "写一个 build_runner 的代码生成，理解为什么不用反射",
+        "对照本工具「工程实践」板块里 Dart 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖管理、analyze、测试的 Dart 工程",
+        "能说清 Dart 生态为什么偏好编译期代码生成而不是运行期反射"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 包与库",
+          "url": "https://dart.dev/tools/pub/packages"
+        },
+        {
+          "label": "Dart 官方文档（中文）",
+          "url": "https://dart.cn/"
+        }
+      ],
+      "baseline": "java",
+      "target": "dart"
+    }
+  ]
+}

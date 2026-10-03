@@ -1,0 +1,93 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 相等
+  aliases: [equality, equals]
+  perLanguage:
+    java: '`==` 比引用，`.equals()` 比内容；字符串必须用 equals'
+    kotlin: '`==` 就是 equals（内容），`===` 才是引用'
+  note: |
+    同一对符号含义正好相反，这是最容易出错的一处。
+    Kotlin 里日常比较一律 `==`，不用再写 `.equals()`。
+
+- term: 受检异常
+  aliases: [checked-exception, throws]
+  perLanguage:
+    java: 受检异常由编译器强制处理或声明 throws
+    kotlin: 完全没有受检异常；签名里没有 throws
+  note: |
+    Kotlin 方法抛出的异常，Java 调用方默认看不到 ——
+    要给 Java 用就得标 @Throws。跨语言边界时尤其要注意。
+
+- term: final
+  aliases: [final, open, inheritance]
+  perLanguage:
+    java: 类与方法默认开放，final 才封闭
+    kotlin: 类与成员默认 final，要 open 才能继承 / 覆写
+  note: |
+    默认值相反。Kotlin 的默认安全是有意的，逼你想清楚「这个类要不要被扩展」。
+
+- term: 静态成员
+  aliases: [static, companion, object]
+  perLanguage:
+    java: static 字段与方法，或单例模式
+    kotlin: 没有 static；用 companion object / object / 顶层函数
+  note: |
+    Kotlin 用三种结构替代 static：伴生对象（类内静态）、object（单例）、
+    顶层函数（无状态工具）。别找 static 关键字。
+
+- term: 集合
+  aliases: [collection, list, variance]
+  perLanguage:
+    java: Collection 体系；List 不变、通配符表达协变
+    kotlin: 拆成只读与可变两套接口；只读集合协变、可变集合不变
+  note: |
+    Kotlin 的 List 更像 Java 的 List<? extends T>（协变、只读）。
+    要可变就得用 MutableList，它是不可变的（不变型）。
+
+- term: 数值拓宽
+  aliases: [widening, number, int]
+  perLanguage:
+    java: int 自动提升为 long（隐式拓宽）
+    kotlin: 不隐式拓宽，赋值 / 传参要显式 toLong()；但混合运算允许
+  note: |
+    这处看起来矛盾：赋值不行、运算行。从 Java 过来常被绊一下。
+
+- term: 注解保留
+  aliases: [annotation, retention]
+  perLanguage:
+    java: '@Retention 默认 CLASS（编译期可见、运行期不可见）'
+    kotlin: '@Retention 默认运行期可见 —— 比 Java 更开放'
+  note: |
+    同一个注解默认值不同，会影响依赖运行期注解的框架行为。
+    需要与 Java 一致时显式写 BINARY。
+
+- term: 构造参数 / 属性
+  aliases: [constructor, property, field]
+  perLanguage:
+    java: 构造参数与字段是两回事，通常手动赋值
+    kotlin: 构造参数加 val / var 就直接成为属性；不加则只是参数
+  note: |
+    Kotlin 把「声明字段 + 构造函数赋值」合并成一句。
+    不加 val / var 的参数不是属性，只在 init 块与初始化器里可见。
+
+- term: 协程
+  aliases: [coroutine, thread, suspend]
+  perLanguage:
+    java: 线程是抢占式并行，靠 synchronized / 锁协调
+    kotlin: suspend 函数加结构化并发；协程可并行但不是默认，要显式选调度器
+  note: |
+    与 Java 的线程模型不同。结构化并发下子协程失败会取消父作用域，
+    共享状态用 Mutex / 原子类型而不是 synchronized。
+
+- term: 反射
+  aliases: [reflection, kclass]
+  perLanguage:
+    java: java.lang.reflect 是 JDK 内建
+    kotlin: 完整反射要额外加 kotlin-reflect 依赖
+  note: |
+    Kotlin 的反射是可选库：不加依赖编译能过、运行时才炸。
+    KClass 与 Class 要显式互转。

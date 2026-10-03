@@ -1,0 +1,215 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 Kotlin 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-java2kt-equality
+  featureId: express/equality
+  title: 两个等号的含义正好相反
+  symptom: |
+    Java 里 `==` 比引用、`.equals()` 比内容；到 Kotlin，`==` 反而**就是**
+    调 equals（结构相等），`===` 才是引用相等。沿用 Java 直觉写，结果会悄悄变。
+  cause: |
+    Kotlin 把 `==` 定义为调用 `equals`，`===` 是同一对象引用比较 ——
+    与 Java **恰好相反**。同一个符号在两个语言里含义相反，
+    是迁移时最容易做出错误判断的一处。
+  fix: |
+    记住口诀：要「值相等」用 `==`，要「同一个对象」用 `===`。
+    日常比较一律 `==`（不用再写 `.equals()`）。
+    可达性细节：可空数值会装箱，JVM 只缓存 -128..127，别依赖 `===` 的结果。
+  severity: 3
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [相等]
+
+- id: pitfall-java2kt-no-implicit-widening
+  featureId: express/arithmetic
+  title: 数值不隐式拓宽，但混合运算又允许
+  symptom: |
+    `val l: Long = someInt` 编译不过（要显式转换）；
+    但 `someInt + someLong` 却能编过，结果自动变成 Long。
+  cause: |
+    Java 会把 int 自动提升为 long；Kotlin **不做隐式数值拓宽**，
+    赋值 / 传参处必须显式转换。但**混合运算**允许，结果取更宽的那个 ——
+    这处看起来矛盾，是从 Java 过来的第一堵墙。
+  fix: |
+    赋值 / 传参显式转换：`someInt.toLong()`。
+    运算时可以直接混用（编译器取宽类型）。转换方法成体系：
+    `toInt()` / `toLong()` / `toDouble()` 等。
+  severity: 2
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-java2kt-no-checked-exceptions
+  featureId: model/throw-raise
+  title: 没有受检异常，给 Java 用时还要补 @Throws
+  symptom: |
+    方法签名里写 throws 没有意义；反过来，一个 Kotlin 方法抛出的异常
+    被 Java 调用时，编译器看不到它 —— 除非你标了 `@Throws`。
+  cause: |
+    Kotlin **没有受检异常**：签名里没有 throws，编译器不强制处理。
+    但 JVM 层面异常仍然存在，所以 Kotlin 方法要给 Java 用时，
+    得用 `@Throws(...)` 标注，才会出现在 Java 侧的 throws 列表里。
+  fix: |
+    Kotlin 内部按「运行时异常」的方式处理即可。
+    跨语言边界（写库给 Java 用）时标 `@Throws`。
+  severity: 2
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [异常]
+
+- id: pitfall-java2kt-final-by-default
+  featureId: model/inheritance
+  title: 类和成员默认是 final 的
+  symptom: |
+    Java 里随手继承、覆写很自然；Kotlin 里不写 `open` 默认不可继承 / 覆写。
+  cause: |
+    Java 的类与方法默认开放（除了 final 的）。Kotlin 反过来，默认 final，
+    要显式 open —— 这是刻意的设计（默认安全）。
+  fix: |
+    要能被继承的类标 `open class`，要能被覆写的方法标 `open fun`。
+    更好的做法是先问「真的需要继承吗」—— Kotlin 鼓励组合与接口。
+  severity: 2
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [类, 继承]
+
+- id: pitfall-java2kt-no-static-no-new
+  featureId: model/class-declaration
+  title: 没有 static，也没有 new
+  symptom: |
+    找 `static` 关键字找不到；写 `new Foo()` 报错（多余）。
+  cause: |
+    Kotlin 没有 `static`：静态成员用 **companion object**，单例用 `object`，
+    工具函数写成**顶层函数**。实例化也不用 `new` —— 直接 `Foo()`。
+  fix: |
+    静态常量 / 工厂方法放 `companion object`；单例用 `object Foo`；
+    无状态工具函数写成顶层函数。实例化写 `Foo()`。
+  severity: 2
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [类]
+
+- id: pitfall-java2kt-readonly-and-variance
+  featureId: express/mutability
+  title: val 只锁引用，只读集合还有型变规则
+  symptom: |
+    `val list = mutableListOf(1)` 之后还能 `list.add(2)`；
+    把 `List<String>` 当 `List<Any>` 用却可以（Java 里不行），而 `MutableList` 又不行。
+  cause: |
+    `val` 只锁引用不能重新指向，不锁对象内容。
+    而且 Kotlin 把集合拆成只读与可变两套接口：**只读集合协变、可变集合不变** ——
+    这正是「为什么必须拆成两个接口」的答案。
+  fix: |
+    要真正不可变用 `listOf(...)` 且不留可变引用；要可变用 `MutableList`。
+    传参时优先收只读类型（`List<T>`），把它当 Java 的 `Collection<? extends T>` 用。
+  severity: 2
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [集合, 型变]
+
+- id: pitfall-java2kt-block-body-return-type
+  featureId: express/function-declaration
+  title: 块体函数的返回类型不能省
+  symptom: |
+    `fun f() { return 1 }` 报错：需要显式返回类型；而 `fun f() = 1` 却不用写。
+  cause: |
+    Kotlin 只有表达式体函数（`= 表达式`）能推断返回类型；
+    块体函数（`{ ... }`）必须显式写出（返回 Unit 时可省）。
+  fix: |
+    简单的单表达式函数用表达式体；块体函数写 `fun f(): Int { ... }`。
+    这不是负担 —— 它让公开 API 的签名始终明确。
+  severity: 2
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [函数]
+
+- id: pitfall-java2kt-control-flow
+  featureId: express/conditionals
+  title: 没有三元运算符，没有 C 式 for，when 不贯穿
+  symptom: |
+    `cond ? a : b` 写不出来；`for (int i = 0; ...)` 也不行；
+    `when` 里以为像 switch 一样会贯穿，实际不会。
+  cause: |
+    Kotlin 没有三元运算符（用 `if (c) a else b`，if 本身是表达式）；
+    没有 C 式三段 for（用 `for (i in 0..<n)` 或 `repeat(n)`）；
+    `when` 不需要 break，也**不会贯穿**。
+    另外开区间现在写 `..<`（`until` 已不再被 ranges 文档化）。
+  fix: |
+    三元用 if-else 表达式；计数循环用 `for (i in 0..<n)` 或 `repeat(n) { i -> }`；
+    `when` 当成「更强更安全的 switch」，天然不贯穿。
+  severity: 2
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [控制流]
+
+- id: pitfall-java2kt-annotation-retention
+  featureId: mechanism/decorator-annotation
+  title: 注解的保留策略默认比 Java 更开放
+  symptom: |
+    从 Java 搬过来的注解，本来默认只在 class 文件里可见（RetentionPolicy.CLASS），
+    在 Kotlin 里却默认运行期也能读到。
+  cause: |
+    Java 的注解 `@Retention` 默认是 CLASS（编译期可见、运行期不可见）。
+    Kotlin 的 `@Retention` **默认就运行期可见**（官方原话是「两者都为真」）——
+    比 Java 的默认更开放。这会改变依赖运行期注解的框架行为。
+  fix: |
+    需要与 Java 一致的语义时，显式写 `@Retention(AnnotationRetention.BINARY)`。
+    用别人的注解框架时留意这个默认值差异。
+  severity: 1
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [注解]
+
+- id: pitfall-java2kt-constructor-params
+  featureId: model/constructor
+  title: 构造参数不带 val / var 就不是属性
+  symptom: |
+    `class User(name: String)` 里想在方法或 getter 中用 `name`，编译不过 ——
+    它不是属性，只是个构造参数。
+  cause: |
+    Kotlin 的主构造参数只有加了 `val` / `var` 才成为属性（并生成 getter / setter）。
+    不带修饰的参数只在 `init` 块与属性初始化器里可见。
+    这与 Java 的「构造参数赋值给字段」是两回事。
+  fix: |
+    要成为属性就写 `class User(val name: String)`；
+    只在构造期用一次的就保持不带修饰，放进 `init` 块里用。
+  severity: 2
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [类, 构造]
+
+- id: pitfall-java2kt-coroutines-not-parallel
+  featureId: mechanism/concurrency-unit
+  title: 协程不等于「默认并行」
+  symptom: |
+    以为 `launch { }` 开出来就并发跑了，实际它**继承外层调度器**，
+    在单线程环境里仍是一个个跑。
+  cause: |
+    Java 的线程是抢占式并行；Kotlin 的协程是可挂起的并发模型，
+    但默认调度器可能是单线程的（继承外层上下文）。
+    **协程可以并行，但不是默认** —— 要真并行得显式指定多线程调度器。
+  fix: |
+    计算密集任务显式切调度器：`launch(Dispatchers.Default) { ... }`。
+    理解结构化并发：子协程失败会取消父作用域。
+    线程间共享状态用 Mutex / 原子类型（Kotlin 有自己的并发工具）。
+  severity: 3
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [并发]
+
+- id: pitfall-java2kt-reflection-dependency
+  featureId: mechanism/reflection
+  title: 反射要额外加依赖
+  symptom: |
+    用 `::class` 做反射，运行时报缺类 —— 因为 `kotlin-reflect` 没加进依赖。
+  cause: |
+    Java 的反射（java.lang.reflect）是 JDK 内建。Kotlin 的完整反射能力
+    在一个**独立的库** `kotlin-reflect` 里，不加依赖编译能过、运行时才炸。
+  fix: |
+    需要完整反射就加 `kotlin-reflect` 依赖。
+    `KClass` 与 Java 的 `Class` 要显式互转（`KClass.java` / `Class.kotlin`）。
+    能在编译期解决的就别用反射。
+  severity: 1
+  languages: [java, kotlin]
+  fromBaseline: true
+  tags: [元编程]

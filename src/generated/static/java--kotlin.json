@@ -1,0 +1,519 @@
+{
+  "baseline": "java",
+  "target": "kotlin",
+  "pitfalls": [
+    {
+      "id": "pitfall-java2kt-coroutines-not-parallel",
+      "title": "协程不等于「默认并行」",
+      "symptomHtml": "<p>以为 <code>launch { }</code> 开出来就并发跑了，实际它<strong>继承外层调度器</strong>，\n在单线程环境里仍是一个个跑。</p>\n",
+      "causeHtml": "<p>Java 的线程是抢占式并行；Kotlin 的协程是可挂起的并发模型，\n但默认调度器可能是单线程的（继承外层上下文）。\n<strong>协程可以并行，但不是默认</strong> —— 要真并行得显式指定多线程调度器。</p>\n",
+      "fixHtml": "<p>计算密集任务显式切调度器：<code>launch(Dispatchers.Default) { ... }</code>。\n理解结构化并发：子协程失败会取消父作用域。\n线程间共享状态用 Mutex / 原子类型（Kotlin 有自己的并发工具）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-equality",
+      "title": "两个等号的含义正好相反",
+      "symptomHtml": "<p>Java 里 <code>==</code> 比引用、<code>.equals()</code> 比内容；到 Kotlin，<code>==</code> 反而<strong>就是</strong>\n调 equals（结构相等），<code>===</code> 才是引用相等。沿用 Java 直觉写，结果会悄悄变。</p>\n",
+      "causeHtml": "<p>Kotlin 把 <code>==</code> 定义为调用 <code>equals</code>，<code>===</code> 是同一对象引用比较 ——\n与 Java <strong>恰好相反</strong>。同一个符号在两个语言里含义相反，\n是迁移时最容易做出错误判断的一处。</p>\n",
+      "fixHtml": "<p>记住口诀：要「值相等」用 <code>==</code>，要「同一个对象」用 <code>===</code>。\n日常比较一律 <code>==</code>（不用再写 <code>.equals()</code>）。\n可达性细节：可空数值会装箱，JVM 只缓存 -128..127，别依赖 <code>===</code> 的结果。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/equality",
+      "tags": [
+        "相等"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-block-body-return-type",
+      "title": "块体函数的返回类型不能省",
+      "symptomHtml": "<p><code>fun f() { return 1 }</code> 报错：需要显式返回类型；而 <code>fun f() = 1</code> 却不用写。</p>\n",
+      "causeHtml": "<p>Kotlin 只有表达式体函数（<code>= 表达式</code>）能推断返回类型；\n块体函数（<code>{ ... }</code>）必须显式写出（返回 Unit 时可省）。</p>\n",
+      "fixHtml": "<p>简单的单表达式函数用表达式体；块体函数写 <code>fun f(): Int { ... }</code>。\n这不是负担 —— 它让公开 API 的签名始终明确。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/function-declaration",
+      "tags": [
+        "函数"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-constructor-params",
+      "title": "构造参数不带 val / var 就不是属性",
+      "symptomHtml": "<p><code>class User(name: String)</code> 里想在方法或 getter 中用 <code>name</code>，编译不过 ——\n它不是属性，只是个构造参数。</p>\n",
+      "causeHtml": "<p>Kotlin 的主构造参数只有加了 <code>val</code> / <code>var</code> 才成为属性（并生成 getter / setter）。\n不带修饰的参数只在 <code>init</code> 块与属性初始化器里可见。\n这与 Java 的「构造参数赋值给字段」是两回事。</p>\n",
+      "fixHtml": "<p>要成为属性就写 <code>class User(val name: String)</code>；\n只在构造期用一次的就保持不带修饰，放进 <code>init</code> 块里用。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/constructor",
+      "tags": [
+        "类",
+        "构造"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-control-flow",
+      "title": "没有三元运算符，没有 C 式 for，when 不贯穿",
+      "symptomHtml": "<p><code>cond ? a : b</code> 写不出来；<code>for (int i = 0; ...)</code> 也不行；\n<code>when</code> 里以为像 switch 一样会贯穿，实际不会。</p>\n",
+      "causeHtml": "<p>Kotlin 没有三元运算符（用 <code>if (c) a else b</code>，if 本身是表达式）；\n没有 C 式三段 for（用 <code>for (i in 0..&lt;n)</code> 或 <code>repeat(n)</code>）；\n<code>when</code> 不需要 break，也<strong>不会贯穿</strong>。\n另外开区间现在写 <code>..&lt;</code>（<code>until</code> 已不再被 ranges 文档化）。</p>\n",
+      "fixHtml": "<p>三元用 if-else 表达式；计数循环用 <code>for (i in 0..&lt;n)</code> 或 <code>repeat(n) { i -&gt; }</code>；\n<code>when</code> 当成「更强更安全的 switch」，天然不贯穿。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/conditionals",
+      "tags": [
+        "控制流"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-final-by-default",
+      "title": "类和成员默认是 final 的",
+      "symptomHtml": "<p>Java 里随手继承、覆写很自然；Kotlin 里不写 <code>open</code> 默认不可继承 / 覆写。</p>\n",
+      "causeHtml": "<p>Java 的类与方法默认开放（除了 final 的）。Kotlin 反过来，默认 final，\n要显式 open —— 这是刻意的设计（默认安全）。</p>\n",
+      "fixHtml": "<p>要能被继承的类标 <code>open class</code>，要能被覆写的方法标 <code>open fun</code>。\n更好的做法是先问「真的需要继承吗」—— Kotlin 鼓励组合与接口。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/inheritance",
+      "tags": [
+        "类",
+        "继承"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-no-checked-exceptions",
+      "title": "没有受检异常，给 Java 用时还要补 @Throws",
+      "symptomHtml": "<p>方法签名里写 throws 没有意义；反过来，一个 Kotlin 方法抛出的异常\n被 Java 调用时，编译器看不到它 —— 除非你标了 <code>@Throws</code>。</p>\n",
+      "causeHtml": "<p>Kotlin <strong>没有受检异常</strong>：签名里没有 throws，编译器不强制处理。\n但 JVM 层面异常仍然存在，所以 Kotlin 方法要给 Java 用时，\n得用 <code>@Throws(...)</code> 标注，才会出现在 Java 侧的 throws 列表里。</p>\n",
+      "fixHtml": "<p>Kotlin 内部按「运行时异常」的方式处理即可。\n跨语言边界（写库给 Java 用）时标 <code>@Throws</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/throw-raise",
+      "tags": [
+        "异常"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-no-implicit-widening",
+      "title": "数值不隐式拓宽，但混合运算又允许",
+      "symptomHtml": "<p><code>val l: Long = someInt</code> 编译不过（要显式转换）；\n但 <code>someInt + someLong</code> 却能编过，结果自动变成 Long。</p>\n",
+      "causeHtml": "<p>Java 会把 int 自动提升为 long；Kotlin <strong>不做隐式数值拓宽</strong>，\n赋值 / 传参处必须显式转换。但<strong>混合运算</strong>允许，结果取更宽的那个 ——\n这处看起来矛盾，是从 Java 过来的第一堵墙。</p>\n",
+      "fixHtml": "<p>赋值 / 传参显式转换：<code>someInt.toLong()</code>。\n运算时可以直接混用（编译器取宽类型）。转换方法成体系：\n<code>toInt()</code> / <code>toLong()</code> / <code>toDouble()</code> 等。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-no-static-no-new",
+      "title": "没有 static，也没有 new",
+      "symptomHtml": "<p>找 <code>static</code> 关键字找不到；写 <code>new Foo()</code> 报错（多余）。</p>\n",
+      "causeHtml": "<p>Kotlin 没有 <code>static</code>：静态成员用 <strong>companion object</strong>，单例用 <code>object</code>，\n工具函数写成<strong>顶层函数</strong>。实例化也不用 <code>new</code> —— 直接 <code>Foo()</code>。</p>\n",
+      "fixHtml": "<p>静态常量 / 工厂方法放 <code>companion object</code>；单例用 <code>object Foo</code>；\n无状态工具函数写成顶层函数。实例化写 <code>Foo()</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/class-declaration",
+      "tags": [
+        "类"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-readonly-and-variance",
+      "title": "val 只锁引用，只读集合还有型变规则",
+      "symptomHtml": "<p><code>val list = mutableListOf(1)</code> 之后还能 <code>list.add(2)</code>；\n把 <code>List&lt;String&gt;</code> 当 <code>List&lt;Any&gt;</code> 用却可以（Java 里不行），而 <code>MutableList</code> 又不行。</p>\n",
+      "causeHtml": "<p><code>val</code> 只锁引用不能重新指向，不锁对象内容。\n而且 Kotlin 把集合拆成只读与可变两套接口：<strong>只读集合协变、可变集合不变</strong> ——\n这正是「为什么必须拆成两个接口」的答案。</p>\n",
+      "fixHtml": "<p>要真正不可变用 <code>listOf(...)</code> 且不留可变引用；要可变用 <code>MutableList</code>。\n传参时优先收只读类型（<code>List&lt;T&gt;</code>），把它当 Java 的 <code>Collection&lt;? extends T&gt;</code> 用。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/mutability",
+      "tags": [
+        "集合",
+        "型变"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-annotation-retention",
+      "title": "注解的保留策略默认比 Java 更开放",
+      "symptomHtml": "<p>从 Java 搬过来的注解，本来默认只在 class 文件里可见（RetentionPolicy.CLASS），\n在 Kotlin 里却默认运行期也能读到。</p>\n",
+      "causeHtml": "<p>Java 的注解 <code>@Retention</code> 默认是 CLASS（编译期可见、运行期不可见）。\nKotlin 的 <code>@Retention</code> <strong>默认就运行期可见</strong>（官方原话是「两者都为真」）——\n比 Java 的默认更开放。这会改变依赖运行期注解的框架行为。</p>\n",
+      "fixHtml": "<p>需要与 Java 一致的语义时，显式写 <code>@Retention(AnnotationRetention.BINARY)</code>。\n用别人的注解框架时留意这个默认值差异。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/decorator-annotation",
+      "tags": [
+        "注解"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-java2kt-reflection-dependency",
+      "title": "反射要额外加依赖",
+      "symptomHtml": "<p>用 <code>::class</code> 做反射，运行时报缺类 —— 因为 <code>kotlin-reflect</code> 没加进依赖。</p>\n",
+      "causeHtml": "<p>Java 的反射（java.lang.reflect）是 JDK 内建。Kotlin 的完整反射能力\n在一个<strong>独立的库</strong> <code>kotlin-reflect</code> 里，不加依赖编译能过、运行时才炸。</p>\n",
+      "fixHtml": "<p>需要完整反射就加 <code>kotlin-reflect</code> 依赖。\n<code>KClass</code> 与 Java 的 <code>Class</code> 要显式互转（<code>KClass.java</code> / <code>Class.kotlin</code>）。\n能在编译期解决的就别用反射。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/reflection",
+      "tags": [
+        "元编程"
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "相等",
+      "aliases": [
+        "equality",
+        "equals"
+      ],
+      "perLanguage": {
+        "java": "`==` 比引用，`.equals()` 比内容；字符串必须用 equals",
+        "kotlin": "`==` 就是 equals（内容），`===` 才是引用"
+      },
+      "note": "同一对符号含义正好相反，这是最容易出错的一处。\nKotlin 里日常比较一律 `==`，不用再写 `.equals()`。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "受检异常",
+      "aliases": [
+        "checked-exception",
+        "throws"
+      ],
+      "perLanguage": {
+        "java": "受检异常由编译器强制处理或声明 throws",
+        "kotlin": "完全没有受检异常；签名里没有 throws"
+      },
+      "note": "Kotlin 方法抛出的异常，Java 调用方默认看不到 ——\n要给 Java 用就得标 @Throws。跨语言边界时尤其要注意。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "final",
+      "aliases": [
+        "final",
+        "open",
+        "inheritance"
+      ],
+      "perLanguage": {
+        "java": "类与方法默认开放，final 才封闭",
+        "kotlin": "类与成员默认 final，要 open 才能继承 / 覆写"
+      },
+      "note": "默认值相反。Kotlin 的默认安全是有意的，逼你想清楚「这个类要不要被扩展」。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "静态成员",
+      "aliases": [
+        "static",
+        "companion",
+        "object"
+      ],
+      "perLanguage": {
+        "java": "static 字段与方法，或单例模式",
+        "kotlin": "没有 static；用 companion object / object / 顶层函数"
+      },
+      "note": "Kotlin 用三种结构替代 static：伴生对象（类内静态）、object（单例）、\n顶层函数（无状态工具）。别找 static 关键字。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "集合",
+      "aliases": [
+        "collection",
+        "list",
+        "variance"
+      ],
+      "perLanguage": {
+        "java": "Collection 体系；List 不变、通配符表达协变",
+        "kotlin": "拆成只读与可变两套接口；只读集合协变、可变集合不变"
+      },
+      "note": "Kotlin 的 List 更像 Java 的 List<? extends T>（协变、只读）。\n要可变就得用 MutableList，它是不可变的（不变型）。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "数值拓宽",
+      "aliases": [
+        "widening",
+        "number",
+        "int"
+      ],
+      "perLanguage": {
+        "java": "int 自动提升为 long（隐式拓宽）",
+        "kotlin": "不隐式拓宽，赋值 / 传参要显式 toLong()；但混合运算允许"
+      },
+      "note": "这处看起来矛盾：赋值不行、运算行。从 Java 过来常被绊一下。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "注解保留",
+      "aliases": [
+        "annotation",
+        "retention"
+      ],
+      "perLanguage": {
+        "java": "@Retention 默认 CLASS（编译期可见、运行期不可见）",
+        "kotlin": "@Retention 默认运行期可见 —— 比 Java 更开放"
+      },
+      "note": "同一个注解默认值不同，会影响依赖运行期注解的框架行为。\n需要与 Java 一致时显式写 BINARY。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "构造参数 / 属性",
+      "aliases": [
+        "constructor",
+        "property",
+        "field"
+      ],
+      "perLanguage": {
+        "java": "构造参数与字段是两回事，通常手动赋值",
+        "kotlin": "构造参数加 val / var 就直接成为属性；不加则只是参数"
+      },
+      "note": "Kotlin 把「声明字段 + 构造函数赋值」合并成一句。\n不加 val / var 的参数不是属性，只在 init 块与初始化器里可见。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "协程",
+      "aliases": [
+        "coroutine",
+        "thread",
+        "suspend"
+      ],
+      "perLanguage": {
+        "java": "线程是抢占式并行，靠 synchronized / 锁协调",
+        "kotlin": "suspend 函数加结构化并发；协程可并行但不是默认，要显式选调度器"
+      },
+      "note": "与 Java 的线程模型不同。结构化并发下子协程失败会取消父作用域，\n共享状态用 Mutex / 原子类型而不是 synchronized。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "term": "反射",
+      "aliases": [
+        "reflection",
+        "kclass"
+      ],
+      "perLanguage": {
+        "java": "java.lang.reflect 是 JDK 内建",
+        "kotlin": "完整反射要额外加 kotlin-reflect 依赖"
+      },
+      "note": "Kotlin 的反射是可选库：不加依赖编译能过、运行时才炸。\nKClass 与 Class 要显式互转。\n",
+      "baseline": "java",
+      "target": "kotlin"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2kotlin-1-equality-and-syntax",
+      "order": 1,
+      "title": "从相等语义开始改直觉",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 JDK 与 Kotlin 命令行（或用 IntelliJ IDEA 建工程）",
+        "先把 `==` 与 `===` 的含义记住：与 Java 正好相反",
+        "写一段熟悉的 Java 逻辑用 Kotlin 重写，体会没有 new、没有 static、没有三元",
+        "对照本工具「语言机制」板块里 Kotlin 列的「静态 vs 动态」「类型标注」两格"
+      ],
+      "acceptance": [
+        "能一眼说出 `==` 在 Java 与 Kotlin 里各指什么",
+        "能不用 static / new / 三元运算符写出等价逻辑"
+      ],
+      "resources": [
+        {
+          "label": "Kotlin 官方文档（中文）",
+          "url": "https://book.kotlincn.net/"
+        },
+        {
+          "label": "Kotlin 官方文档 · 与 Java 互操作",
+          "url": "https://kotlinlang.org/docs/java-interop.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "java2kotlin-2-classes-and-null",
+      "order": 2,
+      "title": "类、属性与空安全",
+      "durationHint": "2-3 天",
+      "todo": [
+        "写几个类，体会默认 final、构造参数带 val / var 的区别",
+        "用 companion object / object / 顶层函数替代 static",
+        "把 null 的用法改成可空类型加判空（`String?` + ?. / ?:）",
+        "对照本工具「数据与抽象」板块里 Kotlin 列的类与属性"
+      ],
+      "acceptance": [
+        "能说清 Kotlin 的默认 final 与 Java 默认开放的设计取舍",
+        "能说清可空类型比 Java 的 @Nullable 强在哪里"
+      ],
+      "resources": [
+        {
+          "label": "Kotlin 官方文档 · 类与对象",
+          "url": "https://kotlinlang.org/docs/classes.html"
+        },
+        {
+          "label": "Kotlin 官方文档 · 空安全",
+          "url": "https://kotlinlang.org/docs/null-safety.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "java2kotlin-3-collections-and-functions",
+      "order": 3,
+      "title": "集合、函数与数值",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把 Java 的集合操作改写成 Kotlin 的扩展函数链（filter / map / groupBy）",
+        "体会只读集合的协变与 MutableList 的不变，理解与通配符的对应",
+        "检查数值代码：不隐式拓宽、显式转换、注意溢出",
+        "用表达式体与块体各写几个函数，注意返回类型规则"
+      ],
+      "acceptance": [
+        "能说清 Kotlin 的 List / MutableList 与 Java 通配符的对应关系",
+        "能独立把一段集合处理代码从 Java 风格改写为 Kotlin 风格"
+      ],
+      "resources": [
+        {
+          "label": "Kotlin 官方文档 · 集合",
+          "url": "https://kotlinlang.org/docs/collections-overview.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "java2kotlin-4-coroutines",
+      "order": 4,
+      "title": "协程与并发",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把一段 ExecutorService 的代码改写成协程",
+        "验证「协程默认不并行」：在 runBlocking 里 launch 几个任务看顺序",
+        "用 Dispatchers.Default 显式并行；用 Mutex 保护共享状态",
+        "理解结构化并发：子协程失败会取消父作用域"
+      ],
+      "acceptance": [
+        "能说清协程与线程 / ExecutorService 的异同",
+        "能用结构化并发表达「一组任务要么全成要么全败」"
+      ],
+      "resources": [
+        {
+          "label": "Kotlin 官方文档 · 协程",
+          "url": "https://kotlinlang.org/docs/coroutines-guide.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    },
+    {
+      "id": "java2kotlin-5-engineering",
+      "order": 5,
+      "title": "工程化与 Java 互操作",
+      "durationHint": "1 周",
+      "todo": [
+        "用 Gradle 管一个 Kotlin 工程，理解它与 Maven 的差别",
+        "写一个 Kotlin 类被 Java 调用，注意 @Throws 与默认 final 的影响",
+        "处理一次 Java 与 Kotlin 混编的编译顺序问题",
+        "对照本工具「工程实践」板块里 Kotlin 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个 Kotlin + Gradle 工程",
+        "能说清 Kotlin 与 Java 互操作时的几处边界（异常、可空性、默认参数）"
+      ],
+      "resources": [
+        {
+          "label": "Gradle 官方文档",
+          "url": "https://docs.gradle.org/current/userguide/userguide.html"
+        },
+        {
+          "label": "Kotlin 官方文档 · 与 Java 互操作",
+          "url": "https://kotlinlang.org/docs/java-interop.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "kotlin"
+    }
+  ]
+}

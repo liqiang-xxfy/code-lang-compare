@@ -1,0 +1,210 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 Dart 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-py2dart-integer-division
+  featureId: express/arithmetic
+  title: 整除运算符换了，负数的取整方向也不同
+  symptom: |
+    Python 的 `//` 到 Dart 变成 `~/`（直接搬 `//` 会被当注释）。
+    更隐蔽的是负数：Python 的 `-7 // 2` 是 **-4**（向下取整），
+    Dart 的 `-7 ~/ 2` 是 **-3**（向零取整）。
+  cause: |
+    Dart 的整除 `~/` 是**向零取整**（truncate），Python 的 `//` 是**向下取整**（floor）。
+    正数时两者一致，负数时会差一。取模两边都保证非负（`-7 % 3` 都是 2），
+    这一处反倒不用改。
+  fix: |
+    `//` 换成 `~/`；负数整除的语义要单独确认（需要 floor 就自己调整）。
+    除号 `/` 两边都给浮点，这点一致。
+  severity: 2
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [数值, 运算符]
+
+- id: pitfall-py2dart-static-types
+  featureId: mechanism/static-vs-dynamic
+  title: 静态类型，且 int 与 double 分开
+  symptom: |
+    Python 的变量随时能换类型、函数参数不写类型；Dart 处处要类型，
+    而且 int 与 double 是两个类型。
+  cause: |
+    Python 是动态类型（类型跟着值走），Dart 是静态类型（编译期确定）。
+    Dart 还有 int / double 的区分。空安全也默认开启：可能为空的值必须标 `?`。
+  fix: |
+    写类型标注；用 `var` / `final` 让编译器推断局部变量。
+    数值运算注意 int / double 的转换（`.toDouble()` / `.toInt()`）。
+  severity: 3
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-py2dart-const-final
+  featureId: express/mutability
+  title: 多了 const 与 final 的区分
+  symptom: |
+    Python 没有「不可重新赋值」的变量，到 Dart 要选 const 还是 final，容易混。
+  cause: |
+    Dart 里 final 是「只能赋值一次」（运行期确定即可），
+    const 是「编译期常量」（值必须在编译期算出，且深度冻结）。
+    Python 没有任何对应物 —— 这是要新学的一对概念。
+  fix: |
+    默认用 final（只赋一次值）；能确定是编译期常量的才用 const。
+    类里的常量字段用 `static const`。
+  severity: 2
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [不可变]
+
+- id: pitfall-py2dart-no-comprehension
+  featureId: model/comprehension
+  title: 没有推导式
+  symptom: |
+    `[x*2 for x in xs if x > 0]` 写不出来，得换成 where / map。
+  cause: |
+    Dart 没有推导式语法，对应的是集合的 `where` / `map` / `whereType` 等方法。
+    注意 Dart 用 `where` 而不是 `filter`（与 JS / Kotlin 的命名不同）。
+  fix: |
+    `xs.where((x) => x > 0).map((x) => x * 2)`。
+    要得到 List 就 `.toList()` —— 这些操作返回的是惰性的 Iterable。
+  severity: 2
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [集合]
+
+- id: pitfall-py2dart-isolate
+  featureId: mechanism/concurrency-unit
+  title: isolate 内存隔离，不是线程也不是进程
+  symptom: |
+    用 Python 的 threading / multiprocessing 直觉去想并发，
+    Dart 里既没有共享内存的线程，也没有进程，而是 isolate 加消息传递。
+  cause: |
+    Python 的多线程受 GIL 限制、多进程复制内存。
+    Dart 的 isolate 各自有独立内存与独立事件循环，**不共享可变状态**，
+    所以没有锁、没有原子类型 —— 通信靠消息传递。
+  fix: |
+    计算密集任务用 `Isolate.run()` 或 `compute()`。
+    设计成消息传递式，别指望共享状态。
+  severity: 3
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [并发]
+
+- id: pitfall-py2dart-future-cancel
+  featureId: mechanism/cancellation
+  title: Future 不能取消，而 asyncio 的 Task 可以
+  symptom: |
+    习惯 Python 的 `task.cancel()`，到 Dart 发现 Future 根本没有 cancel 方法。
+  cause: |
+    Python 的 asyncio.Task 有 cancel()（抛 CancelledError 协作取消）。
+    Dart 的 Future **一旦启动就无法取消** —— dart:async 里没有这个能力。
+    能真正取消的只有 `StreamSubscription.cancel()`。
+  fix: |
+    需要可取消的长任务，用 Stream 并持有 Subscription；
+    或者自己设计「检查取消标志」的轮询式取消。别指望 Future 能停。
+  severity: 3
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [异步]
+
+- id: pitfall-py2dart-future-wait
+  featureId: mechanism/promise-future
+  title: Future.wait 与 asyncio.gather 的失败时机相反
+  symptom: |
+    用 `asyncio.gather` 的直觉以为「一出错就抛」，
+    Dart 的 `Future.wait` 默认会**等所有任务都完成**才报第一个错误。
+  cause: |
+    `asyncio.gather` 默认一有异常就立刻抛出（其余任务不被取消）。
+    Dart 的 `Future.wait` 默认**不是 eager** 的：所有任务跑完才抛第一个错误。
+    两者行为正好相反。
+  fix: |
+    要快速失败就写 `Future.wait([...], eagerError: true)`。
+    默认行为（等全部完成）在「要收齐所有结果」的场景反而合适。
+  severity: 3
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [异步]
+
+- id: pitfall-py2dart-stream
+  featureId: mechanism/async-await
+  title: 异步序列是内建的 Stream，且默认单订阅
+  symptom: |
+    Python 用 async generator 表达异步序列，Dart 用 Stream；
+    而且 Stream 默认只能被监听一次。
+  cause: |
+    Dart 把 Stream 做成了标准库的核心抽象，默认**单订阅**。
+    与 Python 的 async generator（每次调用得到新迭代器）不同，
+    Stream 是一次性的，多播要显式转广播流。
+  fix: |
+    多播用 `.asBroadcastStream()` 或 `StreamController.broadcast()`。
+    Stream 也是能真正取消的那个（StreamSubscription.cancel）。
+  severity: 2
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [异步, 流]
+
+- id: pitfall-py2dart-no-varargs
+  featureId: express/variadic
+  title: 没有可变参数，也没有参数化测试
+  symptom: |
+    Python 的 `*args` 到 Dart 没有对应物；
+    pytest 那种 `@pytest.mark.parametrize` 在 Dart 测试里也没有。
+  cause: |
+    Dart 不支持可变参数，也不支持参数化测试 —— 这两项三个基准语言都有而它没有。
+    要收不定长参数只能显式传 List。
+  fix: |
+    参数定义成 `List<T>` 显式传。
+    参数化测试用循环生成多个 test 调用，或引入第三方包。
+  severity: 2
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [函数]
+
+- id: pitfall-py2dart-generics
+  featureId: mechanism/variance
+  title: 泛型协变且具体化
+  symptom: |
+    `List<int>` 能当 `List<num>` 用，`x is List<int>` 运行期也能判断 ——
+    而 Python 的 typing 是擦除的，`isinstance(x, list[int])` 根本不行。
+  cause: |
+    Dart 的泛型**具体化**（类型参数运行期保留）且**协变**。
+    Python 的泛型是擦除的（运行期拿不到类型参数），且不变。
+    协变的代价：往 List<num> 里塞 double 会在运行期抛 TypeError。
+  fix: |
+    只读容器用协变安全；要写入就声明可变的具体类型。
+    `x is List<int>` 这类检查是 Dart 特有的，可以放心用。
+  severity: 2
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [泛型, 型变]
+
+- id: pitfall-py2dart-assert-disabled
+  featureId: practice/assertions
+  title: 断言默认是关的
+  symptom: |
+    Python 的 assert 默认生效（-O 才关），Dart 的 assert 默认**关闭**，
+    发布构建里被整个忽略。
+  cause: |
+    两边默认值相反：Python 的断言默认开着，Dart 的断言默认关着
+    （`--enable-asserts` 或 debug 模式才生效）。
+  fix: |
+    运行时必须生效的校验用显式抛错：`if (x < 0) throw ArgumentError(...)`。
+    assert 只用于开发期自检。
+  severity: 1
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [测试, 断言]
+
+- id: pitfall-py2dart-null-safety
+  featureId: mechanism/null-safety
+  title: 空安全默认开启
+  symptom: |
+    Python 的 None 随手传，Dart 里可能为空的值不判空就编译不过。
+  cause: |
+    Dart 的空安全是**健全**的：非空类型保证真的不会为 null，
+    可能为空的值要标 `?`。Python 没有这层检查，None 出错在运行时。
+  fix: |
+    可能为空就标 `?`，用 `?.` / `??` / `if (x != null)` 处理。
+    这是从 Python 过来明显更省心的一块。
+  severity: 3
+  languages: [python, dart]
+  fromBaseline: true
+  tags: [空值]

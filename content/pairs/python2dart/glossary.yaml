@@ -1,0 +1,93 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 类型
+  aliases: [type, int, double]
+  perLanguage:
+    python: 跟着值走，运行时确定；int 与 float 动态区分
+    dart: 编译期写死；int 与 double 是两个静态类型
+  note: |
+    Python 的类型是运行时属性，Dart 是编译期义务。
+    加上空安全默认开启，Dart 逼你在写的时候就交代清楚。
+
+- term: 空值
+  aliases: [none, null-safety, nullable]
+  perLanguage:
+    python: None 对任何类型通用，出错在运行时
+    dart: 空安全默认开启（健全空安全），可能为空的值要标 `?`
+  note: |
+    Dart 的空安全是健全的：非空类型保证真的不会是 null。
+    这比 Python 的运行时 AttributeError 强得多。
+
+- term: const / final
+  aliases: [const, final]
+  perLanguage:
+    python: 没有不可重新赋值的变量概念（约定用大写常量名）
+    dart: final 只赋一次值；const 是编译期常量且深度冻结
+  note: |
+    Python 靠命名约定表示常量，Dart 靠关键字真的锁住。
+    const 要求值在编译期算出，final 运行期确定即可。
+
+- term: 推导式
+  aliases: [comprehension, where, map]
+  perLanguage:
+    python: 推导式语法，一行搞定过滤加映射
+    dart: 没有推导式；用 where / map / whereType 链式组合
+  note: |
+    注意 Dart 用 where 而不是 filter。这些操作返回惰性 Iterable，
+    要 List 得 .toList()。
+
+- term: 并发
+  aliases: [isolate, thread, gil]
+  perLanguage:
+    python: 多线程受 GIL 限制，多进程复制内存，asyncio 单线程事件循环
+    dart: isolate 内存隔离，不共享可变状态，靠消息传递
+  note: |
+    Dart 的并发单元是 isolate（独立内存加独立事件循环）。
+    因为没有共享状态，锁与原子类型这整套概念失去了对象。
+
+- term: 异步
+  aliases: [future, asyncio, await]
+  perLanguage:
+    python: asyncio；Task 可 cancel；gather 默认一出错就抛
+    dart: Future 不可取消；Future.wait 默认等全部完成才报错
+  note: |
+    两处关键差别：取消能力（Python 有、Dart 没有）、
+    并发失败的时机（正好相反）。
+
+- term: 异步序列
+  aliases: [stream, async-generator]
+  perLanguage:
+    python: async generator（async for / yield）
+    dart: Stream，标准库核心抽象，默认单订阅
+  note: |
+    Python 的 async generator 每次调用得到新迭代器；
+    Dart 的 Stream 是一次性的，多播要显式转广播流。
+
+- term: 泛型
+  aliases: [generic, typing, variance]
+  perLanguage:
+    python: typing 是擦除的，运行期拿不到类型参数；不变
+    dart: 具体化（运行期保留类型参数）且协变
+  note: |
+    Dart 的 `x is List<int>` 能跑，Python 的 isinstance 判不了泛型参数。
+    协变的代价是运行期可能的类型错误。
+
+- term: 断言
+  aliases: [assert]
+  perLanguage:
+    python: assert 默认生效，-O 优化模式才被剥掉
+    dart: assert 默认关闭，--enable-asserts 或 debug 才生效
+  note: |
+    默认值正好相反。别用 Dart 的 assert 做生产校验 —— 发布时它不存在。
+
+- term: 可变参数
+  aliases: [vararg, args, kwargs]
+  perLanguage:
+    python: '*args 与 **kwargs，后者能收任意关键字参数'
+    dart: 完全不支持可变参数，只能显式传 List
+  note: |
+    静态语言里参数要写全。Python 那种「收任意关键字」的自由在 Dart 里没有。

@@ -1,0 +1,93 @@
+# 速语词典 —— 从 JavaScript 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 相等
+  aliases: [equality, equals]
+  perLanguage:
+    javascript: '`===` 严格比较（不做转换），`==` 宽松比较（做转换）'
+    kotlin: '`==` 是结构相等（调 equals），`===` 才是引用相等'
+  note: |
+    同一对符号，含义正好相反。从 JS 过来要重建直觉：
+    Kotlin 里日常用 `==`，`===` 只在判「同一个实例」时用。
+
+- term: val / var
+  aliases: [val, var, const]
+  perLanguage:
+    javascript: const 锁绑定（不能重新赋值），let 可重新赋值
+    kotlin: val 对应 const（只锁引用），var 对应 let；集合内容是否可变另说
+  note: |
+    val 不等于「不可变对象」，只是「引用不再变」—— 与 JS 的 const 一个道理。
+    但 Kotlin 还多一层：只读集合 List 只是视图，不是不可变。
+
+- term: 空安全
+  aliases: [null-safety, nullable]
+  perLanguage:
+    javascript: null / undefined 对任何类型通用，出错在运行时
+    kotlin: '可空性编进类型：`String` 与 `String?` 不同，不判空编译不过'
+  note: |
+    Kotlin 把「可能为空」变成类型的一部分。这是从 JS 过来最明显的安全感提升，
+    也是要重新适应的写法（?. / ?: / !!）。
+
+- term: 类
+  aliases: [class, open, final]
+  perLanguage:
+    javascript: 类默认开放，谁都能继承、覆写
+    kotlin: 类与成员默认 final，要 open 才能继承 / 覆写
+  note: |
+    默认值相反。Kotlin 的默认安全是有意的，逼你想清楚「这个类要不要被扩展」。
+
+- term: 静态成员
+  aliases: [static, companion, object]
+  perLanguage:
+    javascript: 用 static 关键字，或在模块顶层导出
+    kotlin: 没有 static；用 companion object / object / 顶层函数三种替代
+  note: |
+    Kotlin 用三种结构替代 static：伴生对象（类内静态）、object（单例）、
+    顶层函数（无状态工具）。别找 static 关键字，它不存在。
+
+- term: 协程
+  aliases: [coroutine, suspend]
+  perLanguage:
+    javascript: Promise / async-await，单线程事件循环
+    kotlin: suspend 函数加结构化并发；可并行但不是默认，要显式选调度器
+  note: |
+    最大的差别是结构化并发：子协程失败会取消父作用域。
+    而 JS 的 Promise 是「发起后自生自灭」。别把两者当成同一回事。
+
+- term: 变长参数
+  aliases: [vararg, rest]
+  perLanguage:
+    javascript: rest 参数（...args）天然是数组
+    kotlin: vararg 在函数体里是 IntArray 或 Array<out T>，要 toList 才是列表
+  note: |
+    同样收变长参数，Kotlin 的数组类型更细（基本类型 vs 引用类型）。
+    展开传出去用 `*nums`。
+
+- term: 只读集合
+  aliases: [list, readonly]
+  perLanguage:
+    javascript: 数组、Set、Map 都是可变的
+    kotlin: List / Set / Map 是只读接口，不是不可变实现
+  note: |
+    只读集合只是「没有修改方法」的视图，底层可能仍是可变的。
+    只读集合协变、可变集合不变 —— 这正是为什么要拆成两个接口。
+
+- term: when
+  aliases: [when, switch]
+  perLanguage:
+    javascript: switch 需要 break，否则贯穿
+    kotlin: when 不需要 break，也不贯穿；还能当表达式用
+  note: |
+    when 是「更强更安全的 switch」：默认不贯穿、能返回值、能匹配类型与范围。
+
+- term: 反射
+  aliases: [reflection, kclass]
+  perLanguage:
+    javascript: Reflect / Proxy 等是语言内建
+    kotlin: 完整反射要额外加 kotlin-reflect 依赖
+  note: |
+    Kotlin 的反射是可选库：不加依赖编译能过、运行时才炸。
+    这与 JS 的内建反射不同。

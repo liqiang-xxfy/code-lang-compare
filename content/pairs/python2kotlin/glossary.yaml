@@ -1,0 +1,93 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 类型
+  aliases: [type]
+  perLanguage:
+    python: 跟着值走，运行时确定；吃鸭子类型（有方法就算数）
+    kotlin: 编译期写死，且是名义类型 —— 要「是」某接口必须显式实现
+  note: |
+    Python 的 Protocol 是结构化的，Kotlin 的 interface 是名义的。
+    这点常被忽略：在 Kotlin 里「长得像」不算，得真的 implements。
+
+- term: 空值
+  aliases: [none, null-safety, nullable]
+  perLanguage:
+    python: None 对任何类型通用，出错在运行时
+    kotlin: '可空性编进类型：`String` 与 `String?` 不同，不判空编译不过'
+  note: |
+    Kotlin 把「可能为空」变成类型的一部分。这是从 Python 过来最明显的安全感提升，
+    写法是 ?. / ?: / !!（最后一个慎用）。
+
+- term: val / 只读集合
+  aliases: [val, readonly, immutable]
+  perLanguage:
+    python: tuple 真不可变、list 可变，边界清楚
+    kotlin: val 只锁引用；List 是只读接口，底层可能仍可变
+  note: |
+    Kotlin 的「只读」比 Python 的「不可变」弱：只读集合可能被别的可变引用改。
+    要真不可变得用不可变实现，并且不留可变引用。
+
+- term: 类
+  aliases: [class, open, final]
+  perLanguage:
+    python: 类默认开放，任何方法都能覆写
+    kotlin: 类与成员默认 final，要 open 才能继承 / 覆写
+  note: |
+    默认值相反。Kotlin 逼你想清楚「这个类要不要被扩展」。
+
+- term: 推导式
+  aliases: [comprehension, filter, map]
+  perLanguage:
+    python: 推导式语法，一行搞定过滤加映射
+    kotlin: 没有推导式，用 filter / map / associate 等扩展函数链式组合
+  note: |
+    语义接近，写法是链式。注意 List 上的操作立即求值，Sequence 才惰性 ——
+    与 Python 生成器那种「天然惰性」的直觉不同。
+
+- term: 可变参数
+  aliases: [vararg, kwargs, args]
+  perLanguage:
+    python: '*args 与 **kwargs，后者能收任意关键字参数'
+    kotlin: 只有 vararg（对应 *args），函数体里是数组；没有 **kwargs
+  note: |
+    静态语言里参数要写全，所以没有「任意关键字」那种自由。
+    需要它就用 Map<String, Any> 显式表达。
+
+- term: 模式匹配
+  aliases: [match, when]
+  perLanguage:
+    python: match / case，每个 case 不贯穿
+    kotlin: when，不需要 break、不贯穿、能当表达式返回值
+  note: |
+    两者都不贯穿，这点一致。when 还能匹配类型与范围，用起来比 match 更顺。
+
+- term: 协程
+  aliases: [coroutine, asyncio, suspend]
+  perLanguage:
+    python: asyncio 单线程事件循环；任务自生自灭
+    kotlin: suspend 函数 + 结构化并发；可并行但默认不并行，要显式选调度器
+  note: |
+    最大的差别是结构化并发：子协程失败会取消父作用域。
+    而 asyncio 的任务默认是独立的。别把两者当成同一回事。
+
+- term: 数值
+  aliases: [int, float, number]
+  perLanguage:
+    python: int 任意精度，int 与 float 自由混合
+    kotlin: Int / Long / Double 等固定宽度，不隐式拓宽，会溢出回绕
+  note: |
+    Kotlin 没有任意精度整数（要 BigInteger），这是与 Python 最根本的数值差别。
+    大数运算、金额计算要特别小心。
+
+- term: 静态成员
+  aliases: [static, companion, object]
+  perLanguage:
+    python: 用类属性、@staticmethod / @classmethod，或模块级函数
+    kotlin: 没有 static；用 companion object / object / 顶层函数
+  note: |
+    Python 的模块级函数在 Kotlin 里对应顶层函数，概念上接近。
+    「单例」用 object 关键字直接表达。

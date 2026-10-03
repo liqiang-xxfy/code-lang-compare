@@ -1,0 +1,203 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 Dart 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-java2dart-modulo
+  featureId: express/arithmetic
+  title: 取模永远非负，整除要另写
+  symptom: |
+    Java 的 `-7 % 3` 是 **-1**（保留符号），Dart 里是 **2**（永远非负）。
+    而且整除不能写 `/` —— Dart 的 `/` 永远给 double。
+  cause: |
+    Dart 的 `%` 保证结果非负（要带符号余数用 `remainder()`）。
+    Java 的 `%` 保留被除数的符号 —— 两边对负数给出不同的数，且不报错。
+    Dart 的 `/` 是浮点除法，整除写 `~/`。
+  fix: |
+    取模若依赖「与 Java 同样的符号」，改用 `a.remainder(b)`；整除用 `~/`。
+    涉及负数取模的代码要写测试比对。
+  severity: 3
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [数值, 运算符]
+
+- id: pitfall-java2dart-generics
+  featureId: mechanism/variance
+  title: 泛型两轴都与 Java 相反
+  symptom: |
+    Java 是「不变 + 擦除」，Dart 是**协变 + 具体化**：
+    `List<int>` 能当 `List<num>` 用，`x is List<int>` 运行期也能判断。
+  cause: |
+    Java 的泛型擦除（运行期拿不到类型参数）、且不变（要通配符表达协变）。
+    Dart 反过来，类型参数在运行期保留。协变的代价是
+    `List<num> xs = <int>[1]; xs.add(1.5);` 编译通过、运行期抛 TypeError ——
+    更像 Java 的**数组协变**。另外 Dart **没有下界**（没有 `? super T`）。
+  fix: |
+    只读容器用协变是安全的；要写入就声明可变的具体类型。
+    需要「下界」的场景要换设计（Dart 不支持 `? super T`）。
+  severity: 3
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [泛型, 型变]
+
+- id: pitfall-java2dart-switch-no-break
+  featureId: express/conditionals
+  title: switch 不需要 break，也不贯穿
+  symptom: |
+    从 Java 带过来写 switch 都会加 break；Dart 里非空分支**不需要 break**，
+    也**不会贯穿** —— 只有空的 case 会落下。
+  cause: |
+    Dart 的 switch 与 C / Java 的贯穿语义相反：非空分支自动结束。
+    多 case 共享逻辑时把 case 留空即可。
+  fix: |
+    非空分支直接写代码，不用 break。注意 Dart 3 起 switch 还能当表达式用。
+  severity: 2
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [控制流]
+
+- id: pitfall-java2dart-const-final
+  featureId: express/mutability
+  title: const 是编译期常量，final 才是「只赋一次」
+  symptom: |
+    Java 的 final 字段可以运行期赋值（构造函数里），直译成 Dart 的 const 会报错。
+  cause: |
+    Dart 把两者分得很清：final 是「只能赋值一次」（运行期确定即可），
+    const 是「编译期常量」（值必须在编译期算出，且深度冻结）。
+    Java 的 final 对应 Dart 的 final，不是 const。
+  fix: |
+    对应 Java final 的用 `final`；要真正编译期常量、且值得共享的才用 `const`。
+    类常量用 `static const`。
+  severity: 2
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [不可变]
+
+- id: pitfall-java2dart-isolate
+  featureId: mechanism/concurrency-unit
+  title: isolate 内存隔离 —— 没有锁，也没有原子类型
+  symptom: |
+    想用 synchronized 或 AtomicInteger 保护共享状态，
+    发现 Dart 里既没有锁也没有原子类型；跨 isolate 传对象要拷贝。
+  cause: |
+    Java 的并发是共享内存加锁。Dart 的并发单元是 **isolate**，各自有独立内存，
+    **不共享可变状态** —— 所以锁与原子类型**失去了对象**。
+    通信靠消息传递：不可变对象会被共享，其余传递式拷贝。
+  fix: |
+    设计成消息传递式；计算密集任务用 `Isolate.run()` 或 `compute()`。
+    别找 synchronized / Atomic —— 它们在这门语言里没有对应物。
+  severity: 3
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [并发]
+
+- id: pitfall-java2dart-future-cancel
+  featureId: mechanism/cancellation
+  title: Future 不能取消
+  symptom: |
+    习惯 Java 的 Future.cancel()，到 Dart 发现 Future 根本没有 cancel 方法。
+  cause: |
+    Java 的 Future / CompletableFuture 有取消能力（配合线程中断）。
+    Dart 的 Future 一旦启动就无法取消。能真正取消的只有 `StreamSubscription.cancel()`。
+  fix: |
+    需要可取消的长任务，用 Stream 并持有 Subscription，或自己设计取消标志。
+  severity: 2
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [异步]
+
+- id: pitfall-java2dart-privacy
+  featureId: model/access-control
+  title: 下划线是库级私有，不是类级
+  symptom: |
+    以为 `_foo` 是「这个类私有」，结果同库的其它类照样能访问。
+  cause: |
+    Dart 没有 private / protected 关键字，用下划线前缀表示**库级私有**
+    （同一个库里可见，跨库不可见）—— 不是类级。
+    而且私有成员在同库内属于隐式接口（同库 implements 必须实现它）。
+  fix: |
+    用 `_` 前缀表达「库内可见」。需要跨文件共享但不想公开的部分，
+    拆成同一个库的多个文件（用 `part`）；跨库隐藏靠库的边界划分。
+  severity: 2
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [可见性]
+
+- id: pitfall-java2dart-no-varargs
+  featureId: express/variadic
+  title: 没有可变参数
+  symptom: |
+    Java 的 `void f(int... xs)` 到 Dart 没有对应物。
+  cause: |
+    Dart 不支持可变参数。要收不定长参数只能显式传一个 List。
+  fix: |
+    定义成 `void f(List<int> xs)`。
+    展开运算符 `...` 是集合展开，不是参数展开。
+  severity: 2
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [函数]
+
+- id: pitfall-java2dart-iterator-protocol
+  featureId: express/iteration-protocol
+  title: 迭代器协议不一样
+  symptom: |
+    Java 的 Iterator 是 hasNext() + next()，Dart 是 moveNext() + current。
+  cause: |
+    Dart 的迭代器用 `moveNext()` 移动并把结果放进 `current` 属性 ——
+    要先 moveNext() 再读 current。Java 是先 hasNext() 判断、再 next() 取值。
+  fix: |
+    自己实现 Iterable 时注意这个协议差别。日常用 for-in 就好，不必手写迭代器。
+  severity: 2
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [迭代]
+
+- id: pitfall-java2dart-exceptions
+  featureId: model/throw-raise
+  title: 没有受检异常
+  symptom: |
+    方法签名里写 throws 没有意义；编译器不强制处理任何异常。
+  cause: |
+    Java 有受检异常（编译器强制处理或声明）。Dart 完全没有这层 ——
+    任何方法都可能抛，签名里也不表达。
+  fix: |
+    自己 throw 时抛明确类型（ArgumentError / StateError / 自定义 Exception）。
+    Dart 的 catch 是 `on SomeException catch (e)`，可按类型分支，
+    比 Java 更接近 Python 的 except。
+  severity: 2
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [异常]
+
+- id: pitfall-java2dart-assert-disabled
+  featureId: practice/assertions
+  title: 断言默认是关的
+  symptom: |
+    Java 的 assert 默认关着（要 -ea），Dart 同样默认关，
+    容易以为它一直生效。
+  cause: |
+    两边默认都关 —— Java 要 `-ea`，Dart 要 `--enable-asserts` 或 debug 模式。
+    发布构建里 assert 语句被整个忽略。
+  fix: |
+    运行时必须生效的校验用显式抛错（`throw ArgumentError(...)`），
+    与 Java 里抛 IllegalArgumentException 的写法等价。
+  severity: 1
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [测试, 断言]
+
+- id: pitfall-java2dart-mirrors
+  featureId: mechanism/reflection
+  title: 反射只在 Native 的 JIT 上有
+  symptom: |
+    Java 的反射到处能用，Dart 的 `dart:mirrors` 在 Flutter / AOT / web 上都用不了。
+  cause: |
+    `dart:mirrors` 只在 Native 的 JIT 上可用（且是 Experimental），
+    Flutter、AOT 编译、web 都不支持。
+    这是 Dart 生态靠 `build_runner` 做编译期代码生成的原因。
+  fix: |
+    需要「按名字操作」时用 build_runner 之类的代码生成，把反射需求前移到编译期。
+    这与 Java 反射的可用性差别很大。
+  severity: 2
+  languages: [java, dart]
+  fromBaseline: true
+  tags: [元编程]

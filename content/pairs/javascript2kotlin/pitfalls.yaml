@@ -1,0 +1,222 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 Kotlin 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-js2kt-equality
+  featureId: express/equality
+  title: 两个等号的含义整个反过来了
+  symptom: |
+    JS 里 `===` 是严格比较、`==` 是宽松比较；到 Kotlin，`==` 反而是**结构相等**
+    （调用 equals），`===` 才是引用相等。沿用 JS 直觉写，判断结果会悄悄变。
+  cause: |
+    Kotlin 把 `==` 定义为调用 `equals`（值 / 结构比较），`===` 是同一对象引用比较。
+    JS 那边正相反：`===` 不做类型转换、`==` 才做。
+    同一个符号在两门语言里分量完全不同，这是迁移时最容易做出错误判断的一处。
+  fix: |
+    记住 Kotlin 的口诀：要「值相等」用 `==`，要「同一个对象」用 `===`。
+    基本类型 / 字符串用 `==`；只有确实要判「是不是同一个实例」时才用 `===`。
+    Kotlin 的 `==` 还能正确处理 null（`null == null` 为 true）。
+  severity: 3
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [相等]
+
+- id: pitfall-js2kt-null-safety
+  featureId: mechanism/null-safety
+  title: 空安全写进类型里，不处理就编译不过
+  symptom: |
+    一个可能为 null 的值直接调用方法，Kotlin 编译期报错；
+    得写成 `String?` 并显式处理，不能像 JS 那样随手用。
+  cause: |
+    JS 的 null / undefined 对任何类型都通用，出错在运行时（TypeError）。
+    Kotlin 把可空性编进类型系统：`String` 与 `String?` 是不同类型，
+    后者不判空就不能用。这与 JS 的「空值满天飞」正相反。
+  fix: |
+    用 `?.`（安全调用）、`?:`（Elvis，取默认值）、`if (x != null)` 智能转换，
+    `!!` 是「断言非空」，慎用。把可空性当成类型的一部分来设计，
+    别到处用 `!!` 把检查关掉。
+  severity: 3
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [空值]
+
+- id: pitfall-js2kt-final-by-default
+  featureId: model/inheritance
+  title: 类和成员默认是 final 的
+  symptom: |
+    JS 里随手继承一个类、覆写一个方法都很自然；Kotlin 里不写 `open` 的类和成员
+    **默认不可继承、不可覆写**，直接编译报错。
+  cause: |
+    JS 的类默认开放：任何类都能被继承，任何方法都能被覆写（原型链使然）。
+    Kotlin 反过来，默认 final —— 这是刻意设计（默认安全、要显式开放），
+    与 Java 的默认开放也相反。
+  fix: |
+    要能被继承的类标 `open class`，要能被覆写的方法标 `open fun`。
+    更好的做法是先问「真的需要继承吗」—— Kotlin 鼓励用组合与接口，而不是继承树。
+  severity: 2
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [类, 继承]
+
+- id: pitfall-js2kt-no-static-no-new
+  featureId: model/class-declaration
+  title: 没有 static，也没有 new
+  symptom: |
+    找 `static` 关键字找不到；写 `new Foo()` 报错（多余）。
+  cause: |
+    Kotlin 没有 `static` 概念：类的静态成员用 **companion object**，
+    单例用 `object`，工具函数直接写成**顶层函数**。
+    创建实例也不用 `new` —— 直接 `Foo()`。
+  fix: |
+    静态常量 / 工厂方法放 `companion object { ... }`；单例用 `object Foo { ... }`；
+    无状态工具函数写成顶层函数。实例化写 `Foo()`。
+  severity: 2
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [类]
+
+- id: pitfall-js2kt-readonly-not-immutable
+  featureId: express/mutability
+  title: val 只锁引用，只读集合也不是不可变
+  symptom: |
+    `val list = mutableListOf(1, 2)` 之后 `list.add(3)` 竟然可以；
+    或者以为 `List` 类型的集合改不了，实际它只是「只读视图」。
+  cause: |
+    `val` 锁的是**引用不能重新指向**，不是对象内容不能变 —— 与 JS 的 `const` 同理。
+    而 Kotlin 的 `List` 是**只读接口**，不是不可变实现：底层可能是可变的，
+    通过另一个 `MutableList` 引用照样能改。
+  fix: |
+    要真正不可变，用 `listOf(...)` 这类工厂，并且不保留可变引用；
+    需要可变就用 `MutableList` 明确表达。
+    把 `val` 理解成「这个变量名不再指向别处」。
+  severity: 2
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [不可变, 集合]
+
+- id: pitfall-js2kt-block-body-return-type
+  featureId: express/function-declaration
+  title: 块体函数的返回类型不能省
+  symptom: |
+    `fun f() { return 1 }` 报错：需要显式返回类型；而 `fun f() = 1` 却不用写。
+  cause: |
+    Kotlin 只有**表达式体**函数（`= 表达式`）能推断返回类型；
+    **块体**函数（`{ ... }`）必须显式写出返回类型（返回 Unit 时可省）。
+    这与 JS「返回类型随便推断」不同。
+  fix: |
+    简单的单表达式函数用表达式体（返回类型可省）；
+    块体函数老老实实写返回类型 `fun f(): Int { ... }`。
+    这不是负担 —— 它让公开 API 的签名始终明确。
+  severity: 2
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [函数]
+
+- id: pitfall-js2kt-no-implicit-widening
+  featureId: express/arithmetic
+  title: 数值不隐式拓宽，但混合运算又允许
+  symptom: |
+    `val l: Long = someInt` 编译不过（要显式转换）；
+    但 `someInt + someLong` 却能编过，结果自动变成 Long。
+  cause: |
+    Kotlin **不做隐式数值拓宽**（Int 不能自动当 Long 用），
+    这与 JS 只有一个 number 的模型完全不同。
+    但**混合运算**允许：两边类型不同时结果取更宽的那个 —— 这处看起来矛盾。
+  fix: |
+    赋值 / 传参处要显式转换：`someInt.toLong()`。
+    运算时可以直接混用（编译器取宽类型），但别依赖它做隐式语义。
+    转换方法成体系：`toInt()` / `toLong()` / `toDouble()` 等。
+  severity: 2
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-js2kt-coroutines-not-parallel
+  featureId: mechanism/concurrency-unit
+  title: 协程不等于「默认并行」
+  symptom: |
+    以为 `launch { }` 开出来就并发跑了，实际它**继承外层调度器** ——
+    在 `runBlocking` 里就是单线程，任务仍是一个接一个。
+  cause: |
+    JS 是单线程事件循环；Kotlin 的协程是一套**可挂起的并发模型**，
+    但默认调度器可能是单线程的（继承外层上下文）。
+    **协程可以并行，但不是默认** —— 要真并行得显式指定多线程调度器
+    （如 `Dispatchers.Default` / `Dispatchers.IO`）。
+  fix: |
+    计算密集任务显式切到多线程调度器：`launch(Dispatchers.Default) { ... }`。
+    理解结构化并发：子协程失败会取消父作用域 ——
+    这正是它与 JS「fire and forget 的 Promise」最大的区别。
+  severity: 3
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [并发]
+
+- id: pitfall-js2kt-control-flow
+  featureId: express/conditionals
+  title: 没有三元运算符，没有 C 式 for，when 不贯穿
+  symptom: |
+    `cond ? a : b` 写不出来；`for (let i = 0; i < n; i++)` 也不行；
+    `when` 里以为像 switch 一样会贯穿，实际不会。
+  cause: |
+    Kotlin 没有三元运算符（用 `if (c) a else b`，if 本身是表达式）；
+    没有 C 式三段 for（用 `for (i in 0..<n)` 或 `repeat(n) { }`）；
+    `when` 不需要 break，也**不会贯穿**。
+    另外开区间现在写 `..<`（`until` 已不再被 ranges 文档化）。
+  fix: |
+    三元用 if-else 表达式；计数循环用 `for (i in 0..<n)` 或 `repeat(n) { i -> }`；
+    `when` 当成「更强更安全的 switch」，天然不贯穿。
+  severity: 2
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [控制流]
+
+- id: pitfall-js2kt-vararg-array
+  featureId: express/variadic
+  title: vararg 在函数体里是数组
+  symptom: |
+    用 `vararg` 收变长参数，想直接在函数体里当列表用，
+    发现它是 `IntArray`（基本类型）或 `Array<out T>`（引用类型），不能用 List 的方法。
+  cause: |
+    Kotlin 的 `vararg nums: Int` 在函数体内是 `IntArray`，引用类型才是 `Array<out T>`；
+    两者都不是 `List`。与 JS 的 rest 参数（天然是数组）类似，但 Kotlin 的数组类型更细。
+  fix: |
+    要当列表用就 `nums.toList()`；要展开传出去用 `*nums`（展开运算符）。
+    注意基本类型数组与引用类型数组是两个体系，别混用。
+  severity: 1
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [函数, 可变参数]
+
+- id: pitfall-js2kt-reflection-dependency
+  featureId: mechanism/reflection
+  title: 反射要额外加依赖
+  symptom: |
+    用 `::class` 做点反射，运行时报缺类 —— 因为 `kotlin-reflect` 没加进依赖。
+  cause: |
+    Kotlin 的完整反射能力在一个**独立的库** `kotlin-reflect` 里，
+    不像 JS 的反射是语言内建。不加依赖，编译能过、运行时才炸。
+  fix: |
+    需要完整反射就加 `kotlin-reflect` 依赖。
+    `KClass` 与 Java 的 `Class` 要显式互转（`KClass.java` / `Class.kotlin`）。
+    能在编译期解决的就别用反射。
+  severity: 1
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [元编程]
+
+- id: pitfall-js2kt-toplevel-lazy
+  featureId: express/scope
+  title: 顶层变量首次使用时才初始化
+  symptom: |
+    顶层写了 `val config = loadConfig()`，以为文件加载时就执行了，
+    实际它**第一次被访问时**才初始化。
+  cause: |
+    Kotlin 的顶层属性是**惰性初始化**的（首次使用时才求值），
+    与 JS 模块顶层代码「import 即执行」不同。
+    在初始化完成前读到什么属于未定义行为（JVM 上恰好是 0 / null），不能当保证。
+  fix: |
+    需要明确在模块加载时执行，就把逻辑放进 `init` 块或显式的初始化函数，
+    别依赖顶层属性的求值时机。有副作用的初始化尤其要显式。
+  severity: 1
+  languages: [javascript, kotlin]
+  fromBaseline: true
+  tags: [作用域]

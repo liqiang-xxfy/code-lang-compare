@@ -1,0 +1,93 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 泛型
+  aliases: [generic, variance]
+  perLanguage:
+    java: 擦除（运行期无类型参数）且不变；协变靠通配符
+    dart: 具体化（运行期保留类型参数）且协变；没有下界
+  note: |
+    两轴都与 Java 相反。Dart 的 `x is List<int>` 能跑，
+    但协变会在写入时运行期抛 TypeError —— 更像 Java 的数组协变。
+
+- term: 数值
+  aliases: [int, double, modulo]
+  perLanguage:
+    java: '`/` 是整除（整数），`%` 保留被除数符号'
+    dart: '`/` 永远给 double，整除写 `~/`；`%` 永远非负'
+  note: |
+    取模符号是最危险的差异：`-7 % 3` 在 Java 是 -1、Dart 是 2。
+    要 Java 那种符号用 remainder()。
+
+- term: 可见性
+  aliases: [private, protected, access]
+  perLanguage:
+    java: private / protected / public 由运行时强制
+    dart: 没有这些关键字；下划线前缀表示库级私有（不是类级）
+  note: |
+    Dart 的私有是「库」粒度，不是类粒度。同库的其它类能访问 `_foo`。
+    没有 protected 这个概念。
+
+- term: const / final
+  aliases: [const, final]
+  perLanguage:
+    java: final 表示「只能赋值一次」（运行期可确定）
+    dart: final 对应 Java 的 final；const 是编译期常量且深度冻结
+  note: |
+    Java 的 final 直译成 Dart 的 final，不是 const。
+    const 要求值在编译期算出。
+
+- term: 并发
+  aliases: [isolate, thread, synchronized]
+  perLanguage:
+    java: 共享内存加锁（synchronized / AtomicInteger / volatile）
+    dart: isolate 内存隔离，不共享可变状态，靠消息传递
+  note: |
+    因为不共享内存，锁与原子类型这整套概念在 Dart 里失去了对象。
+    设计思路从「共享加锁」变成「消息传递」。
+
+- term: Future
+  aliases: [future, completablefuture]
+  perLanguage:
+    java: Future / CompletableFuture 可取消（配合线程中断）
+    dart: Future 不可取消；能取消的只有 StreamSubscription
+  note: |
+    取消能力是最大的差别。需要可取消的长任务得换 Stream 设计。
+
+- term: 迭代器
+  aliases: [iterator, iterable]
+  perLanguage:
+    java: Iterator 是 hasNext() 加 next() 两个方法
+    dart: Iterator 是 moveNext() 加 current 属性
+  note: |
+    协议不同：Dart 先移动再读 current，Java 先判断再取值。
+    日常用 for-in，手写迭代器时才会碰到。
+
+- term: 异常
+  aliases: [exception, checked, throws]
+  perLanguage:
+    java: 受检异常由编译器强制处理或声明 throws
+    dart: 完全没有受检异常；签名里没有 throws
+  note: |
+    Dart 与 Java 相反：任何方法都可能抛，编译器不管。
+    但 Dart 的 catch 能按类型分支（on Type catch），比 Java 灵活。
+
+- term: 断言
+  aliases: [assert]
+  perLanguage:
+    java: assert 默认关，要 -ea 打开
+    dart: assert 默认关，要 --enable-asserts 或 debug 模式
+  note: |
+    两边默认都关，别用它做生产期校验。
+
+- term: 反射
+  aliases: [reflection, mirrors]
+  perLanguage:
+    java: java.lang.reflect 到处可用
+    dart: dart:mirrors 只在 Native 的 JIT 上，Flutter / AOT / web 都没有
+  note: |
+    运行期反射在多数部署形态下不可用，所以 Dart 生态靠 build_runner
+    做编译期代码生成。

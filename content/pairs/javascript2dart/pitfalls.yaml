@@ -1,0 +1,212 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 Dart 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-js2dart-division
+  featureId: express/arithmetic
+  title: 整除要另写，取模永远非负
+  symptom: |
+    JS 里 `7 % 3` 是 1，负数的直觉也直接搬。但 Dart 的 `%` 结果**永远非负**：
+    `-7 % 3` 是 **2**，不是 -1。除号 `/` 也永远给小数。
+  cause: |
+    Dart 的 `/` 永远返回 double（浮点除法）；整除要写 `~/`。
+    **`%` 的语义与 JS 不同**：Dart 保证结果非负，要带符号的余数得用 `remainder()`。
+    这一行之差会算出不同的数，是最容易静默出错的一处。
+  fix: |
+    整除用 `~/`（如 `7 ~/ 2` 得 3）；取模若需要符号就用 `a.remainder(b)`。
+    涉及负数的取模（环形缓冲、哈希、时间计算）尤其要写测试确认。
+  severity: 3
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [数值, 运算符]
+
+- id: pitfall-js2dart-equality
+  featureId: express/equality
+  title: 有 int 与 double 之分，但 == 跨类型也相等
+  symptom: |
+    JS 只有一个 number 类型，到 Dart 分成 int 与 double。
+    但 `1 == 1.0` 仍然为 **true**，`identical(1, 1.0)` 才是 false。
+  cause: |
+    Dart 的 `==` 是值相等：数值按数值比，与具体类型无关，
+    所以 int 的 1 与 double 的 1.0 相等（hashCode 也一致，Set / Map 里能互相命中）。
+    JS 没有 int / double 的区分，这层差异在那边根本不存在。
+  fix: |
+    判值用 `==`；判「同一实例」用 `identical(a, b)`。Dart 没有 `===` 运算符。
+    留意 int / double 的区分对显示的影响（`1.0` 打印出来带小数点）。
+  severity: 2
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [相等, 数值]
+
+- id: pitfall-js2dart-const-final
+  featureId: express/mutability
+  title: Dart 的 const 不是 JS 的 const
+  symptom: |
+    把 JS 的 `const x = ...` 直译成 Dart 的 `const x = ...`，发现要求编译期常量；
+    以为 `const` 数组改不了，结果运行期才抛错。
+  cause: |
+    三个关键字在两边对不上号：JS 的 const（不能再赋值）在 Dart 里对应 **final**；
+    Dart 的 const 是「编译期常量、深度冻结」，要求值在编译期就能算出。
+    注意 `const [1,2]` 的静态类型仍是 `List<int>`，`add` 静态合法，
+    **运行期**才抛 UnsupportedError。
+  fix: |
+    要「只锁绑定」用 `final`；要「编译期常量、深度共享」才用 `const`。
+    别指望 const 的写操作在编译期被拦 —— 它是运行期抛错。
+  severity: 3
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [不可变]
+
+- id: pitfall-js2dart-switch-no-break
+  featureId: express/conditionals
+  title: switch 不需要 break，也不贯穿
+  symptom: |
+    从 JS 带过来写 switch 都会加 break；Dart 里非空分支**不需要 break**，
+    也**不会贯穿** —— 只有空的 case 会落到下一个。
+  cause: |
+    Dart 的 switch 语义与 C / JS 相反：非空分支自动结束，不贯穿。
+    这与 Java 也相反。想要「多个 case 共享逻辑」就把 case 留空让它落下。
+  fix: |
+    非空分支直接写代码，不用 break；共享逻辑时把 case 留空。
+    注意 Dart 3 起 switch 还能当表达式用（配合模式匹配）。
+  severity: 2
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [控制流]
+
+- id: pitfall-js2dart-generics
+  featureId: mechanism/variance
+  title: 泛型是协变且具体化的
+  symptom: |
+    `List<int>` 能当 `List<num>` 用，而且 `x is List<int>` 在运行期真的能判断；
+    但往协变的列表里写会运行期抛错。
+  cause: |
+    Dart 的泛型是**协变 + 具体化**的：类型参数在运行期保留，`is` 检查能跑。
+    协变的代价是 `List<num> xs = <int>[1]; xs.add(1.5);` 编译通过、运行期抛 TypeError。
+    另外 Dart **没有下界**（没有 `? super T`）。
+  fix: |
+    只读的容器用协变是安全的；要往里写就得声明成可变的具体类型。
+    `x is List<int>` 这类具体化检查是 Dart 特有的能力，可以放心用。
+  severity: 2
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [泛型, 型变]
+
+- id: pitfall-js2dart-isolate
+  featureId: mechanism/concurrency-unit
+  title: isolate 内存隔离 —— 没有锁，也没有原子类型
+  symptom: |
+    想用锁保护共享状态，发现 Dart 里既没有锁也没有原子类型；跨 isolate 传对象要拷贝。
+  cause: |
+    Dart 的并发单元是 **isolate**，各自有独立内存，**不共享可变状态**。
+    所以传统意义上的锁与原子类型**失去了对象**（不是「还没提供」）。
+    通信靠消息传递：不可变对象会被共享，其余传递式拷贝。
+  fix: |
+    设计成「消息传递」而不是「共享内存加锁」。
+    计算密集任务用 `Isolate.run()` 或 `compute()`。
+    需要避免拷贝的大块数据可以用 TransferableTypedData 之类。
+  severity: 3
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [并发]
+
+- id: pitfall-js2dart-future-wait
+  featureId: mechanism/promise-future
+  title: Future.wait 默认等全部完成才报错
+  symptom: |
+    用 Promise.all 的直觉以为「一出错就立刻返回」，Dart 的 `Future.wait`
+    默认会**等所有任务都结束**，才报第一个错误。
+  cause: |
+    `Future.wait` 默认不是 eager 的：所有任务都跑完（或失败）后才抛第一个错误。
+    要「一出错就返回」得显式传 `eagerError: true`。这与 Promise.all 的
+    「首个拒绝即返回」不同。
+  fix: |
+    需要快速失败就写 `Future.wait([...], eagerError: true)`。
+    默认行为（等全部完成）在「要收齐所有结果」的场景反而合适，看需求选。
+  severity: 2
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [异步]
+
+- id: pitfall-js2dart-stream-single-subscription
+  featureId: mechanism/async-await
+  title: Stream 默认是单订阅的
+  symptom: |
+    把一个 Stream 交给两个地方监听，第二个报错：
+    「Stream has already been listened to」。
+  cause: |
+    Dart 的 `Stream` 默认是**单订阅**的（只能消费一次），不是广播。
+    这与 JS 的 EventTarget / RxJS Subject 那种「多播」直觉不同。
+  fix: |
+    需要多播就把 Stream 转成广播流（`.asBroadcastStream()`），
+    或在源头用 `StreamController.broadcast()` 创建。
+    另外 Stream 也是「可取消」的那一个 —— `StreamSubscription.cancel()`。
+  severity: 2
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [异步, 流]
+
+- id: pitfall-js2dart-no-varargs
+  featureId: express/variadic
+  title: 没有可变参数
+  symptom: |
+    JS 的 rest 参数（`...args`）在 Dart 里没有对应物，`fn(...args)` 写不出来。
+  cause: |
+    Dart 不支持可变参数（variadic）。要收不定长参数只能显式传一个
+    `List` 或 `Iterable` 参数。
+  fix: |
+    把参数定义成 `void f(List<int> xs)`，调用方传列表。
+    展开运算符 `...` 是有的（用于集合字面量），但那是集合展开，不是参数展开。
+  severity: 2
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [函数]
+
+- id: pitfall-js2dart-assert-disabled
+  featureId: practice/assertions
+  title: 断言默认是关的
+  symptom: |
+    用 `assert` 做参数校验，以为它会一直生效；实际生产构建里默认被关掉，什么都不检查。
+  cause: |
+    Dart 的 `assert` 只在开启断言时生效（`--enable-asserts`，或 debug 模式）。
+    与「断言默认开」相反，发布构建里 assert 语句被整个忽略。
+  fix: |
+    运行时必须生效的校验用显式抛错：`if (x < 0) throw ArgumentError(...)`。
+    `assert` 只用于开发期的自检，别拿它当生产校验。
+  severity: 1
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [测试, 断言]
+
+- id: pitfall-js2dart-no-in-operator
+  featureId: express/logical
+  title: 没有 in 运算符
+  symptom: |
+    `'key' in obj` 判断属性存在，Dart 里报语法错误 —— `in` 只用于 for-in 与模式匹配。
+  cause: |
+    JS 的 `in` 能判断对象是否含某属性。Dart 的 `in` 不是运算符，
+    只出现在 for-in 循环和模式匹配里。判断成员要用别的方式。
+  fix: |
+    Map 判断键用 `map.containsKey(key)`；List 判断元素用 `list.contains(x)`。
+    Dart 的类结构是固定的，没有「动态属性」这回事。
+  severity: 1
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [运算符]
+
+- id: pitfall-js2dart-mirrors
+  featureId: mechanism/reflection
+  title: 反射只在 Native 的 JIT 上有
+  symptom: |
+    想用 `dart:mirrors` 做反射，发现 Flutter / 编译成原生 AOT / web 时都用不了。
+  cause: |
+    `dart:mirrors` 只在 Native 的 JIT 上可用（且标记为 Experimental），
+    Flutter、AOT 编译、web 都不支持。
+    这也是 Dart 生态靠 `build_runner` 做**编译期代码生成**的原因 ——
+    运行期反射这条路在很多部署形态下不存在。
+  fix: |
+    需要「按名字操作」时用 build_runner 之类的代码生成，把反射需求前移到编译期。
+    这与 JS 内建反射的可用性差别很大。
+  severity: 1
+  languages: [javascript, dart]
+  fromBaseline: true
+  tags: [元编程]

@@ -1,0 +1,516 @@
+{
+  "baseline": "python",
+  "target": "kotlin",
+  "pitfalls": [
+    {
+      "id": "pitfall-py2kt-coroutines",
+      "title": "协程是结构化并发，默认也不并行",
+      "symptomHtml": "<p>用 asyncio 的直觉以为 <code>launch { }</code> 就并发了；实际它继承外层调度器，\n在单线程环境里仍是一个个跑。</p>\n",
+      "causeHtml": "<p>Python 的 asyncio 是单线程事件循环；Kotlin 的协程可以跑在多线程上，\n但<strong>默认调度器可能是单线程的</strong>（继承外层上下文），要真并行得显式给\nDispatchers.Default 之类。另外它是<strong>结构化并发</strong>：子协程失败会取消父作用域，\n与 asyncio 任务的「自生自灭」不同。</p>\n",
+      "fixHtml": "<p>计算密集任务用 <code>launch(Dispatchers.Default) { ... }</code>。\n用 <code>coroutineScope { }</code> 表达「这几个子任务要么全成要么全败」。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-null-safety",
+      "title": "None 对应的空值要写进类型里",
+      "symptomHtml": "<p>一个可能为 None 的值直接调用方法，Kotlin 编译不过；得写成 <code>String?</code> 并先判空。</p>\n",
+      "causeHtml": "<p>Python 的 None 对任何类型都通用，出错在运行时（AttributeError）。\nKotlin 把可空性编进类型：<code>String</code> 与 <code>String?</code> 不同，后者不判空不能用。</p>\n",
+      "fixHtml": "<p>用 <code>?.</code> / <code>?:</code> / <code>if (x != null)</code> 处理。把可空性设计进类型，\n别用 <code>!!</code> 把检查关掉 —— 那等于退回 Python 的运行时炸。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-static-types",
+      "title": "静态类型，而且没有鸭子类型",
+      "symptomHtml": "<p>Python 里「有 quack() 就能当鸭子」的写法，到 Kotlin 必须先是某个类型；\n一个变量也不能先后装不同类型的东西。</p>\n",
+      "causeHtml": "<p>Python 在运行时按实际属性判断，Kotlin 在编译期按声明类型判断。\n而且 Kotlin（JVM 上）是<strong>名义类型</strong>：要「是」某个接口，必须显式实现它，\n不像 Python 的 Protocol 那样形状匹配即可。</p>\n",
+      "fixHtml": "<p>用 interface + 显式实现表达契约。Kotlin 的类型推断能省掉很多重复标注，\n但「一个变量先后装不同类型」没有了 —— 该拆成不同变量或用密封类。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/static-vs-dynamic",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-block-body-return-type",
+      "title": "块体函数的返回类型不能省",
+      "symptomHtml": "<p><code>fun f() { return 1 }</code> 报错：需要显式返回类型。</p>\n",
+      "causeHtml": "<p>Kotlin 只有表达式体函数能推断返回类型；块体函数必须写出（Unit 除外）。\nPython 的返回类型标注是可选的，Kotlin 在块体上是强制的。</p>\n",
+      "fixHtml": "<p>简单的用表达式体 <code>fun f() = 1</code>；块体写 <code>fun f(): Int { ... }</code>。\n这在公开 API 上是好事 —— 签名始终明确。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/function-declaration",
+      "tags": [
+        "函数"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-exceptions",
+      "title": "异常都不受检，catch 要写类型",
+      "symptomHtml": "<p>习惯 Python 的 <code>except (A, B)</code> 或多分支捕获，到 Kotlin 发现\n每个 catch 块只能接一个类型，方法签名也不提示会抛什么。</p>\n",
+      "causeHtml": "<p>Python 的异常也不受检，这点两边接近；\n但 Kotlin 的 catch 是 <code>catch (e: SomeException)</code> 显式单一类型，\n没有 Python 那种一次列多个类型、或裸 except 的写法。</p>\n",
+      "fixHtml": "<p><code>try { } catch (e: SomeException) { } finally { }</code>，多类型就写多个 catch。\n别写「捕获一切」的写法 —— Kotlin 的类型系统在这儿帮不上忙，得自己克制。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/throw-raise",
+      "tags": [
+        "异常"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-final-by-default",
+      "title": "类和成员默认是 final 的",
+      "symptomHtml": "<p>Python 里随手继承、覆写方法很自然；Kotlin 里不写 <code>open</code> 默认不可继承 / 覆写。</p>\n",
+      "causeHtml": "<p>Python 的类默认开放，任何方法都能覆写。\nKotlin 默认 final，要显式 open —— 这是刻意的设计取向。</p>\n",
+      "fixHtml": "<p>要继承就标 <code>open class</code> / <code>open fun</code>。\n先问「真的需要继承吗」—— Kotlin 鼓励组合与接口。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/inheritance",
+      "tags": [
+        "类",
+        "继承"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-no-comprehension",
+      "title": "没有列表推导式，但有整套集合操作",
+      "symptomHtml": "<p><code>[x*2 for x in xs if x &gt; 0]</code> 写不出来，得换成 filter / map。</p>\n",
+      "causeHtml": "<p>Kotlin 没有推导式语法，对应的是标准库的 <code>filter</code> / <code>map</code> / <code>associate</code> 等\n扩展函数。语义与 Python 推导式接近（先过滤后映射），但写法是链式的。</p>\n",
+      "fixHtml": "<p><code>xs.filter { it &gt; 0 }.map { it * 2 }</code> —— lambda 用 <code>it</code> 指代单个参数。\n注意 List 上的操作立即求值，Sequence 才惰性 —— 这与 Python 生成器的直觉不同。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/comprehension",
+      "tags": [
+        "集合"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-no-implicit-widening",
+      "title": "数值不隐式拓宽，也没有任意精度",
+      "symptomHtml": "<p><code>val l: Long = someInt</code> 编译不过；大整数也没有 Python 那种任意精度，会溢出回绕。</p>\n",
+      "causeHtml": "<p>Python 的 int 是任意精度、int 与 float 可自由混合。\nKotlin 有 Int / Long / Double 等固定宽度类型，不隐式拓宽（要显式 toLong()），\n溢出会静默回绕。这是与 Python 数值模型最根本的差别。</p>\n",
+      "fixHtml": "<p>赋值 / 传参显式转换：<code>someInt.toLong()</code>。\n需要大整数用 <code>BigInteger</code>（JVM 的，不是语言内建）。\n涉及金额、计数的地方留意溢出。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-no-kwargs",
+      "title": "没有 kwargs，vararg 是数组",
+      "symptomHtml": "<p>Python 的 <code>*args</code> / <code>**kwargs</code> 到 Kotlin 只剩 <code>vararg</code>（对应 *args），\n没有 <code>**kwargs</code> 那种任意关键字参数。</p>\n",
+      "causeHtml": "<p>Kotlin 是静态语言，参数必须在签名里写全。<code>vararg nums: Int</code> 在函数体里是\nIntArray（基本类型）或 Array&lt;out T&gt;（引用类型），不是 List。\n命名参数有，但那是调用侧写法，不是「收任意关键字」。</p>\n",
+      "fixHtml": "<p>变长参数用 <code>vararg</code>，要当列表用就 <code>toList()</code>，展开传出去用 <code>*nums</code>。\n需要「任意键值」就显式收一个 <code>Map&lt;String, Any&gt;</code> 参数。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/variadic",
+      "tags": [
+        "函数",
+        "可变参数"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-readonly-not-immutable",
+      "title": "val 只锁引用，List 也不是不可变",
+      "symptomHtml": "<p><code>val list = mutableListOf(1)</code> 之后还能 <code>list.add(2)</code>；\n<code>List</code> 类型的集合也可能被底层改动。</p>\n",
+      "causeHtml": "<p>Kotlin 的 val 锁的是引用不变，不是对象内容不变。\nList / Set / Map 是<strong>只读接口</strong>而非不可变实现 —— 底层可能是可变的。\nPython 里 tuple 真不可变、list 可变，语义边界比 Kotlin 清楚。</p>\n",
+      "fixHtml": "<p>不可变就用 <code>listOf(...)</code> 且不留可变引用；可变用 <code>MutableList</code> 明确表达。\n别把 <code>val</code> 当成「只读」的代名词。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/mutability",
+      "tags": [
+        "不可变",
+        "集合"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-when-not-match",
+      "title": "when 代替 match，但不贯穿、能返回值",
+      "symptomHtml": "<p>把 Python 的 match 直译成 when，发现不需要 case 关键字，\n而且每个分支写完不会「落」到下一个。</p>\n",
+      "causeHtml": "<p>Kotlin 的 <code>when</code> 对应 Python 的 match 与 Java 的 switch：\n不需要 break、<strong>不贯穿</strong>，还能当表达式返回值。\n匹配方式也更灵活（值、范围、类型、条件）。</p>\n",
+      "fixHtml": "<p><code>when (x) { 1 -&gt; ...; in 2..5 -&gt; ...; is String -&gt; ...; else -&gt; ... }</code>。\n当作「能返回值的 match」用，别担心贯穿。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/switch-and-match",
+      "tags": [
+        "控制流"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "pitfall-py2kt-toplevel-lazy",
+      "title": "顶层变量首次使用时才初始化",
+      "symptomHtml": "<p>顶层 <code>val config = load()</code> 以为模块加载时就跑了，实际首次访问才初始化。</p>\n",
+      "causeHtml": "<p>Kotlin 的顶层属性惰性初始化（首次使用时求值），与 Python 模块\n「import 即执行顶层代码」不同。初始化前读到什么是未定义行为。</p>\n",
+      "fixHtml": "<p>有副作用的初始化放进显式的 <code>init</code> 块或初始化函数，\n别依赖顶层属性的求值时机。</p>\n",
+      "severity": 1,
+      "languages": [
+        "python",
+        "kotlin"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/scope",
+      "tags": [
+        "作用域"
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "类型",
+      "aliases": [
+        "type"
+      ],
+      "perLanguage": {
+        "python": "跟着值走，运行时确定；吃鸭子类型（有方法就算数）",
+        "kotlin": "编译期写死，且是名义类型 —— 要「是」某接口必须显式实现"
+      },
+      "note": "Python 的 Protocol 是结构化的，Kotlin 的 interface 是名义的。\n这点常被忽略：在 Kotlin 里「长得像」不算，得真的 implements。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "空值",
+      "aliases": [
+        "none",
+        "null-safety",
+        "nullable"
+      ],
+      "perLanguage": {
+        "python": "None 对任何类型通用，出错在运行时",
+        "kotlin": "可空性编进类型：`String` 与 `String?` 不同，不判空编译不过"
+      },
+      "note": "Kotlin 把「可能为空」变成类型的一部分。这是从 Python 过来最明显的安全感提升，\n写法是 ?. / ?: / !!（最后一个慎用）。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "val / 只读集合",
+      "aliases": [
+        "val",
+        "readonly",
+        "immutable"
+      ],
+      "perLanguage": {
+        "python": "tuple 真不可变、list 可变，边界清楚",
+        "kotlin": "val 只锁引用；List 是只读接口，底层可能仍可变"
+      },
+      "note": "Kotlin 的「只读」比 Python 的「不可变」弱：只读集合可能被别的可变引用改。\n要真不可变得用不可变实现，并且不留可变引用。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "类",
+      "aliases": [
+        "class",
+        "open",
+        "final"
+      ],
+      "perLanguage": {
+        "python": "类默认开放，任何方法都能覆写",
+        "kotlin": "类与成员默认 final，要 open 才能继承 / 覆写"
+      },
+      "note": "默认值相反。Kotlin 逼你想清楚「这个类要不要被扩展」。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "推导式",
+      "aliases": [
+        "comprehension",
+        "filter",
+        "map"
+      ],
+      "perLanguage": {
+        "python": "推导式语法，一行搞定过滤加映射",
+        "kotlin": "没有推导式，用 filter / map / associate 等扩展函数链式组合"
+      },
+      "note": "语义接近，写法是链式。注意 List 上的操作立即求值，Sequence 才惰性 ——\n与 Python 生成器那种「天然惰性」的直觉不同。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "可变参数",
+      "aliases": [
+        "vararg",
+        "kwargs",
+        "args"
+      ],
+      "perLanguage": {
+        "python": "*args 与 **kwargs，后者能收任意关键字参数",
+        "kotlin": "只有 vararg（对应 *args），函数体里是数组；没有 **kwargs"
+      },
+      "note": "静态语言里参数要写全，所以没有「任意关键字」那种自由。\n需要它就用 Map<String, Any> 显式表达。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "模式匹配",
+      "aliases": [
+        "match",
+        "when"
+      ],
+      "perLanguage": {
+        "python": "match / case，每个 case 不贯穿",
+        "kotlin": "when，不需要 break、不贯穿、能当表达式返回值"
+      },
+      "note": "两者都不贯穿，这点一致。when 还能匹配类型与范围，用起来比 match 更顺。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "协程",
+      "aliases": [
+        "coroutine",
+        "asyncio",
+        "suspend"
+      ],
+      "perLanguage": {
+        "python": "asyncio 单线程事件循环；任务自生自灭",
+        "kotlin": "suspend 函数 + 结构化并发；可并行但默认不并行，要显式选调度器"
+      },
+      "note": "最大的差别是结构化并发：子协程失败会取消父作用域。\n而 asyncio 的任务默认是独立的。别把两者当成同一回事。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "数值",
+      "aliases": [
+        "int",
+        "float",
+        "number"
+      ],
+      "perLanguage": {
+        "python": "int 任意精度，int 与 float 自由混合",
+        "kotlin": "Int / Long / Double 等固定宽度，不隐式拓宽，会溢出回绕"
+      },
+      "note": "Kotlin 没有任意精度整数（要 BigInteger），这是与 Python 最根本的数值差别。\n大数运算、金额计算要特别小心。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "term": "静态成员",
+      "aliases": [
+        "static",
+        "companion",
+        "object"
+      ],
+      "perLanguage": {
+        "python": "用类属性、@staticmethod / @classmethod，或模块级函数",
+        "kotlin": "没有 static；用 companion object / object / 顶层函数"
+      },
+      "note": "Python 的模块级函数在 Kotlin 里对应顶层函数，概念上接近。\n「单例」用 object 关键字直接表达。\n",
+      "baseline": "python",
+      "target": "kotlin"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "python2kotlin-1-static-and-null",
+      "order": 1,
+      "title": "静态类型与空安全",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 JDK 与 Kotlin 命令行（或用 IntelliJ IDEA 建工程）",
+        "写一段熟悉的 Python 逻辑用 Kotlin 重写，体会「处处要写类型、可能为空要标出来」",
+        "理解名义类型：Kotlin 的 interface 必须 implements，不像 Python 的 Protocol",
+        "对照本工具「语言机制」板块里 Kotlin 列的「静态 vs 动态」「空安全」两格"
+      ],
+      "acceptance": [
+        "能说清 String 与 String? 的区别，以及 ?. / ?: / !! 的语义",
+        "知道为什么「一个变量先后装不同类型」在 Kotlin 里不行"
+      ],
+      "resources": [
+        {
+          "label": "Kotlin 官方文档（中文）",
+          "url": "https://book.kotlincn.net/"
+        },
+        {
+          "label": "Kotlin 官方文档（英文）",
+          "url": "https://kotlinlang.org/docs/home.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "python2kotlin-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1-2 天",
+      "todo": [
+        "把列表推导式改写成 filter / map 链，注意 List 与 Sequence 的求值差别",
+        "把 *args / **kwargs 分别改写成 vararg 与显式 Map 参数",
+        "把 match 改写成 when，体会不贯穿与能返回值",
+        "对照本工具「基础表达」板块里 Kotlin 列的写法差异"
+      ],
+      "acceptance": [
+        "能独立写出变量、容器、控制流、函数定义，无语法错误",
+        "能说清 val 与「不可变」的关系（只锁引用）"
+      ],
+      "resources": [
+        {
+          "label": "Kotlin 官方文档 · 基础语法",
+          "url": "https://kotlinlang.org/docs/basic-syntax.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "python2kotlin-3-classes",
+      "order": 3,
+      "title": "类与对象模型",
+      "durationHint": "3-5 天",
+      "todo": [
+        "写几个类，体会默认 final、要 open 才能继承",
+        "用 companion object / object / 顶层函数替代 Python 的类属性与模块函数",
+        "试试 data class 与解构，对比 Python 的 dataclass 与元组解包",
+        "注意构造参数带不带 val / var 的区别"
+      ],
+      "acceptance": [
+        "能说清 Kotlin 的默认 final 与 Python 默认开放的设计取舍",
+        "能用 data class 替代 dataclass 的常见用法"
+      ],
+      "resources": [
+        {
+          "label": "Kotlin 官方文档 · 类与对象",
+          "url": "https://kotlinlang.org/docs/classes.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "python2kotlin-4-coroutines",
+      "order": 4,
+      "title": "协程与并发",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把一段 asyncio 代码改写成 suspend 函数加协程构建器",
+        "验证「协程默认不并行」：在 runBlocking 里 launch 几个任务看顺序",
+        "用 Dispatchers.Default 显式并行",
+        "理解结构化并发：子协程失败会取消父作用域"
+      ],
+      "acceptance": [
+        "能说清协程与 asyncio 的异同，尤其是结构化并发这一点",
+        "知道什么时候要显式指定调度器"
+      ],
+      "resources": [
+        {
+          "label": "Kotlin 官方文档 · 协程",
+          "url": "https://kotlinlang.org/docs/coroutines-guide.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    },
+    {
+      "id": "python2kotlin-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 Gradle 管一个 Kotlin 工程，理解它与 pip / venv 的差别",
+        "配 detekt 或 ktlint",
+        "用 JUnit 写测试，注意类默认 final 对测试替身的影响",
+        "对照本工具「工程实践」板块里 Kotlin 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖管理、lint、测试的 Kotlin 工程",
+        "能说清 Gradle 的构建生命周期与 Python 工具链的差别"
+      ],
+      "resources": [
+        {
+          "label": "Gradle 官方文档",
+          "url": "https://docs.gradle.org/current/userguide/userguide.html"
+        },
+        {
+          "label": "Kotlin 官方文档",
+          "url": "https://kotlinlang.org/docs/home.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "kotlin"
+    }
+  ]
+}

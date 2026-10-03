@@ -1,0 +1,516 @@
+{
+  "baseline": "python",
+  "target": "dart",
+  "pitfalls": [
+    {
+      "id": "pitfall-py2dart-future-cancel",
+      "title": "Future 不能取消，而 asyncio 的 Task 可以",
+      "symptomHtml": "<p>习惯 Python 的 <code>task.cancel()</code>，到 Dart 发现 Future 根本没有 cancel 方法。</p>\n",
+      "causeHtml": "<p>Python 的 asyncio.Task 有 cancel()（抛 CancelledError 协作取消）。\nDart 的 Future <strong>一旦启动就无法取消</strong> —— dart:async 里没有这个能力。\n能真正取消的只有 <code>StreamSubscription.cancel()</code>。</p>\n",
+      "fixHtml": "<p>需要可取消的长任务，用 Stream 并持有 Subscription；\n或者自己设计「检查取消标志」的轮询式取消。别指望 Future 能停。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/cancellation",
+      "tags": [
+        "异步"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-future-wait",
+      "title": "Future.wait 与 asyncio.gather 的失败时机相反",
+      "symptomHtml": "<p>用 <code>asyncio.gather</code> 的直觉以为「一出错就抛」，\nDart 的 <code>Future.wait</code> 默认会<strong>等所有任务都完成</strong>才报第一个错误。</p>\n",
+      "causeHtml": "<p><code>asyncio.gather</code> 默认一有异常就立刻抛出（其余任务不被取消）。\nDart 的 <code>Future.wait</code> 默认<strong>不是 eager</strong> 的：所有任务跑完才抛第一个错误。\n两者行为正好相反。</p>\n",
+      "fixHtml": "<p>要快速失败就写 <code>Future.wait([...], eagerError: true)</code>。\n默认行为（等全部完成）在「要收齐所有结果」的场景反而合适。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/promise-future",
+      "tags": [
+        "异步"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-isolate",
+      "title": "isolate 内存隔离，不是线程也不是进程",
+      "symptomHtml": "<p>用 Python 的 threading / multiprocessing 直觉去想并发，\nDart 里既没有共享内存的线程，也没有进程，而是 isolate 加消息传递。</p>\n",
+      "causeHtml": "<p>Python 的多线程受 GIL 限制、多进程复制内存。\nDart 的 isolate 各自有独立内存与独立事件循环，<strong>不共享可变状态</strong>，\n所以没有锁、没有原子类型 —— 通信靠消息传递。</p>\n",
+      "fixHtml": "<p>计算密集任务用 <code>Isolate.run()</code> 或 <code>compute()</code>。\n设计成消息传递式，别指望共享状态。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-null-safety",
+      "title": "空安全默认开启",
+      "symptomHtml": "<p>Python 的 None 随手传，Dart 里可能为空的值不判空就编译不过。</p>\n",
+      "causeHtml": "<p>Dart 的空安全是<strong>健全</strong>的：非空类型保证真的不会为 null，\n可能为空的值要标 <code>?</code>。Python 没有这层检查，None 出错在运行时。</p>\n",
+      "fixHtml": "<p>可能为空就标 <code>?</code>，用 <code>?.</code> / <code>??</code> / <code>if (x != null)</code> 处理。\n这是从 Python 过来明显更省心的一块。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-static-types",
+      "title": "静态类型，且 int 与 double 分开",
+      "symptomHtml": "<p>Python 的变量随时能换类型、函数参数不写类型；Dart 处处要类型，\n而且 int 与 double 是两个类型。</p>\n",
+      "causeHtml": "<p>Python 是动态类型（类型跟着值走），Dart 是静态类型（编译期确定）。\nDart 还有 int / double 的区分。空安全也默认开启：可能为空的值必须标 <code>?</code>。</p>\n",
+      "fixHtml": "<p>写类型标注；用 <code>var</code> / <code>final</code> 让编译器推断局部变量。\n数值运算注意 int / double 的转换（<code>.toDouble()</code> / <code>.toInt()</code>）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/static-vs-dynamic",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-const-final",
+      "title": "多了 const 与 final 的区分",
+      "symptomHtml": "<p>Python 没有「不可重新赋值」的变量，到 Dart 要选 const 还是 final，容易混。</p>\n",
+      "causeHtml": "<p>Dart 里 final 是「只能赋值一次」（运行期确定即可），\nconst 是「编译期常量」（值必须在编译期算出，且深度冻结）。\nPython 没有任何对应物 —— 这是要新学的一对概念。</p>\n",
+      "fixHtml": "<p>默认用 final（只赋一次值）；能确定是编译期常量的才用 const。\n类里的常量字段用 <code>static const</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/mutability",
+      "tags": [
+        "不可变"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-generics",
+      "title": "泛型协变且具体化",
+      "symptomHtml": "<p><code>List&lt;int&gt;</code> 能当 <code>List&lt;num&gt;</code> 用，<code>x is List&lt;int&gt;</code> 运行期也能判断 ——\n而 Python 的 typing 是擦除的，<code>isinstance(x, list[int])</code> 根本不行。</p>\n",
+      "causeHtml": "<p>Dart 的泛型<strong>具体化</strong>（类型参数运行期保留）且<strong>协变</strong>。\nPython 的泛型是擦除的（运行期拿不到类型参数），且不变。\n协变的代价：往 List&lt;num&gt; 里塞 double 会在运行期抛 TypeError。</p>\n",
+      "fixHtml": "<p>只读容器用协变安全；要写入就声明可变的具体类型。\n<code>x is List&lt;int&gt;</code> 这类检查是 Dart 特有的，可以放心用。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/variance",
+      "tags": [
+        "泛型",
+        "型变"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-integer-division",
+      "title": "整除运算符换了，负数的取整方向也不同",
+      "symptomHtml": "<p>Python 的 <code>//</code> 到 Dart 变成 <code>~/</code>（直接搬 <code>//</code> 会被当注释）。\n更隐蔽的是负数：Python 的 <code>-7 // 2</code> 是 <strong>-4</strong>（向下取整），\nDart 的 <code>-7 ~/ 2</code> 是 <strong>-3</strong>（向零取整）。</p>\n",
+      "causeHtml": "<p>Dart 的整除 <code>~/</code> 是<strong>向零取整</strong>（truncate），Python 的 <code>//</code> 是<strong>向下取整</strong>（floor）。\n正数时两者一致，负数时会差一。取模两边都保证非负（<code>-7 % 3</code> 都是 2），\n这一处反倒不用改。</p>\n",
+      "fixHtml": "<p><code>//</code> 换成 <code>~/</code>；负数整除的语义要单独确认（需要 floor 就自己调整）。\n除号 <code>/</code> 两边都给浮点，这点一致。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "运算符"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-no-comprehension",
+      "title": "没有推导式",
+      "symptomHtml": "<p><code>[x*2 for x in xs if x &gt; 0]</code> 写不出来，得换成 where / map。</p>\n",
+      "causeHtml": "<p>Dart 没有推导式语法，对应的是集合的 <code>where</code> / <code>map</code> / <code>whereType</code> 等方法。\n注意 Dart 用 <code>where</code> 而不是 <code>filter</code>（与 JS / Kotlin 的命名不同）。</p>\n",
+      "fixHtml": "<p><code>xs.where((x) =&gt; x &gt; 0).map((x) =&gt; x * 2)</code>。\n要得到 List 就 <code>.toList()</code> —— 这些操作返回的是惰性的 Iterable。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/comprehension",
+      "tags": [
+        "集合"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-no-varargs",
+      "title": "没有可变参数，也没有参数化测试",
+      "symptomHtml": "<p>Python 的 <code>*args</code> 到 Dart 没有对应物；\npytest 那种 <code>@pytest.mark.parametrize</code> 在 Dart 测试里也没有。</p>\n",
+      "causeHtml": "<p>Dart 不支持可变参数，也不支持参数化测试 —— 这两项三个基准语言都有而它没有。\n要收不定长参数只能显式传 List。</p>\n",
+      "fixHtml": "<p>参数定义成 <code>List&lt;T&gt;</code> 显式传。\n参数化测试用循环生成多个 test 调用，或引入第三方包。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/variadic",
+      "tags": [
+        "函数"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-stream",
+      "title": "异步序列是内建的 Stream，且默认单订阅",
+      "symptomHtml": "<p>Python 用 async generator 表达异步序列，Dart 用 Stream；\n而且 Stream 默认只能被监听一次。</p>\n",
+      "causeHtml": "<p>Dart 把 Stream 做成了标准库的核心抽象，默认<strong>单订阅</strong>。\n与 Python 的 async generator（每次调用得到新迭代器）不同，\nStream 是一次性的，多播要显式转广播流。</p>\n",
+      "fixHtml": "<p>多播用 <code>.asBroadcastStream()</code> 或 <code>StreamController.broadcast()</code>。\nStream 也是能真正取消的那个（StreamSubscription.cancel）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/async-await",
+      "tags": [
+        "异步",
+        "流"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "pitfall-py2dart-assert-disabled",
+      "title": "断言默认是关的",
+      "symptomHtml": "<p>Python 的 assert 默认生效（-O 才关），Dart 的 assert 默认<strong>关闭</strong>，\n发布构建里被整个忽略。</p>\n",
+      "causeHtml": "<p>两边默认值相反：Python 的断言默认开着，Dart 的断言默认关着\n（<code>--enable-asserts</code> 或 debug 模式才生效）。</p>\n",
+      "fixHtml": "<p>运行时必须生效的校验用显式抛错：<code>if (x &lt; 0) throw ArgumentError(...)</code>。\nassert 只用于开发期自检。</p>\n",
+      "severity": 1,
+      "languages": [
+        "python",
+        "dart"
+      ],
+      "fromBaseline": true,
+      "featureId": "practice/assertions",
+      "tags": [
+        "测试",
+        "断言"
+      ],
+      "baseline": "python",
+      "target": "dart"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "类型",
+      "aliases": [
+        "type",
+        "int",
+        "double"
+      ],
+      "perLanguage": {
+        "python": "跟着值走，运行时确定；int 与 float 动态区分",
+        "dart": "编译期写死；int 与 double 是两个静态类型"
+      },
+      "note": "Python 的类型是运行时属性，Dart 是编译期义务。\n加上空安全默认开启，Dart 逼你在写的时候就交代清楚。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "空值",
+      "aliases": [
+        "none",
+        "null-safety",
+        "nullable"
+      ],
+      "perLanguage": {
+        "python": "None 对任何类型通用，出错在运行时",
+        "dart": "空安全默认开启（健全空安全），可能为空的值要标 `?`"
+      },
+      "note": "Dart 的空安全是健全的：非空类型保证真的不会是 null。\n这比 Python 的运行时 AttributeError 强得多。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "const / final",
+      "aliases": [
+        "const",
+        "final"
+      ],
+      "perLanguage": {
+        "python": "没有不可重新赋值的变量概念（约定用大写常量名）",
+        "dart": "final 只赋一次值；const 是编译期常量且深度冻结"
+      },
+      "note": "Python 靠命名约定表示常量，Dart 靠关键字真的锁住。\nconst 要求值在编译期算出，final 运行期确定即可。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "推导式",
+      "aliases": [
+        "comprehension",
+        "where",
+        "map"
+      ],
+      "perLanguage": {
+        "python": "推导式语法，一行搞定过滤加映射",
+        "dart": "没有推导式；用 where / map / whereType 链式组合"
+      },
+      "note": "注意 Dart 用 where 而不是 filter。这些操作返回惰性 Iterable，\n要 List 得 .toList()。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "并发",
+      "aliases": [
+        "isolate",
+        "thread",
+        "gil"
+      ],
+      "perLanguage": {
+        "python": "多线程受 GIL 限制，多进程复制内存，asyncio 单线程事件循环",
+        "dart": "isolate 内存隔离，不共享可变状态，靠消息传递"
+      },
+      "note": "Dart 的并发单元是 isolate（独立内存加独立事件循环）。\n因为没有共享状态，锁与原子类型这整套概念失去了对象。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "异步",
+      "aliases": [
+        "future",
+        "asyncio",
+        "await"
+      ],
+      "perLanguage": {
+        "python": "asyncio；Task 可 cancel；gather 默认一出错就抛",
+        "dart": "Future 不可取消；Future.wait 默认等全部完成才报错"
+      },
+      "note": "两处关键差别：取消能力（Python 有、Dart 没有）、\n并发失败的时机（正好相反）。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "异步序列",
+      "aliases": [
+        "stream",
+        "async-generator"
+      ],
+      "perLanguage": {
+        "python": "async generator（async for / yield）",
+        "dart": "Stream，标准库核心抽象，默认单订阅"
+      },
+      "note": "Python 的 async generator 每次调用得到新迭代器；\nDart 的 Stream 是一次性的，多播要显式转广播流。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic",
+        "typing",
+        "variance"
+      ],
+      "perLanguage": {
+        "python": "typing 是擦除的，运行期拿不到类型参数；不变",
+        "dart": "具体化（运行期保留类型参数）且协变"
+      },
+      "note": "Dart 的 `x is List<int>` 能跑，Python 的 isinstance 判不了泛型参数。\n协变的代价是运行期可能的类型错误。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "断言",
+      "aliases": [
+        "assert"
+      ],
+      "perLanguage": {
+        "python": "assert 默认生效，-O 优化模式才被剥掉",
+        "dart": "assert 默认关闭，--enable-asserts 或 debug 才生效"
+      },
+      "note": "默认值正好相反。别用 Dart 的 assert 做生产校验 —— 发布时它不存在。\n",
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "term": "可变参数",
+      "aliases": [
+        "vararg",
+        "args",
+        "kwargs"
+      ],
+      "perLanguage": {
+        "python": "*args 与 **kwargs，后者能收任意关键字参数",
+        "dart": "完全不支持可变参数，只能显式传 List"
+      },
+      "note": "静态语言里参数要写全。Python 那种「收任意关键字」的自由在 Dart 里没有。\n",
+      "baseline": "python",
+      "target": "dart"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "python2dart-1-static-and-syntax",
+      "order": 1,
+      "title": "静态类型与基础语法",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 Dart SDK，跑一个 `dart create` 的工程",
+        "写一段熟悉的 Python 逻辑用 Dart 重写，重点试除法（`//` 变 `~/`）与控制流",
+        "体会空安全：可能为空的值要标 `?`，不判空编译不过",
+        "对照本工具「语言机制」板块里 Dart 列的「静态 vs 动态」「空安全」两格"
+      ],
+      "acceptance": [
+        "能说出 `-7 // 2` 与 `-7 ~/ 2` 各得几，以及为什么",
+        "能用 final / const 表达 Python 里靠约定表达的常量"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档（中文）",
+          "url": "https://dart.cn/"
+        },
+        {
+          "label": "Dart 语言之旅",
+          "url": "https://dart.dev/language"
+        }
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "python2dart-2-collections",
+      "order": 2,
+      "title": "集合与函数",
+      "durationHint": "1-2 天",
+      "todo": [
+        "把推导式改写成 where / map 链，注意它与 Python 推导式的求值差别",
+        "写几个函数，体会没有 *args / **kwargs 后参数要怎么写",
+        "用 `x is List<int>` 验证泛型是具体化的",
+        "对照本工具「基础表达」板块里 Dart 列的集合与函数"
+      ],
+      "acceptance": [
+        "能独立把一段 Python 集合处理代码改写成 Dart 风格",
+        "能说清 Dart 的泛型具体化与 Python 的擦除差别"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 集合",
+          "url": "https://dart.dev/language/collections"
+        }
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "python2dart-3-async",
+      "order": 3,
+      "title": "异步：Future 与 Stream",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把一段 asyncio 代码改写成 async / await",
+        "验证 Future.wait 默认等全部完成，对比 asyncio.gather 的失败时机",
+        "接受 Future 不可取消，改用 Stream 加 Subscription 实现可取消任务",
+        "用 Stream 处理一串事件，体会它默认单订阅"
+      ],
+      "acceptance": [
+        "能说清 Future 与 asyncio 的任务在取消能力与失败时机上的差别",
+        "能写出正确处理多播的 Stream 代码"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 异步",
+          "url": "https://dart.dev/libraries/async/async-await"
+        }
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "python2dart-4-isolates",
+      "order": 4,
+      "title": "并发：从 GIL 到 isolate",
+      "durationHint": "2-3 天",
+      "todo": [
+        "用 `Isolate.run()` 跑一个计算密集任务，感受它绕开了 GIL 那种限制",
+        "试着跨 isolate 传一个可变对象，理解它是拷贝而非共享",
+        "接受「没有锁」：设计成消息传递而不是共享状态",
+        "对照本工具「语言机制」板块里 Dart 列的并发模型"
+      ],
+      "acceptance": [
+        "能说清 Dart 的 isolate 与 Python 的多进程 / 多线程差别",
+        "能把一个共享状态的 Python 设计改写成消息传递式"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 并发",
+          "url": "https://dart.dev/language/concurrency"
+        }
+      ],
+      "baseline": "python",
+      "target": "dart"
+    },
+    {
+      "id": "python2dart-5-engineering",
+      "order": 5,
+      "title": "工程化收口",
+      "durationHint": "1 周",
+      "todo": [
+        "用 pub 管依赖，理解它与 pip / venv 的差别",
+        "用 dart analyze 与 dart test，注意断言默认关的影响",
+        "写一个 build_runner 的代码生成，理解为什么不用反射",
+        "对照本工具「工程实践」板块里 Dart 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖管理、analyze、测试的 Dart 工程",
+        "能说清 Dart 生态为什么偏好编译期代码生成"
+      ],
+      "resources": [
+        {
+          "label": "Dart 官方文档 · 包与库",
+          "url": "https://dart.dev/tools/pub/packages"
+        },
+        {
+          "label": "Dart 官方文档（中文）",
+          "url": "https://dart.cn/"
+        }
+      ],
+      "baseline": "python",
+      "target": "dart"
+    }
+  ]
+}
