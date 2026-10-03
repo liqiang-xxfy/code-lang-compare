@@ -1,0 +1,116 @@
+# dart —— express / strings
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: strings` 的那批：
+# string-literals / string-common-ops。
+#
+# 口径说明：字符串这一组有两条 Dart 特有的事实要正面写清楚 ——
+# ① **没有字符类型**，`s[0]` 取出来的是长度为 1 的字符串（而且按 UTF-16 码元切，
+# 遇到 emoji 会一切两半）；② **相邻字符串字面量会自动拼接**（`'a' 'b'` 就是 `'ab'`），
+# 这是 C 传下来的写法，另外两门都没有。`*` 能重复字符串也是 Dart 独有。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  string-literals:
+    code: |
+      var a = '单引号';
+      var b = "双引号等价";              // @note 两种引号完全一样，选一种即可
+      var c = 'It\'s';                   // @note 里面要用同种引号就转义，或者换另一种
+
+      var name = "Ada";
+      var greet = "你好，$name";          // @note $ 后直接跟变量名
+      var long = "共 ${name.length} 个字符";   // @note 表达式要加花括号
+
+      var raw = r'C:\Users\new';         // @note r 前缀：反斜杠不再转义
+
+      var multi = '''
+      第一行
+      第二行
+      ''';                               // @note 三引号：跨行，且**不处理转义**
+
+      var joined = 'Hello, '
+                   'World';              // @note! 相邻字面量自动拼接，不需要 +
+
+      var dollar = '价格 \$5';            // @note 普通字符串里 $ 要转义
+      var repeated = 'ab' * 3;           // @note "ababab"：字符串能乘
+    vs:
+      javascript: |
+        插值两边都有，但**触发符号不同**：Dart 用 `$`（`$name`），
+        JavaScript 的模板串用反引号加 `${}`，普通字符串里插值不生效。
+        更实际的差别是**原样字符串**：Dart 有 `r` 前缀，
+        JavaScript 只能把每个反斜杠双写。
+        反过来 JavaScript 的反引号里 `\n` 仍然是换行，
+        Dart 的三引号里它就是反斜杠加 n —— 两边「原样」的彻底程度不同。
+        Dart 还有相邻字面量自动拼接与 `*` 重复，JavaScript 都没有。
+      python: |
+        两边的插值风格不同：Python 的 f-string 要前缀字母、表达式加 `{}`，
+        Dart 用一个 `$` 且不需要前缀；原样字符串两边都有
+        （`r'...'` ↔ `r'...'`），连前缀都一样。
+        差别在多行：Python 的三引号与 Dart 的三引号形态相同，
+        **但转义规则相反** —— Python 的三引号里 `\n` 依然是换行，
+        Dart 的三引号里它是两个字符。所以「原样」这件事 Dart 做得更彻底。
+      java: |
+        Java 的字符串没有插值，只能用 `+` 拼或者 `String.format`；
+        Dart 的 `$name` / `${expr}` 把变量与表达式直接写进去，
+        占位符与参数错位的整类问题消失了。
+        多行上 Java 较新的版本有文本块，形态与 Dart 的三引号接近，
+        **但 Java 的文本块仍然处理转义**（`\n` 还是换行），
+        Dart 的三引号不处理 —— 写 Windows 路径与正则时这个差别很实在。
+        另外 Java 相邻字符串字面量**不会**自动拼接（那是 C 的写法），Dart 会。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  string-common-ops:
+    code: |
+      var s = "Hello, World";
+
+      s.length;                      // @note 属性（按 UTF-16 码元计数）
+      s[0];                          // @note! "H" —— 取出来的是**字符串**，不是字符类型
+      s.substring(0, 5);             // @note "Hello"，右端不含
+      s.toUpperCase(); s.toLowerCase();
+      s.trim();
+      s.split(", ");                 // @note List<String>
+      s.replaceAll("World", "Dart");
+      s.contains("World");
+      s.startsWith("He"); s.endsWith("ld");
+      s.padLeft(5, '0');             // @note "0" + s
+      s.indexOf("o");                // @note 4；找不到给 -1
+      s.codeUnits;                   // @note 码元列表；处理非 ASCII 要留意
+
+      // @note 字符串不可变：上面每个方法都返回新字符串，原对象不动
+      // @note! 取单个「字符」没有专门类型 —— 中文、emoji 都可能被从中间切开
+    vs:
+      javascript: |
+        方法名基本对得上（`substring` / `trim` / `toUpperCase` /
+        `startsWith` / `indexOf`），这一格两边很像。
+        差别在替换：JavaScript 的 `replace` 默认只换第一个，
+        要换全部得用正则加 `g`；Dart 用 `replaceAll` 明说换全部。
+        另一处是下标：两边的 `s[0]` 都给长度为 1 的字符串
+        （都不按字符切），遇到 emoji 都会切出半个代理对 ——
+        这一点两边一样，算是共同的历史包袱。
+      python: |
+        两边都不可变，但**命名习惯不同**：Python 用 `strip` / `startswith` /
+        `find`（全小写连写），Dart 用 `trim` / `startsWith` / `indexOf`
+        （驼峰），从一边换到另一边时这些方法名要重新记一遍。
+        差别最大的一处是**切片**：Python 有 `s[1:4]` 与负下标，
+        Dart 完全没有这两个语法，取子串只能 `substring`，
+        而且它不接负数，取末尾要自己算长度。
+      java: |
+        方法名与 Dart 高度重合（`substring` / `replace` / `startsWith` /
+        `trim` / `indexOf`），`length` 在 Java 里是方法、在 Dart 里是属性。
+        两处实际差别：Java 有 `charAt(i)` 给出字符类型，
+        Dart 的下标直接给字符串；Java 的 `replace` 有两个重载
+        （字符替换与序列替换），Dart 分成 `replaceAll` / `replaceFirst`，
+        名字更明确。两边的字符串都不可变、都按 UTF-16 计数。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous

@@ -1,0 +1,108 @@
+# kotlin —— express / strings
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: strings` 的那批：
+# string-literals / string-common-ops。
+#
+# 口径说明：字符串模板（`$name` / `${expr}`）是这一组的主线 ——
+# 它同时影响「怎么拼」和「怎么转义」两件事，与 `String.format` / `%` / `+` 三家的对比
+# 要落在「表达式直接进模板」这一点上。另有一条会过时的事实：
+# 大小写方法在 Kotlin 1.5 起改名（`toUpperCase` → `uppercase`），写作时按新名字。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  string-literals:
+    code: |
+      val plain = "双引号，转义照常：\n \t \\ \" "
+      val name = "Ada"
+      val greet = "你好，$name"              // @note 模板：$ 后面直接跟变量名
+      val long = "共 ${'$'}{name.length} 个字符"  // @note 表达式要加花括号
+
+      val raw = """                 // @note 三引号：原样保留，转义符不生效
+        第一行
+        第二行 \n 这里是真的反斜杠 n
+      """.trimIndent()              // @note 配套方法：去掉公共缩进
+
+      val path = "C:\\Users"         // @note 普通字符串里写 Windows 路径要双写反斜杠
+      val rp = """C:\Users"""        // @note 三引号里不用 —— 这正是它最常用的一处
+
+      val concat = "a" + "b"         // @note + 也能拼，但可读性不如模板
+    vs:
+      javascript: |
+        模板是两边共有的（`${x}` ↔ `${x}` 或 `$x`），三引号与 JavaScript 的反引号
+        在用途上对应（都能跨行、都能插值）。**关键差别在转义**：
+        JavaScript 的反引号里 `\n` 仍然是换行转义符，而 Kotlin 的三引号里
+        反斜杠就是反斜杠 —— 写 Windows 路径与正则时这一点最省事。
+        反过来 Kotlin 的三引号**不支持转义**，连 `$` 都得靠 `${'$'}` 绕过去，
+        这也是它比反引号笨的一处。
+      python: |
+        两边的模板思路不同：Python 的 f-string 用 `{}` 加前缀字母，
+        Kotlin 用 `$` 且不需要前缀；表达式写法倒是一致（都要加花括号）。
+        多行字符串上 Python 的三引号与 Kotlin 的三引号形态相同，
+        **但转义规则相反**：Python 的三引号里 `\n` 依然是换行，
+        Kotlin 的三引号里它是两个字符。所以「原样字符串」这件事
+        Kotlin 做得更彻底，代价是想要转义就得退回普通字符串。
+      java: |
+        Java 的字符串没有模板，只能用 `+` 拼或者 `String.format`，
+        多行是较新版本才有的文本块。Kotlin 的模板让
+        `"共 " + n + " 条"` 变成 `"共 ${'$'}n 条"` ——
+        变量与表达式直接写在里面，`String.format` 的占位符与参数错位问题消失了。
+        两边都有转义反斜杠，Java 的文本块与 Kotlin 的普通字符串一样
+        需要处理转义，只有 Kotlin 的三引号是真正「原样」的。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  string-common-ops:
+    code: |
+      val s = "Hello, World"
+
+      s.length                    // @note 属性，不是方法
+      s[0]                        // @note 'H' —— 下标取出来的是 Char
+      s.substring(0, 5)           // @note "Hello"，右端不含
+      s.uppercase()               // @note 新名字；旧写法 toUpperCase() 已被弃用
+      s.lowercase()
+      s.trim()
+      s.split(", ")               // @note 返回 List<String>
+      s.replace("World", "Kotlin")
+      s.contains("World")         // @note 也能写成 "World" in s
+      s.startsWith("He"); s.endsWith("ld")
+
+      listOf("a", "b").joinToString(", ")   // @note "a, b"：拼接集合的常用写法
+      "ab".repeat(3)              // @note "ababab"
+      "42".padStart(5, '0')       // @note "00042"
+
+      // @note 字符串不可变：上面每一个方法都返回新字符串，原对象不动
+    vs:
+      javascript: |
+        方法名大体对得上（`substring` / `replace` / `startsWith` / `trim`），
+        差别在几处细节：JavaScript 的 `length` 也是属性，但
+        `s[0]` 给出的是长度为 1 的**字符串**，Kotlin 给出的是 `Char`；
+        JavaScript 的 `replace` 默认只换第一个（要换全部得用正则加 `g`），
+        Kotlin 的 `replace` 默认换全部。字符串不可变这一点两边一致。
+      python: |
+        两边都不可变、都有 `split` / `replace` / `strip` 这类方法，
+        但**命名习惯不同**：Python 常用 `strip` / `startswith`（全小写连写），
+        Kotlin 用驼峰 `trim` / `startsWith` —— 从一边换到另一边时
+        这些方法名要重新记一遍。另一处是下标取值：
+        Python 的 `s[0]` 是长度为 1 的字符串，Kotlin 的 `s[0]` 是 `Char`，
+        而且 Kotlin **没有** Python 那种负下标与切片语法，
+        取末尾字符要写 `s.last()`、切片要写 `substring`。
+      java: |
+        方法名与 Kotlin 高度重合（`substring` / `replace` / `startsWith` /
+        `trim` / `split`），`length` 在 Java 里是方法、在 Kotlin 里是属性。
+        两处实际差别：Java 的 `String` 有 `charAt(i)`，Kotlin 用下标 `s[i]`；
+        Java 的 `split` 收的是**正则**，Kotlin 也收正则但另有一个
+        收普通字符串的重载，写 `split(", ")` 时行为不同 ——
+        逗号加空格在正则里没特殊含义，但换成 `split("|")` 就出事了。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous

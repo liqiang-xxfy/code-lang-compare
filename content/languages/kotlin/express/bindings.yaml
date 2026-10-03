@@ -1,0 +1,240 @@
+# kotlin —— express / bindings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: bindings` 的那批。
+#
+# Kotlin 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Kotlin 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：bindings 这一组的落点几乎全在「`val` 与 `var` 分开」这一件事上。
+# 对 Java 读者要反复澄清的是 **Kotlin 类默认 final**、**成员没有默认初值**；
+# 对 JavaScript 读者要澄清的是 **Kotlin 的 `val` 与 `const` 只冻结绑定**这一点两边一致，
+# 但 Kotlin 有一整套只读**接口**（`List` / `MutableList`）是 JS 没有的。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-bindings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  declaration:
+    code: |
+      val name = "Ada"            // @note val：只读引用，之后不能再指向别的值
+      var count = 0               // @note var：可以重新赋值
+      count += 1
+
+      val total: Int = 0          // @note 有初值就能推断，类型通常省掉
+      var pending: String         // @note! 没有初值就必须写类型，编译器不允许推断
+      pending = "就绪"             // @note 而且它还会检查：读之前一定赋过值
+
+      class User(val id: Int, var name: String)   // @note 主构造器里直接声明属性
+    vs:
+      javascript: |
+        `val` / `var` 与 `const` / `let` 是一一对应的：都是「只读引用」与
+        「可重新赋值」两档，而且都**只冻结绑定、不冻结内容**。
+        真正不同的是没有初值时：JavaScript 允许 `let pending;` 先留着，
+        之后再说；Kotlin 这里虽然也写得出来，但编译器会盯着它，
+        读的时候还没赋过值就编译不过 —— 那半个 `undefined` 状态在这里不存在。
+      python: |
+        Python 里赋值本身就是声明，没有关键字可选，语言也分不出
+        「这个变量本该只读」；Kotlin 用 `val` 把这件事写进编译期。
+        另一处容易忽略的差别是属性：Kotlin 能在类的构造器签名里
+        直接声明属性（`class User(val id: Int)`），声明与赋值是一件事；
+        Python 得在 `__init__` 里老实写一遍 `self.id = id`。
+      java: |
+        两边最像的一对是 `val` 与 `final` —— 都是「引用不能改指向」。
+        差别在其余部分的方向相反：Java 的成员变量有默认初值
+        （数值 0、引用 null），Kotlin 的属性**必须**在声明处或构造里给出值；
+        Java 的局部变量必须写类型（Java 10 起可写 `var` 推断），
+        Kotlin 反过来 —— 有初值就省，没初值才写。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  mutability:
+    code: |
+      val list = mutableListOf(1, 2)
+      list.add(3)                 // @note! val 只锁绑定，内容照样能改
+      // list = mutableListOf()   // @note 编译错误：不能重新赋值
+
+      val readOnly: List<Int> = list   // @note 换成只读接口：连 add 都调不出来
+      // readOnly.add(4)          // @note! 编译错误：List 上没有这个方法
+
+      // @note 只读接口是「视图」不是快照 —— 背后那个可变集合改了，它也跟着变
+    vs:
+      javascript: |
+        两边对「不可变」的处理方式其实一致：`val` 与 `const` 都只管绑定。
+        但 Kotlin 多出一层 JavaScript 根本没有的东西 —— **只读接口**。
+        `List<Int>` 与 `MutableList<Int>` 是两个类型，前者连 `add` 都点不出来，
+        由编译器保证。JavaScript 那边只能靠约定（或者运行时冻结）。
+        要留意的是它仍是个**视图**：背后的可变集合改了，只读的那个也变。
+      python: |
+        Python 没有「只读引用」这一档，全大写的名字只是给同事看的约定；
+        Kotlin 的 `val` 由编译器负责，改绑直接编译不过。
+        集合上也相反：Python 用「换个不可变类型」的办法（列表换元组）
+        来保证内容不变，代价是操作变少；Kotlin 是**同一份数据**上挂两个类型的视图，
+        只读视图限制的是你手上的这个引用，不是数据本身。
+      java: |
+        两边都有一个真正的不可变绑定（`final` / `val`），也都不冻结内容 ——
+        `final` 的 `List` 照样能 `add`。差别在只读视图这一层：
+        Java 的 `List.of(...)` 给出的是**真的不可变集合**，改它运行期抛异常；
+        Kotlin 的 `listOf(...)` 同样是不可变的，但 `List` 接口挂在可变集合上时
+        只是一个**编译期视图** —— 绕过去不抛异常，只是编译器不让你过。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  scope:
+    code: |
+      val a = 1
+      run {
+        val a = 2                 // @note 内层的 a 是另一个变量
+        println(a)                // 2
+      }
+      println(a)                  // 1
+
+      for (i in 1..3) {
+        // @note i 只活在这个循环里，出了花括号就没了
+      }
+      // println(i)               // @note! 编译错误：i 不在作用域里
+
+      // @note Kotlin 没有函数级作用域的声明 —— 全是块级，没有例外
+    vs:
+      javascript: |
+        作用域规则几乎可以逐条对应：都是块级、出了花括号就失效，
+        也没有函数级作用域那个例外。差别在**声明顺序**上：
+        JavaScript 的函数声明能从块里「漏」出去（浏览器里那套老规则），
+        Kotlin 里没有任何声明能穿出它所在的花括号 —— 规则只有一条，不用记特例。
+      python: |
+        Python 是**函数级**作用域：`for` 里赋的值出了循环还在，
+        循环变量会留在外层；Kotlin 的 `for` 变量只活在循环体里，
+        出了花括号连名字都不存在。所以在 Python 里给循环变量重名要小心，
+        在 Kotlin 里这根本构不成问题 —— 编译器会告诉你「没有这个变量」。
+      java: |
+        两边都是块级作用域，这一条一致。差别在**类成员与局部变量的分野**上：
+        Java 的局部变量必须先赋值才能用，字段却有默认值，
+        所以「字段先声明后赋值」在 Java 里是常态；Kotlin 的属性也必须在声明处
+        或 `init` 块里给出值，不留悬挂状态。这一点让 Kotlin 的初始化顺序
+        比 Java 好读一些（代价是写起来啰嗦一点）。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  hoisting:
+    code: |
+      // println(later)            // @note! 编译错误：局部变量必须先声明后用
+      val later = 1
+
+      greet()                      // @note 顶层函数**不看书写顺序**，这里调得到
+      fun greet() = println("你好")
+
+      class User(val id: Int)      // @note 类型也一样：整份文件里的声明都算数
+      val u: User? = null
+
+      // @note! 但「能用」不等于「已经初始化」—— 顶层属性在初始化前读到的是默认值 0 / null
+    vs:
+      javascript: |
+        JavaScript 的提升是**引擎在运行时**做的事，所以「先用后声明」的结果
+        取决于你用哪个关键字（`var` 给 undefined、`let` 报错、函数声明能用）。
+        Kotlin 没有运行时提升这回事：编译器解析整份文件，函数与类型的声明
+        与书写顺序无关，局部变量则一律必须先声明。结果是这边只需要记
+        「局部变量按顺序、其余随便」，而那边要记三种时机。
+      python: |
+        Python 里名字在赋值之前根本不存在，读它就是 `NameError`；
+        函数与类则因为模块是自上而下执行的，「先用后定义」在下边能跑、
+        在上边会炸 —— 取决于调用时机，是运行期的事。
+        Kotlin 把这条界线画在编译期：函数与类型随便写哪儿都行，
+        局部变量必须先声明，两类各自只有一条规则。
+      java: |
+        两边都不提升，且都把「局部变量必须先声明、使用前必须赋值」
+        交给编译器检查 —— 这条几乎一模一样。差别只在字段侧：
+        Java 的字段有默认值，`null` 和 `0` 是能观察到的初值；
+        Kotlin 的属性必须显式给出初值，另外加了一个 `lateinit` 作为
+        「我保证用之前会赋值」的逃生口，真忘了就在使用处抛异常。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  shadowing:
+    code: |
+      val x = 1
+      run {
+        val x = 2                 // @note! 合法，但编译器会警告 name shadowed
+        println(x)
+      }
+
+      // val x = 3                 // @note! 编译错误：同一作用域里重复声明
+
+      class Inner(val x: Int) { }  // @note 属性遮蔽外层同名变量：同样只警告
+
+      fun f(items: List<String>) {
+        items.forEach { it ->      // @note! it 是默认参数名，显式写出来就会遮蔽外层
+          println(it)
+        }
+      }
+    vs:
+      javascript: |
+        遮蔽规则两边一致，但**态度**不同：JavaScript 完全不吭声，
+        Kotlin 会给出 `name shadowed` 警告 —— 不是错误，是提醒你这里
+        多半能换个名字。同一个作用域里重复声明则在两边都是错误。
+        所以 Kotlin 代码里出现遮蔽基本可以当成有意为之：无意写的那些
+        编译器已经喊过一遍了，改不改在你。
+      python: |
+        Python 的花括号里那次赋值根本不是「新变量」，它改的就是外层那个名字 ——
+        在函数里甚至要 `nonlocal` 才能改，改不到还会报错。
+        Kotlin 里它天然是一个新变量，出了块就回到外层那个。
+        同一段嵌套结构在两边的含义完全不同，是迁移时最容易看漏的一处。
+      java: |
+        两边都是块级遮蔽，同作用域重复声明都在编译期报错，规则可以逐条对应。
+        差别在类成员这一层：Java 的字段与参数重名时，
+        写在字段位置要靠 `this.x` 才能指到字段，方法里的 `x` 是参数；
+        Kotlin 用的是同一个 `this.x` 写法，但它在遮蔽外层变量时会额外警告，
+        比 Java 多一句提醒。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: identical
+
+  naming-convention:
+    code: |
+      const val MAX_RETRY = 3     // @note 编译期常量：全大写下划线分隔
+      val defaultTimeout = 30     // @note 普通只读属性：小驼峰，不因为只读就大写
+      var userName = "Ada"        // @note 变量：小驼峰
+      class UserProfile           // @note 类型：大驼峰
+      fun fetchData() { }         // @note 函数：小驼峰
+
+      fun `空购物车的总价是零`() { }   // @note 反引号名字：只推荐在测试里用
+
+      // @note! 常量大小写看的是**是不是编译期常量**，不是看 val 还是 var
+    vs:
+      javascript: |
+        大部分惯例是共通的（大驼峰类型、小驼峰其余），两边都由社区约定
+        而非语言强制。Kotlin 多两条 JavaScript 没有的：一是**全大写专留给
+        编译期常量**（`const val`），普通 `val` 仍写小驼峰 —— 所以看到全大写
+        就知道它是编译期替换掉的；二是反引号名字，能让函数名直接写成中文句子，
+        官方只推荐测试用。JavaScript 那边这两条都靠自觉。
+      python: |
+        Python 用全大写表示「这是常量」，全靠约定，解释器不管；
+        Kotlin 的全大写有个硬边界 —— 真正享受这个名字的是 `const val`
+        （编译期常量，只有基本类型和字符串能当）。
+        另一处是测试名：Python 那边测试函数名只能是合法标识符
+        （中文虽然合法但会有人反对），Kotlin 用反引号能把整句中文当函数名，
+        这是官方文档专门提到的用法。
+      java: |
+        两边的类型与函数命名惯例一样（大驼峰 / 小驼峰），可以逐条对应。
+        差别在两处：Java 的常量是 `static final` 全大写，覆盖范围比 Kotlin 的
+        `const val` 宽（Kotlin 的 `const val` 只能是基本类型或字符串，
+        要对象就得用 `val`，那时按惯例写小驼峰）；另一处是包名 ——
+        Kotlin 官方明确要求包名全小写且**不鼓励用下划线**，Java 那边
+        下划线包名还相当常见。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous

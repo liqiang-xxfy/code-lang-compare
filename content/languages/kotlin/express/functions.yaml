@@ -1,0 +1,236 @@
+# kotlin —— express / functions
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: functions` 的那批：
+# function-declaration / parameters / variadic / return-values / closures。
+#
+# 口径说明：这一组对 Java 读者最有价值的是**默认值与命名参数**（Java 完全没有）、
+# **函数可以是顶层的、不必挂在类里**、以及 **`Unit` 不是 `void`**。
+# closures 一侧要正面交代 Kotlin 允许闭包**修改捕获的变量**（Java 只能捕获 effectively final 的）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  function-declaration:
+    code: |
+      fun greet(name: String): String {     // @note 顶层函数：不用挂在类里
+        return "你好，$name"
+      }
+
+      fun double(n: Int) = n * 2            // @note 表达式体：连 return 都省了
+
+      class Cart {
+        fun total(): Int = 0                // @note 成员函数与 Java 的方法同义
+      }
+
+      fun String.shout() = uppercase()      // @note 扩展函数：给已有类型加方法
+
+      fun main() {
+        fun helper() = 1                    // @note 局部函数：只在 main 里可见
+        println(helper())
+      }
+    vs:
+      javascript: |
+        两边都能写顶层函数，这一条彼此很像。差别在**声明要不要写在调用之前**：
+        JavaScript 的函数声明会提升到作用域顶部，
+        所以顺序随意；Kotlin 没有提升，但它靠的是编译器解析整份文件，
+        顺序同样随意。真正不同的是函数本身是值这件事：
+        JavaScript 里函数天生是对象，随手就能传；Kotlin 里
+        传函数要写成函数类型（或者用 `::` 拿一个函数引用），
+        多了一层类型信息，也多了一层检查。
+      python: |
+        Python 用 `def`、Kotlin 用 `fun`，都能写顶层函数，形状接近。
+        差别在**签名里写不写类型**：Python 的标注是可选的、运行时不看；
+        Kotlin 的参数与返回值（除表达式体外）都要写，写错编译不过。
+        另一处是扩展能力：Python 可以在运行时给类挂方法，
+        Kotlin 的扩展函数只是**静态解析的语法糖** ——
+        它按声明处的类型决定调哪个，不会真的进到那个类里，
+        也不能被继承覆盖。看起来一样，机制完全不同。
+      java: |
+        Java 里所有方法都必须挂在类上，写个工具方法得先建个类
+        再全写成 `static`；Kotlin 的顶层函数直接在文件里定义，
+        编译时自动挂到一个以文件名命名的类上（Java 调用方能看到它）。
+        另一处差别是简洁程度：Kotlin 的表达式体函数
+        （`fun double(n: Int) = n * 2`）连大括号与 `return` 都省了，
+        Java 必须写完整的块。功能上两边等价，读起来 Kotlin 更密。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  parameters:
+    code: |
+      fun connect(host: String, port: Int = 8080, secure: Boolean = false) { }
+
+      connect("a.com")                          // @note 用默认值
+      connect("a.com", 9090)                    // @note 位置参数照常
+      connect("a.com", secure = true)           // @note! 命名参数：跳过中间那个默认值
+      connect(port = 1, host = "a.com")         // @note 顺序也能换
+
+      // @note 默认值可以引用前面的参数
+      fun url(host: String, path: String = "/$host") { }
+
+      // @note 从 Java 侧调这些函数时，默认值不会自动生效 ——
+      // @note 要加 @JvmOverloads 让编译器生成重载版本
+    vs:
+      javascript: |
+        JavaScript 的参数没有默认值语法（靠解构与 `??` 手工补），
+        也没有命名参数 —— 想「跳过中间那个」只能传 `undefined`
+        或者干脆传一个对象。Kotlin 两者都有，而且语法直接写在签名里，
+        读函数定义就知道哪些可以省。代价是重载规则变复杂：
+        同名函数配不同的默认值容易撞签名，编译器会要求你写清楚。
+      python: |
+        两边都有默认值与关键字参数，这一格几乎可以逐条对应
+        （`port=8080` ↔ `port: Int = 8080`，`connect(secure=True)` ↔ `connect(secure = true)`），
+        连「默认值只算一次」这类陷阱都相似。差别在**默认值能不能引用前面的参数**：
+        Python 里默认值在定义时求值，拿不到前面的参数；Kotlin 可以，
+        所以 `path: String = "/$host"` 这种依赖式默认值写得出来。
+      java: |
+        **Java 两者都没有**：既没有参数默认值，也没有命名参数，
+        想表达「可选的参数」只能靠重载一大堆方法或者建一个 Builder。
+        Kotlin 把这两件事变成了语法，所以 Java 那边一个类里
+        七八个重载构造器的场面，在 Kotlin 里是一行签名。
+        要注意的是这层糖**不会自动传给 Java 调用方** ——
+        不加 `@JvmOverloads` 的话，Java 代码里看到的仍然只有那个完整签名。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  variadic:
+    code: |
+      fun sum(vararg nums: Int): Int = nums.sum()   // @note 函数体内它是 IntArray（不装箱）
+
+      sum(1, 2, 3)                 // @note 直接列出来
+      val arr = intArrayOf(1, 2, 3)
+      sum(*arr)                    // @note! 展开运算符 *：把数组摊成参数
+
+      fun log(prefix: String, vararg items: String) { }
+      log("x", "a", "b")
+      log("x")                     // @note 一个都不给也合法
+
+      // @note! 一个函数只能有一个 vararg 参数
+      // @note vararg 之后的参数必须用命名参数传
+      fun f(vararg a: Int, last: String) { }
+      f(1, 2, last = "末尾")
+    vs:
+      javascript: |
+        两边都用 `...` 这个概念（JavaScript 的剩余参数 / Kotlin 的 `vararg`），
+        展开时也都需要一个专门的符号（`...arr` ↔ `*arr`）。
+        差别在**类型**：JavaScript 的剩余参数就是一个数组，
+        里面装什么运行时才知道；Kotlin 的 `vararg nums: Int`
+        限定了元素类型，传错编译不过，而且它在函数体内确实是 `Array<Int>`，
+        不是可变参数的模糊形态。
+      python: |
+        Python 的 `*args` 与 Kotlin 的 `vararg` 是同一个东西，
+        连展开时都要加符号（`f(*arr)` ↔ `f(*arr)`）—— 这一层写法几乎一样。
+        差别在**能不能限定类型与个数**：Python 的 `*args` 是个元组，
+        里面什么都可能；Kotlin 写明了类型，传错编译不过。
+        另一处是位置：Python 的 `*args` 之后还能有普通参数（只收关键字），
+        Kotlin 的 `vararg` 之后的参数**必须**用命名参数传，规则更硬。
+      java: |
+        两边的形态差别最大的一处：Java 的可变参数就是数组，
+        调用处直接传数组即可，**不需要任何展开符号**；
+        Kotlin 默认把数组当**一个参数**，想摊开必须显式写 `*`。
+        所以从 Java 迁过来的代码里 `sum(arr)` 会编译失败，
+        得改成 `sum(*arr)`。另一处是 Kotlin 的 `vararg` 之后的参数
+        只能用命名参数传，Java 那边没有这个限制（也没有命名参数可用）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  return-values:
+    code: |
+      fun a(): Int = 1                  // @note 表达式体：返回类型能推断
+      fun b(): Int { return 1 }         // @note! 块体的返回类型**不能省**（Unit 除外）
+      fun c() { return }                // @note 推成 Unit 是唯一的例外
+
+      fun log(msg: String) { }          // @note 不写返回类型 = 返回 Unit
+      fun log2(msg: String): Unit { }   // @note 写出来是同一个意思
+
+      fun fail(msg: String): Nothing {  // @note Nothing：永远不返回
+        throw IllegalStateException(msg)
+      }
+
+      val x = if (true) 1 else fail("不会发生")   // @note 靠 Nothing 让类型对上
+
+      // @note Kotlin 没有 void 这个类型，Unit 是一个真实存在的值
+      val u: Unit = log("hi")
+    vs:
+      javascript: |
+        JavaScript 不写返回类型的返回值就是 `undefined` ——
+        一个能被赋给变量、能被意外当作值传下去的东西；
+        Kotlin 的 `Unit` 同样是真实存在的值，但它是**有类型**的，
+        你没法把它误当成别的东西用。
+        另一处差别是「不返回」这件事：JavaScript 里函数抛异常是运行期行为，
+        签名上看不出来；Kotlin 可以用 `Nothing` 把它写进类型，
+        于是编译器知道「这一行之后的代码不会被执行」，
+        也能拿它去满足任何一个类型。
+      python: |
+        Python 不写返回值的函数返回 `None`，Kotlin 返回 `Unit`，
+        两边都是「有值」而不是「无值」。差别在类型系统怎么对待它：
+        Python 的 `None` 可以流到任何地方（除非类型检查器拦你），
+        Kotlin 的 `Unit` 有类型，不会被当成别的类型用。
+        另一处是 `Nothing`：Python 里表示「一定抛异常」只能靠文档，
+        Kotlin 用一个底部类型写进签名，编译器据此做可达性分析。
+      java: |
+        Java 的 `void` 是**没有返回值**，方法调用不能出现在表达式里；
+        Kotlin 的 `Unit` 是一个真实的值，函数调用可以当表达式的一部分，
+        这让泛型代码里少了很多特例（不用为「什么都不返回」写一段单独的重载）。
+        另一处是 `Nothing`：Java 里表示「永远不返回」只有
+        `throw` 这一种表达，类型系统不知道；Kotlin 把它变成一个类型，
+        所以 `?: fail("...")` 这种写法能通过类型检查 —— 一边靠约定，一边靠类型。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  closures:
+    code: |
+      val add = { a: Int, b: Int -> a + b }   // @note lambda 要写参数类型
+      val square: (Int) -> Int = { it * it }  // @note 单参数用 it，类型从左边推
+
+      fun counter(): () -> Int {
+        var n = 0                             // @note! 捕获的 var 可以被闭包修改
+        return { n++ }                        // @note 每次调用都改同一个 n
+      }
+      val next = counter()
+      next(); next()                          // @note 返回值依次是 0、1
+
+      // @note 有捕获的 lambda 编译后是一个持有引用的对象，不是函数指针
+      fun makeAdder(base: Int) = { x: Int -> x + base }
+    vs:
+      javascript: |
+        两边都能捕获并**修改**外层变量，闭包的生命周期也一致
+        （外层函数返回后变量仍然活着，因为它被闭包引用着）。
+        差别在类型上：JavaScript 的闭包没有签名，
+        里面能传几个参数、返回什么全靠读；
+        Kotlin 的 lambda 有类型 `(Int) -> Int`，参数个数与类型都对得上才行，
+        编译器还能据此推断省略掉的那些标注。
+      python: |
+        两边都能捕获并修改外层变量，写法也都不啰嗦
+        （单参数时 Python 直接写名字、Kotlin 用 `it`）。
+        差别在**能不能改**：Python 想给外层变量重新赋值要写 `nonlocal`，
+        不写就在函数内新建一个局部变量 —— 静默地不起作用，是常见的坑；
+        Kotlin 直接改，编译器自动把被捕获的变量包成引用对象，
+        不需要任何声明。代价是这层包装**不那么显然**：
+        一个循环里创建的多个闭包共享同一个 `var` 时，行为与直觉不同。
+      java: |
+        Java 的 lambda 只能捕获 **effectively final** 的变量 ——
+        想「改」外层变量得绕道数组或 `AtomicInteger` 这类容器；
+        Kotlin 直接允许修改，编译器把变量包装成一个持有字段的对象。
+        这是 Kotlin 明显更顺手的一处，但也意味着闭包持有的是
+        **同一个可变状态**，多处共享时要想清楚。
+        另一处是语法：Java 写 `x -> x * 2`（只有一个箭头形式），
+        Kotlin 还有「尾随 lambda」这个写法（把 lambda 写到括号外），
+        于是 `list.filter { it > 0 }` 这样的读法在 Java 里写不出来。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

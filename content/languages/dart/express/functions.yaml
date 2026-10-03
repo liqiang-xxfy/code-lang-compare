@@ -1,0 +1,226 @@
+# dart —— express / functions
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: functions` 的那批：
+# function-declaration / parameters / variadic / return-values / closures。
+#
+# 口径说明：惯例是**没有变参**的语言一律写 `absent: true` + 三份 vs 说明替代写法
+# （Rust 那一格就是这么写的），Dart 也走这条 —— 它不是「还没写」，
+# 是语言真的没有，替代手段是把参数收成 `List`。
+# 另一处要点是**参数默认值必须是编译期常量**，比 Kotlin 更严。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  function-declaration:
+    code: |
+      int add(int a, int b) { return a + b; }     // @note 顶层函数：不用挂在类里
+      int double2(int n) => n * 2;                // @note 箭头体：只能接一个表达式
+
+      class Cart {
+        int total() => 0;                         // @note 方法：与别处一样
+      }
+
+      void main() {
+        int helper() => 1;                        // @note 局部函数
+        print(helper());
+
+        var f = double2;                          // @note! 函数是对象，能赋给变量传出去
+        print(f(3));                              // 6
+      }
+
+      // @note 返回值类型可以省略（推成 dynamic），但官方风格要求写出来
+    vs:
+      javascript: |
+        两边都能写顶层函数，函数也都是「一等对象」可以到处传 —— 这一格很像。
+        差别在**箭头体的能力**：JavaScript 的 `=>` 既能接表达式也能接块，
+        而且没有 `this` 绑定；Dart 的 `=>` 只能接**一个表达式**，
+        想写多条语句必须换回大括号加 `return`。
+        另一处是返回类型：JavaScript 靠推断，Dart 建议显式写，
+        而且不写会被推成 `dynamic`（等于关掉这处的检查）。
+      python: |
+        两边都能写顶层函数与嵌套函数，形状接近（`def` ↔ 函数声明）。
+        差别在**返回类型与箭头体**：Dart 的 `=>` 是「一条表达式的函数」，
+        Python 的 lambda 也是「一条表达式的函数」，但 Python 的 lambda
+        不能有语句体、也不能写多行，Dart 的 `=>` 同样是这个限制 ——
+        两边都为此保留了完整的函数声明形式。
+        另一处是类型：Python 的标注不影响运行，Dart 的返回类型写错编译不过。
+      java: |
+        Java 的所有方法都必须挂在类上；Dart 的顶层函数直接写在文件里，
+        与 Java 的 `static` 方法用途相同但不用建类。
+        差别更大的是**函数是对象**这件事：Java 要传一个函数得用
+        函数式接口加 lambda，还要声明接口；Dart 直接 `var f = double2;`
+        就把函数本身存下来了。Dart 的类型写作 `int Function(int)`，
+        比 Java 的接口声明短得多。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  parameters:
+    code: |
+      // 位置参数：必填
+      void a(int x, int y) { }
+
+      // 可选位置参数：放在 [] 里，必须排在必填的后面
+      void b(int x, [int y = 0, int z = 0]) { }
+      b(1); b(1, 2); b(1, 2, 3);
+
+      // 命名参数：放在 {} 里，调用时写名字
+      void c({int x = 0, int y = 0}) { }
+      c(); c(x: 1); c(y: 2, x: 1);          // @note 顺序随意
+
+      // required 让命名参数变成必填
+      void d({required String host, int port = 8080}) { }
+      d(host: "a.com");
+
+      // @note! 默认值必须是**编译期常量** —— 不能写 DateTime.now()
+      // @note! 一个函数不能同时有可选位置参数和命名参数
+    vs:
+      javascript: |
+        JavaScript 没有参数默认值的语法，也没有命名参数 ——
+        想「跳过中间那个」只能传 `undefined` 或者干脆传一个对象；
+        Dart 两者都有，而且命名参数是**语言特性**（不是靠解构对象模拟的），
+        所以调用处的 `d(host: "a.com")` 有真实的静态类型检查。
+        代价是限制更硬：默认值必须是编译期常量，
+        而 JavaScript 那边想要动态默认值随手就能写。
+      python: |
+        两边都有默认值与关键字参数，形状接近，连「默认值只算一次」这类陷阱都相似。
+        差别在**位置的约束**：Python 允许 `*args` 之后的参数只能按关键字传，
+        机制灵活但规则多；Dart 把它简化成两种明确的形态 ——
+        可选位置参数（`[]`）与命名参数（`{}`），
+        而且**两者不能混用在同一个函数上**，规则更少但表达力也少一点。
+        另一处是默认值必须是编译期常量，Python 里可以写任意表达式。
+      java: |
+        **Java 两者都没有**：既没有参数默认值，也没有命名参数，
+        想表达「可选参数」只能重载一大堆方法或者建 Builder。
+        Dart 把这两件事都变成了语法，所以 Java 那边一个类里
+        七八个重载构造器的场面，在 Dart 里是一行签名加几个 `{}`。
+        要注意 `required` 这个关键字：它不是为了「必填」本身，
+        而是因为命名参数默认全部可选，得有个办法把某些标回必填。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  variadic:
+    absent: true
+    vs:
+      javascript: |
+        Dart 的函数**不支持可变参数** —— 没有 `...args` 那样的写法。
+        要接受不定个数的同类型参数，标准做法是收一个 `List<T>`，
+        调用方直接传字面量：`sum([1, 2, 3])`。
+        JavaScript 的剩余参数在函数体内就是一个真数组，
+        所以那边「可变参数」与「传数组」本来就是一回事；
+        这边干脆只剩后者。
+      python: |
+        Dart **没有可变参数**，`*args` / `**kwargs` 都没有对应物。
+        不定个数的参数只能收一个 `List`。命名参数这一侧倒是有，
+        但它要求每个名字在签名里写全 —— 所以「随便传一组关键字参数」
+        这件事在 Dart 里做不到，得先定义好有哪些可选参数。
+        从 Python 过来时，`**kwargs` 那类用法需要重新设计接口。
+      java: |
+        Java 有变参 `int... nums`，Dart **没有** ——
+        这是从 Java 过来最直接的一处缺失。替代是收一个 `List<int>`，
+        调用方写 `sum([1, 2, 3])` 而不是 `sum(1, 2, 3)`，
+        多个方括号是迁移时最容易忘的一处。
+        好处是签名更诚实：参数本来就是一个集合，
+        不必再为「单个值」与「多个值」各留一条路径。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  return-values:
+    code: |
+      int a() => 1;                       // @note 箭头体：返回那个表达式的值
+      int b() { return 1; }               // @note 块体：要显式写 return
+      int c() { 1; }                      // @note! 编译错误：块体的末尾表达式不会自动返回
+
+      void log(String msg) { }            // @note void：真的没有值可给
+      log("hi");
+      // var x = log("hi");               // @note! 编译错误：void 不能赋给变量
+
+      // @note 想要「有值」而不是「没值」，就返回一个真实的东西：
+      String? find(int id) => null;       // @note 找不到给 null（类型里写明了）
+
+      // @note Dart 没有「永远不返回」的类型 —— 抛异常的函数返回类型随便写，
+      // @note 编译器不会据此做可达性分析
+    vs:
+      javascript: |
+        JavaScript 的函数不返回值就是 `undefined` —— 一个能被赋给变量、
+        能被意外传下去的值；Dart 的 `void` 是**真的没有值**，
+        把它赋给变量编译不过，这类「忘了返回」的错误在 JavaScript 里
+        要到运行时才发现，在 Dart 里写的时候就报错。
+        另一处是块体：Dart 的块体不会「最后一个表达式就是返回值」，
+        必须写 `return`；JavaScript 也一样，
+        但 JavaScript 至少还能靠箭头体省掉它，两边在这一点上可以对应。
+      python: |
+        两边都是「不写返回值就返回一个空值」（`None` ↔ 没有 void），
+        但**类型系统怎么对待它**不同：Python 的函数默认返回 `None`，
+        这个 `None` 可以一路传下去；Dart 标了 `void` 就是真的没有值，
+        赋值给变量是编译错误。
+        另一处是要表达「可能找不到」时的习惯：Python 直接返回 `None`，
+        Dart 会把返回类型写成 `String?`，逼迫调用方处理空的情况。
+      java: |
+        Java 的 `void` 也是「没有返回值」，与 Dart 的 `void` 几乎同义，
+        连「不能赋给变量」这条都一致 —— 这一格两边最接近。
+        差别在**「找不到」的表达**：Java 里返回 `null` 不需要在签名里说明，
+        调用方不看文档就不知道要判空；Dart 必须写 `String?`，
+        调用方不处理就编译不过。所以同一件事在 Dart 里是签名的一部分。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  closures:
+    code: |
+      int Function(int) makeAdder(int base) => (x) => x + base;   // @note 捕获 base
+
+      Function counter() {
+        var n = 0;
+        return () { n++; return n; };      // @note! 捕获的变量可以被闭包修改
+      }
+      var next = counter();
+      next(); next();                      // @note 依次得到 1、2 —— 改的是同一个 n
+
+      // @note 陷阱：循环里创建的多个闭包会共享同一个变量
+      var fns = <Function>[];
+      for (var i = 0; i < 3; i++) {
+        fns.add(() => i);                  // @note 每次迭代都是新的 i，所以各自独立
+      }
+      print(fns.map((f) => f()).toList()); // @note [0, 1, 2]
+
+      // @note 递归的局部函数要先声明再赋值
+      late int Function(int) fact;
+      fact = (n) => n <= 1 ? 1 : n * fact(n - 1);
+    vs:
+      javascript: |
+        两边都捕获并**允许修改**外层变量，循环里创建闭包的行为也一致
+        （`for` 的每次迭代是一个新的绑定，所以各自独立）。
+        差别在类型上：JavaScript 的闭包没有签名，
+        里面能传几个参数、返回什么全靠读；Dart 的闭包有函数类型
+        （`int Function(int)`），对不上编译不过，
+        而且编译器能据此推断省略掉的那些标注。
+      python: |
+        两边都允许闭包修改外层变量 —— 这一点比多数语言宽松
+        （Python 里想改还得写 `nonlocal`，不写就静默新建一个局部变量，
+        是常见的坑；Dart 直接改，不需要任何声明）。
+        差别在写法：Python 的多行闭包靠嵌套 `def`，
+        Dart 用匿名函数 `() { ... }` 或箭头体，函数本身就是一个普通的值。
+      java: |
+        Java 的 lambda 只能捕获 **effectively final** 的变量 ——
+        想「改」外层变量得绕道数组或 `AtomicInteger` 这类容器；
+        Dart 直接允许修改，编译器把被捕获的变量包成一个持有字段的对象。
+        这是明显更顺手的一处，但代价是闭包持有的是**同一个可变状态**，
+        多处共享时要想清楚。另一处是类型写法：Java 传函数要声明接口，
+        Dart 写 `int Function(int)` 就够了。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: divergent

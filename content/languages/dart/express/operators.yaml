@@ -1,0 +1,210 @@
+# dart —— express / operators
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: operators` 的那批：
+# arithmetic / equality / logical / operator-overloading。
+#
+# 口径说明：arithmetic 一格有三条与 JavaScript / Java **都不同**的硬事实：
+# `/` 永远给小数、整除要写 `~/`、**`%` 的结果永远非负**（`-7 % 3` 是 2 不是 -1）。
+# equality 一格要交代 Dart 的默认相等是**引用相等**（与 Java 同、与 JavaScript 的
+# 严格相等不同在类型转换那一层），而字符串的 `==` 比的是内容。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arithmetic:
+    code: |
+      print(7 / 2);                 // @note! 3.5 —— 除号永远给小数
+      print(7 ~/ 2);                // @note 3：整除是专门的运算符
+      print(7 % 3);                 // @note 1
+      print(-7 % 3);                // @note! 2 —— Dart 的取余结果永远非负
+      print(-7.remainder(3));       // @note! -1：想跟着符号走要用 remainder()
+
+      var i = 1;
+      var d = 2.5;
+      print(i + d);                 // @note 3.5：数字之间可以混合运算，结果是 double
+      // int bad = i + d;           // @note! 编译错误：结果不是 int，不能赋给 int
+
+      var big = 9223372036854775807;   // @note int 的最大值（64 位）
+      print(big + 1);               // @note! 静默回绕成最小值，不报错
+
+      var k = 0;
+      k++;                          // @note 自增自减都在
+    vs:
+      javascript: |
+        两边都是「除号给小数」，但 Dart 多一个 `int` 类型，
+        所以「要整除」成了真问题，答案就是 `~/` —— JavaScript 里
+        只能靠 `Math.floor(x / y)`，而且负数时 `Math.floor` 与整除的行为还不一样。
+        取余的分歧更大：JavaScript 的 `-7 % 3` 是 **-1**（跟着被除数符号），
+        Dart 的 `-7 % 3` 是 **2**（结果永远非负）—— 同一行代码在两个语言里
+        给出不同的数，这是迁移时最隐蔽的一处。
+      python: |
+        除法两边可以逐条对应，只是符号不同（`/` 给浮点、`//` 给整除），
+        取余也一致：Python 的 `-7 % 3` 同样是 **2**，两边都是「结果非负」这一派。
+        差别在数字类型：Python 的整数任意精度，不会溢出；
+        Dart 的 `int` 是 64 位定宽，最大值加一会静默回绕 ——
+        那种在 Python 里不可能发生的 bug，在 Dart 里是默认行为。
+        另一处是混合运算的结果类型：Python 的 `int + float` 给 float，
+        Dart 的 `int + double` 同样给 double，这一层两边一样。
+      java: |
+        **除法默认相反**：Java 的 `7 / 2` 是 3（整除是默认），
+        Dart 的 `7 / 2` 是 3.5，整除要写 `~/` —— 从 Java 过来最容易错这里。
+        取余也相反：Java 的 `-7 % 3` 是 **-1**（跟着被除数），
+        Dart 是 **2**（永远非负）。一条 `%` 在两个语言里给出不同的数。
+        相同的是整数都是 64 位定宽、都会静默回绕，
+        也都不能把 `int` 与 `double` 的运算结果直接当成 `int`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  equality:
+    code: |
+      var a = "hello";
+      var b = "hel" + "lo";
+      print(a == b);                // @note true —— 字符串的 == 比的是内容
+      print(identical(a, b));       // @note 可能是 false：那是「同一个对象吗」
+
+      var l1 = [1, 2];
+      var l2 = [1, 2];
+      print(l1 == l2);              // @note! false —— 列表没有重载 ==，比的是身份
+      print(l1 == [1, 2]);          // @note! 同样 false，这是最常见的坑
+
+      class Point {
+        final int x;
+        Point(this.x);
+        @override
+        bool operator ==(Object other) => other is Point && other.x == x;
+        @override
+        int get hashCode => x.hashCode;      // @note 重载 == 必须同时重载 hashCode
+      }
+      print(Point(1) == Point(1));  // @note true：自己定义的
+
+      print(1 == 1.0);              // @note! false —— int 与 double 不相等
+      print(double.nan == double.nan);  // @note false：按 IEEE 规则
+    vs:
+      javascript: |
+        两边都不会替你做类型转换（JavaScript 的宽松 `==` 会，所以
+        实际上只有严格 `===` 才与 Dart 的 `==` 可比）。真正的差别在**默认行为**：
+        JavaScript 的数组与对象比的是引用，这一点与 Dart 相同；
+        但 JavaScript 里字符串的 `===` 也比内容，两边一致。
+        最需要注意的是**没有类型转换**这一条：JavaScript 的 `1 == "1"`
+        为真，Dart 里 `1 == "1"` 是 `false`（连编译警告都未必有）——
+        从宽松相等迁过来时，原本靠转换成立的判断会静静地变成假。
+      python: |
+        Python 的 `==` 比内容、`is` 比身份，与 Dart 的 `==` / `identical` 对应，
+        而且两边的默认规则也一样：自定义类不重载时都按身份比。
+        差别在**集合**：Python 的列表 `==` 会逐元素比较
+        （`[1,2] == [1,2]` 为真），Dart 的列表比的是身份（为假）——
+        同一行判断在两个语言里结论相反，这是最容易踩的一处。
+        另一处是 `1 == 1.0`：Python 为真，Dart 为假（`int` 与 `double` 不相等）。
+      java: |
+        两边都是「不重载就按身份比」，且都要求重载 `==` 时同时给出 `hashCode`，
+        规则可以逐条对应。差别在**字符串**：Java 的 `==` 比身份，
+        比内容要写 `.equals`；Dart 的 `String` 重载了 `==`，直接 `==` 就行。
+        另一处是包装类型的坑：Java 里 `Integer` 的 `==` 在超出缓存范围后
+        会给出意外结果，Dart 的 `int` 没有这个缓存问题；
+        但 Dart 这边 `1 == 1.0` 为假，Java 里 `1 == 1.0`（基本类型）为真 ——
+        方向又是反的。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  logical:
+    code: |
+      var ok = true && false;       // @note 短路与
+      var either = true || false;   // @note 短路或
+      var not = !ok;
+
+      bool sideEffect() { print("被调用了"); return true; }
+      var r = false && sideEffect();     // @note 「被调用了」不会打印
+
+      // @note! 条件必须是 bool：Dart 没有真值判断
+      var items = <int>[];
+      // if (items) { }             // @note! 编译错误：List 不是 bool
+      if (items.isNotEmpty) { }     // @note 必须写出你想问的那个问题
+
+      var name = maybeName ?? "默认";     // @note ?? 是空值合并，不是布尔运算
+      name ??= "还是默认";                 // @note ??= 为空时赋值
+    vs:
+      javascript: |
+        `&&` / `||` / `!` 与短路规则一致，但有两处实际差别：
+        一是**返回值**，JavaScript 的 `&&` / `||` 返回操作数本身
+        （`a || 默认值` 是常用写法），Dart 的布尔运算符只产出 `bool`，
+        要取默认值得用 `??`；二是**条件类型**，JavaScript 里
+        `if (items)` 靠空数组为真的规则，空数组其实是真值，
+        这类判断经常写错，Dart 直接不接受非 `bool` 的条件，
+        逼你写出 `items.isNotEmpty`。
+      python: |
+        Python 的 `and` / `or` 同样短路，但会返回操作数本身
+        （`0 or "默认"` 得到字符串），Dart 的布尔运算符只返回 `bool`，
+        「取默认值」有专门的 `??`。
+        最大的差别是**真值判断**：Python 里 `if items:` 是地道写法，
+        空列表为假；Dart 要求条件必须是 `bool`，`if (items)` 编译不过。
+        看起来 Dart 更啰嗦，但 Python 里 `if x:` 究竟在判 None、
+        判 0 还是判空，得回头看 `x` 的类型 —— Dart 把这个问题从语法上删掉了。
+      java: |
+        `&&` / `||` / `!` 与短路规则完全相同，条件也都必须是布尔值 ——
+        这一格两边几乎可以逐字对应，连「没有真值判断」这条立场都一致。
+        差别在**空值相关的运算符**：Java 没有 `??`，
+        判空取默认值要写 `x != null ? x : 默认` 或者 `Objects.requireNonNullElse`；
+        Dart 有 `??` 与 `??=`，把这件事收成一个运算符，
+        而 Java 的三元运算符 Dart 反而没有（`if` 表达式顶替了它）。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  operator-overloading:
+    code: |
+      class Money {
+        final int cents;
+        const Money(this.cents);
+
+        Money operator +(Money other) => Money(cents + other.cents);
+        Money operator -(Money other) => Money(cents - other.cents);
+        Money operator -() => Money(-cents);              // @note 一元负号
+        bool operator <(Money other) => cents < other.cents;
+        Money operator [](int i) => this;                 // @note 下标读取
+        void operator []=(int i, Money v) { }             // @note 下标赋值
+        Money call() => this;                             // @note 让实例能像函数那样调用
+      }
+
+      var total = const Money(100) + const Money(250);    // @note 调的是 operator +
+
+      // @note! 能重载的是一组固定的运算符；`&&` `||` `!` `??` `is` `as` 都不行
+      // @note 重载 == 时必须同时重载 hashCode，否则集合里会出现诡异行为
+    vs:
+      javascript: |
+        JavaScript 没有运算符重载，`+` 只能做数字加法或拼接，
+        给自定义类型定义「相加」只能起个普通方法名。
+        Dart 可以，而且**用得比多数语言更狠** —— `operator call`
+        能让一个对象像函数那样被调用，`operator []=` 能做下标赋值。
+        代价是读代码时要留神：`a + b` 究竟做了什么，
+        取决于 `a` 的类型，得像查方法一样去查。
+      python: |
+        两边都支持运算符重载，思路相同（`__add__` ↔ `operator +`、
+        `__lt__` ↔ `operator <`、`__call__` ↔ `operator call`），
+        连「重载相等要同时管哈希」这条联动规则都一样。
+        差别在**约束强度**：Python 的魔法方法按名字约定，写错一个字
+        就静默不生效；Dart 必须写 `operator` 关键字、签名要被编译器接受，
+        而且**不是所有运算符都能重载** —— `&&` / `||` / `??` / `is`
+        这些根本不给重载，Python 里倒是可以拦下几乎所有运算。
+      java: |
+        Java 完全不支持运算符重载（唯一的例外是字符串 `+`），
+        所以 `Money` 相加只能写 `plus` 这样的普通方法。
+        Dart 保留了能力，但**没有与 Java 接口打通** ——
+        Dart 的 `operator <` 与 Java 的 `Comparable` 是两回事，
+        两边各自的排序 API 也互不相干。
+        另一处是 `==`：Java 是 `equals`，Dart 是重载 `operator ==`，
+        两边都要求同时处理哈希，但名字与写法完全不同。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

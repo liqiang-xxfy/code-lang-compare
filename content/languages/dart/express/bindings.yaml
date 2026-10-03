@@ -1,0 +1,263 @@
+# dart —— express / bindings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: bindings` 的那批。
+#
+# Dart 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Dart 与那个基准两门语言（R25）—— 包括**缩写**。
+#
+# 口径说明：这一组的第一条事实是 **Dart 的 `const` 不是 JavaScript 的 `const`** ——
+# 它要求编译期常量、且连内容一起冻结；「只锁绑定」那一档在 Dart 里叫 `final`。
+# 第二条是**命名约定**：Dart 官方现行风格里常量也用小驼峰，全大写下划线是旧风格，
+# 这一条与另外两门写法惯例都不合，容易顺手写错。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-bindings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  declaration:
+    code: |
+      var count = 0                    // @note 推断出 int，可重新赋值
+      int total = 0                    // @note 也可以显式写类型
+      final name = "Ada"               // @note 只能赋一次值（运行期决定）
+      const max = 3                    // @note! 编译期常量：值必须在编译时就算得出来
+
+      late String label                // @note 先声明、之后再赋值（用了没赋会抛错）
+      final now = DateTime.now()       // @note final 可以有运行期才知的值
+      // const bad = DateTime.now()    // @note! 编译错误：const 要求编译期常量
+
+      dynamic anything = 1             // @note! 关掉类型检查：任何操作都推迟到运行期
+    vs:
+      javascript: |
+        表面上 `var` / `final` / `const` 三个关键字都在，**但含义对不上号**：
+        JavaScript 的 `const` 相当于 Dart 的 `final`（只锁绑定），
+        而 Dart 的 `const` 要的是编译期就能算出来的值，连内容一起冻结 ——
+        在 JavaScript 里根本没有对应物。
+        另一处是类型：JavaScript 的变量没有「推断出的类型」，
+        同一条 `var` 换任何东西都行；Dart 的 `var count = 0` 之后
+        这个变量就只能是 `int`，换别的类型编译不过。
+      python: |
+        Python 的赋值就是声明，没有关键字可分档；Dart 用三个关键字
+        把「随便改」「只赋一次」「编译期常量」分成三件事。
+        差别最大的还是 `const`：Python 里全大写的常量只是约定，
+        值在运行期怎么改都行；Dart 的 `const` 由编译器保证，
+        连它指向的集合内容都不能改。
+        另一处是 `late` —— Python 没有「先声明后赋值」这一步，
+        名字在赋值前根本不存在，读它就是 `NameError`。
+      java: |
+        两边可以按「绑定能不能改」对齐：Dart 的 `final` ↔ Java 的 `final`，
+        都是「赋一次」。差别在 Dart 多了一档 `const`：
+        Java 的 `static final` 只是运行期赋一次，值照样能靠代码算出来；
+        Dart 的 `const` 要求编译器在编译期就把值算出来，
+        连 `const [1, 2]` 这样的集合都是不可变的。
+        另一处是类型推断：Java 的 `var` 只能用于局部变量，
+        Dart 的 `var` 局部、顶层、字段都能用。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  mutability:
+    code: |
+      final list = [1, 2]
+      list.add(3)                   // @note! final 只锁绑定，内容随便改
+      // list = [4];                // @note 编译错误：不能再赋一次
+
+      const frozen = [1, 2]         // @note! const 集合：连内容都不能改
+      // frozen.add(3);             // @note! 编译错误
+      // 更狠的是运行期也拦得住：把它交给只认 List 的函数，改了会抛 UnsupportedError
+
+      final readonly = List.unmodifiable([1, 2])   // @note 运行期只读视图
+      // readonly.add(3);           // @note! 抛 UnsupportedError
+
+      // @note const 的集合是**规范化**的：两个内容相同的 const 列表是同一个对象
+    vs:
+      javascript: |
+        **这里的关键字是错位的**：JavaScript 的 `const` 只锁绑定
+        （`const a = [1]; a.push(2)` 完全合法），Dart 里干这件事的是 `final`；
+        Dart 的 `const` 反而要求编译期常量并冻结内容。
+        另一处是运行期的拦截强度：JavaScript 想冻结集合要显式调 `Object.freeze`，
+        而且只是浅冻结；Dart 的 `const` 集合是**深层**不可变的，
+        无论从哪里拿到它都改不动，改了会抛异常 —— 而不是静静地不生效。
+      python: |
+        Python 没有「只读绑定」这一档，改不改全看自觉；
+        Dart 的 `final` 由编译器保证只能赋一次。
+        内容不可变上两边思路不同：Python 靠换类型
+        （列表换元组，代价是操作变少），Dart 靠 `const` 或
+        `List.unmodifiable` —— 保留列表的接口，但任何写操作都抛异常。
+        所以 Dart 这边「看起来是列表但不能写」是个运行期事实，
+        而 Python 的元组在编译期就没有 `append` 可调，错得更早。
+      java: |
+        `final` 在两边含义相同：赋一次、不冻结内容 —— Java 的
+        `final List` 照样能 `add`，Dart 的 `final` 也一样。
+        差别在只读视图的时机：Java 的 `List.of(...)` 是**运行期**不可变
+        （编译器不检查，改它运行期抛异常），Dart 的 `const` 集合
+        在**编译期**就拦下写操作，连运行期绕过去都抛 ——
+        一个只错在运行时，一个编译期就报错。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  scope:
+    code: |
+      var a = 1;
+      {
+        var a = 2;                  // @note 内层是新变量
+        print(a);                   // 2
+      }
+      print(a);                     // 1
+
+      for (var i = 0; i < 3; i++) {
+        // @note i 只活在循环里
+      }
+      // print(i);                  // @note! 编译错误：i 不在作用域里
+
+      // @note Dart 没有函数级作用域的声明 —— 全是块级
+    vs:
+      javascript: |
+        作用域规则一致：都是块级、出了花括号就失效，也都没有函数级作用域
+        那个例外。差别在**声明顺序**：JavaScript 的函数声明会被提升到
+        函数顶部，在块里也能「漏」出去；Dart 的局部函数必须先声明后使用，
+        没有任何声明能穿出它所在的花括号 —— 规则只有一条。
+      python: |
+        Python 是**函数级**作用域：`for` 里赋的值出了循环还在，
+        循环变量留在外层；Dart 的循环变量只活在循环体内。
+        另一处是块：Python 的花括号（缩进块）不构成作用域，
+        在 `if` 里赋的值外面照样能读到；Dart 的每一对花括号
+        都是一个新作用域，出了就没了。这让同名变量在 Dart 里
+        可以自然地出现在相邻块中，在 Python 里那是在改同一个名字。
+      java: |
+        两边都是块级作用域，规则可以逐条对应。差别在字段与局部变量的分野：
+        Java 的字段有默认初值（数值 0、引用 null），「先声明后赋值」是常态；
+        Dart 的字段与变量在**使用前必须有值**，没有默认值可依赖 ——
+        想要「晚点再赋」得显式写 `late`，并且编译器会盯着你在读之前赋过没有。
+        这一点让 Dart 少了很多「忘了初始化，运行时才拿到 null」的情况。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  hoisting:
+    code: |
+      // print(later);              // @note! 编译错误：局部变量必须先声明后用
+      var later = 1;
+
+      greet();                      // @note 顶层函数不看书写顺序，这里调得到
+      void greet() { print("你好"); }
+
+      // @note 类也一样：整份库里的声明都算数，写在后面也能用
+      final u = User();
+
+      void main() { }
+      class User { }
+    vs:
+      javascript: |
+        JavaScript 的提升是运行时行为，所以「先用后声明」的结果
+        取决于关键字（`var` 给 undefined、`let` 报错、函数声明能用）；
+        Dart 没有运行时提升这回事 —— 局部变量一律先声明，
+        而顶层与类声明由编译器解析整份库，与书写顺序无关。
+        结果是这边只需记「局部按顺序、其余随便」，那边要记三种时机。
+      python: |
+        Python 里名字在赋值之前根本不存在，读它就是 `NameError`；
+        Dart 的局部变量在编译期就被拒，连运行的机会都没有。
+        函数与类的部分两边都是「看整份文件」：Python 因为模块自上而下执行，
+        顶层函数在上方调用会炸（取决于调用时机），Dart 直接把顺序当成无关项。
+      java: |
+        两边都不提升，且都要求局部变量先声明、使用前有值。
+        差别在字段侧：Java 的字段有默认值，所以类里
+        「字段先用后赋值」是允许的；Dart 的字段必须有值，
+        想让它在构造之后才确定就得写 `late`。
+        另一处是 Dart 直接在语言里禁掉了「用了还没赋值的局部变量」，
+        而 Java 里这是编译器检查，两边结论一样，只是 Dart 连 `late` 都替你盯着。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  shadowing:
+    code: |
+      var x = 1;
+      {
+        var x = 2;                  // @note 合法：内层遮蔽外层
+        print(x);
+      }
+
+      // var x = 3;                 // @note! 编译错误：同一作用域不能重复声明
+
+      class Inner {
+        var x = 10;                 // @note 字段遮蔽顶层同名变量：完全合法，不警告
+      }
+
+      void f(List<String> items) {
+        for (var item in items) {   // @note 循环变量遮蔽外层同名变量
+          print(item);
+        }
+      }
+    vs:
+      javascript: |
+        遮蔽规则两边一致，同作用域重复声明也都是错误。
+        差别在**提不提醒**：Dart 对遮蔽一声不吭（这是被接受的常用写法），
+        所以读 Dart 代码时不能靠「编译器没意见」推断这个名字没被遮住 ——
+        得自己看作用域。JavaScript 同样不提醒，这一点两边没有差别。
+      python: |
+        Python 的花括号里那次赋值根本不是新变量，它改的是外层那个名字 ——
+        在函数里想改外层还要 `nonlocal`，忘了写就静默变成局部变量。
+        Dart 里它天然是一个新变量，出了块就回到外层。
+        同一段嵌套结构在两边的含义完全不同，是迁移时最容易看漏的一处。
+      java: |
+        两边都是块级遮蔽，同作用域重复声明都在编译期报错，规则可以逐条对应。
+        差别在**类成员**这一层的写法：Java 的字段与参数重名时，
+        要靠 `this.x` 才能指到字段；Dart 用同一个 `this.x`，
+        但 Dart 还多一层 —— 字段与 getter/setter 可以同名，
+        `this.x` 与 `x` 在无歧义时指的是同一个东西，写起来更省事也更容易看错。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
+
+  naming-convention:
+    code: |
+      const maxRetry = 3            // @note! 常量也用小驼峰 —— 全大写下划线是旧风格
+      var userName = "Ada"          // @note 变量：小驼峰
+      final defaultTimeout = 30     // @note final 同样小驼峰
+      class UserProfile { }         // @note 类型：大驼峰
+      void fetchData() { }          // @note 函数：小驼峰
+
+      int _privateCount = 0         // @note 下划线开头 = 库级私有
+      // 文件名用下划线：user_profile.dart
+
+      // @note 官方风格里没有「常量要大写」这条 —— 大小写表达不了可变性，
+      // @note Dart 认为既然 final / const 已经写在声明处，名字就不必再喊一遍
+    vs:
+      javascript: |
+        类型大驼峰、其余小驼峰，这一层两边一致，也都由社区约定而非语言强制。
+        差在**常量**：JavaScript 社区习惯把常量写成全大写
+        （`const MAX_RETRY = 3`），Dart 官方风格明确不建议这么做 ——
+        常量也写小驼峰，因为 `const` 已经写在声明处，名字再喊一遍是重复。
+        另一处是私有：JavaScript 靠 `#` 前缀或闭包，Dart 用 `_` 前缀，
+        而且是**库级**私有，不是类级。
+      python: |
+        Python 的全大写常量约定相当牢固，
+        而 Dart 官方风格里没有这一条 —— 常量写小驼峰。
+        另一处正相反的是私有：Python 的下划线开头是「请别碰」的君子协定，
+        解释器不管；Dart 的下划线开头是**真的**私有，跨库访问编译不过。
+        还有文件命名：Python 用下划线，Dart 也用下划线，
+        这一点两边相同，只有类型名两边都是大驼峰。
+      java: |
+        两边的类型与函数命名一致（大驼峰 / 小驼峰），可以逐条对应。
+        差别有两条：Java 的常量是 `static final` 全大写，
+        Dart 官方风格里常量写小驼峰；另一处是包名 ——
+        Java 的包名是全小写、常带域名倒写，Dart 用 `package:` 加
+        `lowercase_with_underscores` 的库名，形态不同但同样全小写。
+        另外 Dart 的 `_` 是库级私有，Java 的 `private` 是类级，
+        两者的可见范围不是一回事。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous

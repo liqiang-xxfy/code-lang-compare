@@ -1,0 +1,201 @@
+# kotlin —— express / control-flow
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: control-flow` 的那批：
+# conditionals / loops / iteration-protocol / switch-and-match。
+#
+# 口径说明：这一组有三条对 Java 读者最实的事实 ——
+# **`if` 是表达式（三元运算符被删掉）**、**Kotlin 根本没有传统 `for(;;)`**、
+# **`when` 没有贯穿（fallthrough）这回事**。三条都是「少了一种东西」，
+# 写的时候要正面交代「那原来那么写怎么办」，不能只说「没有」。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  conditionals:
+    code: |
+      val x = 7
+      val label = if (x > 0) "正" else "负"      // @note if 是表达式，直接当值用
+
+      // @note 三元运算符 ? : 不存在 —— 上面那句就是它的替代品
+      val grade = if (x >= 90) "优"
+                  else if (x >= 60) "及格"
+                  else "不及格"                     // @note 多分支靠换行对齐，不是 else-if 链
+
+      if (x > 0) {                                // @note 当语句用时与别处一样
+        println("正数")
+      }
+
+      // @note! 条件必须是 Boolean：if (x) 或 if (list) 都编译不过
+      val items = listOf(1)
+      if (items.isNotEmpty()) println(items.size)
+    vs:
+      javascript: |
+        JavaScript 的 `if` 是语句，所以要三元运算符 `? :` 来取值 ——
+        这是两个语言里最容易观察到的差别。另一处是**真值判断**：
+        JavaScript 里 `if (items)` 靠空数组为真的规则，空数组其实是真值，
+        于是「有没有内容」经常写错；Kotlin 要求条件必须是 `Boolean`，
+        `if (items)` 编译不过，逼你写出 `items.isNotEmpty()`，
+        读的时候就少了这层猜测。
+      python: |
+        两边的缩进风格与「真值判断」立场相反：Python 里
+        `if items:` 是地道写法，靠的是空列表为假这套规则；
+        Kotlin 要求条件必须是 `Boolean`，空列表得写 `items.isEmpty()`。
+        这看起来更啰嗦，但换来的是「这个条件在判断什么」一眼可见 ——
+        Python 里 `if x:` 究竟在判 None、判 0 还是判空，得回头看 x 的类型。
+        表达式这一层两边一致，Python 的条件表达式与这里一样能当值用。
+      java: |
+        两边都是语句式的 `if`，Java 还额外有三元运算符 `? :`。
+        Kotlin 把 `if` 提升成表达式后把三元去掉了 ——
+        所以读 Java 代码里的 `x > 0 ? "正" : "负"`，
+        在 Kotlin 里就是一句 `if`，这也意味着 Kotlin 里嵌套条件
+        不需要靠换行和括号硬挤，直接展开就行。
+        条件的类型要求两边一样严格（都只收布尔值），这一点没有差别。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  loops:
+    code: |
+      for (i in 1..5) { }              // @note 1 到 5，**两头都含**（与多数语言相反）
+      for (i in 1..<5) { }             // @note 1 到 4，右开（眼下官方推荐的开区间写法）
+      for (i in 5 downTo 1 step 2) { } // @note 递减，还能指定步长
+      for (i in list.indices) { }      // @note 下标遍历的惯用写法
+
+      for (item in listOf("a", "b")) { }   // @note 直接遍历元素
+
+      var n = 0
+      while (n < 3) { n++ }            // @note while / do-while 都在
+
+      list.forEach { println(it) }     // @note 也有函数式的写法，但循环语句没被取消
+
+      // @note! Kotlin 没有 C 式 for(;;) —— 三段式那套不存在，
+      // @note! 需要时就换成 while，或者用 ranges 表达
+    vs:
+      javascript: |
+        JavaScript 保留了 C 式三段循环，还有 `for...of` 与 `for...in` 两套
+        （后者容易被误用成遍历数组）；Kotlin 只有一种 `for`，
+        遍历的必须是「有迭代器的东西」，`1..5` 这类区间本身也是可迭代的。
+        区间边界是最容易搞错的一处：JavaScript 里数着写循环，
+        Kotlin 的 `1..5` **两头都含**，不含右边要写 `1..<5` ——
+        写惯了 `i < n` 的人第一次用 `..` 常常会多跑一轮。
+      python: |
+        Python 的 `range()` 与 Kotlin 的区间表达的是同一件事，
+        但边界规则相反：`range(1, 5)` 不含 5，Kotlin 的 `1..5` 含 5 ——
+        两边各有自己的「默认含不含右端」，跨语言时是最容易差一轮的地方。
+        另一处是循环变量：Python 的循环变量出了循环还在，
+        这里只活在循环体内。Python 也没有 C 式三段循环，这一点两边一致。
+      java: |
+        Java 的增强 `for` 与 Kotlin 的 `for` 形态相同，都靠迭代器；
+        差别在 Java **同时**保留了 C 式三段循环，Kotlin 把它删掉了。
+        这影响的是那些「按下标做点什么」的循环：Java 里写
+        `for (int i = 0; i < n; i += 2)`，Kotlin 里要么 `1..n step 2`，
+        要么换成 `while`。另一处是 `1..5` 含右端这件事——
+        Java 里没有区间字面量，所以这算 Kotlin 新引入的一个约定，
+        也是从 Java 过来时最容易多跑一轮的地方。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  iteration-protocol:
+    code: |
+      val nums = listOf(1, 2, 3)
+      for (n in nums) { }              // @note 编译器把 for 展开成迭代器调用
+
+      // 手工走一遍，与 for 做的事一模一样：
+      val it = nums.iterator()
+      while (it.hasNext()) {
+        println(it.next())
+      }
+
+      class Countdown(val from: Int) {          // @note 自定义类型也能被 for 遍历
+        operator fun iterator() = object : Iterator<Int> {
+          var cur = from
+          override fun hasNext() = cur > 0
+          override fun next() = cur--
+        }
+      }
+      for (i in Countdown(3)) { }      // @note 只要有 iterator() 就能进 for
+    vs:
+      javascript: |
+        两边的迭代协议形态不同：JavaScript 用的是可迭代协议 ——
+        对象上挂一个 `Symbol.iterator` 方法，返回带 `next()` 的迭代器，
+        由引擎识别那个特殊的符号；Kotlin 认的是**约定好的方法名**
+        `iterator()`，由编译器在编译期把 `for` 展开成 `hasNext` / `next` 调用。
+        一个靠运行时的特殊键，一个靠编译期的名字匹配 ——
+        结果是 Kotlin 这边写错了编译不过，那边写错了要跑到才报错。
+      python: |
+        协议本身几乎一致：都要求一个返回迭代器的方法、
+        迭代器上有「还有没有」与「取下一个」两个动作
+        （`__iter__` / `__next__` ↔ `iterator()` / `hasNext()` / `next()`）。
+        差别在**结束信号**：Python 用抛 `StopIteration` 表示迭代完了，
+        所以 `__next__` 里必须自己抛；Kotlin 用 `hasNext()` 返回 false，
+        迭代器不需要抛异常。一个是异常驱动的结束，一个是布尔判断的结束。
+      java: |
+        Java 的增强 `for` 同样展开成 `Iterable` / `Iterator`，
+        `hasNext` / `next` 两个方法名与 Kotlin 完全一致 ——
+        这一格两边几乎可以逐字对应，连自定义类型要实现的形状都一样。
+        微小的差别在实现方式：Java 要显式 `implements Iterable<T>`，
+        Kotlin 只要求有那个 `operator fun iterator()`，
+        不必声明实现任何接口 —— 少了接口声明，也就少了一条能搜索的线索。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: identical
+
+  switch-and-match:
+    code: |
+      val code = 2
+      val name = when (code) {          // @note when 是表达式，能直接赋给名字
+        1 -> "一"
+        2, 3 -> "二或三"                 // @note 一个分支多个值，逗号隔开
+        in 4..9 -> "个位数"
+        else -> "其他"
+      }
+
+      fun describe(x: Any) = when (x) { // @note 无参数写法：每个分支是布尔条件
+        is String -> "字符串，长度 ${'$'}{x.length}"
+        x is Int && x > 0 -> "正整数"
+        else -> "别的"
+      }
+
+      enum class Color { RED, GREEN }
+      fun label(c: Color) = when (c) {  // @note! 枚举 / sealed 上漏分支会编译不过
+        Color.RED -> "红"
+        Color.GREEN -> "绿"
+      }                                 // @note 这里不需要 else —— 已经穷尽了
+
+      // @note! 没有贯穿（fallthrough）：一个分支执行完就结束，不用写 break
+    vs:
+      javascript: |
+        JavaScript 的 `switch` 是语句，靠 `case` 与 `break` 手工控制，
+        忘了写 `break` 会**静静地贯穿到下一个分支**，是最经典的 bug 之一；
+        Kotlin 的 `when` 是表达式，一个分支执行完就结束，
+        压根没有贯穿这回事，也没有 `break` 可写 —— 那类 bug 从语法上消失了。
+        另一处是能力范围：JavaScript 的 `case` 只能写常量，
+        Kotlin 的分支能写类型判断、范围、任意布尔条件。
+      python: |
+        Python 直到 3.10 才有 `match`，在那之前只能靠一长串
+        `if / elif` 或者字典查表；Kotlin 的 `when` 从第一天就在，
+        而且能当值赋给变量。两边的 `match` / `when` 都支持类型分支与守卫条件，
+        思路接近。差别在**穷尽性**：Python 的 `match` 不检查你漏没漏，
+        Kotlin 在枚举与 sealed 类型上会检查 —— 漏一种就编译不过，
+        这把「忘了处理新加的那种情况」变成了编译器能拦下的问题。
+      java: |
+        Java 的 `switch` 有贯穿，必须写 `break`（新式的箭头形式才不贯穿），
+        而且传统上只能匹配常量，类型判断得写一长串 `instanceof`；
+        Kotlin 的 `when` 一次性把这些都收进来 —— 无贯穿、可当表达式、
+        分支能写类型与条件。Java 较新的版本也在往这个方向靠
+        （模式匹配、箭头 case、穷尽性检查），但 Kotlin 这边
+        是语言一开始的设计，用起来不需要记「哪个版本才有」。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

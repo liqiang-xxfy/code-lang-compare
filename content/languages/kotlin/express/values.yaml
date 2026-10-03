@@ -1,0 +1,182 @@
+# kotlin —— express / values
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: values` 的那批：
+# literals / type-inference / null-and-undefined / type-conversion。
+#
+# 口径说明：这一组对 Java 读者最要紧的一条是 **Kotlin 没有隐式数值拓宽** ——
+# `val i: Int = 1` 之后 `val d: Double = i` 编译不过，必须写 `i.toDouble()`。
+# 对 JavaScript 读者最要紧的是 **`Char` 是一个独立类型**（不是长度 1 的字符串），
+# 以及 Kotlin 里根本没有 `undefined` 这个值。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-values-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  literals:
+    code: |
+      val i = 1                   // @note Int
+      val l = 1L                  // @note Long：后缀大写 L（小写 l 会被认为是数字 1）
+      val d = 1.0                 // @note Double
+      val f = 1.0f                // @note Float：必须带后缀
+      val hex = 0xFF              // @note 十六进制；二进制 0b1010
+      val big = 1_000_000         // @note 下划线只是为了好读，不改变值
+
+      val c = 'a'                 // @note! Char：一个独立类型，不是长度 1 的字符串
+      val s = "abc"               // @note String
+      val raw = """原样 ${'$'}符号"""  // @note 三引号：不转义，可以跨行
+
+      val u = Unit                // @note 「没有值」的那个值，对应别处的 void / undefined
+    vs:
+      javascript: |
+        JavaScript 只有一种数字类型，`1` 与 `1.0` 是同一个值；
+        Kotlin 在源码层面就把整数与小数分开（`Int` / `Long` / `Double` / `Float`），
+        而且每个都有自己的字面量后缀。另一处更明显的差别是**单引号**：
+        JavaScript 里 `'a'` 就是字符串，Kotlin 里它是 `Char`，
+        不能和字符串混用（`c + 1` 得到的是字符而不是拼接）。
+        还有 `undefined` —— Kotlin 没有这个值，只有 `null`，详见本组第三格。
+      python: |
+        两边的数字字面量都很丰富（下划线分隔、进制前缀、`L` 后缀）。
+        差别在**类型有几档**：Python 的 `int` 是任意精度，多大都不会溢出；
+        Kotlin 的 `Int` 是 32 位、`Long` 是 64 位，超了就静默回绕。
+        另一处是单引号与双引号：Python 里两者完全等价，都是字符串；
+        Kotlin 的单引号是 `Char` —— 一个独立的类型，
+        这正是从 Python 过来时最容易写错的一处。
+      java: |
+        Java 的字面量与 Kotlin 几乎一一对应（`L` 后缀、`0x`、`0b`、
+        下划线分隔符），`Char` 在两边也都是独立类型。
+        两处差别值得记住：Java 的 `float` 是基本类型，Kotlin 的 `Float` 是类，
+        只是编译器在能确定的情况下不装箱；Java 没有三引号，
+        写多行字符串得像 `"a\n" + "b"` 那样拼或者用文本块，
+        Kotlin 的 `"""` 直接原样保留换行。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  type-inference:
+    code: |
+      val x = 1                   // @note 推断为 Int
+      val name = "Ada"            // @note 推断为 String
+      val items = listOf(1, 2)    // @note 推断为 List<Int>，元素类型一路传下去
+      val map = mapOf("a" to 1)   // @note 推断为 Map<String, Int>
+
+      fun double(n: Int) = n * 2          // @note 表达式体：连返回类型都能推断
+      fun area(r: Double): Double {       // @note! 块体的返回类型不能省，必须写出来
+        return 3.14 * r * r
+      }
+
+      // val n = null              // @note! 编译错误：什么都没有，推断不出类型
+      val n: String? = null         // @note 可空类型必须写出来
+    vs:
+      javascript: |
+        JavaScript 没有「推断出什么类型」这个问题 —— 变量里放的就是值本身，
+        它是什么类型全看当前装着什么，下一个语句就能换。
+        Kotlin 的推断是**一次性定死**的：`val x = 1` 之后 x 就是 `Int`，
+        永远不可能变成字符串。所以两边的 `const x = 1` 看起来一样，
+        一边是「这个名字以后都指向这个值」，一边是「这个名字的类型已经定了」。
+      python: |
+        两边都能从初值推断，写起来很像。差别在**推断的时机与后果**：
+        Python 的标注与推断只对类型检查器有意义，运行时不看，
+        所以 `x = 1` 之后再 `x = "文本"` 完全合法；
+        Kotlin 的推断是编译器的结论，之后再赋别的类型直接编译不过。
+        另一处是 `null`：Python 的 `None` 随时能赋，Kotlin 里
+        `val n = null` 连类型都推不出来 —— 必须写明 `String?`。
+      java: |
+        Java 的 `var` 只在局部变量上可用，字段、参数、返回值一律要写类型；
+        Kotlin 的推断范围宽得多 —— 属性、表达式体函数的返回值都能推断。
+        但这条推断有个明确边界：**块体函数的返回类型不能省**（只有表达式体可以），
+        所以同一件事写成 `fun f() = 1` 能省、写成 `fun f(): Int { return 1 }` 就不能省。
+        两边的推断原理一样（看初始化表达式），差别只在这个边界画在哪。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  null-and-undefined:
+    code: |
+      // @note Kotlin 只有 null，没有 undefined 这个值
+      val missing: String? = null
+
+      val map = mapOf("a" to 1)
+      val v = map["missing"]        // @note 取不到的键给 null，不是抛异常
+
+      fun find(id: Int): String? = null      // @note 「可能找不到」写进返回类型
+
+      val a: String? = null
+      // println(a.length)          // @note! 编译错误：可能为 null，先证明它不为空
+      println(a?.length ?: 0)       // @note 安全调用 + Elvis，一步兜住
+
+      // @note 「没有值」这件事由 Unit 承担：Unit 是一个真实存在的值，
+      // @note 与 null 完全不是一回事 —— 函数返回 Unit 不代表它返回了「空」
+    vs:
+      javascript: |
+        JavaScript 有两个「空」——`null` 与 `undefined`，而且几乎所有位置
+        都同时接受两者，判断时得写 `x == null` 才能一并盖住。
+        Kotlin 把它们合并成一个 `null`，并且要求类型里写明可空，
+        所以「这里可能是空的」是能从签名读出来的事实，不是要靠调用方猜。
+        代价是刚从 JavaScript 过来会觉得到处都在要求判空。
+      python: |
+        Python 的 `None` 是唯一的空值，这点与 Kotlin 一致。
+        差别在**类型系统管不管**：Python 的 `None` 可以赋给任何变量，
+        忘了判就等 AttributeError；Kotlin 把「可能为空」编码进类型，
+        不处理就编译不过。另外「字典取不到的键」两边行为不同 ——
+        Python 抛 `KeyError`，Kotlin 的 `Map` 给 `null`，
+        所以那边的 `try/except` 在这边是一次判空。
+      java: |
+        Java 的 `null` 能赋给任何引用类型，编译器不管，解引用就是 NPE；
+        Kotlin 在类型上区分 `String` 与 `String?`，不判空直接编译不过。
+        另一处是「没有值」的表达：Java 的 `void` 方法真的什么都不返回，
+        硬要取值只能借 `null` 或 `Optional`；Kotlin 的 `Unit` 是一个
+        真实存在的值，函数返回它可以被当作一个普通对象传递 ——
+        这让泛型代码里少了很多特例。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-conversion:
+    code: |
+      val i = 1
+      val d = i.toDouble()        // @note! 必须显式调用：Kotlin 没有隐式数值拓宽
+      // val bad: Double = i      // @note! 编译错误：Int 不是 Double
+
+      val l = 100L
+      val n = l.toInt()           // @note 窄化转换：超出范围就截断，编译器不提醒
+      val b = 300.toByte()        // @note! 44 —— 静默回绕，这是最容易出事的一处
+
+      "42".toInt()                // @note 42；解析不了会抛 NumberFormatException
+      "x".toIntOrNull()           // @note 解析不了给 null —— 处理用户输入时用这个
+
+      val text = "共 ${'$'}{i + 1} 条"   // @note 字符串模板：任意的表达式都能塞进去
+      val fromAny = 3.9.toString()  // @note 每个类型都有 toString()
+    vs:
+      javascript: |
+        JavaScript 的转换大量是隐式的，靠运算符或 `Number()` 触发，
+        失败时给 `NaN` 这种哨兵值，程序接着往下跑；
+        Kotlin 一律要求写出方法名，类型不对编译期就拦下来。
+        两边都有一处「静默出错」的角落：JavaScript 是 `NaN` 传染，
+        Kotlin 是窄化转换（`toByte()` / `toInt()`）超范围时静默截断 ——
+        后者更隐蔽，因为结果看起来是个正常数字。
+      python: |
+        两边都要显式转换（`int(x)` / `x.toInt()`），形状一致。
+        差别在**整数不会溢出这件事**：Python 的整数是任意精度，
+        `int(1e30)` 得到的是那个大数；Kotlin 的 `Int` 只有 32 位，
+        转换与运算都可能静默回绕。另一处是解析失败：
+        Python 抛 `ValueError`，Kotlin 除了一样的异常还有个 `toIntOrNull()`
+        直接把失败变成 `null`，配合 Elvis 一行就能给出兜底值。
+      java: |
+        Java 有隐式拓宽（`int` 能直接赋给 `double`），Kotlin 全部取消 ——
+        这是从 Java 过来最容易踩的一处，代码里会多出一片 `toDouble()`。
+        窄化转换两边都要显式写、都会静默截断，行为一致。
+        解析上也一样（`Integer.parseInt` ↔ `toInt()`，都抛异常），
+        Kotlin 多一个 `toIntOrNull()`；字符串拼接则简单些，
+        Java 的 `+` 只在两边有字符串时才拼接，Kotlin 的模板 `${}` 更明确。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

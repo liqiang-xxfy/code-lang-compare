@@ -1,0 +1,197 @@
+# kotlin —— express / operators
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: operators` 的那批：
+# arithmetic / equality / logical / operator-overloading。
+#
+# 口径说明：**equality 这一格是整轮里对 Java 读者最重要的一格** ——
+# Kotlin 的 `==` 是结构相等（调 equals），`===` 才是引用相等，
+# 与 Java 恰好相反。写反了会让读者在真实代码里做出相反的判断，务必按这个方向写。
+# arithmetic 一侧则要交代 **运算符允许混合类型（结果取宽的那个）、
+# 但赋值与传参不允许隐式拓宽** 这个看起来矛盾的事实。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arithmetic:
+    code: |
+      val a = 7 / 2               // @note! 3 —— 两个整数相除，小数部分直接丢掉
+      val b = 7.0 / 2             // @note 3.5：有一边是小数才是小数运算
+      val c = 7 % 3               // @note 1；负数取余跟着被除数的符号走
+
+      val i = 1
+      val l = 2L
+      val mixed = i + l           // @note Long：混合运算允许，结果取更宽的那个
+      // val bad: Long = i        // @note! 但这不等于赋值能拓宽，这里编译不过
+
+      var n = Int.MAX_VALUE
+      n += 1                      // @note! 静默回绕成最小值，编译器一声不吭
+
+      var k = 0
+      k++                         // @note 自增自减都在；k++ 与 ++k 的区别与别处一致
+    vs:
+      javascript: |
+        JavaScript 只有一种数字类型，`7 / 2` 永远给 3.5，
+        「要整除」得自己写 `Math.floor`；Kotlin 用类型区分 ——
+        两个整数相除就是整除，想要小数得先让一边变成小数。
+        另一处相反的是溢出：JavaScript 的数字是双精度浮点，
+        超出安全范围会丢精度但不会回绕；Kotlin 的整数是定宽的，
+        越界静默回绕（最大值加一变成最小值），而且没有任何提示。
+      python: |
+        Python 的 `/` 永远给浮点、`//` 才是整除，分得比 Kotlin 清楚 ——
+        Kotlin 只有一个 `/`，结果看操作数的类型，读代码时得回头看类型。
+        溢出上两边正相反：Python 的整数任意精度，多大都不会回绕，
+        所以那种「最大值加一变最小」的经典 bug 在这里根本不会发生；
+        Kotlin 会，而且不报错。
+      java: |
+        算术规则与 Java 几乎逐条相同（整除、取余符号、定宽回绕、
+        自增自减都一致），这一格两边最接近。差别在**混合运算**这一处：
+        Java 也允许 `int + long`（结果 long），但 Kotlin 走的是
+        运算符重载表 —— 每个类型对都有一条对应的重载，结果取宽的那个；
+        真要命的是赋值：`val x: Long = intValue` 在 Kotlin 里编译不过，
+        而 Java 里是自动的，这是迁移时最常撞的一堵墙。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  equality:
+    code: |
+      val a = "hello"
+      val b = "hel" + "lo"
+      println(a == b)             // @note true —— == 是**结构相等**，调的是 equals
+      println(a === b)            // @note! 引用相等：比的是「是不是同一个对象」
+
+      val x: Int? = 1000
+      val y: Int? = 1000
+      println(x == y)             // @note true：== 会先判空，两边都为 null 也算相等
+      println(x === y)            // @note! false —— 可空数值会被装箱，超过缓存的不是同一个
+      val p: Int? = 100
+      val q: Int? = 100
+      println(p === q)            // @note! true —— 只是因为在同一个缓存范围里，别依赖它
+
+      val p1 = Person("Ada")
+      val p2 = Person("Ada")
+      println(p1 == p2)           // @note! data class 自动生成 equals → true
+      // @note 普通 class 不生成 equals，这里会是 false
+
+      val d1 = 1.0
+      val d2 = 1.0
+      println(d1 == d2)           // @note 按 IEEE 规则：NaN 不等于自己
+    vs:
+      javascript: |
+        两边都是「`==` 比内容」，但 JavaScript 的 `==` 会先做类型转换
+        （`1 == "1"` 为真），还有专门用来避开转换的 `===` 做严格比较；
+        Kotlin 的 `==` 不做任何隐式转换（类型对不上根本编译不过），
+        而 `===` 在 Kotlin 里是**引用相等**，与 JavaScript 的 `===` 不是一回事。
+        两个语言里同样写着 `===`，含义却不同，这是跨语言阅读时的一处陷阱。
+      python: |
+        Python 的 `==` 比内容、`is` 比身份，与 Kotlin 的 `==` / `===` 一一对应，
+        这一层两边可以互相翻译。差别在**默认行为从哪来**：
+        Python 的类不定义 `__eq__` 时默认按身份比，与 Kotlin 的普通类一样；
+        但 Kotlin 的 `data class` 会自动生成 `equals` 与 `hashCode`，
+        而 Python 想要同样的效果得写 `@dataclass` 装饰器 —— 一边是语言关键字，
+        一边是标准库工具。还有一处：两边都允许重载相等，但 Kotlin 的
+        重载必须带 `override`，写错了编译器会拦。
+      java: |
+        **这是与 Java 差别最大的一格，方向正好相反**：Java 的 `==` 比的是
+        引用身份（比字符串内容必须写 `.equals`），Kotlin 的 `==` 比的是内容
+        （`equals` 的语法糖），`===` 才是比身份。
+        同一个符号在两边含义相反，从 Java 过来时最容易在这里做出错误判断 ——
+        好消息是 Kotlin 里几乎不再需要手写 `.equals`，
+        而且 `==` 自带判空，不用再写 `Objects.equals(a, b)`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  logical:
+    code: |
+      val ok = true && false      // @note 短路与：左边为假就不再算右边
+      val either = true || false  // @note 短路或
+      val not = !ok               // @note 取反
+
+      // @note 短路是能观察到的行为：
+      fun sideEffect(): Boolean { println("被调用了"); return true }
+      val r = false && sideEffect()   // @note 「被调用了」不会打印
+
+      // @note if / when 都是表达式，布尔运算常直接当值用
+      val label = if (ok) "可用" else "禁用"
+    vs:
+      javascript: |
+        运算符与短路规则完全一致，这一格两边几乎没什么可说的。
+        唯一值得留意的是 JavaScript 有一套「返回操作数本身」的习惯用法
+        （`a || 默认值`、`a && b()`），Kotlin 的 `&&` / `||` 只产出布尔值，
+        类似的需求要用 Elvis（`?:`）或 `if` 表达式 ——
+        好处是读代码时不用猜这个表达式到底会得到什么类型。
+      python: |
+        Python 的 `and` / `or` 同样短路，但会**返回操作数本身**
+        而不是布尔值（`0 or "默认"` 得到字符串）；Kotlin 的布尔运算符
+        只返回布尔值，想要「取默认值」有专门的 `?:`。
+        另一处是 `not` 与 `!` 的写法差异，以及 Python 里常见的
+        「用真值判断」—— Kotlin 不接受把非布尔值当条件，
+        `if (list)` 这样的写法编译不过，必须写 `list.isNotEmpty()`。
+      java: |
+        `&&` / `||` / `!` 与短路规则完全相同，两边可以逐字对应。
+        差别在**条件表达式的类型要求**：Java 的 `if` 只接受 `boolean`，
+        Kotlin 也一样严格，这一点两边没有分歧；
+        真正不同的是 Kotlin 的 `if` 是**表达式**、有值，
+        所以三元运算符 `? :` 被整个去掉了 —— Java 代码里的
+        `x > 0 ? "正" : "负"` 在 Kotlin 里写成 `if (x > 0) "正" else "负"`。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  operator-overloading:
+    code: |
+      data class Money(val cents: Int) {
+        operator fun plus(other: Money) = Money(cents + other.cents)
+        operator fun compareTo(other: Money) = cents - other.cents
+        operator fun unaryMinus() = Money(-cents)
+      }
+
+      val total = Money(100) + Money(250)   // @note 调的是 plus
+      println(Money(1) < Money(2))          // @note 调的是 compareTo
+      val neg = -Money(5)                   // @note 调的是 unaryMinus
+
+      val list = listOf(1, 2, 3)
+      println(2 in list)                    // @note 调的是 contains
+      println(list[0])                      // @note 调的是 get
+
+      // @note 可重载的还有：invoke（让实例能像函数一样调用）、
+      // @note rangeTo（支撑 start..end 这种写法）、componentN（支撑解构）——
+      // @note 但每一种的方法名与签名都是规定好的，不能自己发明运算符
+    vs:
+      javascript: |
+        JavaScript 没有运算符重载 —— `+` 只能做数字加法或字符串拼接，
+        `a < b` 只能靠 `valueOf` / `toString` 这类间接机制，
+        想给自定义类型定义「相加」只能起个普通方法名。
+        Kotlin 可以，但只开放**一组固定的运算符**（加减乘除、比较、
+        下标、`in`、调用、区间），方法名与签名都得对得上，
+        而且要写 `operator` 关键字 —— 好处是读代码时
+        `a + b` 一定意味着「有人明确定义了加法」，不会凭空出现。
+      python: |
+        Python 也支持运算符重载，思路几乎相同（`__add__` ↔ `plus`、
+        `__lt__` ↔ `compareTo`、`__contains__` ↔ `contains`），
+        两边可以互相对照。差别在**约束强度**：Python 的魔法方法是
+        按名字约定的，写错一个字就静默不生效；Kotlin 必须标 `operator`
+        且签名要对得上，写错了编译不过。另外 Python 的
+        `__eq__` 与 `__hash__` 有联动规则（定义了前者会清掉后者），
+        Kotlin 没有这个坑。
+      java: |
+        Java 完全不支持运算符重载（唯一的例外是字符串 `+`），
+        所以 `Money` 相加只能写 `a.plus(b)` 这样的普通方法 ——
+        代码里到处都是方法名。Kotlin 保留了这个能力，
+        并且与 Java 的接口对得上：`compareTo` 实现的是 `Comparable`，
+        所以重载过比较运算符的类在 Java 的排序 API 里同样能用。
+        两边共用一个 JVM 语义，只是表达方式一个能写 `+`、一个不能。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

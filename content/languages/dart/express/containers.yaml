@@ -1,0 +1,115 @@
+# dart —— express / containers
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: containers` 的那批：
+# arrays / maps。
+#
+# 口径说明：Dart 没有「数组」这个独立类型，日常用的就是 `List`（可增长）。
+# 这一组真正要讲的是**泛型的协变**：`List<int>` 能当 `List<num>` 用，
+# 于是往里塞一个 double 会在**运行期**抛错 —— 这是 Java 读者熟悉、
+# JavaScript 读者没见过的失败模式，也是这一格最有价值的差别。
+# 另一条是 `const` 列表真的不可变（在 bindings 组已铺垫，这里落在集合上）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-containers-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arrays:
+    code: |
+      var nums = [1, 2, 3];                 // @note 这就是「数组」：List<int>，长度可增长
+      var empty = <int>[];                  // @note 空字面量要写元素类型，否则推成 dynamic
+      var fixed = List<int>.filled(3, 0);   // @note 定长：不能再增删
+      var gen = List<int>.generate(3, (i) => i * 2);   // @note [0, 2, 4]
+
+      nums.add(4);                          // @note 可增长列表能加
+      nums[0];                              // @note 下标访问；越界抛 RangeError
+      nums.length;                          // @note 属性
+
+      const frozen = [1, 2, 3];             // @note! const 列表：编译期常量 + 不可改
+      var view = List<int>.unmodifiable([1]);// @note 运行期只读视图
+
+      // @note! 泛型是协变的：这个赋值合法，但往里面加 double 会在运行期炸
+      List<num> nums2 = nums;
+      // nums2.add(1.5);                    // @note! 抛 TypeError
+    vs:
+      javascript: |
+        JavaScript 的数组什么都能装、长度随意变 —— 与 Dart 的
+        `List` 在用法上几乎一样（`push` ↔ `add`、`length` ↔ `length`）。
+        两条实在的差别：一是**元素类型**，JavaScript 的数组可以
+        `[1, "a", {}]`，Dart 的 `List<int>` 塞别的东西编译不过；
+        二是**协变带来的运行期检查**，JavaScript 里混合类型本来就被允许，
+        Dart 里 `List<int>` 交给要 `List<num>` 的地方之后再加一个小数，
+        会在运行期抛错 —— 这个失败模式在 JavaScript 里不存在。
+      python: |
+        Python 的 `list` 与 Dart 的 `List` 都是可增长、可混合类型
+        （除非写了标注），日常用法很接近。差别在**不可变的那一档**：
+        Python 靠换成元组来表达「不能改」（代价是操作变少），
+        Dart 用 `const` 或 `List.unmodifiable` —— 接口还是列表的样子，
+        但任何写操作都抛异常。另一处是 Python 有负下标与切片，
+        Dart 两个都没有，取末尾要写 `nums.last`、切片要自己拼 `sublist`。
+      java: |
+        两边在**协变**这一条上是一致的，而且都能撞到同一个坑：
+        Java 的数组协变（`String[]` 是 `Object[]`）会导致
+        `ArrayStoreException`，Dart 的 `List<int>` 当 `List<num>` 用
+        会导致 `TypeError` —— 成因相同（为了省去处处泛型而放宽），
+        爆发时机相同（写入的那一刻）。
+        差别在容器本身：Java 的数组是定长的、增删要用 `List`；
+        Dart 的 `List` 一个字面量就既能当数组又能当可变列表，
+        想定长得显式写 `List.filled`。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  maps:
+    code: |
+      var ages = {'Ada': 30, 'Bob': 25};    // @note 字面量；空的时候写 <String, int>{}
+      var mut = <String, int>{};
+      mut['a'] = 1;                         // @note 下标赋值就是插入
+      mut.putIfAbsent('b', () => 2);        // @note 没有才放
+      mut.update('a', (v) => v + 1);        // @note 有则更新，没有会抛
+      mut.update('z', (v) => v + 1, ifAbsent: () => 0);   // @note 给兜底
+
+      ages['Ada'];                          // @note 30
+      ages['Nobody'];                       // @note null —— 所以返回类型是 int?
+      ages.containsKey('Ada');              // @note 判有没有，比拿 null 可靠
+      ages.keys; ages.values; ages.entries;
+
+      for (var entry in ages.entries) {     // @note 遍历
+        print('${entry.key}=${entry.value}');
+      }
+
+      // @note 默认实现保持**插入顺序**（底层是哈希表加链表），遍历顺序可预期
+    vs:
+      javascript: |
+        两边的字面量语法不同（`{'a': 1}` ↔ `{a: 1}`），用途一样。
+        差别在**键的类型**：JavaScript 的对象键只能是字符串或符号，
+        要别的类型当键得用 `Map`；Dart 的 `Map` 从一开始就能用任意类型当键，
+        而且键值类型都是签名的一部分。另一处是取不到时的返回：
+        两边都给一个「空」，但 Dart 的 `null` 写在返回类型里（`int?`），
+        用之前必须处理，JavaScript 那边忘了判就是运行时报错。
+      python: |
+        Python 的字典与 Dart 的 `Map` 高度对应（`d[k]` ↔ `m[k]`、
+        `d.get(k, 默认)` ↔ `m[k] ?? 默认`、`d.setdefault` ↔ `putIfAbsent`），
+        两边都有插入顺序保证。最要紧的差别是**取不到的键**：
+        Python 的 `d[k]` 抛 `KeyError`，Dart 的 `m[k]` 给 `null` ——
+        所以那边那个 `try/except KeyError` 在这边默认变成一次判空，
+        只有主动选 `containsKey` 加叹号才是异常路径。
+        另一处是 `update`：Dart 有「有则更新、没有则抛」与
+        「没有时给个默认」两种选择，Python 得自己写判断。
+      java: |
+        方法名与 Dart 有一些能对应（`put` / `get` / `containsKey` /
+        `putIfAbsent`），默认实现两边也都保持插入顺序。
+        差别在**语法糖**：Java 至今要写 `map.put(k, v)`，
+        Dart 能写 `map[k] = v`；而且 Dart 有 `update` 这个
+        「改一个已存在的键」的组合操作，Java 里要写
+        「先 get 判空、再 put」三步，还容易在并发下写错。
+        取不到的键两边都给 null，但 Dart 的可空返回类型会强制调用方处理。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
