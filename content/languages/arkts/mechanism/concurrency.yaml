@@ -1,0 +1,199 @@
+# arkts —— mechanism / concurrency
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: concurrency` 的那批：
+# concurrency-unit / shared-state / lock-mutex / channel / atomicity。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「TS」这类简称同样会被检测成屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：本文件只引 **app 开发文档**（API 12 / HarmonyOS NEXT）。
+# 另有一份 ArkTS 静态语言规范（技术预览）描述的并发模型是**共享内存**，
+# 与 app 文档的 actor 模型直接冲突 —— 那份不属于本站目标版本，一概不采。
+# 拿不准的细节不编造：内存序、AbortSignal 这类 app 文档没有的，一律不写。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-concurrency-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  concurrency-unit:
+    code: |
+      import { taskpool } from '@kit.ArkTS';
+
+      // 两种并发策略：异步（Promise / async-await）与多线程（TaskPool / Worker）
+      @Concurrent
+      function fib(n: number): number {    // @note 标了 @Concurrent 才能进 TaskPool
+        return n < 2 ? n : fib(n - 1) + fib(n - 2);
+      }
+
+      taskpool.execute(new taskpool.Task(fib, 35))
+        .then((v: Object) => { console.info(`${v}`); });
+
+      // Worker 是另一套：线程自己建、自己销毁，用 postMessage 通信
+    vs:
+      javascript: |
+        运行时的底子相同（都是 JS 引擎），但这里把并发做成了**运行时的契约**：
+        并发实例之间内存隔离、各有一个堆，不能直接访问对方的对象 —— 官方叫 actor 模型；
+        要共享就得走受控的那条路（标了 `@Sendable` 的对象放进共享堆、按引用传递）。
+        JavaScript 那边语言层没有并发单元，能并行的线程由宿主提供，
+        共享与否也由宿主决定 —— 语言本身不表态。
+      python: |
+        Python 的并发单元是进程、线程、协程三套，线程共享同一份内存，
+        靠全局锁回避竞争。这里的并发实例是**隔离**的：跑的是任务，
+        线程由运行时调度，实例之间不能直接读对方的对象。
+        所以「共享」在这里不是默认状态，而是一件要显式安排的事。
+      java: |
+        Java 的并发单元是线程，共享同一份堆内存 —— 这是它的默认模型，
+        所以内存模型、`synchronized`、`volatile` 都是围绕共享建立的。
+        这里反过来：默认隔离，实例各有一个堆，要共享得用 `@Sendable`
+        把对象放进共享堆。两种模型各有各的代价 ——
+        Java 需要一整套内存模型来约束共享，这里需要一整套规则来决定什么能被共享。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  shared-state:
+    code: |
+      // 默认不共享：普通对象跨线程传过去是深拷贝
+      // 要按引用共享，得标 @Sendable —— 约束很细，编译器逐条检查
+      @Sendable
+      class Counter {
+        count: number = 0;              // @note 成员必须都是 Sendable 类型
+      }
+
+      // 另一条路是真共享的原生内存，只能靠原子操作访问
+      const buf = new SharedArrayBuffer(16);
+      const arr = new Int32Array(buf);
+      Atomics.add(arr, 0, 1);
+    vs:
+      javascript: |
+        跨线程传数据有两条路：普通对象走深拷贝（互不影响），
+        标了 `@Sendable` 的对象放进共享堆、按引用传递 —— 那是真共享，
+        所以约束也细（只能继承 Sendable 类、成员必须都是 Sendable 类型、
+        不能捕获闭包变量、不能增删属性）。
+        JavaScript 那边把共享交给共享内存缓冲区与原子操作，语言不做限制也不做保证；
+        这里多了一层类型上的门禁。
+      python: |
+        Python 的线程共享整个解释器状态，靠全局锁让同一时刻只有一个线程
+        执行字节码。这里默认不共享：传过去的是深拷贝，要共享得显式标
+        `@Sendable`（并被一套细约束筛过），或者用共享内存缓冲区。
+        那层「挡掉大部分竞争」的保护在这里没有 —— 但也不太需要，
+        因为默认就没有共享。
+      java: |
+        Java 的字段默认就是共享的，靠 `synchronized` / `volatile` 约束访问。
+        这里默认不共享：每个并发实例有自己的堆，对象传过去是深拷贝。
+        要共享得走两条受控的路 —— 标 `@Sendable`（编译期有一套细约束），
+        或用共享内存缓冲区加原子操作。差别在「谁来兜底」：
+        Java 靠内存模型的规定，这里靠默认隔离加上类型上的门禁。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  lock-mutex:
+    code: |
+      import { ArkTSUtils } from '@kit.ArkTS';
+
+      // 只有**异步锁**（非阻塞）—— 官方的理由是阻塞锁在异步环境下容易死锁
+      const lock = ArkTSUtils.locks.AsyncLock.request("myLock");
+
+      await lock.lockAsync(() => {      // @note 必须 await：获取锁本身是异步的
+        // 临界区
+      });
+      // @note 另有共享模式、超时，以及 lock 自己的 AbortSignal
+
+      // 条件变量也是异步的，用来在异步锁之上等待某个条件
+    vs:
+      javascript: |
+        JavaScript 语言里没有锁 —— 这里也不会凭空造一个。
+        这里有一把，但形态和常见语言里的锁很不一样：**只有异步版本**，
+        获取锁本身是异步的，必须 `await`；官方给的理由是阻塞锁
+        在异步环境下容易死锁。所以它保护的不是「线程站在这里等」，
+        而是「任务排到这里等」。
+      python: |
+        Python 的锁是阻塞的：拿不到就卡住当前线程，等别人放。
+        这里的锁是异步的：`await` 一下让出执行，轮到自己再继续 ——
+        因为阻塞会把整个事件循环停住，而它同时还跑着别的任务。
+        另外 Python 的锁配合全局锁使用，这里没有全局锁，
+        锁就是主要的同步手段之一。
+      java: |
+        Java 的锁是阻塞的：拿不到就挂起线程，这是有真线程、真并行的语言里
+        的常规做法。这里只有异步锁 —— 这不是实现偷懒，而是运行时的并发模型
+        决定的：阻塞一个实例会拖住它上面所有任务。所以「等」在这里
+        表现为让出，而不是停住。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  channel:
+    code: |
+      import { taskpool } from '@kit.ArkTS';
+
+      // TaskPool：派一个任务、等它回结果 —— 参数与返回值靠序列化过去
+      const task = new taskpool.Task(compute, payload);
+      taskpool.execute(task).then((v: Object) => { console.info(`${v}`); });
+
+      // Worker：postMessage / onmessage，线程自己管
+      const w = new worker.ThreadWorker("entry/ets/workers/Worker.ets");
+      w.postMessage({ kind: "add", a: 1, b: 2 });
+      w.onmessage = (e: MessageEvent) => { console.info(`${e.data}`); };
+    vs:
+      javascript: |
+        消息传递的形态一致（送一个对象过去、另一端收到副本），差别在抽象层级：
+        这里的任务池把「派一个任务、等它回结果」做成了默认用法 ——
+        不用自己建线程，也不用自己写消息协议；手动那套是另一条路。
+        JavaScript 那边只有手动那套。
+      python: |
+        Python 的队列是标准库给的通道：放进去、取出来，队列自带同步。
+        这里没有队列原语 —— 消息传递是「把任务和参数序列化过去、
+        把返回值送回来」，或者手动那套的消息收发。
+        「等一个结果」由任务池的 Promise 承担，而不是由队列承担。
+      java: |
+        Java 的阻塞队列把「送」与「等」合成一个动作：放不下就挡住调用方。
+        这里的消息不排队、也不阻塞 —— 任务池返回一个 Promise，
+        手动那套的发送则是单向的。「排队与背压」在这里要自己想办法。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  atomicity:
+    code: |
+      const buf = new SharedArrayBuffer(16);      // @note 真共享的原生内存
+      const arr = new Int32Array(buf);
+
+      Atomics.add(arr, 0, 1);                     // @note 原子加，返回加之前的值
+      Atomics.load(arr, 0);                       // @note 原子读
+      Atomics.compareExchange(arr, 0, 0, 1);      // @note 比较并交换
+
+      // @note! 等待类是给别的线程用的，在主线程调用会直接抛错 ——
+      // 它不能把事件循环停住
+      // @note 官方没有描述内存序与重排规则，能依赖的就是这一组原子操作本身
+    vs:
+      javascript: |
+        原子操作这一组与 JavaScript 完全一致 —— 本来就是同一套内建。
+        这里没有在它之上再加东西：没有内存序参数，官方文档也没有描述
+        「写什么时候对别的线程可见」。能依赖的就是每个原子操作自身的语义。
+      python: |
+        Python 没有把原子操作暴露到语言层 —— 有全局锁时用不上，
+        真要并行时共享内存那套也不是语言级的。这里有一组明确的原子操作，
+        但同样没有「内存序」这一层可以声明：哪些重排允许、什么时候可见，
+        官方没有给出规则。
+      java: |
+        Java 把这件事讲得最细：内存模型规定可见性与重排，
+        `volatile` 建立先后关系，更新的 API 还能指定获取 / 释放语义。
+        这里只有一组语义固定的原子操作，没有可声明的内存序，
+        官方文档也没有描述重排规则。所以「一条语句会不会被拆开」，
+        在这里要靠原子操作本身来保证，而不是靠一层语言规定。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: divergent

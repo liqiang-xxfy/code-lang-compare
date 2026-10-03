@@ -1,0 +1,186 @@
+# typescript —— mechanism / async
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: async` 的那批：
+# event-loop / callback / promise-future / async-await / cancellation。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「JS」这类简称同样会被检测成屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：这一组里最容易写错的是**分工**与**时序**。
+# 「微任务」由语言规范定义，「什么时候跑宏任务」由宿主定义 —— 语言层不含事件循环。
+# 另一处：async 函数体在第一个 await 之前是**同步执行**的，不是整段异步。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  event-loop:
+    code: |
+      console.info("1 同步");
+      setTimeout(() => console.info("5 宏任务"));
+      Promise.resolve().then(() => console.info("3 微任务"));
+
+      async function f(): Promise<void> {
+        console.info("2 await 之前是同步的");   // @note! 这一行不在微任务里
+        await null;
+        console.info("4 await 之后进微任务队列");
+      }
+      f();
+      console.info("1.5 同步结束");
+
+      // 结果：1 → 2 → 1.5 → 3 → 4 → 5
+    vs:
+      javascript: |
+        事件循环两边是同一个 —— 它本来就不是语言层的规则：微任务队列由语言规范
+        定义，「什么时候跑宏任务」由宿主定义。TypeScript 在这件事上加不了任何东西，
+        它只是把回调的类型标出来。所以这一格没有可写的差别。
+      python: |
+        Python 的 asyncio 是标准库给的一套循环，要 `await` 或到让出点才切换任务；
+        这里的事件循环是内建的：同步代码先跑完，微任务排队，再轮到宏任务。
+        启动方式也不同 —— Python 要把协程显式交给循环，
+        这里的 async 函数调用即开始执行（到第一个 await 为止）。
+      java: |
+        Java 没有事件循环：并发靠线程，阻塞就是真把线程停住。
+        这里只有一条执行流在跑事件循环，所以「等」必须表现成让出 ——
+        `await` 之后的代码排进微任务队列，不是另起一条执行流。
+        两种模型对写法的影响很直接：Java 里阻塞调用是常规，
+        这里阻塞调用会让后面所有任务一起卡住。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: divergent
+
+  callback:
+    code: |
+      // 最老的异步写法：把函数传进去，等它回头调你
+      function load(url: string, done: (data: string) => void): void { /* ... */ }
+      load("/a", (data) => { console.info(data); });
+
+      // 类型能约束的只有签名
+      type Handler = (err: Error | null, data?: string) => void;
+      // @note! 什么时候被调、调几次、会不会永远不调 —— 类型看不出来
+    vs:
+      javascript: |
+        回调的形态一样，TypeScript 加的是签名检查：参数几个、什么类型、
+        错误是不是第一个参数，编译期就对得上。但「回调会被调几次」
+        「会不会永远不调」这类问题类型管不了 —— 那是运行时的行为，两边都得自己保证。
+      python: |
+        Python 的回调同样是一个普通可调用对象，语义一致。差别在默认选择：
+        Python 的异步生态以协程为主，回调更多出现在「给已有的 future 挂个通知」
+        这类场合；这里两套并存 —— 回调是宿主 API 常见的形态，Promise 是语言层的。
+      java: |
+        Java 8 之后回调通常写成函数式接口的 lambda，形态与这里一样。
+        差别在类型怎么描述它：Java 的函数式接口是个**具名接口**
+        （消费型、转换型各有各的名字），能复用、也能带默认方法；
+        这里的函数类型是结构化的 —— 写一次签名就是一个类型，不用先声明接口，
+        但也没有名字可以复用。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  promise-future:
+    code: |
+      const p: Promise<number> = fetchCount();   // @note 三态：等待 / 成功 / 失败
+      p.then((n) => console.info(`${n}`))
+       .catch((e: unknown) => console.error(e));
+
+      await Promise.all([a, b]);       // @note 全部等齐
+      await Promise.race([a, b]);      // @note 谁先回来算谁
+
+      // 类型工具：递归解开嵌套的 Promise
+      type T = Awaited<Promise<Promise<number>>>;   // @note 结果是 number
+    vs:
+      javascript: |
+        Promise 本身两边共用一个实现，行为逐条一致。TypeScript 加的是类型这一层：
+        标注让 `then` 的回调参数自动是对应类型；递归解包那个工具类型能把
+        嵌套的 Promise 拍平；「全部等齐」的结果是一个元组，每一项都有自己的类型。
+        这些在 JavaScript 里全靠自己记。
+      python: |
+        Python 把「调度」与「结果」分成两个对象（任务与 future），这里只有 Promise。
+        写法上 Python 要把协程交给循环去跑，这里调用即开始。组合子两边对得上：
+        全部等齐、谁先回来都有。差别在失败那一侧 —— Python 的异常一路传到 await 处，
+        这里的失败要先被 `catch` 接住，否则就走默认的未处理路径。
+      java: |
+        Java 的 `CompletableFuture` 与这里最对应：链式组合、全部等齐、谁先回来，
+        两边的组合子几乎一一对得上。差别在异常那一侧 —— Java 有单独的异常处理入口，
+        这里统一走 `catch`；而两边的方法签名都看不出「这个异步会不会失败」，
+        失败都是类型之外的事，只能靠约定。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: analogous
+
+  async-await:
+    code: |
+      async function load(id: string): Promise<string> {
+        const r = await fetchOne(id);    // @note 拿到的是结果，不是 Promise
+        return r.trim();                 // @note 返回值自动包成 Promise
+      }
+
+      // @note! 返回类型必须标成 Promise<T>，写成 T 是编译错误
+      // async function bad(): string { return ""; }
+
+      for await (const chunk of stream) {   // @note 异步迭代：每个元素也是一次 await
+        console.info(chunk);
+      }
+    vs:
+      javascript: |
+        语法与运行时行为完全一致 —— 这两个关键字本来就是内建的。
+        TypeScript 只多规定了一件编译期的事：async 函数的返回类型必须标成
+        `Promise<T>`，写 `T` 编译不过。好处是调用方一眼看到「这里要 await」，
+        不必翻函数体去找有没有 await。
+      python: |
+        写法几乎一样，差别在两处：Python 的协程要显式交给事件循环去跑，
+        直接调用一个 `async def` 只会得到协程对象、不会执行；
+        这里的 async 函数调用就开始跑（到第一个 await 为止）。
+        另一处是标注的位置 —— Python 标的是协程返回的那个值，
+        这里标的是包装后的 `Promise<T>`。
+      java: |
+        Java 没有这两个关键字：异步组合靠链式调用，代码形状是「注册回调」
+        而不是「顺序写下来」。Java 21 的虚拟线程让阻塞式写法重新可用 ——
+        那是最接近这里的一种思路：把异步写得像同步。差别在实现代价 ——
+        这里靠编译把函数切成状态机，Java 靠把阻塞调用变成廉价的线程切换。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: divergent
+
+  cancellation:
+    code: |
+      // 取消不是语言的机制 —— 得用宿主给的这个信号
+      const ctl = new AbortController();
+      fetch("/api", { signal: ctl.signal }).catch(() => { /* 已中止 */ });
+      ctl.abort();                      // @note 谁拿着信号谁就知道被取消了
+
+      fetch("/api", { signal: AbortSignal.timeout(3000) });   // @note 超时是现成的
+
+      // @note! Promise 本身不可取消 —— 信号只是「转达取消」的约定，
+      // 得被取消的那一方配合才有用
+    vs:
+      javascript: |
+        两边是同一个机制：信号对象由脚本创建、传给接收方，接收方自己决定
+        要不要响应。TypeScript 加的是类型 —— 谁接受信号、中止的理由是什么，
+        签名里写着。但语言层同样**没有**「取消一个正在跑的 Promise」这件事：
+        取消始终是约定，不是能力。
+      python: |
+        Python 的取消是**语言与运行时的机制**：任务可以被取消，协程里会抛出异常，
+        `finally` 照样执行 —— 取消方不需要被取消方配合。
+        这里没有这一层：信号只是一个约定，接收方不理会就什么也不会发生。
+        差别是「取消是权利」还是「取消是请求」。
+      java: |
+        Java 的取消会尝试中断线程，但能不能真的停下来取决于任务有没有
+        检查中断标志 —— 这一点与这里的信号约定很像：都要被取消方配合。
+        差别在 Java 手里还有线程这个可操作的实体，这里脚本能做的
+        只有把信号传出去。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
