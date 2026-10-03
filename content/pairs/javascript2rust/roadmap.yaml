@@ -1,0 +1,93 @@
+# 迁移学习路线 —— JavaScript → Rust
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+
+- id: js2rust-1-anchor
+  order: 1
+  title: 先接受「编译器会一直拦你」
+  durationHint: 2-3 小时
+  todo:
+    - 通读本工具「心智模型」板块的 JavaScript 视角，把 GC/所有权、单线程/Send Sync 这类映射建起来
+    - 只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义
+    - 明确写下「哪些 JS 直觉必须丢掉」——共享可变、到处传引用、异常即控制流、字符串只有一种
+  acceptance:
+    - 能说清所有权、借用、生命周期三者各自解决什么问题
+    - 知道 `Option` 不是"加强版 null"，而是把缺失写进了类型
+  resources:
+    - label: The Rust Book（中文）
+      url: https://kaisery.github.io/trpl-zh-cn/
+    - label: Rust by Example
+      url: https://doc.rust-lang.org/rust-by-example/
+
+- id: js2rust-2-basics
+  order: 2
+  title: 基础语法逐条对照
+  durationHint: 5-7 天
+  todo:
+    - 按本工具「基础语法」板块的 8 个章节逐格对比，每看一格手写一遍两边的代码（不要复制）
+    - 特别留意三处与 JS 直接冲突的：整数除法、字符串按字节索引、空值必须用 Option 处理
+    - 把踩到的坑记进「迁移陷阱」板块并打上自己的严重度
+    - 刻意练习"先想所有权再写代码"，而不是写完等编译器报错
+  acceptance:
+    - 能独立写出变量、集合、控制流、函数定义，无编译错误
+    - 能解释 `String` 与 `&str` 各自该在什么场合用
+    - 遇到借用错误时，第一反应是调整作用域而不是加 `clone()`
+  resources:
+    - label: The Rust Book · 所有权
+      url: https://kaisery.github.io/trpl-zh-cn/ch04-00-understanding-ownership.html
+
+- id: js2rust-3-practice
+  order: 3
+  title: 动手写（占全部时间的 70%）
+  durationHint: 2-3 周
+  todo:
+    - 做 Exercism 的 Rust track，接受 mentor 评审
+    - 把一个写过的小 JS 工具（100-300 行）用 Rust 重写一遍
+    - 重写时不要查 JS 原文件——凭记忆写，写完再对照
+    - 每次被借用检查拦住时，先想清楚"数据归谁"，再看编译器建议
+  acceptance:
+    - Exercism 完成 15 题以上
+    - 能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法
+    - 能在不看文档的情况下写出带 `Result` 返回与 `?` 传播的函数
+  resources:
+    - label: Exercism Rust Track
+      url: https://exercism.org/tracks/rust
+    - label: TheAlgorithms Rust
+      url: https://github.com/TheAlgorithms/Rust
+
+- id: js2rust-4-deep
+  order: 4
+  title: 补齐语义层（并发与内存）
+  durationHint: 1-2 周
+  todo:
+    - 真正理解 Send / Sync：为什么 `Rc` 不能跨线程，而 `Arc` 可以
+    - 用 `Arc<Mutex<T>>` 写一个共享计数器，体会"忘加锁编译不过"意味着什么
+    - 理解 RAII：为什么不需要 try/finally，以及 `MutexGuard` 是怎么自动解锁的
+    - 试着解释一次生命周期标注为什么写不出来 —— 多数时候答案是"想共享但数据活不够久"
+  acceptance:
+    - 能解释为什么 Rust 里"数据竞争"是一类编译期错误
+    - 能说清 `Box` / `Rc` / `Arc` / `RefCell` 各自的适用场景
+    - 能用 tokio 写一个并发的抓取程序，并知道跨 `.await` 的 `Send` 约束从哪来
+  resources:
+    - label: The Rust Book · 无畏并发
+      url: https://kaisery.github.io/trpl-zh-cn/ch16-00-fearless-concurrency.html
+    - label: tokio 官方教程
+      url: https://tokio.rs/tokio/tutorial
+
+- id: js2rust-5-ecosystem
+  order: 5
+  title: 工程化与生态收口
+  durationHint: 3-5 天
+  todo:
+    - 用 cargo 建一个真实项目，跑通「写代码 → test → clippy → fmt → doc → build」
+    - 把 npm 的心智映射到 Cargo.toml 与 feature 开关，理解为什么要按需开启功能子集
+    - 用 thiserror（库）/ anyhow（应用）整理一遍错误类型
+    - 读一遍 clippy 的全部警告并逐条处理 —— 它对刚迁过来的人尤其有用
+  acceptance:
+    - 能独立搭起一个带测试、lint、文档的 Rust 工程
+    - 能说清 crate / mod / use / pub 各自解决什么问题
+    - 能读懂借用检查的报错并说出它想保护什么
+  resources:
+    - label: Cargo 官方文档
+      url: https://doc.rust-lang.org/cargo/
+    - label: Clippy 警告清单
+      url: https://rust-lang.github.io/rust-clippy/master/index.html

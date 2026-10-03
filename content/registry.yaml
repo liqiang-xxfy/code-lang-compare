@@ -1,39 +1,30 @@
-# 内容注册表 —— 全局唯一开关与站点配置
+# 内容注册表 —— 全局唯一开关与站点配置（v2 内容架构）
+#
+# 目标形态见 docs/对比内容架构.md。与 v1 的根本差别：
+#   内容按**语言**组织，每门语言为每个基准各写一份差异解释；
+#   清单（哪些章节、哪些 feature、什么顺序）集中在 content/catalog/，与内容分离。
+#
 # 语言「是否存在」由 content/languages/<id>/meta.yaml 的目录决定；
 # 语言「是否启用」只由本文件决定（单一开关，避免与 meta 里的状态字段冲突）。
-#
-# topics 段是**三轴模型**的落点（ADR-25）：每个 topic 回答
-#   section  属于五个板块中的哪一个（basics / migration / pitfalls / glossary / roadmap）
-#   baseline 以谁为参照系（from）
-#   target   对照谁（to）—— basics 是基准级板块，没有 target
-# topic 的**目录名**同时也是它的 id，并且决定了 URL 的一段；
-# 但语言归属的真值在上述两个字段，校验只读字段、不解析 id。
 
-# v3：板块从写死的枚举改为 sections 段声明的注册表（见下方 sections:）
 version: 3
 
 # 发布策略（D-A / ADR-07）：
 #   include-draft-with-badge —— draft 参与构建与搜索引擎索引，但页面必须显示「未经人工校对」
 #   reviewed-only            —— 严格模式：draft 不进生产构建（校对迭代完成后切回）
-#
-# 当前 = include-draft-with-badge：Java / Rust / Go 的实现（以及本次新增的骨架内容）
-# 由 AI 生成，且**本机没有这些语言的工具链**，无法像 JS / Python 那样逐条实跑验证 ——
-# 因此全部标为 draft，让页面上的「未经人工校对」标记如实承载这个事实。
 publishPolicy: include-draft-with-badge
 
 # 默认基准语言 —— 首访默认值与 SSG 静态文案使用这一门。
 # 必须是已启用语言；「谁有资格当基准」由各语言 meta.yaml 的 baseline: true 决定。
+# v2 里基准固定为 JavaScript / Python / Java 三门，不再增减（ADR-47）。
 defaultBaseline: javascript
 
 # 默认对比语言 —— 首访时对比列默认选中的那一门。必须已启用且 ≠ 默认基准。
-# 它取代了 v1 的 equivalenceReference：那时徽章的参照系是一门写死的语言，
-# 现在内容按 (基准, 目标) 对撰写，徽章相对**该对所属的基准**，不再需要全局常量（ADR-24）。
 defaultCompareLanguage: python
 
 site:
   name: 编程语言对照手册
-  shortDescription: 选一门基准语言，逐板块对照目标语言的基础语法、迁移教程、迁移陷阱、速语词典与学习路线。默认以 JavaScript 为基准。
-  lang: zh-CN
+  shortDescription: 选一门基准语言，勾选若干对比语言，并排看每门语言和基准差在哪。默认以 JavaScript 为基准。
 
 languages:
   javascript:
@@ -59,80 +50,62 @@ languages:
 
 # ── 板块注册表 ────────────────────────────────────────────────────────
 # 板块的**唯一真源**：左栏分组、URL 段、页面标题、语言控件形态、SEO 文案
-# 全部由这里派生。加一个板块 = 在这里加一条（+ 内容目录），不改散落的代码。
+# 全部由这里派生。加一个板块 = 在这里加一条（+ content/catalog/<板块>.yaml），
+# 不改散落的代码。
 #
 # 三个属性刻意分开声明，**不能互相推导**：
-#   shape   数据形态。chapter = 有章节的并排对照；list = 一页列表资源
-#   scope   baseline = 以基准语言为参照、可多门并列；pair = 锁定「基准→目标」两门
+#   shape   数据形态。chapter = 有章节的并排矩阵；list = 一页列表资源
+#   scope   baseline = 以基准语言为参照、对比列可多选；pair = 锁定「基准→目标」两门
 #   columns 语言控件形态。multi = 多选并排（矩阵）；single = 单选（一篇文章）
 #
-# 为什么不是一个布尔：`section === 'basics'` 曾同时被当作这三件事的判据，
-# 于是「基准级 + 单选」「对级 + 多选」这类组合无法表达。拆开后任意组合都成立。
+# 分界依据：inside 是「换语言必须重学的机制」，outside 是「换工具但概念不变的部分」。
 sections:
-  # 顺序即左栏顺序，也是 `order` 的排序结果 —— 文件里的书写顺序刻意与之一致。
-  #
-  # 排列依据是**迁移者的学习路径**，不是内容形态：
-  #   路线（总纲：我该按什么顺序迁）→ 基础语法（逐格对照）→
-  #   迁移教程（按主题展开）→ 陷阱 / 词典（按症状与术语查）
-  # 「迁移学习路线」在最前，并声明 `landing: true` —— 它是 /compare/<基准>
-  # 与顶栏「多语言对比」的落点（见 schema 里 landing 的说明）。
-  roadmap:
-    order: 1
-    label: 迁移学习路线
-    title: 迁移学习路线
-    shape: list
-    scope: pair
-    columns: single
-    # 站点落点：从「我要迁移」进来的用户，最该先看到的是顺序，不是某一章语法
-    landing: true
-    # 列表型板块：取自 PairPayload 的哪个字段，以及用哪个渲染器
-    dataKey: roadmaps
-    renderer: roadmap
-    seo:
-      title: "{direction} 学习路线"
-      description: "从 {baseline} 迁移到 {target} 的 {count} 个阶段：目标、时长与验收标准。"
-
+  # 顺序即左栏顺序。排列依据是**迁移者的查阅路径**：
+  #   基础语法（逐格对照）→ 语言之内（机制差异，最容易绊住人）→
+  #   语言之外（工具链）→ 陷阱 / 词典 / 路线（按症状与术语查）
   basics:
-    order: 2
+    order: 1
     label: 基础语法
     title: 基础语法对比
     shape: chapter
     scope: baseline
     columns: multi
-    # SEO 模板一律用引号包起来：**以 `{` 开头的普通标量会被 YAML 当成流式映射**
-    # （i18n/zh-CN.yaml 里也踩过同一个坑）。统一加引号，改文案时不必再想这件事。
+    # 站点落点：从「我要迁移」进来的用户，最该先看到的是一格一格的对照
+    landing: true
+    # SEO 模板一律用引号包起来：**以 `{` 开头的普通标量会被 YAML 当成流式映射**。
+    # {compared} = 已启用语言里除基准之外的语言名（v2 没有 topic.languages，
+    # 对比列由页内多选决定，这里是确定性的全集）
     seo:
-      # {compared} = 该 topic 的 languages 范围内、除基准外的语言名
       title: "以 {baseline} 为基准 · {chapterTitle}"
       description: "{chapterTitle}：{sample} —— 以 {baseline} 为参照系，对照 {compared} 的写法与行为差异。"
 
-  # 心智模型：与基础语法同为「基准级 + 多列并排」，但对照的粒度更粗 ——
-  # 基础语法逐条讲语法，这里讲**语言之间根本性的心智差异**（类型系统、内存、
-  # 并发单元、包管理…）。迁移者真正会绊住的地方大多在这里，而不是语法。
-  concepts:
-    order: 3
-    label: 心智模型
-    title: 心智模型对照
+  inside:
+    order: 2
+    label: 语言之内
+    title: 语言之内
     shape: chapter
     scope: baseline
     columns: multi
     seo:
       title: "以 {baseline} 为基准 · {chapterTitle}"
-      description: "{chapterTitle}：{sample} —— 从 {baseline} 的视角，对照 {compared} 在这些心智模型上的根本差异。"
+      description: "{chapterTitle}：{sample} —— 从 {baseline} 的视角，对照 {compared} 在这些机制上的根本差异。"
 
-  migration:
-    order: 4
-    label: 迁移教程
-    title: 迁移教程
+  outside:
+    order: 3
+    label: 语言之外
+    title: 语言之外
     shape: chapter
-    scope: pair
-    columns: single
+    scope: baseline
+    columns: multi
     seo:
-      title: "{direction} · {chapterTitle}"
-      description: "{direction}：{sample}。含对照代码、行为差异与迁移要点。"
+      title: "以 {baseline} 为基准 · {chapterTitle}"
+      description: "{chapterTitle}：{sample} —— 换语言要换的那套工具，以 {baseline} 为参照对照 {compared}。"
 
+  # ── 速查三兄弟：唯一保留方向性的内容（ADR-45）──────────────────────
+  # 它们的主语是**方向**，不是语言 ——「带着 JS 习惯写 Python 会踩的坑」
+  # 换成「Python 的坑」就丢掉了最有价值的那半句。内容在 content/pairs/<基准>2<目标>/
   pitfalls:
-    order: 5
+    order: 4
     label: 迁移陷阱
     title: 迁移陷阱
     shape: list
@@ -148,7 +121,7 @@ sections:
       sampleLimit: 5
 
   glossary:
-    order: 6
+    order: 5
     label: 速语词典
     title: 速语词典
     shape: list
@@ -160,117 +133,20 @@ sections:
       title: "{direction} 速语词典"
       description: "从 {baseline} 出发最容易误解的 {count} 个术语：{sample}。"
 
-topics:
-  # ── 基础语法（基准级：每个基准一套，共 3 套）──────────────────────────
-  # 列由运行时的对比语言多选决定，所以不声明 target。
-  # languages 缺省 = 全部已启用语言；基准 JS 那套是完整的 8 章，
-  # Python / Java 两套目前各只有 1 章样板，用 languages 把 R2 的格子数
-  # 从 5 门压到 2 门，否则每章要为另外 3 门语言各补 9 格。
-  basics-javascript:
-    enabled: true
-    title: 基础语法
-    section: basics
-    baseline: javascript
+  roadmap:
+    order: 6
+    label: 迁移学习路线
+    title: 迁移学习路线
+    shape: list
+    scope: pair
+    columns: single
+    dataKey: roadmaps
+    renderer: roadmap
+    seo:
+      title: "{direction} 学习路线"
+      description: "从 {baseline} 迁移到 {target} 的 {count} 个阶段：目标、时长与验收标准。"
 
-  # 八章 72 个 feature、三列各 72 条实现已补齐，因此放开到三门基准候选。
-  # 收窄过的 languages 只是骨架期的脚手架：一旦某门语言进了范围，
-  # R2 就要求**每条** feature 都有它的实现，缺一格即 error。
-  basics-python:
-    enabled: true
-    title: 基础语法
-    section: basics
-    baseline: python
-    languages: [javascript, python, java]
-
-  # 与 basics-python 同步：八章 72 个 feature、三列各 72 条实现补齐后放开。
-  basics-java:
-    enabled: true
-    title: 基础语法
-    section: basics
-    baseline: java
-    languages: [javascript, python, java]
-
-  # ── 心智模型（基准级：每个基准一套视角，对照同一批概念）──────────────
-  # 与基础语法同形（scope: baseline + columns: multi），但**内容是按基准视角
-  # 分别撰写的**：从 JS 出发讲「你熟悉的这套，在对面是什么」与从 Python 出发
-  # 讲的是两篇文章（ADR-31）。因此一个基准一个 topic，不是一份内容三个地址。
-  #
-  # 三套统一到 [javascript, python, java]：与 basics-python / basics-java 同口径。
-  # 曾经是收窄的（concepts-javascript 只对 2 门、concepts-java 只对 2 门），
-  # 结果是「从 JS 视角看不到 Java，反过来却看得到」这种方向不对称 ——
-  # 2026-10 补齐后三套对齐。
-  #
-  # 提醒：一旦某个 topic 的 languages 里出现一门语言，R2 就要求**每条概念**
-  # 都有它的实现，缺一格即 error。放开一门语言必须与补齐它的全部条目同批完成。
-  concepts-javascript:
-    enabled: true
-    title: 心智模型
-    section: concepts
-    baseline: javascript
-    languages: [javascript, python, java]
-
-  # Python / Java 视角：与 JS 视角同形、同一批概念，但正文从各自基准出发撰写。
-  # languages 与写出的 snippet 必须完全对齐 —— R2 对范围内每门语言逐条要实现。
-  concepts-python:
-    enabled: true
-    title: 心智模型
-    section: concepts
-    baseline: python
-    languages: [javascript, python, java]
-
-  concepts-java:
-    enabled: true
-    title: 心智模型
-    section: concepts
-    baseline: java
-    languages: [javascript, python, java]
-
-  # ── 迁移教程 + 迁移陷阱 + 速语词典 + 迁移学习路线（对级）──────────────
-  # 一个 (基准, 目标) 对一个目录：迁移教程的章节与三份列表资源（pitfalls.yaml /
-  # glossary.yaml / roadmap.yaml）同放其中，靠 loader 的 Array.isArray 约定区分。
-  # 这里只登记「有哪些方向」，不重复描述「有哪些文件」。
-
-  js2python:
-    enabled: true
-    title: JavaScript → Python
-    section: migration
-    baseline: javascript
-    target: python
-    languages: [javascript, python]
-  js2java:
-    enabled: true
-    title: JavaScript → Java
-    section: migration
-    baseline: javascript
-    target: java
-    languages: [javascript, java]
-  js2rust:
-    enabled: true
-    title: JavaScript → Rust
-    section: migration
-    baseline: javascript
-    target: rust
-    languages: [javascript, rust]
-  js2go:
-    enabled: true
-    title: JavaScript → Go
-    section: migration
-    baseline: javascript
-    target: go
-    languages: [javascript, go]
-
-  # 骨架期：Python / Java 基准各先做一个方向的样板，其余方向后续按同形态补。
-  python2java:
-    enabled: true
-    title: Python → Java
-    section: migration
-    baseline: python
-    target: java
-    languages: [python, java]
-  java2python:
-    enabled: true
-    title: Java → Python
-    section: migration
-    baseline: java
-    target: python
-    languages: [java, python]
+# v2 取消了 topic 概念：章节与 feature 的归属由 content/catalog/ 表达，
+# 方向的归属由 content/pairs/ 的目录名表达。
+# 这个字段在 schema 里是必填的 record，所以显式留空（不是「忘了写」）。
+topics: {}

@@ -1,0 +1,214 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 Java 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-js2java-string-equality
+  featureId: basics-javascript/equality
+  title: 用 `==` 比较字符串，碰巧对了几次之后突然失效
+  symptom: JS 里 `a == b` 比字符串完全没问题，Java 里同样的写法对短字符串"能用"，换成拼接出来的对象就变成 false。
+  cause: Java 的 `==` 比较的是引用，`String` 又是对象；字面量因为字符串常量池共享同一个实例，所以"碰巧"相等，而 `new String(...)` 或运行期拼接的结果不共享。
+  fix: |
+    Java 里字符串比较一律用 `equals`（注意常量在前：`"a".equals(x)` 可以免判空）。
+    这与 JS 里「`==` 危险、`===` 安全」的记忆正好相反 —— 那边要比值，
+    这边 `==` 比引用、`equals` 才比值。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [相等, 字符串]
+
+- id: pitfall-js2java-number-types
+  featureId: basics-javascript/arithmetic
+  title: '`0.1 + 0.2` 的结果在两个语言里一样错，但 Java 会拦住你的隐式转换'
+  symptom: 把 JS 的金额计算搬到 Java，突然编译不过了：`int` 与 `double` 不能悄悄互转。
+  cause: JS 只有一种数字类型（双精度浮点），所有运算都在这一种类型里发生，因此 `1 / 2` 得到 `0.5`；Java 的整数除法 `1 / 2` 得到 `0`，而且混合类型运算要显式转换。
+  fix: |
+    在 Java 里做除法前先想清楚要整数还是浮点：`1 / 2` 与 `1.0 / 2` 是两个结果。
+    金额计算两边都不能用二进制浮点，Java 用 `BigDecimal`，JS 侧同样需要十进制定点方案。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [数值, 类型]
+
+- id: pitfall-js2java-integer-division
+  featureId: basics-javascript/number-precision
+  title: 除法静默变成了整数除法，结果少了一截
+  symptom: |
+    JS 里 `7 / 2` 得 3.5，同样的代码搬到 Java 得 3。
+    算平均值、算比例、算单价时不会报错，只是结果悄悄少了一截。
+  cause: |
+    JS 只有一种数字类型，所有除法都在浮点里发生；
+    Java 的 `/` 在两个操作数都是整数时做整数除法。
+    两边都不会对结果类型提出异议 —— **结果依然是个合法数字**，这才是最麻烦的地方。
+  fix: |
+    迁移每一处除法时确认意图：要浮点就在 Java 侧写 `(double) a / b`。
+    凡是算平均值、百分比、比率的地方都要检查一遍。
+    这类错误只能靠单元测试发现，编译器不会帮你。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [数值, 运算]
+
+- id: pitfall-js2java-int-overflow
+  featureId: basics-javascript/number-precision
+  title: 整数溢出回绕成负数，比丢精度更难看出来
+  symptom: |
+    累加一批 ID 或金额，结果突然变成负数；
+    或者 `Integer.MAX_VALUE + 1` 得到 `-2147483648`，程序继续跑，只是数据全错。
+  cause: |
+    JS 的整数也是浮点，"溢出"表现为**丢精度**（大数变小）；
+    Java 的 `int` 是 32 位，超出范围时**回绕成负数**。
+    两种表现都会让数据悄悄变错，但回绕后的负数在后续计算里更容易被当成合法的负值。
+  fix: |
+    选类型时做一次心算：这批数据的上限乘上条数会不会超过 2^31。
+    拿不准就用 `long`（成本只是一个字母）。对外 API 用 `int` 时更要想清楚 ——
+    一旦定成 `int`，将来改 `long` 是破坏性变更。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [数值, 类型]
+
+- id: pitfall-js2java-npe-unboxing
+  featureId: basics-javascript/null-undefined
+  title: 包装类型拆箱时才抛空指针，报错位置离原因很远
+  symptom: |
+    `Integer boxed = null; int n = boxed;` 抛 NullPointerException，
+    而抛出点在拆箱那一行，真正的错误（某处赋了 null）可能在几百行之前。
+  cause: |
+    JS 里数值就是数值，不存在"包了一层对象的数值"，
+    所以也没有"包装对象是 null、拆开时才炸"这个中间态。
+    Java 的集合只能装对象，所以从集合里取出来的数字天然带这一层风险。
+  fix: |
+    从可能为空的来源取 `Integer` / `Long` / `Boolean` 时，先判空再拆箱；
+    或者干脆用 `OptionalInt` 这类显式类型。数值计算优先用基本类型，
+    只在必须进集合或泛型时才装箱。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [空值, 类型]
+
+- id: pitfall-js2java-sublist-view
+  featureId: basics-javascript/array-slice
+  title: 改了取出来的那一段，原列表也跟着变了
+  symptom: |
+    `xs.subList(1, 3).set(0, 9)` 之后，原列表的对应位置也变了。
+    JS 里 `slice()` 永远是拷贝，所以"我改的是副本"这个假设在这里不成立。
+  cause: |
+    Java 的 `subList` 返回的是**原列表的视图**，不是拷贝；
+    而 JS 的 `slice()` **总是**返回新数组。两边语法都像"取一段"，行为却相反。
+  fix: |
+    要副本就显式包一层：`new ArrayList<>(xs.subList(a, b))`。
+    反过来也可以利用视图语义做"原地替换一段"，但那要写清楚意图。
+    数组那边是 `Arrays.copyOfRange`，它是真拷贝 —— 集合与数组的 API 不一致，别混用。
+  severity: 2
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [容器, 切片]
+
+- id: pitfall-js2java-switch-fallthrough
+  featureId: basics-javascript/switch-match
+  title: 忘了写 break，switch 一路穿透下去
+  symptom: |
+    某个 case 执行完之后，后面的 case 也跟着执行了 ——
+    而且是静默的，没有任何警告。
+  cause: |
+    Java 传统 `switch` 是**贯穿**的：不写 `break` 就继续往下执行。
+    JS 的 switch 同样如此，所以这一条两边一致 ——
+    但 JS 里 switch 用得少，Java 里常见，踩到的概率高得多。
+  fix: |
+    新代码一律用 Java 14+ 的箭头形式，它**没有穿透**：
+    `case "a" -> doA();`。必须用传统写法时，每个分支都检查 break，
+    或者写注释说明"这里是故意穿透"。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [控制流]
+
+- id: pitfall-js2java-block-scope
+  featureId: basics-javascript/var-scope
+  title: 循环变量出了循环就不见了
+  symptom: |
+    `for (int i = 0; i < n; i++) { }` 之后想用 `i`，编译报错「找不到符号」。
+  cause: |
+    Java 的局部变量是**块级作用域**，循环变量声明在括号里，出了循环就失效。
+    JS 的 `let` 同样是块级 —— 这一点两边一致，所以从 JS 过来不会踩；
+    但如果同时接触 Python（它的块不产生作用域），会混淆。
+  fix: |
+    把「变量可见范围」按 `{}` 来读。要在循环外使用就在外面先声明，
+    循环里只赋值。
+  severity: 2
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [作用域]
+
+- id: pitfall-js2java-array-equals
+  featureId: basics-javascript/object-equality
+  title: 两个内容相同的数组，equals 却返回 false
+  symptom: |
+    `int[] a1 = {1,2}; int[] a2 = {1,2}; a1.equals(a2)` 是 false。
+    把数组放进 `Set` 或当 `Map` 的键时，两个内容相同的数组各占一格。
+  cause: |
+    数组**不重写** `equals`，所以它比的是引用身份。
+    JS 里数组同样是引用比较（`[] === []` 也是 false），这一条两边一致 ——
+    但 JS 里还有 `JSON.stringify` 这种（不可靠的）绕道，容易让人以为 Java 也有类似写法。
+  fix: |
+    数组按内容比较用 `Arrays.equals(a, b)`（多维用 `deepEquals`）；
+    要当键就换成 `List`（它重写了 equals/hashCode）。
+  severity: 2
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [相等, 容器]
+
+- id: pitfall-js2java-map-key-equals
+  featureId: basics-javascript/object-access
+  title: 自定义对象放进 Map 之后取不出来
+  symptom: |
+    `map.put(new Point(1,2), "x")` 之后，用另一个 `new Point(1,2)` 去 `get`，
+    得到 null —— 而这两个对象内容完全一样。
+  cause: |
+    Java 的 `HashMap` 按 `equals` / `hashCode` 判等；
+    普通类不重写这两个方法，用的就是 `Object` 的默认实现（比引用身份）。
+    JS 里对象的键只能是字符串，字符串天然按值比较，所以从来不是问题。
+  fix: |
+    当键的类型要么用 `record`（自动生成 `equals` + `hashCode`），
+    要么手写这两个方法 —— **两个都要写**，只写一个是更隐蔽的错。
+    症状是"明明放进去了却取不到"，不报错，只返回 null。
+  severity: 2
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [相等, 容器]
+
+- id: pitfall-js2java-hashmap-concurrency
+  featureId: basics-javascript/object-default
+  title: 多线程写 HashMap，程序挂死或数据丢失
+  symptom: |
+    单线程下一切正常，一上并发就出现丢数据、遍历时抛
+    ConcurrentModificationException，极端情况下 CPU 跑满但什么都不做。
+  cause: |
+    JS 是单线程模型，"两个任务同时改一个对象"根本不会发生 ——
+    所以这个类问题在 JS 里不存在，也就没有对应的警觉。
+    Java 的 `HashMap` 完全没有并发保护，并发写会破坏内部结构。
+  fix: |
+    跨线程共享的映射一律用 `ConcurrentHashMap`；
+    或者从根上避免共享（把每个线程的数据分开收集，最后合并）。
+    **"这段代码在 JS 里跑得好好的"是无效证据** —— 那边没有真并行。
+  severity: 3
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [并发, 容器]
+
+- id: pitfall-js2java-finally-return
+  featureId: basics-javascript/exception-flow
+  title: finally 里写 return，异常被静默吞掉
+  symptom: |
+    方法本该抛异常，却正常返回了一个值；调用方以为成功了。
+    排查时发现异常确实抛出过，只是不见了。
+  cause: |
+    `finally` 里执行 `return` 会**丢弃正在传播的异常**，直接结束方法。
+    JS 里同样如此，所以这一条两边一致；但 JS 里较少在 finally 里写 return，
+    迁移时容易忽略。
+  fix: |
+    `finally` 只做清理，不要 `return` / `break` / `continue`；
+    也不要在里面抛新异常 —— 那会覆盖原始异常（用 try-with-resources 可以避免后一种）。
+  severity: 2
+  languages: [javascript, java]
+  fromBaseline: true
+  tags: [错误处理]

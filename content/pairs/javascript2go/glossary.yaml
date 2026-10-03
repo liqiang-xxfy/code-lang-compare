@@ -1,0 +1,72 @@
+# 速语词典 —— 从 JavaScript 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 会拦第三门）
+
+- term: 接口
+  aliases: [interface, type]
+  perLanguage:
+    javascript: 无语言级概念，靠鸭子类型隐式满足
+    go: 同样是隐式满足 —— 只要方法集齐了就算实现了接口，不需要 implements；这是与 Java 式接口最大的区别
+  note: Go 的接口偏「先有实现、再抽象出接口」，与 JS 的隐式结构类型反而是同一种思路。
+
+- term: 错误处理
+  aliases: [error, exception, try]
+  perLanguage:
+    javascript: 异常机制，throw / try / catch；未捕获的 Promise 拒绝会冒泡成 unhandledrejection
+    go: 错误是普通返回值，用 `(T, error)` 显式返回；panic 只留给真正的程序缺陷
+  note: 「错误是值」这件事改变了控制流写法 —— Go 里你会看到大量 if err != nil。
+
+- term: 并发
+  aliases: [concurrency, async, goroutine]
+  perLanguage:
+    javascript: 单线程事件循环，async/await 是语法糖，本质是不阻塞的协作式调度
+    go: 真并行的 goroutine + channel，用通信来共享内存而不是共享内存来通信
+  note: 两边的 async 长得像，但 JS 里并发是"同时等待"，Go 里并发是"同时执行"。
+
+- term: 值语义
+  aliases: [value, reference, struct]
+  perLanguage:
+    javascript: 对象与数组是引用；原始类型是值，但包装时会装箱
+    go: struct 与数组是值类型，赋值即拷贝；slice / map / channel 内部持有引用
+  note: Go 里「赋值到底是拷贝还是共享」要按类型逐个判断，比 JS 的二分法复杂。
+
+- term: 切片
+  aliases: [slice, array, append, capacity]
+  perLanguage:
+    javascript: Array 是引用的、长度可变的，`slice()` 永远返回新数组
+    go: '切片是底层数组的**视图**（指针 + 长度 + 容量）；`append` 容量够时会写回原数组'
+  note: JS 里"取一段"永远是安全的拷贝；Go 里它是共享，而且共享范围取决于容量 —— 最隐蔽的一处。
+
+- term: 结构体
+  aliases: [struct, class, record]
+  perLanguage:
+    javascript: 对象字面量，字段随时可加、类型随意
+    go: 字段必须提前声明且类型固定；方法是挂在类型外面的；首字母大小写决定可见性
+  note: Go 没有类与继承，方法挂在类型上、组合代替继承、接口靠隐式满足 —— 三处都与 JS 的类不同。
+
+- term: 零值
+  aliases: [zero value, default, nil]
+  perLanguage:
+    javascript: 变量不初始化就是 undefined，对象字段缺失也是 undefined
+    go: '每个类型都有零值（int 是 0、string 是 ""、指针/切片/map 是 nil），声明即初始化'
+  note: Go 里没有"未赋值"这个状态 —— 好处是不会忘初始化，代价是没有"这里根本不该为空"的表达手段。
+
+- term: defer
+  aliases: [defer, finally, cleanup]
+  perLanguage:
+    javascript: try/finally 里手写释放，位置集中在末尾
+    go: '`defer` 紧跟在申请之后写，**函数返回时**执行；多个 defer 按后进先出'
+  note: '位置不同带来一个坑：写在循环里时，所有 defer 会堆到函数返回才执行 —— JS 的 finally 是每次迭代各跑一次。'
+
+- term: 通道
+  aliases: [channel, chan, goroutine, select]
+  perLanguage:
+    javascript: 没有对应概念 —— 协作靠 Promise 与回调，数据靠共享引用传递
+    go: '`chan T` 是带类型的消息管道；goroutine 之间靠收发数据协作，官方推荐用它代替共享内存'
+  note: JS 里并发单元之间天然隔离（Worker 不共享内存）；Go 里它们共享内存，但被建议用通道来避免共享。
+
+- term: 包
+  aliases: [package, module, import, export]
+  perLanguage:
+    javascript: 一个文件即一个模块，相对路径导入，定义的东西默认可导出
+    go: '一个**目录**是一个包，完整模块路径导入，**首字母大写**才是导出的；循环导入是编译错误'
+  note: 最反直觉的一处是导出规则：JS 要显式 export，Go 要显式"大写" —— 而"什么都不做"在两边的结果正好相反。

@@ -1,0 +1,244 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 Go 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-js2go-error-ignored
+  featureId: concepts-javascript/error-handling
+  title: 忘了检查 err，编译器不会拦你
+  symptom: 调用返回 `(value, err)` 的函数时只接第一个返回值，出错时程序带着零值继续往下跑。
+  cause: Go 用返回值表达错误，而「不检查错误」在语法上完全合法 —— JS 里未捕获的 reject 至少会冒泡成未处理异常，Go 里连泡都不会冒。
+  fix: |
+    每个返回 err 的调用都立刻处理或显式向上返回；实在要忽略，
+    写 `_ =` 并在注释里说明理由，让忽略成为一个需要解释的动作。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [错误处理]
+
+- id: pitfall-js2go-nil-map-write
+  featureId: basics-javascript/object-access
+  title: 往 nil map 里写会 panic，读却没事
+  symptom: 声明了 `var m map[string]int` 就直接 `m["a"] = 1`，运行时 panic；但同样的 map 读 `m["a"]` 返回 0，一切正常。
+  cause: Go 的 nil map 可以读（零值语义）但不能写，而 JS 里 `const m = {}` 天生可写 —— 直觉直接搬过来就会跳过 `make`。
+  fix: 声明时就用 `m := make(map[string]int)` 或字面量 `map[string]int{}`，只有明确要"只读的空 map"时才留 nil。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [集合, 空值]
+
+- id: pitfall-js2go-goroutine-loop-var
+  featureId: basics-javascript/var-scope
+  title: 循环里起的 goroutine 全部用了同一个变量
+  symptom: '`for _, v := range xs { go func() { use(v) }() }` 里所有 goroutine 都拿到最后一个值。'
+  cause: 与 JS 的 `var` 闭包共享是同一个坑；Go 在 1.22 之前 range 变量在整个循环里是单个绑定。
+  fix: |
+    Go 1.22 起 range 变量每轮都是新绑定，坑已消失 —— 但在读旧代码时仍会遇到，
+    且 `for i := 0; ...` 形式的循环变量至今仍是单绑定，需要显式传参
+    `go func(v T) { ... }(v)`。
+  severity: 2
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [并发, 闭包]
+
+- id: pitfall-js2go-interface-nil
+  featureId: concepts-javascript/interface
+  title: 返回了 nil 却通过了 `err != nil` 的检查
+  symptom: |
+    一个返回 `error` 的函数在成功分支写 `return nil`，调用方 `if err != nil`
+    却成立，走进错误分支并打印出 `<nil>`。同理，一个装着 nil 指针的接口值，
+    与 `nil` 比较永远是 false。
+  cause: |
+    Go 的接口值是一对 `(类型, 值)`，**只有两半都是 nil 时接口才等于 nil**。
+    一个类型为 `*MyError`、值为 nil 的接口，类型那一半不是 nil。
+    JS 里没有「接口值」这层包装，空就是空 —— 所以这个失败模式
+    在 JS 的经验里根本不存在：它不是「Go 更严格」，而是一个**新的空值形态**。
+  fix: |
+    出错时返回未加类型的 nil（写 `return nil`，不要写 `return (*MyError)(nil)`
+    再赋给接口）；或者干脆让函数返回具体类型，只在真需要抽象时才用接口。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [接口, 空值]
+
+- id: pitfall-js2go-slice-shared-backing
+  featureId: basics-javascript/array-slice
+  title: append 写进了另一个切片的领地
+  symptom: |
+    `b := a[1:3]` 之后 `b = append(b, 99)`，结果 `a[3]` 莫名其妙变成了 99 ——
+    而代码里从没直接写过 `a[3]`。
+  cause: |
+    切片是**底层数组的视图**，`append` 在**容量足够时**直接写原数组，
+    容量不够时才分配新数组。所以同一个操作有时安全、有时改到别人，
+    取决于当时剩多少容量 —— 这让它在测试里常常看不出来。
+    JS 的 `slice()` **总是**拷贝，所以那边没有这个坑。
+  fix: |
+    要隔离就限制容量或显式复制：
+    `c := a[1:3:3]`（三索引切片，让 append 必然分配新数组）、
+    `append([]int(nil), b...)`，或者 `slices.Clone(b)`。
+    判断依据是"这个切片会不会被 append，以及有没有别人共享同一段底层数组"。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [容器, 切片]
+
+- id: pitfall-js2go-integer-division
+  featureId: basics-javascript/number-precision
+  title: 除法静默变成了整数除法
+  symptom: |
+    JS 里 `7 / 2` 得 3.5，Go 里得 3。算平均值、比例、单价时不报错，
+    只是结果悄悄少了一截。
+  cause: |
+    JS 只有一种数字，除法都在浮点里发生；Go 的 `/` 在两个操作数都是整数时做整数除法。
+    而且 Go **不做隐式数值转换**，所以 `float64(n) / m` 里的转换必须显式写出来 ——
+    忘了写就悄无声息地走了整数除法。
+  fix: |
+    迁移每一处除法时确认意图，要浮点就写 `float64(a) / float64(b)`。
+    好消息是"忘了转换"本身不会静默：`int / float64` 直接编译错误，
+    只有"两边都是整数"这种情况才静默截断 —— 所以重点是检查那些
+    "本来两边就都是整数"的表达式。
+  severity: 2
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [数值, 运算]
+
+- id: pitfall-js2go-defer-in-loop
+  featureId: basics-javascript/array-iterate
+  title: defer 写在循环里，资源堆到函数返回才释放
+  symptom: |
+    一个循环里打开若干文件，循环跑完后句柄数一直涨，
+    直到函数返回才集中关闭 —— 文件多时直接 `too many open files`。
+  cause: |
+    `defer` 的注册发生在**当前行**，但执行发生在**函数返回时**，
+    不是"当前块结束时"。所以写在循环体里等于注册了 N 个延迟调用，
+    全部堆到函数退出才跑。这与 JS 里 `finally` 附着在 try 上、
+    循环里每次迭代各跑一次完全不同。
+  fix: |
+    把"一轮迭代"抽成一个函数，`defer` 写在那个函数里 ——
+    这样每轮返回时就会释放：
+
+    ```go
+    func tryOne(path string) error {
+        f, err := os.Open(path)
+        if err != nil { return err }
+        defer f.Close()
+        // 用 f
+        return nil
+    }
+    ```
+
+    或者把释放逻辑写成显式调用（`f.Close()`）而不是 `defer`。
+  severity: 2
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [资源, 循环]
+
+- id: pitfall-js2go-string-byte-vs-rune
+  featureId: basics-javascript/string-index-slice
+  title: 字符串长度不等于字符数，索引拿到的也不是字符
+  symptom: |
+    `len("你好")` 得 6 而不是 2；`s[0]` 拿到的是 228 这样的数字，
+    不是字符；按 `s[i]` 遍历中文会得到一串乱码。
+  cause: |
+    Go 的字符串是 **UTF-8 字节序列**，`len` 数的是字节、`s[i]` 取的是 `byte`。
+    JS 用 UTF-16：`"你好".length` 恰好是 2、`s[0]` 恰好是 `'你'`，
+    所以那边很少撞上这个问题 —— 而中文在 UTF-8 里占 3 个字节。
+  fix: |
+    要按字符操作就用 `for _, r := range s`（给的是 `rune`）、
+    `utf8.RuneCountInString(s)` 数个数、`[]rune(s)` 转成字符切片。
+    只在确实处理二进制或 ASCII 时才按字节索引。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [字符串, 编码]
+
+- id: pitfall-js2go-goroutine-panic
+  featureId: basics-javascript/exception-flow
+  title: goroutine 里 panic，整个程序挂掉
+  symptom: |
+    HTTP 服务里某个请求处理 panic，整个进程退出 ——
+    而这个 panic 发生在一个 `go` 出去的 goroutine 里。
+  cause: |
+    JS 里 Promise 里的异常会变成 rejection，只在那一处生效；
+    Go 里 **goroutine 的 panic 没人接住就会终止整个程序** ——
+    外面的 `recover` 管不到它，因为那是另一个栈。
+  fix: |
+    每个"入口 goroutine"（尤其是 `go` 出去处理请求的）都要自带 recover：
+
+    ```go
+    go func() {
+        defer func() {
+            if r := recover(); r != nil { log.Printf("panic: %v", r) }
+        }()
+        work()
+    }()
+    ```
+
+    这也是为什么标准库的 `http.Server` 会替你做这件事 ——
+    自己起 goroutine 时别忘了这一层。
+  severity: 3
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [并发, 错误处理]
+
+- id: pitfall-js2go-err-shadowed
+  featureId: basics-javascript/var-scope
+  title: 用 := 遮蔽了外层的 err，检查的是旧的
+  symptom: |
+    `if` 里用 `:=` 重新声明了 `err`，检查结果永远是通过 ——
+    真正的错误被丢在 `if` 作用域里，外面那个 `err` 还是 nil。
+  cause: |
+    Go 的 `:=` 在**至少有一个新变量**时会声明新变量，其余的是赋值。
+    写在 `if` / `for` 的初始化位置时，新变量只在该语句块内可见 ——
+    于是 `err` 被遮蔽，后续的 `if err != nil` 查的是外层那个。
+  fix: |
+    在 `if` 里赋值但不声明新变量时用 `=`（前提是变量已存在）。
+    开启 `go vet -shadow` 或 golangci-lint 的 `shadow` 检查能自动发现它 ——
+    这类错误读代码时很难看出来。
+  severity: 2
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [作用域, 错误处理]
+
+- id: pitfall-js2go-map-iteration-order
+  featureId: basics-javascript/object-iterate
+  title: 依赖 map 的遍历顺序，结果每次跑都不一样
+  symptom: |
+    本地测试稳定通过，CI 上偶发失败；日志两次跑的顺序完全不同。
+  cause: |
+    Go **刻意**把 map 的遍历顺序随机化（防止代码依赖它）。
+    JS 的 `Map` 保证插入顺序，对象也有确定的顺序规则 ——
+    所以从那边过来时会自然地以为"顺序是稳定的"。
+  fix: |
+    需要有序遍历就把键收集出来排序：
+
+    ```go
+    keys := make([]string, 0, len(m))
+    for k := range m { keys = append(keys, k) }
+    sort.Strings(keys)
+    for _, k := range keys { /* 用 m[k] */ }
+    ```
+
+    需要固定的插入顺序就额外维护一个键的切片。
+  severity: 2
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [容器, 顺序]
+
+- id: pitfall-js2go-json-unexported-fields
+  featureId: basics-javascript/object-json
+  title: 小写字段名，JSON 序列化出来是空对象
+  symptom: |
+    `json.Marshal(u)` 得到 `{}` —— 结构体里明明有值，序列化出来什么都没有。
+    反过来 `json.Unmarshal` 也填不进任何字段，而且**不报错**。
+  cause: |
+    `encoding/json` 只处理**导出字段**（首字母大写）。
+    小写字段既不进输出也不被填充，而且这个失败完全静默。
+    JS 里字段名随意，`JSON.stringify` 一律处理 —— 所以那边没有这层约束，
+    迁过来时很容易按 JS 的习惯写小写字段名。
+  fix: |
+    参与序列化的字段必须首字母大写；想要 JSON 里是小写键名，
+    用标签显式指定：`Name string \`json:"name"\``。
+    排查这类问题时先确认字段是不是导出的 —— 空 `{}` 是最典型的信号。
+  severity: 2
+  languages: [javascript, go]
+  fromBaseline: true
+  tags: [JSON, 可见性]

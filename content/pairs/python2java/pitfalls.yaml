@@ -1,0 +1,209 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 Java 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-py2java-defaults-missing
+  title: 以为参数能少传，结果编译不过
+  symptom: 照抄 Python 的函数签名，调用处只传前两个参数，Java 直接编译报错「实际参数列表和形式参数列表长度不同」。
+  cause: Java 没有默认参数语法，签名里的每个参数调用时都必须给全。
+  fix: |
+    用重载补默认值：让参数少的版本转调参数全的版本，默认值只写一处。
+    可选参数再多就换成 Builder（`Config.builder().port(5432).build()`），
+    它顺带补上了 Java 缺失的具名参数。
+  severity: 3
+  languages: [python, java]
+  fromBaseline: true
+  featureId: python2java/defaults
+  tags: [函数, 签名]
+
+- id: pitfall-py2java-kwargs-typed
+  title: '`**kwargs` 没有对应物，被迫改成 Map'
+  symptom: Python 里靠 `configure(**options)` 收集的散装配置，迁到 Java 后不知道该用什么类型接。
+  cause: Java 没有关键字参数，也没有同类型的"任意具名参数"机制；`Map<String, Object>` 是唯一能装下不确定键的手段。
+  fix: |
+    短期用 `Map<String, Object>`，但要意识到这**丢掉了类型安全** ——
+    Python 里静默吞掉拼错的键，Java 里会变成运行时 `ClassCastException`。
+    长期方案是把配置项固化成 Builder 或 record，让编译期能拦住拼错的键。
+  severity: 1
+  languages: [python, java]
+  fromBaseline: true
+  featureId: python2java/variadic
+  tags: [函数, 类型]
+
+- id: pitfall-py2java-indentation-is-not-scope
+  title: 以为缩进也决定了变量作用域
+  symptom: 在 `if` 块里声明的变量，出了块还想用，Java 编译报错「找不到符号」。
+  cause: Python 的块不产生作用域，Java 的局部变量是块级的 —— 缩进结构看起来一样，作用域规则相反。
+  fix: |
+    在 Java 里把「变量可见范围」按 `{}` 来读，而不是按缩进。
+    迁移时最省事的做法：把 Python 里那些"在块内赋值、块外使用"的变量
+    提到块的上一层声明。
+  severity: 3
+  languages: [python, java]
+  fromBaseline: true
+  featureId: basics-python/var-scope
+  tags: [作用域]
+
+- id: pitfall-py2java-none-vs-null
+  featureId: concepts-python/null-value
+  title: '`None` 迁成 `null` 之后，字符串拼接没炸但结果不对'
+  symptom: Python 里 `f"{name}"` 遇到 `None` 会打印 "None"；Java 里 `"x" + null` 得到 "xnull"，看起来"能用"，于是错误被带到了下游。
+  cause: 两种语言都把空值转成了一段文本而不是报错，但文本不同（"None" vs "null"），而且都不会提醒你这里根本不该为空。
+  fix: |
+    不要依赖字符串拼接暴露空值。在 Java 侧显式判空
+    （`Objects.requireNonNull` 或 `Optional`），让"不该为空却为空"在最近的地方失败。
+  severity: 2
+  languages: [python, java]
+  fromBaseline: true
+  tags: [空值, 字符串]
+
+- id: pitfall-py2java-boxing-equality
+  featureId: concepts-python/numeric-type
+  title: '`Integer` 的 `==` 有时对、有时不对'
+  symptom: |
+    `Integer a = 127; Integer b = 127;` 时 `a == b` 是 true；
+    换成 128 就变成 false。同一段代码，只因为数值大小不同而行为不同。
+  cause: |
+    Java 的 `==` 比的是引用。`Integer` 是包装类，`-128..127` 这一段会被
+    自动装箱缓存复用同一个对象，超出范围就各建一个 —— 于是「小数字对、
+    大数字错」。而 Python 的 `int` 是值语义（只有 `is` 才有身份问题），
+    所以「两个整数相等」这件事在 Python 里从来没有陷阱。
+  fix: |
+    包装类一律用 `.equals()` 比较，需要容忍 null 时用 `Objects.equals(a, b)`；
+    数值计算优先用基本类型 `int` / `long`，只在必须进集合或泛型时才装箱。
+  severity: 3
+  languages: [python, java]
+  fromBaseline: true
+  tags: [相等, 数值]
+
+- id: pitfall-py2java-integer-division
+  featureId: python2java/numeric-types
+  title: "'/' 从浮点除法变成了整数除法"
+  symptom: |
+    Python 里 `7 / 2` 得 3.5，同样的代码搬到 Java 得 3。
+    算平均值、算比例、算单价时不会报错，只是结果悄悄少了一截。
+  cause: |
+    Python 的 `/` **永远**返回浮点，要整除得显式写 `//`；
+    Java 的 `/` 在两个操作数都是整数时做整数除法，要浮点得先把其中一个转成 `double`。
+    两边的默认行为正好相反，而两边都不会对结果类型提出异议。
+  fix: |
+    凡是迁移除法，逐处确认意图：要浮点就在 Java 侧显式写
+    `(double) a / b`；要整除就写 `a / b` 并确认两个操作数都是整数类型。
+    这类错误最麻烦的地方是**结果依然是个合法数字**，只能靠单元测试发现。
+  severity: 3
+  languages: [python, java]
+  fromBaseline: true
+  tags: [数值, 运算]
+
+- id: pitfall-py2java-negative-modulo
+  featureId: python2java/numeric-types
+  title: 负数取余的符号跟着被除数走了
+  symptom: |
+    `-7 % 3` 在 Python 得 2，在 Java 得 -1。用它算环形下标
+    （星期几、轮询索引）时会得到负数下标，然后越界。
+  cause: |
+    Python 的 `//` 是**向下取整**、`%` 跟着除数走，两者自洽，
+    所以 `x % n` 永远落在 `[0, n)` 里。
+    Java 的 `/` 是**向零截断**、`%` 跟着被除数走，于是负数取余会得到负结果。
+  fix: |
+    要 Python 那种"永远非负"的语义，用 `Math.floorMod(a, b)`
+    —— 注意它必须与 `Math.floorDiv` 成对使用，只换一个会让商和余数对不上。
+    或者在使用前先归一化：`((x % n) + n) % n`。
+  severity: 2
+  languages: [python, java]
+  fromBaseline: true
+  tags: [数值, 运算]
+
+- id: pitfall-py2java-int-overflow
+  featureId: python2java/numeric-types
+  title: 整数溢出不报错，直接回绕成负数
+  symptom: |
+    累加一批 ID 或金额，结果突然变成负数；或者 `Integer.MAX_VALUE + 1`
+    得到 `-2147483648`，程序继续跑，只是数据全错。
+  cause: |
+    Python 的 `int` 是任意精度，**溢出这个概念不存在**；
+    Java 的 `int` 是 32 位、`long` 是 64 位，超出范围时静默回绕，
+    既不像 Python 那样自动升位，也不抛异常。
+  fix: |
+    选类型时做一次心算：这批数据的上限乘上条数会不会超过 2^31。
+    拿不准就用 `long`（成本只是一个字母），再大就 `BigInteger`。
+    对外 API 用 `int` 时更要想清楚 —— 一旦定成 `int`，将来改 `long` 是破坏性变更。
+  severity: 3
+  languages: [python, java]
+  fromBaseline: true
+  tags: [数值, 类型]
+
+- id: pitfall-py2java-truthiness-absent
+  featureId: concepts-python/null-value
+  title: '`if (items)` 编译不过 —— 这里没有真值转换'
+  symptom: |
+    Python 里写惯的 `if not items:` 在 Java 里直接编译错误：
+    「不兼容的类型: List<String> 无法转换为 boolean」。
+  cause: |
+    Java 的条件位置**只接受 `boolean`**，不存在"空容器算假"这套规则。
+    Python 把"有没有内容"和"真不真"合并成了一个判断，Java 把它们分得很开。
+  fix: |
+    把意图显式写出来：`if (items.isEmpty())` / `if (list != null && !list.isEmpty())`。
+    这事看起来只是啰嗦，但它顺带消掉了 Python 那一类"读代码的人必须先知道
+    变量类型才能确定 `if x` 在问什么"的困难。
+  severity: 2
+  languages: [python, java]
+  fromBaseline: true
+  tags: [真值, 条件]
+
+- id: pitfall-py2java-format-args-mismatch
+  featureId: python2java/strings
+  title: 格式串与参数分离，错位了也不报错
+  symptom: |
+    `String.format("%s 有 %d 项", count, name)` 参数写反了，
+    编译通过、运行也不报错，只是输出把数字和名字对调了；
+    参数个数不够时才在运行时抛 `MissingFormatArgumentException`。
+  cause: |
+    Python 的 f-string 把表达式写在占位符里，位置天然对得上；
+    Java 的 `String.format` 是"格式串 + 变长参数"，
+    格式串是运行时的普通字符串，编译器既看不懂 `%d` 也不知道参数该有几个。
+  fix: |
+    参数一多就改用 `%1$s` 这种带序号的占位符，让对应关系显式化；
+    或者退回字符串拼接，让"哪个值放哪里"在代码里一眼可见。
+    少数几处可以接受，长格式串建议加测试固化输出。
+  severity: 2
+  languages: [python, java]
+  fromBaseline: true
+  tags: [字符串, 格式]
+
+- id: pitfall-py2java-final-not-immutable
+  title: '以为 `final` 等于不可变，结果内容照样被改'
+  symptom: |
+    `final List<String> xs = new ArrayList<>();` 之后 `xs.add("x")` 完全合法，
+    而读代码的人（包括几个月后的自己）会以为这个列表是冻结的。
+  cause: |
+    `final` 冻结的是**绑定**（这个名字不能再指向别的对象），不是对象内容；
+    Python 那边没有这个关键字，但 `TUPLE = (1, 2)` 这种"用不可变类型"的思路
+    反而更接近"内容也不可变"。
+  fix: |
+    想让内容也不可变，要用真正不可变的载体：
+    `List.of(...)` / `Map.copyOf(...)` / `record`。
+    另外注意 `Collections.unmodifiableList` 只是只读**视图** ——
+    底层集合被别处改掉时它照样跟着变。
+  severity: 2
+  languages: [python, java]
+  fromBaseline: true
+  featureId: concepts-python/immutable-data
+  tags: [不可变, 类型]
+
+- id: pitfall-py2java-decorator-vs-annotation
+  featureId: concepts-python/class-inheritance
+  title: 装饰器与注解同名不同实，迁过来要整个重写
+  symptom: |
+    Python 里 `@cache`、`@retry`、`@login_required` 这些装饰器直接改变了函数行为；
+    到 Java 里写成 `@Cache`、`@Retryable` 之后，如果没配对应的框架，**什么都不会发生**。
+  cause: |
+    Python 的装饰器是**可执行代码**：`@dec` 就是 `f = dec(f)`，运行时真的包了一层。
+    Java 的注解只是**元数据**：它自己不做事，要有框架在编译期或运行期读到它才会产生行为。
+  fix: |
+    迁移时逐个确认注解背后有没有对应的处理器（编译期注解处理器、AOP 框架、
+    或者干脆是 IDE 检查）。没有的话要手写等价逻辑 ——
+    常见做法是包一层方法：把横切逻辑写在外层方法里，调用内层实现。
+  severity: 2
+  languages: [python, java]
+  fromBaseline: true
+  tags: [装饰器, 注解]

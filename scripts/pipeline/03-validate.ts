@@ -1,16 +1,23 @@
 /**
  * 阶段 [3] validate —— 关键质量闸门
  *
- * 规则集（架构定稿 §6.3）：
- *   R1 schema      结构合法性
- *   R2 coverage    已启用语言的覆盖率（缺一格即报错，区分「还没写」与「语言里没有」）
- *   R3 provenance  出处 / 许可 / 台账命中
- *   R4/R9 @note    标记全部解析，且前缀必须是该语言自己的注释符
- *   R5 refs        引用完整性（无孤儿 snippet / 无失效 featureId）
- *   R6 status      发布门槛（受 registry.publishPolicy 控制）
- *   R7 links       URL 协议白名单（仅 https）
- *   R8 naming      目录名 === meta.id、id 唯一、baseline 唯一
- *   R10 台账        每条许可义务都有可核对的履行位置
+ * 规则集（v2，见 docs/对比内容架构.md §6）：
+ *   R1       schema     结构合法性
+ *   R3       provenance 出处 / 许可 / 台账命中
+ *   R4/R9    @note      标记全部解析，且前缀必须是该语言自己的注释符
+ *   R5       refs       引用完整性（refFeatureId / 陷阱 featureId / 词典语言）
+ *   R6       status     发布门槛（受 registry.publishPolicy 控制）
+ *   R7       links      URL 协议白名单（仅 https）
+ *   R8       naming     目录名 === meta.id、基准候选与默认值自洽
+ *   R10      台账       每条许可义务都有可核对的履行位置
+ *   R17      review     校对状态升级需留记录
+ *   R20      清单-文件  孤儿文件 error / 覆盖率缺口 warn / 文件名与 section 一致
+ *   R21      key 合法性 语言文件里的 box key 必须在清单的该章里
+ *   R22      vs 完整性  基准候选两份、非基准三份（迁移期 warn）
+ *   R23      基准列非空 基准候选每个 feature 都要有 baseline（迁移期 warn）
+ *   R24      存疑空框   清单有、文件没写（迁移期 warn）
+ *   R25      幽灵语言   vs.<基准> / baseline 里点名屏幕外的语言（warn）
+ *   R26      absent 说明 absent 且给了代码时必须有说明（warn）
  *
  * 有 error 级问题 → 非零退出，CI 阻断。
  */
@@ -54,7 +61,7 @@ function printReport(report: ValidationReport): void {
   lines.push(`  语言：全集 ${report.allLanguages.length} 门（${report.allLanguages.join(', ')}）`)
   lines.push(`        启用 ${report.enabledLanguages.length} 门（${report.enabledLanguages.join(', ')}）`)
   lines.push(`  发布策略：${report.publishPolicy}`)
-  lines.push(`  内容规模：${s.featureCount} 个 Feature / ${s.snippetCount} 条实现`)
+  lines.push(`  内容规模：${s.featureCount} 个 Feature / ${s.boxCount} 个对比框`)
   lines.push(
     `  审阅状态：${Object.entries(s.byState)
       .map(([k, v]) => `${k}=${v}`)

@@ -3,7 +3,7 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml + content/languages/<id>/meta.yaml
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-02T16:24:28.296Z
+ * 生成时间：2026-10-03T00:58:45.685Z
  */
 import type { LanguageMeta } from '../schemas'
 export const allLanguageIds = ['arkts', 'dart', 'go', 'java', 'javascript', 'kotlin', 'python', 'rust', 'swift', 'typescript'] as const
@@ -27,7 +27,7 @@ export const defaultCompareLanguageName = 'Python' as const
 
 export const siteInfo = {
   name: '编程语言对照手册',
-  shortDescription: '选一门基准语言，逐板块对照目标语言的基础语法、迁移教程、迁移陷阱、速语词典与学习路线。默认以 JavaScript 为基准。',
+  shortDescription: '选一门基准语言，勾选若干对比语言，并排看每门语言和基准差在哪。默认以 JavaScript 为基准。',
   lang: 'zh-CN',
 } as const
 

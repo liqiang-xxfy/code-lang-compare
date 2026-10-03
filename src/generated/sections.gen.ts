@@ -3,11 +3,11 @@
  * AUTO-GENERATED FILE — 请勿手工编辑。
  * 源：content/registry.yaml 的 sections 段
  * 重新生成：npm run registry（npm run content:build 会自动执行）
- * 生成时间：2026-10-02T16:24:28.290Z
+ * 生成时间：2026-10-03T00:58:45.678Z
  */
 
 /** 全部已注册板块，按 registry 的 order 排序。左栏顺序读它 */
-export const SECTION_IDS = ['roadmap', 'basics', 'concepts', 'migration', 'pitfalls', 'glossary'] as const
+export const SECTION_IDS = ['basics', 'inside', 'outside', 'pitfalls', 'glossary', 'roadmap'] as const
 
 /**
  * 板块 id 的联合类型。
