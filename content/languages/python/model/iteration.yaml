@@ -1,0 +1,141 @@
+# python —— model / iteration
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: iteration` 的那批。
+# 这一组以 Python 为基准时展示在「推导式与生成器」章（见 catalog/model/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-iteration-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generator-yield:
+    code: |
+      def countdown(n):
+          while n > 0:
+              yield n          # @note 每次 yield 暂停在这里
+              n -= 1
+
+      list(countdown(3))       # @note [3, 2, 1]
+
+      def chain():
+          yield 1
+          yield from countdown(2)   # @note 委托给另一个可迭代对象
+          yield 4
+
+      g = countdown(2)
+      next(g)                  # @note 2
+      g.send(None)             # @note 1 —— 生成器本身就是迭代器
+
+      # @note 生成器函数调用时**一行都不执行**，只是返回生成器对象
+    baseline: |
+      带 `yield` 的函数就是生成器函数：调用它不执行函数体，只返回一个生成器对象，
+      每次 `next()` 推进到下一个 `yield` 就暂停。生成器**同时是迭代器**，
+      只能走一遍。除了产出值，还能用 `send()` 从外部送值进去（协程的基础），
+      `yield from` 既能委托又能拿到子生成器的返回值。
+    vs:
+      javascript: |
+        两边的 `yield` 语义一致（调用时不执行、逐次推进、一次性）。
+        差别在能力：这里能从外部 `send()` 送值进去、`yield from` 还能拿回
+        子生成器的返回值，JavaScript 只有 `yield*`，没有双向通信。
+      java: |
+        Java 没有生成器语法，惰性序列要么手写 `Iterator`、要么用 Stream
+        （而 Stream 不能中途暂停再恢复）。写「带状态的惰性序列」，
+        Java 没有顺手的工具。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  comprehension:
+    code: |
+      [x * 2 for x in xs]                  # @note 列表推导式
+      [x for x in xs if x % 2 == 0]        # @note 带条件
+      [(x, y) for x in xs for y in ys]     # @note 嵌套，等价于两层循环
+      {k: v for k, v in pairs}             # @note 字典推导式
+      {x % 3 for x in xs}                  # @note 集合推导式
+      (x * 2 for x in xs)                  # @note! 生成器表达式：**惰性**
+
+      # @note 圆括号那种不会立刻算，其余三种立刻构造出容器
+    baseline: |
+      四种推导式：列表 `[...]`、字典 `{k: v ...}`、集合 `{...}`、
+      **生成器表达式 `(...)`**。前三种立刻构造出容器，第四种是惰性的 ——
+      同一套语法，只差一对括号。条件与嵌套循环都能写在里面，
+      可读性通常比手写循环加 append 好。
+    vs:
+      javascript: |
+        JavaScript 没有推导式，造新容器要 `map` / `filter` 链式调用，
+        转字典还得 `Object.fromEntries` 再包一层；这里一个表达式就够，
+        而且生成器表达式顺手给出了惰性版本。
+      java: |
+        Java 用 `Stream` 管道加 `Collectors`，表达力相当但是**方法调用**而不是
+        语法。Java 的 Stream 天生惰性，这里要靠生成器表达式（多一对括号）才惰性，
+        两者在这一点上只是写法不同。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  lazy-evaluation:
+    code: |
+      range(10**9)                 # @note 惰性：不占内存，边遍历边算
+      (x * 2 for x in big)         # @note 生成器表达式
+
+      from itertools import islice, count, chain, takewhile
+      islice(count(), 3)           # @note 0 1 2 —— 无限序列取前三个
+      list(takewhile(lambda x: x < 5, count()))
+
+      def read_lines(path):
+          with open(path) as f:
+              yield from f           # @note 逐行读，不把整个文件读进内存
+
+      # @note! 生成器只能消费一次 —— 想再遍历一次要重新创建
+    baseline: |
+      惰性是**默认选项之一**而不是特例：`range` 不占内存、生成器表达式与生成器函数
+      都是惰性的，`itertools` 提供了一整套算子（`islice` / `count` / `chain` /
+      `takewhile`…），所以无限序列与流式处理写起来很自然。
+      要记住生成器**只能消费一次**，遍历完就空了。
+    vs:
+      javascript: |
+        JavaScript 的数组方法全是急切的，惰性要自己用生成器搭、常用算子也得自己写；
+        这里的 `itertools` 是标准库的一部分。两边的生成器都只能消费一次。
+      java: |
+        Java 的 Stream 天生惰性，但它是**管道**：中间操作记账、终止操作才跑，
+        而且不能暂停后在别处恢复。Python 的生成器是一个可手动推进的对象，
+        更灵活；Stream 的组合算子更现成。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  destructuring:
+    code: |
+      a, b = 1, 2                  # @note 元组解包
+      a, b = b, a                  # @note 交换
+      first, *rest = [1, 2, 3]     # @note 剩余收成列表
+      x, (y, z) = 1, (2, 3)        # @note 嵌套
+      a, b = b, a                  # @note 右侧先整体求值，所以能安全交换
+
+      for i, (k, v) in enumerate(pairs): pass    # @note 循环里解包
+
+      # @note! 字典不能这样解构 —— 想按名字取得用 match 或直接取键
+      match point:
+          case {"x": x, "y": y}: ...
+    baseline: |
+      元组解包几乎无处不在：多重赋值、交换、`*rest` 收剩余、嵌套、
+      循环里直接拆开。**字典不能解构**（`{"a": x} = d` 不合法），
+      要按名字取要么 `d["a"]`，要么用 `match` 的模式匹配。
+      解包时元素个数对不上会抛 ValueError（除非用了 `*`）。
+    vs:
+      javascript: |
+        两边都能解包 / 解构，能力相当（含剩余与嵌套）。最大差别是
+        **对象也能解构**（`const { name } = user`），Python 的字典不行 ——
+        按名字取要写 `user["name"]` 或用 match。另一处是元素个数对不上时
+        JavaScript 静默给 undefined，Python 直接抛。
+      java: |
+        Java 没有解构赋值，只能逐个字段取；record 的模式匹配虽然能拆，
+        但那是 `instanceof` / `switch` 里的匹配，不是「几个变量同时赋值」。
+        所以换到 Java 时，`a, b = b, a` 这类写法要展开成三行。
+    equivalence:
+      javascript: analogous
+      java: divergent
