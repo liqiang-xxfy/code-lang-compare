@@ -1,0 +1,120 @@
+# python —— express / operators
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: operators` 的那批。
+#
+# `equality` 这一格以 Python 为基准时展示在「值与类型」章（见 catalog/express/python.yaml），
+# 但它的存放组仍是 operators —— 展示与存放分开。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arithmetic:
+    code: |
+      7 / 2            # @note 3.5 —— 真除法，恒得浮点
+      7 // 2           # @note 3 —— 地板除，向下取整
+      -7 // 2          # @note! -4 —— 向下，不是向零
+      7 % 3            # @note 1
+      -7 % 3           # @note! 2 —— 余数符号跟着**除数**走
+      2 ** 10          # @note 1024 —— 幂是运算符，不用调函数
+      # i++            # @note! 没有自增自减：写 i += 1
+    baseline: |
+      两种除法是两个运算符：`/` 恒得浮点，`//` 向下取整（注意 `-7 // 2` 是 -4，
+      向下而不是向零）。余数的符号跟着**除数**走，`-7 % 3` 得 2。
+      幂用 `**`。没有 `++` / `--`，自增写 `i += 1`。
+    vs:
+      javascript: |
+        JavaScript 只有一种除法（永远得浮点），取整要调 `Math.trunc` / `Math.floor`；
+        Python 用 `//` 一个运算符解决，而且它向下取整（`-7 // 2` 得 -4，
+        截断的话会是 -3）。余数符号的方向也相反。
+      java: |
+        两边的 `/` 在整数之间都会截断，但 Python 的 `//` 是**向下**取整
+        （`-7 // 2` 得 -4），Java 的 `/` 是**向零**截断（得 -3）—— 负数上结果不同。
+        幂也不一样：Python 有 `**` 运算符，Java 要调 `Math.pow`。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  equality:
+    code: |
+      1 == 1.0             # @note True —— == 比的是值，与类型无关
+      1 is 1.0             # @note! False —— is 比的是身份
+      "a" is "a"           # @note! True 只是 CPython 的驻留优化，别依赖
+      None is None         # @note True —— 判 None 一律用 is
+      [1, 2] == [1, 2]     # @note True —— 容器按内容比
+
+    baseline: |
+      **两种比较**：`==` 比值（可以被子类通过 `__eq__` 定制），`is` 比身份
+      （是不是同一个对象）。判 `None` 一律用 `is None`，因为 None 是单例。
+      容器按内容递归比较，所以 `[1, 2] == [1, 2]` 是真 —— 这一点与「对象只比引用」
+      的语言很不一样。
+    vs:
+      javascript: |
+        JavaScript 的 `===` 看着像 `==`，但对象之间仍然只比引用，两个内容相同的
+        数组是「不相等」；Python 的 `==` 会递归比内容。另一处是 `==` 的严格程度：
+        Python 从不做隐式类型转换，没有 JavaScript 那套 `1 == "1"` 的松散相等。
+      java: |
+        Java 的 `==` 对基本类型比值、对对象比引用，内容相等要靠 `equals`；
+        Python 的 `==` 默认就比内容（列表、字典都能直接比），
+        只有 `is` 才比身份 —— 分工比 Java 清楚一档。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  logical:
+    code: |
+      "a" and "b"          # @note "b" —— 返回操作数本身
+      0 or "默认"           # @note! "默认" —— 0 是假值
+      x if x is not None else "默认"   # @note 只对 None 生效的默认值
+      a and a.b and a.b.c  # @note 链式短路，替代可选链
+
+    baseline: |
+      `and` / `or` 返回**操作数本身**：`and` 给第一个假值（都为真则最后一个），
+      `or` 给第一个真值。于是 `0 or "默认"` 得到 "默认" —— 给默认值的常用写法，
+      也是 `0` / `""` 被误当空值的来源。想只对 None 生效，得显式写条件表达式。
+      没有专门的空值合并与可选链运算符，靠 `and` 链来短路。
+    vs:
+      javascript: |
+        两边的逻辑运算符行为一模一样（都返回操作数、都能给默认值）。差别在
+        **有没有更精确的替代品**：JavaScript 有 `??` 只认 null 与 undefined，
+        于是 `0 ?? 默认` 能保住 0；Python 没有它，只能写条件表达式。
+      java: |
+        Java 的 `&&` / `||` 严格返回 boolean，不能拿来取值 —— 给默认值要写三目
+        或 `Optional.orElse`。Python 的 `or` 一行就能给默认值，代价是
+        `0` / `""` 这些合法值会被吞掉。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  operator-overloading:
+    code: |
+      class Money:
+          def __init__(self, n): self.n = n
+          def __add__(self, other): return Money(self.n + other.n)   # @note 定义 +
+          def __eq__(self, other): return self.n == other.n          # @note 定义 ==
+          def __repr__(self): return f"Money({self.n})"
+
+      Money(1) + Money(2)   # @note Money(3) —— 真的用上了运算符
+      Money(1) == Money(1)  # @note True
+      "a" + Money(1)        # @note! 走 __radd__，没定义就会 TypeError
+    baseline: |
+      **运算符可以重载**，而且是常规做法：`__add__` 定义 `+`、`__eq__` 定义 `==`、
+      `__lt__` 定义 `<`、`__getitem__` 定义下标…… 右侧类型不认识左边时还会去找
+      `__radd__` 这类反射方法。所以 Python 里「自定义类型用起来像内建类型」是常态，
+      而 `==` 也被顺带定制掉了 —— 这也是为什么判 None 要用 `is`。
+    vs:
+      javascript: |
+        JavaScript 完全没有这一层：`+` 只会去找 `valueOf` / `toString` 把对象变成
+        原始值，定制不出「两个对象相加得到新对象」。Python 的 `__add__` 是真正的重载。
+      java: |
+        Java 没有运算符重载（`+` 只为字符串拼接开了口），自定义类型相加必须写方法；
+        Python 定义 `__add__` 之后 `+` 直接可用。这是两边设计取向的差别：
+        Java 选择「运算符只服务内建类型」，Python 选择「让自定义类型融入语法」。
+    equivalence:
+      javascript: divergent
+      java: divergent

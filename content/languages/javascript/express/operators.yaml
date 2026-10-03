@@ -1,0 +1,119 @@
+# javascript —— express / operators
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: operators` 的那批：
+# arithmetic / equality / logical / operator-overloading。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arithmetic:
+    code: |
+      7 / 2;            // @note 3.5 —— 只有一种除法，永远得到浮点
+      Math.trunc(7 / 2);   // @note 3 —— 想要整数除法得自己截断
+      7 % 3;            // @note 1
+      -7 % 3;           // @note! -1 —— 余数的符号跟着被除数走
+      let i = 0;
+      i++;              // @note 自增自减是表达式，有前置/后置之别
+      0.1 + 0.2;        // @note! 0.30000000000000004
+    baseline: |
+      算术运算符与其他语言大同小异，但有两点要记住：**除法只有一种**，`7 / 2` 得 3.5，
+      要整数得自己 `Math.trunc` 或 `Math.floor`；**余数的符号跟着被除数走**，
+      `-7 % 3` 得 -1。`++` / `--` 是表达式而不是语句，前置后置会影响取值 ——
+      这也是它被现代风格指南劝退的原因。
+    vs:
+      python: |
+        Python 把两种除法分成两个运算符：`/` 恒得浮点、`//` 向下取整；
+        JavaScript 只有 `/`，取整要调函数。余数也不同 ——
+        Python 的 `%` 符号跟着**除数**（`-7 % 3` 得 2），JavaScript 跟着被除数（得 -1）。
+      java: |
+        两边的整数除法都截断、余数符号都跟着被除数，这一块几乎可以直接搬。
+        差别在类型：Java 的 `7 / 2` 得 3 是因为两边都是 int，混入 double 就变浮点；
+        JavaScript 的 `/` 永远是浮点，没有 int 可混。
+    equivalence:
+      python: divergent
+      java: analogous
+
+  equality:
+    code: |
+      1 == "1";          // @note! true —— 松散相等先做类型转换
+      1 === "1";         // @note false —— 严格相等不转换
+      NaN === NaN;       // @note! false —— NaN 与任何值都不相等
+      Object.is(NaN, NaN);   // @note true —— 严格相等的一个例外
+      {} === {};         // @note! false —— 对象比较的是引用
+    baseline: |
+      **两套相等**：`==` 先做类型转换再比较（`1 == "1"`、`null == undefined` 都为真），
+      `===` 不转换。对象永远比引用，`{} === {}` 是 false。`NaN` 连自己都不等于，
+      判它要用 `Number.isNaN`。默认用 `===`，`==` 只在明确知道两边同类型时才有意义。
+    vs:
+      python: |
+        Python 的 `==` 比的是**值**，`is` 才比身份（`a is b`）；JavaScript 的
+        `===` 看着像 Python 的 `==`，但对象之间仍然只比引用 —— 两个内容相同的
+        对象在两边都是「不相等」。真正的差别在 `==`：Python 从不做隐式转换，
+        JavaScript 的 `==` 会。
+      java: |
+        Java 的 `==` 对基本类型比**值**、对对象比**引用**，值相等要靠 `equals`；
+        JavaScript 只有 `===` 与 `==` 两套，且都按引用比对象。两边的共同坑是
+        「看起来一样却不相等」，只是 Java 要用 `equals`、JavaScript 要用 `===`。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  logical:
+    code: |
+      "a" && "b";        // @note! "b" —— 返回操作数本身，不是布尔值
+      0 || "默认";        // @note "默认" —— 常用它给缺省值
+      null ?? "默认";     // @note "默认" —— ?? 只认 null / undefined
+      0 ?? "默认";        // @note! 0 —— ?? 不把 0 当「空」
+      user?.address?.city;   // @note 短路链，中途为空就整体给 undefined
+    baseline: |
+      逻辑运算符返回的是**操作数本身**而不是布尔值：`&&` 返回第一个假值（都为真则最后一个），
+      `||` 返回第一个真值。于是 `0 || "默认"` 得到 "默认" —— 这是「给默认值」最常见的写法，
+      也是 `0` / `""` 被误当空值的来源。`??` 只对 `null` / `undefined` 生效，
+      给默认值时通常比 `||` 更准确；`?.` 则是属性访问上的短路。
+    vs:
+      python: |
+        Python 的 `and` / `or` 与这里一模一样：返回操作数本身、`or` 拿来给默认值。
+        差别是没有空值合并运算符 —— Python 的 `or` 会把 `0` / `""` 当成假，
+        想只对 None 生效得写 `x if x is not None else 默认`。
+      java: |
+        Java 的 `&&` / `||` 严格返回 boolean，不能像这里的 `0 || "默认"` 那样当取值用 ——
+        想给默认值得写三目或 `Optional.orElse`。另一处是 Java 没有空值合并与可选链，
+        判空要靠 `!= null` 一层层写。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  operator-overloading:
+    code: |
+      const a = { value: 1, valueOf: () => 2 };
+      a + 1;             // @note! 3 —— 加法会调用 valueOf
+
+      class Money {
+        constructor(n) { this.n = n; }
+        toString() { return `¥${this.n}`; }
+      }
+      `${new Money(5)}`; // @note "¥5" —— 字符串化可以定制
+      new Money(1) + new Money(2);   // @note! "¥1¥2" —— 但拿不到数值相加
+    baseline: |
+      **没有运算符重载**。`+` 只认字符串与数字，遇到别的类型就去找 `valueOf` /
+      `toString`（统称「转原始值」）—— 所以能定制「怎么变成字符串」，但定制不出
+      「两个对象相加得到新对象」。算术、比较、下标统统不能重载，
+      想要 `add` / `equals` 那样的语义只能写成方法。
+    vs:
+      python: |
+        Python 的运算符重载是一等公民：定义 `__add__` / `__eq__` 之后 `a + b`
+        就是普通运算符。JavaScript 只能通过 `valueOf` / `toString` 影响
+        「怎么变成原始值」，拿不到真正的重载。
+      java: |
+        两边都没有运算符重载 —— Java 的 `+` 也只对字符串拼接开了一个口子。
+        所以「两个钱相加」在两边都得写成方法（这里的 `add`、Java 的 `plus`），
+        没有语言层面的捷径。
+    equivalence:
+      python: divergent
+      java: identical
