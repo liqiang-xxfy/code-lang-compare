@@ -33,14 +33,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **判断标准只有一条**：一个从没参与过这个项目的人，只读这两份文档，
    能不能说出「系统现在是什么样、为什么这样、下一步做什么、哪些账还没结」。
 
-> **当前状态（2026-10-04）：内容爬坡期，四个板块的正文与速查三兄弟都已铺满；S11 已收口。**
-> **S0–S7.6、S9、S10、S11 完成** —— 架构切到 v2.1，四个板块的正文与对比列全部落库；
-> **速查三兄弟从 6 个方向补到 12 个**（3 基准 × 4 目标），每方向 12 陷阱 / 10 词典 / 5 路线。
-> **S11 完成**：新增的 7 门对比列语言（TypeScript / ArkTS / Kotlin / Swift / Dart / C++ / PHP）
+> **当前状态（2026-10-04）：内容爬坡期，四个板块的正文与速查三兄弟都已铺满；S11、S12 已收口。**
+> **S0–S7.6、S9、S10、S11、S12 完成** —— 架构切到 v2.1，四个板块的正文与对比列全部落库；
+> **S11**：新增的 7 门对比列语言（TypeScript / ArkTS / Kotlin / Swift / Dart / C++ / PHP）
 > **全部写完并启用**，对比列从 2 门扩到 9 门。
+> **S12**：速查三兄弟补齐这 7 门语言的 **21 个新方向**（3 基准 × 7 语言），
+> 并废除 R25（幽灵语言）与 `mentionGroups`（ADR-72）。
 > 现状：4 个板块 / **22 个存放组 / 104 个知识点 / 12 份章节分组** / **1248 个对比框**
-> （104 × **12 门启用语言**，**十二门各 100%**）+ **速查 12 个方向 / 324 条**（各方向另有 `meta.yaml` 留痕）；
-> `content:validate` **error 0 / warn 1**；190 条可索引路由；163 条测试。
+> （104 × **12 门启用语言**，**十二门各 100%**）+ **速查 33 个方向 / 891 条**
+> （3 基准 × 11 门其他启用语言，各方向另有 `meta.yaml` 留痕）；
+> `content:validate` **error 0 / warn 1**；190 条可索引路由；147 条测试。
 > 剩下的**一笔账**（见台账 §0.2）：**S8** 校对升级（1248 条 draft → 那 1 条 R6 warn）——
 > 注意它**不含速查**：速查不在 1248 格里，`meta.yaml` 的 `state` 也不参与发布门槛。
 > 旧内容完整存档在 `content.legacy/`，**不参与构建与校验**，填新内容时可对照旧写法。
@@ -167,11 +169,12 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
   | R22 | `vs` 完整性：基准候选写除自己外 2 门、非基准写全 3 门 | **error**（S8 翻级） |
   | R23 | 基准候选在**被它引用的** feature 上要有 `baseline` | **error**（S8 翻级） |
   | R24 | 被某基准引用、文件缺 key、且未 `absent` → 疑似漏写 | warn（**刻意不翻**） |
-  | R25 | `vs.<基准>` / `baseline` 点名屏幕外的语言（幽灵语言）。**同族语言除外**（ADR-71：`registry.yaml` 的 `mentionGroups`，当前只有 JS ↔ TS） | warn |
   | R26 | `absent: true` 且给了 `code`（惯用替代写法）→ 必须有说明 | warn |
   | R27 | 某章引用了 group G 但该基准缺 G 的内容（基准列空洞），按 (基准, 板块) 汇总 | warn |
 
   另有沿用 v1 的 R3（provenance）/ R4·R9（`@note`）/ R5（引用完整性）/ R6（发布门槛）/ R7（https）/ R8（注册表自检）/ R10（台账）/ R17（校对记录）。
+
+- **R25（幽灵语言）已废除，编号留空不复用**（ADR-72，S12）。那条规则管的是「一格的说明只讲屏幕上那几门语言」，实测挡住了「目标语言的定义天然依赖第三门」的方向（`python2typescript` 要讲「TS 给 JavaScript 加类型」、`python2arkts` 要讲「ArkTS 是 TypeScript 的受限子集」、`javascript2kotlin` 要讲「Kotlin 跑在 JVM 上与 Java 互操作」）。为它服务的 `registry.yaml` 的 `mentionGroups`、[lang-mention.ts](scripts/lib/lang-mention.ts) 的 `detectForeignLanguageMentions` / `isKindredMention` 一并删除；同一顾虑在速查散文上的落点（`content-contract.test.ts` 的「只讲本方向两门语言」断言）也一并去掉。**`findLanguageWords` 保留** —— 它服务的是 `verify:ext` 的第三道断言（面向用户的文案不许写死语言名），与幽灵语言无关。
 
 - **R22 / R23 是 error，R24 刻意保持 warn**（S8 定的级）。三者都是「内容补齐期」的过渡产物，账目归零后**只翻了 R22 / R23** —— 它们是硬契约（`vs` 缺一份读者永远看不到、基准列空着就是坏页），不存在「合法地留空」。**R24 不翻**：它判的是「键缺失且没标 `absent`」，而**空框本身合法**，翻成 error 会逼作者在「还没写」与「本来就没有」之间二选一 —— 那正是这个字段要区分的两件事。它是一条提醒人确认的规则，不是能自动判定对错的规则。
 - **三者的求值域是「该基准真正引用了的知识点」** —— 被某个基准刻意取舍掉的 feature 不该被要求写 `vs` / `baseline`。R22/R24/R20g/R27 都按 `(语言|基准, 板块)` **汇总成一条**输出（逐条会刷屏）；逐条待办在 `npm run content:report`。**注意 R22 的求值域含已启用但还没写内容的语言**：新启一门语言会立刻红，这是刻意要的（宁可写 `enabled: false`，也不要上一列空白）。
@@ -224,7 +227,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 | [tests/unit/baseline-switch.test.ts](tests/unit/baseline-switch.test.ts) | 基准候选与默认值、**候选与列的显示顺序**、可见列计算、目标语言推导、切基准回落、**速查方向的顺序与默认回落按书写序**（ADR-67） |
 | [tests/unit/search.test.ts](tests/unit/search.test.ts) | 中文 bigram 分词、按语言分片、查询无需过滤、pair 归目标语言 |
 | [tests/unit/extract-notes.test.ts](tests/unit/extract-notes.test.ts) | `extractNotes` 的 `notes`（仅高危）/ `allNotes`（全部）分流契约 |
-| [tests/unit/lang-mention.test.ts](tests/unit/lang-mention.test.ts) | R25 的语言点名检测器（`JavaScript` 含 `Java`、`Go` 撞英文动词） |
+| [tests/unit/lang-mention.test.ts](tests/unit/lang-mention.test.ts) | `findLanguageWords` 的语言指称检测（`JavaScript` 含 `Java`、`Go` 撞英文动词）—— R25 废除后只留这一半 |
 
 前两个**读真实内容目录与真实构建产物**，因此它们既是回归测试、也是内容契约的第二道闸门。
 
@@ -233,9 +236,11 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 - 新增内容默认 `review.state: draft`；`registry.publishPolicy` 为 `include-draft-with-badge`（当前值）时 draft 可构建但页面必须显示"未经人工校对"；切到 `reviewed-only` 时 draft 直接**阻断构建**（R6）。
 - `provenance.origin: 'llm'` **刻意不填 `license`** —— 模型输出不产生可署名许可，强填 MIT/GFDL 是错误陈述。
 - 以 `_` 开头的语言目录是**私有目录**，默认不参与构建与校验（`_template/`、`verify:ext` 的 `_fixturelang`）。新增真语言不要用下划线前缀。
-- **YAML 普通标量不能以反引号开头**（``title: `x` 是什么`` 会让整章解析失败），也不能写裸 `null`。SEO 模板一律用引号包起来（以 `{` 开头的普通标量会被 YAML 当成流式映射）。
+- **YAML 普通标量不能以反引号或 `@`、`*` 开头**（``title: `x` 是什么``、`title: @ 注解`、
+  `arkts: **加粗**` 都会让整份文件解析失败 —— 它们是 YAML 的保留指示符），也不能写裸 `null`。
+  **值里出现「冒号加空格」也算映射分隔符**（`"strict": true`、`eagerError: true`、`?:` 后跟空格），
+  要用引号包整行。SEO 模板一律用引号包起来（以 `{` 开头的普通标量会被 YAML 当成流式映射）。
 - **速查三兄弟只能讲本方向的两门语言**（R5，**两条**）：`glossary.perLanguage` 的键与 `pitfalls.languages` 的值都必须是 error 级合规；但 `symptom` / `cause` / `fix` / `note` / `todo` 这些**散文** R5 够不到 —— 那一层由 `content-contract.test.ts` 的常设断言守（另有「提到的板块名必须真实存在」，它抓的是从 v1 搬过来的「心智模型」/「基础语法」这类死引用）。
-- **`baseline` 文本只讲本语言、`vs.<基准>` 只讲那两门**（R25，warn）：多列板块里提第三门就是屏幕外的幽灵语言。**例外是 JavaScript ↔ TypeScript**（ADR-71）—— 它们在 `registry.yaml` 的 `mentionGroups` 里同组，互相点名不算幽灵（判据按本语言与该格基准**两门**算）；ArkTS 刻意不在这一组里。
 - 所有外部 URL 必须是 `https`（R7）。
 - **compare 路由里只有基准 / 板块 / 章节三段**，章节由**该基准的**章节分组定义；feature id 是 `<板块>/<feature>` 两段（不含章节 —— 章节随基准变）。组件里不要拼这些字符串，也不要写死板块名；`verify:sections` 会拦住硬编码的板块 id（白名单在脚本里，每条都写了理由）。
 - **面向用户的文案里不许写死语言名**：三门基准**权重相同**。语言名一律从 meta 取，i18n 里走 `{baseline}` 这类占位符。`verify:ext` 的**第三道断言**守着这条：扫描 i18n 的**值**与 `.vue` 的 `<template>` 段（先摘掉 `<script>` 和 HTML 注释）。
