@@ -1,0 +1,239 @@
+# kotlin —— mechanism / concurrency
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: concurrency` 的那批：
+# concurrency-unit / shared-state / lock-mutex / channel / atomicity。
+#
+# 口径说明：这一组有三条**对从 JavaScript 过来的人最反直觉**的事实，都要正面写：
+# ① **协程不是线程，但默认会并行** —— `Dispatchers.Default` 背后是一个多线程池，
+#    所以共享可变状态的问题照旧，不像 JavaScript 的单线程事件循环；
+# ② **`synchronized` 会阻塞线程**，协程里该用挂起的 `Mutex`；
+# ③ **`@Volatile` 是注解，而且解决不了「读改写」这类复合操作的原子性**。
+# 另需澄清 `suspend` 是语言关键字，而大部分协程能力来自 `kotlinx.coroutines` 这个库。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-concurrency-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  concurrency-unit:
+    code: |
+      import kotlinx.coroutines.*
+
+      fun main() = runBlocking {                  // @note 桥接：把协程接到普通代码上
+        val job = launch {                        // @note launch 返回 Job，没有结果值
+          delay(1000)                             // @note 挂起：线程不被占住，可以去干别的
+          println("后台")
+        }
+        println("主流程继续")                      // @note 这一行会先打印
+        job.join()                                // @note 等它跑完
+
+        coroutineScope {                          // @note 结构化并发：这个块等所有子协程
+          launch { delay(500) }
+          launch { delay(500) }
+        }                                         // @note 到这里两个都完成了
+      }
+
+      // @note 协程不是线程：它可以在一根线程上挂起、换到另一根上恢复
+      // @note! 但它**默认会并行** —— Dispatchers.Default 背后是多线程池
+      // @note 「轻」指的是开销：几万个协程没问题，几万个线程会先耗尽内存
+    vs:
+      javascript: |
+        **最容易被想当然的一处**：JavaScript 只有一根线程加事件循环，
+        所以「同时只跑一段代码」是免费的保证；
+        Kotlin 的协程**可以在多根线程上并行跑**，只是「挂起不占线程」而已 ——
+        共享可变状态的问题照旧，不会因为你用了协程就消失。
+        写法上两边很像（`async` / `await` 这套形状接近），
+        但调度模型不同：那边是单线程排队，这边是真并行。
+      python: |
+        Python 的 `async` / `await` 与 Kotlin 的协程形状像，但**并发模型不同**：
+        Python 的协程跑在单线程事件循环上（要并行得另起进程或线程），
+        Kotlin 的协程默认调度到多线程池上，是真的并行。
+        另一处是**结构化并发**：Kotlin 的 `coroutineScope` 保证
+        「父等子、父取消子一起取消」，Python 那边得自己用 `TaskGroup` 或手工管理。
+      java: |
+        Java 的并发单元是线程，Kotlin 多了一层协程 —— 而且两者可以混用
+        （协程最终跑在线程上）。协程的价值在**挂起不阻塞线程**：
+        一个阻塞的 IO 操作在 Java 里要占住一根线程，在 Kotlin 里可以挂起，
+        让同一根线程去跑别的协程。
+        另一处是结构化并发：Java 那边要自己管线程池的关闭与异常传播，
+        Kotlin 的 `coroutineScope` 把「等所有子任务」做成了一行。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  shared-state:
+    code: |
+      var counter = 0
+      // 危险：多个协程同时读改写
+      // repeat(1000) { launch { counter++ } }        // @note! 结果小于 1000
+
+      // @note 办法一：把状态限制在单线程上（线程封闭）
+      val single = newSingleThreadContext("only")
+      // @note 办法二：用挂起的互斥锁（见 lock-mutex 一格）
+      // @note 办法三：用原子类型（见 atomicity 一格）
+
+      @Volatile var flag = false                       // @note! 只保证可见性，
+      // @note! 不保证 counter++ 这种「读-改-写」是原子的
+
+      // @note 每个协程有自己的上下文，但**堆是共享的** —— 对象谁都能拿到
+    vs:
+      javascript: |
+        两边都能在多个「任务」之间共享变量，但**共享会不会出问题相反**：
+        JavaScript 的任务之间不会真正同时跑，所以 `counter++` 不可能被
+        从中间打断；Kotlin 的协程在多线程上并行时，`counter++` 是三步操作，
+        中间随时可能被换出去 —— 结果是少加了一些。
+        所以那边「随便写」的代码搬到这边会变成一个真实的竞态。
+      python: |
+        两边都可能撞上竞态，但**成因不同**：Python 的 `asyncio` 只在
+        `await` 处切换，所以没有 `await` 的 `counter++` 是安全的；
+        Kotlin 的协程在多线程上并行，任何一行都可能与另一根线程交错。
+        结果是 Python 那边「看着像原子」的代码在这边不安全 ——
+        这一条从 Python 过来最容易误判。
+        共同点是两边都要有意识地选一种保护手段。
+      java: |
+        两边共享状态的问题是**同一套**（多线程、共享堆、可见性与原子性），
+        可以逐条对应。差别在**默认值**：Java 里写并发要用线程池、
+        要显式提交任务；Kotlin 里一个 `launch` 就起来了，
+        于是「不小心共享了一个可变变量」的概率高得多 ——
+        门槛降低的同时，踩坑的机会也变多了。
+        两边可用的手段一致（锁、原子类、线程封闭），只是 Kotlin 多一个挂起版。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  lock-mutex:
+    code: |
+      import kotlinx.coroutines.sync.*
+
+      val mutex = Mutex()                    // @note 挂起式互斥锁，**不阻塞线程**
+
+      suspend fun safeIncrement() {
+        mutex.withLock {                     // @note 等价于 lock / try / finally unlock
+          counter++
+        }
+      }
+
+      // @note! 协程里别用 synchronized —— 它会**阻塞整根线程**，
+      // @note! 与「挂起不占线程」的初衷冲突
+      // @note JVM 上当然还能用 ReentrantLock，同样会阻塞
+
+      // @note 只读共享用 @Volatile 就够；要保护一段复合操作就得用锁
+      // @note 另有一条路：干脆不加锁，把状态挪进单个协程，用消息传（见 channel 一格）
+    vs:
+      javascript: |
+        JavaScript 里根本不需要锁 —— 单线程加事件循环已经保证了
+        「一段同步代码不会被从中间打断」。Kotlin 这边默认会并行，
+        所以锁是必需品。
+        这一点是从那边过来最需要重新建立的直觉：
+        在这边，「这两行之间不会插进别的代码」是需要主动争取的，
+        而在那边它是免费的。
+      python: |
+        两边都有锁，但**默认需不需要**不同：Python 的 `asyncio` 只在
+        `await` 处切换任务，所以没有 `await` 的临界区天然是安全的，
+        锁是可选的；Kotlin 的协程在多线程上并行，临界区必须显式保护。
+        另一处是锁的种类：Python 的 `asyncio.Lock` 是挂起式的，
+        与 Kotlin 的 `Mutex` 对应；而 Python 还有个线程版的 `threading.Lock`，
+        两者不能混用 —— Kotlin 这边同样要分清 `Mutex` 与 JVM 的锁。
+      java: |
+        两边可用同一套 JVM 锁（`synchronized`、`ReentrantLock`），
+        但**在协程里用它们是错的**：那些锁会阻塞线程，
+        而协程的价值就在于挂起时不占线程 —— 一阻塞就把整根线程钉住了。
+        所以 Kotlin 协程代码里要用挂起版的 `Mutex`，
+        它的 `withLock` 在拿不到锁时挂起而不是等待。
+        Java 那边没有这一层区分，因为它的并发单元本来就是线程。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  channel:
+    code: |
+      import kotlinx.coroutines.channels.*
+      import kotlinx.coroutines.*
+
+      fun main() = runBlocking {
+        val ch = Channel<Int>()              // @note 默认无缓冲：发和收要碰头
+
+        launch {
+          for (i in 1..3) ch.send(i)         // @note send 是挂起的，不阻塞线程
+          ch.close()                          // @note 关掉，接收方会收到结束信号
+        }
+
+        for (v in ch) println(v)             // @note 用 for 收，到 close 自动结束
+
+        // @note 带缓冲：Channel(10)，发满之前不会挂起
+        // @note 一对多的扇出、多对一的扇入都能做
+        // @note produce { } 是个构建器，返回一个接收端
+      }
+
+      // @note! 扇出场景别用 consumeEach —— 它会把通道消费掉，改用 for 循环
+    vs:
+      javascript: |
+        JavaScript 没有内建的进程内通道，跨线程只有 `postMessage`，
+        进程内传值一般靠回调或者自己写一个队列。
+        Kotlin 的 `Channel` 是标准做法：发送方挂起、接收方挂起、
+        关闭后自动结束遍历 —— 这套形状在那边要自己搭。
+        共同点是两边都有「消息传递优于共享内存」这条思路，
+        只是这边把它做成了现成的工具。
+      python: |
+        Python 的 `asyncio.Queue` 与 Kotlin 的 `Channel` 用途相同，
+        都是挂起式队列，也都能做扇出扇入。差别在**结束信号**：
+        Python 惯用往队列里放一个哨兵值来表示「没了」，
+        Kotlin 用 `close()`，接收端的 `for` 会自动结束 ——
+        少了一类「忘记处理哨兵」的 bug。
+        另一处是 Kotlin 的通道可以在协程之外被关闭与取消。
+      java: |
+        Java 的 `BlockingQueue` 与 Kotlin 的 `Channel` 形态相近
+        （都是先进先出的队列），但**阻塞行为不同**：
+        `BlockingQueue` 的 `put` / `take` 会**阻塞线程**，
+        `Channel` 的 `send` / `receive` 是**挂起协程** ——
+        在高并发下前者要占住大量线程，后者不用。
+        另一处是结束：Java 那边没有内建的「关闭」概念，得自己约定毒丸值。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  atomicity:
+    code: |
+      import java.util.concurrent.atomic.AtomicInteger
+
+      val count = AtomicInteger(0)
+      // count.incrementAndGet()             // @note 读改写是一步，不会被插进来
+
+      // @note! Kotlin 自己没有原子类型 —— 用的是 JVM 的 java.util.concurrent.atomic
+      // @note! `@Volatile` 只保证「一个线程写、别的线程能看见」，
+      // @note! 保证不了 `count++` 这种复合操作
+
+      // @note 高竞争、要更新多个变量时，原子类不够用，得上锁或换个思路
+      // @note 只想发布一个不可变对象：把它放进 @Volatile 字段即可
+    vs:
+      javascript: |
+        JavaScript 里没有「原子类型」这个概念 —— 单线程模型下
+        `count++` 本来就不会被打断。Kotlin 这边并行是真并行，
+        所以需要专门的原子类型（或锁）。
+        所以这一格是**需求有无之别**：那边没有这个工具，
+        不是因为没想到，而是因为用不上。
+      python: |
+        Python 的 `asyncio` 下没有 `await` 的 `counter += 1` 是安全的，
+        所以也没有内建的原子类型；多线程场景靠 `threading.Lock`
+        或者 `itertools.count` 这类特例。
+        Kotlin 这边因为协程默认并行，原子类成了常用工具 ——
+        这一格同样是「需求有没有」的差别。
+      java: |
+        两边**用的是同一批类**（`AtomicInteger`、`AtomicReference`、
+        `LongAdder` 等），语义完全一样，可以逐条对应。
+        差别在**用不用得上**：Java 里只有在真开多线程时才有这个问题，
+        而 Kotlin 里一个 `launch` 就可能已经并行了 ——
+        所以同样的代码在 Kotlin 里更容易在不知不觉中踩到竞态。
+        另一处是 `@Volatile`：Java 是关键字，Kotlin 是注解，语义相同。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

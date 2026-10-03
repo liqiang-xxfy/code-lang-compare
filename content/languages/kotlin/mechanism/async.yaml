@@ -1,0 +1,253 @@
+# kotlin —— mechanism / async
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: async` 的那批：
+# event-loop / callback / promise-future / async-await / cancellation。
+#
+# 口径说明：**cancellation 是整组最承重的一格**，而且它的坑很具体：
+# 取消是靠抛一个特殊异常实现的，所以 `catch (e: Exception)` 会把它一起吞掉，
+# 协程从此不再响应取消却仍被标记为已取消。这条必须写，
+# 而且要配上 `finally` + `NonCancellable` 的清理写法。
+# 另一条要澄清的是**取消是协作式的** —— 纯计算不检查取消就跑到底。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  event-loop:
+    code: |
+      // @note Kotlin 在 JVM 上**没有语言级的事件循环** —— 代码跑在线程上
+      // @note UI 那边有一个：Dispatchers.Main 背后就是主线程的消息队列
+      import kotlinx.coroutines.*
+
+      fun main() = runBlocking {
+        launch(Dispatchers.Main) {          // @note 切到主线程（UI 线程）上跑
+          // 这里可以更新界面
+        }
+        launch(Dispatchers.IO) { }          // @note IO 线程池
+        launch(Dispatchers.Default) { }     // @note 计算线程池，上限约等于核数
+      }
+
+      // @note 真正的机器是**调度器**：它决定协程在哪根线程上跑、什么时候跑
+      // @note 事件循环只是某些调度器（尤其是 UI 主线程）内部的一个实现细节
+    vs:
+      javascript: |
+        **这是最根本的一处不同**：JavaScript 的运行时就只有一根线程
+        加一个事件循环，所有异步都绕着它转；Kotlin 在 JVM 上没有这个概念 ——
+        代码默认就跑在线程上，可以真并行。
+        接近的东西只有 UI 那一侧：`Dispatchers.Main` 背后确实是一个
+        消息队列（与事件循环同构），但它只是众多调度器里的一个，
+        不是整个语言的地基。
+      python: |
+        Python 的 `asyncio` 有一个真正的单线程事件循环，必须显式启动
+        （`asyncio.run`），而且整个程序通常都活在它里面；
+        Kotlin 这边没有要求你这点 —— 协程可以起在任何线程上，
+        也可以只是程序里的一小部分。所以 Python 那边「一切都是回调、
+        由一个循环推动」的世界观在这边不成立。
+        共同点是两边都有调度器这一层抽象，只是 Kotlin 的可以换。
+      java: |
+        Java 与 Kotlin 在 JVM 上都没有语言级事件循环，这一点一致 ——
+        要事件循环得自己接一个框架（Netty、UI 工具包之类）。
+        差别在**协程这一层**：Kotlin 的调度器把「在哪根线程上跑」
+        做成了可组合的抽象，而 Java 那边这个概念是缺失的
+        （虚拟线程让线程变便宜了，但调度策略仍然是线程池那一套）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  callback:
+    code: |
+      // 回调的写法：把「之后做什么」传进去
+      fun loadAsync(cb: (String) -> Unit) { /* 稍后调用 cb(...) */ }
+
+      // @note 协程把它换成了「看起来像同步」的写法
+      suspend fun load(): String { delay(100); return "数据" }
+
+      suspend fun use() {
+        val a = load()                      // @note 不用传回调，直接拿返回值
+        val b = load()
+        println(a + b)                      // @note 顺序清楚，没有嵌套
+      }
+
+      // @note 挂起函数只能在另一个挂起函数（或协程构建器）里调用
+      // @note 这不是「把回调藏起来」，是编译期把函数拆成了可恢复的状态机
+    vs:
+      javascript: |
+        两边都有回调这套东西，也都用别的写法替代了它（那边是 Promise 加
+        `async` / `await`，这边是挂起函数）。差别在**编译产物**：
+        JavaScript 的 `async` 是语言特性，引擎直接支持；
+        Kotlin 的挂起函数是编译器改写出来的（每个挂起点变成一次状态保存），
+        所以在字节码层面看到的是一个多了一个参数的方法。
+        另一处是「回调能不能取消」：两边默认都不能（见 cancellation 一格）。
+      python: |
+        两边都从回调走向了「看起来像同步」的写法，思路一致。
+        差别在**能否局部使用**：Python 的 `async` 一旦用在某处，
+        调用链上所有函数都得是 `async`，整个程序容易被感染；
+        Kotlin 的 `suspend` 也是传染的，但它提供了 `runBlocking`
+        这样的桥接点，可以在普通代码里开一个协程作用域，
+        不必让整个程序都变成协程。
+      java: |
+        Java 的异步长期靠回调加 `Future`，写起来要么嵌套要么手动组合；
+        Kotlin 的挂起函数让「等一个结果」看起来就是取了个返回值。
+        代价是这层改写**在 Java 侧看不见**：一个 `suspend` 函数
+        在字节码里多了个参数、返回类型也变了，所以 Java 想调用它
+        必须走协程构建器，不能当成普通方法调。
+        这一点在设计跨语言的 API 时要先想清楚。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  promise-future:
+    code: |
+      import kotlinx.coroutines.*
+
+      fun main() = runBlocking {
+        val d: Deferred<Int> = async { compute() }   // @note 立刻开跑，返回一个「将来有值」
+        println("先干别的")
+        val v = d.await()                             // @note 要值的时候才等
+
+        // @note launch 与 async 的分工：只要副作用用 launch，要结果用 async
+        // @note Deferred 能取消（cancel），JVM 的 CompletableFuture 也能
+        // @note! 但 async 里的异常**不会自动抛**，要 await 才拿得到
+      }
+
+      // @note 也可以直接用 JVM 的 CompletableFuture —— 但那套与协程不通用
+    vs:
+      javascript: |
+        两边都是「先拿到一个将来的值、之后再取」，形状几乎一样
+        （`async` / `await` 这一对名字都对得上）。差别在**异常**：
+        JavaScript 的 Promise 一旦 reject 且没人接，控制台会报未处理拒绝；
+        Kotlin 的 `async` 把异常**存在 Deferred 里**，
+        不 `await` 就永远不会有人知道 —— 静默失败的风险更大。
+        另一处是取消：JavaScript 的 Promise 不能取消，
+        Kotlin 的 `Deferred` 能（这是它有优势的一处）。
+      python: |
+        Python 的 `asyncio.Task` 与 Kotlin 的 `Deferred` 对应
+        （都由「提交一个协程」产生，都能取消、都能等结果）。
+        差别在**启动方式**：Python 要用 `asyncio.create_task` 显式提交，
+        光调用协程函数什么都不会发生；Kotlin 的 `async { }` 一写就开跑，
+        「我是不是忘了启动它」这个错误在 Kotlin 里不存在，
+        取而代之的是「我是不是不小心让它跑起来了」。
+      java: |
+        两边都有「将来的值」（`CompletableFuture` ↔ `Deferred`），
+        也都能组合与取消。差别在**这套东西与语言的关系**：
+        Java 的 `CompletableFuture` 是一个普通类库，组合靠一堆
+        `thenCompose` / `thenApply`；Kotlin 的 `Deferred` 是协程的一部分，
+        取值就是一句 `await()`，看起来像同步代码。
+        另一处是异常传播：Java 的 `CompletableFuture` 把异常包在里面，
+        不取就静默；Kotlin 的 `Deferred` 同样如此 —— 这点两边一致。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  async-await:
+    code: |
+      import kotlinx.coroutines.*
+
+      suspend fun fetch(id: Int): String {          // @note suspend 是语言关键字
+        delay(100)                                   // @note 挂起点：线程可以去跑别的
+        return "数据 $id"
+      }
+
+      fun main() = runBlocking {                     // @note main 也能直接标 suspend
+        val a = fetch(1)                             // @note 顺序执行：一个一个来
+        val b = fetch(2)
+
+        val x = async { fetch(3) }                   // @note 想并发就用 async 包起来
+        val y = async { fetch(4) }
+        println(x.await() + y.await())               // @note 两个一起跑，一起等
+
+        // @note! 光写 async 不 await，异常会丢；要结果就一定要 await
+      }
+
+      // @note suspend 只表示「这个函数可能挂起」，**不等于**「它在别的线程上跑」
+      // @note 大部分协程能力来自 kotlinx.coroutines 这个库，不是语言本体
+    vs:
+      javascript: |
+        写法高度相似（`async` / `await` 这一对连名字都一样），
+        但语义有两处不同：一是 JavaScript 的 `async` 函数一调用就开始跑，
+        而 Kotlin 的 `suspend` 函数**调用时是顺序执行**的 ——
+        要并发必须显式用 `async { }` 包起来；
+        二是 Kotlin 的挂起不等于换线程，可能仍在同一根线程上继续。
+        所以「加了 async 就并发了」这个直觉在 Kotlin 里不成立。
+      python: |
+        同样是 `async` / `await` 的形状，差别在**并发的默认**：
+        Python 里 `await` 一个协程就是顺序的，要并发用
+        `asyncio.gather` 或 `create_task`；Kotlin 里同样要显式
+        `async` 才并发，这一点两边一致。
+        真正的差别在**线程**：Python 的协程全在一根线程上，
+        Kotlin 的可以分布到多根 —— 所以 Kotlin 这边要额外当心共享状态。
+      java: |
+        Java 没有 `async` / `await` 这套语法，异步要么用 `CompletableFuture`
+        链式组合，要么用虚拟线程写阻塞式代码。
+        Kotlin 的挂起函数提供了第三条路：**代码看起来是同步的，
+        实际会在挂起点让出线程** —— 这是 Java 那边写不出来的形态。
+        另一处是 `suspend` 的传染性：它要求调用链上都是挂起函数，
+        所以引入协程时往往要一次性改一串签名。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  cancellation:
+    code: |
+      import kotlinx.coroutines.*
+
+      fun main() = runBlocking {
+        val job = launch {
+          try {
+            repeat(1000) {
+              delay(100)                            // @note 挂起点：这里会检查取消
+              println("干活 $it")
+            }
+          } catch (e: CancellationException) {
+            throw e                                  // @note! 必须放行，不能吞
+          } finally {
+            withContext(NonCancellable) {            // @note 需要在清理时挂起就用它
+              delay(50)
+              println("清理完成")
+            }
+          }
+        }
+        delay(250)
+        job.cancel()                                 // @note 取消是**协作式**的
+        job.join()
+      }
+
+      // @note withTimeout(1000) { }：超时抛 TimeoutCancellationException（取消的一种）
+      // @note! 取消一个协程会**递归取消它的所有子协程** —— 结构化并发的基本保证
+      // @note! 纯计算不检查取消就跑到底（要周期性 yield() 或查 isActive）
+    vs:
+      javascript: |
+        两边都有「取消」这个概念，但**机制完全不同**：
+        JavaScript 没有内建的取消，要靠 `AbortController` 一路把信号传下去，
+        被调用的函数得自己监听；
+        Kotlin 的取消是内置的，挂起点自动检查，而且会**向上向下传播**。
+        另一处是 `finally` 里的清理：JavaScript 那边要靠监听 abort 事件，
+        这边 `finally` 照常执行，还能在 `NonCancellable` 里挂起。
+      python: |
+        两边的取消都是靠**抛异常**实现的（Python 抛 `CancelledError`，
+        Kotlin 抛 `CancellationException`），也都因此有同一个陷阱：
+        `except Exception` 会把它一起吞掉，取消就此失效。
+        Python 要求显式 `raise` 回去，Kotlin 要求显式 `throw e` 放行 ——
+        写法不同，纪律一样。
+        另一处是**传播**：Kotlin 靠结构化并发自动沿父子关系传播，
+        Python 得自己管任务树。
+      java: |
+        两边取消的都是「这件事别做了」，但**手段差得远**：
+        Java 传统上靠线程中断（`interrupt()`），而且中断只是个标志，
+        被阻塞的代码未必理你；Kotlin 的取消在挂起点上是**必然生效**的。
+        另一处是清理：Java 没有内建的「取消后还能挂起地做清理」这一层，
+        Kotlin 用 `finally` 加 `NonCancellable` 明确表达。
+        共同点是两边都必须**协作** —— 纯计算循环不检查标志一样停不下来。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

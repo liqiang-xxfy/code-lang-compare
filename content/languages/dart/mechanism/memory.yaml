@@ -1,0 +1,200 @@
+# dart —— mechanism / memory
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: memory` 的那批：
+# value-vs-reference / garbage-collection / ownership-borrow / lifetime / weak-reference。
+#
+# 口径说明：`ownership-borrow` 与 `lifetime` 都写 `absent: true`（Dart 没有所有权系统、
+# 也没有生命周期标注），沿用 TypeScript 与 Kotlin 那几格的写法，
+# 三份 vs 里交代「那你们怎么管资源」—— 答案是手工 `dispose`/`close`
+# 加 `Finalizer`。另一条要写准的是 **Dart 有弱引用但没有析构器**：
+# 追踪式 GC 里「对象被回收时跑一段代码」没有确定性，团队原话就是
+# 「对象从来没有真正被销毁，只是变得不可达」——所以析构器在这门语言里不成立。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  value-vs-reference:
+    code: |
+      // @note Dart 里**一切皆对象** —— 连数字、函数、null 都是
+      var a = [1, 2];
+      var b = a;                          // @note 传的是引用
+      b.add(3);
+      print(a);                           // [1, 2, 3] —— 改的是同一个列表
+
+      var n = 1;
+      var m = n;                          // @note 但数值是**不可变**的，改 m 是重新绑定
+      m = 2;
+      print(n);                           // 1
+
+      // @note 字符串也不可变，所以「改」实际上是产生新值
+      var s1 = 'ab';
+      var s2 = s1.toUpperCase();
+      print(s1);                          // ab —— 原串没变
+
+      // @note 常见的一类困惑：给函数传对象，函数里改了它，外面会看到
+    vs:
+      javascript: |
+        两边都是「对象传引用、原始值传副本」，而且哪些算原始值也基本一致
+        （数字、字符串、布尔）。差别在**语言怎么描述这件事**：
+        Dart 官方明确说一切都是对象（`int` 也是），
+        只是不可变对象看起来像值语义；JavaScript 那边则真的分
+        「原始值」与「对象」两类。实际写代码时差别不大，
+        读文档与类型标注时会遇到。
+      python: |
+        两边都是「变量持引用、一切皆对象」，这一点最像 ——
+        连「整数是不可变对象」这条都一样，所以 `m = 2` 不会影响 `n`。
+        差别在**可变与不可变的划分**：Python 的列表与字典可变、
+        元组与字符串不可变，规则靠记；Dart 的可变集合要靠类型区分
+        （`List` 与 `List.unmodifiable`、`const` 列表），
+        类型上就能看出来。
+      java: |
+        **这是与 Java 差别最实在的一处**：Java 有真正的原始类型，
+        `int` 与 `Integer` 是不同的东西，`==` 在两者上含义也不同；
+        Dart **没有原始类型**，`int` 就是对象（只是实现上通常不装箱），
+        所以「值还是引用」这个问题在 Dart 里只有一个答案：
+        变量持引用，只是有些对象不可变。
+        好处是心智模型统一，代价是从 Java 过来时要重新建立直觉 ——
+        尤其是 `==` 对数字与字符串是**值相等**，与 Java 的引用比较相反。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  garbage-collection:
+    code: |
+      var cache = <String, List<int>>{};
+      cache['k'] = List.filled(1000, 0);
+      cache = {};                         // @note 原来那份没有引用了，等 GC 收
+
+      // @note Dart VM 用的是**分代 GC**：新一代（对象刚生出来）与老一代
+      // @note   新一代用复制式的清扫器，回收很快
+      // @note   老一代用并发标记加清除/整理，停顿更长但频率低
+      // @note 语言层面**没有任何**方法强制回收
+
+      // @note! 对象「什么时候」被回收完全不确定 —— 不要写出依赖这个的代码
+    vs:
+      javascript: |
+        两边都是「运行时自动回收、应用不介入」，这一层很像，
+        也都是分代式的设计（引擎那边同样是年轻代快、老年代慢）。
+        差别在**可观测性**：JavaScript 的引擎在开发者工具里给了
+        堆快照、内存时间线这类现成入口；Dart 要接 VM 的 Observatory
+        或者性能分析工具，门槛高一些。
+        共同点是两边都不能强制回收，只能等。
+      python: |
+        **回收机制根本不同**：Python 主要靠引用计数，所以对象在最后一个
+        引用消失时**立刻**被回收，`__del__` 马上执行；
+        Dart 是追踪式 GC，对象什么时候被收走完全不确定。
+        所以那边能依赖「离开作用域就释放」（尤其是文件、连接这类资源），
+        这边只能显式关闭 —— 这也是 Dart 连析构器都不提供的原因。
+      java: |
+        两边都是追踪式分代 GC，思路上是一家人（Dart 的分代设计
+        与 JVM 的经典分代模型很像），都不能强制回收。
+        差别在**能给的建议**：Java 有 `System.gc()` 这种「提个醒」的入口
+        （虽然也不保证做任何事），Dart 连这个都没有。
+        另一处是参数调优：JVM 有一大堆 GC 参数可调，
+        Dart VM 基本不给应用层这些旋钮，能做的只是少制造垃圾。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  ownership-borrow:
+    absent: true
+    vs:
+      javascript: |
+        Dart **没有所有权与借用这套东西** —— 没有 `move`、没有借用检查，
+        也没有「值归谁所有」这个概念。内存交给 GC，
+        其余资源（文件、socket、控制器）靠自己 `dispose` / `close`。
+        所以「这段代码会不会漏资源」在 Dart 里是**纪律问题**，
+        不是编译期能判定的事 —— 这一点与 JavaScript 的处境相同。
+      python: |
+        Dart **没有所有权系统**，与 Python 一样靠 GC 管内存。
+        「用完就关」的手段两边不同：Python 有 `with` 语句加
+        上下文管理器协议，能保证退出时清理；Dart 没有对应语法，
+        要手工在 `finally` 里 `dispose` / `close` ——
+        忘了写不会有任何提示，这是从 Python 过来最容易松掉的一环。
+        共同点是都不用关心内存，只管 GC 管不了的那些资源。
+      java: |
+        Java 与 Dart 都**没有所有权概念**，这一格两边一致。
+        差别在**「用完就关」的支持**：Java 有 try-with-resources，
+        把打开与必然关闭绑成一个语法结构，漏写编译器会提醒；
+        Dart 没有这个语法，资源要在 `finally` 里手工释放。
+        所以 Java 那边「忘了关」比较容易被工具发现，
+        Dart 这边主要靠 code review 与纪律。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  lifetime:
+    absent: true
+    vs:
+      javascript: |
+        Dart **没有生命周期标注** —— 对象活到不可达为止，语言层面
+        写不出「这个引用最多活多久」。存活期取决于还有没有人持有它，
+        是一个运行期事实。
+        这一点与 JavaScript 的处境相同：两边都只能靠「断开引用」来间接表达。
+      python: |
+        Dart **没有生命周期标注**。与 Python 的差别在**「不可达」什么时候算数**：
+        Python 靠引用计数，最后一个引用消失即回收；
+        Dart 靠追踪式回收，只能保证「不可达之后某个时刻」被收走。
+        所以那边「离开作用域就释放」是可以依赖的，
+        这边不行 —— 需要确定性释放的资源必须显式关。
+      java: |
+        Java 与 Dart 都**没有生命周期标注**，这一格两边没有差别。
+        局部变量的作用域是编译期概念，与对象实际活多久无关 ——
+        出了作用域的变量指向的对象可能还活着（被别处引用着）。
+        这一点 Java 读者本来就熟，从 Java 过来不需要改直觉。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  weak-reference:
+    code: |
+      var strong = <String>['大对象'];
+      var weak = WeakReference(strong);     // @note 2.17 起可用
+
+      print(weak.target);                   // @note 还活着时能拿到，否则 null
+
+      // @note! 目标**不能**是 null、bool、数字、字符串 —— 这些不参与弱引用
+      // @note! 也不能保证什么时候被清 —— 官方原话是「没有保证它一定会被清」
+
+      // @note Finalizer：附加一个「对象被回收后调用」的回调
+      final finalizer = Finalizer<Object>((obj) { /* 清理 */ });
+      finalizer.attach(strong);
+
+      // @note! 但回调**不保证会被调用**，而且里面不能抛异常
+      // @note! Dart 没有析构器 —— 没有确定性的销毁时机
+    vs:
+      javascript: |
+        两边都有弱引用与「回收后回调」，能力接近。
+        差别在**能指向什么**：JavaScript 的 `WeakRef` 对对象与符号都行
+        （原始值本来就不能被弱引用，这点一致）；
+        Dart 明确排除数字与字符串。另一处是回调的保证强度：
+        两边的「回收后回调」都不保证一定执行，这一点是共同的。
+      python: |
+        两边的弱引用形状接近（包装对象、取不到时给空、回收时机不保证），
+        但**有没有析构器**是根本差别：Python 靠引用计数，
+        `__del__` 在最后一个引用消失时**立刻**执行，可以拿来做确定性清理；
+        Dart 是追踪式 GC，官方明确不提供析构器 ——
+        团队的原话是「对象从来没有真正被销毁，只是变得不可达」。
+        所以从 Python 过来，「靠 `__del__` 收尾」这个习惯必须改掉。
+      java: |
+        两边都有弱引用，也都有「回收后做点事」的机制
+        （Java 是 `Cleaner` / `PhantomReference`），
+        而且**都不保证回调会执行** —— 这一点语义一致。
+        差别在**能指向什么**：Java 的弱引用对装箱类型也生效，
+        只是要小心缓存；Dart 明确不能指向数字与字符串。
+        另一处是确定性：Java 有 try-with-resources 兜底，
+        Dart 只能靠手工关闭，弱引用与终结器都只是补充手段。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

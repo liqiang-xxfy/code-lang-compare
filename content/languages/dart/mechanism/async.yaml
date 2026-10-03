@@ -1,0 +1,261 @@
+# dart —— mechanism / async
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: async` 的那批：
+# event-loop / callback / promise-future / async-await / cancellation。
+#
+# 口径说明：**cancellation 是整组最承重的一格**，而且它就是本轮的对比轴 ——
+# Dart 的 `Future` **一旦创建就跑到底、不能取消**，能取消的只有
+# `StreamSubscription`（真的退订）与 `package:async` 的 `CancelableOperation`
+# （取消的是「结果的交付」，底层工作照跑）。这与协程的协作式真中断是两个世界。
+# 另一条容易搞反的是 **`Future.wait` 默认等全部完成才报第一个错误**，
+# 与「一失败就立刻拒绝」的那套相反，要那种行为得显式开 `eagerError`。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  event-loop:
+    code: |
+      // @note 每个 isolate 有**自己的事件循环** —— 这是 Dart 异步的地基
+      import 'dart:async';
+
+      Future<void> main() async {
+        print('1');
+        scheduleMicrotask(() => print('微任务'));
+        Future(() => print('事件队列'));
+        Future.microtask(() => print('也是微任务'));
+        print('2');
+      }
+      // 输出顺序：1 → 2 → 微任务 → 也是微任务 → 事件队列
+
+      // @note 微任务会在「其它异步事件」（定时器、IO 回调）之前跑完
+      // @note! 但微任务排太多会把事件循环饿死 —— 官方专门警告过这一点
+      // @note `Future(...)` 进事件队列，`Future.microtask(...)` 进微任务队列，
+      // @note 这两条路是分开的，选错会让顺序不符合预期
+    vs:
+      javascript: |
+        两边的模型**大体一致**：都是一根线程加事件循环，
+        都有微任务与普通任务的区分，连「微任务排太多会饿死事件循环」
+        这条警告都一样。所以从 JavaScript 过来在这件事上几乎不需要重新学。
+        差别在**粒度**：Dart 的每个 isolate 各有一个事件循环，
+        而 JavaScript 的 Worker 也有自己的 —— 这一点也对应得上。
+        真正不同的是 Dart 把「入哪条队列」写成了两个不同的构造函数，
+        而那边是靠 `queueMicrotask` 与 `setTimeout` 区分。
+      python: |
+        两边都是单线程事件循环，但**事件循环是不是「全部」不同**：
+        Python 的 `asyncio` 要求你显式启动并活在里面
+        （`asyncio.run`），整个程序通常都绕着它转；
+        Dart 的事件循环是**运行时本来就有的**，不需要启动，
+        `main` 里随手写个 `await` 就在用了。
+        所以那边「这个循环在哪、什么时候起」是个要操心的事，
+        这边不用 —— 代价是它一直在，你没法「不启动它」。
+      java: |
+        Java 在 JVM 层面**没有事件循环**这个概念，要它得自己接一个框架；
+        Dart 把它做成了运行时的地基，每个 isolate 自带一个。
+        所以「异步回调排在哪、什么时候跑」这件事，
+        在 Java 里取决于你用了什么框架，在 Dart 里是语言保证的。
+        另一处是微任务：Java 没有这一层，`CompletableFuture` 的回调
+        跑在哪个线程取决于注册时的上下文，比 Dart 难预测得多。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  callback:
+    code: |
+      // 回调写法：把「之后做什么」传进去
+      void loadAsync(void Function(String) onDone) {
+        Future.delayed(Duration(milliseconds: 100), () => onDone('数据'));
+      }
+
+      // @note 换成 Future / async 之后：
+      Future<String> load() async {
+        await Future.delayed(const Duration(milliseconds: 100));
+        return '数据';
+      }
+
+      Future<void> use() async {
+        final a = await load();          // @note 不用传回调，直接拿返回值
+        final b = await load();
+        print('$a$b');                    // @note 顺序清楚，没有嵌套
+      }
+
+      // @note 多值用 Stream：它天然对应「回调会被调用很多次」那种场景
+      // @note `await for` 能像循环一样消费一个 Stream
+    vs:
+      javascript: |
+        两边从回调走向 `async` / `await` 的路径完全一样，形状也一样，
+        这一格几乎是平移。差别在**多条结果**时：
+        JavaScript 用异步生成器或者自己攒回调；
+        Dart 直接有 `Stream` 这个类型，`await for` 就能消费，
+        「一个会来很多次的结果」是语言里的一等公民。
+        另一处是 Dart 的值可以自动包成 `Future`，写起来更省事。
+      python: |
+        两边都从回调转向了协程式写法，但**「多个值」的表达不同**：
+        Python 的异步生成器（`async def` 里 `yield`）与
+        Dart 的 `Stream` 对应，都能 `async for` / `await for` 消费 ——
+        这一层可以对应。
+        差别在**接口设计习惯**：Python 里回调式 API 仍然常见
+        （尤其是老库），Dart 的标准库基本都已经是 `Future` / `Stream` 了。
+      java: |
+        Java 长期靠回调加 `Future`，写起来要么嵌套要么手动组合；
+        Dart 的 `async` / `await` 让「等一个结果」看起来就是取返回值。
+        差别在**多条结果**：Java 要用 `Flow` / 响应式库，
+        Dart 有内建的 `Stream`，消费方式就是一句 `await for`。
+        另一处是组合：Java 的 `CompletableFuture` 靠一串 `thenXxx` 拼，
+        Dart 里写成一串 `await`，读起来是顺序的。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  promise-future:
+    code: |
+      Future<int> compute() async => 42;
+
+      void main() async {
+        final f = compute();              // @note 立刻开始跑
+        print('先干别的');
+        final v = await f;                 // @note 要值的时候才等
+
+        // @note 并发要显式收集起来再等
+        final results = await Future.wait([compute(), compute()]);   // @note 顺序按传入顺序
+
+        // @note! 有一处与别处相反：**默认等全部完成，才报第一个错误**
+        // @note! 想「一出错就立刻返回」要显式写 eagerError: true
+        await Future.wait([bad(), slow()], eagerError: true);
+
+        // @note 也可以把多个 Future 放进 record，用它的 .wait 扩展
+        final (a, b) = await (compute(), compute()).wait;
+      }
+    vs:
+      javascript: |
+        两边几乎一一对应（`Future` ↔ `Promise`，`then` ↔ `then`），
+        连「创建就开始跑、不能取消」这条也一样 —— 这一格最像。
+        差别在**等待多个时的错误语义**，而且方向相反：
+        那边 `Promise.all` **一有失败就立刻拒绝**，不等其余；
+        Dart 的 `Future.wait` **默认等全部完成**再报第一个错误，
+        要那边的行为得显式开 `eagerError`。
+        这个差别很实际：慢任务不会被提前放弃，但错误也被推迟了。
+      python: |
+        两边都是「先拿到一个将来的值」，也都能并发等一批
+        （`asyncio.gather` ↔ `Future.wait`）。差别在两处：
+        一是**启动方式**，Python 要 `create_task` 显式提交，
+        Dart 的 `Future` 一创建就开跑；
+        二是**错误语义**，Python 的 `gather` 默认也会把第一个异常抛出来，
+        Dart 默认等全部完成 —— 想早点失败要显式说。
+      java: |
+        两边都有「将来的值」（`CompletableFuture` ↔ `Future`），
+        也都能组合与等待一批。差别在**写法密度**：
+        Java 组合靠 `thenCompose` / `thenApply` 一串链，
+        Dart 写成顺序的 `await`，读起来就是普通代码。
+        另一处是 `Future.wait` 的错误语义是 Dart 特有的取舍
+        （默认等全部），Java 的 `allOf` 同样等全部、
+        但异常获取方式不同（要从每个 future 里取）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  async-await:
+    code: |
+      Future<String> fetch(int id) async {
+        await Future.delayed(const Duration(milliseconds: 100));
+        return '数据 $id';
+      }
+
+      Future<void> main() async {
+        final a = await fetch(1);          // @note 顺序执行：一个一个来
+
+        // @note! Dart **允许在循环里 await** —— 官方样例就是这么写的
+        for (var i = 0; i < 3; i++) {
+          print(await fetch(i));            // @note 这是**串行**的，会一个等一个
+        }
+
+        // @note 想并行：先把 Future 收集起来，再一起等
+        final futures = [for (var i = 0; i < 3; i++) fetch(i)];
+        final all = await Future.wait(futures);
+
+        // @note `await for`：像循环一样消费一个 Stream（函数必须是 async）
+        await for (final chunk in streamOf()) { print(chunk); }
+      }
+    vs:
+      javascript: |
+        形状几乎一样（`async` / `await` 名字都对得上），
+        而且**在循环里 `await` 两边都合法** —— 这一格最接近。
+        差别在**顶级 await**：Dart 里 `main` 直接写成 `async` 是常规做法，
+        不需要额外配置；JavaScript 那边要看模块类型与运行环境。
+        另一处是并发写法：两边都要先把 Future 收集起来再一起等，
+        思路一致。
+      python: |
+        两边的写法与「循环里可以 await」这条都一致，可以逐条对应。
+        差别在**并发的默认**：Python 里要并发得用 `gather` 或者先
+        `create_task`，光 `await` 是串行的 —— 这一点两边相同，
+        所以从 Python 过来不会踩这个坑。
+        另一处是异常传播：Dart 的 `Future.wait` 默认等全部完成，
+        Python 的 `gather` 默认也会等在跑的任务结束，行为接近。
+      java: |
+        Java 没有 `async` / `await` 这套语法，异步要么用
+        `CompletableFuture` 链式组合，要么用虚拟线程写阻塞式代码。
+        Dart 的 `await` 让异步代码看起来是顺序的，
+        这是 Java 那边写不出来的形态。
+        另一处是**「阻塞式」这条路**：Java 有虚拟线程可以把异步代码
+        写回同步的样子，Dart 没有对应的能力 ——
+        它的方式始终是 `async` + `await`。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  cancellation:
+    code: |
+      import 'dart:async';
+
+      // @note! **Future 一旦创建就跑到底 —— 没有任何取消 API**
+      // @note! Future 类与整个 dart:async 里都找不到 cancel
+
+      // @note 能真正取消的是 Stream 的订阅
+      final sub = streamOf().listen((v) => print(v));
+      await sub.cancel();                   // @note 真的退订，不再收到事件
+
+      // @note Future.timeout 也不是取消 —— 它只是到点之后让等待失败，
+      // @note 底层那件事还在跑
+
+      // @note 想「放弃结果又不停掉底层工作」，用 package:async 的 CancelableOperation
+      final op = CancelableOperation.fromFuture(heavy());
+      // op.cancel();                        // @note 取消的是「结果的交付」
+
+      // @note 所以在这门语言里，「取消」更准确的叫法是**停止监听 / 丢弃结果**
+    vs:
+      javascript: |
+        两边的结论**完全一致**：`Future` 与 `Promise` 都不能取消，
+        能取消的只有 `AbortController` 那类信号或者流订阅
+        （对应这边的 `StreamSubscription.cancel`）。
+        所以从 JavaScript 过来在这一格上不需要改认知，
+        连「`timeout` 不是取消」这条都一样。
+        共同点是两边都要在 API 设计阶段就把取消这条路留出来，
+        事后加不上去。
+      python: |
+        **这一格两边相反**：Python 的 `asyncio.Task` **可以取消**
+        （`task.cancel()` 会让协程在下一个挂起点收到 `CancelledError`），
+        而 Dart 的 `Future` 创建之后就停不下来。
+        所以从 Python 过来最容易犯的错是「以为有个 cancel 可以调」——
+        这边只有退订流或者放弃结果，底层照跑。
+        要真能中止，得在设计时就让那件事自己检查一个标志位。
+      java: |
+        两边都能「中止」，但**中止的层次不同**：Java 的
+        `CompletableFuture.cancel()` 也只是「让等待方拿到失败」，
+        底层任务未必停 —— 这一点与 Dart 的 `CancelableOperation` 很像。
+        真正能打断的只有线程中断（而且要被中断的代码配合）。
+        Dart 更彻底：连那个 API 都不在标准库里，
+        要取消交付得引一个额外的包。
+        两边共同的现实是：**取消永远是协作的**，没有哪边能强行停掉计算。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

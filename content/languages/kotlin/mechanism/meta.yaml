@@ -1,0 +1,189 @@
+# kotlin —— mechanism / meta
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: meta` 的那批：
+# reflection / decorator-annotation / dynamic-eval / proxy-interception。
+#
+# 口径说明：三条要写准的 ——
+# ① **反射要额外加一个依赖**（`kotlin-reflect`），不加就是运行期缺类；
+#    而且 `KClass` 不等于 Java 的 `Class`，互转要显式写 `.java` / `.kotlin`。
+# ② **注解的默认可见度比 Java 更开放**：官方明说 `@Retention` 的两个维度默认都为真
+#    （存进 class 文件且运行期可见），所以不写 `@Retention` 也能被反射读到。
+# ③ **`dynamic-eval` 写 `absent: true`**（沿用 Rust 那一格的写法）——
+#    JVM 与 Native 上没有内建 eval，三份 vs 里交代 JSR-223 脚本引擎这条替代路。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  reflection:
+    code: |
+      // @note! 反射不在标准库里 —— 要先加依赖：
+      // @note!   implementation(kotlin("reflect"))
+      import kotlin.reflect.full.*
+
+      class User(val name: String, var age: Int)
+
+      val k = User::class                     // @note KClass，**不是** Java 的 Class
+      k.simpleName                            // @note "User"
+      k.memberProperties.map { it.name }      // @note [name, age]
+
+      val ctor = k.primaryConstructor!!
+      val u = ctor.call("Ada", 30)            // @note 按签名构造
+
+      // @note 与 Java 互转是显式的
+      val javaClass: Class<User> = User::class.java
+      val backToK: KClass<User> = javaClass.kotlin
+
+      // @note 可调用引用（不需要反射依赖）
+      val f: (Int) -> Int = ::double
+      val p = User::name                      // @note 属性引用
+    vs:
+      javascript: |
+        两边的反射都能拿到结构与调用成员，但**代价不同**：
+        JavaScript 的反射是运行时自带的（`Reflect`、`Object.keys`），
+        不用加任何东西；Kotlin 的反射要**额外引一个包**，
+        不加就是运行期缺类 —— 这个坑从那边过来很容易踩。
+        另一处是两者的保证强度：JavaScript 里什么都能读，
+        Kotlin 的反射读不到被擦除的泛型实参（见 generics 一格）。
+      python: |
+        Python 的反射（`getattr` / `inspect`）是语言自带的、随手可用；
+        Kotlin 的反射是一个**可选依赖**，因为反射会显著增大运行时体积 ——
+        这个取舍本身就说明了两个语言对它的定位不同：
+        一边是日常工具，一边是「不到万不得已不用」。
+        另一处是拿到的东西：Python 拿到的是活的对象与函数，
+        Kotlin 拿到的是 `KClass` 与 `KProperty` 这些描述对象。
+      java: |
+        两边用的是**同一套底层**（都跑在 JVM 上，反射最终落到 `java.lang.Class`），
+        但入口不同：Java 直接拿 `Class`，Kotlin 拿 `KClass`，
+        两者要显式互转（`.java` / `.kotlin`）。
+        另一处是**依赖**：Java 的反射在标准库里，
+        Kotlin 的 `KClass` 完整能力要额外引 `kotlin-reflect` ——
+        从 Java 过来时这一条最容易漏，报错是运行期缺类，不是编译期。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  decorator-annotation:
+    code: |
+      @Target(AnnotationTarget.FIELD, AnnotationTarget.PROPERTY)   // @note 能标在哪
+      @Retention(AnnotationRetention.RUNTIME)                       // @note 保留到运行期
+      annotation class Column(val name: String, val nullable: Boolean = false)
+
+      class User(
+        @Column("user_name") val name: String,
+        @Column("age", nullable = true) val age: Int?,
+      )
+
+      // @note! 注解参数**不能可空**，也不能是任意对象 —— 限于基本类型、字符串、
+      // @note! 枚举、KClass、别的注解，以及它们的数组
+      // @note! 一个属性会生成字段 / getter / setter / 构造参数好几个目标，
+      // @note! 注解放哪要写清楚：@field: / @get: / @param:
+      // @note! 不写 @Retention 时，**默认就是运行期可见**（比 Java 更开放）
+
+      // @note Kotlin 没有装饰器 —— 想在「调用前后加行为」得靠委托属性或高阶函数
+    vs:
+      javascript: |
+        两边都有「给声明挂元数据」这件事，但形式不同：
+        JavaScript 的装饰器是**可执行的函数**，能在定义时改写类或方法；
+        Kotlin 的注解只是**数据**，本身什么都不做，
+        要靠反射或代码生成去读它。
+        另一处是状态：那边的装饰器提案仍在新标准里推进，写法与语义都变过；
+        这边的注解是稳定的语言特性。
+      python: |
+        **这两个概念名字像、机制完全不同**：Python 的装饰器是函数，
+        在定义时真的把被装饰的对象换掉（`@decorator` 就是
+        `f = decorator(f)`）；Kotlin 的注解只是挂在声明上的数据，
+        要有人去读它才有作用。
+        想在 Kotlin 里做「调用前后加行为」得用别的手段
+        （委托属性、高阶函数、或者编译期代码生成），
+        不能指望注解自己生效。
+      java: |
+        语法几乎一样（`@interface` ↔ `annotation class`，`@Target` / `@Retention` 同名），
+        这一格两边最接近。差别在**默认值**：Java 的 `@Retention` 默认是
+        `CLASS`（存进 class 文件但运行期读不到，要显式写 `RUNTIME`）；
+        Kotlin 官方明说默认「两者都为真」，即默认就能被运行期反射读到 ——
+        所以从 Java 搬过来的注解，在 Kotlin 里不写 `@Retention` 反而更「可见」。
+        另一处是目标：Kotlin 一个属性会生成好几个 JVM 目标，
+        要用 `@field:` / `@get:` 这类前缀指定，Java 没有这个困扰。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  dynamic-eval:
+    absent: true
+    vs:
+      javascript: |
+        Kotlin **没有 `eval`** —— JVM 与 Native 上都不存在「把字符串当代码跑」
+        这个语言机制。真需要的话有一条绕路：接一个脚本引擎
+        （JSR-223 那套），把代码当脚本文件求值，但那是**另一个解释器**，
+        不是语言自己的能力，性能与作用域都与 `eval` 不是一回事。
+        所以那边一句 `eval(s)` 的事，在这边要引一整层依赖。
+      python: |
+        Kotlin **没有 `eval` / `exec`** 这样的东西，字符串不能直接当代码跑。
+        替代方案是接一个脚本引擎，或者在构建期生成代码 ——
+        两条路都比那边重得多。
+        这背后是一个取舍：能求值字符串意味着**任何一段输入都能变成代码**，
+        既是灵活性也是风险；编译型语言普遍不给这个口子。
+      java: |
+        Java 与 Kotlin 都**没有内建的 eval**，这一点一致 ——
+        两边都只能用 JSR-223 那样的脚本引擎去外面接一个解释器。
+        所以这一格从 Java 过来基本不需要改认知：
+        那边写不了的东西，这边同样写不了；
+        能用的替代路径（脚本引擎、编译期代码生成）也是同一套。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  proxy-interception:
+    code: |
+      // @note Kotlin 没有语言级的代理 —— JVM 上用的是 Java 那一套
+      import java.lang.reflect.Proxy
+
+      val proxy = Proxy.newProxyInstance(
+          loader,
+          arrayOf(Service::class.java),
+      ) { _, method, args ->
+        println("调用 ${method.name}")
+        null                                  // @note 返回值自己按方法约定给
+      }
+
+      // @note 语言层面用的是**委托**，但那是编译期生成转发方法，不是动态拦截
+      class LoggingService(private val inner: Service) : Service by inner
+
+      // @note 想在运行期给一个对象加行为，另一个办法是包装一层自己的实现
+      // @note 修饰器式的实现（比如给每个方法记日志）通常靠代码生成或库
+    vs:
+      javascript: |
+        两边的「拦截」位置不同：JavaScript 的 `Proxy` 是**语言机制**，
+        能拦下对任意对象的属性读写、函数调用、甚至 `in` 与删除；
+        Kotlin 在 JVM 上只能拦**接口方法的调用**（动态代理的固有限制），
+        普通类、字段访问都拦不到。
+        所以那边 `new Proxy(obj, handler)` 能做到的事，
+        这边往往要改设计或者用编译期生成。
+      python: |
+        两边都能拦截成员访问，但**能拦的面**不同：
+        Python 有 `__getattr__` / `__getattribute__`，
+        在类里写几个方法就能拦下所有属性访问（不只是方法）；
+        Kotlin 在 JVM 上的动态代理只对**接口的方法调用**有效，
+        字段与普通类不在范围内。
+        另一处是写法：Python 是写一个类，Kotlin 要传一个 handler 函数。
+      java: |
+        **这就是同一套机制**（都用 `java.lang.reflect.Proxy`），
+        连限制也一样：只能代理接口，不能代理普通类；
+        方法调用会被拦下，字段访问不会。
+        差别在语言里有没有更顺手的替代：Kotlin 有 `by` 委托，
+        能在**编译期**生成一整套转发方法（比动态代理快、也更可读）；
+        Java 那边要自己手写每一个转发方法。
+        所以「给一个对象套一层」这件事，两边的最优解不同。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

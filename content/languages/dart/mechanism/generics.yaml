@@ -1,0 +1,191 @@
+# dart —— mechanism / generics
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: generics` 的那批：
+# generic-declaration / generic-constraint / variance / type-erasure。
+#
+# 口径说明：**对 Java 读者来说这一组的两个轴恰好都是反的** ——
+# Java 的泛型是**不变 + 擦除**，Dart 的泛型是**协变 + 具体化**。
+# 两条都要正面写，因为「泛型不能这么赋值」与「运行期查不出实参」
+# 这两个从 Java 带来的直觉，在 Dart 里都不成立。
+# 协变的代价同样要写：`List<num> xs = <int>[1]; xs.add(1.5);` 编译通过、运行期抛错 ——
+# 这更像 Java 的**数组协变**，而不是它的泛型。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      class Box<T> {                         // @note 泛型类
+        final T value;
+        Box(this.value);
+      }
+
+      T firstOf<T>(List<T> list) => list[0];  // @note 泛型函数：类型参数写在函数名后
+
+      var b = Box('文本');                     // @note 推断为 Box<String>
+      var s = firstOf([1, 2]);                 // @note 推断出 int
+
+      class Pair2<A, B> {                    // @note 多个类型参数
+        final A a; final B b;
+        Pair2(this.a, this.b);
+      }
+
+      // @note 不给上界时默认是 `Object?`（**可空**）
+      // @note 写泛型集合时把类型写全，官方明说「生成的代码更好」
+    vs:
+      javascript: |
+        JavaScript 没有泛型 —— 容器里装什么全靠运行时自己判，
+        也没法在签名里表达「这个函数返回的元素类型与传入的一致」。
+        Dart 的 `<T>` 把这种关系写进类型，编译器替你盯着。
+        代价是写起来更长：每层容器、每个工具函数都要把类型参数带一遍，
+        而那边的同一段代码短得多、只是出错要晚一些。
+      python: |
+        Python 用 `TypeVar` 加 `Generic` 表达泛型，**只对类型检查器有意义**，
+        运行时不看；Dart 的 `<T>` 是编译器的一部分，写错直接编译不过。
+        另一处是**默认上界**：Python 的类型变量默认允许 `None`，
+        与 Dart 的 `Object?` 一致 —— 想要「非空」两边都得显式写。
+        顺带一提，Python 3.12 起支持 `class C[T]` 的写法，形态向 Dart 靠了。
+      java: |
+        两边的语法几乎一样（`<T>`、泛型类与泛型方法），这一格可以逐条对应。
+        差别要在**默认上界**与后面两格一起看：Java 的 `T` 默认是
+        `Object`、Dart 的默认是 `Object?`（可空），
+        所以 Dart 里想要求非空得显式写 `<T extends Object>`。
+        另一处是 `dynamic` 与 `Object?` 的分工 —— Dart 把它们分成
+        「关掉检查」与「最宽但仍受检查」两件事，Java 里只有 `Object` 一种。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  generic-constraint:
+    code: |
+      class Comparable2<T extends Comparable<T>> { }   // @note 上界用 extends
+
+      T maxOf<T extends Comparable<T>>(T a, T b) => a.compareTo(b) > 0 ? a : b;
+
+      // @note! Dart **只有上界（extends），没有下界（super）** ——
+      // @note! Java 的 `? super T` 在这里表达不出来，只能改用协变加运行期检查
+
+      // @note 想要求非空就写 extends Object
+      T idOf<T extends Object>(T v) => v;
+
+      // @note 递归式约束 `T extends Comparable<T>` 很常见：
+      // @note 「这个类型必须能与自己比较」
+    vs:
+      javascript: |
+        JavaScript 没有约束这一层，函数里对参数的假设只能靠文档或运行时判断。
+        Dart 的 `T extends Comparable<T>` 把「必须能比较」写进签名，
+        函数体里就敢直接调 `compareTo` —— 写错了是编译错误。
+        代价是约束会往上传：调用方要满足这个约束，
+        于是泛型参数一层层跟着走。
+      python: |
+        Python 用 `TypeVar('T', bound=Comparable)` 表达同样的意思，
+        但那只是给类型检查器的提示，运行期不强制；
+        Dart 的 `extends` 是编译器的硬要求。
+        另一处是**上界的默认值**：Python 的类型变量默认不设限（等同 `object`），
+        Dart 默认是 `Object?`（可空）—— 所以「我要求非空」这件事
+        两边都要显式写出来。
+      java: |
+        两边思路一样，写法也几乎一样（都是 `extends` 设上界，
+        也都能写 `T extends Comparable<T>` 这种递归约束），
+        这一格可以逐条对应。
+        差别在**下界**：Java 有 `? super T` 表达「接受某类型的父类型」，
+        Dart **完全没有**这个能力 —— 它只有上界。
+        所以 Java 里靠 `? super` 解决的「往容器里写」的场景，
+        在 Dart 里要么改用协变、要么把接口设计成接受更宽的类型。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  variance:
+    code: |
+      // @note! Dart 的泛型是**协变**的：类型参数怎么变，容器就怎么变
+      List<int> ints = [1, 2];
+      List<num> nums = ints;                 // @note 编译通过 —— 对 Java 读者最反直觉的一处
+
+      // @note! 代价：往里写不合法的东西要等到**运行期**才炸
+      // nums.add(1.5);                      // @note! 抛 TypeError
+      num x = nums[0];                       // @note 读出来是没问题的
+
+      // @note 所以「读」安全、「写」要当心；
+      // @note 要真正安全的只读视图用 List.unmodifiable 或者干脆别做这个赋值
+
+      // @note 定义类型时，可以显式让某个参数**不变** ——
+      // @note 那要写在类自己的类型参数上（用 `covariant` 是另一回事：
+      // @note 它是重写时收窄参数类型用的，会把静态错误推到运行期）
+    vs:
+      javascript: |
+        JavaScript 没有类型参数，所以「能不能把这个列表当那个列表用」
+        这个问题根本不存在 —— 没有元素类型，也就没有型变。
+        Dart 的协变是编译器为了好用而做的放宽：
+        它让 `List<int>` 能直接传给要 `List<num>` 的地方，
+        代价是往里写的时候要在运行期检查。这层代价在 JavaScript 里没有，
+        因为那边本来就没人检查。
+      python: |
+        Python 的类型检查器把列表当作**不变**的（`list[int]` 不是 `list[float]`），
+        所以 Dart 的协变会让从 Python 过来的人意外 ——
+        同一个赋值在那边的检查器眼里是错误，在 Dart 里合法。
+        另一处是**代价落在哪**：Python 那边写错只是检查器报错、运行照跑；
+        Dart 这边编译放过、运行期抛错。
+        两边都不是「编译期就杜绝」，但失败的时机与位置不同。
+      java: |
+        **这是与 Java 差别最大的一格，而且方向容易记反**：
+        Java 的泛型是**不变**的（`List<Integer>` 不是 `List<Number>`，编译不过），
+        Dart 是**协变**的（编译通过，写的时候运行期检查）。
+        也就是说 Dart 泛型更像 Java 的**数组**（数组在 Java 里恰恰是协变的，
+        会抛 `ArrayStoreException`），而不是 Java 的泛型。
+        要「不变」的效果，Java 那边是默认、Dart 这边得靠不写那个赋值来维持。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-erasure:
+    code: |
+      var list = <Object>[1, 'two'];
+
+      // @note! Dart 的泛型是**具体化（reified）**的 —— 运行期带着类型信息
+      print(list is List<Object>);           // true
+      print(list is List<int>);              // false —— 这个检查在 Dart 里真的能做
+      print(list.runtimeType);               // List<Object>
+
+      var onlyInts = <int>[1, 2];
+      print(onlyInts is List<int>);          // true
+      print(onlyInts is List<num>);          // true —— 协变的另一面
+
+      // @note 所以「按元素类型分支」写得出来
+      if (list is List<int>) { /* ... */ }
+
+      // @note! 换成 Java 那边，`x is List<String>` 这类检查根本写不出来
+    vs:
+      javascript: |
+        JavaScript 运行期只有对象本身，「这是个什么数组」无从问起 ——
+        没有类型参数，也就没有「实参是不是被擦掉」这个问题。
+        Dart 的泛型在运行期是**真的**：`is List<int>` 能返回正确结果，
+        所以「按元素类型走不同分支」这件事写得出来。
+        这一点比 JavaScript 能表达的多了不少。
+      python: |
+        两边在运行期**都能看到**泛型实参，但**看到的方式不同**：
+        Python 靠 `list[int].__args__` 去翻类型对象的属性，
+        而且那个 `list[int]` 只是一个可以用在标注里的对象，
+        不会对值产生任何约束；Dart 直接把实参带到值上，
+        `is` 检查会真的按它判断。
+        所以一个是「类型对象上有记录」，一个是「值本身带类型」。
+      java: |
+        **这一格与 Java 也正好相反**：Java 的泛型**擦除**，
+        运行期查不出实参（`x instanceof List<String>` 编译不过）；
+        Dart 的泛型**具体化**，运行期能查（`x is List<int>` 正常工作）。
+        所以 Java 里那句「泛型只在编译期存在」的经验，
+        在 Dart 里完全不适用 —— 这边运行时是真的会检查类型的，
+        这也正是协变能成立的前提（运行期知道该拦什么）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

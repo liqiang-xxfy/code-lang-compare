@@ -1,0 +1,231 @@
+# dart —— mechanism / concurrency
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: concurrency` 的那批：
+# concurrency-unit / shared-state / lock-mutex / channel / atomicity。
+#
+# 口径说明：这一组的全部结论都从**一条设计**推出来 ——
+# **isolate 之间没有共享内存**。所以 `lock-mutex` 与 `atomicity` 两格写
+# `absent: true`：不是「还没写」，是语言把问题从根上去掉了（官方原话是
+# 「没有共享状态意味着互斥锁、锁与数据竞争都不会发生」），
+# 三份 vs 里交代「那你们怎么办」——答案是消息传递 + 把状态关进一个 isolate。
+# 另外要写清两条平台边界：**`compute` 是 Flutter 的不是 SDK 的**，
+# 而且**web 上没有 isolate**（「Dart 有 isolate」与「Dart web 能并行」是两回事）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-concurrency-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  concurrency-unit:
+    code: |
+      import 'dart:isolate';
+
+      // @note 现代写法：跑一个计算、拿回结果
+      Future<int> heavy() => Isolate.run(() {
+        var sum = 0;
+        for (var i = 0; i < 1000000; i++) sum += i;
+        return sum;
+      });
+
+      // @note 长期存在的 worker 用 spawn，配一个接收端口
+      Future<void> worker() async {
+        final rp = ReceivePort();
+        await Isolate.spawn(entry, rp.sendPort);
+        await for (final msg in rp) { print(msg); }
+      }
+
+      void entry(SendPort reply) => reply.send('干完了');
+
+      // @note! 每个 isolate 有**自己的内存与自己 的事件循环** ——
+      // @note! 这是它与「线程」最根本的差别
+      // @note! `compute` 是 Flutter 提供的（纯 SDK 用 Isolate.run），
+      // @note! 而且在 web 上它只跑当前事件循环、**并不并行**
+      // @note! web 上根本没有 isolate —— 「Dart 有 isolate」与「Dart web 能并行」是两回事
+    vs:
+      javascript: |
+        两边的「并发单元」最像的地方是**都有一根主线程加事件循环**，
+        所以不阻塞主线程这件事两边都靠异步来做。
+        区别在于真要多干活时：JavaScript 只能用 Worker，
+        而 Dart 的 isolate 是语言内置的、API 更顺手
+        （`Isolate.run` 一行就够，不用自己写消息协议）。
+        另一处是**浏览器里没有 isolate** —— 编译到 web 的 Dart 与
+        JavaScript 的处境一样，只能靠 Worker 或干脆别做并行。
+      python: |
+        **默认的并发模型差得远**：Python 的 `asyncio` 是单线程协作式，
+        要真并行得用多进程（`multiprocessing`）；Dart 的 isolate
+        就是「轻量的独立执行单元」，而且默认就在同一个进程里。
+        与多进程相比，Dart 起一个 isolate 便宜得多（不用真的开进程），
+        但内存隔离这一点两者是一样的 —— 都要靠消息传数据。
+        所以从 Python 过来时，可以把 isolate 理解成「更便宜的进程」。
+      java: |
+        两边的并发单元是**两套完全不同的东西**：Java 的是线程，
+        **共享同一块堆**；Dart 的 isolate **各有各的堆**，
+        连全局变量都是各自一份。
+        所以 Java 里「开个线程改改共享变量」的写法在 Dart 里根本写不出来 ——
+        必须把数据传过去、把结果传回来。
+        代价是通信有拷贝开销，好处是**整整一类 bug 消失了**（见下一格）。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  shared-state:
+    code: |
+      // @note! isolate 之间**没有共享内存** —— 这是整组结论的来源
+      var counter = 0;                      // @note 这个变量每个 isolate 各有一份
+
+      // @note 想「共享」只有两条路：
+      // @note   1. 把数据**拷过去**（普通对象都行，不可变的还会被共享）
+      // @note   2. 把状态关进**一个** isolate，别人通过消息问它
+
+      // @note 结果就是：Dart 里**不会发生数据竞争** ——
+      // @note 官方原话是「没有共享状态意味着互斥锁、锁与数据竞争都不会发生」
+      // @note! 但有一处例外：native 代码（FFI）访问同一块内存时仍需自己协调
+
+      // @note 代价：既要传大数据、又不想拷贝时，得用 TransferableTypedData
+      // @note   或者干脆改变设计，让数据只在一个 isolate 里待着
+    vs:
+      javascript: |
+        两边的**默认处境几乎一样**：主线程单跑，Worker / isolate 内存隔离，
+        要共享就得走消息。所以从 JavaScript 过来时这一格几乎是平移 ——
+        「共享可变状态」这个坑在两边都不存在
+        （准确说，是在主线程里不会因为并行而出问题）。
+        差别在 API 的顺手程度：Dart 的 `Isolate.run` 让「跑个纯函数拿结果」
+        变得像一次普通调用，而 Worker 那边要自己搭消息协议。
+      python: |
+        **这一格两边差别很大**：Python 的多线程是共享内存的，
+        所以「加锁保护共享变量」是日常课题；Dart 的 isolate 内存隔离，
+        这件事从根上不存在。
+        但 Python 的 `asyncio` 下共享变量也不需要锁（协作式调度、
+        只在 `await` 处切换），所以「要不要担心竞态」在 Python 里
+        取决于你用哪套并发 —— 而 Dart 里不管用哪套都不用担心。
+        这一条从 Python 过来最容易想多。
+      java: |
+        **这是整个 mechanism 板块里两边差别最大的一格**：
+        Java 的并发建立在共享内存之上，所以「可见性、原子性、有序性」
+        三大问题全都存在，`synchronized`、`volatile`、原子类都是必需品；
+        Dart 把共享内存整个拿掉，这三类问题**一次性消失**。
+        代价是通信成本：Java 里传个引用就行，Dart 里要把对象图拷过去
+        （不可变的会被共享，其余的都拷）。
+        所以两边是在「共享 + 加锁」与「隔离 + 拷贝」之间选了不同的边。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  lock-mutex:
+    absent: true
+    vs:
+      javascript: |
+        Dart **没有互斥锁**这类工具 —— 因为 isolate 之间没有共享内存，
+        根本没有需要保护的东西。要「串行地改一份状态」，
+        做法是**把那份状态放进一个 isolate**，别人通过消息请求它改，
+        它的单线程事件循环天然保证了顺序。
+        所以在 JavaScript 里不存在的东西，在这边同样不存在，
+        但原因不一样：那边是没并行，这边是没共享。
+      python: |
+        Dart **没有锁**。Python 那边需要锁的场景有两种：
+        多线程共享变量（`threading.Lock`）、以及
+        `asyncio` 里保护跨 `await` 的临界区（`asyncio.Lock`）；
+        Dart 的 isolate 内存隔离，前者不存在，
+        而单个 isolate 内部又是单线程事件循环，后者也不存在。
+        要串行化就靠「把状态关进一个 isolate」这个设计手段。
+      java: |
+        Dart **没有 `synchronized`、没有 `ReentrantLock`、没有 `volatile`** ——
+        这不是「还没提供」，是共享内存被拿掉之后它们没有用武之地。
+        Java 里那一整套并发原语，前提都是「多根线程看得见同一块内存」；
+        Dart 取消了那个前提，也就一并取消了整套工具。
+        从 Java 过来时，需要重新建立的是**设计思路**：
+        不是「怎么保护这块内存」，而是「这块内存该归哪个 isolate」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  channel:
+    code: |
+      import 'dart:isolate';
+      import 'dart:typed_data';
+
+      final rp = ReceivePort();
+      final other = await Isolate.spawn(entry, rp.sendPort);
+
+      // @note 发送：异步，不阻塞；投递时机取决于对方的事件循环
+      rp.listen((msg) => print('收到 $msg'));
+
+      // @note 发出去的是什么：
+      // @note   不可变对象（字符串等）**被共享**
+      // @note   其余对象**被拷贝**（连同它引用到的整张图）
+      // @note   函数、闭包、栈信息也能发（2.15 起）
+      // @note! 但持有本地资源的对象发不了：Socket、ReceivePort、DynamicLibrary…
+
+      // @note 大块字节要不拷贝地搬过去，用 TransferableTypedData
+      final t = TransferableTypedData.fromList([Uint8List(1024)]);
+      rp.send(t);                            // @note 发出去是常数时间；本地那份作废
+
+      // @note 回信地址的惯用法：把 receivePort.sendPort 交给对方
+      rp.close();                            // @note 端口要自己关
+    vs:
+      javascript: |
+        两边的消息传递形状很像（`send` ↔ `postMessage`，
+        发出去的都是拷贝或结构化克隆），连「转移所有权」这件事都对应
+        （JavaScript 是 `postMessage` 的 transfer list 转移
+        ArrayBuffer，Dart 是 `TransferableTypedData`）。
+        差别在**能发什么**：Dart 能直接发函数与闭包（2.15 起），
+        也能发任意普通对象；JavaScript 那边受结构化克隆限制，
+        函数发不了、类实例会丢原型。
+        另一处是端口要自己关，JavaScript 那边靠 `close()` 或者 GC。
+      python: |
+        两边都是「跨隔离边界传消息」，但**传的东西差别很大**：
+        Python 的多进程要用 `pickle` 序列化，很多对象根本发不了
+        （打开的文件、lambda、本地类）；Dart 的 isolate 之间
+        能发普通对象、函数与闭包，只排除持有本地资源的那些。
+        所以 Dart 这边「把一段逻辑连同数据送过去」是可行的，
+        那边往往要重新设计。代价是 Dart 的拷贝是**传递式拷贝**，
+        对象图大时开销可观。
+      java: |
+        Java 那边跨线程根本不用「传」——共享引用就行，
+        所以没有「拷贝还是共享」这个选择；真要用队列
+        （`BlockingQueue`），放的也是引用，而且 `put` / `take`
+        会**阻塞线程**。
+        Dart 的 `SendPort.send` 不阻塞、而且是拷贝，
+        于是「传大对象」变成一笔看得见的开销，
+        这也逼着人把状态设计得更靠近使用方。
+        两种模型各有一个要防的东西：那边防竞态，这边防拷贝量。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  atomicity:
+    absent: true
+    vs:
+      javascript: |
+        Dart **没有原子类型** —— 没有共享内存，也就没有「读-改-写
+        被打断」这件事。单个 isolate 内部是单线程事件循环，
+        一段同步代码不会被从中间切开。
+        所以在 JavaScript 里派不上用场的东西，在这边同样派不上用场，
+        而且理由相同：都没有真并行。
+      python: |
+        Dart **没有原子类型**。Python 那边需要它是因为多线程共享内存，
+        而 `asyncio` 下的共享变量本来就不需要保护 ——
+        Dart 的处境与后者一致，并且是**语言层面保证**的，
+        不取决于你选了哪套并发。
+        所以从 Python 过来，「这里要不要加个原子操作」这个问题
+        在 Dart 里可以直接划掉。
+      java: |
+        Dart **没有 `AtomicInteger` 这一类东西**，也没有 `volatile`。
+        Java 的原子类型是为共享内存准备的，而 Dart 的 isolate 各有各的堆 ——
+        原子性这个概念失去了对象。
+        要从 Java 过来，需要换的不只是工具，还有**思路**：
+        Java 里「用原子类替代锁」是一种优化技巧，
+        在 Dart 里这个问题压根不存在，取而代之的是
+        「哪些数据该放在同一个 isolate 里」这个设计问题。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

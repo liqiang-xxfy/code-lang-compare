@@ -1,0 +1,195 @@
+# kotlin —— mechanism / memory
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: memory` 的那批：
+# value-vs-reference / garbage-collection / ownership-borrow / lifetime / weak-reference。
+#
+# 口径说明：`ownership-borrow` 与 `lifetime` 都写 `absent: true`（Kotlin 没有
+# 所有权系统、也没有生命周期标注），三份 vs 里交代「那你们怎么管资源」——
+# 答案是 `.use { }` 加 `Closeable`。这与 TypeScript 那两格的写法一致。
+# 另一条要写准的是**装箱**：非空数值在 JVM 上通常用原语，
+# 但**泛型里与可空数值（`Int?`）会装箱**，而且缓存只覆盖 -128..127 ——
+# 这正是 `===` 在两处给出不同结果的原因（express/operators 已铺垫过）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  value-vs-reference:
+    code: |
+      data class Point(val x: Int)
+
+      val a = Point(1)
+      val b = a                       // @note 传的是引用，a 与 b 指向同一个对象
+      println(a === b)                // true
+
+      var n = 1
+      var m = n                       // @note 数值是原语，复制的是值
+      m = 2
+      println(n)                      // 1 —— 改 m 不影响 n
+
+      // @note! 但装箱会改变观察结果：可空数值与泛型里的数值都是对象
+      val p: Int? = 1000
+      val q: Int? = 1000
+      println(p === q)                // false —— 超出缓存范围
+      val r: Int? = 100
+      val s: Int? = 100
+      println(r === s)                // true —— 只是恰好在缓存里（-128..127）
+
+      val boxed: List<Int> = listOf(1)   // @note 集合元素是装箱过的对象
+    vs:
+      javascript: |
+        两边都是「对象传引用、原始值传副本」，但**哪些算原始值不同**：
+        JavaScript 里数字与字符串是原始值，复制时互不影响；
+        Kotlin 里一切皆对象，只是非空数值**在 JVM 上通常优化成原语**——
+        所以 `Int` 看起来像值语义，但一旦变成可空（`Int?`）或进了集合，
+        它就退化成对象，`===` 的结果也跟着变。
+        所以「这个变量到底是值还是引用」在 Kotlin 里要看它有没有被装箱。
+      python: |
+        两边都是「一切皆对象、变量持引用」，这一点一致。
+        差别在**数值有没有被优化掉**：Python 的整数永远是对象，
+        访问它们要走一层指针，也不存在「原语」这一档；
+        Kotlin 的 `Int` 在 JVM 上通常就是 4 个字节，只有当它可空或进了泛型
+        才会装箱 —— 所以同一段代码在这边可能有一层看不见的开销，
+        而那边所有数值都一视同仁。
+      java: |
+        两边是**同一套 JVM 语义**（原始类型 + 装箱类型、同一份整数缓存），
+        可以逐条对应，连 `-128..127` 这个范围都一样。
+        差别只在**表面**：Java 要显式区分 `int` 与 `Integer`，
+        Kotlin 统一写 `Int`，由编译器按「可不可空、进不进泛型」自动决定装箱 ——
+        读代码时看不出哪处有装箱，得记住规则。
+        好处是写法统一，代价是那层开销比 Java 更隐蔽。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  garbage-collection:
+    code: |
+      // @note Kotlin 自己没有 GC —— 它跑在 JVM 上，用的是 JVM 的 GC
+      var list: MutableList<String>? = mutableListOf("a")
+      list = null                     // @note 没有引用指向它了，等 GC 回收
+      // @note 语言层面**没有任何**方法强制回收 —— System.gc() 也只是「建议」
+
+      // @note 常见的一批：可达性分析、分代（年轻代 / 老年代）、
+      // @note   标记-清除 / 标记-整理 / 复制算法，以及各种并发收集器
+      // @note 具体用哪个由 JVM 版本与启动参数决定，与语言无关
+    vs:
+      javascript: |
+        两边都由运行时负责回收，应用代码都不介入 —— 这一层很像。
+        差别在**能观察到的东西**：JavaScript 的引擎会在控制台暴露
+        内存快照之类的工具，Kotlin 这边要接 JVM 的那一整套工具
+        （堆转储、GC 日志、启动参数），门槛高一些、能调的东西也多得多。
+        共同点是两边都**不能**强制回收，只能等。
+      python: |
+        **回收机制根本不同**：Python 靠引用计数加一个循环回收器，
+        所以对象在最后一个引用消失时**立刻**被回收（`__del__` 马上跑）；
+        Kotlin 用的是追踪式 GC，对象什么时候被收走完全不确定 ——
+        所以那边能靠「离开作用域就释放」，这边只能等。
+        这也是为什么 Dart 那边也没有析构器：追踪式 GC 里它没有意义。
+      java: |
+        两边就是**同一个 GC**（Kotlin 编译到 JVM 上），
+        连调优参数、收集器、堆转储工具都通用，这一格没有实质差别。
+        唯一要澄清的是措辞：`System.gc()` 在 Java 与 Kotlin 里
+        都只是**建议**，不保证做任何事，更不保证做一次完整回收。
+        所以这一格两边可以完全对齐，差别只在代码写法上。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: identical
+
+  ownership-borrow:
+    absent: true
+    vs:
+      javascript: |
+        Kotlin **没有所有权与借用这套东西** —— 没有 `move`、
+        没有借用检查、也没有「值被谁拥有」这个概念。
+        需要清理的资源（文件、流、连接）靠 `AutoCloseable` 加 `.use { }`
+        保证关闭，其余内存交给 GC。
+        所以「这段代码能不能编译」与「它会不会漏资源」在这边是两件独立的事。
+      python: |
+        Kotlin **没有所有权系统**，与 Python 一样靠 GC 管内存；
+        但「用完就关」这件事两边的手段不同：
+        Python 有 `with` 语句加上下文管理器协议，
+        Kotlin 有 `.use { }` 加 `Closeable` —— 都是把「必然关闭」
+        绑在一个语法结构上，都是靠自觉用。
+        共同点是都不用关心内存本身，只管那些 GC 管不了的资源。
+      java: |
+        Java 与 Kotlin 都**没有所有权概念**，这一格两边一致。
+        差别只在表达方式：Java 用 try-with-resources，
+        Kotlin 用标准库的 `.use { }` 扩展函数。
+        两者保证的强度相同 —— 只要用了就一定关，
+        但**用不用**没有编译器强制，忘了写不会有任何提示。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  lifetime:
+    absent: true
+    vs:
+      javascript: |
+        Kotlin **没有生命周期标注** —— 值活多久由 GC 决定，
+        语言层面写不出「这个引用最多活多久」。
+        对象的存活期取决于还有没有引用指向它，是一个运行期事实。
+        这一点与 JavaScript 的处境相同：两边都只能靠「别再引用它了」
+        来间接表达，而不是声明出来。
+      python: |
+        Kotlin **没有生命周期标注**，值活到不可达为止。
+        与 Python 的差别在**什么时候算不可达**：Python 靠引用计数，
+        所以「最后一个引用消失」那一刻就定了；
+        Kotlin 靠追踪式回收，只能保证「不可达之后某个时刻」被回收。
+        所以那边能依赖「离开作用域即释放」，这边不能。
+      java: |
+        Java 与 Kotlin 都**没有生命周期标注**，这也是同一套 JVM 语义，
+        这一格两边没有差别。局部变量的作用域是编译期概念，
+        与对象的实际存活期无关 —— 一个已经出了作用域的变量，
+        它指向的对象可能还活得好好的（被别的引用拿着）。
+        这一点 Java 读者本来就熟，从 Java 过来不需要改直觉。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: identical
+
+  weak-reference:
+    code: |
+      // @note Kotlin 自己没有弱引用类型 —— 用的是 JVM 提供的那一套
+      import java.lang.ref.WeakReference
+
+      val strong = mutableListOf("大对象")
+      val weak = WeakReference(strong)      // @note 不阻止被回收
+
+      println(weak.get())                   // @note 还活着时能拿到
+      // 一旦没有强引用指向它，随时可能变成 null —— 不能保证什么时候
+
+      // @note 还有 SoftReference（内存紧张时才收）与 PhantomReference（回收后通知）
+      // @note 常见用途：缓存、监听器注册表（避免持有方反过来把监听者钉住）
+    vs:
+      javascript: |
+        两边都有弱引用，用途也一样（缓存、避免循环持有）。
+        差别在**可用的粒度**：JavaScript 有 `WeakRef` 与 `WeakMap`，
+        后者能把「键被回收就自动删条目」这件事做成一个开箱即用的容器；
+        Kotlin 这边只有单个弱引用，想做弱键的映射得自己组合，
+        或者去用现成的库（JVM 上有 `WeakHashMap`）。
+      python: |
+        两边的弱引用机制很像：都有一个包装对象，`get()` 拿不到时给空，
+        回收时机都不保证。差别在**容器支持**：
+        Python 有 `WeakKeyDictionary` / `WeakValueDictionary`
+        直接可用的弱键/弱值字典；Kotlin 这边要自己拿
+        JVM 的 `WeakHashMap` 或者包一层。
+        另一处是 Python 的弱引用对某些内建类型不生效（没有 `__weakref__`），
+        JVM 那边没有这类限制。
+      java: |
+        两边**用的是同一套**（`java.lang.ref.WeakReference` 等），
+        这一格基本可以逐条对应，连「什么时候被清不保证」这条语义都一样。
+        差别只在语言表面：Kotlin 要 `import java.lang.ref.WeakReference`，
+        用起来与 Java 一样；本身没有提供更顺手的包装。
+        所以从 Java 过来时这一格不需要重新学，直接沿用即可。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: identical

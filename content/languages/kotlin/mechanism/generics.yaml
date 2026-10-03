@@ -1,0 +1,188 @@
+# kotlin —— mechanism / generics
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: generics` 的那批：
+# generic-declaration / generic-constraint / variance / type-erasure。
+#
+# 口径说明：variance 一格是整组对 Java 读者最重要的一格 ——
+# **Kotlin 把型变写在声明处（`out` / `in`），Java 写在使用的每一处（`? extends`）**。
+# 注意别把 `out` / `in` 写成「等价于通配符」：它们只需要在需要时才在使用处投影。
+# 另一条同样重要：`<T>` 的**默认上界是 `Any?`（可空）**，Java 的 `T` 默认是非空的 `Object`。
+# type-erasure 则要讲清「JVM 上确实擦除」与「`reified` 靠内联绕开」这一对。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      class Box<T>(val value: T)                   // @note 泛型类
+      fun <T> firstOf(list: List<T>): T = list[0]  // @note 泛型函数：类型参数写在 fun 之后
+
+      val b = Box("文本")                           // @note 推断为 Box<String>
+      val n: Int = firstOf(listOf(1, 2))           // @note 也能显式指定：firstOf<Int>(...)
+
+      // @note 类型参数可以有多个
+      class Pair2<A, B>(val a: A, val b: B)
+
+      // @note! `<T>` 的默认上界是 `Any?`（**可空**）—— 与 Java 的 T 默认非空不同
+      fun <T> show(v: T) = println(v ?: "空")       // @note 这里必须处理 null，否则编译不过
+    vs:
+      javascript: |
+        JavaScript 没有泛型 —— 函数收什么都能塞，类型全靠运行时自己判。
+        Kotlin 的 `<T>` 让「同一个实现、多种元素类型」有了静态保证；
+        代价是签名变长，而且类型参数会传染 —— 一个泛型函数里调用别的函数，
+        往往要把 `T` 一路传下去。JavaScript 那边没有这一层，
+        写起来确实短，但「传错了类型」这件事只能等运行时某个属性访问失败。
+      python: |
+        Python 用 `TypeVar` 加 `Generic` 表达泛型，只对类型检查器有意义、
+        运行时不看；Kotlin 的 `<T>` 是编译器的一部分，写错直接编译不过。
+        另一处是**默认上界**：Python 的类型变量默认能是 `None`，
+        与 Kotlin 的 `Any?` 一致；但两边都不能靠这个在运行期查出实参类型。
+        派生关系也不同：Python 3.12 起能写 `class C[T]`，形态向 Kotlin 靠了。
+      java: |
+        两边的语法几乎一样（`<T>`、泛型类与泛型方法），这一格可以逐条对应。
+        差别在**默认上界**：Java 的 `T` 默认是 `Object`（**非空**含义），
+        Kotlin 的默认是 `Any?`（**可空**）—— 所以 Kotlin 的泛型函数里
+        想用 `T` 当非空值要显式写 `<T : Any>`，这一条从 Java 过来最容易漏。
+        另一处是 `Any` 与 `Object` 本身也不等价：`Any` 非空，
+        与 Java 的 `Object` 对应的是 `Any?`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  generic-constraint:
+    code: |
+      fun <T : Comparable<T>> max2(a: T, b: T) = if (a > b) a else b   // @note 单个上界写在冒号后
+
+      // @note 多个上界用 where 子句（Java 用 & 连写）
+      fun <T> render(item: T): String
+          where T : CharSequence, T : Comparable<T> = item.toString()
+
+      // @note 想要求「非空」，上界写 `Any`
+      fun <T : Any> idOf(v: T): Int = v.hashCode()
+
+      // @note 不给上界时默认是 Any?（可空）
+      fun <T> sizeOf(v: T) = if (v == null) 0 else 1
+
+      // @note 递归式约束：T 要能与自己比较，这是最常见的写法
+    vs:
+      javascript: |
+        JavaScript 没有约束这一层，函数里需要对参数做的假设
+        只能靠文档或者运行时判断。Kotlin 的 `<T : Comparable<T>>`
+        把「这个类型必须能比较」写进签名，函数体里就敢直接用 `>` ——
+        写错了是编译错误，不是运行时才发现。
+        代价是签名变长，而且有时候为了满足约束要层层加泛型参数。
+      python: |
+        Python 用 `TypeVar('T', bound=Comparable)` 表达同样的约束，
+        但那只是给类型检查器的提示；Kotlin 的约束是编译器的硬要求。
+        另一处是**多个约束**：Kotlin 用 `where` 子句一个个列，
+        Python 在 3.13 起能用 `TypeVar(bound=A & B)` 那种写法，
+        两边表达力接近，写法不同。共同点是都没法在运行期验证约束。
+      java: |
+        两边的约束思路一样，但**写法不同**：Java 把多个上界用 `&` 连起来写在
+        尖括号里（`<T extends A & B>`），Kotlin 单个上界与 Java 一样写在冒号后，
+        多个就必须换成 `where` 子句。
+        另一处是默认上界（见上一格）：Java 的 `T` 默认非空，
+        Kotlin 的默认可空，所以「我要求非空」这件事在 Kotlin 里
+        要显式写 `<T : Any>`，而在 Java 里是默认的。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  variance:
+    code: |
+      // @note Kotlin 把型变写在**声明处**：只出不进写 out，只进不出写 in
+      interface Producer<out T> { fun get(): T }          // @note 协变
+      interface Consumer<in T> { fun put(item: T) }        // @note 逆变
+
+      val ps: Producer<Any> = object : Producer<String> {   // @note 合法：协变
+        override fun get() = "文本"
+      }
+
+      // @note 标准库的只读集合就是协变的、可变集合不变
+      val dogs: List<Dog> = listOf(Dog())
+      val animals: List<Animal> = dogs                      // @note 合法
+      // val bad: MutableList<Animal> = mutableListOf<Dog>()  // @note! 不变，编译不过
+
+      // @note 需要时才在**使用处**投影，表达「我只要读」
+      fun sumAll(xs: List<out Number>) = xs.sumOf { it.toDouble() }
+      fun fill(xs: MutableList<in Int>) { xs.add(1) }
+
+      // @note 星投影：不知道实参是什么，但仍要安全
+      fun sizeOf(xs: List<*>) = xs.size                     // @note List<out Any?>
+    vs:
+      javascript: |
+        JavaScript 没有类型参数，也就谈不上型变 —— 数组里塞什么、
+        传到哪里都没有约束。Kotlin 的 `out` / `in` 是编译器用来判断
+        「这个赋值合不合法」的规则，属于纯静态的一层。
+        唯一能对应的直觉是：`List<Dog>` 能不能当 `List<Animal>` 用，
+        在 JavaScript 里这个问题不存在，因为那里根本没有「元素的类型」。
+      python: |
+        Python 的类型检查器也有协变与逆变的概念（只读容器协变、
+        可变容器不变），规则与 Kotlin 一致，但**写法与强制力不同**：
+        Python 那边是工具在检查，写错了运行照跑；
+        Kotlin 把型变写成声明的一部分（`out` / `in`），
+        编译器逐处检查，绕不过去。
+        另一处是 Python 有 `Protocol` 可以做结构化匹配，
+        Kotlin 只能靠声明处的标记。
+      java: |
+        **这是两个语言差别最大的一格**。Java 把型变写在
+        **使用的每一处**（`List<? extends Number>`、`? super T`），
+        所以同一个类型在每次使用时都要重新声明意图；
+        Kotlin 把它写在**声明处**（`out` / `in` 一次定死），
+        使用时通常什么都不用写。
+        代价是 Kotlin 的型变约束更硬：一个类型参数如果既出现在
+        参数位置又出现在返回位置，就不能标 `out` 或 `in`，
+        只能在使用处投影。Java 那边反而是「哪里需要哪里写」，更灵活也更啰嗦。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  type-erasure:
+    code: |
+      val list: List<Any> = listOf(1, "two")
+      // val strs = list as List<String>   // @note! 编译只给警告，运行期查不出元素类型
+      // if (list is List<String>) { }     // @note! 编译错误：泛型实参被擦除
+
+      if (list is List<*>) { }              // @note 星投影可以查 —— 只能知道「是个列表」
+
+      // @note 想在运行期拿到实参类型，要 reified + inline
+      inline fun <reified T> isTypeOf(v: Any) = v is T
+      isTypeOf<String>("文本")               // @note true —— 内联后 T 变成真的类型
+      inline fun <reified T> typeName() = T::class.simpleName
+
+      // @note! 非 inline 的函数不能有 reified 参数；
+      // @note! 想「按类型取用」也可以显式传一个 Class<T> 进去
+    vs:
+      javascript: |
+        JavaScript 没有类型参数这回事，运行期能拿到的只有对象本身，
+        「你期望它是什么」全靠调用方自己保证。Kotlin 的擦除意味着
+        运行期也拿不到泛型实参 —— 这一点与 JavaScript 的处境相似，
+        但方向相反：一边是本来就没有，一边是有过又擦掉了。
+        两边都有「查不了」的后果，只是成因不同。
+      python: |
+        Python 的泛型在**运行期**是有的：`list[int]` 的 `__args__`
+        能取到 `(int,)`（虽然运行时不强制）。
+        Kotlin 在 JVM 上把实参擦掉了，`list is List<String>` 直接编译不过 ——
+        所以「运行期查泛型」这件事两边相反：一边能查但不强制，
+        一边既不能查也不强制。
+      java: |
+        两边**同样是擦除**，`is List<String>` 这类检查在 Java 里也做不了，
+        这是同一套 JVM 语义，可以逐条对应。
+        差别在**绕开的办法**：Java 想拿到实参类型只能显式传一个
+        `Class<T>` 参数，或者用反射去读父类的泛型签名；
+        Kotlin 多一条语言级的路 —— 把函数标成 `inline` 并给类型参数加
+        `reified`，编译器在内联处把 `T` 换成真实类型。
+        代价是只能用在 `inline` 函数上，且它们不能持有私有成员。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
