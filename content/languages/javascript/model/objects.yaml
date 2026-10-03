@@ -1,0 +1,196 @@
+# javascript —— model / objects
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: objects` 的那批：
+# class-declaration / constructor / fields-and-properties / methods-and-receiver /
+# inheritance / access-control。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-objects-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  class-declaration:
+    code: |
+      class User {                    // @note class 语法（ES2015+）
+        greet() { return "hi"; }
+      }
+
+      const u = { name: "Ada" };      // @note! 对象字面量也是「对象」，但不是类实例
+      Object.getPrototypeOf(u);       // @note 每个对象都有一条原型链
+
+      function Legacy() {}            // @note class 只是构造函数的语法糖
+      new Legacy() instanceof Legacy; // @note true
+
+      // @note! 没有「类就是类型」这回事 —— 运行时只有对象与原型链
+    baseline: |
+      `class` 是**语法糖**：背后还是「构造函数 + `prototype` 属性」那一套。
+      但 JavaScript 里对象不必来自类 —— 字面量 `{}` 造出来的也是对象，
+      只是它直接挂在 `Object.prototype` 上。运行时没有「类」这个实体，
+      只有对象与原型链，`class` 是写给人看的组织方式。
+    vs:
+      python: |
+        Python 的 class 是运行时的实体（类也是对象，能反射、能动态创建），
+        而且实例属性与类属性有明确分工；JavaScript 的原型链承担了类似的角色
+        但语义不同 ——「类」在这里不是一等对象。
+      java: |
+        Java 的类是**类型**：编译期就存在，`new` 出来的东西类型固定，
+        类与类是继承关系。JavaScript 的类只是语法糖，类型约束要靠
+        TypeScript 那样的外部工具，运行时不检查。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  constructor:
+    code: |
+      class User {
+        constructor(name) {
+          this.name = name;           // @note 必须显式赋值，没有字段声明也行
+        }
+        static from(o) { return new User(o.name); }   // @note 静态工厂
+      }
+
+      // @note! 只能有一个 constructor —— 没有重载
+      // @note 忘了 new 直接调用 class 会抛 TypeError（普通函数则不会）
+      // @note 继承时 super() 必须在访问 this 之前调用
+    baseline: |
+      构造函数只能有一个，**没有重载** —— 想做多种构造方式就写静态工厂方法
+      （`User.from(...)`）。`class` 不能当普通函数调用（忘了 `new` 直接抛错，
+      这一点比旧的构造函数安全）。子类里 `super()` 必须先调用，之后才能碰 `this`。
+    vs:
+      python: |
+        Python 的 `__init__` 不是构造函数（对象已经造好了），只是初始化钩子 ——
+        所以「返回别的类型」这种事只能靠 `__new__`。这里没有这个区分，
+        `constructor` 就是唯一入口。
+      java: |
+        Java 的构造函数**可以重载**（同名不同参数表），还有 `this(...)` 串到
+        另一个构造函数；这里只有一个 constructor，多种构造要靠静态工厂。
+        两边都要注意初始化顺序，只是表达手段不同。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  fields-and-properties:
+    code: |
+      class User {
+        name = "匿名";                 // @note 实例字段（每个实例一份）
+        static count = 0;              // @note 静态字段（挂在类上）
+
+        #secret = 1;                   // @note 真私有字段
+
+        get display() { return this.name.toUpperCase(); }   // @note getter
+        set display(v) { this.name = v.trim(); }            // @note setter
+      }
+
+      const u = new User();
+      u.display;                       // @note 像属性一样读，实际调了 getter
+      "name" in u;                     // @note! 继承来的属性也为真
+      Object.hasOwn(u, "name");        // @note 只看自己的
+    baseline: |
+      字段可以直接在类体里写（每个实例一份），`static` 的挂在类上。**没有访问修饰符**
+      —— 但可以用 `#` 声明真私有字段。getter / setter 用 `get` / `set` 定义，
+      访问时像普通属性，所以「读一个属性」背后可能跑了一段代码，这一点从调用点看不出来。
+    vs:
+      python: |
+        两边都能定义「看起来像属性、实际是方法」的东西（Python 是 `@property`，
+        这里是 `get` / `set`）。差别在字段归属：Python 的类属性与实例属性
+        共用同一套查找规则（先找实例再找类），这里的实例字段与原型上的属性
+        也是同一条链 —— 两边的「这个属性从哪来」都要靠查。
+      java: |
+        Java **没有属性（property）**这种东西：字段就是字段、方法就是方法，
+        想对外只暴露 getter 就写成方法 `getName()`，调用点必须带括号。
+        这里可以写 `obj.name` 而背后跑的是 getter，调用点看不出区别。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  methods-and-receiver:
+    code: |
+      const obj = {
+        name: "Ada",
+        greet() { return this.name; },
+      };
+      obj.greet();                     // @note "Ada"
+      const ref = obj.greet;
+      ref();                           // @note! TypeError —— this 丢了
+
+      class Counter {
+        n = 0;
+        bump = () => { this.n++; };    // @note! 箭头函数字段：this 绑定在实例上
+      }
+    baseline: |
+      **`this` 由调用方式决定**，不由定义位置决定：`obj.greet()` 里 `this` 是 `obj`，
+      但把方法取出来单独调用（`const f = obj.greet; f()`）`this` 就丢了 ——
+      这是它最需要心防的一处。常见的规避是箭头函数字段（绑定死在实例上）
+      或在构造函数里 `bind`。
+    vs:
+      python: |
+        Python 的 `self` 是**显式参数**：`obj.method` 取出来时已经绑定好实例，
+        单独调用完全正常。这里 `this` 靠调用方式决定，所以「方法当回调传出去」
+        是必须处理的风险点。
+      java: |
+        Java 的 `this` 恒等于当前实例，方法取出来当回调传出去也不会变。
+        三家里只有 JavaScript 的 `this` 是动态的 —— 这也是它被箭头函数
+        部分修补掉的原因。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  inheritance:
+    code: |
+      class Animal { speak() { return "..."; } }
+      class Dog extends Animal {
+        speak() { return super.speak() + " 汪"; }   // @note super 调用父类方法
+      }
+
+      Object.getPrototypeOf(Dog.prototype) === Animal.prototype;   // @note 原型链
+      // @note! 只支持单继承 —— 想复用多份行为要靠 mixin 或组合
+    baseline: |
+      **单继承**（`extends` 只能跟一个），实现方式是原型链 ——
+      `super` 用来调父类的方法。想要多份行为复用，惯用做法是把行为写成函数
+      再混进原型（mixin），或者干脆用组合而不是继承。
+    vs:
+      python: |
+        Python 支持**多继承**，并且用 MRO（方法解析顺序）定义了「菱形继承时
+        先找谁」。这里只能单继承，「同时具备两种能力」要靠混入或组合。
+      java: |
+        Java 的类只能单继承，但**可以实现多个接口**，而接口带默认方法之后
+        也能提供实现 —— 所以「多份能力」在 Java 里有正规的语法通道。
+        这里连接口这个概念都得自己模拟。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  access-control:
+    code: |
+      class Account {
+        #balance = 0;                  // @note! # 是**真私有**：外部根本访问不到
+        _internal = 1;                 // @note 下划线只是约定，谁都能读
+
+        deposit(n) { this.#balance += n; }
+        get balance() { return this.#balance; }
+      }
+
+      const a = new Account();
+      a.#balance;                      // @note! 语法错误：私有名字在类外不可见
+      a._internal;                     // @note 完全合法 —— 只是「说好了别碰」
+    baseline: |
+      两套并存：**`#` 是真私有**（类外访问是语法错误、运行时不暴露、也不能被反射拿到）
+      与**下划线约定**（谁都能访问，只是「说好了别碰」）。`#` 是这几年才补上的，
+      老代码里到处是下划线。所以判断一个字段能不能碰，要看它有没有 `#`，
+      而不是看有没有下划线。
+    vs:
+      python: |
+        Python 只有约定：单下划线表示内部、双下划线会触发名称改写
+        （`__x` 变成 `_类名__x`，用来避开子类的意外覆盖），但**都能访问**。
+        这里多了一档由引擎保证的真私有。
+      java: |
+        Java 的 `private` 由编译器强制 —— 与这里的 `#` 是同一档强度。
+        差别在覆盖面：Java 的每个成员都要选一个可见性，这里默认全公开、
+        只有写了 `#` 的才私有，默认值正好相反。
+    equivalence:
+      python: divergent
+      java: analogous
