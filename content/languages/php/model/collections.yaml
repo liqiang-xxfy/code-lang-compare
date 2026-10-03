@@ -1,0 +1,393 @@
+# php —— model / collections
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: collections` 的那批：
+# list-array / map-dict / set / tuple-record / collection-mutability / slicing。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 与 express/containers 的分工：那里讲「是什么、怎么用」，
+# 这里讲「增删代价、有没有独立的集合类型、改一份谁看得见」。
+# **不要重复那边已经写过的内容**（数组即映射、键的转换、`+` 并集那几条在那边）。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+# 其中增删代价那组数字是实测：20 万次尾部追加 0.003 秒，
+# 同样次数的头部插入 78 秒 —— 差约 **2.9 万倍**。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  list-array:
+    code: |
+      // @note 往尾部加是常数摊还；往**头部**插是 O(n) —— 要把整个数组挪一遍
+      $a = [];
+      for ($i = 0; $i < 200000; $i++) { $a[] = $i; }        // @note 0.003 秒（实测）
+      $b = [];
+      for ($i = 0; $i < 200000; $i++) { array_unshift($b, $i); }  // @note! 78 秒（实测）
+      // @note 差约 2.9 万倍。要做队列请用 SplQueue，或者反过来 push + 反向读
+
+      // @note 删元素用 unset —— 它**留下洞**，不重排
+      $c = [1, 2, 3];
+      unset($c[1]);                   // @note 现在是 [0=>1, 2=>3]
+      array_is_list($c);              // @note false —— 已经不是「列表」了
+      $c = array_values($c);          // @note 想重排成列表，要显式做
+
+      // @note `array_pop` / `array_push` 是尾部操作（快）
+      // @note `array_shift` / `array_unshift` 是头部操作（慢，O(n)）
+
+      // @note! 语言里**没有定长数组类型** —— 数组永远可增可减
+      // @note SPL 里有一个：SplFixedArray（定长，越界抛异常，省内存）
+      $f = new SplFixedArray(3);
+      $f[0] = "a";
+      // $f[5] = "x";                 // @note! OutOfBoundsException
+
+      // @note 计数用 count()（sizeof 是完全等价的别名）
+    vs:
+      javascript: |
+        两边都是「可增可减的动态数组」，都有尾部快、头部慢的特点
+        （JavaScript 的 `unshift` 同样是 O(n)）。所以这一格能对应的部分不少。
+        差别在**「洞」**：JavaScript 的 `delete arr[1]` 会留 `undefined` 空位，
+        数组长度不变；PHP 的 `unset($c[1])` 是**真的把那个键去掉**，
+        `count` 少一个，但剩下的键不重排 —— 于是「这是个列表吗」
+        成了一个需要问的问题（PHP 8.1 给了 `array_is_list()`）。
+        另一处是定长数组：JavaScript 的 `length` 可以写、可以截断，
+        PHP 完全没有这个概念，要定长得用 SPL 的 `SplFixedArray`。
+      python: |
+        **增删代价这一格两边很不一样**。Python 的 `list` 在尾部
+        `append` / `pop` 是 O(1)，在头部 `insert(0, x)` / `pop(0)`
+        同样是 O(n) —— 这一点与 PHP 一致；但如果要队列，
+        Python 有 `collections.deque`（两端都 O(1)），
+        PHP 的标准库里对应的只有 SPL 的 `SplQueue`（基于双向链表）。
+        另一处是「删了会不会留洞」：Python 的 `del lst[1]` **会把后面往前挪**，
+        列表始终是连续的；PHP 的 `unset` 留洞、要自己 `array_values` 重排 ——
+        这是从 Python 过来最容易忽略的一处，因为 `foreach` 照样能跑、
+        只是键不对了。
+      java: |
+        两边的增删代价模型一致：`ArrayList` 尾部追加摊还 O(1)、
+        中间/头部插入 O(n)，`LinkedList` 反过来 ——
+        也就是说 PHP 那个「2.9 万倍」的差距在 Java 里同样存在，
+        只是 Java 用**换实现类**来解决（`ArrayDeque`），
+        PHP 只有一种数组，要换得去 SPL 找（`SplQueue` / `SplDoublyLinkedList`）。
+        另一处是「洞」：Java 的 `List.remove(i)` 会把后面挪上来，
+        不存在空洞；PHP 的 `unset` 留洞且不重排 ——
+        所以 PHP 里「列表」是一种**需要判断的状态**，
+        Java 里是类型本身（`List` 就是连续的）。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  map-dict:
+    code: |
+      // @note 键只能是 int 或 string —— 这是硬约束，不是建议
+      $m = ["a" => 1, 1 => 2, "01" => 3];
+      // @note   "a" 保持字符串；1 是 int；"01" 也是字符串（前导零不算整数）
+      // @note   于是 "1" 与 1 会撞成同一个键，而 "01" 不会
+
+      // @note 遍历顺序 = **插入顺序**，这是哈希表实现自带的，不是承诺
+      ["z" => 1, "a" => 2];           // @note 遍历就是 z、a
+
+      // @note 判断键在不在，两条路语义不同
+      isset($m["a"]);                 // @note 值为 null 时也是 false
+      array_key_exists("a", $m);      // @note 严格问「键在不在」
+
+      // @note 取键 / 取值 / 合并
+      array_keys($m); array_values($m);
+      $m + ["b" => 4];                // @note 并集：不覆盖已有键
+      array_merge($m, ["b" => 4]);    // @note 覆盖；且会**重排 int 键**
+      $m += ["c" => 5];               // @note 并集赋值
+
+      // @note 想用**对象**当键，数组做不到（Fatal error: Illegal offset type）
+      $store = new SplObjectStorage;
+      $store[$obj] = "data";          // @note 按对象身份做键
+    vs:
+      javascript: |
+        两边都有键值映射，而且**都保插入顺序**，这一层对应得上。
+        差别在**键的约束**：JavaScript 的 `Map` 允许任意类型的键
+        （对象、函数、NaN 都能当键，按身份或值比较）；
+        PHP 的数组键被限死在 int 与 string，而且还会**自动转换** ——
+        `"1"` 与 `1` 是同一个键，`true` 变成 `1`，
+        `null` 变成 `""`。想要对象当键必须换 `SplObjectStorage`。
+        另一处是「键在不在」：JavaScript 的 `map.has(k)` 一次问清；
+        PHP 的 `isset` 对值为 null 的键会返回 false，严格问要用
+        `array_key_exists` —— 这个区别在 JavaScript 那边不存在。
+      python: |
+        Python 的 `dict` 与 PHP 的数组在这一格最接近：
+        都保插入顺序、都能用 `for k, v in` 遍历、都有「键在不在」的查询。
+        差别在**键的自动转换**：Python 里 `1`、`1.0`、`True`
+        因为哈希相同会是同一个键（这是哈希等值，不是转换），
+        而 `"1"` 与 `1` 是**两个不同的键**；
+        PHP 里 `"1"` 会被转成 `1`、`True` 会被转成 `1` ——
+        数字字符串与数字混在一起，这一点两边正相反。
+        另一处是「对象当键」：Python 默认按 `__hash__` / `__eq__` 支持，
+        PHP 的数组不支持，要用 `SplObjectStorage`（只按身份）。
+      java: |
+        Java 的 `Map` 与 PHP 的数组差别集中在两处。
+        第一是**键的灵活性**：Java 的 `HashMap` 接受任意对象键
+        （靠 `hashCode` + `equals`），PHP 只接受 int 与 string。
+        第二是**顺序**：Java 的 `HashMap` 不保证顺序，
+        保序要用 `LinkedHashMap`、排序要用 `TreeMap` ——
+        换实现类就能换语义；PHP 只有一种数组，**永远是插入序**，
+        想排序得在遍历前调 `ksort` / `asort`。
+        另一处是「键在不在、值为 null」：Java 的 `get` 返回 null 分不清
+        「没有」与「值是 null」，要 `containsKey`；
+        PHP 的 `isset` 有同样的盲点，解法也是另问一次
+        （`array_key_exists`）—— 这一条两边完全一样。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  set:
+    code: |
+      // @note! PHP **没有内建的 Set 类型** —— 惯用法是「拿值当键」
+      $seen = [];
+      foreach ($items as $it) {
+        if (isset($seen[$it])) { continue; }   // @note 成员判定 O(1)
+        $seen[$it] = true;
+      }
+      $unique = array_keys($seen);
+
+      // @note array_unique 也能去重，但有两个坑
+      array_unique([1, '1', 1, 2]);            // @note! 默认按**字符串**比较 → [1, 2]
+      array_unique(['a', 'a', 'b']);           // @note! 保留键 → [0=>'a', 2=>'b']
+      array_unique([1, '1'], SORT_REGULAR);    // @note 换成按类型比 → [1]
+
+      // @note 集合运算可以拿 array_flip 借一步
+      array_keys(array_flip(['a', 'b', 'a'])); // @note ['a','b']
+
+      // @note! 真正的 Set 在 PECL 里，**不在核心**
+      // @note Ds\Set：O(1) 增删查、保插入序 —— 但要装扩展
+      var_dump(class_exists('Ds\Set'));        // @note false（核心包里没有）
+
+      // @note 对象集合用 SplObjectStorage（按身份，不按内容）
+      $os = new SplObjectStorage;
+      // @note 8.5 起 attach / contains / detach 弃用，改用 offsetSet / offsetExists
+      $os->offsetSet($obj);
+      $os->offsetExists($obj);
+    vs:
+      javascript: |
+        JavaScript 有内建的 `Set`（`add` / `has` / `delete`，保插入顺序，
+        按值比较 —— 对象按身份）。PHP **没有**，惯用法是「把值当键」
+        （`$seen[$v] = true` 然后 `isset`），或者用 `array_unique`。
+        于是「集合运算」在 PHP 里要绕着数组函数做
+        （`array_intersect` / `array_diff` / `array_flip`），
+        不像 JavaScript 那样有一套集合 API。
+        另一处是去重的比较规则：JavaScript 的 `Set` 用 SameValueZero，
+        `1` 与 `"1"` 是两个元素；PHP 的 `array_unique` 默认**按字符串比**，
+        `1` 与 `"1"` 会被判成重复 —— 这一点两边正相反。
+      python: |
+        Python 有内建 `set` 与 `frozenset`，`in` 是 O(1)，
+        还有 `|` `&` `-` `^` 一整套集合运算 —— PHP 这些都没有。
+        PHP 的替代是「值当键的数组」，成员判定同样 O(1)，
+        但没有运算符，要靠 `array_intersect` / `array_diff` 这些函数。
+        另一处是**去重时的比较**：Python 的集合按哈希与相等性判断，
+        `1` 与 `1.0` 是同一个元素、`1` 与 `"1"` 不是；
+        PHP 的 `array_unique` 默认按字符串比较，`1` 与 `"1"` 会合并 ——
+        正好相反，而且不报错。
+      java: |
+        Java 的 `HashSet` / `TreeSet` / `LinkedHashSet` 是标准库的一部分，
+        分别对应无序、排序、保插入序 —— 换实现类换语义。
+        PHP **核心包里一个都没有**，只能拿数组凑
+        （或者装 PECL 的 `ds` 扩展，那不在核心）。
+        所以「我要一个集合」这件事在 Java 里是选一个类，
+        在 PHP 里是换一种数据表示法。
+        另一处是去重的判据：Java 用 `hashCode` + `equals`，
+        PHP 的 `array_unique` 默认按字符串比 ——
+        Java 那边类型不同就不同（`Integer 1` 与 `String "1"` 是两个元素），
+        PHP 这边会合并，而且默认行为就是个陷阱。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  tuple-record:
+    code: |
+      // @note! PHP **没有元组类型**，也没有「长度固定、类型固定」的数组
+      // @note 最接近的两种形态：
+
+      // ① 数组 + 解构（无任何类型保证）
+      [$x, $y] = [3, 4];
+      ['id' => $id, 'name' => $name] = $row;    // @note 关联解构必须显式写键
+      [, , $third] = [1, 2, 3];                 // @note 跳过用空位
+
+      // @note! 解构一个**标量**不会报错，而是给每个变量赋 null（外加一条 Warning）
+      // [$p, $q] = 5;                          // @note! Warning: Cannot use int as array
+
+      // @note 赋值里**不能用展开**（官方明确：展开不适用于赋值）
+      // [..., $last] = [1, 2, 3];              // @note! 语法不支持
+
+      // ② readonly 类当记录（8.2 起）—— 有类型、有名字、不可改
+      readonly class Point {
+        public function __construct(public int $x, public int $y) {}
+      }
+      $p = new Point(1, 2);
+      echo $p->x;
+
+      // @note 调用端还能用命名参数与展开当「轻量结构」
+      // new Point(y: 2, x: 1);
+    vs:
+      javascript: |
+        JavaScript 也没有元组类型，最接近的同样是「数组 + 解构」
+        （`const [x, y] = [3, 4]`）—— 这一层几乎逐字对应，
+        连「跳过元素用空位」的写法都一样。
+        差别在**对象字面量**：JavaScript 可以用 `{x, y}` 这类
+        有名字的轻量结构，PHP 要到 8.2 有 `readonly class` 才有个正经替代
+        （或者继续用关联数组，但那样没有类型）。
+        另一处是解构的容错：JavaScript 解构一个非可迭代值直接抛错；
+        PHP 解构标量只给一条 Warning 然后全部赋 null ——
+        一个立刻失败、一个静默给空值。
+      python: |
+        Python **有**元组（`t = (3, 4)`），是真正的类型：
+        定长、可作字典键、解构天然、还能命名（`namedtuple`）。
+        PHP 一样都没有 —— 只有数组加解构，长度与类型都没有保证。
+        所以这一格是「一边有、一边没有」的对比：
+        Python 那边「一组固定的东西」有专门的类型，PHP 只能靠
+        `readonly class`（8.2 起）来勉强表达「记录」，
+        而「元组」那种匿名、轻量、可哈希的东西在 PHP 里没有对应物。
+        另一处是解构失败：Python 解构长度不匹配直接抛 ValueError
+        （`a, b = [1, 2, 3]` 报错），PHP 多出来的元素直接忽略、不报错。
+      java: |
+        Java 传统上也没有元组（`record` 是后来才有的，
+        与 PHP 8.2 的 `readonly class` 定位几乎一样：有名字、有类型、不可变）。
+        所以这一格两边最接近的对应是
+        **Java 的 `record` ↔ PHP 的 `readonly class`** ——
+        都是「一组固定的字段」，都自动生成构造函数与访问器。
+        差别在**自动生成的东西**：Java 的 record 自动给
+        `equals` / `hashCode` / `toString`；PHP 的 `readonly class`
+        只保证「不可重新赋值」，相等性与打印要自己写。
+        另一处是解构：Java 没有解构赋值（模式匹配是较新版本才有的），
+        PHP 的 `[$a, $b] = ` 从 7.1 就有 —— 这一格 PHP 更早。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  collection-mutability:
+    code: |
+      // @note! 核心事实：**数组是值语义（赋值即复制），对象是句柄语义**
+      $a = [1, 2];
+      $b = $a;
+      $b[] = 3;
+      echo count($a), count($b);        // @note 2 与 3 —— 改副本不影响原数组
+
+      $o1 = new stdClass;
+      $o2 = $o1;
+      $o2->x = 1;
+      echo $o1->x;                      // @note 1 —— 同一个对象
+
+      // @note 复制是按需的（写时复制）：赋值那一刻并不真的拷内存
+      // @note 实测：把一个大数组赋给另一个变量，内存占用几乎不变；
+      // @note 直到**真的写**其中一个，才会复制
+
+      // @note 想让数组也共享，必须显式写引用
+      $c = &$a;
+      $c[] = 9;                         // @note 现在 $a 也变了
+
+      // @note readonly 属性只冻结「重新赋值」，**不冻结内部内容**
+      class Box { public function __construct(public readonly array $items = []) {} }
+      $box = new Box([1]);
+      // $box->items = [2];             // @note! Error：不允许重新绑定
+      // @note 但数组本身是值语义，改不动；若换成对象则内部可改：
+      class Holder { public function __construct(public readonly object $o) {} }
+      $h = new Holder(new stdClass);
+      $h->o->field = 1;                 // @note 允许
+    vs:
+      javascript: |
+        **这一格两边正好相反**。JavaScript 的数组与对象都是引用类型：
+        `const b = a; b.push(3)` 会改到 `a`。PHP 的数组是**值语义**
+        （赋值即复制），对象才是句柄语义 —— 也就是说同一份代码里
+        「数组」和「对象」两种容器的传递行为不同，这在 JavaScript 里不会发生。
+        代价是性能直觉也要换：JavaScript 里传大数组是常数开销
+        （传引用），PHP 里传数组语义上是复制（实际靠写时复制兜底）。
+        另一处是 `readonly`：JavaScript 有 `Object.freeze`（浅冻结），
+        PHP 的 `readonly` 属性冻结的是「重新绑定」这一件事，
+        两者都**不深冻**，这一点倒是一致。
+      python: |
+        **这一格与 Python 也正好相反**。Python 的 `list` / `dict` 都是
+        引用语义：`b = a; b.append(3)` 会改到 `a`，要复制得显式
+        `a.copy()` 或 `list(a)`。PHP 的数组赋值就是复制，
+        要共享反而得写 `$c = &$a` —— 语法层面「默认」反过来了。
+        所以从 Python 过来最危险的一处是「以为传进函数的是同一个列表」，
+        实际在 PHP 里函数改不到外面的数组（除非参数写了 `&`）。
+        共同点是两边的对象/自定义类型都是引用语义，只有容器不同。
+      java: |
+        两边**一致**：Java 的数组与集合都是对象、赋值复制引用，
+        传进方法后方法能改内容 —— 与 PHP 的对象一致；
+        而 Java 的基本类型是值语义，与 PHP 的数组一致。
+        差别在「哪些是值、哪些是引用」的划分：
+        Java 按**类型种类**分（基本类型 vs 引用类型），
+        PHP 按**语言构造**分（数组 vs 对象）——
+        于是 PHP 里 `array` 是唯一一个既是容器又是值语义的东西，
+        在 Java 那边得想象成「数组本身按值传」才对应得上。
+        另一处是 `readonly`：Java 的 `final` 字段与 PHP 的 `readonly` 属性
+        都只冻结重新赋值，都不深冻 —— 这一条两边可以互相照搬。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  slicing:
+    code: |
+      // @note! 数组切片**全是拷贝，没有视图** —— 改切片不影响原数组
+      $a = ['a', 'b', 'c', 'd'];
+      $s = array_slice($a, 1, 2);          // @note ['b','c'] —— 且键被**重置**成 0,1
+      $k = array_slice($a, 1, 2, true);    // @note [1=>'b', 2=>'c'] —— 保留键
+      echo json_encode($a);                // @note 原数组没变
+
+      // @note! **字符串键总是保留**，与那个参数无关
+      array_slice(['x' => 1, 'y' => 2, 'z' => 3], 1);   // @note ['y'=>2, 'z'=>3]
+
+      // @note 负的起始值从末尾数；负的 length 表示「到末尾前 N 个为止」
+      array_slice($a, -2);                 // @note ['c','d']
+      array_slice($a, 1, -1);              // @note ['b','c']
+
+      // @note! `array_splice` 语义**正相反**：按引用改原数组、返回被删的元素
+      $b = ['a', 'b', 'c', 'd'];
+      $removed = array_splice($b, 1, 2);   // @note $removed = ['b','c']；$b 变成 ['a','d']
+
+      // @note 字符串切片用 substr（PHP 的字符串是字节序列，见 express/strings）
+      substr('hello', 1, 3);               // @note 'ell'
+    vs:
+      javascript: |
+        两边的切片都是「返回新数组、不改原数组」，这一层一致 ——
+        语义上都是拷贝，没有视图。
+        差别在**键**：JavaScript 的数组只有数字下标，
+        `slice(1, 3)` 之后新数组从 0 开始，没有别的可能；
+        PHP 的数组带任意键，所以切片时多出一个「保不保留键」的选择
+        （默认重排整数键、**字符串键总是保留**）——
+        这个不对称很容易看漏。
+        另一处是「删除并返回」：JavaScript 用 `splice` 同时做增删
+        （名字与 PHP 的 `array_splice` 撞了但含义更宽），
+        PHP 的 `array_splice` 同样改原数组，还多一个「返回被删元素」。
+      python: |
+        两边切片都是拷贝，但**索引的含义不同**。
+        Python 的 `a[1:3]` 用在字符串、列表、元组上都是「按元素」的，
+        而且新对象总是从 0 重新编号；PHP 的 `array_slice` 多一个
+        「保不保留键」的参数，且字符串键无条件保留 ——
+        从 Python 过来会以为切片后键一定是连续的。
+        另一处是负索引：Python 的 `a[-2:]` 是语言语法，
+        PHP 要调 `array_slice($a, -2)`，功能一样但写法不同；
+        而**单个**负索引 PHP 的数组不支持（`$a[-1]` 是「键为 -1」，
+        不是「最后一个」）—— 这一点与字符串不同，字符串是支持 `$s[-1]` 的。
+      java: |
+        两边这一格差别最大的是**「视图」这个概念**。
+        Java 的 `List.subList()` 返回的是**视图** ——
+        改子列表会改到原列表（这是 Java 里著名的坑）；
+        PHP 的 `array_slice` 是纯拷贝，改切片绝不会影响原数组。
+        所以 Java 那边「切片后原数组会不会变」要小心，
+        PHP 这边不用想 —— 但要反过来注意「想共享却共享不了」。
+        另一处是「删除并返回」：Java 的 `List.remove` 按索引删、
+        返回被删元素；PHP 的 `array_splice` 一次性删一段并返回数组。
+        字符串切片两边都是拷贝（`substring` ↔ `substr`），一致。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent

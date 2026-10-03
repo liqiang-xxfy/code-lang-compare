@@ -1,0 +1,393 @@
+# php —— model / errors
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: errors` 的那批：
+# throw-raise / try-catch / finally-cleanup / error-types / custom-error / error-propagation。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组的中心事实是 **`Error` 与 `Exception` 是兄弟**，
+# 都实现在 `Throwable` 这个接口下 —— 所以 `catch (Exception $e)` 抓不到
+# `TypeError` / `DivisionByZeroError` 这类。这是从三个基准过来都容易记错的一条。
+# 另外 `finally` 与 `return` 的交互（本机实测）：
+# try 的 return 要等 finally 跑完、finally 的 return 会覆盖它、
+# finally 抛的异常会盖掉 try 的异常、finally 里 return 还能把异常整个吞掉。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-errors-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  throw-raise:
+    code: |
+      // @note! throw 的操作数**必须是对象，且必须是 Throwable 的实例**
+      throw new RuntimeException("出错了");
+
+      // @note! 抛字符串/数字是致命错误 —— 别的语言能这么干，这里不行
+      // throw "boom";                 // @note! Fatal error: Can only throw objects
+
+      // @note 8.0 起 throw 是**表达式**，可以用在任何表达式位置
+      function requireUser(?User $u): User {
+        return $u ?? throw new InvalidArgumentException("用户不存在");
+      }
+      $fn = fn() => throw new RuntimeException("nope");   // @note 箭头函数里也能 throw
+
+      // @note! 用户类**不能直接 implements Throwable** —— 必须继承 Exception 或 Error
+      // class MyThing implements Throwable {}   // @note! Fatal error:
+      //    Class MyThing cannot implement interface Throwable,
+      //    extend Exception or Error instead
+      class MyThing extends Exception { }
+    vs:
+      javascript: |
+        **这一格两边差别很直接**：JavaScript 的 `throw` 能抛任何值 ——
+        字符串、数字、普通对象都行，代价是调用方得自己判断接住的是什么。
+        PHP **只能抛对象**，而且必须是 `Throwable` 的实现类，
+        抛一个字符串直接是致命错误。
+        限制换来的是确定性：`catch` 里拿到的 `$e` 一定有 `getMessage()`、
+        `getCode()`、`getTrace()` 这些方法，不用先判断类型。
+        另一处是 `throw` 的位置：JavaScript 的 `throw` 是语句，
+        PHP 8.0 起是**表达式**，于是 `$x ?? throw new E()` 这种写法可以成立。
+      python: |
+        两边都只能抛异常对象，这一层一致。差别在**能不能自定义异常类型**：
+        Python 直接 `class MyError(Exception)` 就行，继承的是普通类；
+        PHP **不允许**实现 `Throwable` 接口，必须继承 `Exception`
+        或 `Error` 其中之一 —— 也就是说 `Throwable` 是个封闭的根，
+        只有语言自己能把新分支挂上去。
+        另一处是 `raise ... from ...` 与 PHP 的 `previous` 参数
+        （见「传播与包装」那一格），两边都保留根因链，机制不同。
+      java: |
+        两边都只能抛 `Throwable` 的子类，这一层完全一致
+        （Java 也编译不过 `throw "boom"`）。
+        差别在**受检与非受检**：Java 把异常分成 checked / unchecked，
+        调用方要么捕获要么在签名里声明 `throws`，编译器强制；
+        PHP **没有受检异常**，函数签名里不写 `throws`，
+        传播完全是隐式的，编译器（其实没有编译器）不管。
+        另一处是根类：Java 的根是 `Throwable`，下面分 `Error` 与 `Exception` ——
+        结构与 PHP 一样，但 Java 的 `Error` 约定「不该捕获」，
+        PHP 的 `Error` 是**正常的可捕获对象**（`catch (Throwable)` 天天在用）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  try-catch:
+    code: |
+      try {
+        risky();
+      } catch (TypeError | ValueError $e) {   // @note 多类型捕获（7.1 起）
+        report($e);
+      } catch (Throwable $e) {                 // @note! 兜底要写 Throwable
+        log($e);
+        throw $e;                              // @note 重新抛出
+      }
+
+      // @note 8.0 起异常变量可以省略（不关心内容时）
+      try { doIt(); } catch (RuntimeException) { echo "出错了"; }
+
+      // @note! 核心事实：`Error` 与 `Exception` 是**兄弟**，都实现在 Throwable 下
+      try {
+        intdiv(1, 0);
+      } catch (Exception $e) {
+        echo "这里抓不到";
+      } catch (Throwable $e) {
+        echo get_class($e);          // @note! DivisionByZeroError
+      }
+
+      // @note 常见的几个「不是 Exception」的：
+      //   TypeError             类型不对
+      //   ValueError            值不对（8.0 起从 InvalidArgumentException 拆出来）
+      //   DivisionByZeroError   除零
+      //   UnhandledMatchError   match 没穷尽
+      //   ParseError            eval 里的语法错误
+
+      // @note 匹配按**类层次**：子类会被父类的 catch 接住；先具体后宽泛
+      // @note 一个异常只会被捕获一次，捕获后就离开这个 try
+    vs:
+      javascript: |
+        JavaScript 只有一个 `catch`，而且**没有类型**（要看类型得在
+        catch 里自己 `instanceof` 判断）。PHP 的 `catch` 是**按类型匹配**的，
+        可以写多个块、按顺序匹配 —— 更接近一份路由表。
+        另一处是「有没有根」：JavaScript 里 `throw` 什么都行，
+        所以没有一个「所有异常的共同父类」；
+        PHP 有 `Throwable`，`catch (Throwable $e)` 是真正的兜底。
+        共同点是两边都能重新抛出、都没有受检异常。
+      python: |
+        两边的写法几乎一样：`try` + 一个或多个按类型匹配的 `except` / `catch`，
+        都按类层次匹配、都先具体后宽泛、都能重新抛出。
+        差别在**根有几个**：Python 的 `except Exception` 能接到几乎所有
+        能接的东西（KeyboardInterrupt 与 SystemExit 才另算）；
+        PHP 的 `catch (Exception $e)` **接不到 `Error`** ——
+        类型错误、除零、match 漏分支全都是 `Error` 那一支的，
+        想兜底必须写 `Throwable`。这是从 Python 过来最容易漏的一条。
+        另一处是名称：PHP 叫多类型捕获写 `A | B`，Python 写 `(A, B)` 元组。
+      java: |
+        两边都是「按类型匹配、多个 catch、先具体后宽泛」，结构完全对应。
+        差别在**匹配的强制程度**：Java 的 checked exception 必须被捕获
+        或在签名里声明，编译器会算「这个 catch 有没有可能发生」
+        （不可达的 catch 甚至编译报错）；PHP 完全不管，
+        `catch` 写一个永远不会发生的类型也不会有人提醒。
+        另一处是根的类型名：Java 的 `catch (Exception e)` 同样接不到 `Error`，
+        两边结构一致 —— 但 Java 的 `Error` 约定「不要捕获」，
+        PHP 的 `Error` 是日常要接的（所以 `Throwable` 是常用兜底）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  finally-cleanup:
+    code: |
+      $f = null;
+      try {
+        $f = fopen("/tmp/x", "r");
+        work($f);
+      } catch (Throwable $e) {
+        log_it($e->getMessage());
+      } finally {
+        if ($f) { fclose($f); }       // @note 无论成功失败都执行
+      }
+
+      // @note try/finally 合法 —— 可以没有 catch
+      try { risky(); } finally { cleanup(); }
+
+      // @note! 与 return 的交互是这一格最要命的部分（本机逐条实测）：
+
+      function a(): string { try { return "try"; } finally { echo "  先跑 finally\n"; } }
+      echo a();                        // @note! "try" —— finally 先跑完，值再返回
+
+      function b(): string { try { return "try"; } finally { return "finally"; } }
+      echo b();                        // @note! "finally" —— finally 的 return **覆盖**了它
+
+      function c(): string { try { throw new Exception("t"); } finally { return "finally"; } }
+      echo c();                        // @note! "finally" —— 异常被整个**吞掉**了
+
+      function d(): string { try { return "t"; } finally { throw new Exception("f"); } }
+      // @note! d() 抛的是 finally 里的那个异常 —— try 的返回值被丢弃
+
+      // @note 结论：**不要在 finally 里写 return**，它会覆盖返回值、甚至吞掉异常
+    vs:
+      javascript: |
+        两边的 `finally` 都是「无论怎么出去都执行」，语义一致。
+        差别在**与 return 的交互**：JavaScript 里 `try` 中的 `return`
+        同样要等 `finally` 跑完，而 `finally` 里的 `return`
+        也会覆盖它 —— 这一条两边**行为相同**，可以照搬。
+        另一处是「能被 finally 盖掉的东西」：JavaScript 的 `finally` 里
+        写 `return` 同样会吞掉异常，规则一致。
+        真正的差别在语言层面之外：JavaScript 的资源清理靠 `finally` 或
+        `using` 声明（较新版本），PHP 只有 `finally` 一条路。
+      python: |
+        两边的 `finally` 语义基本一致，但**与 return 的交互不同**：
+        Python 的 `finally` 里写 `return` 同样会覆盖 `try` 里的返回值
+        （这点一样），可是 Python 从 3.14 起把「`finally` 里跳出去」
+        标记为需要留意；更关键的是 PHP 这边 `finally` 里的 `return`
+        还能**把异常整个吞掉**，而 Python 的 `finally` 里 `return`
+        也会吞掉异常 —— 规则其实相同。
+        所以这一格两边可以互相照搬，共同结论都是
+        「清理归清理，别在 finally 里写 return」。
+        写法上 Python 用 `try / except / finally`，PHP 用 `try / catch / finally`。
+      java: |
+        两边在 `finally` 里的 `return` 上**行为相同**（都会覆盖返回值、
+        吞掉异常），差别是**有没有人提醒你**：Java 的编译器与静态检查
+        会对这种写法给出警告，PHP 一声不吭。
+        另一处是资源管理：Java 有 **try-with-resources**
+        （`try (var f = open()) { }`）自动关闭，PHP **没有** ——
+        只能手写 `finally` 里关，或者自己包一层。
+        共同点是两边都把 `finally` 当作「一定会跑」的保证
+        （进程被强杀除外）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  error-types:
+    code: |
+      // @note 根是一个**接口** `Throwable`，下面两条主分支：
+
+      // ① Error —— 「引擎自己出的错」
+      //    TypeError            传错类型
+      //    ValueError           值不合法（8.0 起）
+      //    ArithmeticError  ─── DivisionByZeroError
+      //    ParseError           eval 里的语法错误
+      //    UnhandledMatchError  match 没穷尽
+      //    AssertionError       assert 失败
+      //    FiberError           Fiber 用错
+
+      // ② Exception —— 「程序自己抛的」
+      //    RuntimeException / LogicException / InvalidArgumentException /
+      //    OutOfRangeException / PDOException …（SPL 那一套）
+
+      try { intdiv(1, 0); } catch (DivisionByZeroError $e) { echo "除零"; }
+      try { strlen([]); }  catch (TypeError $e) { echo "类型不对"; }
+
+      // @note! `Error` **不是** `Exception` 的子类 —— 两者都 implements Throwable
+      var_dump(new TypeError("x") instanceof Exception);   // @note! false
+      var_dump(new TypeError("x") instanceof Throwable);   // @note true
+
+      // @note 两套机制并存：传统的 E_* 级别与异常是**不同的东西**
+      // @note   E_WARNING / E_NOTICE / E_DEPRECATED → 可以被 set_error_handler 接住
+      // @note   E_ERROR / E_PARSE / E_CORE_* / E_COMPILE_* → 接不住
+    vs:
+      javascript: |
+        JavaScript 没有「错误类型层级」这回事：`Error` 是唯一的根
+        （下面 `TypeError` / `RangeError` / `SyntaxError` 等），
+        而且所有东西都是异常 —— 没有「警告」这种非异常的诊断。
+        PHP 有**两套并存的机制**：`Throwable` 那一套（可以被 catch），
+        以及传统的 `E_*` 错误级别（`E_WARNING` 之类，
+        默认只是打印，可以被 `set_error_handler` 接住但不能 catch）。
+        另一处是分叉的根：JavaScript 的 `Error` 是唯一的根，
+        PHP 的 `Error` 与 `Exception` 是兄弟，兜底必须写 `Throwable`。
+      python: |
+        两边都有完整的异常层级，也都能按父类捕获，这一层对应得上。
+        差别在**「错误」与「异常」是不是一回事**：Python 里
+        `TypeError` 就是一个普通异常类，`except Exception` 能接住；
+        PHP 的 `TypeError` 属于 `Error` 那一支，
+        `catch (Exception)` **接不到** —— 从 Python 过来写
+        `catch (Exception $e)` 当兜底，会漏掉所有引擎错误。
+        另一处是 PHP 还保留了传统 `E_*` 诊断（warning/notice）
+        这套非异常的机制，Python 里没有对应物（只有 warnings 模块，
+        而且是库层面的约定，不是语言的两套诊断体系）。
+      java: |
+        **结构上两边最像**：根都是 `Throwable`，下面分 `Error` 与 `Exception`，
+        `TypeError` 那种引擎错误在 Java 里对应 `Error` 的子类，
+        常规业务异常对应 `Exception` 的子类。
+        所以「catch (Exception) 接不到引擎错误」这条在两边**同样成立**。
+        差别在**Error 的用途约定**：Java 里 `Error`（OutOfMemoryError 之类）
+        是「不该捕获、无法恢复」的意思，捕获它被认为是坏味道；
+        PHP 的 `Error` 是**日常要捕获的**（类型错误、除零都在里面），
+        所以 `catch (Throwable)` 才是惯用兜底 —— 同一个结构、相反的用法。
+        另一处是 PHP 多了 `E_*` 那套与传统诊断并存的机制，Java 没有。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  custom-error:
+    code: |
+      // @note 继承语义最贴近的 SPL 子类，而不是一律 extends Exception
+      class InsufficientFunds extends RuntimeException {
+        public function __construct(
+          public readonly int $needed,
+          public readonly int $available,
+          ?Throwable $previous = null,
+        ) {
+          // @note! 一定要调 parent::__construct() —— 否则丢掉 message/code/trace
+          parent::__construct("需要 $needed，只有 $available", 0, $previous);
+        }
+      }
+
+      try {
+        throw new InsufficientFunds(100, 20);
+      } catch (RuntimeException $e) {       // @note 按更细的父类也能接住
+        echo $e->getMessage(), " / ", $e->needed;
+      }
+
+      // @note! getMessage / getCode / getTrace / getFile / getLine 都是 **final**，
+      // @note! 覆盖不了 —— 编译不过，不是警告
+      // @note 能覆盖的是 __toString() 与构造函数
+
+      // @note! 异常**不能被克隆**
+      // clone new RuntimeException("x");   // @note! Error: Trying to clone
+      //                                    //    an uncloneable object
+    vs:
+      javascript: |
+        JavaScript 自定义错误类要继承 `Error`，但继承了之后
+        `instanceof` 与 `stack` 的行为在历史上出过不少问题
+        （`name` 要自己设、原型链要手动修），所以很多项目干脆抛普通对象。
+        PHP 的自定义异常简单直接：继承 `Exception` 或它的某个 SPL 子类，
+        构造函数调一下 `parent::__construct()`，然后 `catch` 按父类就能接住。
+        另一处是「元数据」：JavaScript 的 `Error` 只有 `message` / `name` / `stack`，
+        想带结构化数据得自己塞属性；PHP 的 `Exception` 自带
+        `code` 与 `previous`（异常链），需要更多就加构造器提升的属性。
+      python: |
+        两边自定义异常都是「继承一个基类、调父类构造函数」，
+        写法几乎一样（Python 的 `super().__init__(msg)`）。
+        差别在**约定**：Python 强烈推荐自定义异常集继承自某个共同祖先
+        （比如项目自己的 `AppError`），这样调用方能一次接住一片；
+        PHP 的对应做法是「继承语义最贴近的 SPL 子类」——
+        官方手册也是这么建议的，因为这样调用方能按 `InvalidArgumentException`
+        这类标准父类来接，不必认识你的类。
+        另一处是 PHP 的 `getMessage()` 等方法是 **final**、不许覆盖，
+        而 Python 的异常可以自由重写 `__str__`。
+      java: |
+        两边几乎逐条对应：都继承一个已有的异常类、都调父类构造函数、
+        都能带自定义字段、都可以按父类捕获。
+        差别在**受检性**：Java 里选择继承 `Exception`（受检）
+        还是 `RuntimeException`（非受检）是一个有后果的决定 ——
+        受检异常会强迫调用方声明或捕获；
+        PHP **没有这一层**，继承哪个只影响「谁能按父类接住」，
+        对调用方没有任何强制。
+        另一处是根接口：Java 的自定义异常同样不能直接实现 `Throwable`，
+        必须继承 `Exception` 或 `Error` —— 这条限制两边完全一致。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  error-propagation:
+    code: |
+      // @note 没被接住的异常会一路冒泡：set_exception_handler() → 变成致命错误
+      try {
+        $db->save($user);
+      } catch (PDOException $e) {
+        // @note 包装时**一定把原来的异常传进 previous**，否则根因链就断了
+        throw new SaveFailed("用户保存失败", previous: $e);
+      }
+      // 上层：
+      //   $e->getPrevious()            → PDOException
+      //   $e->getPrevious()?->getPrevious()  → 再上一层
+
+      // @note 直接 `throw $e;` 是重新抛出（保留原对象与栈）
+
+      // @note! 语言**不声明**「这个函数会抛什么」—— 没有 throws 这种东西
+      // @note 传播完全是隐式的，只有 IDE / 静态分析工具会提示
+
+      // @note 想让传统的 warning 也变成异常，用 set_error_handler 桥接
+      set_error_handler(function (int $no, string $str, string $file, int $line): bool {
+        throw new ErrorException($str, 0, $no, $file, $line);
+      });
+      // @note! 但 E_ERROR / E_PARSE / E_CORE_* / E_COMPILE_* 这几个级别
+      // @note! **接不住**，只能靠 register_shutdown_function + error_get_last()
+
+      // @note! `@` 抑制符并不能让 handler 不被调用（实测：handler 照样收到）
+      // @note 正确写法是在 handler 里检查 error_reporting()
+    vs:
+      javascript: |
+        JavaScript 的异常传播也是隐式的（没有 throws 声明），这一层一样。
+        差别在**包装根因**：JavaScript 到较新版本才有 `cause` 选项
+        （`new Error(msg, { cause })`），之前只能自己塞属性；
+        PHP 的 `previous` 参数从 5.3 就有，是 `Exception` 构造函数的一部分，
+        `getPrevious()` 是标准方法。
+        另一处是「非异常诊断怎么处理」：JavaScript 没有 warning 这套东西，
+        PHP 有 `E_WARNING` 级别的诊断，而且可以用 `set_error_handler`
+        把它们**桥接成异常** —— 这是 PHP 里把「老式报错」纳入
+        try/catch 体系的惯用手法。
+      python: |
+        两边的传播都是隐式的，包装根因也都有专门语法：
+        Python 用 `raise NewError(...) from e`（会自动设 `__cause__`），
+        PHP 用构造函数的 `previous` 命名参数。
+        差别在**链的方向与读取**：Python 的 `__cause__` / `__context__`
+        是属性的形式，`raise ... from None` 还能主动切断；
+        PHP 只有一个 `getPrevious()` 链，切断不了。
+        另一处是「警告要不要算异常」：Python 有 `warnings` 模块可以把
+        警告升级成异常（`-W error`），PHP 靠 `set_error_handler` 桥接 ——
+        思路一致，但 PHP 那套接不到致命级别。
+      java: |
+        **这一格差别最大的是「声明」**：Java 的受检异常要求方法签名里
+        写 `throws`，调用方必须处理 —— 传播路径在代码里是**看得见**的。
+        PHP 什么都不声明，异常可以穿过任意多层函数，
+        只有 IDE 或静态分析才会提示「这里可能抛什么」。
+        另一处是包装：Java 的惯例是
+        `throw new SaveFailed("...", e)`（构造函数接 cause），
+        PHP 用命名参数 `previous: $e` —— 机制一致、写法不同。
+        共同点是两边都能拿到根因链（`getCause()` ↔ `getPrevious()`），
+        而且都建议包装而不是吞掉。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

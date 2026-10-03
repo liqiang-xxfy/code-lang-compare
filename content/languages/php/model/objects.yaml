@@ -1,0 +1,395 @@
+# php —— model / objects
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: objects` 的那批：
+# class-declaration / constructor / fields-and-properties /
+# methods-and-receiver / inheritance / access-control。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组要写准的五件事 ——
+# ① 子类**定义了自己的构造函数时，父类构造器不会被自动调用**（本机实测：只打印 B）；
+# ② `self::` 是**定义处**的类，`static::` 是**运行时**的类（后期静态绑定）；
+# ③ 类型化属性**读取未初始化**抛 Error，不是给 null；
+# ④ 动态属性 8.2 起弃用（不是致命错）；属性钩子与非对称可见性是 8.4 的新东西；
+# ⑤ **静态属性跨继承层次是共享的**（本机实测：改 B::$s 会改到 A::$s）。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-objects-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  class-declaration:
+    code: |
+      class Point {
+        public const ORIGIN = '0,0';                   // @note 类常量
+        public function __construct(public int $x = 0, public int $y = 0) {}
+      }
+      $p = new Point(1, 2);
+
+      // @note! `::class` 是**编译期的字符串变换**：不触发自动加载，
+      // @note! 类不存在也不报错
+      echo \Does\Not\Exist::class;      // @note 照样输出 "Does\Not\Exist"
+      echo Point::class;                // @note 命名空间内是 "NS\Point"
+
+      // @note 匿名类：可以继承、实现接口、传构造参数
+      $obj = new class(3) extends Point { public int $z = 0; };
+
+      // @note 枚举是**独立的语言构造**，不是普通的类（8.1 起）
+      enum Suit: string {
+        case Hearts = 'H';
+        case Spades = 'S';
+        public function label(): string { return match($this) { self::Hearts => '红心', self::Spades => '黑桃' }; }
+      }
+      Suit::Hearts->value;              // @note 'H'
+      Suit::cases();                    // @note 全部 case
+      Suit::from('S');                  // @note 找不到抛 ValueError；tryFrom 返回 null
+      // @note 枚举不能 new、不能继承、不能有属性
+
+      // @note readonly 类（8.2）：所有属性都变成 readonly，且禁止动态属性
+      readonly class Config { public function __construct(public string $env = 'dev') {} }
+    vs:
+      javascript: |
+        JavaScript 用 `class` 关键字，但底层仍是原型链与函数，
+        `typeof SomeClass === 'function'` 为真；PHP 的类是一个独立的类型，
+        与函数没有关系。这带来一处实际差别：JavaScript 的类可以
+        动态加方法、可以把方法当普通函数拿出来用（丢 `this` 是经典坑）；
+        PHP 的方法绑定在类上，`$obj->method(...)` 拿到的闭包会保留绑定。
+        另一处是**枚举**：JavaScript 没有，通常用 `Object.freeze({...})`
+        模拟；PHP 8.1 起有真正的 `enum`，带 `cases()`、`from()` / `tryFrom()`，
+        而且 case 是**单例对象**，`===` 直接可比。
+        静态成员的取名字面量：JavaScript 没有 `::class` 这种东西。
+      python: |
+        两边都是「class 关键字 + 实例化 + 属性挂载」的模型，能对上的不少。
+        差别在**类体的执行时机**：Python 的类体是一段**当场执行的代码**
+        （所以能在里面写循环、条件、甚至 print），PHP 的类体是声明，
+        里面只能放属性、常量与方法的声明（要逻辑得写进方法或构造器）。
+        另一处是**实例属性从哪来**：Python 直接在 `__init__` 里
+        `self.x = 1` 就创建了属性，属性本身没有声明；
+        PHP 的属性要**在类体里声明**（类型化属性 7.4 起），
+        动态创建属性从 8.2 起被弃用。也就是说两边「属性要不要先声明」正相反。
+      java: |
+        两边的类声明形式高度相似（`class` + 字段 + 构造器 + 方法），
+        都有类常量、都能写匿名类、都有枚举 —— 这一格迁移成本低。
+        差别在**枚举的能力**：Java 的枚举是实现完整的类
+        （可以有字段、方法、甚至每个 case 单独实现接口方法）；
+        PHP 的枚举**不能有属性**、不能继承，但可以有方法、
+        可以实现接口、还能是 backed enum（带标量值）——
+        能力切分不同，不是简单的强弱。
+        另一处是 `::class`：Java 的 `X.class` 会**加载并校验**那个类，
+        PHP 的 `::class` 只是编译期的字符串替换，类不存在也不报错。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  constructor:
+    code: |
+      class Point {
+        // @note 构造器属性提升（8.0）：给参数加可见性修饰符
+        // @note 就**同时声明了属性并赋值** —— 不用再写属性声明与 $this->x = $x
+        public function __construct(
+          public readonly int $x,
+          public int $y = 0,
+        ) {}
+      }
+      new Point(4, 5);
+
+      // @note! 子类**定义了自己的构造函数时，父类构造器不会被自动调用**
+      class A { public function __construct() { echo "A 的构造器\n"; } }
+      class B extends A { public function __construct() { echo "B 的构造器\n"; } }
+      new B();                          // @note! 只打印 B —— 要自己写 parent::__construct()
+
+      // @note 提升的参数不能声明成 callable 类型（引擎歧义）
+      // @note 默认值只复制给参数，不复制给属性
+      // @note! `__construct` 不受签名兼容规则约束 —— 子类可以随便改签名
+      // @note   这与普通方法不同（普通方法不兼容是致命错误）
+
+      // @note 8.0 前「方法名等于类名」的旧式构造器已取消
+    vs:
+      javascript: |
+        JavaScript 的 `constructor` 与 PHP 的 `__construct` 都是
+        `new` 时调用，都能接参数、都能设默认值（PHP 是参数默认值，
+        JavaScript 是参数默认值或解构默认值）。
+        差别在**父类构造器的调用**：JavaScript 的派生类构造器里
+        **必须**先调 `super()`（不调直接报错，用了 `this` 之前必须调），
+        所以「忘了调父类构造器」这件事在 JavaScript 里不会发生；
+        PHP **不会自动调用也不强制你调** —— 忘了就静默地不调用，
+        父类的初始化悄悄丢失，这是真正常见的 bug。
+        另一处是属性提升：PHP 8.0 有构造器属性提升，
+        JavaScript 要在构造器里逐个 `this.x = x`。
+      python: |
+        Python 的 `__init__` 与 PHP 的 `__construct` 都负责初始化实例，
+        但**父类的调用方式**是两边最大的差别：Python 不会自动调用，
+        惯例是显式写 `super().__init__(...)`；PHP 也不会自动调用，
+        惯例是写 `parent::__construct(...)` —— 这一点两边一致。
+        真正不同的是**属性从哪来**：Python 在 `__init__` 里赋值即创建属性，
+        没有声明；PHP 的属性要先声明（类型化属性 7.4 起），
+        构造器属性提升则把「声明 + 赋值」压进参数列表 ——
+        Python 里没有对应写法，最接近的是 dataclass。
+      java: |
+        两边的构造器行为**差别最大的一处是「父类构造器要不要显式调」**：
+        Java 的子类构造器第一条语句**隐式**调用 `super()`（不写也会调），
+        只有需要传参时才显式写 —— 所以父类初始化永远不会被漏掉。
+        PHP **不隐式调用**，子类一旦定义了自己的构造函数，
+        父类的初始化就完全靠你记得写 `parent::__construct()`，
+        不写不报错。这是从 Java 过来最容易出的事故。
+        另一处是重载：Java 靠构造器重载提供多种初始化路径，
+        PHP 没有重载，只能靠默认参数、命名参数或静态工厂方法。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  fields-and-properties:
+    code: |
+      class User {
+        public int $id;                 // @note! 类型化属性：**读未初始化会抛 Error**
+        public string $name = "匿名";    // @note 可以有默认值（必须是常量表达式）
+        public readonly string $email;  // @note 8.1：只能初始化一次
+
+        // @note 8.4 属性钩子：把读写逻辑挂在属性上（不用再写 getX/setX）
+        public string $nick { set(string $v) => trim($v); }
+        public string $display { get => $this->name . "（" . $this->nick . "）"; }
+
+        public function __construct(int $id, string $email) {
+          $this->id = $id;
+          $this->email = $email;
+        }
+      }
+
+      // @note! 读取未初始化的类型化属性
+      // $u = new User;  $u->id;         // @note! Error: must not be accessed before initialization
+
+      // @note! 动态属性（写一个没声明过的属性）**8.2 起被弃用**
+      class Plain {}
+      $p = new Plain;
+      $p->newProp = 1;                  // @note! Deprecated: Creation of dynamic property
+      // @note   stdClass 豁免；标了 #[\AllowDynamicProperties] 也豁免；
+      // @note   定义了 __get/__set 的类也豁免
+
+      // @note readonly 属性：不能有默认值、必须有类型、不能是 static
+      // @note  8.4 前隐式 private(set)（子类写不了）；8.4 起隐式 protected(set)
+    vs:
+      javascript: |
+        JavaScript 的属性天生是动态的：随便 `obj.anything = 1` 都能创建，
+        类体里的字段声明只是初始化语法，不是约束。
+        PHP **反过来**：属性要在类体里声明，而且 8.2 起
+        「写一个没声明的属性」会被弃用警告 —— 也就是说
+        JavaScript 里最自然的写法在 PHP 里是要避免的。
+        另一处是「访问器」：JavaScript 用 `get` / `set` 语法糖，
+        PHP 8.4 起也有**属性钩子**（`get` / `set`），思路一致、
+        但差了一个大版本的时间；在那之前 PHP 只能写 `getX()` 方法。
+        类型上 JavaScript 没有（运行时类型标注不存在），
+        PHP 的类型化属性读未初始化会抛 Error。
+      python: |
+        **这一格两边正好相反**。Python 的属性不需要声明：
+        在 `__init__` 里 `self.x = 1` 就创建了，而且**任何实例
+        随时都能挂新属性**（除非用 `__slots__` 限制）。
+        PHP 的属性必须在类体里声明，8.2 起动态属性被弃用 ——
+        所以 Python 里理所当然的「随手加个字段」在 PHP 里是坏味道。
+        另一处是访问器：Python 用 `@property` 装饰器把方法伪装成属性，
+        PHP 8.4 起用属性钩子（更接近 C# 的写法），
+        在那之前只能写显式的 `getX()` / `setX()` 方法并手动调用。
+        私有约定的做法也不同：Python 靠下划线命名，PHP 靠 `private` 关键字。
+      java: |
+        **两边最接近**：都要在类体里声明字段、都能给默认值、
+        都有访问修饰符、都有 `final` / `readonly` 这种「只能写一次」。
+        差别在**访问器的形态**：Java 用 `getX()` / `setX()` 方法与
+        `private` 字段的组合（社区还有 Lombok / record 之类的简化），
+        PHP 8.4 起直接用**属性钩子**把逻辑挂在属性本身上，
+        读起来像普通属性访问 —— 这一格 PHP 的写法更新一些。
+        另一处是「未初始化」：Java 的字段总有默认值（0 / null），
+        读它不会出错；PHP 的类型化属性**没有默认值**，
+        读未初始化直接抛 Error —— 一个静默给零值，一个立刻失败。
+        Java 还能把字段声明成 `final` 且不给值，靠构造器赋值（两边一致）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  methods-and-receiver:
+    code: |
+      class A {
+        public function inst(): string { return "实例方法"; }
+        public static function who(): string { return static::class; }   // @note 运行时类
+        public static function whoDefined(): string { return self::class; }  // @note 定义处类
+      }
+      class B extends A {}
+
+      echo B::who();                    // @note B —— static:: 走后期静态绑定
+      echo B::whoDefined();             // @note A —— self:: 就是定义它的那个类
+
+      // @note `$this` 只在实例上下文里有；`self::` / `static::` / `parent::` 都能静态用
+      // @note! 静态调用一个**非静态**方法：8.0 起直接抛 Error
+      // A::inst();                     // @note! Error: Non-static method A::inst()
+      //                                //    cannot be called statically
+
+      // @note 方法可以用「第一类可调用语法」取出来（8.1）
+      $f = (new A)->inst(...);
+      // @note 这样拿到的闭包**保留绑定**，与 `[$obj, 'inst']` 这种老写法
+      // @note 在「按调用点还是创建点检查可见性」上有区别
+    vs:
+      javascript: |
+        两边都有「实例方法」与「静态方法」，但 `this` 的绑定规则差别很大：
+        JavaScript 的 `this` 取决于**怎么调用**（`obj.m()` 与
+        `const f = obj.m; f()` 结果不同），这是经典坑；
+        PHP 的 `$this` 绑定在对象上，方法被取出来当闭包用时
+        仍然保留绑定（除非显式 `bindTo`）。
+        另一处是**后期静态绑定**：PHP 的 `self::` / `static::`
+        是刻意区分的两件事，继承下结果不同；
+        JavaScript 的静态方法里根本没有「当前类」这个可靠概念
+        （`this` 在静态方法里指向类，但子类调用时行为容易出乎意料）。
+      python: |
+        两边都是「实例方法第一个参数是 self / `$this`」，思路一致。
+        差别在**显式程度**：Python 把接收者写成**第一个参数**（`def m(self)`），
+        所以「这个方法是不是实例方法」在签名里看得见，取出来当函数用时
+        要自己传接收者；PHP 的 `$this` 是隐式的，取出来仍自动绑定。
+        另一处是静态与类方法：Python 有 `@staticmethod` 与 `@classmethod`
+        两个装饰器（后者能拿到类，等价于 PHP 的 `static::`），
+        PHP 只有 `static` 关键字，而 `self::` / `static::`
+        的区别要靠记规则（Python 的 `cls` 天然就是运行时类）。
+      java: |
+        两边都是隐式接收者（`this`），都是静态方法挂在类上，
+        连「静态方法里没有 `this`」这条都一样。
+        差别在**继承下的静态派发**：Java 的静态方法**不参与多态**，
+        而且可以被隐藏（hide）而不是覆盖（override），
+        调用哪个由**编译期的引用类型**决定；
+        PHP 有 `static::` 这个后期静态绑定，让静态方法在继承下
+        也能指向「实际被调用的那个类」—— Java 里没有对应写法。
+        另一处是 `self` 的含义：Java 没有 `self::`，
+        类字面量是 `X.class`，指向一个固定的类，没有「定义处 vs 调用处」之分。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  inheritance:
+    code: |
+      class Animal {
+        public function speak(): string { return "..."; }
+      }
+      class Dog extends Animal {
+        #[\Override]                    // @note 8.3：拼错方法名会在**编译期**报错
+        public function speak(): string { return "汪"; }
+      }
+
+      // @note! 只支持**单继承** —— 一个类只能 extends 一个父类
+      // @note 横向复用靠 trait（那是复制实现，不是类型关系）
+
+      // @note 覆盖方法必须满足签名兼容：去掉参数、把可选参数改必选都会 fatal
+      // @note  8.0 起签名不兼容是**致命错误**（之前只是警告）
+      // @note 可见性只能放宽不能收紧（public → private 非法），构造函数例外
+
+      // @note `final` 可以修饰类、方法、常量（8.1）、属性（8.4）
+
+      // @note! private 成员子类**看不见** —— 子类的同名 private 是另一个成员
+      class P1 { private string $v = "父私有"; public function pv(): string { return $this->v; } }
+      class C1 extends P1 { public string $v = "子公有"; }
+      echo (new C1)->pv();              // @note "父私有" —— 两份独立存储
+
+      // @note! 静态属性**跨继承层次是共享的**（未覆写时）
+      class S1 { public static string $s = "S1"; }
+      class S2 extends S1 {}
+      S2::$s = "S2";
+      echo S1::$s;                      // @note! "S2" —— 改子类改到了父类
+    vs:
+      javascript: |
+        两边都是单继承（`extends`），方法覆盖的写法也相似。
+        差别在**检查的严格程度**：JavaScript 覆盖方法时参数个数、
+        可见性全都不管，写错了要到运行时才发现（或者永远不发现）；
+        PHP 的覆盖受签名兼容约束，不兼容直接致命错误，
+        而且 8.3 起能用 `#[\Override]` 把「我确实在覆盖某个父类方法」
+        写成**编译期检查**（拼错就报错）—— JavaScript 没有对应机制。
+        另一处是 `final`：JavaScript 有 `final` 吗？没有，
+        要冻结得靠 `Object.freeze` 之类的运行时手段；
+        PHP 的 `final` 是编译期保证。
+      python: |
+        两边的继承模型几乎一一对应（单继承 + 多继承除外，
+        Python 支持多重继承与 MRO，PHP **只支持单继承**，
+        横向复用得靠 trait）。
+        差别在**检查时机**：Python 覆盖父类方法时签名随便改、
+        没有任何检查，调用方传错参数要到运行时才炸；
+        PHP 的覆盖受签名兼容约束，不兼容是致命错误。
+        另一处是 `super()`：两边都要显式调用父类实现，
+        写法是 `super().m()` 与 `parent::m()`，作用一致。
+        共同点是两边都能用「抽象」把未实现的方法留出来（见抽象类那一格）。
+      java: |
+        **这一格两边最像**：单继承、`extends`、方法覆盖、
+        签名兼容约束、`final` 类与方法、`@Override` 注解 ——
+        几乎逐条对应（PHP 的 `#[\Override]` 8.3 起就是 Java 注解的翻版）。
+        差别在**默认行为**：Java 的方法默认是**虚方法**（可覆盖），
+        要禁止得写 `final`；PHP 的方法也是默认可覆盖，两边一致。
+        另一处是**多重继承的替代**：Java 用接口的默认方法，
+        PHP 用 trait —— 都能横向复用实现，但 Java 的接口是**类型**，
+        PHP 的 trait **不是类型**（不能 `instanceof`）。
+        还有静态属性：Java 的静态字段被子类「隐藏」而不是共享，
+        PHP 的静态属性未覆写时是**共享**的（本机实测改子类改到了父类）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  access-control:
+    code: |
+      class Wallet {
+        public private(set) int $balance = 0;   // @note 8.4 非对称可见性
+        protected int $limit = 100;
+        private string $pin = "0000";
+
+        public function deposit(int $n): void { $this->balance += $n; }
+        public function getPin(): string { return $this->pin; }
+      }
+
+      $w = new Wallet;
+      echo $w->balance;                 // @note 读可以（public）
+      // $w->balance = 100;             // @note! Error: Cannot modify private(set) property
+      // $w->limit = 1;                 // @note! Error: protected —— 类外不可见
+      // $w->pin;                       // @note! Error: private
+
+      // @note! PHP **没有包级 / 模块级封装** —— 可见性只有三档，都是**类级**的
+      // @note 子类**看不到父类的 private**（同名也是另一份）
+      // @note `private(set)` 属性隐式 final，子类不能重声明
+
+      // @note 常量也有可见性（7.1 起）；接口常量 8.1 起可被覆盖
+      // @note 8.5 起非对称可见性也能用在 static 属性上
+    vs:
+      javascript: |
+        JavaScript 到较新版本才有真正的私有（`#field`），
+        而且只有「私有 / 公开」两档，没有 protected 那种
+        「子类可见、外界不可见」的中间档。
+        PHP 有三档（public / protected / private）都按类算，
+        8.4 起还能拆开读写（`public private(set)`：外面能读、只有本类能写）——
+        这个能力 JavaScript 完全没有。
+        另一处是「靠什么实现」：JavaScript 的 `#x` 是**语言级**的硬私有，
+        没有后门；PHP 的 `private` 在反射面前基本敞开
+        （8.1 起 `ReflectionProperty::getValue` 直接就能读私有属性）。
+      python: |
+        **两边的哲学正相反**：Python 没有语言级的可见性，
+        下划线是**约定**（`_x` 是内部、`__x` 会做名字改写但也不是真私有），
+        而且这些约定挡不住任何人。
+        PHP 的 `private` / `protected` 是语言强制的，
+        外部访问直接抛 Error —— 一边靠自觉，一边靠引擎。
+        另一处是粒度：Python 只有「这个类」这一层（靠命名约定），
+        PHP 有类级三档，8.4 起还有非对称可见性（读公开、写受限）——
+        Python 要实现同样效果得写 `@property` 加一个只读描述符。
+      java: |
+        **两边几乎完全对应**：`public` / `protected` / `private` 三档、
+        默认（Java 的包级 vs PHP 的 public）、类级封装、
+        `final` 与 `readonly` —— 这一格基本可以照搬。
+        差别在**第四档**：Java 有 **package-private**（默认，同包可见），
+        PHP **没有包级或模块级的可见性**，命名空间完全不参与可见性判定。
+        另一处是非对称可见性：Java 没有「读公开写私有」这种写法
+        （要靠 getter 与 private 字段的组合），
+        PHP 8.4 起可以直接写 `public private(set)` —— 这一格 PHP 更新。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

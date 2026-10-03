@@ -1,0 +1,279 @@
+# php —— model / iteration
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: iteration` 的那批：
+# generator-yield / comprehension / lazy-evaluation / destructuring。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 与 express/control-flow 的 `iteration-protocol` 分工：那里讲「怎么遍历一个已有对象」，
+# 这里讲「**怎么造出**一个可遍历的东西」——也就是生成器与批量构造。
+#
+# 口径说明：这一组最值得写准的是**惰性那一格**。PHP 里绝大多数集合操作
+# 都会**立刻造出整个数组**（`range`、`array_map`、`array_filter` 都是），
+# 真正的惰性只有生成器一条路。本机实测：`range(1, 200000)` 占 6.3 MB，
+# 同样长的生成器只要 512 字节。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-iteration-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  generator-yield:
+    code: |
+      // @note 任何含 `yield` 的函数都是生成器函数 —— 调用它**不执行函数体**，
+      // @note 而是返回一个 Generator 对象
+      function countdown(int $n): Generator {
+        while ($n > 0) { yield $n--; }
+      }
+      foreach (countdown(3) as $v) { echo $v; }   // @note 321
+
+      // @note 键也能自己给（默认自增 0）
+      function kv(): Generator { yield 'a' => 1; yield 'b' => 2; }
+
+      // @note 双向通信：yield 是一个**表达式**，send() 送进去的值就是它的结果
+      function talker(): Generator {
+        $got = yield "第一次";
+        yield "收到：$got";
+      }
+      $g = talker();
+      echo $g->current();          // @note 第一次
+      echo $g->send("喂进去");      // @note 收到：喂进去
+
+      // @note 生成器可以有返回值，用 getReturn() 取（foreach 拿不到）
+      function withReturn(): Generator { yield 1; return "完了"; }
+      $r = withReturn(); foreach ($r as $_) {} echo $r->getReturn();
+
+      // @note `yield from` 委托另一个可迭代对象
+      function inner(): Generator { yield 1; yield 2; }
+      function outer(): Generator { yield 0; yield from inner(); yield 3; }
+
+      // @note! 两条硬约束：
+      // @note! ① 生成器**只能走一遍**，走完再 rewind 会抛 Exception
+      // @note! ② `yield from` **不重置键** —— 内层的键会盖掉外层同号的键，
+      // @note!    于是 iterator_to_array() 默认保留键时会**静默丢元素**
+      echo implode(",", iterator_to_array(outer()));         // @note! "1,3"
+      echo implode(",", iterator_to_array(outer(), false));  // @note 0,1,2,3
+    vs:
+      javascript: |
+        两边都有 `yield` 与「函数调用返回一个迭代器」这套模型，
+        连 `yield*`（JavaScript）与 `yield from`（PHP）都对应得上。
+        差别在**键**：PHP 的迭代天生带键，生成器也能自己给键，
+        于是 `yield from` 与 `iterator_to_array()` 相遇时
+        会发生**键覆盖导致的静默丢元素**（上面那行实测丢了一半）。
+        JavaScript 的生成器只产值，`[...outer()]` 永远是 4 个元素。
+        另一处是双向通信：两边的 `next(v)` / `send(v)` 语义一致，
+        都不是新鲜事 —— 但 PHP 多一个 `getReturn()` 能把生成器的
+        `return` 值取出来，JavaScript 那边 `return` 值只在 `done` 时可见。
+      python: |
+        两边的生成器模型几乎逐条对应：`yield` 是表达式、
+        `send()` 送值、`yield from` 委托、生成器只能走一遍。
+        差别在**取返回值**：Python 用 `StopIteration.value`
+        或者 `yield from` 的表达式值；PHP 给了一个专门的 `getReturn()`。
+        另一处是键：Python 的生成器只产值（要下标得 `enumerate`），
+        PHP 的生成器**天生带键**而且能自定义 —— 所以 PHP 里
+        `iterator_to_array` 的键冲突是个真问题，Python 里不存在。
+        共同点是两边都能表达无限序列，而且都是惰性的。
+      java: |
+        Java 没有生成器语法，要写惰性序列得实现 `Iterator`
+        （`hasNext` / `next` 两个方法）或者用 Stream。
+        所以这一格是「一边有语法糖、一边要手写」：
+        PHP 的 `yield` 让「无限序列」变成一个普通函数的形状，
+        Java 里同样的东西要一个完整的类。
+        另一处是双向通信：Java 的 `Iterator` 是只读单向的
+        （拿不到「送值进去」这条路），PHP 的 `send()` 可以 ——
+        协程式写法在 PHP 里可行，Java 里得换线程或虚拟线程。
+        共同点是三边都要求「只能遍历一次」的迭代器要显式说明这一点。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  comprehension:
+    code: |
+      // @note! PHP **没有推导式** —— 没有 `[x for x in y if ...]` 这种语法
+      // @note 等价写法是三个数组函数 + 匿名函数
+
+      // 映射（≈ 列表推导的前半段）
+      $squares = array_map(fn($n) => $n * $n, [1, 2, 3]);       // @note [1, 4, 9]
+
+      // 过滤（≈ 后半段）
+      $evens = array_filter([1, 2, 3, 4], fn($n) => $n % 2 === 0);
+      // @note! array_filter **保留键** —— 结果是 [1=>2, 3=>4]，不是列表
+      $evens = array_values($evens);                            // @note 要自己重排
+
+      // 归约
+      array_reduce([1, 2, 3], fn($carry, $n) => $carry + $n, 0); // @note 6
+
+      // 嵌套（二维映射要套两层，编译不出扁平的那种推导）
+      array_map(fn($row) => array_map(fn($v) => $v * 2, $row), [[1, 2], [3]]);
+
+      // @note `array_map` 传多个数组时会**并行**取元素（像 zip）
+      array_map(fn($a, $b) => $a + $b, ["x" => 1, "y" => 2], [10, 20]);  // @note [11, 22]
+
+      // @note 也可以直接用 foreach 攒一个新数组 —— 可读性常常更好
+      $out = [];
+      foreach ($items as $it) { if ($it->ok) { $out[] = $it->name; } }
+    vs:
+      javascript: |
+        JavaScript 的 `map` / `filter` / `reduce` 与 PHP 的
+        `array_map` / `array_filter` / `array_reduce` 一一对应，
+        连「传回调」的形状都一样，所以这一格迁移成本不高。
+        差别在**键**：JavaScript 的数组只有下标，`filter` 之后
+        结果照样从 0 连续编号；PHP 的 `array_filter` **保留原键**，
+        于是「过滤完还是不是列表」变成一个新问题（要用 `array_values` 修）。
+        另一处是链式调用：JavaScript 可以 `arr.map().filter()` 一路点下去；
+        PHP 的函数式写法是**从里往外**套（`array_filter(array_map(...))`），
+        读起来方向相反，或者要引 Laravel 的 Collection 那类封装。
+      python: |
+        **这一格差别很大**：Python 有列表推导、字典推导、生成器表达式，
+        一行就能表达「映射 + 过滤 + 展平」；PHP **一种都没有**，
+        等价写法是「数组函数套数组函数」或者老老实实 `foreach` 攒。
+        所以在 Python 里是一行的事，在 PHP 里通常写成一个循环 ——
+        可读性反而常常更好，但代码行数明显更多。
+        另一处是键：Python 的推导永远产出连续的列表；
+        PHP 的 `array_filter` 保留键，忘了 `array_values` 会得到
+        `{"1":2,"3":4}` 这种在 JSON 里变成对象的数组，是个常见事故。
+      java: |
+        Java 的 Stream（`map` / `filter` / `collect`）能像那样链式写，
+        是目前三边里最接近「推导式」体验的；PHP 没有链式 API，
+        只能嵌套调用或者写循环。
+        差别在**惰性**：Java 的 Stream 在终端操作之前是惰性的，
+        中间不会造出中间集合；PHP 的 `array_map` / `array_filter`
+        **每一步都造出一个完整数组** —— 链得越长，中间产物越多。
+        另一处是结果类型：Java 的 `collect` 可以选容器类型，
+        PHP 只能拿数组（要别的类型得自己包）。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  lazy-evaluation:
+    code: |
+      // @note! 关键事实：PHP 里绝大多数集合操作**立刻求值**
+      // @note `range` 会真的造出整个数组 —— 实测 range(1, 200000) 占 6.3 MB
+      $big = range(1, 200000);
+
+      // @note 想惰性只有一条路：生成器。同样的序列只占 512 字节（实测）
+      function gen_range(int $n): Generator { for ($i = 1; $i <= $n; $i++) yield $i; }
+      $lazy = gen_range(200000);
+
+      // @note 生成器函数**不会在调用时执行任何代码** —— 第一次取值才开始跑
+      function noisy(): Generator { echo "现在才开始跑\n"; yield 1; }
+      $g = noisy();               // @note 这里什么都不打印
+      $g->current();              // @note 到这里才打印
+
+      // @note 只有遍历（或显式取值）才推进一步，所以能表达无限序列
+      function naturals(): Generator { $i = 0; while (true) { yield $i++; } }
+      foreach (naturals() as $n) { if ($n > 3) { break; } }   // @note 只算了前几个
+
+      // @note 想把现成的数组也接进链式迭代，SPL 给了一套迭代器装饰器
+      new LimitIterator(new ArrayIterator([1,2,3,4,5]), 1, 2);   // @note 2,3
+      // @note 还有 NoRewindIterator / FilterIterator / CallbackFilterIterator 等
+
+      // @note! 但**没有 Stream 那种惰性管道** —— 数组函数每一步都造中间数组
+    vs:
+      javascript: |
+        JavaScript 的数组方法也是**立刻求值**的（`map` / `filter` 都返回新数组），
+        惰性要靠生成器或者 `Iterator` 帮助函数 —— 这一点两边一样，
+        所以从 JavaScript 过来不会有落差。
+        差别在**「造一个序列」的写法**：JavaScript 没有 `range` 内建函数
+        （要自己写 `Array.from({length: n}, (_, i) => i)`），
+        PHP 有 `range()` 而且它**立刻造数组**；
+        惰性版本两边都得手写生成器。
+        另一处是字符串：JavaScript 的字符串是可迭代的，
+        PHP 的字符串不是（要 `str_split` 先变成数组）。
+      python: |
+        Python 里惰性是**默认**的：`range(200000)` 是惰性的、
+        `map` / `filter` 返回迭代器、生成器表达式一写就是惰性 ——
+        也就是说 Python 程序员要主动写 `list(...)` 才会求值。
+        PHP **正好相反**：`range` 立刻造数组、`array_map` 立刻造数组，
+        惰性要显式写 `yield`。这是从 Python 过来最容易低估内存的一处：
+        同一行 `range` 在一边是常数内存，在另一边是几百兆。
+        另一处是「无限序列」：Python 里 `itertools.count()` 开箱即用，
+        PHP 要自己写生成器（不过写法也就三行）。
+      java: |
+        Java 的 Stream 是显式惰性的：中间操作不执行，直到终端操作触发 ——
+        而且 `IntStream.range` 也是惰性的。PHP **没有中间层**：
+        数组函数每一步都产出完整数组，没有「装配管道、最后才算」这种玩法。
+        也就是说 Java 那边「惰性」是一种可选的**写法风格**，
+        PHP 这边「惰性」只存在于生成器这一种东西上，
+        而且生成器不能像 Stream 那样链式组合。
+        另一处是内存：Java 的 Stream 处理大集合不会一次装进内存，
+        PHP 的 `array_map` 会 —— 处理大文件时这点很实际。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  destructuring:
+    code: |
+      // @note 位置解构（7.1 起）；跳过元素用空位
+      [$a, $b] = [1, 2];
+      [, , $third] = [1, 2, 3];
+      [$x, [$y, $z]] = [1, [2, 3]];          // @note 可以嵌套
+      list($p, $q) = [4, 5];                 // @note list() 是旧写法，等价
+
+      // @note 关联解构**必须显式写键**
+      ['id' => $id, 'name' => $name] = $row;
+
+      // @note 可以解构进已有变量（数组元素也行）—— 交换很自然
+      $arr = [1, 2];
+      [$arr[0], $arr[1]] = [$arr[1], $arr[0]];
+
+      // @note foreach 里也能直接解构
+      foreach ([[1, 2], [3, 4]] as [$m, $n]) { echo "$m$n"; }
+
+      // @note! 三条限制，都会在运行时或编译期拒绝：
+      // @note! ① 解构**标量**不报错，但给每个变量赋 null（外加一条 Warning）
+      // [$u, $v] = 5;                       // @note! Warning: Cannot use int as array
+      // @note! ② **赋值里不能用展开**（官方明确：展开不适用于赋值）
+      // [..., $last] = [1, 2, 3];           // @note! 语法错误
+      // @note! ③ 不能对数组字面量的元素取引用
+      // [$r, &$s] = [1, 2];                 // @note! Fatal error:
+      //                                     //    Cannot assign reference to
+      //                                     //    non referenceable value
+
+      // @note 函数返回数组 + 解构 = 事实上的「多返回值」
+      [$ok, $val] = doSomething();
+    vs:
+      javascript: |
+        两边的解构写法几乎一致（`[$a, $b] = ...` ↔ `const [a, b] = ...`），
+        嵌套、跳过空位、交换变量的技巧都对应得上。
+        差别在**对象/关联解构**：JavaScript 的 `{id, name} = row`
+        按**属性名**取，变量名默认与属性同名，一行能解好几个；
+        PHP 要写 `['id' => $id, 'name' => $name]`，键与变量名都得写，
+        而且关联数组与对象是两种东西（对象属性解构 PHP 根本不支持，
+        要先 `get_object_vars()` 或者用 `->` 一个个取）。
+        另一处是失败行为：JavaScript 解构非可迭代值抛 TypeError；
+        PHP 解构标量只给 Warning 然后全赋 null —— 静默得多。
+      python: |
+        两边的解构都很好用，但**表达能力差一截**。
+        Python 支持星号收集「剩下的」（`a, *rest = [1,2,3]`），
+        PHP **不支持** —— 展开运算符在赋值里是语法错误（官方明确）。
+        Python 还支持解构嵌套任意深度、解构函数参数、自动交换；
+        PHP 的嵌套与交换可以，参数解构不行。
+        另一处是「解构不对会怎样」：Python 长度不匹配直接抛 ValueError
+        （`a, b = [1,2,3]` 报错），PHP 多出来的直接忽略、不吭声；
+        解构标量 Python 抛 TypeError，PHP 给 null 加一条 Warning。
+        两边的共同点是都把它当「多返回值」的惯用手法。
+      java: |
+        Java 传统上没有解构赋值（要到较新版本的模式匹配才有类似能力），
+        所以这一格 PHP 是**更早、更顺手**的一边：
+        `[$a, $b] = pair()` 一行接住两个返回值，
+        Java 要写个 record 或者 `pair.getFirst()` / `getSecond()`。
+        差别在类型安全：Java 的模式匹配会检查类型与数量，
+        PHP 的解构完全不检查（长度不对就多退少补、类型不对就警告）。
+        另一处是关联解构：Java 没有「按名字解构」这种写法，
+        PHP 的 `['id' => $id] = $row` 在 Java 里只能靠 getter。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent

@@ -1,0 +1,284 @@
+# php —— model / modules
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: modules` 的那批：
+# module-unit / export-import / default-vs-named / namespace-alias / module-resolution。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组的中心事实只有一句 —— **PHP 没有模块系统**。
+# 一个 .php 文件就是一段被求值的脚本，里面定义的类/函数/常量进入
+# 全局（或该文件声明的命名空间）符号表。`use` **只做编译期别名、不加载任何东西**，
+# 类是按需自动加载的。这五格是这一句话的五个侧面，不要写成五种机制。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-modules-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  module-unit:
+    code: |
+      // @note! PHP **没有模块系统** —— 一个 .php 文件就是一段被求值的脚本
+      // math.php
+      namespace App;
+      function add(int $a, int $b): int { return $a + $b; }
+
+      // index.php
+      require __DIR__ . '/math.php';   // @note 逐字求值，不是「导入一个模块」
+      echo App\add(1, 2);              // @note 3
+
+      // @note! 文件里定义的东西进的是**符号表**，不是该文件私有 ——
+      // @note! 也就是说「文件」和「作用域」不是一回事
+      // @note 官方原话：被包含文件里定义的函数与类都是全局作用域
+
+      // @note! 同一个文件 require 两次 → 函数重复声明，致命错误
+      // require __DIR__ . '/math.php';   // @note! Fatal error: Cannot redeclare App\add()
+      // @note 所以惯例是用 require_once / include_once
+
+      // @note require 与 include 只差一处：找不到文件时
+      // @note   require → 致命错误，脚本停下
+      // @note   include → 一条 Warning，继续往下跑
+
+      // @note 只有**顶层变量**会跟着 include 走调用处的作用域
+      // @note 在函数里 include，被包含文件的变量相当于定义在那个函数里
+    vs:
+      javascript: |
+        JavaScript 有真正的模块系统：每个文件是独立作用域，
+        要显式 `export` 才能被外面看到，`import` 是静态声明。
+        PHP **两者都没有** —— 一个文件被包含时就是「当场求值」，
+        里面定义的函数与类直接进符号表，谁都能用。
+        所以那边「这个文件暴露了什么」有一份显式的清单，
+        这边只能靠读文件内容或看文档。
+        另一处是重复加载：JavaScript 的模块天然只求值一次（有缓存），
+        PHP 的 `require` 是「再求值一遍」，第二次就撞上重复声明 ——
+        要用 `require_once` 才是那边的默认行为。
+      python: |
+        Python 的模块也是「一个文件一个命名空间」，`import` 会执行该文件
+        并把顶层名字挂到模块对象上，而且**只执行一次**（有 `sys.modules` 缓存）。
+        PHP 的文件没有这层包装：没有模块对象、没有缓存、没有 `__name__`，
+        被包含文件的函数与类直接进全局符号表 ——
+        也就是说 Python 那边「`math.add`」里的 `math` 是一个真实对象，
+        PHP 那边的 `App\add` 只是一个名字。
+        另一处是重复执行：Python 的 `import` 写两遍也只跑一次；
+        PHP 写两遍 `require` 会真的跑两遍，然后因重复声明而崩。
+      java: |
+        Java 的「模块单元」是类（一个文件一个 public 类），
+        名字与包路径强制对应；PHP 的文件既不是类也不是模块，
+        文件与命名空间**没有强制关系**（完全可以在一个文件里声明
+        与目录毫无关系的命名空间，或者一个文件放好几个类）。
+        另一处是加载时机：Java 由类加载器按需加载、天然只加载一次；
+        PHP 的 `require` 是显式求值、求值几次就定义几次 ——
+        所以「重复加载」这件事在 Java 里不存在，在 PHP 里是常见故障。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  export-import:
+    code: |
+      // @note! PHP **没有 `export` 关键字** —— 「导出」不是动作，是结果
+      // @note 文件被包含（或被自动加载）时定义了哪些符号，外面就能拿到哪些
+
+      require __DIR__ . '/vendor/autoload.php';   // @note Composer 生成的自动加载入口
+
+      // @note! `use` **只做编译期别名，不加载任何东西**
+      // @note 官方原话：use 语句不会加载类文件
+      use App\Service\Mailer;
+      use function App\Util\slugify;
+      use const App\Config\VERSION;
+
+      $m = new Mailer();        // @note! 直到这一刻才触发自动加载
+
+      // @note 自动加载靠注册回调，语言本身不提供映射规则
+      spl_autoload_register(function (string $class): void {
+        require __DIR__ . '/src/' . str_replace('\\', '/', $class) . '.php';
+      });
+
+      // @note! import 表是**按文件**的：被包含的文件不继承包含方的 use
+    vs:
+      javascript: |
+        JavaScript 的导入导出是**成对**的：一个模块要显式 `export`，
+        另一个文件才能 `import`；没写 `export` 的东西外面拿不到。
+        PHP 没有这个「配对」—— 文件里定义的函数与类默认就是公开的，
+        没有任何东西能拦住别人使用（想限制只能靠命名空间约定或 `private` 成员）。
+        另一处是导入的副作用：JavaScript 的 `import` **会执行模块**；
+        PHP 的 `use` 是纯编译期别名，一个字节都不会加载，
+        真正加载发生在用到那个类的时候。
+        所以那边「import 了什么」等于「依赖了什么」，
+        这边 `use` 只说明「这个名字指的是谁」。
+      python: |
+        Python 的 `import` 既是「引入名字」也是「执行并加载模块」，
+        两件事绑在一起；PHP 把它们**拆开了** ——
+        `use` 只管名字（编译期），加载由自动加载器在真正用到时完成。
+        另一处是「导出」：Python 用 `__all__` 声明公开清单（虽然只是约定），
+        还有下划线开头的私有约定；PHP 两边都没有，
+        继承 `use` 也做不到（import 表是按文件的）。
+        共同点是两边都能导入函数与常量
+        （Python 的 `from x import y` 对什么都能导，
+        PHP 要分行写 `use function` / `use const`）。
+      java: |
+        Java 的 `import` 与 PHP 的 `use` 最接近：都是**编译期**的
+        「短名字指的是谁」，都不加载任何东西，也都不影响运行时的动态名字。
+        差别在「可见性从哪来」：Java 靠 `public` / 包级 / `private`
+        在**成员**层面控制谁能看见，`import` 只是省打字；
+        PHP 的 `private` 也是成员级，但顶层函数与类**没有可见性修饰符**，
+        一旦被求值定义出来就是全局可见的。
+        另一处是加载：Java 由类加载器自动按包路径找类，
+        PHP 要自己注册自动加载回调（或者用 Composer 生成的那份）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  default-vs-named:
+    code: |
+      // @note! PHP **既没有默认导出，也没有模块级的具名导出** —— 无此概念
+      // @note 最接近「具名导入」的是命名空间符号的 use，而且分三张表：
+      use App\Foo\Bar;                  // @note 类
+      use function App\Foo\helper;      // @note 函数
+      use const App\Foo\VERSION;        // @note 常量
+
+      // @note 还支持分组写法（7.0 起），组内可以起别名
+      use App\Foo\{Bar, Qux, Quux as Q};
+
+      // @note! 别与「命名参数」搞混 —— 那是调用点的实参绑定，与导出无关：
+      strlen(string: "abcd");           // @note 命名参数，8.0 起
+    vs:
+      javascript: |
+        JavaScript 的模块有「默认导出」与「具名导出」两条路，
+        默认导出还有个历史包袱（`module.exports = ` 与 `export default` 的互操作）。
+        PHP **两条路都没有**：没有「这个文件的主出口」这种概念，
+        也没有模块级的具名导出清单 —— 只有命名空间的短名字机制。
+        所以那边「默认导出」承担的角色（一个模块主要就那么一个东西），
+        在 PHP 里由「类名 == 文件名」的 PSR-4 约定顶上，
+        而且那只是约定，语言不管。
+      python: |
+        Python 把「默认导出」这个位置留给了 `__init__.py`：
+        包目录的 `__init__.py` 决定 `import pkg` 拿到什么。
+        PHP 没有对应的东西 —— 命名空间不是目录、没有入口文件，
+        `use App\Foo` 也不是「导入 App\Foo 这个包」，
+        只是给一个名字起别名（而且必须写到具体的类/函数/常量）。
+        另一处是分组：PHP 有 `use A\{B, C as D}` 这种写法，
+        Python 要写多行 `from ... import ...` 或者 `import ... as ...`。
+      java: |
+        Java 没有「默认导出」这个概念，`import` 也**不能**导入整个包的成员
+        （`import foo.*` 只是省打字，仍然是按名字解析）。
+        PHP 的 `use` 与它同构：都是把长名字绑成短名字的编译期行为。
+        差别在可导入的东西：Java 只导入类型（静态导入可以导成员），
+        PHP 分三张表 —— 类、函数、常量各写各的，
+        写漏了 `use function` 就会去当前命名空间找那个函数然后报找不到。
+        另一处是 PHP 的 `use App\Foo\{A, B}` 分组写法 Java 没有。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  namespace-alias:
+    code: |
+      namespace App\Http;               // @note 声明本文件的命名空间
+
+      use App\Domain\User as U;         // @note 起别名
+      use App\Support\Arr;
+
+      $u = new U();                     // @note 就是 App\Domain\User
+      Arr::first($x);                   // @note App\Support\Arr::first
+      echo \strlen("x");                // @note! 前导 \ = 完全限定名，不受 use 影响
+      echo namespace\helper();          // @note namespace\ 是「当前命名空间」的相对名
+
+      // @note! use 是**编译期**的：它只改「这个名字在这里指的是谁」
+      $name = 'U';
+      // new $name;                     // @note! Error: Class "U" not found —— 不走别名
+      $fq = 'App\Domain\User';
+      new $fq;                          // @note 动态名字必须写完全限定名
+
+      // @note use 必须写在文件最外层，不能放进函数或 if 里
+      // @note 也不能给全局命名空间起别名（`use \ as x;` 非法）
+    vs:
+      javascript: |
+        JavaScript 的 `import ... as ...` 与 PHP 的 `use ... as ...`
+        长得像、作用也像，都是把长名字绑成短名字。
+        差别在**有效期与时机**：JavaScript 的绑定是模块作用域的静态声明，
+        而且是真的加载；PHP 的 `use` 是编译期别名、按文件生效、不加载。
+        另一处更实际：JavaScript 里没有「完全限定名」这种写法，
+        名字要么是导入的要么是全局的；PHP 有前导 `\` 的完全限定名，
+        可以绕过所有别名直接点名，这在同名冲突时是唯一的出路。
+        共同点是两边都能给导入起别名来消歧义。
+      python: |
+        Python 的对应物是 `import a.b.c as x`，同样是「绑一个短名字」，
+        而且同样**会真的加载模块**（PHP 的 `use` 不会）。
+        差别在「完全限定名」：Python 里 `a.b.c` 直接就能写、
+        不需要前缀；PHP 要写前导 `\`（`\App\Foo\Bar`）才表示「从根算起」，
+        不写前导 `\` 的话在命名空间内部会被当成相对的 ——
+        这是从 Python 过来最容易搞混的一处。
+        另一处是动态名字：Python 里 `getattr` / 模块对象能做的事更多，
+        PHP 的动态 `new $name` **不走别名表**，必须给完全限定名。
+      java: |
+        两边的 `import` / `use` 几乎可以逐条对应，
+        连「别名」的用法都类似（Java 没有 `as`，但可以用
+        完全限定名或者同名类冲突时的全写）。
+        差别在**能不能导入函数与常量**：Java 有静态导入
+        （`import static Math.PI`），PHP 有 `use function` / `use const` ——
+        思路一致、写法不同。
+        另一处是相对名：PHP 有 `namespace\helper()` 这种「当前命名空间下」的相对写法，
+        Java 没有对应物（只能写全名或靠 import）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  module-resolution:
+    code: |
+      // @note `include` / `require` 找文件的顺序（官方手册的顺序，与直觉不同）：
+      // @note   ① 给了路径（绝对，或以 ./ ../ 开头）→ **只看这个路径**，忽略 include_path
+      // @note   ② 只给文件名 → 先查 include_path
+      // @note   ③ 没找到 → 查**调用脚本自身所在目录**
+      // @note   ④ 最后查当前工作目录（CWD）
+
+      require __DIR__ . '/lib/math.php';   // @note 惯例：用 __DIR__ 拼绝对路径，避开这套顺序
+
+      // @note! 类的加载不由 include 决定，而由**自动加载器**决定
+      // @note 语言层只有 spl_autoload_register；具体映射规则是 Composer 的 PSR-4
+      // @note PSR-4：命名空间前缀 → 目录，前缀**不出现在文件路径里**
+      // composer.json:
+      //   { "autoload": { "psr-4": { "App\\": "src/" } } }
+      // App\Foo\Bar  →  src/Foo/Bar.php      （开头的 App\ 不在路径中）
+    vs:
+      javascript: |
+        两边都有「按路径找」与「按名字找」两套。JavaScript 的
+        `import './x.js'` 是路径解析（必须写扩展名或靠打包器补），
+        `import 'lodash'` 是包名解析（走 node_modules 逐级向上找）。
+        PHP 的 `require` 没有「向上找 node_modules」这种机制，
+        只有 include_path 加几个固定位置；类名解析则完全交给
+        自动加载器（Composer 生成的 PSR-4 映射）。
+        另一处是扩展名：JavaScript 的路径通常带 `.js`，
+        PHP 的 include 路径不带也认（会按 include_path 里的后缀补）。
+      python: |
+        Python 的模块查找是一套明确的规则（`sys.path` 的顺序、
+        包内相对导入用 `.` 前缀），而且**由语言统一规定**；
+        PHP 的 include 查找顺序是「include_path → 脚本目录 → CWD」，
+        而类的解析**根本没有语言级规则** —— 只有自动加载回调这个钩子，
+        具体规则由 Composer 的 PSR-4 约定提供。
+        也就是说 Python 那边「import 一个名字会发生什么」是语言行为，
+        PHP 那边是框架行为。
+        另一处是相对路径：Python 用 `.` / `..` 表达包内相对，
+        PHP 的 `./` 是文件系统的相对路径，两者不是一个层面的东西。
+      java: |
+        Java 的类解析是**确定且唯一**的：包名逐段对应目录，
+        类加载器按 classpath 找，没有「自定义映射」这一层。
+        PHP 的类解析恰恰相反 —— 语言只给一个钩子，
+        映射规则（PSR-4）是 Composer 定的约定，
+        所以同一个类名在不同项目里可能落在不同路径。
+        另一处是 include_path：Java 没有「额外搜索目录」这种全局配置，
+        classpath 就是全部；PHP 的 include_path 是一个可以全局改的
+        ini 设置，容易造成「本地能跑、线上找不到文件」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

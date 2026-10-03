@@ -1,0 +1,277 @@
+# php —— model / abstraction
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: abstraction` 的那批：
+# interface / abstract-class / mixin-trait / duck-typing。
+#
+# PHP 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 PHP 与那个基准两门语言（R25）。
+#
+# 口径说明：这一组四格的边界很容易写混，先钉死 ——
+# ① **interface**：只有签名（方法全都是 public 且抽象）、可多实现、可带常量；
+#    **8.4 起**还能声明属性（只约束读写能力）。
+# ② **abstract class**：可以有实现（半成品），只能单继承；抽象方法不能 private。
+# ③ **trait**：复制实现，**不是类型**（`instanceof` 为 false），冲突要显式解决。
+# ④ **duck-typing**：PHP 是**名义类型** —— 形状相同但没 implements 的类不兼容。
+#    唯一的隐式满足是 `Stringable`（有 `__toString()` 就自动算）。
+#
+# 本文件的事实全部在本机 PHP 8.5.11 上实跑确认过。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-04'
+
+boxes:
+  interface:
+    code: |
+      // @note 接口只有**签名** —— 所有方法都是 public 且抽象的，没有方法体
+      interface Logger {
+        public const LEVEL = 'info';              // @note 接口可以带常量
+        public function log(string $m): void;     // @note 只有签名
+      }
+
+      class FileLogger implements Logger {         // @note 必须实现全部方法，否则致命错误
+        public function log(string $m): void { }
+      }
+
+      // @note 一个类可以 implements 多个接口；接口之间也可以 extends 多个
+      interface A { public function a(): void; }
+      interface B { public function b(): void; }
+      interface AB extends A, B { }
+      class Both implements AB { public function a(): void {} public function b(): void {} }
+
+      // @note! 接口方法**只能是 public** —— 写 private/protected 是致命错误
+      // interface Bad { private function x(): void; }   // @note! Fatal error:
+      //    Access type for interface method Bad::x() must be public
+
+      // @note! PHP 的接口**没有默认方法实现** —— 想共享实现请用 trait 或抽象类
+      // @note 接口常量 8.1 起可以被子接口覆盖（之前不行）
+
+      // @note 8.4 起接口还能**声明属性**（约束的是「实现方要能公开读/写」）
+      interface HasTimestamp { public string $ts { get; } }
+      class Event implements HasTimestamp { public string $ts = 'now'; }
+    vs:
+      javascript: |
+        JavaScript **没有接口**（另一个语言的方言里有，但运行时不存在，
+        编译完就没了）。所以这一格在 JavaScript 里没有对应物 ——
+        那边靠约定与文档保证「这个对象要有这个方法」，
+        唯一的运行时检查是自己写 `typeof obj.m === 'function'`。
+        PHP 的接口是**运行时真的会检查**的：参数声明成接口类型，
+        传进来的对象不 `implements` 就抛 TypeError。
+        另一处是「接口能不能带实现」：JavaScript 的方言接口可以写
+        「默认实现」（其实还是编译期的事），PHP 的接口**只声明签名**，
+        一个方法体都不能有。
+      python: |
+        Python 的抽象基类（`abc.ABC` + `@abstractmethod`）能顶一部分，
+        但**默认不强制** —— 不实现抽象方法只在实例化时抛 TypeError，
+        而且一旦绕过检查（比如直接调用静态方法）就不管了。
+        PHP 的接口是硬性的：少实现一个方法，类定义那一刻就致命错误。
+        另一处是**结构化 vs 名义**：Python 有 `typing.Protocol`
+        可以做结构化子类型（不继承也算数，但只在类型检查器里生效）；
+        PHP **完全没有这一路**，接口必须显式 `implements`。
+        共同点是两边都能多实现，也都能用抽象类做「半成品」。
+      java: |
+        **这一格两边最接近**：`interface` 关键字、`implements`、
+        多实现、接口常量、必须实现全部方法 —— 几乎逐条对应。
+        差别在**默认方法**：Java 8 起接口可以有 `default` 方法与静态方法，
+        于是接口既能是类型也能带实现；PHP 的接口**一个方法体都不能有**，
+        想共享实现必须换成 trait 或者抽象类 ——
+        也就是说 Java 那边「接口 + 默认方法」的组合拳在 PHP 里要拆成两个机制。
+        另一处是接口属性：Java 的接口字段隐式是 `public static final` 常量；
+        PHP 8.4 起接口可以声明**实例属性**（约束实现方提供读写能力），
+        这是 Java 没有的东西。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  abstract-class:
+    code: |
+      // @note 抽象类 = 「半成品」：可以有**已实现的方法**，也可以留抽象方法
+      abstract class Shape {
+        abstract public function area(): float;        // @note 只声明，不实现
+        public function describe(): string {           // @note 也可以有实现
+          return '面积=' . $this->area();
+        }
+        public static function make(): string { return "静态方法照常可用"; }
+      }
+
+      class Circle extends Shape {
+        public function __construct(private float $r) {}
+        public function area(): float { return 3.14 * $this->r ** 2; }
+      }
+
+      // @note! 抽象类**不能实例化**（但静态方法能调）
+      // new Shape;                     // @note! Error: Cannot instantiate abstract class
+
+      // @note 含抽象方法的类**必须**声明为 abstract
+      // @note 抽象方法只能是 public / protected —— 不能 private
+      // @note 子类必须实现全部抽象方法，且受签名兼容约束
+
+      // @note 8.4 起还能声明**抽象属性**（要求子类提供该属性）
+      abstract class WithName { abstract public string $name { get; } }
+    vs:
+      javascript: |
+        JavaScript 有 `abstract` 吗？没有 —— 而且 JavaScript 根本没有
+        编译期这一层，所以「抽象」只能靠约定（在父类方法里 `throw`
+        一个「必须实现」的错误）或者靠类型系统（另一个语言的方言）。
+        PHP 的抽象类是**语言强制的**：留了抽象方法没实现，
+        子类定义那一刻就致命错误；抽象类本身根本 `new` 不出来。
+        另一处是**能不能有实现**：PHP 的抽象类正是「有实现的半成品」，
+        这与接口形成分工；JavaScript 那边没有这种二分，
+        全部靠继承一个普通类加约定。
+      python: |
+        两边都有抽象基类，但**强制程度不同**：
+        Python 的 `@abstractmethod` 只在**实例化时**检查，
+        而且可以被绕过（`ABC` 的元类检查发生在实例化那一刻）；
+        PHP 的抽象方法在**类定义时**就检查，子类没实现直接致命错误，
+        连文件都加载不了。
+        另一处是「抽象类能不能有实现」：两边都可以，这一层一致。
+        共同点是两边都只能单继承抽象类、都需要子类补齐方法，
+        而且都能在抽象类里放共享的已实现方法。
+      java: |
+        **两边几乎逐条对应**：`abstract class`、抽象方法、
+        不能实例化、可以有已实现的方法、子类必须补齐 ——
+        连「抽象方法不能是 private」这条都一样。
+        差别在**继承的出路**：Java 的抽象类也是单继承，
+        但它有接口默认方法作为横向复用的补充；
+        PHP 没有接口默认方法，横向复用**只能靠 trait** ——
+        所以同样一个设计在 Java 里可能是「接口 + 默认方法」，
+        在 PHP 里会落成「抽象类 + trait」。
+        另一处是抽象属性：Java 没有「抽象字段」这种声明
+        （字段要么有值要么靠构造器），PHP 8.4 起可以写抽象属性。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  mixin-trait:
+    code: |
+      // @note trait = 把一段实现**复制**进使用它的类
+      trait Greets {
+        public function hi(): string { return 'hi'; }
+      }
+      class User { use Greets; }
+      (new User)->hi();                 // @note 'hi'
+
+      // @note! 但 trait **不是类型** —— 它不建立 is-a 关系
+      var_dump(new User instanceof Greets);   // @note! false
+
+      // @note 冲突必须显式解决：insteadof 二选一、as 起别名
+      trait A { public function talk(): string { return 'a'; } }
+      trait B { public function talk(): string { return 'b'; } }
+      class Talker {
+        use A, B { B::talk insteadof A; A::talk as talkA; }
+      }
+      // @note 两个 trait 有同名方法又不解决冲突 → 致命错误，不是警告
+
+      // @note 优先级：**类自己的方法 > trait 的方法 > 父类的方法**
+      // @note trait 可以带常量（8.2 起）、可以声明抽象方法（要求使用方实现）
+
+      // @note! 静态属性：8.3 起「每个使用该 trait 的类各有一份」
+      trait Counter { public static int $n = 0; public function inc(): int { return ++static::$n; } }
+      class C1 { use Counter; }
+      class C2 { use Counter; }
+      $c1 = new C1; $c2 = new C2;
+      $c1->inc(); $c1->inc();
+      echo $c2->inc();                  // @note 1 —— 不是 3，两个类各算各的
+    vs:
+      javascript: |
+        JavaScript 没有 trait。最接近的做法是**把方法混进原型**
+        （`Object.assign(Cls.prototype, mixin)`）或者用组合 + 委托。
+        差别在**冲突处理**：JavaScript 的混入是「后写的覆盖先写的」，
+        静默发生；PHP 的同名方法冲突**必须显式解决**（`insteadof` / `as`），
+        不解决直接致命错误 —— 一个静默、一个强制你想清楚。
+        另一处是**是不是类型**：JavaScript 的 mixin 本来就不是类型，
+        这一层两边一样（PHP 的 trait 也不能 `instanceof`）。
+        共同点是两边都把它当「横向复用实现」的手段，而不是继承。
+      python: |
+        Python 用**多继承 + MRO** 来达到同样目的：把可复用的实现写成
+        一个类，然后多继承进来，方法解析顺序由 C3 线性化决定。
+        PHP **只支持单继承**，横向复用只能靠 trait。
+        差别在**冲突解决**：Python 的 MRO 是「自动算出一个确定的顺序」，
+        同名方法按顺序取第一个，不需要你写什么；
+        PHP 的 trait 冲突**必须手写 `insteadof`**，不写就是致命错误 ——
+        一个是自动排序，一个是强制显式。
+        另一处是 trait 不是类型：Python 里多继承进来的那个基类**是**类型
+        （`isinstance` 为真），PHP 的 trait 不是 —— 这一条差别很实际。
+      java: |
+        Java 没有 trait，横向复用的手段是**接口默认方法**
+        （Java 8 起）—— 但那个东西**是类型**，PHP 的 trait 不是。
+        所以同样是「给一批类加同一个能力」，
+        Java 那边得到的是 `instanceof` 为真的类型关系，
+        PHP 这边只是复制了一段代码进去。
+        差别还在**冲突**：Java 的两个接口有同名默认方法时，
+        编译器强制你在实现类里覆盖并显式指定用哪个
+        （`Interface.super.m()`）；PHP 用 `insteadof` / `as` ——
+        两边都强制显式，这一点很像。
+        另一处是状态：Java 的接口不能有实例字段，默认方法拿不到独立状态；
+        PHP 的 trait **可以带属性**（每个使用者各一份），表达力更强。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  duck-typing:
+    code: |
+      // @note! PHP 是**名义类型** —— 类型按名字与继承关系判定，不按形状
+      class Duck { public function quack(): string { return '嘎'; } }
+      class Toy  { public function quack(): string { return '吱'; } }
+
+      function needsDuck(Duck $d): string { return $d->quack(); }
+
+      needsDuck(new Duck());            // @note 通过
+      // needsDuck(new Toy);            // @note! TypeError —— 形状一样也不算
+      //                                //    Argument #1 ($d) must be of type Duck, Toy given
+
+      // @note 但**方法调用本身不做检查** —— 同一个对象直接调就畅通无阻
+      (new Toy)->quack();               // @note 合法
+
+      // @note 想「鸭子类型」，只能自己把类型放宽
+      function needsQuacker(object $o): string { return $o->quack(); }   // @note 运行时才炸
+      // @note 或者用 mixed / 无类型参数 + is_callable([$o, 'quack']) 自己检查
+
+      // @note! 唯一的「隐式满足」是 Stringable：有 __toString() 就自动算
+      class S { public function __toString(): string { return 's'; } }
+      var_dump(new S instanceof Stringable);    // @note true —— 没有 implements 也算
+
+      // @note `callable` 是个形状式的类型，但**不能做属性类型**（致命错误）
+      // @note 也不能给它声明签名
+    vs:
+      javascript: |
+        JavaScript **完全是鸭子类型**：`obj.quack()` 只要运行时那个属性
+        是个函数就能调，没有任何声明层面的检查 —— 所以「形状对就行」
+        在那边是默认行为，根本不需要「放宽类型」这个动作。
+        PHP 反过来：写了 `Duck $d` 就必须是 `Duck`，形状相同不算。
+        所以这一格两边是**默认值的对立**：
+        一边默认不管，一边默认严查（而且查的还不是形状）。
+        另一处是「什么时候发现类型不对」：JavaScript 到调用那一行才
+        `TypeError: obj.quack is not a function`；PHP 在**传参那一刻**就抛。
+      python: |
+        Python 也是鸭子类型：`duck.quack()` 运行时查属性，
+        类型标注只是文档（不生效）。所以「形状对就行」在 Python 里
+        也是默认行为 —— 与 PHP 的名义类型正相反。
+        差别在**有没有结构化的那条路**：Python 有 `Protocol`
+        可以声明「只要有这个方法就算」，虽然只在类型检查器里生效，
+        但至少能写出来；PHP **连写都写不出来**，接口必须显式 `implements`。
+        另一处是隐式满足：Python 的 `Protocol` 可以在检查器里隐式满足，
+        PHP 全语言只有一个隐式满足的例子（`Stringable`）。
+      java: |
+        **两边基本一致**：都是名义类型，形状相同但没 implements
+        就不是那个类型，传参会抛类型错误。
+        差别在**检查时机**：Java 在编译期就把不兼容的传参拦下来，
+        PHP 要到运行时才抛 TypeError —— 一个是写的时候就红，
+        一个是跑到才红。
+        另一处是隐式满足：Java 没有任何隐式接口满足
+        （`toString()` 不会让你自动是某个接口），
+        PHP 有一个特例 `Stringable` —— 有 `__toString()` 就自动算。
+        共同点是两边都提供「放宽到最宽」的逃逸口
+        （Java 的 `Object` + 强制转换，PHP 的 `object` / `mixed`）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
