@@ -1,0 +1,131 @@
+{
+  "lang": "python",
+  "section": "mechanism",
+  "group": "async",
+  "boxes": {
+    "event-loop": {
+      "lang": "python",
+      "code": "import asyncio\n\nasyncio.run(main())        # 必须显式启动 —— 没有它会报\n                         #        \"no running event loop\"\n\nasync def main():\n    loop = asyncio.get_running_loop()\n    task = asyncio.create_task(work())     # 排进循环\n    await task\n\n# ⚠ 事件循环里跑同步阻塞代码会**堵住整个循环**：\n#   time.sleep(1)         -> 谁都别想动\n#   await asyncio.sleep(1) -> 让出控制权\n# 同步库（requests、psycopg2）放进协程里就是这个效果",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">run</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">main</span><span style=\"color:var(--shiki-token-punctuation)\">())</span><span style=\"color:var(--shiki-token-comment)\">        # 必须显式启动 —— 没有它会报</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">                         #        \"no running event loop\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> def</span><span style=\"color:var(--shiki-token-function)\"> main</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    loop </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">get_running_loop</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    task </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">create_task</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">work</span><span style=\"color:var(--shiki-token-punctuation)\">())</span><span style=\"color:var(--shiki-token-comment)\">     # 排进循环</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    await</span><span style=\"color:var(--shiki-foreground)\"> task</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># ⚠ 事件循环里跑同步阻塞代码会**堵住整个循环**：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">#   time.sleep(1)         -> 谁都别想动</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">#   await asyncio.sleep(1) -> 让出控制权</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 同步库（requests、psycopg2）放进协程里就是这个效果</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 11,
+          "text": "事件循环里跑同步阻塞代码会**堵住整个循环**：",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>事件循环<strong>必须显式启动</strong>（<code>asyncio.run</code>），而且它只属于所在的那个线程 ——\n这与「运行时自带、绕不开」的模型不同。最要命的一条规则：\n<strong>循环里不能跑同步阻塞代码</strong>，<code>time.sleep</code> 会把整个循环堵死。\n所以用 asyncio 意味着整条链路上的库都得是异步的，\n否则就得用 <code>run_in_executor</code> 把阻塞调用丢到线程池里。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的事件循环是运行时的一部分、永远在跑，而且 <code>fetch</code> /\n<code>setTimeout</code> 天生异步；Python 要显式 <code>asyncio.run</code>，\n而且很多库是同步的，混用会堵住循环。两边的规则相同（别阻塞循环），\n但踩到的概率差很多。</p>\n",
+        "java": "<p>Java 没有事件循环这一层，阻塞就阻塞在那个线程上 —— 所以「同步库\n不能出现在异步代码里」这条限制在那边不存在，代价是每个并发请求\n都要占一个线程（虚拟线程缓解了这个代价）。</p>\n"
+      }
+    },
+    "callback": {
+      "lang": "python",
+      "code": "# 回调不是主流写法 —— 但早期 asyncio 留下过这个形状\nfut = loop.create_future()\nfut.add_done_callback(lambda f: print(f.result()))\n\n# 现在几乎一律写成协程：\nasync def work():\n    return await something()\n\n# 同步世界里的回调仍然常见（sorted(key=...)、map、事件框架）\n# 但「用回调串异步流程」在 Python 里很快就被 await 取代了",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 回调不是主流写法 —— 但早期 asyncio 留下过这个形状</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">fut </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> loop</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">create_future</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">fut</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">add_done_callback</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-keyword)\">lambda</span><span style=\"color:var(--shiki-token-parameter)\"> f</span><span style=\"color:var(--shiki-token-punctuation)\">: </span><span style=\"color:var(--shiki-token-function)\">print</span><span style=\"color:var(--shiki-token-punctuation)\">(f.</span><span style=\"color:var(--shiki-token-function)\">result</span><span style=\"color:var(--shiki-token-punctuation)\">()))</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 现在几乎一律写成协程：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> def</span><span style=\"color:var(--shiki-token-function)\"> work</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> something</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 同步世界里的回调仍然常见（sorted(key=...)、map、事件框架）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 但「用回调串异步流程」在 Python 里很快就被 await 取代了</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>回调不是 Python 异步的主流形状 —— asyncio 早期有 <code>add_done_callback</code>，\n但很快就全面转向了 <code>await</code>，因为协程版本更好读、错误也能正常传播。\n同步世界里的回调（<code>sorted(key=...)</code>、<code>map</code>）仍然常见，\n但那与异步无关。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 在回调时代停留得久得多（整个 Node 早期生态都是\n<code>(err, data)</code> 那个形状），因此「回调地狱」是那边的历史包袱。\nPython 的异步起步晚，直接跳到了协程。</p>\n",
+        "java": "<p>Java 的回调形态是 <code>CompletableFuture</code> 的链式方法，错误沿链传播；\nPython 这边的回调几乎只剩下同步 API 的用法。两边都没有\n层层缩进那种形状。</p>\n"
+      }
+    },
+    "promise-future": {
+      "lang": "python",
+      "code": "import asyncio\n\ntask = asyncio.create_task(work())     # Task 是 Future 的子类\ntask.done(), task.result()\n\nawait asyncio.gather(a, b)             # 全成功才成功（对应 all）\nawait asyncio.gather(a, b, return_exceptions=True)   # 对应 allSettled\n\ndone, pending = await asyncio.wait([a, b], timeout=1)\nawait asyncio.wait_for(a, timeout=5)   # 带超时\n\n# Future 是**底层原语**，日常写协程基本不直接碰它\n# ⚠ 创建 Task 之后没人 await 也不会「静默失败」——\n#        它会在循环退出时警告 \"Task was destroyed but it is pending\"",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">task </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">create_task</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">work</span><span style=\"color:var(--shiki-token-punctuation)\">())</span><span style=\"color:var(--shiki-token-comment)\">     # Task 是 Future 的子类</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">task</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">done</span><span style=\"color:var(--shiki-token-punctuation)\">(),</span><span style=\"color:var(--shiki-foreground)\"> task</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">result</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">gather</span><span style=\"color:var(--shiki-token-punctuation)\">(a, b)</span><span style=\"color:var(--shiki-token-comment)\">             # 全成功才成功（对应 all）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">gather</span><span style=\"color:var(--shiki-token-punctuation)\">(a, b, return_exceptions</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">True</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">   # 对应 allSettled</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">done</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> pending </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">wait</span><span style=\"color:var(--shiki-token-punctuation)\">([a, b], timeout</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">wait_for</span><span style=\"color:var(--shiki-token-punctuation)\">(a, timeout</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-punctuation)\">)</span><span style=\"color:var(--shiki-token-comment)\">   # 带超时</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># Future 是**底层原语**，日常写协程基本不直接碰它</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># ⚠ 创建 Task 之后没人 await 也不会「静默失败」——</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">#        它会在循环退出时警告 \"Task was destroyed but it is pending\"</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 13,
+          "text": "创建 Task 之后没人 await 也不会「静默失败」——",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>Future</code> 是底层原语（表示「将来会有个结果」），日常用的是它的子类 <code>Task</code>：\n<code>create_task</code> 把协程排进循环。组合用 <code>asyncio.gather</code>（对应「全成功才成功」\n与「都等完」两种模式）与 <code>wait_for</code>（带超时）。与别处不同的是\nTask <strong>可以取消</strong>，而且没人等待的 Task 会在循环退出时给出警告，\n不会完全静默。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>概念一一对应（<code>Future</code> ↔ Promise、<code>gather</code> ↔ <code>all</code> / <code>allSettled</code>），\n但 Python 的 Task 可以 <code>cancel()</code>，Promise 不能。\n另一处差别是未处理的失败：这里至少会有警告，那边的未处理拒绝\n也警告，但两者的传播规则不同。</p>\n",
+        "java": "<p><code>CompletableFuture</code> 是同一个角色，组合算子更丰富\n（<code>thenCompose</code> / <code>thenCombine</code> / <code>allOf</code>），也能取消。\n两边的差别主要在写法：这里是 <code>await gather(...)</code>，\n那边是一串链式调用。</p>\n"
+      }
+    },
+    "async-await": {
+      "lang": "python",
+      "code": "import asyncio, httpx\n\nasync def load():\n    try:\n        async with httpx.AsyncClient() as c:    # 异步的上下文管理器\n            r = await c.get(\"/api\")\n            return r.json()\n    except Exception:\n        return None\n\n# ⚠ 同步函数里不能 await —— 会抛 SyntaxError\n# ⚠ 调了 async 函数却不 await，只会得到协程对象（且有警告）\n# 要并发：await asyncio.gather(*(f(x) for x in xs))\n# 要顺序：for x in xs: await f(x)",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">import</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> httpx</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> def</span><span style=\"color:var(--shiki-token-function)\"> load</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    try</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        async</span><span style=\"color:var(--shiki-token-keyword)\"> with</span><span style=\"color:var(--shiki-foreground)\"> httpx</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">AsyncClient</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-foreground)\"> c</span><span style=\"color:var(--shiki-token-punctuation)\">:</span><span style=\"color:var(--shiki-token-comment)\">    # 异步的上下文管理器</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">            r </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-foreground)\"> c</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">get</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"/api\"</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">            return</span><span style=\"color:var(--shiki-foreground)\"> r</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">json</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    except</span><span style=\"color:var(--shiki-token-constant)\"> Exception</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        return</span><span style=\"color:var(--shiki-token-constant)\"> None</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># ⚠ 同步函数里不能 await —— 会抛 SyntaxError</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># ⚠ 调了 async 函数却不 await，只会得到协程对象（且有警告）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 要并发：await asyncio.gather(*(f(x) for x in xs))</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 要顺序：for x in xs: await f(x)</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 11,
+          "text": "同步函数里不能 await —— 会抛 SyntaxError",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "调了 async 函数却不 await，只会得到协程对象（且有警告）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>async</code> / <code>await</code> 也是语法糖，底下是协程与事件循环。两个必须记住的点：\n<code>await</code> 只能出现在 <code>async</code> 函数里；调用了 async 函数却忘了 <code>await</code>，\n拿到的只是一个协程对象（运行时会给警告，但不会替你执行）。\n并发用 <code>gather</code>、顺序用 <code>for</code> 循环，与别处的写法一致。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>语法几乎一模一样，连「await 只能在 async 里」这条限制都相同。\n差别在生态成熟度：这边的异步库要单独找（<code>httpx</code> 对应 <code>requests</code>），\n混用同步库会堵住循环；那边的 <code>fetch</code> 本身就是异步的。</p>\n",
+        "java": "<p>Java 没有 async / await。要「像同步一样写异步」可以靠虚拟线程 ——\n阻塞代码跑在轻量线程上，写法不变。这与 await 想解决的问题相同，\n手段完全不同。</p>\n"
+      }
+    },
+    "cancellation": {
+      "lang": "python",
+      "code": "task = asyncio.create_task(work())\n\ntask.cancel()                 # 真取消：在下一个 await 点抛 CancelledError\ntry:\n    await task\nexcept asyncio.CancelledError:\n    raise                     # ⚠ 接住之后要再抛，别把它吞掉\n\n# 超时是一种取消\nawait asyncio.wait_for(work(), timeout=5)\n\n# 清理写在 finally 里 —— 取消也会经过它\nasync def work():\n    try:\n        ...\n    finally:\n        await cleanup()",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">task </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">create_task</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">work</span><span style=\"color:var(--shiki-token-punctuation)\">())</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">task</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">cancel</span><span style=\"color:var(--shiki-token-punctuation)\">()</span><span style=\"color:var(--shiki-token-comment)\">                 # 真取消：在下一个 await 点抛 CancelledError</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">try</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    await</span><span style=\"color:var(--shiki-foreground)\"> task</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">except</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-foreground)\">CancelledError</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    raise</span><span style=\"color:var(--shiki-token-comment)\">                     # ⚠ 接住之后要再抛，别把它吞掉</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 超时是一种取消</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-foreground)\"> asyncio</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">wait_for</span><span style=\"color:var(--shiki-token-punctuation)\">(</span><span style=\"color:var(--shiki-token-function)\">work</span><span style=\"color:var(--shiki-token-punctuation)\">(), timeout</span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-punctuation)\">)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\"># 清理写在 finally 里 —— 取消也会经过它</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> def</span><span style=\"color:var(--shiki-token-function)\"> work</span><span style=\"color:var(--shiki-foreground)\">():</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    try</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">        ...</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    finally</span><span style=\"color:var(--shiki-token-punctuation)\">:</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">        await</span><span style=\"color:var(--shiki-token-function)\"> cleanup</span><span style=\"color:var(--shiki-token-punctuation)\">()</span></span></code></pre>",
+      "lineCount": 17,
+      "notes": [
+        {
+          "line": 7,
+          "text": "接住之后要再抛，别把它吞掉",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>task.cancel()</code> 是<strong>真取消</strong>：会给协程在下一个 <code>await</code> 点抛\n<code>CancelledError</code>，所以每个 <code>await</code> 都是天然的取消点，不需要手动检查标志。\n规矩只有一条：<strong>别把 <code>CancelledError</code> 吞掉</strong>（接住了要重新抛），\n否则取消会失效。清理写在 <code>finally</code> 里，取消也会经过它。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 Promise 不能取消，只能传 <code>AbortSignal</code> 让它<strong>协作</strong>着停 ——\n每个循环都要自己检查。Python 是真取消、每个 await 自动是取消点，\n两边写起来的可靠程度差别很大。</p>\n",
+        "java": "<p>Java 的 <code>Future.cancel(true)</code> 是中断线程，协作者要检查\n<code>Thread.interrupted()</code> —— 同样是协作式，只是信号换成了中断标志。\nPython 的真取消省心得多：不用在每个循环里手写检查。</p>\n"
+      }
+    }
+  }
+}

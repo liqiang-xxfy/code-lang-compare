@@ -1,0 +1,151 @@
+# java —— mechanism / async
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: async` 的那批。
+# 这一组以 Java 为基准时展示在「异步」章（见 catalog/mechanism/java.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  event-loop:
+    absent: true
+    baseline: |
+      **本语言没有事件循环这一层**。等待就是阻塞在某个线程上 ——
+      所以不存在「一个慢函数卡住整个程序」这种问题（它只卡住那个线程）。
+      代价是每个并发请求都要占一个线程；虚拟线程（Java 21+）把线程变得很轻，
+      于是「一个请求一个线程」的阻塞式写法重新变得可行。
+    vs:
+      javascript: |
+        JavaScript 整个语言架在事件循环上，所以同步阻塞会卡住一切（包括渲染）；
+        Java 用线程解决等待问题，慢函数只影响自己那个线程。
+        一个的约束是「别阻塞」，另一个的约束是「线程有成本」。
+      python: |
+        Python 的 asyncio 有事件循环，而且同样怕阻塞；Java 连这层都没有，
+        阻塞是正常写法。虚拟线程出现之后，Java 这边几乎不必再为
+        「阻塞 vs 异步」做取舍。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  callback:
+    code: |
+      // 回调的形态是 CompletableFuture 的链式方法
+      CompletableFuture.supplyAsync(() -> fetch(url))
+        .thenApply(String::trim)
+        .thenAccept(System.out::println)
+        .exceptionally(e -> { log(e); return null; });   // @note 统一兜底
+
+      // @note! 错误沿链传播 —— 一个 exceptionally 就能管住前面所有步骤
+      // @note 也可以显式组合：thenCompose（串行）/ thenCombine（并行）
+
+      // 老式回调仍然存在（监听器、框架钩子），但异步流程已经不这么写了
+      executor.execute(() -> { ... });      // @note 提交任务，没有「之后」
+    baseline: |
+      异步流程的写法是**链式组合**而不是嵌套回调：`thenApply` / `thenCompose` /
+      `thenCombine` 一步步接下去，错误**沿链传播**，末尾一个 `exceptionally`
+      就能统一兜底 —— 所以这边没有「回调地狱」这个问题。
+      老式回调（监听器、框架钩子）仍在，但那是另一回事。
+    vs:
+      javascript: |
+        JavaScript 的回调时代留下了 `(err, data)` 层层嵌套的形状，
+        后来用 Promise 链解决了；Java 直接就是链式风格，没有那段历史包袱。
+        两边的错误传播都是「沿链走、末尾兜底」。
+      python: |
+        两边的回调写法都不是主流：Python 全面转向协程，Java 用
+        `CompletableFuture` 链。区别是 Java 这套没有 async/await 的语法糖，
+        链长了读起来仍然费劲。
+    equivalence:
+      javascript: analogous
+      python: divergent
+
+  promise-future:
+    code: |
+      CompletableFuture<String> f = CompletableFuture.supplyAsync(() -> fetch());
+
+      f.thenApply(String::trim).thenAccept(System.out::println);
+
+      CompletableFuture.allOf(a, b).join();          // @note 全等完（对应 all）
+      a.thenCombine(b, (x, y) -> x + y);             // @note 两个结果合并
+
+      a.orTimeout(5, TimeUnit.SECONDS);              // @note 超时
+      a.cancel(true);                                // @note 可以取消
+
+      // @note! 忘了处理异常 -> 异常被包在 CompletionException 里静默丢掉
+      // @note join() 抛的是未受检异常，get() 抛受检异常 —— 选一个
+    baseline: |
+      `CompletableFuture` 表示「将来会有个结果」，组合算子齐全
+      （`thenCompose` 串行、`thenCombine` 合并、`allOf` 等全部），
+      而且**可以取消、可以设超时**。要注意异常处理：没有 `exceptionally` /
+      `handle` 的话，异常会被包起来静默丢掉。终结方式有两个 ——
+      `get()` 抛受检异常、`join()` 抛未受检的，看场景选。
+    vs:
+      javascript: |
+        概念对应（`CompletableFuture` ↔ Promise），Java 的算子更多、
+        还能取消与设超时；JavaScript 的 Promise 组合靠 `Promise.all` 这类静态方法，
+        本身不能取消。两边的异常都要主动处理，否则静默。
+      python: |
+        Python 的 `Task` / `gather` 与这边对应，取消能力两边都有。
+        差别在写法：Java 是一串链式方法、Python 是 `await gather(...)` ——
+        后者的可读性更接近同步代码。
+    equivalence:
+      javascript: analogous
+      python: analogous
+
+  async-await:
+    absent: true
+    baseline: |
+      **本语言没有 async / await 语法**。要写异步只能走 `CompletableFuture`
+      的链式调用（写起来与同步代码差别很大），或者用**虚拟线程** ——
+      后者让阻塞式写法跑在轻量线程上，等于用另一种方式达成了
+      「像同步一样写异步」的效果，而且不需要改代码结构。
+    vs:
+      javascript: |
+        JavaScript 用 async / await 把异步写成同步的样子；Java 没有这个语法，
+        要么写链式调用、要么用虚拟线程让阻塞写法变便宜。
+        两边想解决的问题相同，路径完全不同。
+      python: |
+        Python 有 async / await 语法，Java 缺席。但虚拟线程补上了
+        「不用改代码结构就能获得并发」这一块 —— 阻塞式写法照旧，
+        跑的却是轻量线程。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  cancellation:
+    code: |
+      Future<String> f = executor.submit(() -> longWork());
+
+      f.cancel(true);               // @note true = 中断线程（发中断信号）
+      // @note! 协作者必须自己检查，否则中断信号没人理：
+      //   if (Thread.interrupted()) throw new InterruptedException();
+
+      // CompletableFuture 的取消：不中断底层任务，只让结果失效
+      cf.cancel(true);
+      cf.orTimeout(5, TimeUnit.SECONDS);      // @note 超时是另一种终止
+
+      // 阻塞方法（sleep / wait / IO）收到中断会抛 InterruptedException
+      // @note! 别吞掉它 —— 要么往上抛，要么重设中断标志
+    baseline: |
+      取消是**协作式**的：`cancel(true)` 给线程发一个中断信号，
+      但协作者必须自己检查（`Thread.interrupted()`）或调用了会响应中断的
+      阻塞方法（`sleep` / `wait` / IO 会抛 `InterruptedException`）。
+      规矩是**别吞掉 `InterruptedException`** —— 要么继续往上抛、
+      要么 `Thread.currentThread().interrupt()` 重设标志。
+      `CompletableFuture.cancel` 不会中断底层任务，只让结果作废。
+    vs:
+      javascript: |
+        两者都是协作式取消（Java 靠中断标志、JavaScript 靠 `AbortSignal`），
+        都要在代码里主动检查。Java 还多一层「阻塞方法自动响应中断」的便利。
+      python: |
+        Python 的 `task.cancel()` 是真取消 —— 每个 await 点自动是取消点，
+        不用手写检查，比这里的「检查中断标志」省心得多。
+        两边都要记住别把取消信号吞掉（那边是 `CancelledError`，
+        这边是 `InterruptedException`）。
+    equivalence:
+      javascript: analogous
+      python: divergent

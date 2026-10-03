@@ -1,0 +1,125 @@
+{
+  "lang": "java",
+  "section": "mechanism",
+  "group": "async",
+  "boxes": {
+    "event-loop": {
+      "lang": "java",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>本语言没有事件循环这一层</strong>。等待就是阻塞在某个线程上 ——\n所以不存在「一个慢函数卡住整个程序」这种问题（它只卡住那个线程）。\n代价是每个并发请求都要占一个线程；虚拟线程（Java 21+）把线程变得很轻，\n于是「一个请求一个线程」的阻塞式写法重新变得可行。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 整个语言架在事件循环上，所以同步阻塞会卡住一切（包括渲染）；\nJava 用线程解决等待问题，慢函数只影响自己那个线程。\n一个的约束是「别阻塞」，另一个的约束是「线程有成本」。</p>\n",
+        "python": "<p>Python 的 asyncio 有事件循环，而且同样怕阻塞；Java 连这层都没有，\n阻塞是正常写法。虚拟线程出现之后，Java 这边几乎不必再为\n「阻塞 vs 异步」做取舍。</p>\n"
+      }
+    },
+    "callback": {
+      "lang": "java",
+      "code": "// 回调的形态是 CompletableFuture 的链式方法\nCompletableFuture.supplyAsync(() -> fetch(url))\n  .thenApply(String::trim)\n  .thenAccept(System.out::println)\n  .exceptionally(e -> { log(e); return null; });   // 统一兜底\n\n// ⚠ 错误沿链传播 —— 一个 exceptionally 就能管住前面所有步骤\n// 也可以显式组合：thenCompose（串行）/ thenCombine（并行）\n\n// 老式回调仍然存在（监听器、框架钩子），但异步流程已经不这么写了\nexecutor.execute(() -> { ... });      // 提交任务，没有「之后」",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 回调的形态是 CompletableFuture 的链式方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">CompletableFuture</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">supplyAsync</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> fetch(url)</span><span style=\"color:var(--shiki-foreground)\">)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">  .</span><span style=\"color:var(--shiki-token-function)\">thenApply</span><span style=\"color:var(--shiki-foreground)\">(String</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">trim)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">  .</span><span style=\"color:var(--shiki-token-function)\">thenAccept</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">System</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">out</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">println)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-punctuation)\">  .</span><span style=\"color:var(--shiki-token-function)\">exceptionally</span><span style=\"color:var(--shiki-foreground)\">(e </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-function)\">log(e)</span><span style=\"color:var(--shiki-foreground)\">; </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">; });   </span><span style=\"color:var(--shiki-token-comment)\">// 统一兜底</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 错误沿链传播 —— 一个 exceptionally 就能管住前面所有步骤</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 也可以显式组合：thenCompose（串行）/ thenCombine（并行）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 老式回调仍然存在（监听器、框架钩子），但异步流程已经不这么写了</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">executor</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">execute</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-punctuation)\">...</span><span style=\"color:var(--shiki-foreground)\"> });      </span><span style=\"color:var(--shiki-token-comment)\">// 提交任务，没有「之后」</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 7,
+          "text": "错误沿链传播 —— 一个 exceptionally 就能管住前面所有步骤",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>异步流程的写法是<strong>链式组合</strong>而不是嵌套回调：<code>thenApply</code> / <code>thenCompose</code> /\n<code>thenCombine</code> 一步步接下去，错误<strong>沿链传播</strong>，末尾一个 <code>exceptionally</code>\n就能统一兜底 —— 所以这边没有「回调地狱」这个问题。\n老式回调（监听器、框架钩子）仍在，但那是另一回事。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的回调时代留下了 <code>(err, data)</code> 层层嵌套的形状，\n后来用 Promise 链解决了；Java 直接就是链式风格，没有那段历史包袱。\n两边的错误传播都是「沿链走、末尾兜底」。</p>\n",
+        "python": "<p>两边的回调写法都不是主流：Python 全面转向协程，Java 用\n<code>CompletableFuture</code> 链。区别是 Java 这套没有 async/await 的语法糖，\n链长了读起来仍然费劲。</p>\n"
+      }
+    },
+    "promise-future": {
+      "lang": "java",
+      "code": "CompletableFuture<String> f = CompletableFuture.supplyAsync(() -> fetch());\n\nf.thenApply(String::trim).thenAccept(System.out::println);\n\nCompletableFuture.allOf(a, b).join();          // 全等完（对应 all）\na.thenCombine(b, (x, y) -> x + y);             // 两个结果合并\n\na.orTimeout(5, TimeUnit.SECONDS);              // 超时\na.cancel(true);                                // 可以取消\n\n// ⚠ 忘了处理异常 -> 异常被包在 CompletionException 里静默丢掉\n// join() 抛的是未受检异常，get() 抛受检异常 —— 选一个",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">CompletableFuture</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\">> f </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> CompletableFuture</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">supplyAsync</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> fetch()</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">f</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">thenApply</span><span style=\"color:var(--shiki-foreground)\">(String</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">trim)</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">thenAccept</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">System</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">out</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">println);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">CompletableFuture</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">allOf</span><span style=\"color:var(--shiki-foreground)\">(a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b)</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">join</span><span style=\"color:var(--shiki-foreground)\">();          </span><span style=\"color:var(--shiki-token-comment)\">// 全等完（对应 all）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">a</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">thenCombine</span><span style=\"color:var(--shiki-foreground)\">(b</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> (x</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> y) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-foreground)\"> y);             </span><span style=\"color:var(--shiki-token-comment)\">// 两个结果合并</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">a</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">orTimeout</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> TimeUnit</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">SECONDS</span><span style=\"color:var(--shiki-foreground)\">);              </span><span style=\"color:var(--shiki-token-comment)\">// 超时</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">a</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">cancel</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">true</span><span style=\"color:var(--shiki-foreground)\">);                                </span><span style=\"color:var(--shiki-token-comment)\">// 可以取消</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 忘了处理异常 -> 异常被包在 CompletionException 里静默丢掉</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// join() 抛的是未受检异常，get() 抛受检异常 —— 选一个</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 11,
+          "text": "忘了处理异常 -> 异常被包在 CompletionException 里静默丢掉",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>CompletableFuture</code> 表示「将来会有个结果」，组合算子齐全\n（<code>thenCompose</code> 串行、<code>thenCombine</code> 合并、<code>allOf</code> 等全部），\n而且<strong>可以取消、可以设超时</strong>。要注意异常处理：没有 <code>exceptionally</code> /\n<code>handle</code> 的话，异常会被包起来静默丢掉。终结方式有两个 ——\n<code>get()</code> 抛受检异常、<code>join()</code> 抛未受检的，看场景选。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>概念对应（<code>CompletableFuture</code> ↔ Promise），Java 的算子更多、\n还能取消与设超时；JavaScript 的 Promise 组合靠 <code>Promise.all</code> 这类静态方法，\n本身不能取消。两边的异常都要主动处理，否则静默。</p>\n",
+        "python": "<p>Python 的 <code>Task</code> / <code>gather</code> 与这边对应，取消能力两边都有。\n差别在写法：Java 是一串链式方法、Python 是 <code>await gather(...)</code> ——\n后者的可读性更接近同步代码。</p>\n"
+      }
+    },
+    "async-await": {
+      "lang": "java",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>本语言没有 async / await 语法</strong>。要写异步只能走 <code>CompletableFuture</code>\n的链式调用（写起来与同步代码差别很大），或者用<strong>虚拟线程</strong> ——\n后者让阻塞式写法跑在轻量线程上，等于用另一种方式达成了\n「像同步一样写异步」的效果，而且不需要改代码结构。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 用 async / await 把异步写成同步的样子；Java 没有这个语法，\n要么写链式调用、要么用虚拟线程让阻塞写法变便宜。\n两边想解决的问题相同，路径完全不同。</p>\n",
+        "python": "<p>Python 有 async / await 语法，Java 缺席。但虚拟线程补上了\n「不用改代码结构就能获得并发」这一块 —— 阻塞式写法照旧，\n跑的却是轻量线程。</p>\n"
+      }
+    },
+    "cancellation": {
+      "lang": "java",
+      "code": "Future<String> f = executor.submit(() -> longWork());\n\nf.cancel(true);               // true = 中断线程（发中断信号）\n// ⚠ 协作者必须自己检查，否则中断信号没人理：\n//   if (Thread.interrupted()) throw new InterruptedException();\n\n// CompletableFuture 的取消：不中断底层任务，只让结果失效\ncf.cancel(true);\ncf.orTimeout(5, TimeUnit.SECONDS);      // 超时是另一种终止\n\n// 阻塞方法（sleep / wait / IO）收到中断会抛 InterruptedException\n// ⚠ 别吞掉它 —— 要么往上抛，要么重设中断标志",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">Future</span><span style=\"color:var(--shiki-foreground)\">&#x3C;</span><span style=\"color:var(--shiki-token-keyword)\">String</span><span style=\"color:var(--shiki-foreground)\">> f </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> executor</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">submit</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> longWork()</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">f</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">cancel</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">true</span><span style=\"color:var(--shiki-foreground)\">);               </span><span style=\"color:var(--shiki-token-comment)\">// true = 中断线程（发中断信号）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 协作者必须自己检查，否则中断信号没人理：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   if (Thread.interrupted()) throw new InterruptedException();</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// CompletableFuture 的取消：不中断底层任务，只让结果失效</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">cf</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">cancel</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">true</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">cf</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-function)\">orTimeout</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">5</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> TimeUnit</span><span style=\"color:var(--shiki-token-punctuation)\">.</span><span style=\"color:var(--shiki-token-constant)\">SECONDS</span><span style=\"color:var(--shiki-foreground)\">);      </span><span style=\"color:var(--shiki-token-comment)\">// 超时是另一种终止</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 阻塞方法（sleep / wait / IO）收到中断会抛 InterruptedException</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 别吞掉它 —— 要么往上抛，要么重设中断标志</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 4,
+          "text": "协作者必须自己检查，否则中断信号没人理：",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "别吞掉它 —— 要么往上抛，要么重设中断标志",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>取消是<strong>协作式</strong>的：<code>cancel(true)</code> 给线程发一个中断信号，\n但协作者必须自己检查（<code>Thread.interrupted()</code>）或调用了会响应中断的\n阻塞方法（<code>sleep</code> / <code>wait</code> / IO 会抛 <code>InterruptedException</code>）。\n规矩是<strong>别吞掉 <code>InterruptedException</code></strong> —— 要么继续往上抛、\n要么 <code>Thread.currentThread().interrupt()</code> 重设标志。\n<code>CompletableFuture.cancel</code> 不会中断底层任务，只让结果作废。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>两者都是协作式取消（Java 靠中断标志、JavaScript 靠 <code>AbortSignal</code>），\n都要在代码里主动检查。Java 还多一层「阻塞方法自动响应中断」的便利。</p>\n",
+        "python": "<p>Python 的 <code>task.cancel()</code> 是真取消 —— 每个 await 点自动是取消点，\n不用手写检查，比这里的「检查中断标志」省心得多。\n两边都要记住别把取消信号吞掉（那边是 <code>CancelledError</code>，\n这边是 <code>InterruptedException</code>）。</p>\n"
+      }
+    }
+  }
+}

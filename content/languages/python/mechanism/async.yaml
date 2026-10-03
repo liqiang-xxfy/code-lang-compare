@@ -1,0 +1,187 @@
+# python —— mechanism / async
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: async` 的那批。
+# 这一组以 Python 为基准时展示在「异步与事件循环」章（见 catalog/mechanism/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  event-loop:
+    code: |
+      import asyncio
+
+      asyncio.run(main())        # @note 必须显式启动 —— 没有它会报
+                               #        "no running event loop"
+
+      async def main():
+          loop = asyncio.get_running_loop()
+          task = asyncio.create_task(work())     # @note 排进循环
+          await task
+
+      # @note! 事件循环里跑同步阻塞代码会**堵住整个循环**：
+      #   time.sleep(1)         -> 谁都别想动
+      #   await asyncio.sleep(1) -> 让出控制权
+      # 同步库（requests、psycopg2）放进协程里就是这个效果
+    baseline: |
+      事件循环**必须显式启动**（`asyncio.run`），而且它只属于所在的那个线程 ——
+      这与「运行时自带、绕不开」的模型不同。最要命的一条规则：
+      **循环里不能跑同步阻塞代码**，`time.sleep` 会把整个循环堵死。
+      所以用 asyncio 意味着整条链路上的库都得是异步的，
+      否则就得用 `run_in_executor` 把阻塞调用丢到线程池里。
+    vs:
+      javascript: |
+        JavaScript 的事件循环是运行时的一部分、永远在跑，而且 `fetch` /
+        `setTimeout` 天生异步；Python 要显式 `asyncio.run`，
+        而且很多库是同步的，混用会堵住循环。两边的规则相同（别阻塞循环），
+        但踩到的概率差很多。
+      java: |
+        Java 没有事件循环这一层，阻塞就阻塞在那个线程上 —— 所以「同步库
+        不能出现在异步代码里」这条限制在那边不存在，代价是每个并发请求
+        都要占一个线程（虚拟线程缓解了这个代价）。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  callback:
+    code: |
+      # @note 回调不是主流写法 —— 但早期 asyncio 留下过这个形状
+      fut = loop.create_future()
+      fut.add_done_callback(lambda f: print(f.result()))
+
+      # 现在几乎一律写成协程：
+      async def work():
+          return await something()
+
+      # @note 同步世界里的回调仍然常见（sorted(key=...)、map、事件框架）
+      # @note 但「用回调串异步流程」在 Python 里很快就被 await 取代了
+    baseline: |
+      回调不是 Python 异步的主流形状 —— asyncio 早期有 `add_done_callback`，
+      但很快就全面转向了 `await`，因为协程版本更好读、错误也能正常传播。
+      同步世界里的回调（`sorted(key=...)`、`map`）仍然常见，
+      但那与异步无关。
+    vs:
+      javascript: |
+        JavaScript 在回调时代停留得久得多（整个 Node 早期生态都是
+        `(err, data)` 那个形状），因此「回调地狱」是那边的历史包袱。
+        Python 的异步起步晚，直接跳到了协程。
+      java: |
+        Java 的回调形态是 `CompletableFuture` 的链式方法，错误沿链传播；
+        Python 这边的回调几乎只剩下同步 API 的用法。两边都没有
+        层层缩进那种形状。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  promise-future:
+    code: |
+      import asyncio
+
+      task = asyncio.create_task(work())     # @note Task 是 Future 的子类
+      task.done(), task.result()
+
+      await asyncio.gather(a, b)             # @note 全成功才成功（对应 all）
+      await asyncio.gather(a, b, return_exceptions=True)   # @note 对应 allSettled
+
+      done, pending = await asyncio.wait([a, b], timeout=1)
+      await asyncio.wait_for(a, timeout=5)   # @note 带超时
+
+      # @note Future 是**底层原语**，日常写协程基本不直接碰它
+      # @note! 创建 Task 之后没人 await 也不会「静默失败」——
+      #        它会在循环退出时警告 "Task was destroyed but it is pending"
+    baseline: |
+      `Future` 是底层原语（表示「将来会有个结果」），日常用的是它的子类 `Task`：
+      `create_task` 把协程排进循环。组合用 `asyncio.gather`（对应「全成功才成功」
+      与「都等完」两种模式）与 `wait_for`（带超时）。与别处不同的是
+      Task **可以取消**，而且没人等待的 Task 会在循环退出时给出警告，
+      不会完全静默。
+    vs:
+      javascript: |
+        概念一一对应（`Future` ↔ Promise、`gather` ↔ `all` / `allSettled`），
+        但 Python 的 Task 可以 `cancel()`，Promise 不能。
+        另一处差别是未处理的失败：这里至少会有警告，那边的未处理拒绝
+        也警告，但两者的传播规则不同。
+      java: |
+        `CompletableFuture` 是同一个角色，组合算子更丰富
+        （`thenCompose` / `thenCombine` / `allOf`），也能取消。
+        两边的差别主要在写法：这里是 `await gather(...)`，
+        那边是一串链式调用。
+    equivalence:
+      javascript: analogous
+      java: analogous
+
+  async-await:
+    code: |
+      import asyncio, httpx
+
+      async def load():
+          try:
+              async with httpx.AsyncClient() as c:    # @note 异步的上下文管理器
+                  r = await c.get("/api")
+                  return r.json()
+          except Exception:
+              return None
+
+      # @note! 同步函数里不能 await —— 会抛 SyntaxError
+      # @note! 调了 async 函数却不 await，只会得到协程对象（且有警告）
+      # @note 要并发：await asyncio.gather(*(f(x) for x in xs))
+      # @note 要顺序：for x in xs: await f(x)
+    baseline: |
+      `async` / `await` 也是语法糖，底下是协程与事件循环。两个必须记住的点：
+      `await` 只能出现在 `async` 函数里；调用了 async 函数却忘了 `await`，
+      拿到的只是一个协程对象（运行时会给警告，但不会替你执行）。
+      并发用 `gather`、顺序用 `for` 循环，与别处的写法一致。
+    vs:
+      javascript: |
+        语法几乎一模一样，连「await 只能在 async 里」这条限制都相同。
+        差别在生态成熟度：这边的异步库要单独找（`httpx` 对应 `requests`），
+        混用同步库会堵住循环；那边的 `fetch` 本身就是异步的。
+      java: |
+        Java 没有 async / await。要「像同步一样写异步」可以靠虚拟线程 ——
+        阻塞代码跑在轻量线程上，写法不变。这与 await 想解决的问题相同，
+        手段完全不同。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  cancellation:
+    code: |
+      task = asyncio.create_task(work())
+
+      task.cancel()                 # @note 真取消：在下一个 await 点抛 CancelledError
+      try:
+          await task
+      except asyncio.CancelledError:
+          raise                     # @note! 接住之后要再抛，别把它吞掉
+
+      # 超时是一种取消
+      await asyncio.wait_for(work(), timeout=5)
+
+      # 清理写在 finally 里 —— 取消也会经过它
+      async def work():
+          try:
+              ...
+          finally:
+              await cleanup()
+    baseline: |
+      `task.cancel()` 是**真取消**：会给协程在下一个 `await` 点抛
+      `CancelledError`，所以每个 `await` 都是天然的取消点，不需要手动检查标志。
+      规矩只有一条：**别把 `CancelledError` 吞掉**（接住了要重新抛），
+      否则取消会失效。清理写在 `finally` 里，取消也会经过它。
+    vs:
+      javascript: |
+        JavaScript 的 Promise 不能取消，只能传 `AbortSignal` 让它**协作**着停 ——
+        每个循环都要自己检查。Python 是真取消、每个 await 自动是取消点，
+        两边写起来的可靠程度差别很大。
+      java: |
+        Java 的 `Future.cancel(true)` 是中断线程，协作者要检查
+        `Thread.interrupted()` —— 同样是协作式，只是信号换成了中断标志。
+        Python 的真取消省心得多：不用在每个循环里手写检查。
+    equivalence:
+      javascript: divergent
+      java: divergent

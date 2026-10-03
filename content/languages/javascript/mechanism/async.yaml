@@ -1,0 +1,178 @@
+# javascript —— mechanism / async
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: async` 的那批：
+# event-loop / callback / promise-future / async-await / cancellation。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-async-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  event-loop:
+    code: |
+      console.log("1");
+      setTimeout(() => console.log("3"), 0);
+      Promise.resolve().then(() => console.log("2"));
+      console.log("4");
+      // @note! 输出 1 4 2 3 —— 微任务先于宏任务
+
+      // @note 微任务：promise 回调、queueMicrotask、MutationObserver
+      // @note 宏任务：setTimeout / setInterval / IO / 渲染
+      // @note! 微任务队列会**一直清空**再进下一个宏任务 —— 递归 then 会饿死渲染
+
+      // @note 单线程：一个任务跑不完，别的什么都干不了（包括渲染）
+    baseline: |
+      **事件循环是唯一的并发机制**：单线程跑一个任务队列，任务跑完了才轮到下一个。
+      队列分两级 —— **微任务**（promise 回调）优先于**宏任务**（`setTimeout`、
+      IO、渲染），而且微任务队列会被**彻底清空**才进下一个宏任务。
+      所以一个耗时的同步函数会卡住整个页面：这段时间里渲染、点击、定时器全都不动。
+    vs:
+      python: |
+        Python 的 asyncio 也有事件循环，结构相近（任务队列 + 回调），
+        但它**必须显式启动**（`asyncio.run`），而且线程可以同时存在。
+        JavaScript 的事件循环是运行时自带的、绕不开，整个语言就架在它上面。
+      java: |
+        Java **没有事件循环**这一层 —— 它用线程解决等待问题，
+        阻塞就阻塞在那个线程上。这让「为什么一个慢函数会卡住整个页面」
+        这类问题在这边根本不存在，代价是线程本身的开销。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  callback:
+    code: |
+      readFile("a.txt", (err, data) => {
+        if (err) return handle(err);
+        parse(data, (err, obj) => {
+          if (err) return handle(err);
+          save(obj, (err) => {
+            if (err) return handle(err);
+            done();                       // @note! 回调地狱：层层缩进
+          });
+        });
+      });
+
+      // @note 约定的形状是 (err, data) 双参数 —— Node 风格
+      // @note 错误不会自己冒泡，每一层都要手动判断与传递
+    baseline: |
+      最早的异步写法：把「之后要做什么」作为函数传进去。约定是回调收
+      `(err, data)` 两个参数，每一层都要自己判断错误并往回传。
+      问题有两个：**层层缩进**（回调地狱）与**错误容易漏接**
+      （回调里抛的异常不会传到外层，会变成未捕获异常）。
+    vs:
+      python: |
+        回调在 Python 里不是主流，asyncio 早期也有过 `add_done_callback`，
+        但很快就转向了 `await`。两边的历史轨迹相似，只是 JavaScript 在回调
+        时代停留得更久（整个 Node 生态都是这个形状）。
+      java: |
+        Java 的回调形态是 `CompletableFuture.thenApply(...)` 这类链式调用，
+        而且**错误会沿链传播**（`exceptionally` 能统一处理），没有回调地狱。
+        这里（Node 风格）每层手动判错的做法在这边不存在。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  promise-future:
+    code: |
+      const p = fetch("/api").then((r) => r.json());   // @note 链式，返回新 Promise
+
+      Promise.all([a, b]);        // @note 全成功才成功，一个失败就失败
+      Promise.allSettled([a, b]); // @note 不管成败都等完，结果里带状态
+      Promise.race([a, b]);       // @note 第一个落定的说了算
+
+      // @note! Promise 一旦创建就开始执行，**没法取消**
+      // @note! 忘记 catch 会变成「未处理的拒绝」—— 默认只是控制台警告
+
+      p.catch((e) => console.error(e));   // @note 错误沿链传播：一个 catch 管到底
+    baseline: |
+      Promise 表示「将来会有一个结果」，状态一旦落定就不再变。链式调用让错误
+      可以**沿链传播**（末尾一个 `catch` 就能兜住前面所有步骤），比回调那套
+      干净得多。组合算子齐全（`all` / `allSettled` / `race` / `any`）。
+      两个要记住的点：Promise 没法取消，以及没有 `catch` 就是一个静默的坑。
+    vs:
+      python: |
+        Python 的 `Future` / `Task` 是同一个概念，组合用 `asyncio.gather`
+        （对应 `all`）与 `wait`。差别是 Python 的 Task **可以取消**
+        （`task.cancel()`），Promise 不能。
+      java: |
+        `CompletableFuture` 也是这个角色，组合算子更丰富
+        （`thenCompose` / `thenCombine` / `allOf`），而且**可以取消**
+        （`cancel()`）。两者的共同点是错误沿链传播、有统一的兜底入口。
+    equivalence:
+      python: analogous
+      java: analogous
+
+  async-await:
+    code: |
+      async function load() {
+        try {
+          const r = await fetch("/api");      // @note await 只在 async 函数里
+          return await r.json();
+        } catch (e) {                          // @note 错误用普通 try/catch 接
+          return null;
+        }
+      }
+
+      // @note async 函数**永远返回 Promise** —— 就算是 return 1
+      // @note! 在 forEach 里 await 不会等你 —— forEach 不认异步回调
+      for (const x of xs) await handle(x);     // @note 要顺序执行用 for...of
+
+      await Promise.all(xs.map(handle));       // @note 要并发就这么写
+    baseline: |
+      `async` / `await` 是 Promise 的语法糖：把异步写成同步的样子，
+      错误用普通的 `try` / `catch` 接。两个必须记住的点：
+      async 函数**永远返回 Promise**（哪怕里面只 `return 1`），
+      以及 `forEach` 这类不认异步回调的地方 `await` 会失效 ——
+      要顺序执行用 `for...of`、要并发用 `Promise.all(map(...))`。
+    vs:
+      python: |
+        两边语法几乎一样，连「async 函数调用后得到的是一个待等待的对象」
+        这一点都一致。差别在生态：Python 的异步库**必须**整体是异步的
+        （同步的 `requests` 放进协程里会堵住事件循环），
+        而 JavaScript 的 `fetch` 本身就是异步的。
+      java: |
+        Java **没有 async / await** 语法。要写异步只能用 `CompletableFuture`
+        的链式调用，或者干脆用虚拟线程把阻塞写法跑在轻量线程上 ——
+        后者反而让「像同步一样写异步」这件事用另一种方式达成了。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  cancellation:
+    code: |
+      const ac = new AbortController();
+      fetch("/api", { signal: ac.signal });    // @note 把 signal 传进去
+      ac.abort();                              // @note 取消：fetch 抛 AbortError
+
+      // @note! Promise 本身不能取消 —— 只能靠"告诉它"（signal）或加超时
+      const t = setTimeout(() => ac.abort(), 5000);
+
+      // @note 自己写的异步函数要主动检查：
+      async function work(signal) {
+        for (const x of xs) {
+          if (signal.aborted) throw new DOMException("aborted", "AbortError");
+          await step(x);
+        }
+      }
+    baseline: |
+      **Promise 不能取消** —— 这是它设计上的一个缺口。实际做法是
+      **协作式取消**：传一个 `AbortSignal` 进去，被取消时调用方 `abort()`，
+      接受方自己检查 `signal.aborted` 并抛 `AbortError`。
+      新一点的 API（`fetch`、`addEventListener`）都收 signal；
+      自己写的异步循环也要记得检查，否则取消不会生效。
+    vs:
+      python: |
+        Python 的 `task.cancel()` 是**真取消**：会给协程抛 `CancelledError`，
+        所以每个 `await` 点都自动是取消点，不用手动检查。
+        两边都要处理「取消之后的清理」（`finally` / `try`），但方式不同。
+      java: |
+        `Future.cancel(true)` 会中断线程（发中断信号），协作者要自己检查
+        `Thread.interrupted()` —— 与这里的 signal 检查思路相近，都是协作式。
+        不过 Java 多一层线程中断机制，取消一个阻塞调用通常更直接。
+    equivalence:
+      python: divergent
+      java: analogous

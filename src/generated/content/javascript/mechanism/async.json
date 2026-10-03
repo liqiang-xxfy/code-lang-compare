@@ -1,0 +1,142 @@
+{
+  "lang": "javascript",
+  "section": "mechanism",
+  "group": "async",
+  "boxes": {
+    "event-loop": {
+      "lang": "javascript",
+      "code": "console.log(\"1\");\nsetTimeout(() => console.log(\"3\"), 0);\nPromise.resolve().then(() => console.log(\"2\"));\nconsole.log(\"4\");\n// ⚠ 输出 1 4 2 3 —— 微任务先于宏任务\n\n// 微任务：promise 回调、queueMicrotask、MutationObserver\n// 宏任务：setTimeout / setInterval / IO / 渲染\n// ⚠ 微任务队列会**一直清空**再进下一个宏任务 —— 递归 then 会饿死渲染\n\n// 单线程：一个任务跑不完，别的什么都干不了（包括渲染）",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"1\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">setTimeout</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"3\"</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Promise</span><span style=\"color:var(--shiki-token-function)\">.resolve</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-function)\">.then</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"2\"</span><span style=\"color:var(--shiki-foreground)\">));</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"4\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 输出 1 4 2 3 —— 微任务先于宏任务</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 微任务：promise 回调、queueMicrotask、MutationObserver</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 宏任务：setTimeout / setInterval / IO / 渲染</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 微任务队列会**一直清空**再进下一个宏任务 —— 递归 then 会饿死渲染</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 单线程：一个任务跑不完，别的什么都干不了（包括渲染）</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 5,
+          "text": "输出 1 4 2 3 —— 微任务先于宏任务",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "微任务队列会**一直清空**再进下一个宏任务 —— 递归 then 会饿死渲染",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>事件循环是唯一的并发机制</strong>：单线程跑一个任务队列，任务跑完了才轮到下一个。\n队列分两级 —— <strong>微任务</strong>（promise 回调）优先于<strong>宏任务</strong>（<code>setTimeout</code>、\nIO、渲染），而且微任务队列会被<strong>彻底清空</strong>才进下一个宏任务。\n所以一个耗时的同步函数会卡住整个页面：这段时间里渲染、点击、定时器全都不动。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的 asyncio 也有事件循环，结构相近（任务队列 + 回调），\n但它<strong>必须显式启动</strong>（<code>asyncio.run</code>），而且线程可以同时存在。\nJavaScript 的事件循环是运行时自带的、绕不开，整个语言就架在它上面。</p>\n",
+        "java": "<p>Java <strong>没有事件循环</strong>这一层 —— 它用线程解决等待问题，\n阻塞就阻塞在那个线程上。这让「为什么一个慢函数会卡住整个页面」\n这类问题在这边根本不存在，代价是线程本身的开销。</p>\n"
+      }
+    },
+    "callback": {
+      "lang": "javascript",
+      "code": "readFile(\"a.txt\", (err, data) => {\n  if (err) return handle(err);\n  parse(data, (err, obj) => {\n    if (err) return handle(err);\n    save(obj, (err) => {\n      if (err) return handle(err);\n      done();                       // ⚠ 回调地狱：层层缩进\n    });\n  });\n});\n\n// 约定的形状是 (err, data) 双参数 —— Node 风格\n// 错误不会自己冒泡，每一层都要手动判断与传递",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-function)\">readFile</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"a.txt\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> (err</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> data) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  if</span><span style=\"color:var(--shiki-foreground)\"> (err) </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-function)\"> handle</span><span style=\"color:var(--shiki-foreground)\">(err);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  parse</span><span style=\"color:var(--shiki-foreground)\">(data</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> (err</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> obj) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-foreground)\"> (err) </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-function)\"> handle</span><span style=\"color:var(--shiki-foreground)\">(err);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">    save</span><span style=\"color:var(--shiki-foreground)\">(obj</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> (err) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">      if</span><span style=\"color:var(--shiki-foreground)\"> (err) </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-function)\"> handle</span><span style=\"color:var(--shiki-foreground)\">(err);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">      done</span><span style=\"color:var(--shiki-foreground)\">();                       </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 回调地狱：层层缩进</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    });</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  });</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">});</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 约定的形状是 (err, data) 双参数 —— Node 风格</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 错误不会自己冒泡，每一层都要手动判断与传递</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 7,
+          "text": "回调地狱：层层缩进",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>最早的异步写法：把「之后要做什么」作为函数传进去。约定是回调收\n<code>(err, data)</code> 两个参数，每一层都要自己判断错误并往回传。\n问题有两个：<strong>层层缩进</strong>（回调地狱）与<strong>错误容易漏接</strong>\n（回调里抛的异常不会传到外层，会变成未捕获异常）。</p>\n",
+      "vsHtml": {
+        "python": "<p>回调在 Python 里不是主流，asyncio 早期也有过 <code>add_done_callback</code>，\n但很快就转向了 <code>await</code>。两边的历史轨迹相似，只是 JavaScript 在回调\n时代停留得更久（整个 Node 生态都是这个形状）。</p>\n",
+        "java": "<p>Java 的回调形态是 <code>CompletableFuture.thenApply(...)</code> 这类链式调用，\n而且<strong>错误会沿链传播</strong>（<code>exceptionally</code> 能统一处理），没有回调地狱。\n这里（Node 风格）每层手动判错的做法在这边不存在。</p>\n"
+      }
+    },
+    "promise-future": {
+      "lang": "javascript",
+      "code": "const p = fetch(\"/api\").then((r) => r.json());   // 链式，返回新 Promise\n\nPromise.all([a, b]);        // 全成功才成功，一个失败就失败\nPromise.allSettled([a, b]); // 不管成败都等完，结果里带状态\nPromise.race([a, b]);       // 第一个落定的说了算\n\n// ⚠ Promise 一旦创建就开始执行，**没法取消**\n// ⚠ 忘记 catch 会变成「未处理的拒绝」—— 默认只是控制台警告\n\np.catch((e) => console.error(e));   // 错误沿链传播：一个 catch 管到底",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> p</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"/api\"</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-function)\">.then</span><span style=\"color:var(--shiki-foreground)\">((r) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> r</span><span style=\"color:var(--shiki-token-function)\">.json</span><span style=\"color:var(--shiki-foreground)\">());   </span><span style=\"color:var(--shiki-token-comment)\">// 链式，返回新 Promise</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Promise</span><span style=\"color:var(--shiki-token-function)\">.all</span><span style=\"color:var(--shiki-foreground)\">([a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b]);        </span><span style=\"color:var(--shiki-token-comment)\">// 全成功才成功，一个失败就失败</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Promise</span><span style=\"color:var(--shiki-token-function)\">.allSettled</span><span style=\"color:var(--shiki-foreground)\">([a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b]); </span><span style=\"color:var(--shiki-token-comment)\">// 不管成败都等完，结果里带状态</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Promise</span><span style=\"color:var(--shiki-token-function)\">.race</span><span style=\"color:var(--shiki-foreground)\">([a</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> b]);       </span><span style=\"color:var(--shiki-token-comment)\">// 第一个落定的说了算</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Promise 一旦创建就开始执行，**没法取消**</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 忘记 catch 会变成「未处理的拒绝」—— 默认只是控制台警告</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">p</span><span style=\"color:var(--shiki-token-function)\">.catch</span><span style=\"color:var(--shiki-foreground)\">((e) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> console</span><span style=\"color:var(--shiki-token-function)\">.error</span><span style=\"color:var(--shiki-foreground)\">(e));   </span><span style=\"color:var(--shiki-token-comment)\">// 错误沿链传播：一个 catch 管到底</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 7,
+          "text": "Promise 一旦创建就开始执行，**没法取消**",
+          "tone": "warn"
+        },
+        {
+          "line": 8,
+          "text": "忘记 catch 会变成「未处理的拒绝」—— 默认只是控制台警告",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>Promise 表示「将来会有一个结果」，状态一旦落定就不再变。链式调用让错误\n可以<strong>沿链传播</strong>（末尾一个 <code>catch</code> 就能兜住前面所有步骤），比回调那套\n干净得多。组合算子齐全（<code>all</code> / <code>allSettled</code> / <code>race</code> / <code>any</code>）。\n两个要记住的点：Promise 没法取消，以及没有 <code>catch</code> 就是一个静默的坑。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的 <code>Future</code> / <code>Task</code> 是同一个概念，组合用 <code>asyncio.gather</code>\n（对应 <code>all</code>）与 <code>wait</code>。差别是 Python 的 Task <strong>可以取消</strong>\n（<code>task.cancel()</code>），Promise 不能。</p>\n",
+        "java": "<p><code>CompletableFuture</code> 也是这个角色，组合算子更丰富\n（<code>thenCompose</code> / <code>thenCombine</code> / <code>allOf</code>），而且<strong>可以取消</strong>\n（<code>cancel()</code>）。两者的共同点是错误沿链传播、有统一的兜底入口。</p>\n"
+      }
+    },
+    "async-await": {
+      "lang": "javascript",
+      "code": "async function load() {\n  try {\n    const r = await fetch(\"/api\");      // await 只在 async 函数里\n    return await r.json();\n  } catch (e) {                          // 错误用普通 try/catch 接\n    return null;\n  }\n}\n\n// async 函数**永远返回 Promise** —— 就算是 return 1\n// ⚠ 在 forEach 里 await 不会等你 —— forEach 不认异步回调\nfor (const x of xs) await handle(x);     // 要顺序执行用 for...of\n\nawait Promise.all(xs.map(handle));       // 要并发就这么写",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> load</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  try</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    const</span><span style=\"color:var(--shiki-token-constant)\"> r</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> fetch</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"/api\"</span><span style=\"color:var(--shiki-foreground)\">);      </span><span style=\"color:var(--shiki-token-comment)\">// await 只在 async 函数里</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-constant)\"> r</span><span style=\"color:var(--shiki-token-function)\">.json</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  } </span><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) {                          </span><span style=\"color:var(--shiki-token-comment)\">// 错误用普通 try/catch 接</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    return</span><span style=\"color:var(--shiki-token-constant)\"> null</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// async 函数**永远返回 Promise** —— 就算是 return 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 在 forEach 里 await 不会等你 —— forEach 不认异步回调</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> x</span><span style=\"color:var(--shiki-token-keyword)\"> of</span><span style=\"color:var(--shiki-foreground)\"> xs) </span><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-function)\"> handle</span><span style=\"color:var(--shiki-foreground)\">(x);     </span><span style=\"color:var(--shiki-token-comment)\">// 要顺序执行用 for...of</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-constant)\"> Promise</span><span style=\"color:var(--shiki-token-function)\">.all</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">xs</span><span style=\"color:var(--shiki-token-function)\">.map</span><span style=\"color:var(--shiki-foreground)\">(handle));       </span><span style=\"color:var(--shiki-token-comment)\">// 要并发就这么写</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 11,
+          "text": "在 forEach 里 await 不会等你 —— forEach 不认异步回调",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>async</code> / <code>await</code> 是 Promise 的语法糖：把异步写成同步的样子，\n错误用普通的 <code>try</code> / <code>catch</code> 接。两个必须记住的点：\nasync 函数<strong>永远返回 Promise</strong>（哪怕里面只 <code>return 1</code>），\n以及 <code>forEach</code> 这类不认异步回调的地方 <code>await</code> 会失效 ——\n要顺序执行用 <code>for...of</code>、要并发用 <code>Promise.all(map(...))</code>。</p>\n",
+      "vsHtml": {
+        "python": "<p>两边语法几乎一样，连「async 函数调用后得到的是一个待等待的对象」\n这一点都一致。差别在生态：Python 的异步库<strong>必须</strong>整体是异步的\n（同步的 <code>requests</code> 放进协程里会堵住事件循环），\n而 JavaScript 的 <code>fetch</code> 本身就是异步的。</p>\n",
+        "java": "<p>Java <strong>没有 async / await</strong> 语法。要写异步只能用 <code>CompletableFuture</code>\n的链式调用，或者干脆用虚拟线程把阻塞写法跑在轻量线程上 ——\n后者反而让「像同步一样写异步」这件事用另一种方式达成了。</p>\n"
+      }
+    },
+    "cancellation": {
+      "lang": "javascript",
+      "code": "const ac = new AbortController();\nfetch(\"/api\", { signal: ac.signal });    // 把 signal 传进去\nac.abort();                              // 取消：fetch 抛 AbortError\n\n// ⚠ Promise 本身不能取消 —— 只能靠\"告诉它\"（signal）或加超时\nconst t = setTimeout(() => ac.abort(), 5000);\n\n// 自己写的异步函数要主动检查：\nasync function work(signal) {\n  for (const x of xs) {\n    if (signal.aborted) throw new DOMException(\"aborted\", \"AbortError\");\n    await step(x);\n  }\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> ac</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> AbortController</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">fetch</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"/api\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> { signal</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> ac</span><span style=\"color:var(--shiki-foreground)\">.signal });    </span><span style=\"color:var(--shiki-token-comment)\">// 把 signal 传进去</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">ac</span><span style=\"color:var(--shiki-token-function)\">.abort</span><span style=\"color:var(--shiki-foreground)\">();                              </span><span style=\"color:var(--shiki-token-comment)\">// 取消：fetch 抛 AbortError</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Promise 本身不能取消 —— 只能靠\"告诉它\"（signal）或加超时</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> t</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-function)\"> setTimeout</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> ac</span><span style=\"color:var(--shiki-token-function)\">.abort</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 5000</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 自己写的异步函数要主动检查：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> work</span><span style=\"color:var(--shiki-foreground)\">(signal) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> x</span><span style=\"color:var(--shiki-token-keyword)\"> of</span><span style=\"color:var(--shiki-foreground)\"> xs) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-constant)\">signal</span><span style=\"color:var(--shiki-foreground)\">.aborted) </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> DOMException</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"aborted\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"AbortError\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    await</span><span style=\"color:var(--shiki-token-function)\"> step</span><span style=\"color:var(--shiki-foreground)\">(x);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [
+        {
+          "line": 5,
+          "text": "Promise 本身不能取消 —— 只能靠\"告诉它\"（signal）或加超时",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>Promise 不能取消</strong> —— 这是它设计上的一个缺口。实际做法是\n<strong>协作式取消</strong>：传一个 <code>AbortSignal</code> 进去，被取消时调用方 <code>abort()</code>，\n接受方自己检查 <code>signal.aborted</code> 并抛 <code>AbortError</code>。\n新一点的 API（<code>fetch</code>、<code>addEventListener</code>）都收 signal；\n自己写的异步循环也要记得检查，否则取消不会生效。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的 <code>task.cancel()</code> 是<strong>真取消</strong>：会给协程抛 <code>CancelledError</code>，\n所以每个 <code>await</code> 点都自动是取消点，不用手动检查。\n两边都要处理「取消之后的清理」（<code>finally</code> / <code>try</code>），但方式不同。</p>\n",
+        "java": "<p><code>Future.cancel(true)</code> 会中断线程（发中断信号），协作者要自己检查\n<code>Thread.interrupted()</code> —— 与这里的 signal 检查思路相近，都是协作式。\n不过 Java 多一层线程中断机制，取消一个阻塞调用通常更直接。</p>\n"
+      }
+    }
+  }
+}
