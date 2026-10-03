@@ -159,16 +159,17 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
   | R20g | 「某语言 × 某章」一个存放组都没写（整列留白），按 (语言, 板块) 汇总 | warn |
   | R20h | 同一 feature 在同一基准下出现在多个章；章内 feature 重复 | error/warn |
   | R21 | box key 必须属于**池中该存放组**的 feature 集合 | error |
-  | R22 | `vs` 完整性：基准候选写除自己外 2 门、非基准写全 3 门 | **warn** |
-  | R23 | 基准候选在**被它引用的** feature 上要有 `baseline` | **warn** |
-  | R24 | 被某基准引用、文件缺 key、且未 `absent` → 疑似漏写 | warn |
+  | R22 | `vs` 完整性：基准候选写除自己外 2 门、非基准写全 3 门 | **error**（S8 翻级） |
+  | R23 | 基准候选在**被它引用的** feature 上要有 `baseline` | **error**（S8 翻级） |
+  | R24 | 被某基准引用、文件缺 key、且未 `absent` → 疑似漏写 | warn（**刻意不翻**） |
   | R25 | `vs.<基准>` / `baseline` 点名屏幕外的语言（幽灵语言） | warn |
   | R26 | `absent: true` 且给了 `code`（惯用替代写法）→ 必须有说明 | warn |
   | R27 | 某章引用了 group G 但该基准缺 G 的内容（基准列空洞），按 (基准, 板块) 汇总 | warn |
 
   另有沿用 v1 的 R3（provenance）/ R4·R9（`@note`）/ R5（引用完整性）/ R6（发布门槛）/ R7（https）/ R8（注册表自检）/ R10（台账）/ R17（校对记录）。
 
-- **R22 / R23 / R24 是过渡期规则**（warn）：内容补齐前把构建变红，会把「还没写完」和「写错了」混成一个信号。**它们的求值域是「该基准真正引用了的知识点」** —— 被某个基准刻意取舍掉的 feature 不该被要求写 `vs` / `baseline`。R22/R24/R20g/R27 都按 `(语言|基准, 板块)` **汇总成一条**输出（逐条会刷屏）；逐条待办在 `npm run content:report`。账目归零后把 `warn(` 改 `err(` 即翻级。
+- **R22 / R23 是 error，R24 刻意保持 warn**（S8 定的级）。三者都是「内容补齐期」的过渡产物，账目归零后**只翻了 R22 / R23** —— 它们是硬契约（`vs` 缺一份读者永远看不到、基准列空着就是坏页），不存在「合法地留空」。**R24 不翻**：它判的是「键缺失且没标 `absent`」，而**空框本身合法**，翻成 error 会逼作者在「还没写」与「本来就没有」之间二选一 —— 那正是这个字段要区分的两件事。它是一条提醒人确认的规则，不是能自动判定对错的规则。
+- **三者的求值域是「该基准真正引用了的知识点」** —— 被某个基准刻意取舍掉的 feature 不该被要求写 `vs` / `baseline`。R22/R24/R20g/R27 都按 `(语言|基准, 板块)` **汇总成一条**输出（逐条会刷屏）；逐条待办在 `npm run content:report`。**注意 R22 的求值域含已启用但还没写内容的语言**：新启一门语言会立刻红，这是刻意要的（宁可写 `enabled: false`，也不要上一列空白）。
 - **validate 与 build 共用同一份 `analyzeContent()`**。改校验逻辑只需改这一处，但脚本被改坏时测试未必发现 —— `tests/pipeline/content-contract.test.ts` 与 `tests/unit/section-model.test.ts` 对**真实 content 与真实产物**断言不变量，是第二道闸门。
 - **R16 在 schema 层**（`refineBox`）：`code` 与 `blocks` **至多一个**。**「至少一个」被刻意删掉了** —— `absent: true` 的格子天然可以没有代码（「本语言没有变量提升」），强制至少一个会让最典型的 absent 形态解析失败；它的职责由 R24/R26 承担。
 
@@ -219,7 +220,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 | [tests/unit/diff.test.ts](tests/unit/diff.test.ts) | `compareToBaseline` 的行级对齐与缓存 |
 | [tests/unit/extract-notes.test.ts](tests/unit/extract-notes.test.ts) | `extractNotes` 的 `notes`（仅高危）/ `allNotes`（全部）分流契约 |
 | [tests/unit/lang-mention.test.ts](tests/unit/lang-mention.test.ts) | R25 的语言点名检测器（`JavaScript` 含 `Java`、`Go` 撞英文动词） |
-| [tests/unit/snippet-blocks.test.ts](tests/unit/snippet-blocks.test.ts) | 多段代码的逐段 diff（段数不一致时拒绝，不拼成一份错位的着色） |
+| [tests/unit/blocks.test.ts](tests/unit/blocks.test.ts) | 多段代码的逐段 diff（段数不一致时拒绝，不拼成一份错位的着色） |
 
 前两个**读真实内容目录与真实构建产物**，因此它们既是回归测试、也是内容契约的第二道闸门。
 
@@ -251,6 +252,6 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 - **骨架期的池与分组可以自由增删改**：改池或改分组**不动任何内容文件**，这正是骨架先行的意义。这一点已有实证：`express` 池在 S7.1 从 26 个知识点 / 6 个存放组改成 27 / 7，**没有碰任何内容文件**。改动前跑一次 `npm run content:report` 看全貌。
 - **速查的 `featureId` 是软引用**：指向 `featureIndex` 里的全局 id，指向不存在的 id 时只断掉「陷阱 → 特性」这条反查链，不影响陷阱渲染（R5 汇总成一条 warn）。**6 个方向共 72 条已于 S7.6 全部重指**。
 - **`npm run content:report` 的逐存放组账本**是爬坡期的进度表：`have/N` 是写没写，「vs 全」是三方视角写全没有，末尾 `✔` 表示三个基准都写满（这一批可以划掉）。
-- **`src/schemas/index.ts` 里仍留着 v1 的 schema**（`snippetSchema` / `chapterSchema` / `featureSchema` / `topicConfigSchema` 等）：`registrySchema` 仍需要 `topics` 字段（现在是必填的 `z.record`，所以新 `registry.yaml` 里显式写了 `topics: {}`）。清理它们属于 S8，但**不要再新增消费者**。
+- **v1 的 schema 已在 S8 清理干净**（`featureSchema` / `chapterSchema` / `topicConfigSchema` / `snippet*` / `RenderedSnippet` 等，约 400 行），`registrySchema.topics` 与 `registry.yaml` 的 `topics: {}` 占位也一并删除。唯一留下的 v1 词汇是 `featureKindSchema` 里的 `'exercise'` 取值（留着免得未来加回练习类 feature 时动 schema）。
 - **`docs/内容书写标准.md` 已按 v2 改写**（池 / 分组 / 存放组、`baseline` 与 `vs.<基准>`、R20–R27），但只到「操作路径准确」这一层，措辞与配图的润色留 S8。
 - **搜索索引预算**：`SEARCH_INDEX_BUDGET_KB = 280` 是承认现状的上调，不是取消红线。分片已改按**语言**（`search-index/<语言>.json`），实测 js 99 / java 126 / python 126 / go 19 / rust 20 KB(gz)，**当前全部在预算内**；内容继续补齐后会再涨，破线时的降级路径见架构文档 §13 Q8。

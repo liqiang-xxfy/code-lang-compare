@@ -233,7 +233,7 @@ export function isSafeUrl(u: string): boolean {
 /**
  * 读一个语言内容文件并补齐 `review`（文件级默认 → 条目级覆盖）。
  *
- * 与 `snippetFileSchema` 的旧手法一致：整章的 provenance 逐字相同时，
+ * 与文件级 `review` 的手法一致：整个存放组的 provenance 逐字相同时，
  * 文件级写一次即可（全仓库曾因此重复几百处）。
  */
 function readLanguageBoxesFile(file: string): { rel: string; boxes: Record<string, BoxSource> } {

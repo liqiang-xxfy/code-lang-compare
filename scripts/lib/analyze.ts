@@ -443,9 +443,15 @@ export function analyzeContent(): Analysis {
           }
         }
 
-        /* R23 基准列的 baseline 不可空 —— 只对**该基准自己引用了的**知识点 */
+        /*
+         * R23 基准列的 baseline 不可空 —— 只对**该基准自己引用了的**知识点。
+         *
+         * S8 把它从 warn 翻成 error：这是**硬契约**（基准列是参照系，空着就是坏页），
+         * 不存在「合法地留空」这种情形 —— 真无话可说说明这条 feature 不该进池。
+         * 与之相对，R24 仍是 warn（理由见那条的注释）。
+         */
         if (isCandidate && isEnabled && refs?.includes(lang) && !box.baseline?.trim()) {
-          warn(
+          err(
             'R23',
             `${g.file} → ${featureId}`,
             `'${lang}' 是基准候选，${lang} 的章节分组引用了这个知识点，但它缺 baseline 说明（基准列不能空着）`,
@@ -588,13 +594,28 @@ export function analyzeContent(): Analysis {
     }
   }
 
+  /*
+   * R22 也是硬契约，S8 从 warn 翻成 error：视角无法互相推导，缺的那一份
+   * 读者永远看不到。注意它的求值域含**已启用但还没写内容**的语言 ——
+   * 新启一门语言时它会立刻红，这是刻意要的：宁可让人在 registry 里
+   * 显式写 `enabled: false`，也不要上一列空白。
+   */
   for (const [key, count] of [...vsMissing].sort(([a], [b]) => a.localeCompare(b))) {
-    warn(
+    err(
       'R22',
       key,
       `有 ${count} 处 vs 缺失。基准候选要写除自己外的两门，非基准语言要写全三门 —— 视角无法互相推导，缺的那一份读者看不到`,
     )
   }
+  /*
+   * R24 **刻意保持 warn**（与 R22 / R23 不同，S8 没有翻它）。
+   *
+   * 它判的是「键缺失、且没标 absent」—— 可是**空框本身是合法的**（§4.4）：
+   * 内容天然疏密不均，某门语言在这个知识点上无话可说很正常，不必为此撒一个
+   * `absent: true`（那是另一个意思：「本语言没有这个概念」）。翻成 error 会逼作者
+   * 在「还没写」与「本来就没有」之间二选一，而那恰恰是这个字段设计出来要区分的两件事。
+   * 它是一条**提醒人去确认**的规则，不是一条可以自动判定对错的规则。
+   */
   for (const [key, count] of [...suspectedMissing].sort(([a], [b]) => a.localeCompare(b))) {
     warn('R24', key, `有 ${count} 个被基准引用的知识点没有内容，也没有声明 absent —— 疑似漏写（刻意留空请写 absent: true）`)
   }

@@ -9,7 +9,8 @@
  * 三个断言：
  *   1. `sections.gen.ts` 与 registry.yaml 同步（防止生成物过期）
  *   2. src/（不含 generated）里没有硬编码的板块 id 字面量
- *   3. 每个 topic 的 section 都是已注册的板块（schema 之外的第二道闸门）
+ *   3. `content/catalog/` 下的板块目录与 registry 的 sections 双向一致
+ *      （建了内容目录却忘了注册，或注册了却没有目录 —— 两边都会静默半开工）
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -132,26 +133,58 @@ if (offenders.length) {
   )
 }
 
-/* ── 断言 3：每个 topic 的 section 都是已注册的板块 ────────────────
+/* ── 断言 3：content/catalog/ 的板块目录 ↔ registry 的 sections 双向一致 ──
  *
- * schema 的 superRefine 已经在解析时拦了，这里再断言一次是因为
- * `03-validate` 与 `04-build` 共用同一份解析 —— 若有人绕开 registrySchema
- * 直接读 YAML，这条是最后一道。
+ * v1 的这道断言查「每个 topic 的 section 都注册过」，靠的是 registry.topics。
+ * v2 取消了 topic 概念，但**同一类错误换了形态仍然存在**：建了
+ * `content/catalog/<板块>/` 却忘了在 registry.yaml 里注册（或反之）。
+ * 两个方向都不会报错 —— 前者整个目录被静默忽略，后者该板块永远没有内容。
+ *
+ * 判据只对 `shape: chapter` 的板块成立 —— 速查三兄弟是 `shape: list`，
+ * 它们的内容按方向放在 `content/pairs/`，本来就没有池、也不该有 catalog 目录
+ * （这一条是写这道断言时被它自己抓出来的：第一版对全部板块求值，
+ * 立刻报 pitfalls / glossary / roadmap 三个「缺目录」）。
+ *
+ * 顺带断言每个章节型板块目录都有池文件：章节分组可以缺（= 该基准还没开工，
+ * 左栏隐藏），但**池必须存在** —— 没有池的板块在构建期无内容可查。
  */
-try {
-  const registry = loadRegistry()
-  const bad = Object.entries(registry.topics)
-    .filter(([, cfg]) => !fromGen.includes(cfg.section as (typeof fromGen)[number]))
-    .map(([id, cfg]) => `${id} → ${cfg.section}`)
-  if (bad.length) {
-    console.error(`[verify:sections] ✗ 以下 topic 引用了未注册的板块：${bad.join(', ')}`)
-    exitCode = 1
-  } else {
-    console.log('[verify:sections] ✓ 全部 topic 的 section 都在注册表里')
-  }
-} catch (e) {
-  console.error(`[verify:sections] ✗ registry.yaml 解析失败：${(e as Error).message}`)
+const registry = loadRegistry()
+const chapterSections = Object.entries(registry.sections)
+  .filter(([, def]) => def.shape === 'chapter')
+  .map(([id]) => id)
+const catalogDir = path.join(ROOT, 'content', 'catalog')
+const onDisk = fs.existsSync(catalogDir)
+  ? fs
+      .readdirSync(catalogDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith('_'))
+      .map((e) => e.name)
+  : []
+
+const unregistered = onDisk.filter((id) => !fromGen.includes(id as (typeof fromGen)[number]))
+const missingDir = chapterSections.filter((id) => !onDisk.includes(id))
+const noPool = onDisk.filter((id) => !fs.existsSync(path.join(catalogDir, id, 'features.yaml')))
+
+if (unregistered.length) {
+  console.error(
+    `[verify:sections] ✗ 这些内容目录没有在 registry.yaml 的 sections 段注册：${unregistered.join(', ')}`,
+  )
   exitCode = 1
+}
+if (missingDir.length) {
+  console.error(
+    `[verify:sections] ✗ 这些 shape: chapter 的板块没有 content/catalog/ 目录：${missingDir.join(', ')}`,
+  )
+  exitCode = 1
+}
+if (noPool.length) {
+  console.error(`[verify:sections] ✗ 这些板块目录缺少 features.yaml（池）：${noPool.join(', ')}`)
+  exitCode = 1
+}
+if (!unregistered.length && !missingDir.length && !noPool.length) {
+  console.log(
+    `[verify:sections] ✓ ${chapterSections.length} 个章节型板块都有 catalog 目录与池，` +
+      `且 catalog/ 下没有未注册的目录`,
+  )
 }
 
 if (exitCode === 0) {
