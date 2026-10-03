@@ -1,0 +1,138 @@
+# javascript —— model / abstraction
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: abstraction` 的那批：
+# interface / abstract-class / mixin-trait / duck-typing。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  interface:
+    code: |
+      // @note! 运行时没有接口这个概念 —— 语言层面表达不出来
+      //   想约束形状只能靠：
+      //   1. TypeScript 的 interface（编译期，运行时不留痕）
+      //   2. 运行时校验：检查方法在不在
+      function assertShape(obj) {
+        for (const m of ["read", "write"]) {
+          if (typeof obj[m] !== "function") throw new TypeError(`缺少 ${m}`);
+        }
+      }
+
+      // 3. 或者干脆不检查 —— 用到时自然会报错
+    baseline: |
+      **语言层面没有接口**。想表达「这个参数必须具备某几个方法」只有三条路：
+      用 TypeScript（编译期检查，运行时不留下任何东西）、运行时手动校验形状、
+      或者什么都不做等着调用时报错。所以 JS 代码里「这个对象要满足什么契约」
+      通常写在注释里。
+    vs:
+      python: |
+        Python 也在语言层面没有接口，但标准库提供了 `abc.ABC`（可继承、能强制）
+        与 `typing.Protocol`（结构化、给检查器看），比这里多一层现成工具。
+        两边的共同点是：真正执行「有没有这个方法」都发生在运行时。
+      java: |
+        Java 的 `interface` 是语言构造，能声明、能继承、能带默认实现，
+        而且**编译器强制**实现类必须实现所有方法。这里最接近的只有
+        TypeScript 的编译期版本，运行时不检查。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  abstract-class:
+    code: |
+      // @note! 没有 abstract 关键字 —— 只能自己造
+      class Repository {
+        constructor() {
+          if (new.target === Repository) {
+            throw new TypeError("Repository 是抽象类，不能直接实例化");
+          }
+        }
+        find(id) { throw new Error("子类必须实现 find"); }   // @note 约定
+      }
+
+      class UserRepo extends Repository {
+        find(id) { return db.get(id); }
+      }
+
+      new Repository();     // @note! 抛错 —— 靠构造函数里的检查
+    baseline: |
+      没有 `abstract` 关键字。「抽象类」要靠两件事自己模拟：在构造函数里
+      检查 `new.target` 来禁止直接实例化，用一个抛错的方法当「必须覆写」的占位。
+      这些都是**约定**，忘了覆写不会在定义时报错，只有真的调用到才炸。
+    vs:
+      python: |
+        Python 用 `abc.ABC` 加 `@abstractmethod`：**实例化时**就报错，
+        而不是等到调用那个方法。比这里的手工检查早一步发现问题。
+      java: |
+        Java 有 `abstract` 关键字，而且**编译期**就检查「抽象方法有没有被实现」——
+        漏了根本编译不过。这里全靠运行时约定，是三家里面最弱的一档。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  mixin-trait:
+    code: |
+      // @note 惯用做法：把行为写成对象，复制进目标原型
+      const Serializable = {
+        toJSON() { return JSON.stringify(this); },
+      };
+      Object.assign(UserRepo.prototype, Serializable);
+
+      // 或者用高阶类（函数返回一个类）
+      const withLogging = (Base) => class extends Base {
+        log(m) { console.log(m); }
+      };
+      class Service extends withLogging(Base) {}     // @note! extends 位置只能放一个
+
+      // @note 语言没有 mixin 关键字 —— 上面两种写法都是社区惯用法
+    baseline: |
+      没有 `mixin` 语法。两条惯用路子：**把行为对象复制进原型**
+      （`Object.assign(C.prototype, mixin)`）或者**高阶类**（一个函数接收基类、
+      返回增强后的类）。后者能参与 `extends` 链但只能占那一格 ——
+      想要多份行为就得把它们串起来，或者退回 `Object.assign`。
+    vs:
+      python: |
+        Python 有多继承，mixin 就是「一个只提供小块行为、不单独实例化的父类」，
+        是语言内的正规写法。这里没有多继承，只能靠复制属性或高阶类拼。
+      java: |
+        Java 的接口带默认方法之后也能提供实现，是语言层面的「多份行为」通道；
+        但接口**不能带实例状态**。这里的 `Object.assign` 方案可以连状态一起混进来，
+        代价是没有编译器帮你检查冲突。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  duck-typing:
+    code: |
+      function printAll(iterable) {
+        for (const x of iterable) console.log(x);   // @note 只要求"可迭代"
+      }
+      printAll([1, 2]);
+      printAll("ab");                  // @note 字符串也行
+      printAll(new Set([1]));          // @note 也行 —— 谁实现了协议谁就能用
+      printAll({ a: 1 });              // @note! TypeError：普通对象不可迭代
+
+      // 类型无关紧要，**有没有那个方法/协议**才重要
+      function area(shape) { return shape.area(); }   // @note 没声明任何类型
+    baseline: |
+      **鸭子类型**：不关心「你是什么类型」，只关心「你有没有那个方法 / 协议」。
+      所以 `printAll` 能同时吃数组、字符串、Set —— 只要实现了迭代协议。
+      检查发生在运行时：写错了要到调用那一刻才报，且报的是「没有这个方法」
+      而不是「类型不对」。
+    vs:
+      python: |
+        Python 同样是鸭子类型（EAFP：先试，出错再接），而且 `hasattr` /
+        `getattr` 让「按能力探测」写起来更顺手。差别在失败时的可读性：
+        两边都只告诉你「没有这个方法」，要靠堆栈去看是谁传错了。
+      java: |
+        Java 是**名义类型**：一个对象能不能传给某个参数，看它有没有声明实现
+        那个接口 —— 与它实际有没有那个方法无关。鸭子类型在这里完全行不通，
+        「形状对但没声明」过不了编译。
+    equivalence:
+      python: analogous
+      java: divergent

@@ -1,0 +1,151 @@
+# python —— model / abstraction
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: abstraction` 的那批。
+# 这一组以 Python 为基准时展示在「协议与多态」章（见 catalog/model/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  interface:
+    code: |
+      # 方式一：ABC —— 名义上的接口，能强制
+      from abc import ABC, abstractmethod
+      class Reader(ABC):
+          @abstractmethod
+          def read(self) -> str: ...
+
+      # 方式二：Protocol —— 结构化的接口，给类型检查器看
+      from typing import Protocol
+      class Closeable(Protocol):
+          def close(self) -> None: ...
+
+      def use(r: Closeable) -> None: ...   # @note 任何有 close() 的对象都能传
+
+      # @note! ABC 管实例化，Protocol 只管静态检查（运行时不强制）
+    baseline: |
+      标准库给了两条路：**`ABC`**（继承式、`@abstractmethod` 会在实例化时强制
+      子类实现）与 **`Protocol`**（结构化 —— 只要形状对就相容，运行时不强制、
+      由类型检查器裁决）。前者是「名义接口」，后者是「鸭子类型的类型化表达」，
+      选哪个取决于你要的是运行时保证还是静态检查。
+    vs:
+      javascript: |
+        JavaScript 语言层面完全没有接口，只有 TypeScript 那层编译期概念；
+        Python 至少有标准库里的 ABC 与 Protocol，其中 ABC 还能在运行时
+        真正拦住漏实现。
+      java: |
+        Java 的 `interface` 是语言构造、编译器强制、还能带默认实现；
+        Python 的 Protocol 是给检查器看的、运行时不管，ABC 则是靠继承加实例化检查。
+        两边都能表达契约，强制力与形态不同。
+    equivalence:
+      javascript: analogous
+      java: analogous
+
+  abstract-class:
+    code: |
+      from abc import ABC, abstractmethod
+
+      class Repository(ABC):
+          @abstractmethod
+          def find(self, id): ...
+
+          def find_or_none(self, id):        # @note 具体方法也可以有
+              try:
+                  return self.find(id)
+              except KeyError:
+                  return None
+
+      class UserRepo(Repository):
+          def find(self, id): return db[id]
+
+      Repository()      # @note! TypeError：有未实现的抽象方法
+      UserRepo()        # @note 正常
+    baseline: |
+      `ABC` 加 `@abstractmethod` 就是抽象类：**实例化时**检查，
+      没实现完抽象方法直接 TypeError —— 报得比「调用时才炸」早。
+      抽象类里可以混具体方法（共享实现），这一点与接口不同。
+    vs:
+      javascript: |
+        JavaScript 没有 abstract 关键字，只能靠构造函数里检查 `new.target`
+        加抛错占位来模拟，而且要等到**调用**那个方法才发现漏实现；
+        Python 在实例化那一刻就拦住。
+      java: |
+        两边都有抽象类，也都允许混具体方法。差别在检查时机：Java 是
+        **编译期**就报「抽象方法没实现」，Python 要到实例化时 ——
+        写错的地方离发现的地方更远一些。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  mixin-trait:
+    code: |
+      class JsonMixin:                       # @note 只提供行为，不单独实例化
+          def to_json(self): return json.dumps(self.__dict__)
+
+      class LogMixin:
+          def log(self, m): print(f"[{type(self).__name__}] {m}")
+
+      class Service(JsonMixin, LogMixin):    # @note 多继承就是 mixin 的机制
+          def __init__(self, name): self.name = name
+
+      Service("a").to_json()                 # @note 两个 mixin 的能力都有了
+      Service.__mro__                        # @note 冲突时先找谁，可查
+
+      # @note 惯例：mixin 类名以 Mixin 结尾，且不定义 __init__
+    baseline: |
+      **mixin 就是多继承的一个用法约定**：写一个只提供小块行为、不单独实例化的
+      类，把它排在继承列表前面。冲突由 MRO 裁决（`__mro__` 可查，是确定的）。
+      惯例是名字以 `Mixin` 结尾、不定义 `__init__` —— 这样它不会跟真正的基类打架。
+    vs:
+      javascript: |
+        JavaScript 没有多继承，mixin 要靠 `Object.assign` 复制属性或高阶类拼；
+        Python 的 mixin 是语言内正规写法，冲突规则也由 MRO 统一裁决。
+      java: |
+        Java 的接口默认方法同样能提供可复用的行为，但**接口不能带实例状态**；
+        Python 的 mixin 可以带状态（因为它就是个普通类）。代价是 Python 的
+        冲突规则更复杂，Java 的接口不存在状态冲突。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  duck-typing:
+    code: |
+      def print_all(iterable):
+          for x in iterable:          # @note 只要求"可迭代"
+              print(x)
+
+      print_all([1, 2])
+      print_all("ab")                 # @note 字符串也行
+      print_all({"a": 1})             # @note 字典也行（遍历键）
+      print_all(42)                   # @note! TypeError: not iterable
+
+      # EAFP：先试，出错再接 —— Python 的默认风格
+      try:
+          return obj.read()
+      except AttributeError:
+          return None
+
+      # 或者先探测（LBYL）
+      if hasattr(obj, "read"): ...
+    baseline: |
+      **鸭子类型**：不看类型，只看有没有那个方法 / 协议。所以 `print_all`
+      能吃列表、字符串、字典 —— 只要可迭代。风格上提倡 **EAFP**
+      （先做，出错再接住），而不是先探测再使用；`hasattr` / `getattr`
+      也提供了按能力探测的手段，两者按场景选。
+    vs:
+      javascript: |
+        两边都是鸭子类型，思路一致。差别在失败的可读性：JavaScript 报
+        「xxx is not a function」，Python 报 AttributeError 并指出是哪个对象
+        没有哪个属性，定位起来通常更直接。
+      java: |
+        Java 是名义类型：能不能传进某个参数看它**有没有声明实现**那个接口，
+        与它实际有没有那个方法无关。鸭子类型在这里行不通 ——
+        「形状对但没声明」编译不过。
+    equivalence:
+      javascript: analogous
+      java: divergent

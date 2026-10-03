@@ -1,0 +1,159 @@
+# java —— model / abstraction
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: abstraction` 的那批。
+# 这一组以 Java 为基准时**排在「类与成员」之前**（见 catalog/model/java.yaml）——
+# 先有契约再有实现，这是 Java 视角的顺序。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  interface:
+    code: |
+      public interface Reader {                 // @note 语言构造，不是约定
+        String read();                         // @note 隐式 public abstract
+      }
+
+      public interface Closeable2 extends Reader {     // @note 接口可以继承多个
+        void close();
+
+        default void useQuietly() {            // @note 默认方法：带实现
+          try { read(); } finally { close(); }
+        }
+
+        static Reader empty() { return () -> ""; }   // @note 静态方法也行
+      }
+
+      class FileReader implements Reader {     // @note 编译器强制实现所有抽象方法
+        public String read() { return ""; }
+      }
+
+      // @note! 接口不能有实例字段（只能有常量）
+    baseline: |
+      `interface` 是语言构造：**编译器强制**实现类实现所有抽象方法，漏一个就
+      编译不过。接口可以继承多个接口，可以带 `default` 方法（提供实现）与
+      `static` 方法，但**不能有实例字段** —— 这是它与抽象类的分界线。
+      变量、参数、返回值都可以声明成接口类型，这是 Java 里做解耦的主要手段。
+    vs:
+      javascript: |
+        JavaScript 语言层面没有接口，只有 TypeScript 那层编译期概念，
+        运行时不检查；Java 的接口是语言构造，编译器强制。
+        另外 Java 的接口能带默认实现，TypeScript 的不能。
+      python: |
+        Python 的 `Protocol` 是给类型检查器看的、运行时不强制；`ABC` 要在
+        实例化时才检查。Java 的接口在**编译期**就强制，是三家里面最早发现问题的一档。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  abstract-class:
+    code: |
+      public abstract class Repository<T> {          // @note abstract 关键字
+        protected final String table;                // @note 可以带实例状态
+
+        protected Repository(String table) { this.table = table; }
+
+        public abstract T find(String id);           // @note 抽象方法：子类必须实现
+
+        public T findOrNull(String id) {             // @note 具体方法共享实现
+          try { return find(id); } catch (Exception e) { return null; }
+        }
+      }
+
+      // Repository r = new Repository("t");       // @note! 编译错误：抽象类不能实例化
+
+      // @note 只能继承一个抽象类 —— 想要多份能力靠接口
+    baseline: |
+      `abstract` 关键字：不能实例化，抽象方法由子类实现，**漏了实现编译期就报**。
+      与接口的分界是**能带实例状态**（字段、构造器）—— 需要共享状态与部分实现时
+      用抽象类，只需要契约时用接口。类只能继承一个抽象类，多份能力走接口。
+    vs:
+      javascript: |
+        JavaScript 没有 abstract，只能靠构造函数检查 `new.target` 加抛错占位来模拟，
+        而且要到调用那一刻才发现漏实现；Java 在编译期就拦住。
+      python: |
+        Python 用 `ABC` + `@abstractmethod`，检查发生在**实例化时**；
+        Java 在编译期。两边都能混具体方法、都能带状态，差别只在发现时机。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  mixin-trait:
+    code: |
+      // @note! 接口的默认方法就是 Java 的「多份行为」通道
+      interface JsonSerializable {
+        default String toJson() { return "{...}"; }
+      }
+      interface Loggable {
+        default void log(String m) { System.out.println(m); }
+      }
+
+      class Service implements JsonSerializable, Loggable {   // @note 两个都要
+      }
+
+      new Service().toJson();
+      new Service().log("hi");
+
+      // @note! 两个接口有同名默认方法时必须显式覆写，否则编译错误
+      // @note! 接口**不能有实例字段** —— 状态混不进来
+    baseline: |
+      用**接口的默认方法**横向复用行为：一个类可以实现多个接口，
+      因此「一次拿到多份能力」。与别的语言的 mixin 相比有一处硬限制：
+      接口**不能带实例字段**，所以只能混行为、混不了状态。
+      两个接口有同名默认方法时必须显式覆写，编译器会拦。
+    vs:
+      javascript: |
+        JavaScript 没有接口，mixin 靠 `Object.assign` 复制属性或高阶类拼，
+        可以连状态一起混进来，但没有编译器帮你检查冲突；Java 的默认方法由
+        编译器管冲突，代价是混不了状态。
+      python: |
+        Python 的 mixin 就是一个能带状态的普通类，靠多继承混进来、
+        冲突由 MRO 裁决。Java 的接口默认方法混不了状态，
+        但冲突是编译期错误而不是「按 MRO 挑一个」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  duck-typing:
+    code: |
+      // @note! Java 是**名义类型** —— 不看形状，看有没有声明
+      interface Closeable3 { void close(); }
+
+      void use(Closeable3 c) { c.close(); }
+
+      class HasClose {                       // @note 有 close() 方法
+        public void close() { }
+      }
+
+      // use(new HasClose());                // @note! 编译错误：没声明实现接口
+
+      // 想传进去只有两条路：让它 implements，或者包一层适配器
+      class HasCloseAdapter implements Closeable3 {
+        private final HasClose target;
+        HasCloseAdapter(HasClose t) { this.target = t; }
+        public void close() { target.close(); }
+      }
+
+      // 部分替代：函数式接口 + lambda（只要求一个方法）
+      void run(Runnable r) { r.run(); }
+      run(() -> { });                        // @note 形状对就行，但接口是声明过的
+    baseline: |
+      **名义类型**：一个对象能不能传进某个参数，看它有没有**声明实现**那个接口
+      —— 与它实际有没有那个方法无关。所以「形状一样但没声明」编译不过，
+      要用适配器包一层。唯一的例外是函数式接口：lambda 只要形状对就能写出来，
+      但那个接口仍然是声明过的类型。
+    vs:
+      javascript: |
+        JavaScript 是鸭子类型：只要有那个方法就能用，从不需要声明。
+        Java 反过来 —— 有方法没用，得有声明。这是两家设计取向上最根本的差别之一。
+      python: |
+        Python 也是鸭子类型，`Protocol` 只是给检查器看的形状约定、不要求继承；
+        Java 的接口必须写进 `implements`。同一个意思，一边要求声明、一边不要求。
+    equivalence:
+      javascript: divergent
+      python: divergent

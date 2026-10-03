@@ -1,0 +1,112 @@
+{
+  "lang": "javascript",
+  "section": "model",
+  "group": "abstraction",
+  "boxes": {
+    "interface": {
+      "lang": "javascript",
+      "code": "// ⚠ 运行时没有接口这个概念 —— 语言层面表达不出来\n//   想约束形状只能靠：\n//   1. TypeScript 的 interface（编译期，运行时不留痕）\n//   2. 运行时校验：检查方法在不在\nfunction assertShape(obj) {\n  for (const m of [\"read\", \"write\"]) {\n    if (typeof obj[m] !== \"function\") throw new TypeError(`缺少 ${m}`);\n  }\n}\n\n// 3. 或者干脆不检查 —— 用到时自然会报错",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 运行时没有接口这个概念 —— 语言层面表达不出来</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   想约束形状只能靠：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   1. TypeScript 的 interface（编译期，运行时不留痕）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   2. 运行时校验：检查方法在不在</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> assertShape</span><span style=\"color:var(--shiki-foreground)\">(obj) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> m</span><span style=\"color:var(--shiki-token-keyword)\"> of</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-string-expression)\">\"read\"</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-string-expression)\"> \"write\"</span><span style=\"color:var(--shiki-foreground)\">]) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">typeof</span><span style=\"color:var(--shiki-foreground)\"> obj[m] </span><span style=\"color:var(--shiki-token-keyword)\">!==</span><span style=\"color:var(--shiki-token-string-expression)\"> \"function\"</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">`缺少 </span><span style=\"color:var(--shiki-token-keyword)\">${</span><span style=\"color:var(--shiki-foreground)\">m</span><span style=\"color:var(--shiki-token-keyword)\">}</span><span style=\"color:var(--shiki-token-string-expression)\">`</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 3. 或者干脆不检查 —— 用到时自然会报错</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 1,
+          "text": "运行时没有接口这个概念 —— 语言层面表达不出来",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>语言层面没有接口</strong>。想表达「这个参数必须具备某几个方法」只有三条路：\n用 TypeScript（编译期检查，运行时不留下任何东西）、运行时手动校验形状、\n或者什么都不做等着调用时报错。所以 JS 代码里「这个对象要满足什么契约」\n通常写在注释里。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 也在语言层面没有接口，但标准库提供了 <code>abc.ABC</code>（可继承、能强制）\n与 <code>typing.Protocol</code>（结构化、给检查器看），比这里多一层现成工具。\n两边的共同点是：真正执行「有没有这个方法」都发生在运行时。</p>\n",
+        "java": "<p>Java 的 <code>interface</code> 是语言构造，能声明、能继承、能带默认实现，\n而且<strong>编译器强制</strong>实现类必须实现所有方法。这里最接近的只有\nTypeScript 的编译期版本，运行时不检查。</p>\n"
+      }
+    },
+    "abstract-class": {
+      "lang": "javascript",
+      "code": "// ⚠ 没有 abstract 关键字 —— 只能自己造\nclass Repository {\n  constructor() {\n    if (new.target === Repository) {\n      throw new TypeError(\"Repository 是抽象类，不能直接实例化\");\n    }\n  }\n  find(id) { throw new Error(\"子类必须实现 find\"); }   // 约定\n}\n\nclass UserRepo extends Repository {\n  find(id) { return db.get(id); }\n}\n\nnew Repository();     // ⚠ 抛错 —— 靠构造函数里的检查",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 没有 abstract 关键字 —— 只能自己造</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Repository</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  constructor</span><span style=\"color:var(--shiki-foreground)\">() {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">    if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">target</span><span style=\"color:var(--shiki-token-keyword)\"> ===</span><span style=\"color:var(--shiki-foreground)\"> Repository) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">      throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> TypeError</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"Repository 是抽象类，不能直接实例化\"</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">    }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  find</span><span style=\"color:var(--shiki-foreground)\">(id) { </span><span style=\"color:var(--shiki-token-keyword)\">throw</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"子类必须实现 find\"</span><span style=\"color:var(--shiki-foreground)\">); }   </span><span style=\"color:var(--shiki-token-comment)\">// 约定</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> UserRepo</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> Repository</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  find</span><span style=\"color:var(--shiki-foreground)\">(id) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> db</span><span style=\"color:var(--shiki-token-function)\">.get</span><span style=\"color:var(--shiki-foreground)\">(id); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Repository</span><span style=\"color:var(--shiki-foreground)\">();     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 抛错 —— 靠构造函数里的检查</span></span></code></pre>",
+      "lineCount": 15,
+      "notes": [
+        {
+          "line": 1,
+          "text": "没有 abstract 关键字 —— 只能自己造",
+          "tone": "warn"
+        },
+        {
+          "line": 15,
+          "text": "抛错 —— 靠构造函数里的检查",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>没有 <code>abstract</code> 关键字。「抽象类」要靠两件事自己模拟：在构造函数里\n检查 <code>new.target</code> 来禁止直接实例化，用一个抛错的方法当「必须覆写」的占位。\n这些都是<strong>约定</strong>，忘了覆写不会在定义时报错，只有真的调用到才炸。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 用 <code>abc.ABC</code> 加 <code>@abstractmethod</code>：<strong>实例化时</strong>就报错，\n而不是等到调用那个方法。比这里的手工检查早一步发现问题。</p>\n",
+        "java": "<p>Java 有 <code>abstract</code> 关键字，而且<strong>编译期</strong>就检查「抽象方法有没有被实现」——\n漏了根本编译不过。这里全靠运行时约定，是三家里面最弱的一档。</p>\n"
+      }
+    },
+    "mixin-trait": {
+      "lang": "javascript",
+      "code": "// 惯用做法：把行为写成对象，复制进目标原型\nconst Serializable = {\n  toJSON() { return JSON.stringify(this); },\n};\nObject.assign(UserRepo.prototype, Serializable);\n\n// 或者用高阶类（函数返回一个类）\nconst withLogging = (Base) => class extends Base {\n  log(m) { console.log(m); }\n};\nclass Service extends withLogging(Base) {}     // ⚠ extends 位置只能放一个\n\n// 语言没有 mixin 关键字 —— 上面两种写法都是社区惯用法",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 惯用做法：把行为写成对象，复制进目标原型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> Serializable</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  toJSON</span><span style=\"color:var(--shiki-foreground)\">() { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> JSON</span><span style=\"color:var(--shiki-token-function)\">.stringify</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">this</span><span style=\"color:var(--shiki-foreground)\">); }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Object</span><span style=\"color:var(--shiki-token-function)\">.assign</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">UserRepo</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-constant)\">prototype</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> Serializable);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 或者用高阶类（函数返回一个类）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-function)\"> withLogging</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> (Base) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-keyword)\"> class</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> Base</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">  log</span><span style=\"color:var(--shiki-foreground)\">(m) { </span><span style=\"color:var(--shiki-token-constant)\">console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(m); }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">};</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> Service</span><span style=\"color:var(--shiki-token-keyword)\"> extends</span><span style=\"color:var(--shiki-token-function)\"> withLogging</span><span style=\"color:var(--shiki-foreground)\">(Base) {}     </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ extends 位置只能放一个</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 语言没有 mixin 关键字 —— 上面两种写法都是社区惯用法</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 11,
+          "text": "extends 位置只能放一个",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>没有 <code>mixin</code> 语法。两条惯用路子：<strong>把行为对象复制进原型</strong>\n（<code>Object.assign(C.prototype, mixin)</code>）或者<strong>高阶类</strong>（一个函数接收基类、\n返回增强后的类）。后者能参与 <code>extends</code> 链但只能占那一格 ——\n想要多份行为就得把它们串起来，或者退回 <code>Object.assign</code>。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 有多继承，mixin 就是「一个只提供小块行为、不单独实例化的父类」，\n是语言内的正规写法。这里没有多继承，只能靠复制属性或高阶类拼。</p>\n",
+        "java": "<p>Java 的接口带默认方法之后也能提供实现，是语言层面的「多份行为」通道；\n但接口<strong>不能带实例状态</strong>。这里的 <code>Object.assign</code> 方案可以连状态一起混进来，\n代价是没有编译器帮你检查冲突。</p>\n"
+      }
+    },
+    "duck-typing": {
+      "lang": "javascript",
+      "code": "function printAll(iterable) {\n  for (const x of iterable) console.log(x);   // 只要求\"可迭代\"\n}\nprintAll([1, 2]);\nprintAll(\"ab\");                  // 字符串也行\nprintAll(new Set([1]));          // 也行 —— 谁实现了协议谁就能用\nprintAll({ a: 1 });              // ⚠ TypeError：普通对象不可迭代\n\n// 类型无关紧要，**有没有那个方法/协议**才重要\nfunction area(shape) { return shape.area(); }   // 没声明任何类型",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> printAll</span><span style=\"color:var(--shiki-foreground)\">(iterable) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  for</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> x</span><span style=\"color:var(--shiki-token-keyword)\"> of</span><span style=\"color:var(--shiki-foreground)\"> iterable) </span><span style=\"color:var(--shiki-token-constant)\">console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(x);   </span><span style=\"color:var(--shiki-token-comment)\">// 只要求\"可迭代\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">printAll</span><span style=\"color:var(--shiki-foreground)\">([</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-foreground)\">]);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">printAll</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"ab\"</span><span style=\"color:var(--shiki-foreground)\">);                  </span><span style=\"color:var(--shiki-token-comment)\">// 字符串也行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">printAll</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">new</span><span style=\"color:var(--shiki-token-function)\"> Set</span><span style=\"color:var(--shiki-foreground)\">([</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">]));          </span><span style=\"color:var(--shiki-token-comment)\">// 也行 —— 谁实现了协议谁就能用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">printAll</span><span style=\"color:var(--shiki-foreground)\">({ a</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\"> });              </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ TypeError：普通对象不可迭代</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 类型无关紧要，**有没有那个方法/协议**才重要</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> area</span><span style=\"color:var(--shiki-foreground)\">(shape) { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-token-constant)\"> shape</span><span style=\"color:var(--shiki-token-function)\">.area</span><span style=\"color:var(--shiki-foreground)\">(); }   </span><span style=\"color:var(--shiki-token-comment)\">// 没声明任何类型</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 7,
+          "text": "TypeError：普通对象不可迭代",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>鸭子类型</strong>：不关心「你是什么类型」，只关心「你有没有那个方法 / 协议」。\n所以 <code>printAll</code> 能同时吃数组、字符串、Set —— 只要实现了迭代协议。\n检查发生在运行时：写错了要到调用那一刻才报，且报的是「没有这个方法」\n而不是「类型不对」。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 同样是鸭子类型（EAFP：先试，出错再接），而且 <code>hasattr</code> /\n<code>getattr</code> 让「按能力探测」写起来更顺手。差别在失败时的可读性：\n两边都只告诉你「没有这个方法」，要靠堆栈去看是谁传错了。</p>\n",
+        "java": "<p>Java 是<strong>名义类型</strong>：一个对象能不能传给某个参数，看它有没有声明实现\n那个接口 —— 与它实际有没有那个方法无关。鸭子类型在这里完全行不通，\n「形状对但没声明」过不了编译。</p>\n"
+      }
+    }
+  }
+}
