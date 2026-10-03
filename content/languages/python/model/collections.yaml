@@ -1,0 +1,196 @@
+# python —— model / collections
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: collections` 的那批。
+# 这一组以 Python 为基准时展示在「容器与拷贝语义」章（见 catalog/model/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  list-array:
+    code: |
+      xs = [1, "two", None]        # @note list：可变、异构、长度可变
+      xs.append(3)
+      xs[10]                       # @note! IndexError —— 没有稀疏这回事
+
+      t = (1, 2)                   # @note tuple：不可变序列
+      t2 = 1, 2                    # @note 括号都可以省
+      t[0] = 9                     # @note! TypeError
+
+      # @note 选 list 还是 tuple 是设计决策：会变吗？
+    baseline: |
+      序列分两种，**选哪个本身就是设计决策**：`list` 可变、`tuple` 不可变。
+      两者都异构、长度可变（tuple 的长度在创建时定死），越界一律 IndexError，
+      没有稀疏数组。不可变的 tuple 能当字典的键、能放进 set ——
+      这是它除了「防止误改」之外的实用价值。
+    vs:
+      javascript: |
+        JavaScript 只有一种 Array（可变），没有不可变序列可选；
+        它还能稀疏、越界赋值不报错，Python 两条都不会发生。
+        代价是 Python 里要主动回答「这个序列会不会变」。
+      java: |
+        Java 的数组定长（内容可变），`List` 长度可变，另有 `List.of`
+        真不可变 —— 与 Python 的两种选择对应。差别在 Java 的类型参数
+        约束了元素类型，Python 的 list 与 tuple 什么都能装。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  map-dict:
+    code: |
+      d = {"a": 1, 1: "数字键"}      # @note 键可以是任何**可哈希**类型
+      d[(1, 2)] = "元组当键"          # @note 元组可哈希
+      d[[1, 2]] = "x"                # @note! TypeError：list 不可哈希
+
+      len(d)
+      d.keys() | other.keys()        # @note 键视图支持集合运算
+      {**a, **b}                     # @note 合并
+      d | {"c": 3}                   # @note 3.9+ 的合并运算符
+
+      # @note 顺序：按插入序（3.7 起是语言保证）
+    baseline: |
+      一种 dict 全包：键**必须可哈希**（元组可以、列表不行），
+      **遍历按插入序**（3.7 起写进了语言规范），`len()` 取大小。
+      键视图支持集合运算（交并差）。取值 `d[k]` 缺键抛 KeyError，
+      要默认值用 `d.get(k, 默认)`。
+    vs:
+      javascript: |
+        JavaScript 把「键只能是字符串的对象」与「键任意类型的 Map」分成两样，
+        Python 一种 dict 就够了。「键必须可哈希」这条约束这里没有 ——
+        那边给 `Map` 一个对象当键完全合法，Python 里只有可哈希的值能当键。
+      java: |
+        Java 要在 `HashMap` / `LinkedHashMap` / `TreeMap` 里选顺序语义；
+        Python 固定按插入序。反过来 Java 用 `hashCode` + `equals` 定义键的等价性、
+        可以自定义，Python 用 `__hash__` + `__eq__`，两边都要记得成对实现。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  set:
+    code: |
+      s = {1, 2, 2}                # @note {1, 2}
+      s.add(3)
+      2 in s                       # @note 成员判断，平均 O(1)
+      s & {2, 3}                   # @note 交
+      s | {4}                      # @note 并
+      s - {1}                      # @note 差
+      s <= {1, 2, 3, 4}            # @note 子集判断
+
+      fs = frozenset([1, 2])       # @note 不可变，可当字典的键
+      {}                           # @note! 这是空 dict，空 set 要写 set()
+    baseline: |
+      两种：`set` 可变、`frozenset` 不可变（因此可哈希、能当字典的键或放进另一个
+      set）。元素必须可哈希。集合支持完整的集合运算（`&` `|` `-` `<=`），
+      所以「两组数据求交」直接写运算符就行，不用循环。注意空集合要写 `set()` ——
+      `{}` 是空字典。
+    vs:
+      javascript: |
+        JavaScript 只有一种可变的 `Set`，没有不可变版本、也不能当键；
+        判等用 SameValueZero，所以两个内容相同的对象算两条 ——
+        Python 用 `__hash__` + `__eq__`，给自定义类型实现这两个方法就能按内容去重。
+      java: |
+        Java 有三个实现（`HashSet` / `LinkedHashSet` / `TreeSet`）但没有
+        不可变版本（要 `Set.of` 或 `Collections.unmodifiableSet`），
+        集合运算也没有运算符 —— 求交并差要调方法或自己写。
+    equivalence:
+      javascript: divergent
+      java: divergent
+
+  tuple-record:
+    code: |
+      point = (3, 4)                        # @note 元组：定长、按位置
+      x, y = point                          # @note 解包
+
+      from collections import namedtuple
+      Point = namedtuple("Point", "x y")    # @note 有名字的元组
+      p = Point(3, 4); p.x                  # @note 既可按名字也可按下标
+
+      from dataclasses import dataclass
+      @dataclass(frozen=True)               # @note 冻结后不可变、可哈希
+      class User:
+          name: str
+          age: int
+
+      u = User("Ada", 36)
+    baseline: |
+      三档：**元组**（定长不可变、按位置访问）、**`namedtuple`**（元组加字段名，
+      仍可解包）、**`dataclass`**（真类，字段有类型标注，可以 `frozen=True`
+      变成不可变且可哈希）。小聚合用元组就够，要字段名与默认值就上 dataclass。
+    vs:
+      javascript: |
+        JavaScript 没有元组，定长聚合只能用数组加约定、带名字的只能用对象，
+        两者都不被语言检查。Python 的三档都给得出类型与字段名 ——
+        代价是要先声明一个类型。
+      java: |
+        Java 的 `record` 与 Python 的 `dataclass(frozen=True)` 最接近：
+        都是定长、都自动生成 `equals` / `hashCode` / 访问器。别处不同在于
+        Java 的 record 是语言关键字、Python 的 dataclass 是装饰器加类型标注，
+        后者运行时不强制类型。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  collection-mutability:
+    code: |
+      xs = [1, 2]
+      ys = (1, 2)              # @note 不可变序列
+      fs = frozenset([1, 2])   # @note 不可变集合
+      # 但 dict 没有不可变版本（types.MappingProxyType 只是只读视图）
+
+      inner = [1, 2]
+      t = (inner, 3)           # @note! 元组不可变，但里面装的列表照样能改
+      inner.append(9)          # @note t[0] 跟着变了
+
+      # @note 函数的默认参数、跨模块传出去的容器 —— 都是可变性出问题的地方
+    baseline: |
+      不可变做进了**类型**：tuple 与 frozenset 改不了，dict 与 list 能改。
+      要记住的是**不可变只到这一层**：元组里装的列表照样能被改 ——
+      所谓「不可变容器」保证的只是「这个容器本身的形状不变」，
+      不保证内容整体冻结。跨模块传容器时，可变性是最常见的意外来源。
+    vs:
+      javascript: |
+        JavaScript 没有内建的不可变类型，`Object.freeze` 是浅冻结而且静默失败；
+        Python 的 tuple / frozenset 由语言保证外层不可变。
+        两边的「浅」这一点是一模一样的：内层共享的可变对象谁也管不住。
+      java: |
+        Java 的 `List.of` / `Map.of` / `Set.of` 是真正不可变的，改它就抛异常，
+        而且**深浅是同一回事**（内层元素可变与否同样不受约束）。
+        差别在 Python 有专门的不可变**类型**，Java 是同一个接口的不可变实现。
+    equivalence:
+      javascript: divergent
+      java: analogous
+
+  slicing:
+    code: |
+      xs = [1, 2, 3, 4]
+      part = xs[1:3]           # @note [2, 3] —— **浅拷贝**，改它不影响原列表
+      part[0] = 99             # @note xs 还是 [1, 2, 3, 4]
+
+      xs[1:3] = [9]            # @note! 切片赋值：原地替换一段，长度也能变
+      xs[::-1]                 # @note 反转
+      xs[:]                    # @note 整份浅拷贝（惯用写法）
+
+      import copy
+      deep = copy.deepcopy(nested)     # @note 深拷贝
+    baseline: |
+      切片**返回浅拷贝**：外层是新的，内层元素还是共享的引用 ——
+      嵌套结构上「复制一份再改」这个直觉会出错，要深拷贝得用 `copy.deepcopy`。
+      切片还能出现在赋值左边（`xs[1:3] = [...]`），原地替换一段、长度可增可减，
+      这是别的语言少见的写法。
+    vs:
+      javascript: |
+        两边的切片都是浅拷贝，深浅的坑一模一样。差别在语法与能力：
+        Python 用切片表达式并且能**切片赋值**，JavaScript 用 `slice()` 方法、
+        只能读不能写。另外 Python 的负步长（`[::-1]` 反转）没有对应写法。
+      java: |
+        Java 的 `subList` 是**视图**不是副本 —— 改它会影响原列表，
+        原列表改了它还会失效。Python 的切片是副本，安全得多；
+        代价是「想要视图」时得自己实现。
+    equivalence:
+      javascript: analogous
+      java: divergent

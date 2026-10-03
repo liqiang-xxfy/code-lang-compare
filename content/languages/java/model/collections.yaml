@@ -1,0 +1,202 @@
+# java —— model / collections
+#
+# boxes 的 key 必须是 catalog/model/features.yaml 里 `group: collections` 的那批。
+# 这一组以 Java 为基准时展示在「集合框架」章（见 catalog/model/java.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-collections-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  list-array:
+    code: |
+      int[] arr = new int[3];              // @note 数组：长度固定
+      int[] xs = {1, 2, 3};
+      xs.length;                           // @note 属性，不是方法
+
+      List<String> list = new ArrayList<>();   // @note 长度可变
+      list.add("a");
+      list.size();                         // @note 方法是 size()
+      list.get(0);
+
+      List<Integer> fixed = Arrays.asList(1, 2, 3);   // @note! 定长视图，add 抛异常
+      List<Integer> immutable = List.of(1, 2, 3);     // @note 真不可变
+    baseline: |
+      **两条线**：定长数组（`length` 是属性）与集合（`size()` 是方法）。
+      集合又有三种可变性 —— `new ArrayList<>()` 可变、`Arrays.asList` 定长视图、
+      `List.of` 真不可变 —— 拿到的 `List` 是哪一种要先确认。
+      类型参数保证「这个列表里只有 String」，这是编译期就有的约束。
+    vs:
+      javascript: |
+        JavaScript 一个 Array 同时承担「定长数组」与「可变列表」两个角色，
+        没有「这个容器不可变」的类型表达；Java 要在三者之间选，
+        但换来元素类型的编译期保证。
+      python: |
+        Python 的 list 与 tuple 是「可变 / 不可变」这一维度的两种选择，
+        Java 除了这一维还多一个「定长数组」，并且要靠类型参数约束元素类型。
+        取长度的写法三处都不同：`xs.length` / `len(xs)` / `xs.size()`。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  map-dict:
+    code: |
+      Map<String, Integer> m = new HashMap<>();          // @note 无序
+      Map<String, Integer> byInsert = new LinkedHashMap<>();   // @note 插入序
+      Map<String, Integer> byKey = new TreeMap<>();            // @note 按键排序
+
+      m.put("a", 1);
+      m.get("missing");                     // @note null，不抛错
+      m.getOrDefault("missing", 0);
+      m.computeIfAbsent("list", k -> new ArrayList<>()).add(1);
+
+      // @note! 键类型必须正确实现 hashCode 与 equals
+      //        只写 equals 不写 hashCode -> 用 HashMap 时找不到自己的键
+    baseline: |
+      一个接口多个实现，**顺序语义要自己选**：`HashMap` 无序、
+      `LinkedHashMap` 保持插入序、`TreeMap` 按键排序。取不到时 `get` 返回 `null`
+      而不是抛错，所以要么 `getOrDefault`、要么先 `containsKey`。
+      键的等价性由 `hashCode` + `equals` 定义 —— **两个必须成对实现**，
+      只改一个是最经典的坑。
+    vs:
+      javascript: |
+        JavaScript 的 `Map` 天生按插入序，不用选；但它的键按引用判等、
+        没法定制，而这里可以用 `hashCode` + `equals` 定义「什么样的键算同一个」。
+        取值两边都给空值而不抛错，这一点一致。
+      python: |
+        Python 的 dict 固定按插入序，Java 要在三种实现里选；
+        两边都用哈希加相等来定义键（那边是 `__hash__` + `__eq__`），
+        也同样要求成对实现。取值上 Python 的 `d[k]` 抛错、Java 的 `get` 给 null ——
+        一个响亮一个静默。
+    equivalence:
+      javascript: analogous
+      python: analogous
+
+  set:
+    code: |
+      Set<String> s = new HashSet<>(List.of("a", "b"));   // @note 无序
+      Set<String> ordered = new LinkedHashSet<>();        // @note 插入序
+      Set<String> sorted = new TreeSet<>();               // @note 排序
+
+      s.add("c");
+      s.contains("a");
+      s.size();
+      Set.of("a", "b");                                   // @note 不可变
+
+      // @note 求交并差没有运算符，要自己写或借 Stream
+      var union = new HashSet<>(s); union.addAll(other);
+      s.stream().filter(other::contains).toList();        // @note 交
+    baseline: |
+      三种实现对应三种顺序语义（无序 / 插入序 / 排序），元素靠
+      `hashCode` + `equals` 判等与去重。**没有集合运算符** ——
+      求交、并、差都得调方法或走 Stream，这一点比别的语言啰嗦。
+      `Set.of` 造的不可变，塞东西会抛。
+    vs:
+      javascript: |
+        JavaScript 只有一种可变的 `Set`，判等用 SameValueZero（按引用），
+        内容相同的两个对象算两条；这里的判等可以用 `hashCode` + `equals` 定制。
+        两边都没有集合运算符。
+      python: |
+        Python 的 set 支持 `&` `|` `-` `<=` 直接写集合运算，Java 全要调方法 ——
+        这是两边写起来差别最大的地方。不可变性上 Python 有专门的
+        frozenset 类型，Java 是同一个接口的不可变实现（`Set.of`）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  tuple-record:
+    code: |
+      record Point(int x, int y) { }        // @note 一行定义定长聚合
+
+      var p = new Point(3, 4);
+      p.x();                                // @note 访问器自动生成
+      p.equals(new Point(3, 4));            // @note equals / hashCode 自动生成
+      p.toString();                         // @note "Point[x=3, y=4]"
+
+      // @note 解构（Java 21 的模式匹配）：
+      if (obj instanceof Point(int x, int y)) { }
+      switch (p) { case Point(int x, int y) -> x + y; }
+
+      // @note record 天生不可变：字段是 final，没有 setter
+    baseline: |
+      `record` 是语言级的定长聚合：一行声明字段，访问器、`equals`、
+      `hashCode`、`toString` 全部自动生成，**且天生不可变**（字段是 final）。
+      配合模式匹配还能解构出来。这是 Java 近几年补上的、最像别的语言
+      「元组 / 数据类」的东西。
+    vs:
+      javascript: |
+        JavaScript 没有这种东西，定长聚合得用数组加约定或对象加注释 ——
+        长度对不对、字段有没有漏全靠人记。这里由编译器保证。
+      python: |
+        Python 的 `namedtuple` 与 `dataclass(frozen=True)` 覆盖同样的需求，
+        表达力相当。差别是 Java 的 record 是语言关键字、字段类型由编译器检查；
+        Python 的 dataclass 靠装饰器加类型标注，标注在运行时不强制。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  collection-mutability:
+    code: |
+      List<String> mutable = new ArrayList<>();     // @note 可变
+      List<String> fixedSize = Arrays.asList("a");  // @note! 定长视图：能 set 不能 add
+      List<String> immutable = List.of("a", "b");   // @note 真不可变：改就抛
+
+      // @note 只读视图：底层改了它也跟着变
+      List<String> view = Collections.unmodifiableList(mutable);
+
+      // @note! 不可变只到这一层 —— 里面的元素如果是可变对象，照样能改
+      List<StringBuilder> xs = List.of(new StringBuilder("a"));
+      xs.get(0).append("b");                        // @note 成功
+    baseline: |
+      三种要分清：**可变**（`new ArrayList<>()`）、**定长视图**
+      （`Arrays.asList`，能 `set` 不能 `add`）、**真不可变**（`List.of`，改就抛），
+      另有 `unmodifiableList` 这种随底层变化的只读视图。而且要记住
+      **不可变只到这一层**：容器本身改不了，里面的元素该变还是变。
+    vs:
+      javascript: |
+        JavaScript 没有内建的不可变容器，`Object.freeze` 是浅冻结而且静默失败；
+        Java 的 `List.of` 改一个就抛异常，失败是响亮的。
+        两家共同的边界是一致的：内层元素的可变性谁也管不住。
+      python: |
+        Python 用 tuple / frozenset 这两个**专门的不可变类型**表达同一件事，
+        Java 是同一个接口的不可变实现。两边的「浅」也一样 ——
+        不可变容器里的可变元素照样能改。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  slicing:
+    code: |
+      List<Integer> xs = new ArrayList<>(List.of(1, 2, 3, 4));
+      List<Integer> sub = xs.subList(1, 3);      // @note! 是**视图**，不是副本
+      sub.set(0, 99);                            // @note! xs 变成 [1, 99, 3, 4]
+
+      xs.add(5);                                 // @note! 之后 sub 再访问就抛
+                                                 //         ConcurrentModificationException
+
+      List<Integer> copy = new ArrayList<>(sub);  // @note 想要副本就自己拷
+      List<Integer> part = xs.stream().skip(1).limit(2).toList();   // @note 或走 Stream
+
+      String s = "hello";
+      s.substring(1, 3);                         // @note 字符串的 substring 是副本
+    baseline: |
+      **`subList` 返回视图而不是副本** —— 改子列表会改到原列表，
+      而且原列表一旦结构改变（增删），这个视图再访问就抛
+      `ConcurrentModificationException`。想要独立的一份必须自己 `new ArrayList<>(...)`。
+      注意 `String.substring` 是另一回事（字符串不可变，它返回的当然是新串）。
+    vs:
+      javascript: |
+        JavaScript 的 `slice` 返回副本，改它不会影响原数组 —— 与这里正好相反。
+        所以「取一段再改」这个动作在 Java 里危险得多，必须先明确
+        「我要的是视图还是副本」。
+      python: |
+        Python 的切片返回副本 —— 与这里正好相反，改子序列不会影响原序列，
+        而且还能用切片赋值原地替换一段。Java 对「取一段」给的是活的视图，
+        要一份独立的必须自己拷。
+    equivalence:
+      javascript: divergent
+      python: divergent
