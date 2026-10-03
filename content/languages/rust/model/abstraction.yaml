@@ -1,0 +1,175 @@
+# rust —— model / abstraction
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/model/features.yaml 里 `group: abstraction` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: model-abstraction-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  interface:
+    code: |
+      trait Shape {
+        fn area(&self) -> f64;                 // @note 只有签名 —— 必须实现
+      }
+
+      struct Circle { r: f64 }
+      impl Shape for Circle {                  // @note 显式实现：写在 impl 块里
+        fn area(&self) -> f64 { 3.14159 * self.r * self.r }
+      }
+
+      // 泛型 + trait bound：**静态分发**，编译期单态化，零开销
+      fn total<T: Shape>(xs: &[T]) -> f64 { xs.iter().map(|s| s.area()).sum() }
+
+      // dyn Trait：**动态分发**，虚表，能放不同类型
+      fn total_dyn(xs: &[Box<dyn Shape>]) -> f64 { xs.iter().map(|s| s.area()).sum() }
+    vs:
+      javascript: |
+        JavaScript 没有接口 —— 靠约定（「有个 `area()` 方法就行」）与文档。
+        Rust 的 trait 必须**显式实现**：`impl Shape for Circle` 写在代码里，
+        编译器才知道 Circle 是 Shape。多出来的是分发方式的选择：
+        泛型加 trait bound 在编译期展开（快、代码更大），
+        `dyn Shape` 走虚表（能混装不同类型）——
+        JavaScript 里只有后一种行为，且是运行时查找。
+      python: |
+        Python 靠鸭子类型与 `abc.ABC`（可选）表达接口；
+        Rust 的 trait 必须显式 `impl`，编译器据此检查 ——
+        写成 `dyn Shape` 时和 Python 的运行时查找有点像，
+        但方法表在编译期就定好了。另一个 Python 没有的能力是
+        **静态分发**：`fn total<T: Shape>` 编译期展开、内联、
+        没有虚表开销，所以 Rust 里「用接口」不必然意味着性能损失。
+      java: |
+        Java 的 `interface` 与 Rust 的 trait 定位相同，但有两处关键差别：
+        ① Java 的类必须在定义处写 `implements`，Rust 的 `impl Shape for Circle`
+        可以写在**任何地方**（包括另一个模块），甚至能给外部类型实现本 crate 的 trait；
+        ② Java 的接口调用几乎总是虚表（动态分发），Rust 把
+        「静态分发（泛型）」与「动态分发（`dyn`）」摆出来让你选。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  abstract-class:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有抽象类** —— 没有 `abstract` 关键字，也没有「不能实例化
+        但可以被继承」的类型。抽象类在 Rust 里的两半分别由
+        两个东西承担：「不能实例化」由「没实现完的 trait」表达，
+        「复用实现」由 trait 的默认方法或组合承担。
+        JavaScript 的抽象类还兼当类型层级的一环，Rust 这边没有层级。
+      python: |
+        Rust **没有抽象类**（Python 的 `abc.ABC` + `@abstractmethod`）。
+        想要「必须实现某个方法」，Rust 的做法是定义一个 trait、
+        不给那个方法默认实现 —— 不实现就编译不过，
+        比 Python 的运行时检查更早也更硬。想要「共用一段实现」，
+        用 trait 的默认方法或直接组合。
+      java: |
+        Rust **没有抽象类**。Java 的 `abstract class` 承担两件事：
+        声明未实现的方法、复用已实现的字段与方法；Rust 把这两件事
+        拆给 trait：未实现的只有签名，已实现的是默认方法。
+        但没有「抽象类可以有实例字段」这一点 ——
+        trait 不能带数据，需要共享数据时只能组合一个结构体。
+        这也是 Rust 里少见深继承树的原因之一。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  mixin-trait:
+    code: |
+      trait Greet {
+        fn name(&self) -> String;
+        fn greet(&self) -> String {                 // @note 默认方法：白送的实现
+          format!("你好，{}", self.name())
+        }
+      }
+
+      impl Greet for User {                          // @note 只实现 name，greet 自动有了
+        fn name(&self) -> String { self.name.clone() }
+      }
+
+      // blanket impl：给所有满足条件的类型批量实现
+      trait Describe { fn describe(&self) -> String; }
+      impl<T: std::fmt::Debug> Describe for T {      // @note 任何可 Debug 的类型都有 describe
+        fn describe(&self) -> String { format!("{:?}", self) }
+      }
+
+      // 多个 trait 混入：都给默认方法，实现方挑着用
+      trait Loggable { fn log(&self) { println!("log"); } }
+      impl Greet for Admin { fn name(&self) -> String { "admin".into() } }
+      impl Loggable for Admin {}
+    vs:
+      javascript: |
+        JavaScript 没有 mixin 语法，常见做法是把方法对象
+        `Object.assign(原型, mixin)` 或在类里手写转发。
+        Rust 的 trait 默认方法才是正经的 mixin：写一次，
+        所有实现者白拿，而且能被 trait bound 约束。
+        Rust 还有 JavaScript 完全没有的 **blanket impl** ——
+        给「所有满足某条件的类型」批量实现一个 trait。
+      python: |
+        Python 用多继承或 mixin 类复现这个模式（MRO 决定顺序）；
+        Rust 的 trait 默认方法不需要继承关系，任何类型都能实现，
+        而且可以同时实现多个 trait 而不担心菱形问题。
+        Python 的 mixin 会带来 `super()` 调用链，Rust 没有 ——
+        默认方法之间不互相调用，组合是平的。
+      java: |
+        Java 8 起接口也能有 `default` 方法，与 Rust 的 trait 默认方法
+        几乎一样。差别在能力范围：Java 的 default 方法**不能访问实例字段**
+        （接口没有字段），Rust 的 trait 同样不能带数据 —— 这点一致。
+        Rust 多出 blanket impl（给一整类类型批量实现），
+        Java 只能一个个类写 `implements`；
+        另外 Rust 的 trait 可以要求关联类型与常量，Java 的接口没有关联类型
+        （只能靠泛型参数绕）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  duck-typing:
+    code: |
+      // Rust 是**具名类型**：类型必须显式声明「我实现了这个 trait」
+      trait Quack { fn quack(&self) -> String; }
+
+      struct Duck;
+      struct Robot;
+      impl Quack for Duck { fn quack(&self) -> String { "嘎".into() } }
+      impl Quack for Robot { fn quack(&self) -> String { "哔".into() } }
+      // @note! 只要没写 impl Quack for X，X 就不是 Quack —— 哪怕它有同名方法
+
+      fn use_quacker(q: &dyn Quack) { println!("{}", q.quack()); }
+
+      // 反过来：trait bound 能表达「任何能比较的东西」
+      fn max_of<T: PartialOrd>(a: T, b: T) -> T { if a > b { a } else { b } }
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型是运行时的：对象只要有 `quack()` 就能当鸭子用，
+        没人检查它「是不是」鸭子。Rust 是**具名的** ——
+        类型必须显式写上 `impl Quack for Robot`，光有同名方法不算数。
+        这让「谁满足哪个接口」在编译期完全确定，
+        代价是给已有类型补实现时得能改代码（或写 newtype 包一层）。
+      python: |
+        Python 是鸭子类型：有 `quack()` 就能用，`abc.ABC` 是可选的登记；
+        Rust 必须显式 `impl`，编译器据此检查。这在跨语言时最明显 ——
+        Python 里「传个假对象进去做测试」很自然，
+        Rust 里那个假对象必须真的实现 trait（或用泛型 + 实现同一 trait 的测试类型）。
+        好处是拼错方法名在编译期就暴露，而不是运行时 AttributeError。
+      java: |
+        Java 与 Rust 都是具名类型：类必须写 `implements`，
+        「有同名方法」不算数 —— 这一点两边一致，与鸭子类型相反。
+        差别是 Rust 可以在**任何地方**补 `impl Trait for Type`
+        （包括给外部类型实现本 crate 的 trait），
+        Java 只能在类定义处声明。Rust 还能用 blanket impl
+        表达「所有满足 X 的类型都自动满足 Y」，Java 做不到。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
