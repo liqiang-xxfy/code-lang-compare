@@ -1,0 +1,73 @@
+# java —— express / strings
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: strings` 的那批。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  string-literals:
+    code: |
+      String a = "text";            // @note 双引号才是 String
+      char c = 'a';                 // @note! 单引号是 char —— 与 String 是两种类型
+      // String bad = 'a';          // @note! 编译错误
+
+      String name = "Ada";
+      String t = "你好，" + name;    // @note 拼接；没有插值语法
+      String f = "你好，%s".formatted(name);   // @note 新版的格式化写法
+
+      String block = """
+          第一行
+          第二行""";                 // @note Java 15+ 文本块，跨行不用转义
+    baseline: |
+      双引号是 `String`、单引号是 `char`，两种类型不能混用 —— 这是编译期就分死的。
+      **没有插值语法**，只能用 `+` 拼接或 `String.formatted`；跨行用文本块
+      （Java 15+）。`String` 不可变，所有「修改」都返回新对象。
+    vs:
+      javascript: |
+        这里单双引号分属两种类型，写混了编译不过；JavaScript 里两者完全等价，
+        也没有 char 这种东西。插值也是 JavaScript 有（模板字符串）、Java 没有。
+      python: |
+        Python 的 f-string 把插值与格式规格写在字符串里，Java 只能拼接或调
+        `formatted`。另一处差别是 Java 的 `char` 是独立的原始类型，
+        Python 与这里不同 —— 它没有字符类型，`'a'` 就是长度 1 的字符串。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  string-common-ops:
+    code: |
+      String s = "hello";
+      s.length();                   // @note 5 —— 是方法，不是属性
+      s.toUpperCase();              // @note 返回新串
+      s.contains("ell");            // @note true
+      s.substring(1, 3);            // @note "el" —— 左闭右开
+      s.split("");                  // @note 拆成数组
+      String.join("-", "a", "b");   // @note 拼回去
+      s.replace("l", "L");          // @note! "heLLo" —— 字面量，全替换
+      s.replaceAll("l+", "L");      // @note! 收的是**正则**，名字会骗人
+
+      StringBuilder sb = new StringBuilder();   // @note 循环里拼接要换它
+      for (String p : parts) sb.append(p);
+    baseline: |
+      常用操作都是方法：`length()`（不是属性）、`substring`（左闭右开）、
+      `contains`、`split`。有两处必须先弄清：`replace` 收字面量且**全替换**，
+      `replaceAll` 收的是**正则** —— 名字与行为对不上，是常见的困惑点。
+      字符串不可变，循环里拼接要换 `StringBuilder`。没有切片语法。
+    vs:
+      javascript: |
+        JavaScript 的 `length` 是属性、这里 `length()` 是方法；那边的 `slice`
+        支持负下标，这里没有切片语法，只能 `substring` 加下标计算。
+        `replace` 的默认值两边也相反：这里全替换，JavaScript 默认只换第一处。
+      python: |
+        两边都是「长度用函数或方法、全替换是 replace 的默认行为」，这一块几乎
+        可以直接搬。差别在取值方式：Python 用切片 `s[1:3]` 与负下标，
+        Java 只有 `substring(begin, end)` 且下标必须自己算。
+    equivalence:
+      javascript: analogous
+      python: analogous

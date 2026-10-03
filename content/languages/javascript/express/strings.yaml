@@ -1,0 +1,76 @@
+# javascript —— express / strings
+#
+# boxes 的 key 必须是 catalog/express/features.yaml 里 `group: strings` 的那批：
+# string-literals / string-common-ops。
+#
+# 注意 JS 的「字符串与容器」章**同时引用 strings 与 containers 两个存放组** ——
+# 一章跨两组是允许的，见 catalog/express/javascript.yaml。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  string-literals:
+    code: |
+      const a = 'text';                 // @note 单双引号完全等价
+      const b = "text";
+      const name = "Ada";
+      const t = `你好，${name}`;         // @note 反引号：插值 + 可换行
+      const raw = `第一行
+      第二行`;                           // @note 模板字符串保留换行
+      const esc = 'it\'s';              // @note 转义照旧
+      // @note! 没有 char 类型 —— 'a' 就是长度 1 的字符串
+    baseline: |
+      三种引号：单双引号完全等价（选一种保持一致即可），反引号是**模板字符串** ——
+      可以插值、可以跨行。没有字符类型，`'a'` 就是一个长度为 1 的字符串。
+      字符串不可变，所有「修改」操作都返回新字符串。
+    vs:
+      python: |
+        Python 的 f-string 与这里的模板字符串功能对应，但 f-string 不能跨行
+        （跨行要用三引号另写）；反过来 Python 的 `r"..."` 原始字符串在这里没有
+        对应物，写正则时要自己数反斜杠。两边都没有字符类型。
+      java: |
+        Java 的双引号是 `String`、单引号是 `char`，两种类型不能混用；
+        这里单双引号等价、也没有 char 类型。Java 没有插值语法，只能用 `+` 拼接
+        （或新版的文本块与 `formatted`），写起来比模板字符串啰嗦。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  string-common-ops:
+    code: |
+      const s = "hello";
+      s.length;                 // @note 5 —— 注意是 UTF-16 码元数，emoji 会算 2
+      s.toUpperCase();          // @note 返回新串，s 没变
+      s.includes("ell");        // @note true
+      s.slice(1, 3);            // @note "el"
+      s.split("");              // @note 拆成数组
+      ["a", "b"].join("-");     // @note 拼回去
+      s.replace("l", "L");      // @note! 只替换**第一处**
+      s.replaceAll("l", "L");   // @note 全替换
+      s.at(-1);                 // @note 支持负下标（slice 不支持）
+    baseline: |
+      常用操作以方法形式挂在字符串上。三处要留心：`length` 数的是 **UTF-16 码元**
+      （emoji 算 2），`replace` 默认**只替换第一处**（要全换用 `replaceAll`
+      或正则加 `g`），负下标只有 `at()` 支持、`slice` 不行。字符串不可变，
+      每个方法都返回新串。
+    vs:
+      python: |
+        Python 用内建函数与运算符而不是方法：`len(s)`、`"ell" in s`、`s[1:3]`；
+        JavaScript 侧对应 `s.length`、`s.includes(...)`、`s.slice(1, 3)`。
+        有一处必须记住：Python 的 `str.replace` **默认全替换**，
+        JavaScript 的默认只换第一处 —— 反过来的默认值最容易出事。
+      java: |
+        Java 的 `length()` 是方法不是属性，`substring` 与这里的 `slice` 对应；
+        `replace` 全替换（字面量）而 `replaceAll` 收的是**正则**（名字与行为
+        对不上，是常见的困惑点），这一点与 JavaScript 的默认值正好相反。
+        循环里拼字符串在 Java 要换 `StringBuilder`，这里直接 `+=` 也行
+        （虽然同样不快）。
+    equivalence:
+      python: divergent
+      java: analogous
