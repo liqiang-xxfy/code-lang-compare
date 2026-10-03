@@ -1,0 +1,132 @@
+{
+  "lang": "javascript",
+  "section": "mechanism",
+  "group": "concurrency",
+  "boxes": {
+    "concurrency-unit": {
+      "lang": "javascript",
+      "code": "// 主线程只有一个 —— 没有线程可开\n// 真正并行只有两条路：\nconst w = new Worker(\"worker.js\");      // Web Worker：独立线程 + 独立全局\nw.postMessage({ job: 1 });              // 只能靠消息通信\nw.onmessage = (e) => console.log(e.data);\n\n// Node 里是 worker_threads，思路一样\n\n// ⚠ Worker 里没有 DOM、没有共享的全局变量\n// 另一条「并发」是异步（见 async 那一组）—— 但它不并行",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 主线程只有一个 —— 没有线程可开</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 真正并行只有两条路：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> w</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Worker</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"worker.js\"</span><span style=\"color:var(--shiki-foreground)\">);      </span><span style=\"color:var(--shiki-token-comment)\">// Web Worker：独立线程 + 独立全局</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">w</span><span style=\"color:var(--shiki-token-function)\">.postMessage</span><span style=\"color:var(--shiki-foreground)\">({ job</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\"> });              </span><span style=\"color:var(--shiki-token-comment)\">// 只能靠消息通信</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">w</span><span style=\"color:var(--shiki-foreground)\">.</span><span style=\"color:var(--shiki-token-function)\">onmessage</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> (e) </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-token-constant)\"> console</span><span style=\"color:var(--shiki-token-function)\">.log</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">e</span><span style=\"color:var(--shiki-foreground)\">.data);</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Node 里是 worker_threads，思路一样</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Worker 里没有 DOM、没有共享的全局变量</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 另一条「并发」是异步（见 async 那一组）—— 但它不并行</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 9,
+          "text": "Worker 里没有 DOM、没有共享的全局变量",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>没有线程可以开</strong>。主线程只有一个，代码默认单线程执行。要真并行只有\nWorker（浏览器是 Web Worker、Node 是 <code>worker_threads</code>）—— 那是<strong>独立的执行\n环境</strong>，有各自的全局对象，彼此只能靠消息通信。所以「开个线程改同一个\n变量」在 JS 里根本不成立。日常说的「并发」大多指异步，那并不并行。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 能开线程（<code>threading</code>），但因为 GIL，纯计算跑不出并行 ——\n要真并行得开进程（<code>multiprocessing</code>）。这里连线程都没有，\n并行只有 Worker 一条路，而且它天然隔离。</p>\n",
+        "java": "<p>Java 的线程是真正的一等公民：能共享堆内存、有明确的内存模型与\n可见性规则。JS 的 Worker 是隔离的，共享要么靠消息、要么显式用\n<code>SharedArrayBuffer</code>。一个是共享内存模型，一个是消息模型。</p>\n"
+      }
+    },
+    "shared-state": {
+      "lang": "javascript",
+      "code": "// 主线程内其实不存在\"数据竞争\" —— 只有一个执行流\nlet counter = 0;\n// 两个 async 函数交错执行也不会撞：它们不会真的同时碰这一行\nasync function inc() { counter++; }     // 但「读-改-写」之间可以插入 await\n\n// ⚠ 真正会被打断的是「跨 await 的复合操作」：\nasync function transfer(from, to, n) {\n  const v = await read(from);            // 这里会让出去\n  await write(to, v + n);                // 期间别人可能改了 from\n}\n\n// Worker 之间默认**不共享**内存，要共享得显式上 SharedArrayBuffer",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 主线程内其实不存在\"数据竞争\" —— 只有一个执行流</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> counter </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 两个 async 函数交错执行也不会撞：它们不会真的同时碰这一行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> inc</span><span style=\"color:var(--shiki-foreground)\">() { counter</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\">; }     </span><span style=\"color:var(--shiki-token-comment)\">// 但「读-改-写」之间可以插入 await</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 真正会被打断的是「跨 await 的复合操作」：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">async</span><span style=\"color:var(--shiki-token-keyword)\"> function</span><span style=\"color:var(--shiki-token-function)\"> transfer</span><span style=\"color:var(--shiki-foreground)\">(from</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> to</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> n) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  const</span><span style=\"color:var(--shiki-token-constant)\"> v</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> await</span><span style=\"color:var(--shiki-token-function)\"> read</span><span style=\"color:var(--shiki-foreground)\">(from);            </span><span style=\"color:var(--shiki-token-comment)\">// 这里会让出去</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  await</span><span style=\"color:var(--shiki-token-function)\"> write</span><span style=\"color:var(--shiki-foreground)\">(to</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> v </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-foreground)\"> n);                </span><span style=\"color:var(--shiki-token-comment)\">// 期间别人可能改了 from</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Worker 之间默认**不共享**内存，要共享得显式上 SharedArrayBuffer</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 6,
+          "text": "真正会被打断的是「跨 await 的复合操作」：",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>主线程里<strong>没有数据竞争</strong> —— 只有一个执行流，同步代码不会被打断。\n真正要小心的是<strong>跨 <code>await</code> 的复合操作</strong>：<code>await</code> 会让出控制权，\n期间别的任务可能改了同一份数据。所以「先读、再算、再写」这种序列\n要么放在一个同步块里做完，要么自己加锁（JS 里得手写）。\nWorker 之间默认不共享内存，要共享得显式用 <code>SharedArrayBuffer</code>。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 有真线程，共享可变状态要加锁；而且 GIL 只保证字节码级的原子性，\n<code>counter += 1</code> 仍然可能被打断。JS 主线程没有这个问题（单执行流），\n但跨 await 的复合操作有一模一样的危险。</p>\n",
+        "java": "<p>Java 的线程共享堆，数据竞争是实打实的问题，语言给了 happens-before\n这套规则来定义「什么时候能看见」。JS 主线程干脆没有这回事，\n要并行就得进 Worker，而那又变成隔离模型。</p>\n"
+      }
+    },
+    "lock-mutex": {
+      "lang": "javascript",
+      "code": "// ⚠ 语言没有锁 —— 因为主线程本来就不会并发执行\n//   Worker 之间是隔离的，\"锁\"没有意义\n\n// 唯一需要「互斥」的地方是 async 里的复合操作，得自己写：\nlet chain = Promise.resolve();          // 串行化队列\nfunction serialize(fn) {\n  const next = chain.then(fn, fn);\n  chain = next.catch(() => {});\n  return next;\n}\n\n// 或者用 SharedArrayBuffer + Atomics.wait/notify 在 Worker 间同步\n// Atomics.wait(int32, 0, 0);            // —— 只能在 Worker 里用",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 语言没有锁 —— 因为主线程本来就不会并发执行</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">//   Worker 之间是隔离的，\"锁\"没有意义</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 唯一需要「互斥」的地方是 async 里的复合操作，得自己写：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">let</span><span style=\"color:var(--shiki-foreground)\"> chain </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> Promise</span><span style=\"color:var(--shiki-token-function)\">.resolve</span><span style=\"color:var(--shiki-foreground)\">();          </span><span style=\"color:var(--shiki-token-comment)\">// 串行化队列</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> serialize</span><span style=\"color:var(--shiki-foreground)\">(fn) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  const</span><span style=\"color:var(--shiki-token-constant)\"> next</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> chain</span><span style=\"color:var(--shiki-token-function)\">.then</span><span style=\"color:var(--shiki-foreground)\">(fn</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> fn);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  chain </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> next</span><span style=\"color:var(--shiki-token-function)\">.catch</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> {});</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-foreground)\"> next;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 或者用 SharedArrayBuffer + Atomics.wait/notify 在 Worker 间同步</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Atomics.wait(int32, 0, 0);            // —— 只能在 Worker 里用</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 1,
+          "text": "语言没有锁 —— 因为主线程本来就不会并发执行",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p><strong>语言里没有锁</strong>，而且日常也不需要 —— 主线程单执行流，没有临界区。\n唯一要「互斥」的场合是异步里的复合操作，惯用解法是<strong>串行化队列</strong>\n（用一个 promise 链把操作排成一队）。Worker 之间如果要同步，\n得用 <code>SharedArrayBuffer</code> 加 <code>Atomics</code>（那已经不是普通 JS 的领域了）。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 有 <code>threading.Lock</code>，而且因为线程真的并发，锁是必需品；\nJS 的串行化队列只是「把异步操作排队」，与互斥锁不是一回事 ——\n它不阻塞、也不跨线程。</p>\n",
+        "java": "<p>Java 的锁是语言级的（<code>synchronized</code>）加库级的（<code>ReentrantLock</code>），\n还要讲清「锁哪个对象、什么时候释放」。JS 这层完全不存在，\n代价是也不存在「死锁」这类问题。</p>\n"
+      }
+    },
+    "channel": {
+      "lang": "javascript",
+      "code": "// Worker 之间只有消息通道\nconst ch = new MessageChannel();\nworkerA.postMessage({ port: ch.port1 }, [ch.port1]);\nworkerB.postMessage({ port: ch.port2 }, [ch.port2]);\nch.port1.postMessage(\"你好\");            // 另一端 onmessage 收到\n\n// 消息是**结构化克隆**过去的 —— 不是共享，是复制\n// ⚠ 函数、类实例、DOM 节点都传不过去\n\n// 主线程内部的\"通道\"是事件循环的各类队列（宏任务 / 微任务）\nqueueMicrotask(() => { });",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Worker 之间只有消息通道</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> ch</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> MessageChannel</span><span style=\"color:var(--shiki-foreground)\">();</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">workerA</span><span style=\"color:var(--shiki-token-function)\">.postMessage</span><span style=\"color:var(--shiki-foreground)\">({ port</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> ch</span><span style=\"color:var(--shiki-foreground)\">.port1 }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">ch</span><span style=\"color:var(--shiki-foreground)\">.port1]);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">workerB</span><span style=\"color:var(--shiki-token-function)\">.postMessage</span><span style=\"color:var(--shiki-foreground)\">({ port</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> ch</span><span style=\"color:var(--shiki-foreground)\">.port2 }</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> [</span><span style=\"color:var(--shiki-token-constant)\">ch</span><span style=\"color:var(--shiki-foreground)\">.port2]);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">ch</span><span style=\"color:var(--shiki-token-function)\">.</span><span style=\"color:var(--shiki-token-constant)\">port1</span><span style=\"color:var(--shiki-token-function)\">.postMessage</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-string-expression)\">\"你好\"</span><span style=\"color:var(--shiki-foreground)\">);            </span><span style=\"color:var(--shiki-token-comment)\">// 另一端 onmessage 收到</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 消息是**结构化克隆**过去的 —— 不是共享，是复制</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 函数、类实例、DOM 节点都传不过去</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 主线程内部的\"通道\"是事件循环的各类队列（宏任务 / 微任务）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-function)\">queueMicrotask</span><span style=\"color:var(--shiki-foreground)\">(() </span><span style=\"color:var(--shiki-token-keyword)\">=></span><span style=\"color:var(--shiki-foreground)\"> { });</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 8,
+          "text": "函数、类实例、DOM 节点都传不过去",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>Worker 之间用 <code>MessageChannel</code> 通信，传的是<strong>结构化克隆</strong>（复制过去的，\n不是共享）—— 所以函数、类实例、DOM 节点都传不了。主线程内部没有通道，\n只有事件循环的任务队列。这套模型的含义是：<strong>没有共享内存，\n就没有需要同步的共享状态</strong>。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的多进程（<code>multiprocessing</code>）之间也是靠队列传对象，\n同样要序列化（pickle）—— 两边都是「复制而不是共享」。\n线程之间则可以真的共享内存，那一条在 JS 里不存在。</p>\n",
+        "java": "<p>Java 的线程之间共享堆内存，<code>BlockingQueue</code> 这类通道是「在共享内存之上\n搭出来的通信抽象」；JS 的通道是唯一的通信方式，\n因为根本没有共享内存可站。</p>\n"
+      }
+    },
+    "atomicity": {
+      "lang": "javascript",
+      "code": "// 主线程里 \"counter++ 是原子的\" —— 因为没有别的执行流插进来\n\n// Worker 之间要共享内存只能上 SharedArrayBuffer：\nconst sab = new SharedArrayBuffer(4);\nconst view = new Int32Array(sab);\nAtomics.add(view, 0, 1);          // 原子自增\nAtomics.load(view, 0);            // 原子读\nAtomics.compareExchange(view, 0, 0, 1);   // CAS\n\n// ⚠ 普通 view[0]++ 在多个 Worker 下会丢更新，必须走 Atomics\n// 内存序：Atomics 默认是顺序一致的，够用但保守",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 主线程里 \"counter++ 是原子的\" —— 因为没有别的执行流插进来</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Worker 之间要共享内存只能上 SharedArrayBuffer：</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> sab</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> SharedArrayBuffer</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">4</span><span style=\"color:var(--shiki-foreground)\">);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> view</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> new</span><span style=\"color:var(--shiki-token-function)\"> Int32Array</span><span style=\"color:var(--shiki-foreground)\">(sab);</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Atomics</span><span style=\"color:var(--shiki-token-function)\">.add</span><span style=\"color:var(--shiki-foreground)\">(view</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">);          </span><span style=\"color:var(--shiki-token-comment)\">// 原子自增</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Atomics</span><span style=\"color:var(--shiki-token-function)\">.load</span><span style=\"color:var(--shiki-foreground)\">(view</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-foreground)\">);            </span><span style=\"color:var(--shiki-token-comment)\">// 原子读</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-constant)\">Atomics</span><span style=\"color:var(--shiki-token-function)\">.compareExchange</span><span style=\"color:var(--shiki-foreground)\">(view</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 0</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-foreground)\">);   </span><span style=\"color:var(--shiki-token-comment)\">// CAS</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ 普通 view[0]++ 在多个 Worker 下会丢更新，必须走 Atomics</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 内存序：Atomics 默认是顺序一致的，够用但保守</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 10,
+          "text": "普通 view[0]++ 在多个 Worker 下会丢更新，必须走 Atomics",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>主线程单执行流，<code>counter++</code> 天然不会被打断。真要并行只能进 Worker，\n而 Worker 之间共享内存必须显式用 <code>SharedArrayBuffer</code>，\n且对它的一切读写都要走 <code>Atomics</code>（<code>add</code> / <code>load</code> / <code>compareExchange</code>…）——\n普通下标读写在多线程下会丢更新。这也是 JS 里唯一需要谈内存序的地方。</p>\n",
+      "vsHtml": {
+        "python": "<p>Python 的 GIL 让单条字节码原子，但 <code>counter += 1</code> 是好几条字节码，\n仍然会丢更新，得加锁。JS 主线程没有这个问题（单执行流），\n要并行就得进 Worker，而那又要求显式上 <code>SharedArrayBuffer</code>。</p>\n",
+        "java": "<p>Java 的 <code>volatile</code>、<code>AtomicInteger</code>、JMM 的可见性规则是日常工具；\nJS 里对应的只有 <code>Atomics</code> 这一套，而且只在显式共享内存时才用得上 ——\n绝大多数 JS 代码一辈子碰不到。</p>\n"
+      }
+    }
+  }
+}

@@ -1,0 +1,171 @@
+# javascript —— mechanism / concurrency
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: concurrency` 的那批：
+# concurrency-unit / shared-state / lock-mutex / channel / atomicity。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-concurrency-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  concurrency-unit:
+    code: |
+      // @note 主线程只有一个 —— 没有线程可开
+      // 真正并行只有两条路：
+      const w = new Worker("worker.js");      // @note Web Worker：独立线程 + 独立全局
+      w.postMessage({ job: 1 });              // @note 只能靠消息通信
+      w.onmessage = (e) => console.log(e.data);
+
+      // Node 里是 worker_threads，思路一样
+
+      // @note! Worker 里没有 DOM、没有共享的全局变量
+      // @note 另一条「并发」是异步（见 async 那一组）—— 但它不并行
+    baseline: |
+      **没有线程可以开**。主线程只有一个，代码默认单线程执行。要真并行只有
+      Worker（浏览器是 Web Worker、Node 是 `worker_threads`）—— 那是**独立的执行
+      环境**，有各自的全局对象，彼此只能靠消息通信。所以「开个线程改同一个
+      变量」在 JS 里根本不成立。日常说的「并发」大多指异步，那并不并行。
+    vs:
+      python: |
+        Python 能开线程（`threading`），但因为 GIL，纯计算跑不出并行 ——
+        要真并行得开进程（`multiprocessing`）。这里连线程都没有，
+        并行只有 Worker 一条路，而且它天然隔离。
+      java: |
+        Java 的线程是真正的一等公民：能共享堆内存、有明确的内存模型与
+        可见性规则。JS 的 Worker 是隔离的，共享要么靠消息、要么显式用
+        `SharedArrayBuffer`。一个是共享内存模型，一个是消息模型。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  shared-state:
+    code: |
+      // @note 主线程内其实不存在"数据竞争" —— 只有一个执行流
+      let counter = 0;
+      // 两个 async 函数交错执行也不会撞：它们不会真的同时碰这一行
+      async function inc() { counter++; }     // @note 但「读-改-写」之间可以插入 await
+
+      // @note! 真正会被打断的是「跨 await 的复合操作」：
+      async function transfer(from, to, n) {
+        const v = await read(from);            // @note 这里会让出去
+        await write(to, v + n);                // @note 期间别人可能改了 from
+      }
+
+      // Worker 之间默认**不共享**内存，要共享得显式上 SharedArrayBuffer
+    baseline: |
+      主线程里**没有数据竞争** —— 只有一个执行流，同步代码不会被打断。
+      真正要小心的是**跨 `await` 的复合操作**：`await` 会让出控制权，
+      期间别的任务可能改了同一份数据。所以「先读、再算、再写」这种序列
+      要么放在一个同步块里做完，要么自己加锁（JS 里得手写）。
+      Worker 之间默认不共享内存，要共享得显式用 `SharedArrayBuffer`。
+    vs:
+      python: |
+        Python 有真线程，共享可变状态要加锁；而且 GIL 只保证字节码级的原子性，
+        `counter += 1` 仍然可能被打断。JS 主线程没有这个问题（单执行流），
+        但跨 await 的复合操作有一模一样的危险。
+      java: |
+        Java 的线程共享堆，数据竞争是实打实的问题，语言给了 happens-before
+        这套规则来定义「什么时候能看见」。JS 主线程干脆没有这回事，
+        要并行就得进 Worker，而那又变成隔离模型。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  lock-mutex:
+    code: |
+      // @note! 语言没有锁 —— 因为主线程本来就不会并发执行
+      //   Worker 之间是隔离的，"锁"没有意义
+
+      // 唯一需要「互斥」的地方是 async 里的复合操作，得自己写：
+      let chain = Promise.resolve();          // @note 串行化队列
+      function serialize(fn) {
+        const next = chain.then(fn, fn);
+        chain = next.catch(() => {});
+        return next;
+      }
+
+      // 或者用 SharedArrayBuffer + Atomics.wait/notify 在 Worker 间同步
+      // Atomics.wait(int32, 0, 0);            // @note 只能在 Worker 里用
+    baseline: |
+      **语言里没有锁**，而且日常也不需要 —— 主线程单执行流，没有临界区。
+      唯一要「互斥」的场合是异步里的复合操作，惯用解法是**串行化队列**
+      （用一个 promise 链把操作排成一队）。Worker 之间如果要同步，
+      得用 `SharedArrayBuffer` 加 `Atomics`（那已经不是普通 JS 的领域了）。
+    vs:
+      python: |
+        Python 有 `threading.Lock`，而且因为线程真的并发，锁是必需品；
+        JS 的串行化队列只是「把异步操作排队」，与互斥锁不是一回事 ——
+        它不阻塞、也不跨线程。
+      java: |
+        Java 的锁是语言级的（`synchronized`）加库级的（`ReentrantLock`），
+        还要讲清「锁哪个对象、什么时候释放」。JS 这层完全不存在，
+        代价是也不存在「死锁」这类问题。
+    equivalence:
+      python: divergent
+      java: divergent
+
+  channel:
+    code: |
+      // @note Worker 之间只有消息通道
+      const ch = new MessageChannel();
+      workerA.postMessage({ port: ch.port1 }, [ch.port1]);
+      workerB.postMessage({ port: ch.port2 }, [ch.port2]);
+      ch.port1.postMessage("你好");            // @note 另一端 onmessage 收到
+
+      // @note 消息是**结构化克隆**过去的 —— 不是共享，是复制
+      // @note! 函数、类实例、DOM 节点都传不过去
+
+      // 主线程内部的"通道"是事件循环的各类队列（宏任务 / 微任务）
+      queueMicrotask(() => { });
+    baseline: |
+      Worker 之间用 `MessageChannel` 通信，传的是**结构化克隆**（复制过去的，
+      不是共享）—— 所以函数、类实例、DOM 节点都传不了。主线程内部没有通道，
+      只有事件循环的任务队列。这套模型的含义是：**没有共享内存，
+      就没有需要同步的共享状态**。
+    vs:
+      python: |
+        Python 的多进程（`multiprocessing`）之间也是靠队列传对象，
+        同样要序列化（pickle）—— 两边都是「复制而不是共享」。
+        线程之间则可以真的共享内存，那一条在 JS 里不存在。
+      java: |
+        Java 的线程之间共享堆内存，`BlockingQueue` 这类通道是「在共享内存之上
+        搭出来的通信抽象」；JS 的通道是唯一的通信方式，
+        因为根本没有共享内存可站。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  atomicity:
+    code: |
+      // @note 主线程里 "counter++ 是原子的" —— 因为没有别的执行流插进来
+
+      // Worker 之间要共享内存只能上 SharedArrayBuffer：
+      const sab = new SharedArrayBuffer(4);
+      const view = new Int32Array(sab);
+      Atomics.add(view, 0, 1);          // @note 原子自增
+      Atomics.load(view, 0);            // @note 原子读
+      Atomics.compareExchange(view, 0, 0, 1);   // @note CAS
+
+      // @note! 普通 view[0]++ 在多个 Worker 下会丢更新，必须走 Atomics
+      // @note 内存序：Atomics 默认是顺序一致的，够用但保守
+    baseline: |
+      主线程单执行流，`counter++` 天然不会被打断。真要并行只能进 Worker，
+      而 Worker 之间共享内存必须显式用 `SharedArrayBuffer`，
+      且对它的一切读写都要走 `Atomics`（`add` / `load` / `compareExchange`…）——
+      普通下标读写在多线程下会丢更新。这也是 JS 里唯一需要谈内存序的地方。
+    vs:
+      python: |
+        Python 的 GIL 让单条字节码原子，但 `counter += 1` 是好几条字节码，
+        仍然会丢更新，得加锁。JS 主线程没有这个问题（单执行流），
+        要并行就得进 Worker，而那又要求显式上 `SharedArrayBuffer`。
+      java: |
+        Java 的 `volatile`、`AtomicInteger`、JMM 的可见性规则是日常工具；
+        JS 里对应的只有 `Atomics` 这一套，而且只在显式共享内存时才用得上 ——
+        绝大多数 JS 代码一辈子碰不到。
+    equivalence:
+      python: divergent
+      java: divergent

@@ -1,0 +1,182 @@
+# java —— mechanism / concurrency
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: concurrency` 的那批。
+# 这一组以 Java 为基准时展示在「线程与并发工具」章（见 catalog/mechanism/java.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-concurrency-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  concurrency-unit:
+    code: |
+      Thread t = new Thread(() -> work());
+      t.start(); t.join();
+
+      // 现代写法：线程池 / 执行器
+      try (var pool = Executors.newFixedThreadPool(4)) {
+        Future<Integer> f = pool.submit(() -> compute());
+        f.get();
+      }
+
+      // 虚拟线程（Java 21+）：轻量，适合大量阻塞 IO
+      Thread.ofVirtual().start(() -> work());
+
+      // @note 线程共享堆内存 —— 真并行，多核都用得上
+      // @note! 并发的基本功是「怎么安全地共享」，不是「怎么开线程」
+    baseline: |
+      线程是**真并行**的：多核都用得上，而且共享同一份堆内存。
+      所以核心问题不是「怎么开线程」，而是「怎么安全地共享可变状态」。
+      现代写法用执行器（线程池）而不是裸 `Thread`；Java 21 的虚拟线程让
+      「一个请求一个线程」这种阻塞式写法重新变得可行。
+    vs:
+      javascript: |
+        JavaScript 主线程连线程都没有，并行只能靠隔离的 Worker；
+        Java 的线程共享内存、真并行，所以必须处理数据竞争。
+        一个是「没有共享就没有竞争」，一个是「共享是默认，安全要自己做」。
+      python: |
+        Python 有线程但受 GIL 限制，纯计算开线程不提速，常要先选进程还是线程；
+        Java 的线程没有这层限制，第一句话直接就是「怎么安全地共享」。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  shared-state:
+    code: |
+      class Counter {
+        private int n = 0;
+        public void inc() { n++; }          // @note! 不是原子的：读-加-写
+        public synchronized void safe() { n++; }   // @note 加锁之后才对
+      }
+
+      // 更省心的选择：用现成的原子类
+      AtomicInteger counter = new AtomicInteger();
+      counter.incrementAndGet();            // @note CAS，无锁
+
+      // @note! JMM（Java 内存模型）定义了「什么时候能看到别的线程的写」：
+      //        happens-before 规则是这一切的依据
+      // @note! 不同步的字段可能读到**陈旧值** —— 这在单线程语言里无法想象
+    baseline: |
+      线程共享堆内存，数据竞争是实打实的问题：`n++` 不是原子的，
+      而且**不同步的字段可能读到陈旧值**（可见性问题）—— 这是 Java 内存模型
+      （JMM）用 happens-before 规则定义的东西。解法有三条：
+      `synchronized` / `Lock`、`AtomicInteger` 这类原子类（无锁 CAS）、
+      或者干脆不共享（用不可变对象或线程私有数据）。
+    vs:
+      javascript: |
+        JavaScript 主线程只有一个执行流，没有竞争也没有可见性问题；
+        真正会打断的是跨 `await` 的复合操作。Java 这边连「读到一个旧值」
+        都要靠内存模型来解释。
+      python: |
+        Python 有 GIL，字节码级不会交错得太碎，但复合操作照样丢更新；
+        Java 没有 GIL，可见性问题更突出，因此 JMM 与 `volatile` 是必需的知识。
+        两边都有一条「看起来是一行、其实不是一步」的坑。
+    equivalence:
+      javascript: divergent
+      python: divergent
+
+  lock-mutex:
+    code: |
+      synchronized (lock) {                // @note 语言级：进入加锁、离开自动释放
+        n++;
+      }
+      public synchronized void inc() { n++; }   // @note 方法级：锁的是 this
+
+      private final ReentrantLock rl = new ReentrantLock();
+      rl.lock();
+      try { n++; } finally { rl.unlock(); }      // @note! 必须 finally 释放
+
+      // @note ReentrantLock 还能：tryLock 超时、可中断、公平锁
+      // @note! 死锁的两个经典成因：忘记释放、加锁顺序不一致
+
+      // @note 首选思路其实是**不共享**：不可变对象、线程封闭、并发容器
+    baseline: |
+      语言级有 `synchronized`（进入加锁、离开自动释放，还能加在方法上锁 `this`），
+      库里有 `ReentrantLock`（支持超时、可中断、公平锁）。但现在的首选思路是
+      **尽量不共享**：用不可变对象、`ConcurrentHashMap` 这类并发容器、
+      或者线程封闭。锁只是兜底手段，因为它带来死锁与性能两面代价。
+    vs:
+      javascript: |
+        JavaScript 主线程没有临界区，也就没有锁；要串行化异步操作只能排队。
+        Java 的锁是真的会阻塞线程，而且 `synchronized` 把「自动释放」
+        做进了语法。
+      python: |
+        Python 的 `threading.Lock` 偏基础，必须自己保证释放（用 `with`）；
+        Java 的 `synchronized` 连这一步都省了，`ReentrantLock` 还多出超时、
+        可中断、公平锁这些能力。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  channel:
+    code: |
+      // 阻塞队列：内部已经处理好同步，不必再手写锁
+      BlockingQueue<Task> q = new LinkedBlockingQueue<>();
+      q.put(task);                 // @note 队满时阻塞
+      Task t = q.take();           // @note 队空时阻塞
+
+      // 线程池本身就是「任务队列 + 工作线程」
+      var pool = Executors.newFixedThreadPool(4);
+      pool.submit(() -> work());
+
+      // 复杂协作：CountDownLatch / CyclicBarrier / CompletableFuture
+      var latch = new CountDownLatch(3);
+      latch.countDown(); latch.await();
+
+      // @note! 队列里的元素仍然是**共享对象** —— 队列只保证交接安全，
+      //        不保证元素本身之后不会被别的线程改
+    baseline: |
+      并发包提供了完整的协作工具：`BlockingQueue`（阻塞队列，自己处理同步，
+      线程池本身就是它的一个应用）、`CountDownLatch` / `CyclicBarrier`
+      （等一批任务完成）、`CompletableFuture`（组合异步结果）。
+      要注意队列保证的只是**交接那一刻**的安全，元素被取走之后
+      仍然可能被别的线程改。
+    vs:
+      javascript: |
+        JavaScript 的通道只在 Worker 之间传**克隆**（不共享），
+        所以没有「交接之后还被改」这回事；Java 的队列传的是引用，
+        元素本身还是共享对象。
+      python: |
+        两边的阻塞队列（`queue.Queue` 与 `BlockingQueue`）用法几乎逐行对应。
+        差别在生态：Java 的并发包还有一堆协作原语（闩、栅栏、组合式 Future），
+        Python 这边对应的是 `concurrent.futures` 加 asyncio 那一套。
+    equivalence:
+      javascript: divergent
+      python: analogous
+
+  atomicity:
+    code: |
+      n++;                          // @note! 读-加-写三步，并发下丢更新
+      volatile int flag;            // @note! 保证可见性，**不保证**复合操作原子
+
+      AtomicInteger c = new AtomicInteger();
+      c.incrementAndGet();          // @note CAS：无锁原子自增
+      c.compareAndSet(1, 2);        // @note 比较并交换
+
+      LongAdder adder = new LongAdder();   // @note 高竞争场景下比 Atomic 更快
+      adder.increment();
+
+      // @note happens-before：解锁前的写，对随后加锁的线程可见
+      // @note! 双重检查锁定里的单例必须写 volatile，否则可能拿到半成品对象
+    baseline: |
+      **`n++` 不是原子的**，而且 `volatile` 只保证**可见性**、不保证复合操作
+      原子 —— 这两条是这一块最常见的误解。原子操作要靠 `AtomicInteger`
+      这类 CAS 类（高竞争下 `LongAdder` 更好）。此外 JMM 的 happens-before
+      规则决定了「什么时候能看到别的线程写的值」，
+      双重检查锁定的单例必须给字段加 `volatile`，否则可能发布未初始化完的对象。
+    vs:
+      javascript: |
+        JavaScript 主线程没有并发，`n++` 天然原子；只有跨 Worker 共享
+        `SharedArrayBuffer` 时才需要 `Atomics`。Java 这边原子性、
+        可见性、重排序都是日常要处理的事。
+      python: |
+        Python 既没有 `volatile` 也没有原子类，只有 GIL 这条隐式约束加锁。
+        「看起来是一行不等于一步」这个坑两边都有，但 Java 把规则写清楚了，
+        Python 只能记住「复合操作都要加锁」。
+    equivalence:
+      javascript: divergent
+      python: divergent
