@@ -115,10 +115,32 @@ describe('装载器的边界（不误吃旧布局）', () => {
 })
 
 describe('方向性内容装载（loadPairListsV2）', () => {
-  it('pairs/ 目录尚未建立 → 返回空，不报错', () => {
+  it('读到全部方向，且目录名都能反查出 (基准, 目标)', () => {
     const r = loadPairListsV2()
-    expect(r.pairs).toEqual([])
     expect(r.issues).toEqual([])
+    expect(r.pairs.length).toBeGreaterThan(0)
+    for (const p of r.pairs) {
+      // 目录名必须**恰好一种**拆法 —— 语言 id 允许含数字，简单 split('2') 会挂错方向
+      expect(p.dir.replace(/\\/g, '/')).toBe(`content/pairs/${p.baseline}2${p.target}`)
+      expect(p.baseline).not.toBe(p.target)
+    }
+  })
+
+  it('三份列表资源都按契约读出（顶层数组，pair 归属由目录名注入）', () => {
+    const r = loadPairListsV2()
+    const hit = r.pairs.find((p) => p.pitfalls.length > 0)
+    expect(hit).toBeDefined()
+    for (const p of hit!.pitfalls) {
+      expect(p.baseline).toBe(hit!.baseline)
+      expect(p.target).toBe(hit!.target)
+    }
+  })
+
+  it('未知语言 id 拼成的目录名 → 记入 issues，不静默挂到错误方向', () => {
+    // 用真实目录名之外的一对验证解析器：两边都得是已知语言
+    const r = loadPairListsV2(['javascript', 'python'])
+    // 只认这两门 → java2python / javascript2go 这类都会被报出来
+    expect(r.issues.length).toBeGreaterThan(0)
   })
 })
 

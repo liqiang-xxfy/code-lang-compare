@@ -1,17 +1,27 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import CodeBlock from '@/components/code/CodeBlock.vue'
 import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
 import EquivalenceBaselineNote from '@/components/compare/EquivalenceBaselineNote.vue'
-import MarkdownContent from '@/components/content/MarkdownContent.vue'
 import PitfallCard from '@/components/content/PitfallCard.vue'
 import PageCrumb from '@/components/ui/PageCrumb.vue'
 import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
-import { pickColumns } from '@/composables/useVisibleColumns'
+import { badgeOf, explanationOf } from '@/content/boxView'
 import { getCachedBlockDiffs, getCachedDiff } from '@/content/diff'
-import { chapterPathOf, manifest, sectionDefOf, sectionIsMulti } from '@/content/repository'
+import {
+  catalogOf,
+  chapterOf,
+  chapterPathOf,
+  featureMetaOf,
+  hasBoxChapter,
+  orderedSections,
+  pairTargetsOf,
+  sectionDefOf,
+  featurePathOf,
+} from '@/content/repository'
+import { defaultCompareLanguageId } from '@/generated/registry.gen'
 import { useContentStore } from '@/stores/content'
 import { useLanguageStore } from '@/stores/language'
 import { useUiStore } from '@/stores/ui'
@@ -23,140 +33,137 @@ const languages = useLanguageStore()
 const ui = useUiStore()
 const { t } = useI18n()
 
-const featureId = computed(() => `${String(route.params.topicId ?? '')}/${String(route.params.slug ?? '')}`)
-const feature = computed(() => content.getFeatureRaw(featureId.value))
-const info = computed(() => manifest.featureIndex[featureId.value])
-
-/**
- * 本页的参照系是**本 topic 的基准**，不是 store 里「上次浏览的基准」。
- *
- * 这一点此前是错的：`languages.baseline` 会落到 localStorage 的「上次选择」上，
- * 于是从「以 Python 为基准」的那套内容点进特性页时，只要上次看的是 JS，
- * 列、diff 与徽章就全按 JS 渲染 —— 页面在讲一套内容，却拿另一套当参照系，
- * 而地址（`/feature/<topicId>/<slug>`）里根本看不出这件事。
- */
-const topicCfg = computed(() => {
-  const id = info.value?.topicId
-  return id ? (manifest.topics.find((t) => t.id === id) ?? null) : null
-})
-const featureBaseline = computed(() => topicCfg.value?.baseline ?? languages.effectiveBaseline)
-
-/**
- * 本页所属板块是不是多列并排（基础语法 / 心智模型）。
- *
- * 多列板块不渲染共享说明 `feature.bodyHtml` —— 说明已下沉到每列代码下方，
- * 与章节页保持同一种呈现。判据与章节页同源（板块注册表的 `columns`）。
- */
-const isMultiSection = computed(() => {
-  const s = topicCfg.value?.section
-  return s ? sectionIsMulti(s) : false
+/** 全局 feature id = `<板块>/<章节>/<feature>`，正好是路由的三段 */
+const gid = computed(
+  () =>
+    `${String(route.params.section ?? '')}/${String(route.params.chapter ?? '')}/${String(
+      route.params.feature ?? '',
+    )}`,
+)
+const meta = computed(() => featureMetaOf(gid.value))
+const catalogFeature = computed(() => {
+  const m = meta.value
+  if (!m) return null
+  return catalogOf(m.section)?.chapters.find((c) => c.id === m.chapter)?.features.find((f) => f.id === route.params.feature) ?? null
 })
 
 /**
- * 列顺序：基准恒在最左；对级 topic 锁 `[基准, 目标]`，基准级 topic 跟随运行时勾选。
- * 与章节页同一条规则再过一遍 `pickColumns`（裁到本特性真有实现的语言，基准列恒保留）。
+ * 本页的参照系 = **当前基准**。
+ *
+ * v2 的 feature 与语言无关（清单是语言无关的），所以「拿谁当参照系」只由
+ * 用户的基准选择决定，不再由内容自己携带（v1 的 topic.baseline 已消失）。
+ */
+const featureBaseline = computed(() => languages.effectiveBaseline)
+
+/**
+ * 列顺序：基准恒在最左，其余跟随运行时勾选；再裁到**本特性真有 box 的语言**
+ * （判据是该语言在这一章有分片 —— 与章节页同源）。
  */
 const columns = computed(() => {
+  const m = meta.value
+  if (!m) return [] as LanguageMeta[]
   const base = featureBaseline.value
-  const cfg = topicCfg.value
-  const others = cfg?.target ? [cfg.target] : languages.compareMeta.map((m) => m.id)
-  const ordered = [base, ...others.filter((id) => id !== base)]
+  const ordered = [
+    base,
+    ...languages.compareMeta.map((x) => x.id).filter((id) => id !== base),
+  ]
     .map((id) => languages.metaOf(id))
-    .filter((m): m is LanguageMeta => Boolean(m))
-  return pickColumns(ordered, base, new Set(Object.keys(feature.value?.snippets ?? {})))
+    .filter((x): x is LanguageMeta => Boolean(x))
+  return ordered.filter(
+    (x) => x.id === base || hasBoxChapter(x.id, m.section, m.chapter),
+  )
 })
 
-const baselineName = computed(
-  () => languages.metaOf(featureBaseline.value)?.name ?? featureBaseline.value,
+/** 各列的 box（同一章分片里按 feature 取） */
+const boxOf = (langId: string) => {
+  const m = meta.value
+  if (!m) return undefined
+  return content.getBoxChapterRaw(langId, m.section, m.chapter)?.boxes[route.params.feature as string]
+}
+
+/** 按需加载可见列的分片 —— 勾选变化不产生导航，必须靠 watcher */
+watch(
+  columns,
+  (cols) => {
+    const m = meta.value
+    if (!m || !cols.length) return
+    void content.ensureColumns(m.section, m.chapter, cols.map((x) => x.id))
+  },
+  { immediate: true },
 )
 
+const baselineName = computed(() => languages.metaOf(featureBaseline.value)?.name ?? featureBaseline.value)
+
 /**
- * 只读的方向标识。
+ * 承载「相关迁移陷阱」的板块 —— 按 `dataKey` 从注册表定位，不写死板块名。
  *
- * 该页路由参数里只有 topicId 与 slug，基准是隐含的 —— 这是用户唯一能确认
- * 「这一页在讲谁」的地方。刻意不给可切换的语言条：切基准意味着跳到**另一个
- * topicId** 的地址，而那个 topic 未必有同一个 slug，做一个会失败的控件更糟。
+ * 这件事本身就锚在「陷阱」这个概念上（「这个知识点在别处踩过什么坑」），
+ * 与首页那个区块是同一种耦合，所以同样声明在 `verify:sections` 的白名单里。
  */
-const direction = computed(() => {
-  const base = featureBaseline.value
-  if (!base) return null
-  /*
-   * 「对照谁」取**实际显示的列**，而不是本 topic 的覆盖范围 ——
-   * 后者会把没勾选、屏幕上根本没有的语言也列出来（覆盖 4 门、只显示 1 门时
-   * 那句话是假的）。覆盖范围另有 scopeHint 负责说明。
-   */
-  return {
-    baseName: languages.metaOf(base)?.name ?? base,
-    otherNames: columns.value.filter((m) => m.id !== base).map((m) => m.name),
-  }
-})
+const pitfallSection = orderedSections().find((s) => s.dataKey === 'pitfalls')?.id ?? null
 
 /**
- * 相关陷阱来自**本 feature 所属 topic 的那个 (基准, 目标) 对** ——
- * 陷阱现在是逐对的，全站清单不再存在。分片由路由守卫预先加载（见 guards.ts）。
+ * 相关陷阱：(基准, 目标) 对是**运行时推导**的 —— v2 的 feature 不属于任何方向。
+ * 取用户最近挑的方向，否则默认对比语言，否则该基准下第一个有陷阱的方向。
  */
-const relatedPitfalls = computed(() => {
-  const topicId = info.value?.topicId
-  const cfg = manifest.topics.find((x) => x.id === topicId)
-  if (!cfg?.target) return []
-  const payload = content.getPairRaw(cfg.baseline, cfg.target)
-  return (payload?.pitfalls ?? []).filter((p) => p.featureId === featureId.value)
+const pitfallTarget = computed(() => {
+  const base = featureBaseline.value
+  if (!pitfallSection) return null
+  const available = pairTargetsOf(base, pitfallSection)
+  if (!available.length) return null
+  const pref = languages.preferredTarget
+  if (pref && available.includes(pref)) return pref
+  return available.includes(defaultCompareLanguageId) ? defaultCompareLanguageId : available[0]!
 })
 
-/** 面包屑回跳：特性页归属的章节地址由 topic 的三轴字段决定 */
-const chapterPath = computed(() => (info.value ? chapterPathOf(info.value.chapterId) : '/'))
+watch(
+  [pitfallTarget, featureBaseline],
+  ([target, base]) => {
+    if (target) void content.ensurePair(base, target)
+  },
+  { immediate: true },
+)
 
-/** 面包屑中间一级显示**章节标题**，而不是原始 chapterId —— 后者是内部标识，读不出信息 */
-const chapterInfo = computed(() => {
-  const id = info.value?.chapterId
-  if (!id) return null
-  for (const topic of manifest.topics) {
-    const hit = topic.chapters.find((c) => c.id === id)
-    if (hit) return hit
-  }
-  return null
+const relatedPitfalls = computed(() => {
+  const target = pitfallTarget.value
+  if (!target) return []
+  const payload = content.getPairRaw(featureBaseline.value, target)
+  return (payload?.pitfalls ?? []).filter((p) => p.featureId === gid.value)
 })
 
 const crumbs = computed(() => {
   const items: Array<{ label: string; to?: string }> = [{ label: t('nav.home'), to: '/' }]
-  const def = topicCfg.value ? sectionDefOf(topicCfg.value.section) : undefined
-  if (def) items.push({ label: def.title })
-  if (chapterInfo.value) items.push({ label: chapterInfo.value.title, to: chapterPath.value })
-  items.push({ label: feature.value?.title ?? '' })
+  const m = meta.value
+  if (m) {
+    items.push({ label: sectionDefOf(m.section)?.title ?? '' })
+    const ch = chapterOf(m.section, m.chapter)
+    if (ch) {
+      items.push({
+        label: ch.title,
+        to: chapterPathOf(featureBaseline.value, m.section, m.chapter),
+      })
+    }
+  }
+  items.push({ label: catalogFeature.value?.title ?? gid.value })
   return items
 })
 
 /**
- * 迁移教程的小节 → 概念详解的软引用（refFeatureId）。
- *
- * 迁移模块写自己的 snippet（视角不同、代码更聚焦），不复用 basics 的 feature
- * —— R8 强制 featureId 唯一且归属单一 chapter。这个链接让两边互相可达，
- * 把「两份对照代码各说各话」变成可点达的关系。
- */
-const refFeature = computed(() => {
-  const id = feature.value?.refFeatureId
-  return id ? manifest.featureIndex[id] : undefined
-})
-
-/**
  * 基准差异模式下给非基准列计算行级 diff（运行时算 + 缓存）。
- *
- * 返回值与 `snippet.blocks` 按下标对齐，单段内容恒为长度 1 —— 多段必须逐段算，
- * 每段各有自己的行号空间。
+ * 返回值与 `box.blocks` 按下标对齐，单段内容恒为长度 1。
  */
 function diffsFor(langId: string) {
   if (ui.viewMode !== 'baseline-diff' || langId === featureBaseline.value) return null
-  const base = feature.value?.snippets[featureBaseline.value]
-  const target = feature.value?.snippets[langId]
+  const base = boxOf(featureBaseline.value)
+  const target = boxOf(langId)
   if (!base || !target) return null
-  const key = `${featureId.value}|${featureBaseline.value}|${langId}`
+  const key = `${gid.value}|${featureBaseline.value}|${langId}`
 
   const baseBlocks = base.blocks?.map((b) => b.code)
   const targetBlocks = target.blocks?.map((b) => b.code)
   if (baseBlocks?.length && targetBlocks?.length) {
     return getCachedBlockDiffs(key, baseBlocks, targetBlocks)
   }
-
   if (!base.code || !target.code) return null
   return [getCachedDiff(key, base.code, target.code)]
 }
@@ -164,63 +171,62 @@ function diffsFor(langId: string) {
 /** 两侧都是多段、但段数不同 —— 无法逐段对齐 */
 function blocksMismatch(langId: string): boolean {
   if (ui.viewMode !== 'baseline-diff' || langId === featureBaseline.value) return false
-  const base = feature.value?.snippets[featureBaseline.value]
-  const target = feature.value?.snippets[langId]
+  const base = boxOf(featureBaseline.value)
+  const target = boxOf(langId)
   return Boolean(
     base?.blocks?.length && target?.blocks?.length && base.blocks.length !== target.blocks.length,
   )
 }
 
 usePageMeta(
-  () => (feature.value ? `${feature.value.title} 的跨语言对照` : undefined),
+  () => (catalogFeature.value ? `${catalogFeature.value.title} 的跨语言对照` : undefined),
   () =>
-    feature.value
-      ? `${feature.value.title}：在 ${baselineName.value} 与其它语言中的写法、差异与迁移陷阱。${feature.value.summary ?? ''}`
+    catalogFeature.value
+      ? `${catalogFeature.value.title}：在 ${baselineName.value} 与其它语言中的写法、差异与迁移陷阱。${catalogFeature.value.summary ?? ''}`
       : undefined,
 )
 </script>
 
 <template>
-  <div v-if="feature">
+  <div v-if="catalogFeature && meta">
     <PageCrumb :items="crumbs" />
 
     <section class="pc-page-head">
-      <h1>{{ feature.title }}</h1>
-      <!-- 地址里没有基准，这一行是用户唯一能确认「本页在讲谁、拿谁当参照系」的地方 -->
-      <p v-if="direction" class="pc-hint" style="margin: 4px 0 0">
-        {{ t('compare.baselineLabel', { name: direction.baseName }) }}
-        <template v-if="direction.otherNames.length">
-          · {{ t('compare.targetLabel', { name: direction.otherNames.join('、') }) }}
+      <h1>{{ catalogFeature.title }}</h1>
+      <!-- 地址里没有基准，这一行是用户唯一能确认「本页在拿谁当参照系」的地方 -->
+      <p class="pc-hint" style="margin: 4px 0 0">
+        {{ t('compare.baselineLabel', { name: baselineName }) }}
+        <template v-if="columns.filter((x) => x.id !== featureBaseline).length">
+          ·
+          {{
+            t('compare.targetLabel', {
+              name: columns
+                .filter((x) => x.id !== featureBaseline)
+                .map((x) => x.name)
+                .join('、'),
+            })
+          }}
         </template>
       </p>
       <div class="pc-feature-meta" style="margin: 6px 0">
-        <span class="pc-tag">{{ feature.kind }}</span>
-        <!-- 同两个布局：排除基准（基准相对自己恒为 =，是废话），并标出语言短名 -->
-        <EquivalenceBadge
-          v-for="s in Object.values(feature.snippets).filter(
-            (s) => s.lang !== featureBaseline,
-          )"
-          :key="s.lang"
-          :value="s.equivalence"
-          :lang-name="languages.metaOf(s.lang)?.shortName"
-        />
+        <span class="pc-tag">{{ catalogFeature.kind }}</span>
+        <!-- 排除基准（基准相对自己恒为 =，是废话），并标出语言短名 -->
+        <template v-for="lang in columns" :key="lang.id">
+          <EquivalenceBadge
+            v-if="boxOf(lang.id) && badgeOf(boxOf(lang.id)!, lang.id, featureBaseline)"
+            :value="badgeOf(boxOf(lang.id)!, lang.id, featureBaseline)!"
+            :lang-name="lang.shortName"
+          />
+        </template>
       </div>
-      <p v-if="feature.summary">{{ feature.summary }}</p>
-      <p v-if="refFeature" class="pc-hint" style="margin-top: 6px">
+      <p v-if="catalogFeature.summary">{{ catalogFeature.summary }}</p>
+      <p v-if="catalogFeature.refFeatureId" class="pc-hint" style="margin-top: 6px">
         概念详解：
-        <RouterLink :to="`/feature/${feature.refFeatureId}`">{{ refFeature.title }} →</RouterLink>
+        <RouterLink :to="featurePathOf(catalogFeature.refFeatureId)">查看 →</RouterLink>
       </p>
     </section>
 
-    <!-- 同章节页：多列板块的说明在每列代码下方，本页不再有共享说明 -->
-    <MarkdownContent
-      v-if="feature.bodyHtml && !isMultiSection"
-      :html="feature.bodyHtml"
-      class="pc-panel"
-      style="margin-bottom: 18px"
-    />
-
-    <EquivalenceBaselineNote />
+    <EquivalenceBaselineNote :baseline="featureBaseline" />
 
     <div class="pc-cards">
       <article
@@ -236,9 +242,11 @@ usePageMeta(
         </div>
         <div class="pc-card-body">
           <CodeBlock
-            v-if="feature.snippets[lang.id]"
-            :snippet="feature.snippets[lang.id]!"
+            v-if="boxOf(lang.id)"
+            :box="boxOf(lang.id)!"
             :lang-meta="lang"
+            :explanation-html="explanationOf(boxOf(lang.id)!, lang.id, featureBaseline)"
+            :equivalence="badgeOf(boxOf(lang.id)!, lang.id, featureBaseline)"
             :diffs="diffsFor(lang.id)"
             :blocks-mismatch="blocksMismatch(lang.id)"
             :is-baseline="lang.id === featureBaseline"
@@ -257,13 +265,13 @@ usePageMeta(
           :key="p.id"
           :pitfall="p"
           :baseline-name="baselineName"
-          :feature-title="feature.title"
+          :feature-title="catalogFeature.title"
         />
       </div>
     </section>
   </div>
 
-  <!-- 装载失败与「还在加载」必须分开：此前 ensureChapter 没有 catch，失败会永远停在加载中 -->
+  <!-- 装载失败与「还在加载」必须分开 -->
   <p v-else-if="content.error" class="pc-empty">
     {{ t('loadFailed') }}
     <span class="pc-hint" style="display: block; margin-top: 8px">{{ content.error }}</span>

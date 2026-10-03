@@ -78,7 +78,7 @@ usePageMeta(
         标注为 <code>llm</code> 来源的条目由大模型生成、尚未经过人工复核，因此<strong>不登记许可证</strong> ——
         模型输出不产生可署名的许可，强行填 MIT / GFDL 反而是错误的许可陈述。
         这类内容的合规责任由「人工审阅记录 + 页面上的未校对标记」承担。
-        当前共 {{ manifest.counts.snippets }} 条实现，其中
+        当前共 {{ manifest.counts.boxes }} 个对比框，其中
         {{ manifest.counts.byState.reviewed ?? 0 }} 条已校对、{{ manifest.counts.byState.draft ?? 0 }} 条待校对。
       </p>
     </section>

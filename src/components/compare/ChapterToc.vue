@@ -2,7 +2,7 @@
 /**
  * 章节的页内目录（跳转到某个对照点）。
  *
- * 为什么需要：一章 9 个对照点在「卡片并排」下是 9 段纵向堆叠，实测整页 5600px 以上。
+ * 为什么需要：一章十几个对照点在「卡片并排」下是十几段纵向堆叠，实测整页 5600px 以上。
  * 读到第 5 个就丢位置感，而左栏的章节级导航粒度太粗帮不上 —— 它只能带你到章，
  * 不能带你到章里的某一条。
  *
@@ -14,9 +14,12 @@
  * 关掉即可；反过来让目录跟着过滤走，会出现「目录里少了几条但我不知道为什么」。
  */
 import { featureAnchor } from '@/content/repository'
-import type { RenderedFeature } from '@/schemas'
+import type { CatalogFeature, Section } from '@/schemas'
 
-defineProps<{ features: RenderedFeature[] }>()
+const props = defineProps<{ features: CatalogFeature[]; section: Section; chapter: string }>()
+
+/** 锚点用全局 id —— 布局层用的是同一个函数，各拼一套会出现「目录点得到、布局锚不上」 */
+const anchorOf = (featureId: string) => featureAnchor(`${props.section}/${props.chapter}/${featureId}`)
 </script>
 
 <template>
@@ -24,7 +27,7 @@ defineProps<{ features: RenderedFeature[] }>()
     <span class="pc-toc-label">本章对照点</span>
     <ul>
       <li v-for="f in features" :key="f.id">
-        <a :href="`#${featureAnchor(f.id)}`">{{ f.title }}</a>
+        <a :href="`#${anchorOf(f.id)}`">{{ f.title }}</a>
       </li>
     </ul>
   </nav>

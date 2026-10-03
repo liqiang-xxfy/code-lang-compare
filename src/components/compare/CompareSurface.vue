@@ -8,21 +8,29 @@ import MatrixLayout from '@/components/compare/MatrixLayout.vue'
 import SideBySideLayout from '@/components/compare/SideBySideLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 import { enabledLanguageMeta } from '@/generated/registry.gen'
-import type { RenderedChapter } from '@/schemas'
+import type { CatalogChapter, LanguageMeta, RenderedBoxChapter, Section } from '@/schemas'
 import { useUiStore } from '@/stores/ui'
 
-const props = defineProps<{ chapter: RenderedChapter }>()
+const props = defineProps<{
+  section: Section
+  baseline: string
+  chapter: CatalogChapter
+  /** 当前可见的列（已按「本章真有分片」裁剪），顺序与布局一致 */
+  columns: LanguageMeta[]
+  shards: Record<string, RenderedBoxChapter>
+}>()
 const ui = useUiStore()
 const { t } = useI18n()
 
 /**
  * 本模块目前对照了哪几门语言。
  *
- * 覆盖范围没铺满时要说明，否则用户会以为「勾了 Go 却没反应」是坏了 ——
+ * 覆盖范围没铺满时要说明，否则用户会以为「勾了某门语言却没反应」是坏了 ——
  * 而实际是这个模块只写了其中几门。宁可多一句说明，也不要一个看起来失灵的控件。
  */
 const coveredNames = computed(() => {
-  const present = new Set(props.chapter.features.flatMap((f) => Object.keys(f.snippets)))
+  const present = new Set<string>()
+  for (const shard of Object.values(props.shards)) present.add(shard.lang)
   return enabledLanguageMeta.filter((m) => present.has(m.id)).map((m) => m.name)
 })
 const coverageIncomplete = computed(() => coveredNames.value.length < enabledLanguageMeta.length)
@@ -40,7 +48,7 @@ const degraded = computed(() => isNarrow.value && ui.viewMode !== 'side-by-side'
 <template>
   <div>
     <DiffFilterBar />
-    <EquivalenceBaselineNote />
+    <EquivalenceBaselineNote :baseline="baseline" />
 
     <p v-if="coverageIncomplete" class="pc-hint" style="margin: -4px 0 12px">
       {{ t('sections.scopeHint', { langs: coveredNames.join('、') }) }}
@@ -55,16 +63,29 @@ const degraded = computed(() => isNarrow.value && ui.viewMode !== 'side-by-side'
     <ChapterToc
       v-if="effectiveMode === 'side-by-side'"
       :features="chapter.features"
+      :section="section"
+      :chapter="chapter.id"
     />
 
     <!--
       三种展示模式共用同一份数据、同一套语言选择状态：
       切模式不跳路由，因此当前的基准语言、语言列、滚动位置全部保留（§5.4 / §7.3）
     -->
-    <SideBySideLayout v-if="effectiveMode === 'side-by-side'" :chapter="chapter" />
+    <SideBySideLayout
+      v-if="effectiveMode === 'side-by-side'"
+      :section="section"
+      :baseline="baseline"
+      :chapter="chapter"
+      :columns="columns"
+      :shards="shards"
+    />
     <MatrixLayout
       v-else
+      :section="section"
+      :baseline="baseline"
       :chapter="chapter"
+      :columns="columns"
+      :shards="shards"
       :diff-mode="effectiveMode === 'baseline-diff'"
     />
   </div>

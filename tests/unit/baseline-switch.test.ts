@@ -151,18 +151,17 @@ describe('全局选择：列的计算', () => {
     )
   })
 
-  it('勾选的语言一门都没实现时只留基准列 —— 不补一门用户没勾、也去不掉的列', () => {
+  it('勾选的语言在本章一格都没写时只留基准列 —— 不补一门用户没勾、也去不掉的列', () => {
     const store = useLanguageStore()
-    // concepts-java 只有 js / java 两条覆盖层，而默认对比语言是 python：
-    // 保持默认的人以 Java 为基准进心智模型时，勾选与覆盖的交集恒为空。
-    store.setRouteContext('java', 'concepts')
+    store.setRouteContext('java', 'inside')
     expect(store.compareLangs).toEqual([defaultCompareLanguageId])
 
-    const columns = pickColumns(store.orderedMeta, 'java', new Set(['java', 'javascript']))
+    // present = 本章真有分片的语言。这里模拟「只有基准列有」的情形
+    const columns = pickColumns(store.orderedMeta, 'java', new Set(['java']))
     expect(columns.map((m) => m.id)).toEqual(['java'])
-    // 这里曾补上一门有实现的语言（javascript）—— 它不在勾选集合里，
-    // 而选择条的勾选态读的正是 compareLangs，于是页面并列着一列没勾上的语言，
-    // 用户点它想"取消"，走的却是 toggleCompare 的新增分支。
+    // 这里曾补上一门有实现的语言 —— 它不在勾选集合里，而选择条的勾选态读的正是
+    // compareLangs，于是页面并列着一列没勾上的语言，用户点它想「取消」，
+    // 走的却是 toggleCompare 的新增分支。
     expect(store.compareLangs).not.toContain('javascript')
   })
 })
@@ -217,32 +216,23 @@ describe('全局选择：目标语言如何推导（它不在 URL 里）', () =>
 })
 
 describe('全局选择：切换基准时的回落', () => {
-  it('基础语法：目标基准有同一章就留在那一章', () => {
-    expect(resolveSwitchPath('javascript', { section: 'basics', key: '01-variables' })).toBe(
-      '/compare/javascript/basics/01-variables',
-    )
-    // 三个基准的基础语法现在都是同样 8 章，所以最后一章在任何基准之间切换都该保住
-    for (const baseline of ['javascript', 'python', 'java'] as const) {
-      expect(resolveSwitchPath(baseline, { section: 'basics', key: '06-objects' })).toBe(
-        `/compare/${baseline}/basics/06-objects`,
+  it('章节 id 就是文件名（没有序号）—— 同一章能保留就保留', () => {
+    // 清单与语言无关，所以章节集合对三个基准是同一套；差别在**写了没有**。
+    for (const baseline of ['javascript', 'python'] as const) {
+      expect(resolveSwitchPath(baseline, { section: 'basics', key: 'variables' })).toBe(
+        `/compare/${baseline}/basics/variables`,
       )
     }
   })
 
-  it('基础语法：目标基准没有那一章就落到它的首章', () => {
-    // 三个基准的章节集合现在已经对齐，真实的「缺章」场景不会自然出现 ——
-    // 用不存在的 key 构造，这条规则本身仍然必须成立（换基准时不能 404）
-    expect(resolveSwitchPath('java', { section: 'basics', key: '99-nonexistent' })).toBe(
-      '/compare/java/basics/01-variables',
+  it('新基准还没有这一章的内容时，落到它自己第一个有内容的章节', () => {
+    // 不存在的章 key 一律回落
+    expect(resolveSwitchPath('javascript', { section: 'basics', key: '99-nonexistent' })).toBe(
+      '/compare/javascript/basics/variables',
     )
-    expect(resolveSwitchPath('python', { section: 'basics', key: '99-nonexistent' })).toBe(
-      '/compare/python/basics/01-variables',
-    )
-  })
-
-  it('迁移教程：同一章 slug 能保留就保留', () => {
-    expect(resolveSwitchPath('python', { section: 'migration', key: '01-functions' })).toBe(
-      '/compare/python/migration/01-functions',
+    // java 目前一章都没写 —— 落到它确实有分片的第一章（没有就是 /404）
+    expect(resolveSwitchPath('java', { section: 'basics', key: 'variables' })).toBe(
+      sectionEntryPath('java', 'basics'),
     )
   })
 
@@ -256,15 +246,18 @@ describe('全局选择：切换基准时的回落', () => {
     )
   })
 
-  it('非对比页（section 为 null）落到该基准的基础语法首章', () => {
-    expect(resolveSwitchPath('java', { section: null, key: null })).toBe(
-      sectionEntryPath('java', 'basics'),
+  it('非对比页（section 为 null）落到该基准第一个有内容的章节型板块', () => {
+    expect(resolveSwitchPath('javascript', { section: null, key: null })).toBe(
+      sectionEntryPath('javascript', 'basics'),
     )
   })
 
-  it('每个基准候选都有可去的落点', () => {
+  it('有内容的基准候选有落点；还没写内容的落到 /404 而不是空白页', () => {
     for (const id of baselineLanguageIds) {
-      expect(resolveSwitchPath(id, { section: null, key: null })).not.toBe('/404')
+      const path = resolveSwitchPath(id, { section: null, key: null })
+      const sections = ['basics', 'inside', 'outside'] as const
+      const hasContent = sections.some((s) => sectionEntryPath(id, s) !== '/404')
+      expect(path === '/404', `${id} 的落点与内容存量的判断不一致`).toBe(!hasContent)
     }
   })
 })
@@ -305,11 +298,13 @@ describe('全局选择：manifest 是客户端唯一的「有哪些方向」来�
     }
   })
 
-  it('基础语法是基准级的：三个基准候选各有一套，且都不带 target', () => {
-    for (const id of baselineLanguageIds) {
-      const topic = manifest.topics.find((t) => t.section === 'basics' && t.baseline === id)
-      expect(topic, `${id} 缺少基础语法`).toBeTruthy()
-      expect(topic?.target).toBeUndefined()
+  it('章节型板块是基准级的：清单与语言无关，不存在「哪个基准的那一套」', () => {
+    const chapterSections = manifest.sections.filter((s) => s.shape === 'chapter')
+    expect(chapterSections.length).toBeGreaterThan(0)
+    for (const s of chapterSections) {
+      // 基准级板块没有方向概念 —— 有 direction 就说明配错了 scope
+      expect(s.scope).toBe('baseline')
+      expect(manifest.pairs.some((p) => p.sections.includes(s.id))).toBe(false)
     }
   })
 })

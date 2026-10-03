@@ -9,7 +9,7 @@
  */
 import { useRoute, useRouter } from 'vue-router'
 import {
-  chaptersForSection,
+  hasBoxChapter,
   orderedSections,
   pairTargetsOf,
   sectionIsChapter,
@@ -45,8 +45,13 @@ export function resolveSwitchPath(baseline: string, ctx: SwitchContext): string 
   const { section, key } = ctx
 
   if (section && sectionIsChapter(section)) {
-    // 同一章能保留就保留 —— 用户换的是参照系，不是想换一章
-    if (key && chaptersForSection(section, baseline).some((c) => c.id.split('/')[1] === key)) {
+    /*
+     * 同一章能保留就保留 —— 用户换的是参照系，不是想换一章。
+     *
+     * 判据是「新基准**真有这一章的分片**」：清单是语言无关的，三个基准共用同一套
+     * 章节，但某个基准可能还没写这一章（骨架期），落到那里会是一页空白。
+     */
+    if (key && hasBoxChapter(baseline, section, key)) {
       return `/compare/${baseline}/${section}/${key}`
     }
     return sectionEntryPath(baseline, section)
@@ -69,7 +74,7 @@ export function useBaselineSwitch() {
     if (!languages.baselineCandidates.some((m) => m.id === baseline)) return
     const ctx: SwitchContext = {
       section: sectionOfRoute(route),
-      key: typeof route.params.chapterSlug === 'string' ? route.params.chapterSlug : null,
+      key: typeof route.params.chapter === 'string' ? route.params.chapter : null,
     }
     languages.rememberBaseline(baseline)
     void router.push(resolveSwitchPath(baseline, ctx))

@@ -66,49 +66,77 @@ describe('中文分词', () => {
   })
 })
 
+
+/* ────────────────────────── 索引与检索（v2：按语言分片） ────────────────────────── */
+
+const analysis = analyzeContent()
+const payloads = buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z')
+const docs = buildSearchDocs(analysis)
+
+/** 装载若干语言分片，返回一个跨分片的检索函数 —— 与 SearchView 的做法一致 */
+function searchAcross(langs: readonly string[]) {
+  const engines = langs
+    .map((id) => payloads[id])
+    .filter((p): p is NonNullable<typeof p> => Boolean(p))
+    .map((p) => loadSearchIndex(p.index) as unknown as ReturnType<typeof loadSearchIndex>)
+  return (q: string): SearchHit[] => {
+    const merged = engines.flatMap(
+      (e) => e.search(q, queryOptions()) as unknown as Array<Record<string, unknown>>,
+    )
+    merged.sort((a, b) => Number(b.score ?? 0) - Number(a.score ?? 0))
+    return toHits(merged)
+  }
+}
+
+const searchJs = () => searchAcross(['javascript'])
+const searchAll = () => searchAcross(['javascript', 'python'])
+
 describe('检索', () => {
   it('中文词能命中（这是默认分词会失败的场景）', () => {
-    const hits = search('数组')
-    expect(hits.length).toBeGreaterThan(0)
+    expect(searchJs()('作用域').length).toBeGreaterThan(0)
   })
 
   it('长中文词命中高相关条目', () => {
-    const hits = search('可变默认参数')
+    const hits = searchJs()('声明提升')
     expect(hits.length).toBeGreaterThan(0)
-    expect(hits.some((h) => h.title.includes('默认参数'))).toBe(true)
+    expect(hits.some((h) => h.title.includes('提升'))).toBe(true)
   })
 
-  it('代码符号可检索', () => {
-    const hits = search('toFixed')
-    expect(hits.length).toBeGreaterThan(0)
+  it('注记里的代码标识符可检索', () => {
+    // 索引收的是**注记文本**（内容里检索价值最高的部分），不含代码原文 ——
+    // 所以出现在注记里的标识符能搜到，只出现在代码里的搜不到（v1 起就是这个口径）
+    expect(searchJs()('ReferenceError').length).toBeGreaterThan(0)
   })
 
-  it('「语言名 + 关键词」组合有效', () => {
-    expect(search('python 数组').length).toBeGreaterThan(0)
+  it('「语言名 + 关键词」组合有效（跨分片检索时）', () => {
+    // 一个分片只装一门语言的文字，所以带语言名的查询要在**多片一起搜**时才有意义
+    expect(searchAll()('python 作用域').length).toBeGreaterThan(0)
   })
 
   it('AND 语义：多词必须同时命中，不会退化成 OR 的泛召回', () => {
-    const broad = search('数组').length
-    const narrow = search('数组 switch').length
+    const broad = searchJs()('作用域').length
+    const narrow = searchJs()('作用域 遮蔽').length
     expect(broad).toBeGreaterThan(0)
     expect(narrow).toBeLessThan(broad)
   })
 
   it('无关查询返回空（不硬凑结果）', () => {
     // 用纯拉丁乱码：含汉字的话会被切成 bigram，可能意外命中真实词组
-    expect(search('zzzqxyz')).toHaveLength(0)
+    expect(searchAll()('zzzqxyz')).toHaveLength(0)
   })
 
   it('四类内容都进了索引', () => {
-    expect(docCount).toBeGreaterThan(0)
-    // 心智模型自 ADR-31 起是「板块下的章节型内容」，走 feature 文档，不再是独立类型
+    const totals: Record<string, number> = {}
+    for (const p of Object.values(payloads)) {
+      for (const [type, n] of Object.entries(p.byType)) totals[type] = (totals[type] ?? 0) + n
+    }
     for (const type of ['feature', 'pitfall', 'glossary', 'roadmap']) {
-      expect(byType[type]).toBeGreaterThan(0)
+      expect(totals[type], `没有 ${type} 类文档`).toBeGreaterThan(0)
     }
   })
 
   it('结果带可跳转的 url（不能只给标题）', () => {
-    for (const hit of search('数组').slice(0, 5)) {
+    for (const hit of searchAll()('作用域').slice(0, 5)) {
       expect(hit.url.startsWith('/')).toBe(true)
       expect(hit.title.length).toBeGreaterThan(0)
     }
@@ -116,101 +144,50 @@ describe('检索', () => {
 })
 
 describe('文档构造', () => {
-  it('每条文档 text 都含语言名，使「语言 + 关键词」可召回', () => {
-    const analysis = analyzeContent()
-    const docs = buildSearchDocs(analysis)
+  it('每条文档 text 都含它所属语言的显示名，使「语言 + 关键词」可召回', () => {
     const features = docs.filter((d) => d.type === 'feature')
     expect(features.length).toBeGreaterThan(0)
-    for (const d of features.slice(0, 10)) {
-      expect(d.text).toContain('javascript')
+    for (const d of features) {
+      const name = analysis.metaById[d.lang]?.name ?? d.lang
+      expect(d.text, `${d.id} 的正文里没有语言名`).toContain(name)
     }
   })
 
   it('文档 id 全局唯一（重复 id 会让 MiniSearch 静默覆盖）', () => {
-    const docs = buildSearchDocs(analyzeContent())
     expect(new Set(docs.map((d) => d.id)).size).toBe(docs.length)
   })
 
-  it('对级内容都带 (基准, 目标) —— 这是分片与查询过滤的依据', () => {
-    const docs = buildSearchDocs(analyzeContent())
+  it('速查三兄弟带 (基准, 目标)，且归入**目标语言**的分片', () => {
     for (const d of docs) {
       if (d.type === 'pitfall' || d.type === 'glossary' || d.type === 'roadmap') {
         expect(d.baseline, d.id).toBeTruthy()
         expect(d.target, d.id).toBeTruthy()
         expect(d.section, d.id).toBeTruthy()
+        // 「带着 A 的习惯写 B 会踩的坑」讲的是 B —— 用户在 /compare/<A>/pitfalls
+        // 时可见列含 B，正好会加载到这份分片
+        expect(d.lang, d.id).toBe(d.target)
       }
     }
   })
 
-  it('心智模型按基准分片，不再是全局共享文档', () => {
-    /*
-     * 这条断言在 ADR-31 之前是反的：那时「心智模型」是与基准无关的一份全局内容，
-     * 26 条概念建成 `baseline: ''` 的文档、三个分片都收，url 一律指向
-     * `/lang/<默认基准>` —— 于是搜「包管理」只会落到同一张只读大表。
-     *
-     * 现在概念按基准视角分别撰写，是**板块下的章节型内容**，走 feature 文档
-     * （带自己的 baseline 与 `/feature/concepts-<基准>/<slug>` 地址）。
-     * 这里钉住的就是这件事：它们必须落在各自基准的分片里，而不是每片都收。
-     */
-    const analysis = analyzeContent()
-    const docs = buildSearchDocs(analysis)
-    const conceptDocs = docs.filter((d) => d.id.includes('concepts-'))
-    expect(conceptDocs.length).toBeGreaterThan(0)
-    for (const d of conceptDocs) {
-      expect(d.type, d.id).toBe('feature')
-      expect(d.baseline, d.id).toBeTruthy()
-      expect(d.url.startsWith('/feature/'), d.id).toBe(true)
-    }
-
-    // 每个概念文档只出现在**它自己基准**的分片里（分片键 = topic 的基准）
-    const payloads = buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z')
-    expect(Object.keys(payloads).sort()).toEqual(['java', 'javascript', 'python'])
-    for (const [baseline, p] of Object.entries(payloads)) {
-      const mine = conceptDocs.filter((d) => d.baseline === baseline).length
-      expect(p.byType.feature, `${baseline} 分片`).toBeGreaterThanOrEqual(mine)
+  it('按语言分片，且每个分片只装本语言的文档', () => {
+    expect(Object.keys(payloads).sort()).toEqual([...analysis.enabledLanguageIds].sort())
+    for (const [lang, payload] of Object.entries(payloads)) {
+      const expected = docs.filter((d) => d.lang === lang).length
+      expect(payload.docCount, `${lang} 分片文档数`).toBe(expected)
     }
   })
 
-  it('每个分片只收本基准的文档', () => {
-    const analysis = analyzeContent()
-    const docs = buildSearchDocs(analysis)
-    const payloads = buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z')
-
-    // 没有「与基准无关」的文档了（见上面那条断言）—— 每条文档恰属于一个基准，
-    // 因此分片文档数就是该基准的文档数，不存在跨片共享的余量。
-    expect(docs.every((d) => d.baseline !== '')).toBe(true)
-    for (const [baseline, payload] of Object.entries(payloads)) {
-      const expected = docs.filter((d) => d.baseline === baseline).length
-      expect(payload.docCount, `${baseline} 分片文档数`).toBe(expected)
-    }
-    // 三套内容确实不同 —— 否则分片就只是徒增文件
-    const pythonOnly = docs.filter((d) => d.baseline === 'python').length
-    expect(pythonOnly).toBeGreaterThan(0)
-    expect(payloads.javascript!.docCount).toBeGreaterThan(payloads.python!.docCount)
+  it('分片只是切分，不是复制 —— 总量与不分片一致', () => {
+    const total = Object.values(payloads).reduce((n, p) => n + p.docCount, 0)
+    expect(total).toBe(docs.length)
   })
 
-  it('查询过滤生效：拿着 A 基准的选项查 B 基准的分片，什么都捞不到', () => {
-    const analysis = analyzeContent()
-    const docs = buildSearchDocs(analysis)
-    const pythonOnly = docs.find(
-      (d) => d.baseline === 'python' && d.type === 'glossary' && d.section === 'glossary',
-    )
-    expect(pythonOnly, '需要一条 python 基准独有的词典条目来验证过滤').toBeTruthy()
-
-    const engine = loadSearchIndex(
-      buildSearchIndexPayloads(analysis, '2026-10-01T00:00:00.000Z').python!.index,
-    )
-    const raw = engine.search(pythonOnly!.title) as unknown as Array<Record<string, unknown>>
-    const filtered = engine.search(
-      pythonOnly!.title,
-      queryOptions('javascript'),
-    ) as unknown as Array<Record<string, unknown>>
-
-    // 不过滤时能命中（文档确实在索引里）；带上 javascript 的过滤条件后必须**一条都不剩** ——
-    // 过滤是「只留 baseline 相等的」，而 python 分片里没有 javascript 基准的文档。
-    // （曾经这里有 `|| baseline === ''` 的兜底，那些全局共享文档已随 ADR-31 消失。）
-    expect(raw.length).toBeGreaterThan(0)
-    expect(raw.some((r) => r.baseline === 'python')).toBe(true)
-    expect(filtered.length).toBe(0)
+  it('对比框两套说明都进索引（差异解释是检索价值最高的部分）', () => {
+    // Python 的每个框都写了 vs.javascript，那段文字必须可搜
+    const py = payloads.python!
+    const engine = loadSearchIndex(py.index)
+    const hits = engine.search('赋值即声明') as unknown as Array<Record<string, unknown>>
+    expect(hits.length).toBeGreaterThan(0)
   })
 })

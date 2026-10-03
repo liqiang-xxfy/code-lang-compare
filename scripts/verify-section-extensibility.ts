@@ -24,17 +24,15 @@ import { readSectionIds } from './build/generate-sections'
  * 若某条白名单的理由读完觉得牵强，那多半说明那里真的该改。
  */
 const ALLOWLIST: Array<{ file: string; ids: string[]; why: string }> = [
-  {
-    file: ['src', 'router', 'index.ts'].join(path.sep),
-    ids: ['basics', 'roadmap'],
-    why:
-      '旧地址 shim：P7 之前的 `/compare/<topicId>/<slug>` 与 `/roadmap/<lang>` ' +
-      '必须点名历史 topic id 才能把它们重定向到新地址',
-  },
+  /*
+   * v2 删掉了旧地址 shim（旧 URL 一律 404），`src/router/index.ts` 原本为
+   * `basics` / `roadmap` 留的条目随之成为死条目，已收敛掉 —— 字面量消失之后再
+   * 留着白名单，就等于给后来的同名写法留了一扇没人记得的后门。
+   */
   {
     file: ['src', 'content', 'search.ts'].join(path.sep),
     ids: ['glossary', 'roadmap'],
-    why: '搜索文档类型与板块名恰好同形，但它是独立的一维（还有 pitfall 单数、concept，本就不是板块）',
+    why: '搜索文档类型与板块名恰好同形，但它是独立的一维（还有 pitfall 单数、feature，本就不是板块）',
   },
   {
     file: ['src', 'views', 'SearchView.vue'].join(path.sep),
@@ -50,6 +48,13 @@ const ALLOWLIST: Array<{ file: string; ids: string[]; why: string }> = [
     file: ['src', 'views', 'HomeView.vue'].join(path.sep),
     ids: ['pitfalls'],
     why: '首页的「最该先知道的坑」区块按 dataKey 定位陷阱板块（不是按板块 id 分支），语义上就必须耦合这个概念',
+  },
+  {
+    file: ['src', 'views', 'FeatureView.vue'].join(path.sep),
+    ids: ['pitfalls'],
+    why:
+      '特性页的「相关迁移陷阱」同样按 dataKey 定位陷阱板块 —— 「这个知识点在别处踩过什么坑」' +
+      '这件事本身就锚在陷阱这个概念上，不是按板块 id 分支',
   },
 ]
 

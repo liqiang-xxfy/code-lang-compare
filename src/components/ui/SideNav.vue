@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from 'vue-router'
 import { computed } from 'vue'
-import { chapterPathOf, orderedSections, sectionUsesTarget, topicOf } from '@/content/repository'
+import { chapterPathOf, chaptersOf, orderedSections, sectionUsesTarget } from '@/content/repository'
 import { sectionEntryPath, sectionOfRoute } from '@/router'
 import { useLanguageStore } from '@/stores/language'
 import { useUiStore } from '@/stores/ui'
@@ -58,19 +58,14 @@ const groups = computed<NavGroup[]>(() => {
   const b = baseline.value
 
   /*
-   * 对级章节板块展开的是**当前方向**的章节。
-   *
-   * 刻意不用 store 里的 `pairTarget`：那个跟着「当前所在板块」走，在基础语法页恒为
-   * null —— 于是同一份左栏在基础语法页少一截、切到列表页又长出来，首页永远是空的。
-   * 这里显式问「这个板块会选哪个方向」，左栏于是在任何页面都是同一份。
+   * 章节来自**清单**，与语言、与基准都无关 —— v2 取消了 topic 这一层之后，
+   * 左栏在任何页面都是同一份，不需要再问「这个板块会选哪个方向」。
    */
-  const chaptersFor = (section: Section): NavChild[] => {
-    const target = languages.resolveTargetFor(section, b)
-    return (topicOf(section, b, target ?? undefined)?.chapters ?? []).map((c) => ({
-      to: chapterPathOf(c.id),
+  const chaptersFor = (section: Section): NavChild[] =>
+    chaptersOf(section).map((c) => ({
+      to: chapterPathOf(b, section, c.id),
       label: c.title,
     }))
-  }
 
   /** 短名 —— 左栏只有 236px，取不到就退回 id */
   const shortOf = (id: string): string => languages.metaOf(id)?.shortName ?? id

@@ -6,7 +6,7 @@ import PitfallCard from '@/components/content/PitfallCard.vue'
 import PageCrumb from '@/components/ui/PageCrumb.vue'
 import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
-import { manifest, sectionDefOf } from '@/content/repository'
+import { featureMetaOf, sectionDefOf } from '@/content/repository'
 import { sectionOfRoute } from '@/router'
 import { usePairPayload } from '@/composables/usePairPayload'
 import { useContentStore } from '@/stores/content'
@@ -55,7 +55,8 @@ const filtered = computed(() => {
 })
 
 function featureTitle(id?: string): string | undefined {
-  return id ? manifest.featureIndex[id]?.title : undefined
+  // 陷阱上的 featureId 是**软引用**，可能指向尚未写到的章节（迁移期普遍如此）
+  return id ? featureMetaOf(id)?.title : undefined
 }
 
 usePageMeta(

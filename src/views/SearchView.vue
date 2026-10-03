@@ -9,8 +9,8 @@
  * 返回键随即不可用。提交时写则拿到「可分享的搜索结果」，两件事都成立 ——
  * 之前这里把「不逐字写」当成了「不写」，于是刷新或分享出去就丢了检索词。
  *
- * 基准也进了 URL（`?baseline=`）：速查页原本只有一句「要搜另一套，先去多语言对比里
- * 切基准」，等于把用户赶出当前页。索引本来就按基准分片，就地切是自然的。
+ * 索引按**语言**分片，这里加载的是**当前可见的那几门**（基准 + 勾选的对比语言），
+ * 于是「搜到的」与「屏幕上能看到的列」天然一致，不需要再在本页做一个范围切换器。
  */
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -26,7 +26,6 @@ import {
   type SearchHit,
 } from '@/content/search'
 import { useLanguageStore } from '@/stores/language'
-import { getLanguageMeta } from '@/generated/registry.gen'
 
 const { t } = useI18n()
 const languages = useLanguageStore()
@@ -34,31 +33,23 @@ const route = useRoute()
 const router = useRouter()
 
 /**
- * 当前检索哪一套内容。
+ * 检索范围 = 当前可见的语言（基准 + 勾选的对比语言）。
  *
- * 优先读地址里的 `?baseline=`（可分享），其次用「上次选择」（localStorage；
- * SSG 期不可用 → 默认基准）。索引按基准分片，切基准要换分片 ——
- * 三套内容全塞一份索引会到三倍体积，而用户一次只关心一套。
+ * 一个分片只装一门语言的文字，所以要加载多份并合并 —— 顺序按可见列的顺序，
+ * 于是结果里的语言顺序与页面上一致。
  */
-const baseline = computed(() => {
-  const fromUrl = String(route.query.baseline ?? '')
-  return languages.baselineCandidates.some((m) => m.id === fromUrl)
-    ? fromUrl
-    : languages.effectiveBaseline
+const scopeLangs = computed(() => {
+  const ids = [languages.effectiveBaseline, ...languages.compareMeta.map((m) => m.id)]
+  return [...new Set(ids)]
 })
-const baselineName = computed(() => getLanguageMeta(baseline.value)?.name ?? baseline.value)
-
-/** 就地换基准：记住选择（供其它页用）并把基准写进地址，不离开速查页 */
-function pickBaseline(id: string): void {
-  if (id === baseline.value) return
-  languages.rememberBaseline(id)
-  void router.replace({ query: { ...route.query, baseline: id } })
-}
+const scopeNames = computed(() =>
+  scopeLangs.value.map((id) => languages.metaOf(id)?.name ?? id).join('、'),
+)
 
 const total = ref(0)
 usePageMeta(
   () => t('search.title'),
-  () => t('search.lead', { count: total.value, baseline: baselineName.value }),
+  () => t('search.lead', { count: total.value, langs: scopeNames.value }),
 )
 
 /** 检索词。初值取地址里的 `?q=`，让分享出去的链接打开就是那次检索的结果 */
@@ -93,30 +84,36 @@ watch(
 /** 示例词刻意覆盖四类检索路径：中文词、代码符号、语言名组合、长词 */
 const SUGGESTIONS = ['可变默认参数', '数组', 'toFixed', '?.', '除以零', '闭包']
 
-let engine: MiniSearch<Record<string, unknown>> | null = null
+/** 每个语言分片一个引擎 —— 一个分片只装一门语言的文字，各搜各的再合并 */
+let engines: Array<MiniSearch<Record<string, unknown>>> = []
 
 function run() {
   const q = query.value.trim()
-  if (!engine || !q) {
+  if (!engines.length || !q) {
     hits.value = []
     return
   }
   /*
-   * 查询选项必须显式带上基准：MiniSearch 的 loadJSON 不会记住 filter，
-   * 而索引里同时有三套内容 —— 不传就等着同一个概念出三条近似结果。
+   * 各分片分别检索后合并。分片之间**没有重叠**（一门语言的文字只索引一次），
+   * 所以不需要按 id 去重 —— 但排序要按得分，否则「先加载的那门语言」永远排在前面。
    */
-  hits.value = toHits(
-    engine.search(q, queryOptions(baseline.value)) as Array<Record<string, unknown>>,
+  const merged = engines.flatMap(
+    (engine) => engine.search(q, queryOptions()) as Array<Record<string, unknown>>,
   )
+  merged.sort((a, b) => Number(b.score ?? 0) - Number(a.score ?? 0))
+  hits.value = toHits(merged)
 }
 
-async function loadShard(baselineId: string): Promise<void> {
+async function loadShards(langs: readonly string[]): Promise<void> {
   status.value = 'loading'
   try {
-    const payload = await getSearchShard(baselineId)
-    if (!payload) throw new Error(`没有 ${baselineId} 的索引分片`)
-    engine = loadSearchIndex(payload.index) as unknown as MiniSearch<Record<string, unknown>>
-    total.value = payload.docCount ?? 0
+    const payloads = await Promise.all(langs.map((id) => getSearchShard(id)))
+    const found = payloads.filter((p): p is NonNullable<typeof p> => Boolean(p))
+    if (!found.length) throw new Error(`没有可用的索引分片：${langs.join(', ')}`)
+    engines = found.map(
+      (p) => loadSearchIndex(p.index) as unknown as MiniSearch<Record<string, unknown>>,
+    )
+    total.value = found.reduce((n, p) => n + (p.docCount ?? 0), 0)
     status.value = 'ready'
     run()
   } catch (err) {
@@ -127,13 +124,13 @@ async function loadShard(baselineId: string): Promise<void> {
 }
 
 onMounted(() => {
-  void loadShard(baseline.value)
+  void loadShards(scopeLangs.value)
 })
 
-watch(baseline, (next) => {
-  engine = null
+watch(scopeLangs, (next) => {
+  engines = []
   hits.value = []
-  void loadShard(next)
+  void loadShards(next)
 })
 
 const ORDER: SearchDocType[] = ['feature', 'pitfall', 'glossary', 'roadmap']
@@ -168,33 +165,13 @@ function onHit(hit: SearchHit): void {
   <div>
     <section class="pc-page-head">
       <h1>{{ t('search.title') }}</h1>
-      <p>{{ t('search.lead', { count: total || '—', baseline: baselineName }) }}</p>
-      <p class="pc-hint" style="margin-top: 6px">{{ t('search.scopeNote', { baseline: baselineName }) }}</p>
+      <p>{{ t('search.lead', { count: total || '—', langs: scopeNames }) }}</p>
+      <p class="pc-hint" style="margin-top: 6px">
+        {{ t('search.scopeNote', { langs: scopeNames }) }}
+      </p>
     </section>
 
     <div class="pc-panel">
-      <!--
-        基准切换器**就地换分片**，不复用 BaselineTabs —— 那个走的是
-        useBaselineSwitch（切换基准 = 导航到另一个板块），会把用户踢出速查页，
-        而这里要的正是「不离开当前页」。
-      -->
-      <div class="pc-search-scope">
-        <span class="pc-hint">{{ t('search.scopeLabel') }}</span>
-        <div class="pc-seg" role="radiogroup" :aria-label="t('search.scopeLabel')">
-          <button
-            v-for="lang in languages.baselineCandidates"
-            :key="lang.id"
-            type="button"
-            role="radio"
-            :aria-checked="lang.id === baseline"
-            :class="{ 'is-on': lang.id === baseline }"
-            @click="pickBaseline(lang.id)"
-          >
-            {{ lang.shortName }}
-          </button>
-        </div>
-      </div>
-
       <form role="search" @submit.prevent="syncQueryToUrl">
         <label class="pc-search-field">
           <span class="pc-visually-hidden">{{ t('search.placeholder') }}</span>
@@ -243,22 +220,3 @@ function onHit(hit: SearchHit): void {
   </div>
 </template>
 
-<style scoped>
-.pc-search-scope {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-/*
- * 选中态。`.pc-seg` 的全局规则只认 `aria-pressed='true'`（顶栏那两个开关用的是
- * 它），这里按 radiogroup 语义用的是 `aria-checked`，所以自带一条 —— 而不是
- * 为了让样式生效去改 ARIA 语义（单选组用 aria-checked 才是对的）。
- */
-.pc-seg button.is-on {
-  background: var(--pc-accent);
-  color: #fff;
-  font-weight: 600;
-}
-</style>

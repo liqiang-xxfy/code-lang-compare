@@ -4,65 +4,69 @@ import { RouterLink } from 'vue-router'
 import CodeBlock from '@/components/code/CodeBlock.vue'
 import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
 import { useI18n } from '@/composables/useI18n'
-import { pickColumns } from '@/composables/useVisibleColumns'
+import { badgeOf, explanationOf } from '@/content/boxView'
 import { getCachedBlockDiffs, getCachedDiff, type LineDiff } from '@/content/diff'
-import { featureAnchor } from '@/content/repository'
-import type { RenderedChapter, RenderedFeature } from '@/schemas'
-import { useLanguageStore } from '@/stores/language'
+import { featureAnchor, featurePathOf } from '@/content/repository'
+import type {
+  CatalogChapter,
+  LanguageMeta,
+  RenderedBox,
+  RenderedBoxChapter,
+  Section,
+} from '@/schemas'
 import { useUiStore } from '@/stores/ui'
 
-const props = defineProps<{ chapter: RenderedChapter; diffMode?: boolean }>()
+/**
+ * 矩阵：行 = 清单里的 feature，列 = 可见语言，格 = 对比框。
+ *
+ * 行与列都来自**清单**（与语言无关），格来自各语言的内容分片 ——
+ * 所以「换对比语言」只是多挂一列，「换基准」只是同一批格子换一种读法。
+ */
+const props = defineProps<{
+  section: Section
+  baseline: string
+  chapter: CatalogChapter
+  columns: LanguageMeta[]
+  /** 已加载的分片，key = 语言 id。缺的那个语言先按「加载中」渲染 */
+  shards: Record<string, RenderedBoxChapter>
+  diffMode?: boolean
+}>()
 
 const ui = useUiStore()
-const languages = useLanguageStore()
 const { t } = useI18n()
 
+/** 全局 feature id —— 锚点与详情页链接都用完整三段，避免跨章同名 slug 撞车 */
+const gidOf = (featureId: string) => `${props.section}/${props.chapter.id}/${featureId}`
+const boxOf = (featureId: string, lang: string): RenderedBox | undefined =>
+  props.shards[lang]?.boxes[featureId]
+
 const rows = computed(() =>
-  props.chapter.features.filter((feature) => {
+  props.chapter.features.filter((f) => {
     if (!ui.onlyDifferent) return true
-    return Object.values(feature.snippets).some((s) => s.equivalence !== 'identical')
+    return props.columns.some((l) => {
+      const box = boxOf(f.id, l.id)
+      if (!box) return false
+      const badge = badgeOf(box, l.id, props.baseline)
+      return badge !== null && badge !== 'identical'
+    })
   }),
 )
 
+/** 徽章行用的列：去掉基准（那枚「=」是自指、零信息量） */
+const comparedColumns = computed(() => props.columns.filter((l) => l.id !== props.baseline))
+
 /**
- * 本章实际覆盖了哪些语言。
+ * 基准列永远不画 diff（它是参照系本身）；diff 在运行时算，按 (feature, 基准, 语言) 缓存。
  *
- * 迁移教程的 topic 只覆盖 from/to 两门（topic.languages），其余列是**本方向不涉及**，
- * 而不是「尚未提供实现」—— 两种含义完全不同的空，用同一句文案会让读者以为内容缺失。
- */
-const coveredLangs = computed(() => {
-  const ids = new Set<string>()
-  for (const f of props.chapter.features) {
-    for (const id of Object.keys(f.snippets)) ids.add(id)
-  }
-  return ids
-})
-const emptyText = (langId: string): string =>
-  coveredLangs.value.has(langId) ? t('emptyCell') : t('emptyCellOutOfScope')
-
-/** 列裁到「本章真有实现」的语言，避免整列都是「本模块不涉及该语言」的噪音 */
-const columns = computed(() => pickColumns(languages.orderedMeta, languages.baseline, coveredLangs.value))
-
-/**
- * 徽章行用的列：**去掉基准语言**。
- * 基准相对它自己恒为「同构」，列进去只会给每一行都挂一个 `[JS =]` 的废话。
- */
-const comparedColumns = computed(() =>
-  columns.value.filter((lang) => lang.id !== languages.baseline),
-)
-
-/**
- * 基准列永远不画 diff（它是参照系本身）；diff 在运行时算，按 (feature,baseline,target) 缓存。
- *
- * 返回值与 `snippet.blocks` 按下标对齐，单段内容恒为长度 1。
+ * 返回值与 `box.blocks` 按下标对齐，单段内容恒为长度 1。
  * 多段**必须逐段算** —— 每段各有自己的行号空间。
  */
-function diffsFor(feature: RenderedFeature, langId: string): Array<LineDiff | null> | null {
-  if (!props.diffMode || langId === languages.baseline) return null
-  const base = feature.snippets[languages.baseline]
-  const target = feature.snippets[langId]
+function diffsFor(featureId: string, lang: string): Array<LineDiff | null> | null {
+  if (!props.diffMode || lang === props.baseline) return null
+  const base = boxOf(featureId, props.baseline)
+  const target = boxOf(featureId, lang)
   if (!base || !target) return null
-  const key = `${feature.id}|${languages.baseline}|${langId}`
+  const key = `${gidOf(featureId)}|${props.baseline}|${lang}`
 
   const baseBlocks = base.blocks?.map((b) => b.code)
   const targetBlocks = target.blocks?.map((b) => b.code)
@@ -76,10 +80,10 @@ function diffsFor(feature: RenderedFeature, langId: string): Array<LineDiff | nu
 }
 
 /** 两侧都是多段、但段数不同 —— 无法逐段对齐 */
-function blocksMismatch(feature: RenderedFeature, langId: string): boolean {
-  if (!props.diffMode || langId === languages.baseline) return false
-  const base = feature.snippets[languages.baseline]
-  const target = feature.snippets[langId]
+function blocksMismatch(featureId: string, lang: string): boolean {
+  if (!props.diffMode || lang === props.baseline) return false
+  const base = boxOf(featureId, props.baseline)
+  const target = boxOf(featureId, lang)
   return Boolean(
     base?.blocks?.length && target?.blocks?.length && base.blocks.length !== target.blocks.length,
   )
@@ -99,28 +103,28 @@ function blocksMismatch(feature: RenderedFeature, langId: string): boolean {
             v-for="lang in columns"
             :key="lang.id"
             scope="col"
-            :class="{ 'is-baseline-col': lang.id === languages.baseline }"
+            :class="{ 'is-baseline-col': lang.id === baseline }"
           >
             {{ lang.name }}
-            <span v-if="lang.id === languages.baseline" class="pc-hint">（基准）</span>
+            <span v-if="lang.id === baseline" class="pc-hint">（基准）</span>
             <span v-if="lang.version" class="pc-hint">{{ lang.version }}</span>
           </th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="feature in rows" :id="featureAnchor(feature.id)" :key="feature.id" class="pc-anchored">
+        <tr v-for="feature in rows" :id="featureAnchor(gidOf(feature.id))" :key="feature.id" class="pc-anchored">
           <th class="pc-col-feature" scope="row">
             <div class="pc-feature-cell">
-              <RouterLink class="pc-feature-title" :to="`/feature/${feature.id}`">
+              <RouterLink class="pc-feature-title" :to="featurePathOf(gidOf(feature.id))">
                 {{ feature.title }}
               </RouterLink>
               <div class="pc-feature-meta">
                 <span class="pc-tag">{{ feature.kind }}</span>
-                <!-- 同 SideBySideLayout：跟着当前可见的列走、标出语言名，基准列由 comparedColumns 排除 -->
+                <!-- 跟着当前可见的列走、标出语言名，基准列由 comparedColumns 排除 -->
                 <template v-for="lang in comparedColumns" :key="lang.id">
                   <EquivalenceBadge
-                    v-if="feature.snippets[lang.id]"
-                    :value="feature.snippets[lang.id]!.equivalence"
+                    v-if="boxOf(feature.id, lang.id) && badgeOf(boxOf(feature.id, lang.id)!, lang.id, baseline)"
+                    :value="badgeOf(boxOf(feature.id, lang.id)!, lang.id, baseline)!"
                     :lang-name="lang.shortName"
                     :compact="true"
                   />
@@ -135,18 +139,22 @@ function blocksMismatch(feature: RenderedFeature, langId: string): boolean {
           <td
             v-for="lang in columns"
             :key="`${feature.id}-${lang.id}`"
-            :class="{ 'is-baseline-col': lang.id === languages.baseline }"
+            :class="{ 'is-baseline-col': lang.id === baseline }"
           >
-            <div v-if="feature.snippets[lang.id]" class="pc-cell-inner">
+            <div v-if="boxOf(feature.id, lang.id)" class="pc-cell-inner">
               <CodeBlock
-                :snippet="feature.snippets[lang.id]!"
+                :box="boxOf(feature.id, lang.id)!"
                 :lang-meta="lang"
-                :diffs="diffsFor(feature, lang.id)"
-                :blocks-mismatch="blocksMismatch(feature, lang.id)"
-                :is-baseline="lang.id === languages.baseline"
+                :explanation-html="explanationOf(boxOf(feature.id, lang.id)!, lang.id, baseline)"
+                :equivalence="badgeOf(boxOf(feature.id, lang.id)!, lang.id, baseline)"
+                :diffs="diffsFor(feature.id, lang.id)"
+                :blocks-mismatch="blocksMismatch(feature.id, lang.id)"
+                :is-baseline="lang.id === baseline"
               />
             </div>
-            <div v-else class="pc-cell-empty">{{ emptyText(lang.id) }}</div>
+            <!-- 分片还没加载完 —— 与「这门语言没写这一格」是两回事 -->
+            <div v-else-if="!shards[lang.id]" class="pc-cell-unwritten">{{ t('loading') }}</div>
+            <div v-else class="pc-cell-unwritten">{{ t('emptyCell') }}</div>
           </td>
         </tr>
 

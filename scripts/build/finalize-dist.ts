@@ -16,6 +16,7 @@ import { resolveBasePath, resolveSiteUrl } from '../lib/env-paths'
 
 const DIST = path.resolve('dist')
 const MANIFEST_PATH = path.resolve('src/generated/manifest.json')
+const CATALOG_PATH = path.resolve('src/generated/catalog.json')
 
 const siteUrlResult = resolveSiteUrl()
 const basePathResult = resolveBasePath()
@@ -29,21 +30,18 @@ interface Manifest {
   /** 预渲染但**不进 sitemap** 的额外路由（/search）—— 详细理由见 04-build.ts */
   prerenderExtra?: string[]
   seo: Record<string, { title: string; description: string }>
-  topics: Array<{
-    id: string
-    title: string
-    section: string
-    baseline: string
-    target?: string
-    chapters: Array<{ id: string; title: string }>
-  }>
   pairs: Array<{ baseline: string; target: string; sections: string[] }>
   sections: Array<{ id: string; shape: string; scope: string; dataKey?: string }>
-  featureIndex: Record<string, { title: string; chapterId: string; topicId: string }>
 }
 
-if (!fs.existsSync(MANIFEST_PATH)) {
-  console.error('[finalize] 找不到 src/generated/manifest.json，请先运行 npm run content:build')
+/** 章节树与 feature 索引在 v2 里单独成文件（清单与语言无关，见 RenderedCatalog） */
+interface Catalog {
+  featureIndex: Record<string, { title: string }>
+  catalogs: Array<{ section: string; chapters: Array<{ id: string; title: string }> }>
+}
+
+if (!fs.existsSync(MANIFEST_PATH) || !fs.existsSync(CATALOG_PATH)) {
+  console.error('[finalize] 找不到 src/generated/{manifest,catalog}.json，请先运行 npm run content:build')
   process.exit(1)
 }
 if (!fs.existsSync(DIST)) {
@@ -52,6 +50,24 @@ if (!fs.existsSync(DIST)) {
 }
 
 const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8')) as Manifest
+const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, 'utf8')) as Catalog
+
+/**
+ * 「加载中…」的文案 —— 预渲染产物里**不该出现**它。
+ *
+ * 这是「预渲染出空壳」的一个真实形态：页面结构齐全、标题正确，但某些格子还停在
+ * 装载态。它踩过一次：章节页只等基准列的分片，其余列在 SSG 同步渲染时还没到，
+ * 于是预渲染出来的 HTML 里第二列往后全是「加载中…」—— 标题探针查不出来，
+ * 线上表现是「爬虫与首屏都读不到对比内容」。
+ *
+ * `/search` 是**例外**：它的索引本来就在挂载后才加载，空输入框那页确实处于装载态。
+ */
+const LOADING_TEXT = (
+  JSON.parse(fs.readFileSync(path.resolve('src/generated/i18n.json'), 'utf8')) as Record<
+    string,
+    unknown
+  >
+).loading as string | undefined
 
 const esc = (s: string): string =>
   String(s)
@@ -84,31 +100,18 @@ function pickPair(baseline: string, section: string) {
 /**
  * 每条路由用来验证「内容确实被预渲染了」的探针文本。
  *
- * ⚠ 这里曾用 `/^\/compare\/([^/]+)\/([^/]+)$/` —— 那是 P7 之前**两段旧地址**的形状，
- * 而现在的章节路由是 4 段（`/compare/<基准>/<板块>/<章节 slug>`）。
- * 结果是**所有 /compare 路由的验收都静默失效**（正则不匹配 → 返回 null → 跳过检查），
- * 只有 /feature 那几条还在真正工作。也就是说「空壳预渲染会在这里失败」这句话，
- * 对板块页一直没有兑现。
+ * ⚠ 这里曾用 `/^\/compare\/([^/]+)\/([^/]+)$/` —— 那是旧版**两段地址**的形状，
+ * 而章节路由是 4 段（`/compare/<基准>/<板块>/<章节>`）。结果是**所有 /compare 路由的
+ * 验收都静默失效**（正则不匹配 → 返回 null → 跳过检查）。v2 把 feature 路由从 2 段
+ * 改成 3 段时同理：**正则改漏一处，验收就悄悄不干活了**。
  */
 function probeTextFor(route: string): string | null {
-  // 章节型：/compare/<基准>/<板块>/<章节 slug>
+  // 章节型：/compare/<基准>/<板块>/<章节> —— 章节 id 即文件名，与语言无关
   const chapter = /^\/compare\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(route)
   if (chapter) {
-    const [, baseline, section, slug] = chapter
-    const def = manifest.sections.find((s) => s.id === section)
-    if (!def) return null
-    /*
-     * 对级板块必须连 target 一起匹配 —— 多个方向会有同名 slug（`01-functions` 到处都是），
-     * 而预渲染出来的那一页只讲**默认方向**（与运行时 resolvePairTarget 同规则）。
-     */
-    const target = def.scope === 'pair' ? pickPair(baseline!, section!)?.target : undefined
-    const topic = manifest.topics.find(
-      (t) =>
-        t.baseline === baseline &&
-        t.section === section &&
-        (def.scope !== 'pair' || t.target === target),
-    )
-    return topic?.chapters.find((c) => c.id.split('/')[1] === slug)?.title ?? null
+    const [, , section, chapterId] = chapter
+    const c = catalog.catalogs.find((x) => x.section === section)
+    return c?.chapters.find((x) => x.id === chapterId)?.title ?? null
   }
 
   // 列表型：/compare/<基准>/<板块> —— 用该方向首条内容的标题做探针
@@ -127,8 +130,9 @@ function probeTextFor(route: string): string | null {
     return (first?.title as string) ?? (first?.term as string) ?? null
   }
 
-  const feature = /^\/feature\/([^/]+)\/([^/]+)$/.exec(route)
-  if (feature) return manifest.featureIndex[`${feature[1]}/${feature[2]}`]?.title ?? null
+  // 特性页：/feature/<板块>/<章节>/<feature> —— 全局 id 三段
+  const feature = /^\/feature\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(route)
+  if (feature) return catalog.featureIndex[`${feature[1]}/${feature[2]}/${feature[3]}`]?.title ?? null
   return null
 }
 
@@ -186,6 +190,14 @@ for (const route of allRoutes) {
   const probe = probeTextFor(route)
   if (probe && !html.includes(probe)) {
     console.error(`  ✗ ${route} 的预渲染 HTML 里找不到预期内容：「${probe}」`)
+    failed += 1
+  }
+  /*
+   * 再看一眼「有没有格子还停在装载态」。标题探针只证明**页面**渲染了，
+   * 证明不了**每一列**都渲染了 —— 后者要靠这条。
+   */
+  if (LOADING_TEXT && !route.startsWith('/search') && html.includes(`>${LOADING_TEXT}<`)) {
+    console.error(`  ✗ ${route} 的预渲染 HTML 里还有「${LOADING_TEXT}」—— 有内容分片没在渲染前加载完`)
     failed += 1
   }
 }

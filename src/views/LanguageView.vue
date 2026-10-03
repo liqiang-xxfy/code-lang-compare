@@ -5,11 +5,12 @@ import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
 import PageCrumb from '@/components/ui/PageCrumb.vue'
 import {
+  chaptersOf,
   chapterPathOf,
   firstChapterSection,
+  hasBoxChapter,
   manifest,
   orderedSections,
-  sectionFirstChapterPath,
 } from '@/content/repository'
 import { sectionEntryPath } from '@/router'
 import { getLanguageMeta } from '@/generated/registry.gen'
@@ -35,7 +36,10 @@ usePageMeta(
  */
 const asBaseline = computed(() => {
   const section = firstChapterSection()
-  return section ? sectionFirstChapterPath(section, langId.value) : null
+  if (!section) return null
+  // 落到**这门语言确实写了**的第一章，而不是清单首章 —— 后者可能还没内容
+  const first = chaptersOf(section).find((c) => hasBoxChapter(langId.value, section, c.id))
+  return first ? chapterPathOf(langId.value, section, first.id) : null
 })
 
 const asTarget = computed(() =>
@@ -77,16 +81,24 @@ const languageFacts = computed(() => {
 })
 
 /**
- * 本语言相关的章节 —— 两个方向都算：它是某套内容的**基准**，或它是某个方向的**目标**。
+ * 本语言写了内容的章节 —— 判据是**它真有这一章的分片**。
  *
- * 此前这里是 `manifest.topics.flatMap(...)`，**一门语言的页面列出了全站所有章节** ——
- * Java 页里会出现「JavaScript → Python」的章节。判据本来就在三轴字段上，不需要猜。
+ * 清单与语言无关（三个基准共用同一套章节），所以「本语言相关」这件事只能由
+ * 「写没写」回答。此前这里是 `manifest.topics.flatMap(...)`，
+ * **一门语言的页面列出了全站所有章节**。
  */
 const chapters = computed(() =>
-  manifest.topics
-    .filter((topic) => topic.baseline === langId.value || topic.target === langId.value)
-    .flatMap((topic) =>
-      topic.chapters.map((chapter) => ({ ...chapter, topicTitle: topic.title })),
+  orderedSections()
+    .filter((s) => s.shape === 'chapter')
+    .flatMap((s) =>
+      chaptersOf(s.id)
+        .filter((c) => hasBoxChapter(langId.value, s.id, c.id))
+        .map((c) => ({
+          id: c.id,
+          title: c.title,
+          sectionTitle: s.title,
+          to: chapterPathOf(langId.value, s.id, c.id),
+        })),
     ),
 )
 </script>
@@ -144,9 +156,9 @@ const chapters = computed(() =>
     <section style="margin-bottom: 20px">
       <h2 style="font-size: var(--pc-fs-xl); margin-bottom: 10px">章节入口</h2>
       <ul class="pc-tree">
-        <li v-for="chapter in chapters" :key="chapter.id">
-          <RouterLink :to="chapterPathOf(chapter.id)">
-            {{ chapter.topicTitle }} / {{ chapter.title }}
+        <li v-for="chapter in chapters" :key="`${chapter.sectionTitle}/${chapter.id}`">
+          <RouterLink :to="chapter.to">
+            {{ chapter.sectionTitle }} / {{ chapter.title }}
           </RouterLink>
         </li>
       </ul>

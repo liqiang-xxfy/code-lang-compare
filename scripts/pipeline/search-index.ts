@@ -1,15 +1,19 @@
 /**
- * 构建期生成搜索索引（架构定稿 §8.3 预留的 `search-index` 生成钩子）。
+ * 构建期生成搜索索引。
  *
  * 为什么在构建期而不是客户端：
  *  · 索引与内容天然同源 —— 不会出现「内容更新了但索引还是旧的」
  *  · 客户端拿到 `loadJSON` 即可检索，零建索引开销（首次进搜索页也不卡）
  *  · 中文分词需要跑 bigram，放在构建期做一次，比在每个用户浏览器里做更划算
+ *
+ * v2 改成**按语言分片**：内容本来就按语言组织，一门语言的文字只索引一次
+ * （全站总量 ≈ 1×）。旧架构按基准分片，同一段文字要在 3 个分片里各存一份。
  */
 import MiniSearch from 'minisearch'
 import type { Analysis } from '../lib/analyze'
 import { extractNotes } from '../lib/core'
 import { indexOptions, type SearchDoc, type SearchDocType } from '../../src/content/search'
+import type { Section } from '../../src/schemas'
 
 /**
  * 把 Markdown 粗剥成纯文本。
@@ -30,82 +34,82 @@ export function buildSearchDocs(a: Analysis): SearchDoc[] {
   const docs: SearchDoc[] = []
   const nameOf = (id: string) => a.metaById[id]?.name ?? id
 
-  /* ── 1. 对照特性 ── */
-  for (const chapter of a.chapters) {
-    const cfg = a.registry.topics[chapter.topicId]
-    if (!cfg?.enabled) continue
-    const context = `${cfg.title} ${chapter.title}`
-    for (const feature of chapter.features) {
+  /* ── 1. 对比框（每个 feature × 每门写了它的语言一条） ── */
+  for (const f of a.features) {
+    const bucket = a.boxes.get(f.id)
+    if (!bucket) continue
+    const chapterTitle = a.catalogBySection[f.section]?.chapters.find((c) => c.id === f.chapter)?.title ?? ''
+    const context = `${a.registry.sections[f.section]?.title ?? f.section} ${chapterTitle}`
+
+    for (const [lang, box] of bucket) {
+      const commentLine = a.metaById[lang]?.comment.line
       const extra: string[] = []
-      const bucket = a.snippets.get(feature.id)
-      if (bucket) {
-        for (const [lang, snippet] of bucket) {
-          // @note 注记是内容里检索价值最高的部分
-          // （「改内容会传染，改绑定不会」这类可背诵的结论就写在注记里）
-          const commentLine = a.metaById[lang]?.comment.line
-          if (commentLine && snippet.code) {
-            // 用 allNotes 而非 notes：notes 只收高危项，会漏掉普通注记的文本，
-            // 而两种语气的说明文本都是内容里检索价值最高的部分
-            const { allNotes } = extractNotes(snippet.code, commentLine)
-            for (const n of allNotes) extra.push(n.text)
-          }
-          if (snippet.body) extra.push(plain(snippet.body))
+      if (commentLine) {
+        const raw = box.blocks?.length ? box.blocks.map((b) => b.code).join('\n') : box.code
+        if (raw.trim()) {
+          // 用 allNotes 而非 notes：notes 只收高危项，会漏掉普通注记的文本，
+          // 而两种语气的说明文本都是内容里检索价值最高的部分
+          for (const n of extractNotes(raw, commentLine).allNotes) extra.push(n.text)
         }
       }
+      /*
+       * 第 ③ 槽**两套都进索引**：一个分片只装一门语言的文字，所以这里不会重复；
+       * 漏掉 vs 那一半就等于把「差异解释」——内容里最该被搜到的部分——排除掉了。
+       */
+      if (box.baseline) extra.push(plain(box.baseline))
+      for (const text of Object.values(box.vs)) if (text.trim()) extra.push(plain(text))
+
       docs.push({
-        id: `feature:${feature.id}`,
+        id: `feature:${lang}:${f.id}`,
         type: 'feature',
-        title: feature.title,
+        title: f.feature.title,
         text: [
-          feature.summary ?? '',
-          plain(feature.body ?? ''),
+          f.feature.summary ?? '',
           extra.join(' '),
           context,
-          // 语言名进正文，这样「python 数组」这类带语言的查询能命中所有相关条目
-          a.enabledLanguageIds.join(' '),
-          feature.tags.join(' '),
+          // 语言名进正文，这样「python 作用域」这类带语言的查询能命中
+          nameOf(lang),
+          lang,
+          f.feature.tags.join(' '),
         ]
           .filter(Boolean)
           .join(' '),
-        url: `/feature/${feature.id}`,
-        meta: cfg.target ? `${nameOf(cfg.baseline)} → ${nameOf(cfg.target)} · ${chapter.title}` : context,
-        baseline: cfg.baseline,
-        section: cfg.section,
-        ...(cfg.target ? { target: cfg.target } : {}),
+        url: `/feature/${f.id}`,
+        meta: `${nameOf(lang)} · ${context}`,
+        lang,
+        section: f.section as Section,
       })
     }
   }
 
+  /* ── 2. 速查三兄弟（方向性内容，归入**目标语言**的分片） ── */
+  /*
+   * 为什么归目标语言：「带着 JS 习惯写 Python 会踩的坑」讲的是 Python。
+   * 用户在 `/compare/javascript/pitfalls` 时可见列含 Python（基准 + 目标），
+   * 正好会加载到这份分片。
+   */
   for (const pair of a.pairs) {
     const pairLabel = `${nameOf(pair.baseline)} → ${nameOf(pair.target)}`
+    const lang = pair.target
 
-    /* ── 2. 迁移陷阱（全站最高价值的内容，必须可搜） ── */
     for (const p of pair.pitfalls) {
       docs.push({
         id: `pitfall:${pair.baseline}:${pair.target}:${p.id}`,
         type: 'pitfall',
         title: p.title,
-        text: [
-          plain(p.symptom),
-          plain(p.cause),
-          plain(p.fix),
-          p.tags.join(' '),
-          p.languages.join(' '),
-        ]
+        text: [plain(p.symptom), plain(p.cause), plain(p.fix), p.tags.join(' '), p.languages.join(' ')]
           .filter(Boolean)
           .join(' '),
-        // pitfall.id 本身已带 `pitfall-` 前缀，直接用它做锚点，避免出现 `#pitfall-pitfall-xxx`
-        // 目标语言不在地址里（P8 起由页内选择条决定），所以链到板块页即可 ——
-        // 点进结果时视图会把 hit.target 并进选择，落在正确的方向上。
+        // pitfall.id 本身已带 `pitfall-` 前缀，直接用它做锚点
         url: `/compare/${pair.baseline}/pitfalls#${p.id}`,
         meta: `${pairLabel} · 严重度 ${'★'.repeat(p.severity)}`,
-        baseline: pair.baseline,
+        lang,
         section: 'pitfalls',
+        baseline: pair.baseline,
         target: pair.target,
       })
     }
 
-    /* ── 4. 速语词典（同名不同义 / 异名同义） ── */
     for (const t of pair.glossary) {
       docs.push({
         id: `glossary:${pair.baseline}:${pair.target}:${t.term}`,
@@ -116,13 +120,13 @@ export function buildSearchDocs(a: Analysis): SearchDoc[] {
           .join(' '),
         url: `/compare/${pair.baseline}/glossary#term-${encodeURIComponent(t.term)}`,
         meta: t.aliases.length ? `${pairLabel} · 又称 ${t.aliases.join(' / ')}` : `${pairLabel} · 速语词典`,
-        baseline: pair.baseline,
+        lang,
         section: 'glossary',
+        baseline: pair.baseline,
         target: pair.target,
       })
     }
 
-    /* ── 5. 迁移学习路线阶段 ── */
     for (const stage of pair.roadmaps) {
       docs.push({
         id: `roadmap:${pair.baseline}:${pair.target}:${stage.id}`,
@@ -138,49 +142,37 @@ export function buildSearchDocs(a: Analysis): SearchDoc[] {
           .join(' '),
         url: `/compare/${pair.baseline}/roadmap`,
         meta: `${pairLabel} · 学习路线`,
-        baseline: pair.baseline,
+        lang,
         section: 'roadmap',
+        baseline: pair.baseline,
         target: pair.target,
       })
     }
   }
-
-  /*
-   * 心智模型**没有**单独一支 —— 它已经是「心智模型」板块下的普通章节型内容，
-   * 上面第 1 步的章节循环会为它的每条概念生成 feature 文档（带自己的
-   * baseline 与 url `/feature/concepts-<基准>/<slug>`）。
-   *
-   * 这里曾经有一支特判，把 26 条概念建成 `type: 'concept'`、`baseline: ''` 的
-   * 全局文档，url 一律指向 `/lang/<默认基准>` —— 那套模型假设「概念与基准无关」。
-   * 概念改为按基准视角撰写之后（ADR-31），特判会与 feature 文档重复收录同一内容，
-   * 且把所有结果都指向同一个页面。
-   */
 
   return docs
 }
 
 export interface SearchIndexPayload {
   generatedAt: string
-  baseline: string
+  /** 分片键 = 语言 id */
+  lang: string
   docCount: number
   byType: Record<SearchDocType, number>
   /** MiniSearch 序列化索引（字符串）—— 客户端 loadJSON 后直接可搜 */
   index: string
 }
 
-function payloadOf(docs: SearchDoc[], baseline: string, generatedAt: string): SearchIndexPayload {
+function payloadOf(docs: SearchDoc[], lang: string, generatedAt: string): SearchIndexPayload {
   const mini = new MiniSearch<SearchDoc>(indexOptions())
   mini.addAll(docs)
 
-  const byType = { feature: 0, pitfall: 0, glossary: 0, roadmap: 0 } as Record<
-    SearchDocType,
-    number
-  >
+  const byType = { feature: 0, pitfall: 0, glossary: 0, roadmap: 0 } as Record<SearchDocType, number>
   for (const d of docs) byType[d.type] += 1
 
   return {
     generatedAt,
-    baseline,
+    lang,
     docCount: docs.length,
     byType,
     // 序列化成字符串再落盘：客户端 loadJSON 直接消费，不必先 JSON.parse 一层
@@ -189,25 +181,21 @@ function payloadOf(docs: SearchDoc[], baseline: string, generatedAt: string): Se
 }
 
 /**
- * 按基准分片。**为什么不分片不行**：内容按 (基准, 目标) 对拆成三套后，
- * 单个索引会涨到三倍（现状已 104 KB(gz)，超 90 KB 红线），而用户一次只看一套。
- * 分片把「一次下载量」压回与分片前同级，同时让查询侧不必再过滤掉三分之二的结果。
+ * 按语言分片。客户端只加载**当前可见列**对应的那几份（基准 + 勾选的对比语言），
+ * 于是搜索结果天然与屏幕上能看到的列一致，不需要查询侧再过滤。
  *
- * 取舍：3 个分片文件而不是 1 个，且客户端必须用 `import.meta.glob`（不能拼字符串动态 import）。
+ * 取舍：分片数从 3 涨到「启用语言数」，但每片只装一门语言的文字，总量 ≈ 1×。
  */
 export function buildSearchIndexPayloads(
   a: Analysis,
   generatedAt: string,
 ): Record<string, SearchIndexPayload> {
   const docs = buildSearchDocs(a)
-  const baselines = new Set(a.metas.filter((m) => m.baseline).map((m) => m.id))
-  baselines.add(a.registry.defaultBaseline)
-
   const out: Record<string, SearchIndexPayload> = {}
-  for (const baseline of [...baselines].sort()) {
-    out[baseline] = payloadOf(
-      docs.filter((d) => d.baseline === baseline || d.baseline === ''),
-      baseline,
+  for (const lang of a.enabledLanguageIds) {
+    out[lang] = payloadOf(
+      docs.filter((d) => d.lang === lang),
+      lang,
       generatedAt,
     )
   }

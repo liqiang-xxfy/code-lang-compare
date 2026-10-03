@@ -9,7 +9,6 @@
  * （覆盖率按 topic.languages 范围、板块成员资格、多列板块的正文归属…）在 v2
  * 只有一种形态后不再需要，取而代之的是 R20–R26。
  */
-import path from 'node:path'
 import type {
   AttributionEntry,
   BoxSource,
@@ -33,7 +32,6 @@ import {
   loadLanguageContent,
   loadPairListsV2,
   loadRegistry,
-  ROOT,
   type LanguageChapterContent,
   type PairListsV2,
 } from './core'
@@ -127,8 +125,6 @@ export interface Analysis {
     coverage: Record<string, { have: number; total: number }>
   }
 }
-
-const rel = (p: string) => path.relative(ROOT, p).replace(/\\/g, '/')
 
 /** 三槽全空？ */
 const isEmptyBox = (b: BoxSource): boolean =>

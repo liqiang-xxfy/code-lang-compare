@@ -718,15 +718,6 @@ export interface Manifest {
    * 选渲染器，以及判断「这个板块有没有方向」。与 registry.yaml 的 sections 同源。
    */
   sections: Array<SectionDef & { id: Section }>
-  /** 左栏按 section 分组、按 baseline 过滤都靠这里，不需要客户端解析目录 */
-  topics: Array<{
-    id: string
-    title: string
-    section: Section
-    baseline: string
-    target?: string
-    chapters: ManifestChapter[]
-  }>
   /**
    * 实际存在的 (基准, 目标) 方向。
    *
@@ -734,10 +725,16 @@ export interface Manifest {
    * 与 routes 同源，因此不可能出现「导航里有、路由里没有」。
    */
   pairs: ManifestPair[]
-  featureIndex: Record<string, { title: string; chapterId: string; topicId: string }>
+  /**
+   * 章节树与 feature 索引**不在这里** —— v2 的清单与语言无关，
+   * 单独落在 `src/generated/catalog.json`（见 `RenderedCatalog`）。
+   * 两者的共同点是「小、可 eager import」，分开是为了让 manifest 只管
+   * 路由 / SEO / 板块 / 方向这四件事。
+   */
   counts: {
     features: number
-    snippets: number
+    /** 对比框总数（v1 的 snippets） */
+    boxes: number
     byState: Record<string, number>
   }
 }

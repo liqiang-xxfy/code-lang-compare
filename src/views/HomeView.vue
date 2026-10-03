@@ -2,7 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { usePageMeta } from '@/composables/usePageMeta'
-import { chaptersForSection, manifest, orderedSections } from '@/content/repository'
+import { chaptersOf, manifest, orderedSections } from '@/content/repository'
 import { compareEntryPath, sectionEntryPath } from '@/router'
 import { useContentStore } from '@/stores/content'
 import {
@@ -27,23 +27,26 @@ const nameOf = (id: string) => getLanguageMeta(id)?.name ?? id
 const defaultBaselineName = nameOf(defaultBaselineLanguageId)
 const defaultCompareName = nameOf(defaultCompareLanguageId)
 
-/** 三个基准入口 —— 每个基准有自己的一套内容与地址 */
+/**
+ * 清单规模 —— v2 里清单与语言无关，所以三个基准共用同一套章节与知识点。
+ * 各基准的差别在**写了多少**，不在清单本身；每个基准卡片都链到自己的落点，
+ * 那里按实际有内容的章节落地（`compareEntryPath` 找不到就返回 /404）。
+ */
+const catalogChapters = orderedSections()
+  .filter((s) => s.shape === 'chapter')
+  .flatMap((s) => chaptersOf(s.id))
+const catalogFeatureCount = catalogChapters.reduce((n, c) => n + c.features.length, 0)
+
+/** 三个基准入口 —— 每个基准有自己的一套地址与浏览语境 */
 const baselineCards = computed(() =>
-  baselineLanguageIds.map((id) => {
-    const topics = manifest.topics.filter((x) => x.baseline === id && x.chapters.length > 0)
-    const features = topics.reduce(
-      (n, x) => n + x.chapters.reduce((m, c) => m + c.featureIds.length, 0),
-      0,
-    )
-    return {
-      id,
-      name: nameOf(id),
-      // 与顶栏、URL 走同一个落点函数，不自己拼地址 —— 首页入口曾因手拼地址全部 404
-      to: compareEntryPath(id),
-      chapterCount: topics.reduce((n, x) => n + x.chapters.length, 0),
-      featureCount: features,
-    }
-  }),
+  baselineLanguageIds.map((id) => ({
+    id,
+    name: nameOf(id),
+    // 与顶栏、URL 走同一个落点函数，不自己拼地址 —— 首页入口曾因手拼地址全部 404
+    to: compareEntryPath(id),
+    chapterCount: catalogChapters.length,
+    featureCount: catalogFeatureCount,
+  })),
 )
 
 /** 「最该先知道的坑」区块的落点 —— 声明了该 dataKey 的板块 */
@@ -56,12 +59,12 @@ const pitfallsEntry = computed(() => {
 const sectionEntries = computed(() => {
   const b = defaultBaselineLanguageId
   /*
-   * 计数按板块的 `scope` 分：基准级板块只有一份内容（数章节），
-   * 对级板块每个方向一份（数方向）。若按 `shape` 分，迁移教程会被数成 1 章。
+   * 计数按板块的 `scope` 分：基准级板块数章节（清单与语言无关），
+   * 对级板块每个方向一份（数方向）。若按 `shape` 分，速查板块会被数成 1。
    */
   const countOf = (section: Section, scope: string) =>
     scope === 'baseline'
-      ? chaptersForSection(section, b).length
+      ? chaptersOf(section).length
       : manifest.pairs.filter((p) => p.baseline === b && p.sections.includes(section)).length
 
   return orderedSections().map((def) => ({
@@ -180,7 +183,7 @@ usePageMeta(
       <h2 style="font-size: var(--pc-fs-xl); margin-bottom: 6px">内容规模</h2>
       <p class="pc-hint" style="margin: 0">
         {{ enabledLanguageMeta.length }} 门语言（{{ enabledLanguageIds.map(nameOf).join(' / ') }}）
-        · {{ manifest.counts.features }} 个对照点 · {{ manifest.counts.snippets }} 条实现
+        · {{ manifest.counts.features }} 个对照点 · {{ manifest.counts.boxes }} 个对比框
         · {{ manifest.pairs.length }} 个迁移方向
       </p>
     </section>

@@ -2,12 +2,16 @@
 import { RouterLink } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
-import { manifest } from '@/content/repository'
+import { firstChapterSection } from '@/content/repository'
+import { sectionEntryPath } from '@/router'
+import { defaultBaselineLanguageId } from '@/generated/registry.gen'
 
 const { t } = useI18n()
 usePageMeta(() => '页面不存在')
 
-const first = manifest.topics[0]?.chapters[0]
+/** 兜底跳转：默认基准下第一个真正有内容的章节 */
+const firstSection = firstChapterSection()
+const firstPath = firstSection ? sectionEntryPath(defaultBaselineLanguageId, firstSection) : '/404'
 </script>
 
 <template>
@@ -16,8 +20,8 @@ const first = manifest.topics[0]?.chapters[0]
     <p>可能链接拼错了，或者这个特性还没写。</p>
     <p style="margin-top: 14px">
       <RouterLink to="/">{{ t('backHome') }}</RouterLink>
-      <template v-if="first">
-        · <RouterLink :to="`/compare/${first.id}`">去第一条对照章节</RouterLink>
+      <template v-if="firstPath !== '/404'">
+        · <RouterLink :to="firstPath">去第一条对照章节</RouterLink>
       </template>
     </p>
   </div>

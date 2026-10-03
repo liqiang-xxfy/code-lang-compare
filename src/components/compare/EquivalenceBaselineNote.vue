@@ -5,10 +5,12 @@
  * 为什么需要它：徽章（= ≈ ≠ ∅）是**人手写的绝对值**（「Python 没有 var 提升」这类
  * 事实机器判不了），所以必须说清楚它是以谁为参照系判的。
  *
- * P7 之前参照系是一个全局常量，说明的作用是「提醒你它不随基准变」；
- * 现在内容按 (基准, 目标) 对撰写（ADR-24），参照系就是**本页的基准**，
- * 说明的作用变成了「这一页的判断标准是什么」—— 仍然必须写，否则读者会
- * 以为徽章是相对于「另一侧的对比语言」的。
+ * 参照系是**本页的基准**（由地址里的基准参数决定），说明的作用是
+ * 「这一页的判断标准是什么」—— 必须写，否则读者会以为徽章是相对于
+ * 「另一侧的对比语言」的。
+ *
+ * 基准名由调用方传入，不读 store：页面的基准来自地址，而 store 里那个
+ * `effectiveBaseline` 在守卫跑完之前还停在「上次选择」上。
  *
  * **默认收起**：这段话在每一页都出现，而章节页正文之前已经堆了面包屑、标题、
  * 草稿提示、语言条、视图模式五层。收起的是「四个符号各是什么意思」这段，
@@ -18,14 +20,12 @@
 import { computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { usePersistedState } from '@/composables/usePersistedState'
-import { useLanguageStore } from '@/stores/language'
+import { getLanguageMeta } from '@/generated/registry.gen'
 
+const props = defineProps<{ baseline: string }>()
 const { t } = useI18n()
-const languages = useLanguageStore()
 
-const baselineName = computed(
-  () => languages.metaOf(languages.effectiveBaseline)?.name ?? languages.effectiveBaseline,
-)
+const baselineName = computed(() => getLanguageMeta(props.baseline)?.name ?? props.baseline)
 
 /** 展开态是个人偏好，跨页记住 —— 读懂了就不必每页再展开一次 */
 const open = usePersistedState<boolean>('ui:eqLegend', false)
