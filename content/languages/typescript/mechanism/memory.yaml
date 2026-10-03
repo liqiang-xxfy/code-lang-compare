@@ -1,0 +1,207 @@
+# typescript —— mechanism / memory
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: memory` 的那批：
+# value-vs-reference / garbage-collection / ownership-borrow / lifetime / weak-reference。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 其他语言的简称同样会被检测成屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：这一组里 TypeScript 与 JavaScript 共享同一套运行时，所以
+# **value-vs-reference / garbage-collection / weak-reference 三格是「同一件事 + 类型层」**，
+# 真正说得上差别的是另外两格 —— 而它们都是 `absent`：
+# 没有所有权与借用（ownership-borrow），也没有能把引用有效期写出来的语法（lifetime）。
+# 写这两格时不要为了填满而造概念；说清「没有这个东西」本身对读者就是有用的。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  value-vs-reference:
+    code: |
+      // 基本类型赋值：复制值
+      let a = 1;
+      const b = a;
+      console.info(b);            // @note 改 b 不影响 a —— 两边各有一份
+
+      // 对象赋值：复制的是**引用**
+      const o1 = { n: 1 };
+      const o2 = o1;
+      o2.n = 9;                   // @note o1.n 也变成 9
+
+      // 传参同理：重新赋值不影响调用方，改内容会
+      function rebind(x: { n: number }) { x = { n: 0 }; }   // @note 调用方看不到
+      function mutate(x: { n: number }) { x.n = 0; }        // @note 调用方看得到
+      rebind(o1); mutate(o1);
+
+      // const 挡的是「重新绑定」，不是「改内容」
+      const o3 = { n: 1 };
+      // o3 = { n: 2 };           // @note! 编译错误：不能给常量重新赋值
+      o3.n = 2;                   // @note 内容照改
+    vs:
+      javascript: |
+        两边是同一套语义：基本类型按值、对象按引用 —— 这一格没有可写的差别，
+        类型标注一点也改变不了赋值行为。
+        容易记错的是「JavaScript 是传引用还是传值」这个老问题：
+        两边都是**按值传递**，只是对象传的那个「值」本身是一个引用 ——
+        所以重新赋值参数调用方看不见，改对象内容却看得见。
+        想切断共享得显式深拷贝（`structuredClone`），这一点两边也一样。
+      python: |
+        Python 的赋值是**给对象起名字**，从来不复制；分界线也不看「基本类型还是对象」，
+        而看**可变性**：`list`/`dict` 共享，`tuple`/`str` 不可变所以看不出差别。
+        这里的分界线是「是不是对象引用」—— 与另一门语言的分法不同，
+        于是「这行赋值到底复制了没有」的答案，两边要按不同的线索去猜。
+        传参那一侧两边一致：都是按值传递那个引用，绑定与改内容是两回事。
+      java: |
+        划分方式最接近：两边都把类型分成「基本类型」与「对象」，
+        基本类型赋值复制值、对象赋值复制引用。差别在**哪些算基本类型** ——
+        Java 有一整套基本类型与对应的装箱类型，赋值时要不要装箱、比不比得上
+        都有讲究；这里的类型是同一套结构，没有这层区分。
+        另一处：Java 的 `final` 同样只挡重新绑定、不挡改内容，两边一致。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
+
+  garbage-collection:
+    code: |
+      // 回收时机由引擎决定：语言层没有可以观察或触发它的 API
+      // console.info(globalThis.gc);   // @note! 默认不存在 —— 引擎要开专门开关才有
+
+      let data: number[] | null = new Array(1e6).fill(0);
+      data = null;              // @note 只是「不再可达」；什么时候真回收由引擎定
+
+      // 能插手的两处，官方都不保证时机：
+      const ref = new WeakRef({ id: 1 });          // @note 不阻止回收，取用时可能已经没了
+      const reg = new FinalizationRegistry((tag: string) => {
+        console.info(`回收了 ${tag}`);              // @note 不保证调用，调用也不保证何时
+      });
+      reg.register({ id: 2 }, "临时对象");
+    vs:
+      javascript: |
+        同一套引擎、同一套规则，类型标注管不到堆上的事。
+        值得记住的是**官方对时机的措辞**：什么时候回收、怎么回收、
+        到底回不回收，都取决于具体实现；清理回调甚至**不要求被调用**。
+        所以「对象回收时顺便做点事」不能当程序逻辑用 ——
+        这一格两边完全一致，差别只在于这里多了一层「看起来有类型、
+        其实是运行时」的错觉。
+      python: |
+        最大的差别在**释放的确定性**。Python 以引用计数为主，
+        计数归零就立刻释放，所以「这个对象什么时候没了」在那边基本是可预期的
+        （循环引用要等分代收集器，但也会被收）。
+        这里的时机不保证、也不可观察。「什么时候回收」这个问题的答案，
+        一边大致能答上来，一边只能答「不一定」。
+      java: |
+        两边都是靠可达性分析的 GC，也都不保证时机、都不能强制 ——
+        这一格最接近。差别在**可调**的程度：Java 能选收集器、设堆上限、
+        `System.gc()` 至少还能「建议」一下（官方用词就是建议，不承诺做任何事）；
+        这里标准里连建议的入口都没有，调优旋钮全在宿主手上。
+        另外 Java 还有 `Cleaner` 这类清理钩子，语义比这里的清理回调明确一些。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
+
+  ownership-borrow:
+    absent: true
+    vs:
+      javascript: |
+        TypeScript **没有所有权与借用** —— 与 JavaScript 一样：
+        一个对象可以被任意多个引用同时指着，谁改都合法，编译器不做别名追踪。
+        这里能写出来的最接近的东西是 `readonly`：它挡住属性写入，
+        但只是编译期的一层约定 —— 指望它表达「这块数据归谁」是误会，
+        它既不阻止共享，运行期也没有任何检查。
+        真正防住并发改写的机制在语言层是不存在的。
+      python: |
+        TypeScript **没有所有权与借用** —— 与 Python 一样：
+        名字只是指向对象，可以被任意复制、任意共享，没有谁「拥有」它。
+        Python 里常见的 `del`（删掉一个名字）在这里也没有对应物，
+        而且它本来也不等于释放对象。
+        两边都由 GC 决定生死，编译器都不做别名检查 ——
+        「谁负责保证这块数据不被别人改」在这里是设计约定，不是语言能表达的约束。
+      java: |
+        TypeScript **没有所有权与借用** —— 与 Java 一样靠 GC，
+        没有编译期的别名检查，也没有能表达「转移所有权」的语法。
+        Java 至少把**资源**的归属写进了类型（`AutoCloseable` + try-with-resources，
+        编译器强制释放）；这里连这一层都没有 ——
+        资源的释放全靠约定，或者用下面「生命周期」那一格提到的 `using`。
+        差别是「内存归 GC 管、资源归类型管」与「两者都归约定管」。
+    equivalence:
+      javascript: identical
+      python: identical
+      java: identical
+
+  lifetime:
+    absent: true
+    vs:
+      javascript: |
+        TypeScript **没有引用生命周期这回事**，与 JavaScript 一样：
+        只要还能顺着引用找到对象，它就不会被回收，引用不可能悬垂 ——
+        所以「这个引用能不能活到那一步」不是编译器要问的问题，
+        也没有任何标注可以写。
+        能写出来的只有**资源**的释放点（5.2 起的 `using`），
+        那管的是句柄、连接这类东西，不是内存。
+      python: |
+        TypeScript **没有生命周期标注** —— 与 Python 一样，
+        对象由 GC 保活，引用不会失效，也就不需要写。
+        两边的替代品也对应：Python 用 `with` 保证资源在块结束时释放，
+        这里用 `using`（5.2 起）—— 管的是资源不是内存。
+        所以「有效期」这个词在两边都只对资源有意义，对引用没有意义。
+      java: |
+        TypeScript **没有生命周期标注** —— 与 Java 一样，GC 保证引用有效。
+        Java 里最接近的关切是「这个对象会不会被提前回收」（弱引用 + 引用队列），
+        这里对应的是 `WeakRef` 与 `FinalizationRegistry`，两边都不属于类型系统。
+        资源那一侧的对应关系更整齐：Java 的 try-with-resources 与这里的 `using`
+        几乎是一回事 —— 都在作用域结束时自动释放，都由编译器保证不被漏掉。
+    equivalence:
+      javascript: identical
+      python: identical
+      java: identical
+
+  weak-reference:
+    code: |
+      // 键必须是对象（或未注册的 Symbol）—— 用原始值当键是运行期错误
+      const cache = new WeakMap<object, string>();
+      const key = {};
+      cache.set(key, "值");        // @note 不阻止 key 被回收
+
+      const ref = new WeakRef(key);      // @note 取用时可能已经没了
+      console.info(ref.deref() === key); // @note true —— 此刻它还在
+
+      // 回收之后跑一次回调，但**什么时候**跑不保证（也可能不跑）
+      new FinalizationRegistry((tag: string) => {
+        console.info(`清理 ${tag}`);
+      }).register(key, "缓存项");
+
+      // @note WeakMap 弱的是**键**；想弱在值那一侧得自己用 WeakRef 搭
+    vs:
+      javascript: |
+        同一套内建（弱集合自 2015、弱引用与清理回调自 2021），行为逐条一致；
+        这里加的只是键与值的类型。有一处倒是编译期就能帮上忙：
+        `WeakMap` 的键类型被限制成对象或 Symbol，拿原始值当键**编译不过**，
+        而在 JavaScript 里要跑到那一行才抛错。
+        回收时机两边同一套说法：不保证。
+      python: |
+        两边都有这套工具，摆法不同。Python 的 `weakref` 是**模块**，
+        弱键与弱值的容器各有一个；这里的 `WeakMap` 只弱在键那一侧，
+        想弱在值那一侧得自己用 `WeakRef` 搭一层。
+        回调那一侧对应得起来：Python 的弱引用可以带回调，
+        这里用清理回调，两边都不该拿来承担关键逻辑。
+        另一处差别是键的限制：这里连编译期都挡着原始值，Python 的弱引用
+        本来就只能指向对象，谈不上这个坑。
+      java: |
+        最实质的差别是**分级**：Java 把引用分成强、软、弱、虚四档，
+        还配一个引用队列，缓存淘汰策略能用软引用直接表达；
+        这里只有「弱」这一档，要做带淘汰的缓存得自己定策略。
+        相同的是两边都不承诺时机 —— Java 的 `System.gc()` 也只是建议，
+        这里连建议的入口都没有。循环引用两边都不构成泄漏：都靠可达性分析。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: divergent

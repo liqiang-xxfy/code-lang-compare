@@ -1,0 +1,204 @@
+# arkts —— mechanism / generics
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: generics` 的那批：
+# generic-declaration / generic-constraint / variance / type-erasure。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「TS」这类简称同样会被检测成屏幕外的语言，泛指时写「语法相近的那门静态方言」。
+#
+# 口径说明：这一组的事实全部来自 app 开发文档（语言介绍 + 适配规则）。
+# 两条纪律：
+# ① 禁用项要写**规则里确实列了的**那些（条件类型、映射类型、交叉类型、
+#    索引签名、类型查询、`this` 类型），规则名不要凭印象造；
+# ② **型变与类型擦除在这份文档里没有定义** —— 那门语法相近的方言有，
+#    这里没有。两格都如实写「官方没有定义」，不要从那边推过来。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      function last<T>(x: T[]): T {        // @note 函数可以泛型
+        return x[x.length - 1];
+      }
+
+      class Box<T> {                       // @note 类和接口也可以
+        value: T;
+        constructor(v: T) { this.value = v; }
+      }
+
+      interface Pair<K, V> { first: K; second: V }
+
+      const n: number = last([1, 2, 3]);   // @note 实参能推断出来，不必写 <number>
+      const b = new Box("hi");
+      const p: Pair<string, number> = { first: "a", second: 1 };
+
+      // 类型参数可以带默认值
+      interface Cache<T = string> { get(key: string): T | undefined }
+
+      // @note! 但推断是**受限**的：不能只靠返回类型推出 T，缺了实参就编译报错
+      // function empty<T>(): T[] { return [] }
+      // const e = empty();                // @note! 编译错误：得写成 empty<string>()
+    vs:
+      javascript: |
+        JavaScript 没有类型参数。这里有一整套，而且比**语法相近的那门静态方言**
+        窄得多：条件类型（含 `infer`）、映射类型、交叉类型、索引签名、
+        类型查询、`this` 类型一概不支持，工具类型只保留了四个
+        （`Partial` / `Required` / `Readonly` / `Record`）。
+        所以从 JavaScript 过来时，真正的坑不是「泛型写不出来」，
+        而是把那边更宽的那套类型写法一并带过来 —— 那些在这边是编译错误。
+        连推断也收紧了一步：不能只靠返回类型推出类型实参。
+      python: |
+        Python 也有类型参数（类型变量，新语法里可以直接写成方括号）。
+        两边都靠实参推断、都不必写实参，差别在**可用的加工手段**：
+        Python 的标注体系里能写联合、字面量、可选这些组合，
+        这里只保留了四个工具类型，条件类型与映射类型这些「按类型算出新类型」
+        的写法没有入口。所以同样是给一个容器加类型，
+        能表达的东西这边要少一层。
+      java: |
+        位置不同：Java 把类型参数写在返回类型之前，这里写在名字之后。
+        更实质的差别在**约束的写法**（下一格展开），而这一格里最该记的是
+        能用的手段：Java 的泛型可以和通配符、嵌套泛型、上下界自由组合，
+        这里把「按类型计算类型」这一类（条件类型、映射类型、索引访问）
+        整个去掉了 —— 留下的是最朴素的那一层：声明、约束、默认值、推断。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  generic-constraint:
+    code: |
+      interface HasLength { length: number }
+      interface Hashable { hash(): string }
+
+      function longest<T extends HasLength>(a: T, b: T): T {   // @note 约束 = 必须实现这个接口
+        return a.length >= b.length ? a : b;
+      }
+
+      class MyMap<K extends Hashable, V> {                     // @note 类上同样能约束
+        private data: Map<string, V> = new Map<string, V>();
+        get(key: K): V | undefined { return this.data.get(key.hash()); }
+      }
+
+      // @note! 不满足约束直接编译不过
+      // longest(1, 2);                     // @note! 编译错误：number 没有 length
+
+      // 工具类型只留了四个
+      type Draft = Partial<HasLength>;
+    vs:
+      javascript: |
+        JavaScript 没有类型参数，也就没有「约束」这一层：
+        参数必须有什么，只能写在文档里或运行时自己检查。
+        这里把要求写进签名，编译期就拦人，而且约束在**函数体里**同样有效 ——
+        约束里没写的成员，体内碰它就是编译错误。
+        代价是约束本身要用接口表达：这里不支持交叉类型，
+        「同时满足 A 和 B」不能写成两个约束的并排，得先抽一个共同接口出来。
+      python: |
+        两边都用「约束」把类型参数收窄，但**松紧不同**，这是这一格最要紧的差别。
+        Python 的协议是结构化的 —— 有那几个方法就算满足，不需要谁声明过；
+        这里的接口虽然也是描述形状，类型系统却是**名义**的 ——
+        类型实参必须显式写 `implements`，长得一样不算数。
+        所以同一个约束，那边是「看起来像就行」，这边是「必须声明过才算」。
+      java: |
+        两边是同一套路：上界写成类型，检查发生在编译期，约束里没有的成员
+        在实现里也不能碰 —— 这一格最接近。差别在两处：
+        Java 能写多个上界（用 `&` 并列），这里不行（交叉类型被禁），
+        只能先抽一个共同的父接口；Java 还能用通配符在使用处放宽约束，
+        这里没有通配符 —— 约束一旦写上就是写死了。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  variance:
+    code: |
+      interface Box<T> { value: T }
+
+      // @note! 这里没有声明方向的语法 —— 下面这两种写法都不存在：
+      // interface Producer<out T> { get(): T }
+      // type Consumer<in T> = (x: T) => void;
+
+      // 能确定的是类型系统按**声明**相容，不按形状：
+      class Dog { name: string = "" }
+      class Cat { name: string = "" }           // @note 形状一样，但没有声明关系
+
+      class DogBox implements Box<Dog> {        // @note 类型实参要写死
+        value: Dog;
+        constructor(v: Dog) { this.value = v; }
+      }
+
+      // 「Box<Dog> 能不能当 Box<Animal> 用」这个问题，
+      // 官方适配规则与语言介绍**都没有给出答案** —— 文档里没有这一节
+    vs:
+      javascript: |
+        JavaScript 完全没有类型参数，所以「容器之间的赋值方向」这个问题
+        在那边根本无从谈起；这里有一层类型参数，但**官方文档没有定义**
+        这些方向该怎么算 —— 既没有方向标注的语法，也没有一节讲这件事。
+        对读者来说这是有用的事实：能写下来的只有「类型实参要写对」，
+        「想放宽该怎么写」在这里没有官方答案，不要假设它和别处一样。
+      python: |
+        这一格要特别小心：Python 的类型检查器**明确规定了**这件事
+        （可变容器不参与方向转换、只读容器可以），有规则可查；
+        ArkTS 的官方文档则完全没有讨论 —— 没有规则、也没有方向标注。
+        所以两边不是「规则不同」，而是**一边有规则、一边没有**：
+        从那边过来的人会习惯性地去找方向，这里找不到。
+      java: |
+        Java 把规则写得很细：泛型实例之间默认不变，要放宽就在使用处写通配符。
+        这里既没有通配符，也没有一节文档说明泛型实例之间怎么相容 ——
+        能确定的是类型系统按声明相容（名义类型），
+        所以「靠形状自动放宽」这条路本来就不通；
+        至于两个写死了不同类型实参的容器能否互换，官方没有说。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-erasure:
+    code: |
+      class Box<T> {
+        value: T;
+        constructor(v: T) { this.value = v; }
+      }
+
+      const b = new Box(1);
+      console.info(`${b.value}`);       // @note 运行期拿得到的是值
+
+      // 官方文档没有说明泛型在运行期还剩多少 ——
+      // 既没有「类型实参在运行时可得」的说法，
+      // 也没有任何「按类型实参做判断」的写法。
+      //
+      // @note 这是文档的空白，不是「这里没有类型」的意思：
+      // @note 拿不准就去查官方文档，不要从语法相近的方言推过来
+    vs:
+      javascript: |
+        JavaScript 没有类型参数，所以「运行期还剩多少」在那边不成为问题 ——
+        值自带全部信息，内省看到的就是全部。
+        这里多了一层类型参数，而官方文档没有交代它在运行期留下什么，
+        于是两边都无从对照：一边没有这层，一边有但没说。
+        需要按类型区分行为时，稳妥的做法是把要用的信息**当成值传进去**，
+        而不是指望类型参数在运行期还在。
+      python: |
+        Python 在这件事上是有说法的：标注运行期不强制，但类型实参
+        仍然挂在对象上、能读出来（`list[int]` 的 `__args__` 里就有 `int`）。
+        这里的官方文档没有给出对应说明 —— 类型实参在运行期是否可得，
+        文档里查不到答案。
+        差别于是落在「有没有正面说明」上：那边能查，这边查不到，
+        所以这一格不要照搬那边的结论。
+      java: |
+        Java 的规范把擦除讲得很明确（运行期参数化类型就是它的原始类型），
+        所以那边「运行期能拿到什么」是查得到的。这里的文档没有对应章节 ——
+        既不说明保留、也不说明擦除。两边的类型实参在源码里都写着，
+        但只有一边给了运行期的答案；这一格属于**文档空白**，
+        写代码时不要依赖任何一种假设。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

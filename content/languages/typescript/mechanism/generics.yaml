@@ -1,0 +1,195 @@
+# typescript —— mechanism / generics
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: generics` 的那批：
+# generic-declaration / generic-constraint / variance / type-erasure。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 其他语言的简称同样会被检测成屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：这一组的事实全部来自**编译实测**（仓库自带的 TypeScript 5.9.3，
+# 逐块以 --strict 编译）。两处最容易凭印象写反：数组的协变是**官方明说的取舍**
+# （不是漏检），而函数参数的方向与它相反 —— 能接受 Dog 的函数顶替不了
+# 「能接受任何 Animal」的位置。写这一组前先记住这两条。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-generics-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  generic-declaration:
+    code: |
+      function first<T>(xs: T[]): T | undefined {   // @note 类型参数写在函数名之后
+        return xs[0];
+      }
+
+      class Box<T> {
+        value: T;
+        constructor(v: T) { this.value = v; }
+      }
+
+      interface Pair<K, V> { key: K; value: V }     // @note 接口也能带类型参数
+
+      const n = first([1, 2, 3]);   // @note 实参能推断出来，调用处不必写 <number>
+      const b = new Box("hi");
+
+      type Mapper = <T>(x: T) => T;                 // @note 函数类型自己也能引入类型参数
+    vs:
+      javascript: |
+        JavaScript 没有类型参数，「泛型」是 TypeScript 从别的静态语言借来的东西。
+        加上的这一层只活在编译期：类型实参写什么、能不能推断出来，
+        编译后就都消失了 —— 上面那个类在运行时与手写的普通类逐字节等价。
+        好处是调用处往往一个字都不用多写（实参推得出来），
+        坏处是「运行期知道 T 是什么」这件事做不到，见「类型擦除」那一格。
+      python: |
+        Python 也有类型参数（`TypeVar`，3.12 起还能写成 `def first[T](...)`），
+        位置比这里靠后：Python 把方括号放在**函数名之后**，这里放在参数表之前。
+        两边都靠实参推断、都不用写实参。差别在运行期 ——
+        Python 的类型参数是真实存在的对象（`TypeVar` 实例，函数上还能查到
+        `__type_params__`），这里编译完一点痕迹都没有。
+        所以想在运行期按类型参数做事，Python 那边有东西可抓，这边没有。
+      java: |
+        位置不同：Java 把类型参数写在**返回类型之前**（`<T> T first(List<T> xs)`），
+        这里写在函数名之后。更实质的差别是**能装什么** ——
+        Java 的泛型只对引用类型有效，`List<int>` 不合法，要装箱；
+        这里的类型参数不受这个限制。
+        另一处：Java 调用处经常要显式写实参（或靠目标类型推断），
+        这里的推断几乎总能从实参里得到答案。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  generic-constraint:
+    code: |
+      function longest<T extends { length: number }>(a: T, b: T): T {
+        return a.length >= b.length ? a : b;      // @note 约束里有 length，体内才敢碰它
+      }
+
+      function get<T, K extends keyof T>(o: T, k: K): T[K] {
+        return o[k];                              // @note keyof 把「键」变成一个联合类型
+      }
+
+      class Holder<T = string> { value: T | null = null }   // @note 类型参数也能有默认值
+      const h = new Holder();
+      h.value = "hi";
+
+      // longest(1, 2);   // @note! 编译错误：number 没有 length，不满足约束
+    vs:
+      javascript: |
+        JavaScript 没有类型参数，也就没有「约束」这一层：参数能传什么全靠人记，
+        传错了要跑到那一行才炸。这里把「这个值必须有什么」写成类型，
+        不符合的在编译期就进不来，而且这份约束在**函数体里**同样有效 ——
+        约束里没写的成员，体内碰它就是编译错误，不是运行时惊喜。
+      python: |
+        两边都有约束，写法不同：Python 把它挂在类型变量上
+        （`TypeVar("T", bound=...)`，或者用 `Protocol` 描述需要哪些方法），
+        这里直接写 `extends` 加一个形状。两边的约束都只在静态检查阶段生效，
+        运行期都不检查。Python 的写法更啰嗦一点，但 `Protocol` 能把
+        「需要哪些能力」单独命名、反复复用，这一点这里没有对应物。
+      java: |
+        这是两边最实质的一处差别。Java 的上界必须是**类型**（`T extends Number`），
+        描述的是「继承自谁」；这里的约束是**结构化**的 ——
+        写「有 `length` 这个成员」就行，不必真有谁继承过什么。
+        于是这里能约束「长得像数组的东西」，Java 里只能先抽一个接口出来。
+        多上界这一侧两边都有（Java 写 `&`，这里用交叉类型）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  variance:
+    code: |
+      class Animal { name = "?" }
+      class Dog extends Animal { bark() { return "汪" } }
+
+      let dogs: Dog[] = [new Dog()];
+      let animals: Animal[] = dogs;      // @note! 编译通过 —— 数组是协变的
+      animals.push(new Animal());        // @note 同一个数组，现在混进了一只不是狗的动物
+      // dogs[1].bark();                 // @note! 运行时才炸：它没有 bark
+
+      let ro: readonly Dog[] = dogs;
+      let roa: readonly Animal[] = ro;   // @note 只读数组的协变是安全的
+
+      // 函数参数的方向与容器相反：能处理 Dog 的函数，
+      // 顶替不了「能处理任何 Animal」的位置（strict 下）
+      // let f: (a: Animal) => void = (d: Dog) => {};   // @note! 编译错误 TS2322
+
+      // 想把它写明白，可以在声明处标注方向：
+      type Producer<out T> = () => T;         // @note out：只出不进
+      type Consumer<in T> = (x: T) => void;   // @note in：只进不出
+    vs:
+      javascript: |
+        JavaScript 没有类型参数，所以没有「型变」这个议题 ——
+        但上面那段运行时的行为两边完全一样：往一个被当作「动物数组」用的
+        狗数组里塞一只动物，在 JavaScript 里同样会发生，只是从编译到运行
+        没有任何一处会提醒你。这里至少把这件事承认下来并且写了出来：
+        数组的协变是**官方明说的取舍**（为了让数组用起来不别扭），
+        不是漏检 —— 代价就是这类写入要靠自己避免。
+      python: |
+        同一个场景两边判断相反。Python 的类型检查器认为可变容器**不变** ——
+        `list[Dog]` 不能赋给 `list[Animal]`，上面那个漏洞在静态检查阶段就被堵住；
+        只有只读的 `Sequence` 才是协变的。
+        声明方式也反过来：Python 原先要在类型变量上写 `covariant=True`，
+        新语法里由检查器按用法自动推断；这里默认按结构推断，
+        需要时用 `in` / `out` 显式写出来。
+      java: |
+        两边都有「泛型不变、数组协变」这套设计，但**补漏的方式不同**。
+        泛型这一侧：Java 在使用处表达型变（通配符 `? extends` / `? super`），
+        这里在声明处写 `in` / `out`，没有通配符。
+        数组这一侧才是最值得记的 —— Java 的协变数组**运行时真的检查**，
+        往里塞错类型当场抛 ArrayStoreException；这里没有这层检查，
+        错误要推迟到「调用了一个不存在的方法」时才暴露。
+        同样是刻意留下的不健全，一边补了运行时兜底，一边没有。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-erasure:
+    code: |
+      class Box<T> { constructor(readonly value: T) {} }
+
+      const b = new Box(1);
+      console.info(b.constructor.name);   // @note 运行期只有类名，看不出 T 是什么
+
+      // function isBox<T>(x: unknown): boolean { return x instanceof T; }
+      // @note! 编译错误 TS2693：T 只是个类型，不能当值用
+
+      // 想在运行期知道 T，只能把「一个值」传进来：
+      function isInstance<T>(ctor: new () => T, x: unknown): x is T {
+        return x instanceof ctor;
+      }
+
+      // Box<number> 与 Box<string> 在运行时是同一个类 —— 类型实参不参与运行
+    vs:
+      javascript: |
+        JavaScript 没有类型参数可擦，运行时本来就只剩值 ——
+        值自己带着足够的信息（`constructor.name`、`instanceof` 都能用）。
+        这里的处境是反过来的：值上的内省照样好用，**静态**那一层却拿不回来 ——
+        `Box<number>` 与 `Box<string>` 运行时就是同一个类。
+        想在运行期区分，唯一的办法是再传一份「值」进去（构造函数、标记字段之类），
+        把类型信息从编译期搬到运行期。
+      python: |
+        两边都不拿类型实参做运行期判断，但**留下的痕迹**差很多。
+        Python 里 `list[int]` 的 `int` 还挂在 `__args__` 这类属性上，
+        运行期真能读出来（`isinstance` 传参数化泛型倒是会直接报错）；
+        这里编译完什么都没有，类型实参一点都留不下。
+        所以 Python 那种「按类型参数做运行期校验」的库写法，这里只能靠
+        显式传构造函数来替代 —— 是把类型信息另存一份，不是捡回来。
+      java: |
+        两边都叫擦除，日常结论也一样：`List<String>` 运行时就是 `List`，
+        `new T[]` 和 `instanceof List<String>` 都不合法。
+        差别在**还有没有别的路**：Java 的类文件里保留了泛型签名，
+        反射能读回一部分「声明时写的类型实参」；这里的编译产物里什么都没有。
+        需要运行期类型时，两边的常规做法倒是同一个 ——
+        显式传一个类型值（Java 的 `Class<T>`、这里的构造函数）。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

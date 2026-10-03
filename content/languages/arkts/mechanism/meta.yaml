@@ -1,0 +1,179 @@
+# arkts —— mechanism / meta
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: meta` 的那批：
+# reflection / decorator-annotation / dynamic-eval / proxy-interception。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「TS」这类简称同样会被检测成屏幕外的语言，泛指时写「语法相近的那门静态方言」。
+#
+# 口径说明：这一组的禁与不禁**必须分开写**，三处最容易写错的：
+# ① `Proxy` 的 13 个拦截钩子**全**在禁用清单里（等于不可用），
+#    但 `Reflect` 只被禁了一部分方法 —— 不要写成「Reflect 全禁」；
+# ② `globalThis` 那条是**警告**级，不是错误级；
+# ③ **装饰器（decorator）与注解（annotation）是两套不同机制**，
+#    装饰器本身就是行为、官方说支持自定义且语法与那门方言一致；
+#    注解是 ArkTS 自己的特性（那门方言里没有），带保留策略，
+#    但官方只给了**编译期**的保留语义，**没有**给出运行期读取的接口 ——
+#    别按 Java 那套「注解 + 反射」的印象写。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-meta-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  reflection:
+    code: |
+      // 运行时反射那一套工具基本被关掉：字符串求值、原型改写、
+      // 代理的拦截钩子、Symbol、globalThis、delete、in 运算符
+      // 都在禁用清单里 —— 官方给的理由是「对象布局在编译时确定、运行时不可更改」
+
+      // 官方给的替代是**动态 import**：按名字在运行时加载并调用
+      async function load(name: string): Promise<void> {
+        const page = await import(name);        // @note 异步；变量形式要在构建配置里声明
+        console.info(`${Object.keys(page)}`);   // @note 拿到的是模块对象
+      }
+
+      // 能用的只剩很窄的一层
+      class User { id: number = 0 }
+      const u = new User();
+      Object.keys(u);                          // @note Object.keys / Object.entries 可用
+      // @note instanceof 部分支持：左边必须是引用类型、且是对象实例
+    vs:
+      javascript: |
+        那边运行时几乎什么都能看、什么都能改：字符串求值、原型链、
+        属性删除、判断键是否存在，还有代理这一整层拦截 ——
+        这一格是两种设计取向的正面撞车。
+        这里的口径是「对象布局在编译时确定、运行时不可更改」，
+        于是所有「运行期改结构」的操作一起被排除，连 `delete` 与 `in`
+        运算符都不留。留下来的只有读取那一侧（列出键、判断实例），
+        而「按名字找到代码」这件事官方指了另一条路：动态 import。
+      python: |
+        两边能做的事不在一个量级。Python 的内省是日常操作
+        （按名字取属性、列出成员、看类型），这里连按键取值的运算符都没有；
+        要按名字找到代码只有动态 import 一条路，而且它是**异步**的。
+        差别不在能力高低，而在设计前提：那边假设运行时的结构可以变，
+        这边假设它不变 —— 不变之后，那些工具就没有存在的理由。
+      java: |
+        Java 的反射是很多框架的地基（按名装配、依赖注入、序列化），
+        这里的反射口子被关掉之后，那类写法在这里没有对应做法 ——
+        Java 里 `Class` / `Method` / `Field` 那一套在这里没有对等物，
+        能查到的只有「这个值上现在有哪些键」这一层。
+        替代路线也完全不同：那边在运行期按名字装配，
+        这边要么用动态 import 按名加载模块，要么在编译期把关系定下来。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  decorator-annotation:
+    code: |
+      // ArkUI 的那批装饰器属于**框架**，不是语言核心
+      @Component
+      struct MyCard {
+        @State count: number = 0;        // @note 状态装饰器由 ArkUI 提供
+      }
+
+      // 语言 / 运行时自己的装饰器不多，都出现在并发场景里
+      @Sendable
+      class Counter { count: number = 0 }
+
+      @Concurrent
+      function job(n: number): number { return n * 2; }
+
+      // 自定义装饰器：官方明确说支持，语法与那门语法相近的静态方言一致
+
+      // 另有一套**注解**，是 ArkTS 自己的特性：带保留策略、
+      // 只能标在类声明与方法声明上、字段限于简单类型与枚举
+      // import { Retention, RetentionPolicy } from '@kit.ArkTS';
+      // @Retention({policy: RetentionPolicy.SOURCE})
+      // @interface Author { name: string }
+      // @Author({name: "Bob"})
+      // class Doc { }
+    vs:
+      javascript: |
+        那边至今**没有**标准化的装饰器语法（提案仍在讨论），
+        要用得先经过一层编译；这里语言本身就支持自定义装饰器，
+        而且还多出一套注解。
+        所以这一格不是「有与没有」，而是两种挂语义的方式并存：
+        装饰器是行为、定义时执行一次；注解是元数据，
+        官方给的保留策略里目前只描述了**编译期**的那种，
+        也就是说它连产物都不影响。
+      python: |
+        两边都支持自定义装饰器，这点相同；差别在**还有第二套机制**。
+        Python 里给声明挂语义只有装饰器这一条路，装饰器就是运行时可调用对象；
+        这里除了装饰器，还有注解 —— 它只带元数据、不执行行为，
+        保留策略可以决定它活到什么时候。
+        把这两个词当成同一件事的两种叫法，是读这里代码时最常见的误解。
+      java: |
+        Java 的注解与这里的**注解**形态最像：都是元数据、
+        都能用保留策略控制存活期、能挂的东西都有限制。
+        但读取那一侧不同：Java 标成运行期保留的注解能被反射读出来，
+        这是框架的地基；这里的官方文档只描述了编译期的保留语义，
+        没有给出运行期读取注解的接口。
+        而 Java 里没有对应的是这里的**装饰器** —— 那种「本身就是行为」的东西，
+        在 Java 里要靠注解处理器在编译期生成代码来近似。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  dynamic-eval:
+    absent: true
+    vs:
+      javascript: |
+        ArkTS **没有运行时求值** —— 把字符串当代码跑这条路被关掉了
+        （那个函数在禁用清单里）。官方给的替代是**动态 import**：
+        按名字加载模块并调用其中的成员，而且它是异步的。
+        与那边相比，这里的取舍更彻底：那边虽然人人说它危险、
+        内容安全策略默认就挡，但语言本身留着这个口子；
+        这里从语言层就不给。
+        想在运行时决定行为，这边的正路是把逻辑写成**数据**，再写代码解释它。
+      python: |
+        ArkTS **没有运行时求值** —— 与那边相比这是最干脆的一处：
+        求值入口在这里根本不存在，连「只在受限环境里跑」这种折中都没有。
+        能走的路只剩两条：按名字加载模块（异步），
+        或者把要在运行时决定的东西定义成数据结构、写一段解释它的代码。
+        两条路的共同点是「代码在编译期就写完了」，变的只是数据。
+      java: |
+        ArkTS **没有运行时求值** —— 与 Java 一样，语言层不提供这个入口，
+        要动态执行逻辑都得靠外部解释器，或者在编译期把逻辑定下来。
+        差别在替代品：Java 曾经内置的脚本引擎已经从 JDK 里移除了，
+        剩下的只是接口，实际要用得自己接一个引擎；
+        这里官方给了语言内的动态 import，但它是异步的，
+        而且只负责**加载**，不负责执行任意字符串。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: identical
+
+  proxy-interception:
+    absent: true
+    vs:
+      javascript: |
+        ArkTS **没有代理** —— 那些拦截钩子在禁用清单里是**整组**消失的
+        （读属性、写属性、判断键、删除、函数调用全都拦不了），
+        所以那边「透明地包住一个对象」这套写法在这里没有对应做法。
+        能做的只有**显式包装**：手写一个转发类，把要改的方法抄一遍。
+        好处是调用链在代码里看得见、不神秘；代价是每个方法都要手写，
+        而且拦不住「别人直接读写字段」这种事。
+      python: |
+        ArkTS **没有能改变属性访问语义的机制**。Python 的拦截钩子写在类里，
+        至少能改变**自己这个类**的属性访问；这里连这一层都没有 ——
+        属性就是字段，类无法定义「访问我时先走一段代码」。
+        要加行为只剩显式包装一条路，而包装管得住方法调用，管不住字段读写。
+      java: |
+        ArkTS **没有动态代理**。Java 的动态代理虽然只能作用于接口，
+        但框架能自动生成转发、把拦截逻辑集中写一次；
+        这里没有这一层，包装类要一行一行手写。
+        有意思的是两边都在处理同一个副作用 —— 多出来的那层看不见的对象：
+        Java 的做法是把它限制在接口上，这里的做法是把这条路整个去掉。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
