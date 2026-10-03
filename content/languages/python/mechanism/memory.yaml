@@ -1,0 +1,149 @@
+# python —— mechanism / memory
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: memory` 的那批。
+# 这一组以 Python 为基准时展示在「对象模型与内存」章（见 catalog/mechanism/python.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  value-vs-reference:
+    code: |
+      a = [1, 2]
+      b = a                    # @note 同一个对象，两个名字
+      b.append(3)              # @note! a 也变成 [1, 2, 3]
+
+      x = 1
+      y = x                    # @note 都指向那个 int 对象
+      y = 2                    # @note! 不是改对象，是把 y 绑到另一个对象上
+      x                        # @note 仍然是 1
+
+      a is b                   # @note 判身份（是不是同一个对象）
+      import copy
+      copy.copy(a), copy.deepcopy(a)    # @note 浅拷贝 / 深拷贝
+
+      def f(lst, acc=[]):      # @note! 默认值只求值一次，被所有调用共享
+          acc.append(lst)
+          return acc
+    baseline: |
+      **一切都是引用** —— 变量只是贴在对象上的名字，`b = a` 不会复制对象。
+      看起来像「值语义」的那些类型（int / str / tuple / frozenset）之所以像，
+      是因为它们**不可变**：你没法改它们，只能把名字重新绑到新对象上。
+      判断「我拿到的是不是同一份」用 `is`。可变默认参数是这条规则最著名的坑。
+    vs:
+      javascript: |
+        两边的命名模型一样（变量是引用），区别在**哪些类型像值**：
+        JavaScript 的原始值是真的复制，Python 全部是引用，只是不可变对象
+        让赋值看起来像复制。另外 JavaScript 的默认参数每次调用重新求值，
+        Python 的只求一次 —— 所以那边写 `= []` 安全，这边是坑。
+      java: |
+        Java 把两者分开写在类型上：基本类型按值、对象按引用，
+        而且编译期就知道你在处理哪一种。Python 全靠「这个对象可不可变」判断，
+        读代码时要往回翻才能确认。
+    equivalence:
+      javascript: analogous
+      java: divergent
+
+  garbage-collection:
+    code: |
+      import sys, gc
+      sys.getrefcount(obj)     # @note 引用计数（传参会临时 +1）
+      del obj                  # @note 删掉一个引用 —— 计数归零就立刻释放
+      gc.collect()             # @note 手动跑一次循环回收
+      gc.get_count()           # @note 各代计数
+      gc.disable()             # @note 可以关掉自动回收（慎用）
+
+      # @note 循环引用靠回收器兜底：a.b = b; b.a = a
+      # @note __del__ 里别依赖回收时机，它可能在解释器退出时才跑
+    baseline: |
+      **引用计数为主 + 循环回收器兜底**：对象引用数归零就立刻释放（比等 GC 更
+      及时可预测），互相引用的垃圾由分代回收器定期清理。标准库给了观测与介入的
+      入口（`gc.collect()` / `gc.get_count()` / `gc.disable()`），
+      但日常不该依赖它们。要小心的是 `__del__` 与解释器退出时的时机。
+    vs:
+      javascript: |
+        JavaScript 只有可达性分析、没有引用计数，所以**释放时机不可预测**，
+        也没有 `gc.collect()` 这种入口；Python 的计数归零立刻释放，
+        在「什么时候释放」这件事上更可预测。
+      java: |
+        两边都不保证时机，但 Java 把可观测与可调做成了体系（分代、多种回收器、
+        GC 日志），Python 只给了 `gc` 模块的几个计数。共同点是都不该靠
+        「手动回收」解决问题。
+    equivalence:
+      javascript: analogous
+      java: analogous
+
+  ownership-borrow:
+    absent: true
+    baseline: |
+      **本语言没有所有权概念** —— 内存由引用计数加回收器管理，想共享就共享，
+      没有编译期约束谁来负责释放。代价是「共享可变状态」的约定全靠人维护。
+    vs:
+      javascript: |
+        JavaScript 也没有所有权，同样是自动回收、随便共享。
+        两边都会遇到同一类问题：一个对象被多处引用时，改动谁负责通知谁。
+      java: |
+        Java 也没有所有权概念，同样是 GC 托管、随便共享。
+        三家的共同点是：共享与可变可以同时存在，语言层面不做任何限制。
+    equivalence:
+      javascript: identical
+      java: identical
+
+  lifetime:
+    absent: true
+    baseline: |
+      **本语言不表达引用的有效期**。对象在还有引用时不会被回收（计数不为零、
+      或者回收器能找到路径），所以不存在「悬空引用」这个编译期问题。
+      实际会出问题的是「逻辑上过期但引用还在」—— 比如缓存里的陈旧对象。
+    vs:
+      javascript: |
+        JavaScript 也说不出一段引用该活多久，只有弱引用能表达「我不阻止你被回收」。
+        两边的做法一致：把「该活多久」交给引用图，而不是类型。
+      java: |
+        Java 同样只有弱引用 / 软引用这类手段表达「别把我当成活着的理由」。
+        三家都说不清生命周期，只能靠引用关系间接表达。
+    equivalence:
+      javascript: identical
+      java: identical
+
+  weak-reference:
+    code: |
+      import weakref
+
+      r = weakref.ref(obj)
+      r()                     # @note 还活着就给对象，已回收就给 None
+
+      cache = weakref.WeakValueDictionary()   # @note 值被回收后条目自动消失
+      cache["k"] = obj
+
+      keys = weakref.WeakKeyDictionary()      # @note 键是弱引用
+      seen = weakref.WeakSet()
+
+      # @note! 能被弱引用的对象必须支持弱引用（list / dict 不行，
+      #        自定义类默认可以，除非用了 __slots__）
+
+      def on_gone(r): ...                     # @note 还能注册回收回调
+      weakref.ref(obj, on_gone)
+    baseline: |
+      `weakref` 模块给了完整的弱引用工具：`ref`（取值要调用）、
+      `WeakValueDictionary` / `WeakKeyDictionary` / `WeakSet`（条目随对象消失），
+      还能注册**回收回调**。最典型的用途是缓存与旁挂元数据 ——
+      让缓存不成为「对象永远活着」的理由。注意 list / dict 这类内建类型
+      不能被弱引用。
+    vs:
+      javascript: |
+        JavaScript 只有 `WeakMap` / `WeakSet` / `WeakRef` 三个形态，
+        没有回收回调、也不能像 `WeakValueDictionary` 那样弱引用**值**。
+        Python 这套更完整，代价是概念更多。
+      java: |
+        两边都有弱引用与回收通知，Java 还多软引用与虚引用两档
+        （给缓存与清理挂钩用）。Python 的 `WeakValueDictionary` 在 Java 里
+        没有直接对应物，通常要自己用 `WeakReference` 加 `ReferenceQueue` 搭。
+    equivalence:
+      javascript: analogous
+      java: analogous

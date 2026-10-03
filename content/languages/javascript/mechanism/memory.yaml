@@ -1,0 +1,143 @@
+# javascript —— mechanism / memory
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: memory` 的那批：
+# value-vs-reference / garbage-collection / ownership-borrow / lifetime / weak-reference。
+#
+# `ownership-borrow` 与 `lifetime` 都是 absent —— 本语言没有这两个概念。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  value-vs-reference:
+    code: |
+      let a = 1, b = a;              // @note 原始值：复制一份
+      b = 2;                         // @note a 还是 1
+
+      let o1 = { n: 1 };
+      let o2 = o1;                   // @note! 对象：复制的是引用
+      o2.n = 2;                      // @note! o1.n 也变成 2
+
+      const copy = { ...o1 };        // @note 浅拷贝：外层新、内层仍共享
+      Object.is(o1, o1);             // @note 比引用
+      // @note! 数组、函数、Map、Set 全都是引用
+    baseline: |
+      **原始值按值、对象按引用**：`number` / `string` / `boolean` / `null` /
+      `undefined` / `symbol` / `bigint` 是原始值，赋值复制一份；其余（对象、数组、
+      函数、Map、Set）传的都是引用，别名之间会互相影响。`===` 对对象比引用。
+      展开运算符只是**浅**拷贝，嵌套的那层还是共享的。
+    vs:
+      python: |
+        Python 里**一切都是引用**（变量是贴在对象上的名字），只是不可变对象
+        （int / str / tuple）因为改不了而表现得像值。所以 `a = [1]; b = a`
+        两边都会互相影响，这一点一致；但 `a = 1; b = a; b = 2` 在两边都安全，
+        原因却不同 —— 这里是复制，那边是「重新绑定到新对象」。
+      java: |
+        Java 分得更清楚：基本类型（`int` / `boolean` / `double`…）按值，
+        对象按引用，而且**类型系统会告诉你现在手上的是哪一种**。
+        这里靠运行时判断 `typeof x === "object"`，写代码时容易忘。
+    equivalence:
+      python: analogous
+      java: analogous
+
+  garbage-collection:
+    code: |
+      // @note 自动回收，**无法手动触发**
+      let big = new Array(1e6).fill(0);
+      big = null;                    // @note 只是去掉一个引用，回收时机不确定
+
+      // @note 没有 free / delete（delete 删的是属性，不是内存）
+      // @note 不能查还剩多少内存，也不能设置回收策略
+
+      // 真正会让内存涨上去的是「还挂着的引用」：
+      const cache = new Map();         // @note! 强引用，键对象永远回收不掉
+      // 用 WeakMap 才会让键可以被回收（见 weak-reference）
+    baseline: |
+      **自动垃圾回收**：基于可达性（从根出发还能不能走到）。语言**不给你
+      任何手动控制的入口** —— 不能触发回收、不能查内存占用、不能调策略，
+      只能确保「不再需要的对象没有引用挂着」。内存涨上去几乎总是因为
+      某个容器还强引用着它（闭包、缓存、全局数组、没解绑的事件监听）。
+    vs:
+      python: |
+        Python 也自动回收，但**机制不同**：以引用计数为主（对象引用数归零立刻
+        释放，这一点比这里更及时），外加一个循环回收器处理互相引用。
+        两边都不能手动 free；Python 至少能 `gc.collect()` 与查看 `gc` 统计。
+      java: |
+        Java 同样是自动回收、同样不保证时机，但 JVM 提供了**可观测与可调**
+        的入口：分代回收、各种垃圾回收器可选、可以打印 GC 日志。
+        这里连观测手段都没有，只能靠开发者工具快照对比。
+    equivalence:
+      python: analogous
+      java: analogous
+
+  ownership-borrow:
+    absent: true
+    baseline: |
+      **本语言没有所有权概念** —— 内存由垃圾回收器统一管理，谁都能持有
+      任意多个指向同一个对象的引用。代价是「谁负责释放」这件事完全不可见，
+      好处是不用与借用检查器搏斗。
+    vs:
+      python: |
+        Python 也没有所有权概念，同样是「随便引用、自动回收」。两边的
+        「共享可变状态」问题完全一样 —— 一个对象被三处引用，
+        谁改了它谁就得负责通知另外两处。
+      java: |
+        Java 也没有所有权，同样是 GC 托管。三家在这一点上是一致的：
+        没有编译期的借用检查，共享与可变这两件事同时存在时靠人自觉。
+    equivalence:
+      python: identical
+      java: identical
+
+  lifetime:
+    absent: true
+    baseline: |
+      **本语言不表达「引用的有效期」** —— 引用只要还有变量挂着就有效，
+      没有编译期的生命周期检查。所以「这个引用会不会指向已经被回收的东西」
+      不是类型问题，而是运行时才会遇到（基干 GC 的可达性保证，实际上不会
+      悬空，但也没人保证它「还有意义」）。
+    vs:
+      python: |
+        Python 也没有生命周期标注，理由相同：GC 保证对象在还有引用时不会被回收。
+        真正会出问题的是「逻辑上已经失效但引用还在」—— 例如缓存的陈旧数据。
+      java: |
+        Java 同样没有生命周期这个概念，只有 `WeakReference` 这类弱引用
+        可以用来表达「我不阻止你被回收」。三家的共同点是：对象活多久
+        由引用图决定，语言层面说不出来。
+    equivalence:
+      python: identical
+      java: identical
+
+  weak-reference:
+    code: |
+      const cache = new WeakMap();      // @note 键是弱引用：对象没别的引用就被回收
+      cache.set(obj, "元数据");          // @note 键必须是对象
+
+      const ref = new WeakRef(obj);     // @note 弱引用本身
+      ref.deref();                      // @note 可能返回 undefined —— 已被回收
+
+      new WeakSet();                    // @note 同理
+
+      // @note! WeakMap 的键不可枚举、没有 size —— 正因为它会自己消失
+      // @note! 普通 Map / 数组 是强引用，会把对象一直挂住
+    baseline: |
+      弱引用只有三个形态：`WeakMap`、`WeakSet`、`WeakRef`。它们的用途是
+      **不阻止对象被回收** —— 所以 WeakMap 没有 `size`、不能遍历键
+      （键随时可能消失）。`WeakRef.deref()` 返回 `undefined` 就表示已被回收。
+      缓存、给外部对象挂元数据是它们最典型的场景。
+    vs:
+      python: |
+        Python 的 `weakref` 模块更完整：`weakref.ref` / `WeakValueDictionary` /
+        `WeakKeyDictionary` / `WeakSet`，还能注册回调（对象被回收时触发）。
+        两边的核心用途一致：缓存与旁挂元数据，避免「缓存把对象钉死」。
+      java: |
+        Java 有 `WeakReference` / `SoftReference` / `PhantomReference` 三档，
+        而且 `ReferenceQueue` 让程序能在对象被回收后收到通知；
+        `WeakHashMap` 是现成的弱键映射。这是三家里面最完整的一套。
+    equivalence:
+      python: analogous
+      java: divergent

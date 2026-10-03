@@ -1,0 +1,154 @@
+# java —— mechanism / memory
+#
+# boxes 的 key 必须是 catalog/mechanism/features.yaml 里 `group: memory` 的那批。
+# 这一组以 Java 为基准时展示在「JVM 与内存模型」章（见 catalog/mechanism/java.yaml）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-memory-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  value-vs-reference:
+    code: |
+      int a = 1, b = a;              // @note 基本类型：复制一份
+      b = 2;                         // @note a 还是 1
+
+      Point p1 = new Point(1, 2);
+      Point p2 = p1;                 // @note! 对象：复制的是引用
+      p2.x = 9;                      // @note! p1.x 也变成 9
+
+      // @note 类型系统会告诉你手上是哪种：
+      //   int / long / double / boolean / char 是基本类型
+      //   Integer / String / 数组 / 任何 class 都是引用
+
+      // @note! 自动装箱会悄悄造对象：
+      Integer boxed = 1;             // 基本类型 -> 对象
+      int unboxed = boxed;           // 对象 -> 基本类型（为 null 时抛 NPE）
+
+      record Point(int x, int y) { }
+    baseline: |
+      **基本类型按值、对象按引用**，而且这个区别写在类型上 —— 读到 `int` 就知道
+      是复制、读到类名就知道是共享。包装类型（`Integer`）是对象，
+      所以自动装箱会悄悄产生共享或新对象；拆箱时如果那个包装是 `null`，
+      直接抛 NullPointerException —— 这是这一块最常见的坑。
+    vs:
+      javascript: |
+        JavaScript 靠原始值与对象的区分，但类型上看不出来（要运行时用
+        `typeof` 判断）；Java 把它写进了类型声明，读到就知道。
+        两边共同的坑是「以为是复制、其实是共享」。
+      python: |
+        Python 一切都是引用，看起来像值语义的是不可变对象；Java 是真的分两套，
+        而且基本类型没有「引用共享」这回事。所以从 Python 换过来时，
+        `int` 与 `Integer` 的区别要多留意 —— 后者是对象、可能为 null。
+    equivalence:
+      javascript: analogous
+      python: divergent
+
+  garbage-collection:
+    code: |
+      Object o = new Object();
+      o = null;                     // @note 去掉一个引用，回收时机不确定
+
+      System.gc();                  // @note! 只是「建议」，不保证执行
+      Runtime.getRuntime().totalMemory();   // @note 可以观测
+
+      // @note JVM 给了可观测与可调的一整套：
+      //   分代回收（年轻代 / 老年代）、多种回收器可选（G1 / ZGC / …）
+      //   -Xmx / -Xms 控制堆大小，GC 日志可以打开
+      // @note finalize() 早已废弃，别用它做清理 —— 时机不确定、还可能复活对象
+
+      // @note 真正让内存涨上去的是「还挂着的强引用」：
+      static final List<Object> CACHE = new ArrayList<>();   // @note 永远回收不掉
+    baseline: |
+      **自动垃圾回收**，且 JVM 把这件事做成了可观测、可调的系统：堆大小、
+      分代策略、回收器选择、GC 日志。但**回收时机不保证** ——
+      `System.gc()` 只是建议。清理逻辑不要写进 `finalize()`（已废弃、
+      时机不可预期）；需要确定性释放的资源用 try-with-resources。
+      内存问题几乎总是「某个静态集合或长生命周期对象还挂着引用」。
+    vs:
+      javascript: |
+        JavaScript 的回收完全不可观测、不可调，只有一个黑盒；
+        Java 能看 GC 日志、调堆大小、换回收器。两边都不能强制回收
+        （`System.gc()` 也只是建议）。
+      python: |
+        Python 以引用计数为主，对象没人引用就**立刻**释放 —— 比这里可预测得多；
+        Java 要等 GC 跑。反过来 Java 的观测与调优手段是三家里面最完整的。
+    equivalence:
+      javascript: analogous
+      python: divergent
+
+  ownership-borrow:
+    absent: true
+    baseline: |
+      **本语言没有所有权概念** —— 内存由 JVM 的垃圾回收器统一管理，
+      任何对象都能被任意多个引用共享，没有编译期约束谁负责释放。
+      代价是「共享可变状态」全靠约定，收益是不用与借用检查器搏斗。
+    vs:
+      javascript: |
+        JavaScript 也没有所有权，同样 GC 托管、随便共享。
+        两边在「一个对象被多处引用」时遇到的问题完全一样。
+      python: |
+        Python 用引用计数加回收器，也没有所有权；两个对象互相引用
+        在这边是常见写法。三家共同点：共享与可变可以同时存在，
+        语言层面不做限制。
+    equivalence:
+      javascript: identical
+      python: identical
+
+  lifetime:
+    absent: true
+    baseline: |
+      **本语言不表达引用的有效期**。JVM 的可达性分析保证「还被引用着的对象
+      不会被回收」，所以不存在悬空引用这个编译期问题。
+      实际会出问题的是逻辑上的过期 —— 缓存里的陈旧对象、已关闭的连接。
+    vs:
+      javascript: |
+        JavaScript 也说不出一段引用该活多久，只有弱引用能表达
+        「别把我算作活着的理由」。两边都把生命周期交给引用图。
+      python: |
+        Python 同样说不出一段引用该活多久，能用弱引用表达「别把我算作活着的
+        理由」。两边的对象活多久都由引用图决定，只是 Java 多出软引用与
+        回收通知这两档手段。
+    equivalence:
+      javascript: identical
+      python: identical
+
+  weak-reference:
+    code: |
+      import java.lang.ref.*;
+
+      WeakReference<Object> w = new WeakReference<>(obj);
+      w.get();                      // @note 已被回收时返回 null
+
+      SoftReference<byte[]> s = new SoftReference<>(buf);   // @note 内存紧张时才回收
+
+      ReferenceQueue<Object> q = new ReferenceQueue<>();     // @note 回收通知
+      WeakReference<Object> r = new WeakReference<>(obj, q);
+      // 轮询 q.poll() 就能知道哪些对象被回收了
+
+      Map<Key, Value> m = new WeakHashMap<>();               // @note 弱键映射
+
+      // @note! 弱引用**不能**阻止回收，但也不能指望它立刻消失
+      // @note! PhantomReference 用来做「回收后清理」，必须配 ReferenceQueue
+    baseline: |
+      **四档引用**：强（默认）、`SoftReference`（内存紧张时才回收，适合缓存）、
+      `WeakReference`（下一次 GC 就回收）、`PhantomReference`（回收后通知，
+      用来做清理）。配 `ReferenceQueue` 能收到「某某对象被回收了」的通知，
+      `WeakHashMap` 是现成的弱键映射。这一套比多数语言完整，
+      代价是概念多、行为依赖 GC 时机。
+    vs:
+      javascript: |
+        JavaScript 只有 `WeakMap` / `WeakSet` / `WeakRef` 三个形态，
+        没有软引用、没有回收通知；Java 有完整的四档与 `ReferenceQueue`。
+        两边都不能指望回收时机。
+      python: |
+        Python 的 `weakref` 有回收回调，与 Java 的 `ReferenceQueue` 思路相近；
+        但 Python 没有软引用这一档，也没有 `WeakHashMap` 之外的弱值映射
+        （反过来它倒是有 `WeakValueDictionary`）。
+    equivalence:
+      javascript: divergent
+      python: analogous
