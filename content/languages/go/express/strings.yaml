@@ -1,0 +1,96 @@
+# go —— express / strings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: strings` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  string-literals:
+    code: |
+      s := "hello\n"                 // @note 双引号：解释型，处理转义
+      raw := `hello\n`               // @note 反引号：原始字符串，里面的 \n 就是两个字符
+      multi := `第一行
+      第二行`                        // @note 反引号可以跨行，写多行文本不用拼接
+
+      r := 'A'                       // @note! 单引号是 rune（int32），不是字符串
+      b := "abc"[0]                  // @note 取到的是 byte，值是 97
+
+      msg := fmt.Sprintf("你好，%s！", name)   // @note 没有插值，用格式化函数
+    vs:
+      javascript: |
+        JavaScript 有模板字符串可以直接插值；Go **没有插值**，
+        一律走 `fmt.Sprintf` 或字符串拼接。引号的含义也不同：
+        JavaScript 的单双引号都是字符串，Go 的**单引号是 rune**（一个字符的码点），
+        `'A'` 不能赋给 string 变量。Go 的反引号原始字符串可以跨行，
+        写多行 SQL 或正则时不用 `\n` 拼接，JavaScript 里得用模板字符串。
+      python: |
+        Python 有 f-string 插值，Go 没有，只能 `fmt.Sprintf`。
+        原始字符串两边都有（Python 的 `r"…"`、Go 的反引号），
+        Go 的还能直接跨行。单引号的含义差别最大：
+        Python 里 `'a'` 是字符串，Go 里 `'a'` 是 `rune`（int32）——
+        从 Python 过来把单引号当字符串用会直接编译不过。
+      java: |
+        Java 的字符串也是不可变 UTF-8 之外的编码（UTF-16），
+        取 `s.charAt(0)` 得到一个 `char`；Go 的 `s[0]` 得到的是 **byte**，
+        取字符要走 `range` 或 `[]rune(s)`。插值上 Java 有文本块与
+        `formatted`，Go 只有 `fmt.Sprintf`。两边都没有真正的字符串插值语法，
+        这一点反而接近。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  string-common-ops:
+    code: |
+      a, b := "hello", "world"
+      joined := a + " " + b           // @note 少量拼接直接用 +，字符串不可变，每次都新建
+
+      var sb strings.Builder           // @note 循环里拼接用 Builder，避免反复分配
+      for i := 0; i < 100; i++ { sb.WriteString("x") }
+      out := sb.String()
+
+      n := len("héllo")                       // @note! 字节数 6，不是字符数 5
+      c := utf8.RuneCountInString("héllo")    // @note 字符（码点）数 5
+
+      for i, r := range "héllo" { _ = i; _ = r }   // @note range 字符串按 rune 走，i 是字节偏移
+
+      up := strings.ToUpper(a)                 // @note 大小写转换在 strings 包里，不是方法
+      parts := strings.Split("a,b,c", ",")     // @note 返回切片
+      has := strings.Contains(a, "ell")
+      head, rest, found := strings.Cut(a, "l") // @note 按第一个分隔符切成两半
+    vs:
+      javascript: |
+        JavaScript 的 `s.length` 数的是 UTF-16 码元、`s.toUpperCase()` 是方法；
+        Go 的 `len(s)` 数的是**字节**，字符数要 `utf8.RuneCountInString`，
+        大小写转换在 `strings` 包（`strings.ToUpper(s)`）而不是方法 ——
+        因为 Go 没有方法挂在 string 上这回事。`range` 一个字符串时
+        Go 按 rune 迭代、下标是字节偏移，JavaScript 的 `for…of`
+        按下标迭代的是码元，两边在非 ASCII 文本上都会让人算错一次。
+      python: |
+        Python 的 `len(s)` 数的是字符，Go 的 `len(s)` 数的是字节 ——
+        处理中文或带重音的文本时这是最容易出错的一处，
+        Go 里要用 `utf8.RuneCountInString`。方法形态也不同：
+        Python 是 `s.upper()`，Go 是 `strings.ToUpper(s)`，
+        因为 Go 的方法只能定义在本包的类型上，不能给内建的 string 加方法。
+        Python 的 `s.split(",")` 对应 Go 的 `strings.Split`，返回切片而非列表。
+      java: |
+        Java 的 `s.length()` 是 UTF-16 码元数、`charAt` 取码元；
+        Go 的 `len(s)` 是字节数，按 rune 遍历要用 `range` 或 `[]rune(s)` ——
+        两者对非 ASCII 文本的处理方式不同，Java 的字符可能只是半个码点，
+        Go 的字节可能只是半个字符。API 形态上 Java 是方法（`s.toUpperCase()`），
+        Go 是包函数（`strings.ToUpper(s)`）；Java 的 `StringBuilder`
+        对应 Go 的 `strings.Builder`，用途与用法几乎一样。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
