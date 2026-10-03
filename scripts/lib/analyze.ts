@@ -373,6 +373,23 @@ export function analyzeContent(): Analysis {
   const suspectedMissing = new Map<string, number>()
   const chapterGap = new Map<string, number>()
   const baselineGap = new Map<string, number>()
+  /*
+   * R25 幽灵语言：`<语言> · <板块>` → 被点名的语言 → 次数，外加涉及哪些存放组。
+   * 逐条报在 S11 样张阶段测出 54 条 —— 现有内容里早就提到过那 7 门新语言，
+   * 只是它们当时未启用、检测不到。这跟 R20g / R22 / R24 / R27 是同一类问题
+   * （「把真正要看的 error 埋掉才是灾难」这条理由对 warn 一样成立），所以一并汇总。
+   * 定位线索不丢：汇总那条 message 里带上存放组名，仍能直接翻到要改的地方。
+   */
+  const ghostMentions = new Map<string, { names: Map<string, number>; groups: Set<string> }>()
+  const noteGhost = (key: string, name: string, group: string): void => {
+    let rec = ghostMentions.get(key)
+    if (!rec) {
+      rec = { names: new Map(), groups: new Set() }
+      ghostMentions.set(key, rec)
+    }
+    rec.names.set(name, (rec.names.get(name) ?? 0) + 1)
+    rec.groups.add(group)
+  }
   let boxCount = 0
 
   for (const lang of dirIds) {
@@ -468,14 +485,15 @@ export function analyzeContent(): Analysis {
           )
         }
 
-        /* R25 说明的基准归属：vs.<K> 是写给「以 K 为基准的读者」的，提第三门就是屏幕外的幽灵语言 */
+        /* R25 幽灵语言：vs.<K> 是写给「以 K 为基准的读者」的，提第三门就是屏幕外的幽灵语言 */
+        const ghostKey = `${lang} · ${g.section}`
         for (const [base, text] of Object.entries(box.vs)) {
           if (!text.trim()) continue
           const mentionable = metas.filter(
             (m) => enabledLanguageIds.includes(m.id) && m.id !== lang && m.id !== base,
           )
           for (const hit of detectForeignLanguageMentions([{ line: 0, text, tone: 'info' }], lang, mentionable)) {
-            warn('R25', `${g.file} → ${featureId}`, `vs.${base} 里点名了 ${hit.name}（「${hit.word}」）—— 屏幕外是 ${lang} 与 ${base} 两列`)
+            noteGhost(ghostKey, hit.name, g.group)
           }
         }
         if (box.baseline?.trim()) {
@@ -485,7 +503,7 @@ export function analyzeContent(): Analysis {
             lang,
             mentionable,
           )) {
-            warn('R25', `${g.file} → ${featureId}`, `baseline 里点名了 ${hit.name}（「${hit.word}」）—— 基准列只讲 ${lang} 自己`)
+            noteGhost(ghostKey, hit.name, g.group)
           }
         }
 
@@ -624,6 +642,19 @@ export function analyzeContent(): Analysis {
   }
   for (const [key, count] of [...baselineGap].sort(([a], [b]) => a.localeCompare(b))) {
     warn('R27', key, `有 ${count} 处「章节引用了某个存放组、但基准自己没写」—— 基准列会出现空洞`)
+  }
+  for (const [key, rec] of [...ghostMentions].sort(([a], [b]) => a.localeCompare(b))) {
+    const total = [...rec.names.values()].reduce((s, n) => s + n, 0)
+    const detail = [...rec.names]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, n]) => `${name}×${n}`)
+      .join(' / ')
+    warn(
+      'R25',
+      key,
+      `有 ${total} 处提到了屏幕外的语言（${detail}）—— 涉及 ${[...rec.groups].sort().join('、')}。` +
+        `多列板块里，一格的说明只该讲本语言与该基准那两门`,
+    )
   }
 
   /*
