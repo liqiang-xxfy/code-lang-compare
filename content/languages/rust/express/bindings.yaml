@@ -1,0 +1,194 @@
+# rust —— express / bindings
+#
+# 文件名是**存放组**（group），不是展示章 —— 展示章随基准变（见 catalog/express/*.yaml），
+# 存放组不随。boxes 的 key 必须是 catalog/express/features.yaml 里 `group: bindings` 的那批。
+#
+# Rust 不是基准候选（meta.yaml 里 baseline: false），所以**没有 baseline 字段**：
+# 它永远不会被渲染成基准列，只需要三份 vs ——
+#   vs.javascript / vs.python / vs.java 各自的读者是「熟悉那门基准的人」，
+#   措辞要落在 Rust 自己的行为上，而不是去复述对方。
+# 三份 vs 都必须写全（R22）：视角无法互相推导，缺的那一份读者看不到。
+#
+# 注意 R25：vs.<基准> 里只能出现 Rust 与那个基准两门语言 ——
+# 多提一门就是屏幕外的幽灵语言（读者可能根本没勾它）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-bindings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  declaration:
+    code: |
+      let count = 0;                        // @note 类型由初值推断
+      let name: String = String::from("Ada"); // @note 也可以写出类型
+      let mut total = 0;                    // @note! 要能重新赋值，必须在声明时写 mut
+      const MAX: u32 = 100;                 // @note const 是编译期常量，必须标类型
+    vs:
+      javascript: |
+        两边的 `let` 长得一样，含义却是反的：JavaScript 的 `let` 声明出来**可以改**，
+        要禁止改得写 `const`；Rust 的 `let` 声明出来**不能改**，要能改必须写 `mut`。
+        还有一处时机差别 —— JavaScript 越权改绑要到运行时才抛 TypeError，
+        Rust 是编译不过。读 Rust 时看到裸 `let`，先默认它不会变。
+      python: |
+        Python 的赋值语句本身就是声明，且任何名字随时可以重新绑定；Rust 的
+        `let` 一次只引入一个默认冻结的绑定，想改必须回头把 `mut` 补上 ——
+        而绑定一旦离开作用域就不能再补。Python 读代码时不必关心「这个名字后面会不会变」，
+        Rust 里 `mut` 的有无就是作者对这个问题给出的答案。
+      java: |
+        Java 的默认值是「可变」，要禁止改绑得加 `final`；Rust 反过来，默认不可变，
+        `mut` 才是加出来的许可。类型推断上两边已经趋同：Java 10 起 `var x = 0;`
+        推断局部变量，Rust 的 `let` 从一开始就这样。差别在常量 ——
+        Java 的 `static final` 可以是运行时算出来的对象，Rust 的 `const`
+        必须是编译期就能求出的值。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  mutability:
+    code: |
+      let n = 1;
+      // n = 2;                 // @note! 编译错误：cannot assign twice to immutable variable
+      let mut m = 1;
+      m = 2;                     // @note 声明时写了 mut，才能改
+
+      let v = vec![1, 2, 3];
+      // v.push(4);              // @note! 同样编译不过 —— 连内容也不许改
+      let mut w = vec![1, 2, 3];
+      w.push(4);                 // @note mut 给的是「整个值可变」的通行证，不只是改绑
+    vs:
+      javascript: |
+        这是最容易看错的一处：JavaScript 的 `const` 只冻结**绑定**，`const list = []`
+        之后 `list.push(1)` 照样合法；Rust 的 `let` 冻结的是**整个值**，
+        没有 `mut` 的 `Vec` 连 `push` 都编译不过。想在 Rust 里改内容，
+        必须在声明处就把 `mut` 写上 —— 没有中途反悔的余地。
+      python: |
+        Python 没有常量语法，所有名字都能重新绑定，列表也永远可以就地修改；
+        Rust 把「能不能改」提到类型层面并强制到每一个使用点。写 Rust 时
+        `mut` 是一个需要作者主动声明的意图，读代码时它也如实告诉你
+        「这个值在这里之后会变」—— Python 里没有等价的信息。
+      java: |
+        两边都是「默认可变、要冻结得加关键字」，但关键字冻结的范围不同：
+        Java 的 `final` 只冻结**绑定**，`final List<String> xs` 照样能 `add`，
+        想要只读集合得另外包一层；Rust 的不可变是**深**的，
+        没有 `mut` 就动不了内容。检查时机也不同：Java 只在编译期管改绑这一件事，
+        越界、并发修改这类问题留给运行时异常，Rust 把可变性一并纳入借用检查。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  scope:
+    code: |
+      {
+        let inner = 1;
+      }
+      // println!("{}", inner);  // @note! 编译错误：cannot find value `inner` in this scope
+
+      let doubled = {
+        let base = 21;
+        base * 2                  // @note 块是表达式，最后一行没有分号就是它的值
+      };
+    vs:
+      javascript: |
+        两边都以 `{}` 为界，Rust 少一个 JavaScript 最需要提防的东西：
+        `var` 那种函数级的逃生口在这里不存在，所有 `let` 一律块级。
+        多出来的是块能当表达式用 —— `let x = { … };` 在 JavaScript 里
+        要靠立即执行函数或额外变量，在 Rust 里就是普通写法。
+      python: |
+        Python 只有函数与类会产生新作用域，`if` / `for` 的块体不产生，
+        循环变量会漏到外面；Rust 的每个 `{}` 都是一层边界，出了块名字就没了。
+        另外 Rust 的块有值：把一组计算裹进块里、用最后一行当结果，
+        不需要先声明一个变量再写回去。
+      java: |
+        Java 同样是块级作用域且没有函数级逃生口，这一点两边一致。
+        差别在块的地位：Java 的块只是一段语句，Rust 的块是表达式，
+        可以直接放在 `=` 右边当值用。Rust 也因此不需要「先声明一个空变量、
+        在分支里各自赋值」那种写法 —— 编译器会替你检查每条路径都给了值。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  hoisting:
+    absent: true
+    vs:
+      javascript: |
+        Rust 没有变量提升这一概念。名字由 `let` 引入，在这一行之前它根本不存在 ——
+        访问它得到的不是 `undefined`，而是编译错误 `cannot find value in this scope`。
+        所以 JavaScript 里「`var` 读出来是 undefined、`let` 是暂时性死区」这层区分，
+        在这里没有对应物。
+      python: |
+        Rust 和 Python 一样没有提升：名字在绑定语句执行之后才存在。
+        区别是发现问题的时机 —— Python 在运行到那一行时抛 NameError，
+        Rust 在编译期就报 `cannot find value in this scope`。
+      java: |
+        Rust 与 Java 的局部变量一样，必须先声明后使用，编译期就拦住。
+        差别在字段：Java 的字段没写初值也有默认值（`0` / `false` / `null`），
+        读它不报错；Rust 的结构体字段必须在构造时全部给出，没有「默认值」这回事。
+    equivalence:
+      javascript: divergent
+      python: identical
+      java: analogous
+
+  shadowing:
+    code: |
+      let x = 1;
+      {
+        let x = 2;               // @note 内层是新绑定，遮蔽外层
+        println!("{}", x);        // @note 2
+      }
+      println!("{}", x);          // @note 1 —— 外层没被改动
+
+      let s = "hello";
+      let s = s.len();            // @note! 同一个作用域里遮蔽，而且换了类型：&str → usize
+    vs:
+      javascript: |
+        遮蔽本身两边都成立，但 JavaScript 在同一个块里重复声明同名 `let` 是语法错误，
+        Rust 允许 —— 而且**允许换类型**。`let s = s.len();` 在 JavaScript 里
+        只能换个变量名，在 Rust 里是常规手法：拿一个中间值算完，把同名的新绑定接着往下用。
+        这是读 Rust 时最需要留意的一点：同名的两个 `s` 可能根本不是同一个类型。
+      python: |
+        Python 里重新赋值就是改掉原来那个名字，没有「新绑定遮蔽旧绑定」这层区分，
+        `s = len(s)` 之后旧值就没了。Rust 的遮蔽是**新建**一个绑定，
+        旧的那个依然存在（只是不再可达），类型也可以完全不同。
+        代价是读代码时要意识到「这个 `s` 与上面的 `s` 不是一回事」。
+      java: |
+        Java 对遮蔽的限制严得多：同一个方法里内层块再声明一个同名局部变量
+        是编译错误，想遮蔽也遮蔽不了。Rust 不但允许，还把它当成改写值的手段 ——
+        `let s = s.trim();` 这类「原地转换」在 Java 里只能靠新变量名或可变对象。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  naming-convention:
+    code: |
+      let user_name = "Ada";          // @note 变量与函数：snake_case
+      const MAX_RETRY: u32 = 3;       // @note 常量与静态：SCREAMING_SNAKE_CASE
+      struct UserProfile { … }        // @note 类型 / 枚举 / trait：CamelCase
+      fn parse_line(input: &str) {}   // @note 函数：snake_case
+    vs:
+      javascript: |
+        JavaScript 的命名全是社区约定，引擎一个都不看；Rust 的编译器会**发警告**：
+        变量或函数写成 camelCase 会得到一条 `non_snake_case`，
+        类型写成 snake_case 会得到 `non_camel_case_types`。不是错误，
+        但默认就开着，所以 Rust 代码库的命名一致性比 JavaScript 项目更容易维持。
+      python: |
+        两边的变量与函数都是 snake_case、类型都是 CamelCase（Rust 的 CamelCase
+        含枚举与 trait）。区别在强制力：Python 的 PEP 8 靠工具与review，
+        解释器完全不看；Rust 把命名规则做进了编译器 lint，
+        写错会收到警告。Python 里还有 `_` / `__` 前缀那层弱语义，Rust 没有对应物。
+      java: |
+        两边的类型都写 CamelCase，但函数与变量的写法相反：Java 是 camelCase，
+        Rust 是 snake_case —— 转过来时最容易被 lint 提醒的就是这一点。
+        可见性也不靠命名：Java 用 `public` / `private` 关键字表达，
+        名字怎么写都不影响能不能被访问；Rust 的 `pub` 同样是关键字，与大小写无关。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent

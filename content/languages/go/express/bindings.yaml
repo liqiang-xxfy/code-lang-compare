@@ -1,0 +1,199 @@
+# go —— express / bindings
+#
+# 文件名是**存放组**（group），不是展示章 —— 展示章随基准变（见 catalog/express/*.yaml），
+# 存放组不随。boxes 的 key 必须是 catalog/express/features.yaml 里 `group: bindings` 的那批。
+#
+# Go 不是基准候选（meta.yaml 里 baseline: false），所以**没有 baseline 字段**：
+# 它永远不会被渲染成基准列，只需要三份 vs ——
+#   vs.javascript / vs.python / vs.java 各自的读者是「熟悉那门基准的人」，
+#   措辞要落在 Go 自己的行为上，而不是去复述对方。
+# 三份 vs 都必须写全（R22）：视角无法互相推导，缺的那一份读者看不到。
+#
+# 注意 R25：vs.<基准> 里只能出现 Go 与那个基准两门语言 ——
+# 多提一门就是屏幕外的幽灵语言（读者可能根本没勾它）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-bindings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  declaration:
+    code: |
+      var count int = 0          // @note 包级变量只能用 var
+      var name = "Ada"           // @note 类型由初值推断
+      age := 30                  // @note! 短变量声明，只能在函数体内用
+      const MaxRetry = 3         // @note const 是编译期常量，不是「不可改绑的变量」
+    vs:
+      javascript: |
+        JavaScript 用 `let` / `const` 两个关键字把「能否改绑」写在声明处；
+        Go 没有这个概念 —— `:=` 与 `var` 声明的都是普通变量，随时可以重新赋值。
+        Go 的 `const` 名字看着像 JavaScript 的 `const`，其实不是一回事：
+        它声明的是**编译期常量**，只能取数字、字符串、布尔这类值，
+        写 `const xs = []int{1}` 是编译错误。
+      python: |
+        Python 的赋值语句本身就是声明；Go 把声明分成了两种形式 ——
+        函数体内可以用 `:=`（声明并赋值一步完成），包级作用域则必须写 `var`。
+        这个区分在 Python 里不存在，因为 Python 没有包级作用域这个概念：
+        模块顶层与函数体的赋值写法完全一样。
+      java: |
+        Java 必须在声明处写出变量类型（Java 10 起可用 `var` 让编译器推断）；
+        Go 的 `:=` 一直都推断类型，而且它是**声明**语句 ——
+        对已有变量用 `:=` 会编译失败（要求至少有一个新变量在左边）。
+        Java 的 `var` 只是省掉类型名，`x := 1` 与 `var x = 1` 的语义并不相同。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  mutability:
+    code: |
+      n := 1
+      n = 2                      // @note Go 里没有「不可改绑的变量」，所有变量都能赋值
+
+      const Pi = 3.14            // @note 编译期常量
+      // const Items = []int{1}  // @note! 编译错误：常量不能是切片
+
+      xs := []int{1, 2, 3}
+      xs[0] = 9                  // @note 切片内容随便改，没有可变性标记可加
+    vs:
+      javascript: |
+        Go 里**不存在**「一个不能重新赋值的变量」这种东西 —— 那正是 JavaScript 的
+        `const` 在做的事。Go 的 `const` 借用了同一个词，含义却是编译期常量：
+        值在编译时就定下来，不能是切片、映射或结构体。所以看到 `const`，
+        JavaScript 读者预期的是「绑定冻结」，Go 给的是「这个值烧进二进制了」。
+      python: |
+        Python 完全没有常量语法，Go 有，但只管编译期常量 —— 集合类型一律不能用
+        `const` 声明。两边都**没有**「冻结一个变量的绑定」的手段：
+        `n := 1` 之后 `n = 2` 永远合法，想禁止只能靠约定或工具，语言不拦。
+      java: |
+        Java 的 `final` 冻结的是**绑定**，`final List<String> xs` 照样能 `add`；
+        Go 根本没有与 `final` 对应的东西，变量一律可赋值。Java 的
+        `static final` 与 Go 的 `const` 更接近，但 Java 的常量可以指向
+        运行时构造出来的对象，Go 的 `const` 只能是编译期可求值的基本类型。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: divergent
+
+  scope:
+    code: |
+      {
+        inner := 1
+        _ = inner
+      }
+      // fmt.Println(inner)      // @note! 编译错误：undefined: inner
+
+      if v, ok := m["k"]; ok {   // @note! if 的初始化语句，v 与 ok 只在这个 if 内可见
+        fmt.Println(v)
+      }
+    vs:
+      javascript: |
+        两边都以 `{}` 为界，Go 没有 JavaScript `var` 那种函数级的逃生口。
+        Go 多出来的是一种写法：`if` / `for` / `switch` 可以带一条初始化语句，
+        在那里声明的变量只属于这个语句块 —— 读 JavaScript 时习惯在循环外
+        先声明变量，Go 里更常见的是就地声明并把它关在块内。
+      python: |
+        Python 只有函数与类会产生新作用域，`if` / `for` 的块体不产生，
+        循环变量会漏到函数末尾；Go 的每个 `{}` 都是边界，
+        `if v, ok := m["k"]; ok` 里的 `v` 出了 if 就不存在。
+        这层差别让 Go 代码里同名变量的作用范围比 Python 窄得多。
+      java: |
+        Java 同样是块级作用域，而且也没有函数级逃生口。差别在变量声明的自由度：
+        Java 的局部变量必须显式写出类型（或用 `var`），Go 的 `:=` 一步到位；
+        另外 Go 允许在 `if` 的条件前挂一条初始化语句，
+        Java 里对应的写法是把声明写在 `if` 外面，作用域因此更大。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  hoisting:
+    absent: true
+    vs:
+      javascript: |
+        Go 没有变量提升。函数内的名字在声明之后才可见，提前使用是编译错误
+        `undefined: x` —— 不会像 `var` 那样先给一个零值。包级变量确实
+        在 `main` 之前就初始化好，但顺序由**依赖关系**决定而不是书写顺序，
+        这与「提升」是两件事。
+      python: |
+        Go 和 Python 一样没有提升，名字在声明之后才存在。时机不同：
+        Python 到运行时才抛 NameError，Go 编译期就报 `undefined: x`。
+        另有一处 Python 没有的机制 —— 包级变量按依赖顺序初始化，
+        初始化表达式里可以引用后面才写的变量，只要不构成循环。
+      java: |
+        Go 与 Java 的局部变量都必须先声明后使用，编译期拦住。
+        差别在字段：Java 的字段没写初值也有默认值（`0` / `false` / `null`），
+        读它不报错；Go 的变量虽然都有零值，但结构体字面量里没写的字段
+        同样拿零值 —— 两边在这点上反而一致，真正的区别是
+        Go 没有「声明了却不赋值」的语法，`var x int` 与 `x := 0` 都是显式的。
+    equivalence:
+      javascript: divergent
+      python: identical
+      java: analogous
+
+  shadowing:
+    code: |
+      x := 1
+      {
+        x := 2                   // @note 内层是新变量，遮蔽外层
+        fmt.Println(x)           // @note 2
+      }
+      fmt.Println(x)             // @note 1 —— 外层没被改动
+
+      if true {
+        x := 3                   // @note! 这里又遮蔽一次 —— go vet 的 shadow 检查能抓到
+        _ = x
+      }
+    vs:
+      javascript: |
+        JavaScript 在同一个块里重复声明同名 `let` 是语法错误，Go 用 `:=` 重新声明
+        则是合法遮蔽 —— 只要左边至少有一个新变量。这造就了 Go 里最常见的坑：
+        在 `if` 里用 `:=` 本想给外层的 `err` 赋值，实际却造了个新变量，
+        外层的 `err` 一直是 nil。JavaScript 的语法直接堵死了这种写法。
+      python: |
+        Python 里重新赋值就是改掉原来那个名字，不存在「新变量遮蔽旧变量」。
+        Go 的 `:=` 在内层块会**新建**一个变量，外层那个原封不动 ——
+        因此「我在内层改了 err」在 Python 里成立，在 Go 里经常不成立。
+      java: |
+        Java 禁止同一方法内层块重复声明同名局部变量，`:=` 那种遮蔽写不出来；
+        Java 里能遮蔽的只有「局部变量遮蔽同名字段」，而且要靠 `this` 才能取回。
+        Go 的遮蔽是日常写法，也正因如此，编译器不拦、只有可选的 vet 检查会提醒。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  naming-convention:
+    code: |
+      var userName string        // @note 包内可见（首字母小写）
+      var UserName string        // @note! 导出，包外也能访问 —— 大小写是语义，不是风格
+
+      const MaxRetry = 3         // @note 常量：CamelCase（不是全大写）
+      type UserProfile struct{}  // @note 类型：CamelCase
+      func parseLine(s string) {} // @note 函数：CamelCase
+    vs:
+      javascript: |
+        这是 Go 与 JavaScript 差得最远的一处：JavaScript 里大小写纯属约定，
+        唯一带语义的是 `#` 私有字段；Go 里**首字母大小写直接决定可见性** ——
+        大写导出、小写包内私有，改一个字母就改了 API。
+        另外 Go 的常量写 CamelCase 而不是全大写，与 JavaScript 习惯相反。
+      python: |
+        Python 用下划线前缀表达「这是内部实现」（`_foo` 是约定，`__foo` 触发名称改写），
+        但解释器并不真的拦住外部访问；Go 用首字母大小写表达同一件事，
+        而且**是编译器强制的** —— 小写的名字从包外引用直接编译失败。
+        两边的函数命名都是 snake_case，但 Python 的类与 Go 的类型虽然都写 CamelCase，
+        常量写法不同：Python 是全大写，Go 是 CamelCase。
+      java: |
+        两边的类型都写 CamelCase，函数名在两处都遵循各自社区（Java camelCase、
+        Go CamelCase 但缩写词全大写或全小写）。最根本的差别是可见性怎么表达：
+        Java 靠 `public` / `private` 关键字，与名字无关；Go 靠首字母大小写，
+        没有 `private` 关键字 —— 读到一个小写开头的标识符，
+        就知道它出不了这个包。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
