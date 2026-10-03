@@ -1,0 +1,201 @@
+# arkts —— express / functions
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: functions` 的那批：
+# function-declaration / parameters / variadic / return-values / closures。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「TS」这类简称同样会被检测成屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：ArkTS 与语法上的母体高度同形，本文件只写**能核实**的差别 ——
+# 绝大多数格子落在「检查更严、没有动态类型兜底」这一句上，写不出新差异的
+# 格子如实标 identical / analogous 加一句短说明，不灌水。读者是 JavaScript
+# 开发者，写错比写少伤害大。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-functions-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  function-declaration:
+    code: |
+      function greet(name: string): string {   // @note 参数与返回值都要有类型
+        return "你好，" + name;
+      }
+      const hi = function (name: string): string { return name; };   // @note 函数表达式
+      const yo = (name: string): string => "你好，" + name;          // @note 箭头函数
+
+      function apply(f: (x: number) => number, v: number): number {   // @note 函数类型写在签名里
+        return f(v);
+      }
+
+      // @note! 参数类型不能省，也没有 any 可以兜底
+      // function bad(x) { return x; }     // @note! 编译错误：x 的类型推断不出来
+    vs:
+      javascript: |
+        三种写法的形态是一样的：函数是一等值，可以赋给变量、当参数传、当返回值，
+        这些两边都能做。差别全在签名上 —— JavaScript 的参数与返回值不写类型，
+        ArkTS 的它们是必需的，推断不出来的位置直接编译不过。最明显的是回调：
+        JavaScript 里随手写 `(x) => x` 就能传，ArkTS 要写成 `(x: number): number => x`，
+        因为没有可以兜底的动态类型，每个值都得在编译期能推出类型来。
+      python: |
+        Python 只有 `def`（外加 `lambda` 表达式），方法的接收者是显式的 `self` 参数；
+        ArkTS 有声明式、函数表达式、箭头函数三种写法，函数是一等值。
+        两边都能标类型，但态度相反：Python 的标注是可选文档、运行时不生效，
+        ArkTS 的参数与返回值类型是编译的输入，缺了或对不上就出不了包。
+      java: |
+        Java 没有自由函数，所有方法都要写在类里；ArkTS 的顶层函数随便写，
+        这一点更接近脚本语言的习惯。签名上两边都要求写类型、都要给出返回值。
+        差别在逃逸路径：Java 有原生类型、装箱、反射这些可以绕过类型系统的口子，
+        ArkTS 刻意把这类写法堵住 —— 想让一个值「先不写类型、以后再说」编译不过。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  parameters:
+    code: |
+      function f(a: number, b: number = 10, c?: string): void {   // @note 默认值与可选参数都在
+        // b 缺省时取 10，c 缺省时是 undefined
+      }
+      f(1);                          // @note 实参可以少给，不会报错
+
+      // @note 实参类型在编译期核对：传错类型就过不去
+      // f("x");                     // @note! 编译错误：string 不能当 number 用
+
+      // @note! 每个形参都必须能推出类型 —— 没有 any，也就没有「先不写」的余地
+      // function g(x) { }           // @note! 编译错误：x 推断不出类型
+    vs:
+      javascript: |
+        传参的运行时语义一样：少给是 `undefined`、默认值只在传 `undefined` 时触发、
+        每次调用重新求值 —— 这些本来就是同一套行为。ArkTS 多的是编译期的核对：
+        实参类型不对、参数个数与类型对不上、想留一个没标类型的形参，都在出包前被拦下。
+        换句话说，同一个调用在 JavaScript 里可能悄悄传错，在这里写的时候就过不去。
+      python: |
+        Python 支持关键字参数，调用方写 `f(b=3)` 就能跳过前面的位置；
+        ArkTS 只能按位置传，想要「具名」得自己收一个对象参数。
+        默认值的求值时机也相反：Python 只在定义时求值一次（`def f(x=[])` 是著名的坑），
+        ArkTS 每次调用重新求值。可选参数两边都有，位置限制也一样（要放最后）。
+      java: |
+        Java 没有默认值、没有可选参数，缺省行为只能靠重载写多个方法；
+        ArkTS 的默认值与可选参数是签名的一部分，调用方按需省略参数。
+        另一处差别在少传实参：Java 编译期就报错，ArkTS 里不传可选参数是合法的 ——
+        缺省的意思只写在签名那一侧，读调用点看不出这里「本可以少传」。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  variadic:
+    code: |
+      function sum(...nums: number[]): number {   // @note rest 必须写出元素类型：number[]
+        let total = 0;
+        for (const n of nums) total += n;
+        return total;
+      }
+      sum(1, 2, 3);                  // @note 6 —— 实参个数不进入类型
+
+      const xs: number[] = [1, 2, 3];
+      sum(...xs);                    // @note 调用处的 ... 是展开，把数组摊成实参
+
+      // @note! 没有动态类型兜底：rest 要标成明确的数组类型，且只能放最后
+    vs:
+      javascript: |
+        `...nums` 收成真数组、调用处 `...xs` 把数组摊开，这些行为两边一致 ——
+        ArkTS 用的是同一套语法。差别在 rest 参数必须写出数组类型：
+        JavaScript 的 `...nums` 不带类型也能跑，ArkTS 里 `nums: number[]`
+        是签名的一部分，编译器拿它核对每一个实参。想先写一个不带类型的收参、
+        事后再补，在这里编译不过，因为没有动态类型能兜住。
+      python: |
+        Python 用 `*args` 收成元组，另外还有 `**kwargs` 收关键字参数；
+        ArkTS 的 rest 收成数组，也没有对应 `**kwargs` 的写法 ——
+        「一组可选的命名参数」要传一个对象。展开语法两边都有，
+        但 ArkTS 的 rest 必须标好元素类型，Python 的 `*args` 不标也能跑。
+      java: |
+        Java 的可变参数 `int... nums` 在方法内部就是数组，而且必须是最后一个参数；
+        ArkTS 的 `...nums: number[]` 同样放最后、同样收成数组，规则几乎逐条对应。
+        差别在调用处：Java 不能把已有数组展开成实参，只能整只传进去，
+        ArkTS 可以 `sum(...xs)` —— 现成的数组直接摊开，调用点灵活得多。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  return-values:
+    code: |
+      function f(): void { }           // @note void 明确表示不返回值
+
+      // 想一次带回多个值，就把它们装进一个容器返回
+      function minMax(xs: number[]): number[] {   // @note 返回数组，位置含义靠约定
+        let lo = xs[0];
+        let hi = xs[0];
+        for (const n of xs) { if (n < lo) lo = n; if (n > hi) hi = n; }
+        return [lo, hi];
+      }
+      const r = minMax([3, 1, 2]);
+      const lo = r[0];
+      const hi = r[1];                 // @note 按下标接回
+
+      // @note! 声明了返回类型，每条路径就都要给出符合类型的值，否则编译不过
+    vs:
+      javascript: |
+        写法一致：`return` 给出返回值，不写就得到 `undefined`；想一次带回多个值
+        就把它们装进一个数组或对象。差别在签名 —— ArkTS 要写出返回类型，
+        于是「这条路径没返回值」「返回了别的类型」这类疏漏在编译期就被发现；
+        JavaScript 里它只是悄悄变成 `undefined`，要等调用方用错才暴露出来。
+      python: |
+        Python 的 `return a, b` 是原生的多返回值（返回元组），调用方直接解包；
+        ArkTS 要把值装进一个数组再按下标取回，形状得自己约定。
+        返回标注的性质也相反：Python 的标注只有类型检查器在意，写错了代码照跑；
+        ArkTS 声明了返回类型，就要求每条路径都给出符合类型的值，否则编译不过。
+      java: |
+        Java 与 ArkTS 都要求写出返回类型、都要求所有路径都有返回值 ——
+        这一点可以逐条对应。多返回值两边都要自己打包：Java 一般用 record
+        或容器，ArkTS 用一个数组或对象，接的时候同样要按事先的约定去取。
+        差别在类型信息的存活期：Java 的类型运行时还在，ArkTS 的编译后不保留。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  closures:
+    code: |
+      function counter(): () => number {
+        let n = 0;
+        return () => ++n;              // @note 闭包记住 n，返回出去后它仍然存活
+      }
+      const next = counter();
+      next(); next();                  // @note 1 2
+
+      // @note 回调也是闭包：捕获外层变量，参数与返回值都要写出类型
+      const xs: number[] = [1, 2, 3];
+      let total = 0;
+      xs.forEach((x: number) => { total += x; });   // @note 闭包里改外层变量是允许的
+
+      // @note! 没有动态类型兜底：回调参数省掉类型就编译不过
+    vs:
+      javascript: |
+        闭包的机制两边完全一样 —— 函数记住定义处的外层变量，返回出去之后那些变量
+        仍然存活，同一套语义、同一个运行时行为。ArkTS 在这里没有加任何新规则，
+        唯一的差别落在类型上：回调的参数与返回值要写出来，也没有动态类型可以兜底。
+        所以这一格的 `identical` 是如实标注 —— 这个知识点本身没有差异。
+      python: |
+        Python 的闭包同样能记住外层变量，只是「在闭包里改外层」要显式写 `nonlocal`，
+        ArkTS 直接赋值即可。另一处差别是晚绑定：Python 循环里造的函数会共享
+        同一个变量、最后都拿到末值，惯用解法是给函数加个默认参数把值固定住；
+        ArkTS 用 `let` 的循环变量每轮新建绑定，天然避开了这个坑。
+        类型这一层仍是一边严一边松：ArkTS 的回调参数必须标类型，Python 不标也能跑。
+      java: |
+        Java 的 lambda 只能捕获**事实上的 final** 变量 —— 捕获之后就不能再改，
+        想在闭包里累加得借助数组或原子类型；ArkTS 的闭包能直接改外层变量，
+        写法自然得多。差别还在于类型：Java 的 lambda 要落在一个函数式接口上、
+        类型是那个接口；ArkTS 的箭头函数本身是值，类型直接写成函数类型。
+    equivalence:
+      javascript: identical
+      python: analogous
+      java: divergent

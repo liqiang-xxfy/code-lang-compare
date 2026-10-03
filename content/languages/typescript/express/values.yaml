@@ -1,0 +1,148 @@
+# typescript —— express / values
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: values` 的那批：
+# literals / type-inference / null-and-undefined / type-conversion。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「JS」这类简称同样会被算作屏幕外的语言，泛指时写「另一门语言」。
+#
+# 值的写法与 JavaScript 逐字相同，可写的差异几乎都在「编译期多出来的那一层类型」上 ——
+# 这一份的内容口径照此收窄，运行时行为的部分不重复讲。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-values-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  literals:
+    code: |
+      const n = 42;                     // @note 数字只有双精度浮点一种，1 与 1.0 是同一个值
+      const big = 9007199254740993n;    // @note 大整数要加 n 后缀，用 BigInt 才不丢精度
+      const s = 'text';                 // @note 单双引号等价
+      const t = `你好，${name}`;         // @note 模板字面量可以插值
+      const xs: number[] = [1, 2];      // @note 数组字面量，元素类型标在外面
+      const p = { x: 1, y: 2 };         // @note 对象字面量，形状由结构推断
+
+      const K = 10;                     // @note 类型是字面量 10，比 number 更窄
+      const mode = "dark" as const;     // @note as const 锁成字面量类型 "dark"
+      type Dir = `up` | `down`;         // @note 模板字面量类型：字符串也能进类型系统
+    vs:
+      javascript: |
+        值本身怎么写与 JavaScript 一模一样 —— 同一份字面量去掉类型标注就是合法的
+        JavaScript。TypeScript 加的是**字面量类型**那一层：`const K = 10` 推出来的
+        不是 `number` 而是 `10`，再配上 `as const` 与模板字面量类型，字面值也能进类型
+        系统参与检查。所以差别不在「怎么写值」，而在同一个值同时还是一个类型。
+      python: |
+        Python 的整型是任意精度，`10 ** 100` 照样精确；TypeScript 的数字都是双精度浮点，
+        大整数得显式用 BigInt 才不丢精度。另一处是字面量类型：TypeScript 把 `10` 本身
+        当成一个类型，`1 | 2 | 3` 这类联合因此在类型里写得出来；Python 的 `Literal[1, 2, 3]`
+        形状接近，但只有类型检查器在意，解释器一概不看 —— 写错了照样跑。
+      java: |
+        Java 的数字按宽度分成 `int` / `long` / `double` 几种，字面量默认是 `int`，
+        超出范围要加后缀；TypeScript 只有一种数字类型，代价是大整数丢精度、整数除法得小数。
+        另一处差别是把值当类型用：Java 里要表达「只接受这几个值」得用枚举，
+        TypeScript 直接写 `type Dir = "up" | "down"`，字面量本身就是类型。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  type-inference:
+    code: |
+      let n = 42;                 // @note 由初值推断出 number
+      let s: string = "hi";       // @note 也可以显式标注
+      // let z;                   // @note! 推断成 any，检查从这里断掉
+
+      function area(r: number): number { return 3.14 * r * r }   // @note 参数与返回值要写
+
+      interface Point { x: number; y: number }   // @note 描述形状，编译后消失
+      const K = 10;               // @note 推断成字面量类型 10，而不是 number
+      let m: 1 | 2 | 3 = 1;       // @note 联合字面量：只接受这三个值
+    vs:
+      javascript: |
+        标注在 TypeScript 里是**外加**的语法：同一段代码去掉冒号和类型就是合法的
+        JavaScript，所以迁移能一个文件一个文件地做。但「不写类型」这条默认路径两边
+        分道扬镳 —— JavaScript 里 `let x` 装什么都行，TypeScript 里 `let z;`
+        （不写初值也不写类型）会推断成 `any`，等于在这个名字上把检查关掉了。
+      python: |
+        两边都把类型写在名字后面（`x: number` / `x: int`），也都能只标注一部分。
+        差别在**谁在检查**：Python 的标注运行时不生效，写错了代码照跑，要靠外部检查器
+        另跑一遍；TypeScript 的标注就是编译器的输入，写错编译不过。另一处是字面量推断 ——
+        `const K = 10` 在 TypeScript 里推出类型 `10`，Python 里 `K = 10` 只是拿到一个值。
+      java: |
+        位置相反：Java 写 `int x`（类型在前），TypeScript 写 `x: number`（类型在后）。
+        能省的范围也不同 —— Java 只有局部变量能用 `var` 让编译器推断，
+        TypeScript 的函数签名、字段、常量全都**可以**省，所以更容易写出
+        「某一处漏了标注、检查从这里断掉」的代码，而漏掉的写法还完全合法。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
+
+  null-and-undefined:
+    code: |
+      let a;                            // @note 未初始化，值是 undefined
+      const b: string | null = null;    // @note 两种空要显式写进类型
+      // b.length;                      // @note! strictNullChecks 下编译错误：b 可能是 null
+      b?.length;                        // @note 可选链：为 null 时整体得 undefined
+      b ?? "默认";                      // @note 空值合并：只认 null / undefined
+      // let c: string = undefined;     // @note! 错误：undefined 不能赋给非空类型
+      function f(x?: string) { }        // @note 可选参数的类型是 string | undefined
+    vs:
+      javascript: |
+        JavaScript 里 null 与 undefined 能赋给任何变量，读属性就抛 TypeError；
+        TypeScript 打开 strictNullChecks 后把它们变成类型的一部分 —— 想让一个名字
+        可能为空，就得在类型里写出来。注意这是**编译开关**：关掉它，两边行为就没有
+        区别，这也解释了老代码里为什么满是防御性的空检查、新代码里反而少见。
+      python: |
+        Python 只有一种空值 None，「还没赋值」与「有意为空」不做区分，读属性到运行时
+        才抛 AttributeError；TypeScript 把 null 与 undefined 分成两个类型，都在编译期检查。
+        可选写法还差一层语义：Python 的 `x or "默认"` 对空字符串、0、空列表都会取右边，
+        TypeScript 的 `??` 只认 null / undefined —— `0 ?? 5` 得 0，`0 or 5` 得 5。
+      java: |
+        Java 的 null 能赋给任何引用类型，解引用就是 NPE，编译器不管；TypeScript
+        在编译期就要求把「可能为空」写进类型。Java 的对策是库层面的 Optional，
+        但它只覆盖返回值，字段、参数、局部变量都用不上，套上之后写法也变重；
+        TypeScript 的可空性是类型系统里的一等公民，字段和参数一样能标。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-conversion:
+    code: |
+      const n = Number("12");        // @note 显式转换：字符串到数字必须调用 Number()
+      Number("12px");                // @note NaN —— 转换失败给 NaN，不抛错
+      String(42);                    // @note "42" —— 反向同样要显式调用
+
+      "1" + 1;                       // @note! 得 "11"：加号仍做字符串拼接，编译期不拦这一种
+      // const bad = "3" * 2;        // @note! 编译错误：算术运算符不接受字符串
+      // const x: number = "1";      // @note! 编译错误：字符串不能赋给 number
+      // 1 == "1";                   // @note! 编译错误：两个类型没有重叠，这种比较也拦
+    vs:
+      javascript: |
+        TypeScript 不改运行时的转换规则：`"1" + 1` 照样得 "11"（加号拼接是允许的）。
+        但它给隐式转换加了一道编译期的闸 —— `"3" * 2` 这种字符串算术、`1 == "1"`
+        这种跨类型比较、以及不匹配的赋值，在 TypeScript 里都直接编译不过，
+        而 JavaScript 会照做并给你一个别的值。字符串与数字之间要转，
+        两边都得显式写 Number() / String()，失败给 NaN。
+      python: |
+        两边都拒绝把隐式转换当默认：Python 的 `1 + "a"` 抛 TypeError，
+        TypeScript 的 `"3" * 2` 编译错误。差别在时机与加号：Python 连字符串拼接
+        都要求两边同类或显式转换，TypeScript 的 `+` 只要有一边是字符串就拼接（得 "11"），
+        这条隐式规则来自它的运行时语义，编译器不会拦。
+      java: |
+        Java 只在数值类型之间隐式拓宽（int 自动变 double），数字与字符串之间要显式写
+        Integer.parseInt / String.valueOf；TypeScript 只有一种数字类型，没有拓宽可言，
+        字符串与数字之间同样要显式调用 Number() / String()。两边都允许 `+` 做字符串拼接，
+        差别在数字那侧：Java 还留着隐式的拓宽转换，TypeScript 把数值转换全部收回到显式调用。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous

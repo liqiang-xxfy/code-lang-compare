@@ -1,0 +1,155 @@
+# arkts —— express / control-flow
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: control-flow` 的那批：
+# conditionals / loops / iteration-protocol / switch-and-match。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「TS」这类简称同样会被算作屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：ArkTS 的控制流与语法相近的那门静态方言高度同形，本文件只写**能核实**
+# 的差别；拿不准的语法细节（条件是否强制布尔、自定义迭代协议的写法）一律不编造，
+# 写不出的差异如实标 identical / analogous + 一句短说明，不灌水。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  conditionals:
+    code: |
+      function label(score: number): string {
+        if (score >= 60) { return "及格"; }
+        else { return "不及格"; }        // @note if / else 的写法不变
+      }
+
+      function pad(v: string | number): string {
+        if (typeof v === "number") {
+          return v.toFixed(2);           // @note 这里 v 收窄成 number
+        }
+        return v.trim();                 // @note 这里收窄成 string
+      }
+    vs:
+      javascript: |
+        `if` / `else` 的写法逐字相同，判断分支、收窄类型的规则也一致 ——
+        `typeof v === "number"` 之后分支里就能当数字用，这些都不是新加的语法。
+        真正的分界还是那一条：ArkTS 要求每个值都能静态推断出类型，
+        JavaScript 里「先写着、运行起来再说」的条件，在这里可能连包都出不了；
+        至于分支怎么走，两边跑起来结果相同。
+      python: |
+        Python 用 `isinstance` 判断，收窄只对另跑的类型检查器有意义；ArkTS 的收窄是
+        编译器内置的，`typeof`、`instanceof` 都能触发，分支里直接就能用收窄后的成员。
+        两边分支的写法相近，差别在检查是不是强制的：Python 写错了照跑，
+        ArkTS 里类型对不上就出不了包。
+      java: |
+        两边都有「判断之后分支里就是窄类型」的效果，这是最根本的相似处：
+        Java 16 起 `instanceof` 之后就能直接用窄类型的方法，ArkTS 的 `typeof` 也一样。
+        差别在判断手段：Java 基本只有 `instanceof` 一条路，
+        ArkTS 还多一个 `typeof`，用来收窄 `string | number` 这类原始类型的联合。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  loops:
+    code: |
+      for (let i = 0; i < 3; i++) { }        // @note 三段式计数循环
+
+      const xs: number[] = [1, 2, 3];
+      for (const x of xs) { }                // @note 遍历值，x 推成 number
+
+      let n = 3;
+      while (n > 0) { n--; }                 // @note 先判断后执行
+      do { n++; } while (n < 3);             // @note 至少执行一次
+    vs:
+      javascript: |
+        循环语句逐字相同：三段式 `for`、`for...of`、`while`、`do...while`
+        一个不缺，运行时行为也一致。ArkTS 唯一的不同仍然在类型侧 ——
+        被遍历集合的元素类型要么写出来、要么能推出来，
+        JavaScript 里可以随手遍历一个类型说不清的值，这里不行。
+      python: |
+        Python 的 `for` 只有一种：遍历可迭代对象，计数要 `range(n)`；ArkTS 保留了三段式
+        计数循环，也能直接遍历集合。需要下标时 Python 用 `enumerate`，
+        ArkTS 要么写三段式、要么在遍历时自己维护计数。
+        `do...while`（至少执行一次）Python 没有专门语法，ArkTS 有。
+      java: |
+        两边的循环一一对应：三段式 `for`、增强 for 与 `for...of`、`while`、`do...while`
+        都对得上，是整份对照里最不需要重新学的一节。差别在元素类型从哪来 ——
+        Java 的增强 for 要在括号里写出元素类型，ArkTS 的 `for...of` 由集合推出，
+        写起来更省，但推不出来时就必须显式标注。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
+
+  iteration-protocol:
+    code: |
+      const xs: number[] = [1, 2, 3];
+      for (const x of xs) { }                 // @note 数组自带迭代协议
+
+      const s: Set<string> = new Set<string>();
+      for (const v of s) { }                  // @note Set / Map / 字符串都可遍历
+
+      function total(items: Iterable<number>): number {   // @note 接受任何可迭代对象
+        let sum = 0;
+        for (const x of items) { sum += x; }
+        return sum;
+      }
+    vs:
+      javascript: |
+        运行时的迭代协议相同：集合自带 `Symbol.iterator`，`for...of`、展开运算符、
+        解构都认它。ArkTS 的增量在类型侧：接受可迭代参数的函数用 `Iterable<T>` 标注，
+        元素类型就是确定的；普通对象没有这套协议，
+        JavaScript 里要到遍历那一刻才抛错，ArkTS 里编译期就过不去。
+      python: |
+        两边都是运行时的协议，思路一致：Python 靠 `__iter__` / `__next__`，ArkTS 靠
+        `Symbol.iterator`。差别在类型与覆盖面：ArkTS 的协议可以标成 `Iterable<T>`，
+        编译器据此核对元素类型；它的普通对象默认不可迭代，
+        而 Python 的字典本身就是可迭代的（默认遍历键）。
+      java: |
+        Java 的 `Iterable<T>` 是要显式实现、编译期强制的接口；ArkTS 也用 `Iterable<T>`
+        约束可迭代对象，编译期同样核对元素类型 —— 两边看起来很像，是最接近的一对。
+        差别在覆盖面：Java 的字符串不是 `Iterable`，ArkTS 的字符串可以直接遍历；
+        Java 的 `Stream` 是并列的另一套惰性管道，ArkTS 没有对应的独立概念。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  switch-and-match:
+    code: |
+      type Level = "low" | "mid" | "high";   // @note 字面量联合类型
+
+      function rank(lv: Level): number {
+        switch (lv) {
+          case "low": return 1;
+          case "mid": return 2;
+          case "high": return 3;             // @note 每个 case 里 lv 收窄成对应字面量
+        }
+        return 0;                            // @note 兜底返回：三个 case 已覆盖 Level 的取值
+      }
+    vs:
+      javascript: |
+        `switch` 的形态相同：严格相等比对、分支默认贯穿、要自己写 `break`。
+        ArkTS 与它同形，没有新增结构匹配的语法 —— 差别仍在那一条，判别的值必须是有类型
+        的（比如一个字面量联合），于是在 `case` 里它会收窄成对应的成员；
+        JavaScript 那边判断完的类型不会留下来。
+      python: |
+        Python 3.10 的 `match` 是结构化模式匹配，能按元组、字典、类的形状拆解并绑定变量；
+        ArkTS 的 `switch` 只是「多路等值比较」，结构匹配要靠判别字段加收窄来模拟。
+        侧重点相反：Python 的每个 `case` 都描述一个形状、漏分支静默跳过；
+        ArkTS 的形态朴素，但判别的值有类型，写错的 `case` 编译期就能发现。
+      java: |
+        Java 的 `switch` 与 ArkTS 都从「等值比较加 `break`」出发，但新版 Java 走得更远 ——
+        箭头语法不贯穿、能直接当表达式、还支持类型与 record 解构；ArkTS 停在同一形态，
+        匹配结构要靠判别字段加收窄来做。Java 的 `switch` 表达式由编译器保证穷尽，
+        这一条是它相对更宽的地方。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

@@ -1,0 +1,165 @@
+# typescript —— express / operators
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: operators` 的那批：
+# arithmetic / equality / logical / operator-overloading。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 「JS」这类简称同样算点名，泛指时写「另一门语言」。
+#
+# 口径说明：运算符本身与 JavaScript 是同一套（共享引擎），本文件写的是
+# **编译期那层多出来的类型规则**；凡是会编译不过的写法一律注释掉，
+# 与 mechanism/types 保持同一写法。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-operators-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arithmetic:
+    code: |
+      7 / 2;                    // @note 3.5 —— 只有一种除法，永远得浮点
+      Math.trunc(7 / 2);        // @note 3 —— 想要整数除法得自己截断
+      -7 % 3;                   // @note! -1 —— 余数符号跟着被除数走
+      0.1 + 0.2;                // @note! 0.30000000000000004
+
+      let i = 0;
+      i++;                      // @note 自增自减是表达式，有前置 / 后置之别
+
+      // 运算符与运行时一字不改，多出来的是编译期对 + 的类型规则
+      function add(a: number | string) {
+        // return a + 1;         // @note! 编译错误：string | number 不能直接与 number 相加
+        return typeof a === "number" ? a + 1 : a + "!";
+        // @note 先收窄，+ 才确定是数值加法还是字符串拼接
+      }
+    vs:
+      javascript: |
+        算术运算符与 JavaScript 是同一套，运行时的结果也逐位相同 —— 本来就是同一个引擎。
+        多出来的是编译期对 `+` 的规则：它要求两边都是数值或字符串，
+        所以 `number | string` 这种联合类型直接相加会被拦下，得先收窄再算。
+        `1 + "a"` 的类型是 string，赋给 number 同样编译不过 ——
+        JavaScript 里那个「拼接陷阱」要运行到才发现，这里写的时候就报。
+      python: |
+        Python 用 `//` 做整除、`/` 做真除法，两个运算符分得很清楚；
+        这里只有 `/` 一个，结果永远是浮点，要整数得自己 `Math.trunc`。
+        余数也不同：Python 的 `%` 符号跟着**除数**（`-7 % 3` 得 2），
+        这里跟着被除数（得 -1）—— 处理负数时这是实打实的行为差异。
+        还有精度：Python 的整数是任意精度的，这里全是双精度浮点，
+        大整数与 `0.1 + 0.2` 这类小数会悄悄丢精度。
+      java: |
+        两边都有 `+ - * / %` 与 `++` / `--`，写法几乎可以照搬，是最接近的一对。
+        差别在数字的模型：Java 的 `7 / 2` 得 3 是因为两边都是 int，混入 double 才变浮点；
+        这里只有一个双精度浮点类型，`7 / 2` 恒得 3.5，想要 3 得自己截断。
+        溢出也分道：Java 的 int 静默回绕，这里的数值到不了那个边界，代价是大整数丢精度。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
+
+  equality:
+    code: |
+      const any1: any = 1;      // @note 借 any 才能绕开类型检查看运行时行为
+      any1 == "1";              // @note! true —— 松散相等先做类型转换
+      any1 === "1";             // @note false —— 严格相等不转换
+
+      const n: number = 1;
+      const s: string = "1";
+      // n === s;               // @note! 编译错误：number 与 string 没有重叠
+      // n == s;                // @note! 松散相等也不豁免，一样被拦
+
+      // NaN === NaN;           // @note! 编译错误：编译器直接点破它恒为 false
+      Number.isNaN(NaN);        // @note true —— 判 NaN 只能走这个方法
+      ({}) === ({});            // @note! false —— 对象比的是引用
+    vs:
+      javascript: |
+        运行时的相等语义与 JavaScript 完全一样 —— `===` 严格、`==` 做转换、
+        对象比引用、NaN 不等于自己。多出来的一层是：**类型不重叠的比较写不出来**。
+        JavaScript 里 `1 == "1"` 一直是新手陷阱，这里编译器把两边类型对不上的
+        比较直接拦下，`===` 与 `==` 都不放行。所以这一格真正的差别不是语义，
+        而是「哪些比较合法」被编译器提前定好了。
+      python: |
+        Python 的 `==` 比**值**、`is` 比身份；这里的 `===` 看着像 Python 的 `==`，
+        但对对象仍然只比引用 —— 两个内容相同的对象在两边都不相等。
+        真正的差别在两套相等：Python 只有一套、从不做隐式转换，
+        这里还有一套会做转换的 `==`，虽然编译器拦住了大部分误用，
+        借 `any` 或联合类型仍能走到那条路径上。
+      java: |
+        Java 的 `==` 对基本类型比**值**、对引用比**地址**，值相等要靠 `equals`；
+        这里有两套 `===` 与 `==`，且都按引用比对象 —— 都没有「自动按内容比较」。
+        共同的坑是「看起来一样却不相等」，只是 Java 要靠记得调 `equals`，
+        这里要靠记得用 `===`；另一处差别是这里多一套会隐式转换的 `==`，
+        Java 完全没有对应物。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: divergent
+
+  logical:
+    code: |
+      const flag: string = "a";
+      flag && "b";              // @note "b" —— && 返回操作数本身，不是布尔值
+
+      function withOr(x: number | null): number {
+        return x || 5;          // @note! x 为 0 时也会得到 5 —— || 把 0 也当成空
+      }
+      function withNullish(x: number | null): number {
+        return x ?? 5;          // @note 0 —— ?? 只在 null / undefined 时取右边
+      }
+
+      function cityOf(user: { address?: { city?: string } }): string {
+        return user.address?.city ?? "未知";
+        // @note 可选链碰到空就整条短路成 undefined，再由 ?? 兜底
+      }
+    vs:
+      javascript: |
+        `&&` / `||` 返回操作数本身、`??` 只认 null / undefined、`?.` 短路 ——
+        这些语义与 JavaScript 一字不差，本来就是同一套。多出来的是类型这一层：
+        `??` 要求左边**真的可能是空**，写 `x ?? 5` 而 x 的类型不含 null，
+        编译器会提醒「右边永远用不上」；`&&` / `||` 与可选链的结果类型
+        也由编译器算出来，于是「这里到底可能得到什么」写的时候就定了。
+      python: |
+        Python 的 `and` / `or` 与这里一样返回操作数本身，也常拿来给缺省值。
+        差别是没有空值合并运算符：Python 的 `or` 会把 `0` / `""` 当成假，
+        想只对 None 生效得写 `x if x is not None else 默认`；这里的 `??`
+        只认 null / undefined，`0 ?? 5` 得 0 —— 这是这一格最常用的一条。
+        可选链在 Python 里没有对应写法，只能一层层判空。
+      java: |
+        Java 的 `&&` / `||` 严格返回 boolean，不能像这里那样用 `a || b` 直接取值 ——
+        想给默认值得写三目或 `Optional.orElse`。这里的两套取值语法是常态：
+        `||` 返回操作数本身，`??` 只认空值。另一处是 Java 没有空值合并与可选链，
+        判空要靠 `!= null` 一层层写；这里各做成一个运算符，
+        而且类型系统会盯着「这个值到底可能不可能为空」。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  operator-overloading:
+    absent: true
+    vs:
+      javascript: |
+        TypeScript 与 JavaScript 一样**没有运算符重载** —— 它只是给同一份运行时
+        加了一层类型标注，运行时的行为不会因此改变。所以「让两个对象相加得到新对象」
+        两边都做不到，`+` 只会去找 `valueOf` / `toString`。
+        需要相加语义时写法也一样：定义一个命名的 `add` 方法，写成 `a.add(b)`；
+        想让参数有约束，就用类型标注去描述那个方法，而不是去扩展 `+`。
+      python: |
+        Python 的运算符重载是一等公民 —— 定义 `__add__` 之后 `a + b` 直接可用；
+        TypeScript 完全没有这条路，`+` 只认数值与字符串。
+        所以 Python 里写 `a + b` 顺手的矩阵、向量、金额这类类型，
+        到了 TypeScript 一律要写成 `a.add(b)` 这样的命名方法 ——
+        好处是任何一个 `+` 的行为都不必去查定义，代价是代码更长。
+      java: |
+        Java 与 TypeScript 立场相同：都不支持运算符重载，自定义类型只能写命名方法。
+        差别只在字符串拼接：Java 的 `+` 对 String 是编译器特例，
+        TypeScript 的 `+` 允许字符串与任何值拼接（另一边先转成字符串），
+        类型系统还会盯着结果类型；算术、比较、下标在两边都重载不了。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: identical

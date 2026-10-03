@@ -1,0 +1,95 @@
+# arkts —— express / strings
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: strings` 的那批：
+# string-literals / string-common-ops。
+#
+# ArkTS 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 ArkTS 与那个基准两门语言（R25）—— 包括**缩写**，
+# 语言简称同样会被检测成屏幕外的语言，泛指时写「另一门语言」。
+#
+# 口径说明：ArkTS 与语法母体高度同形，字符串这一组几乎没有能核实的实质差异。
+# 能与 JavaScript 逐条对应的格子如实标 `identical`，只把「编译期检查更严」
+# 这一句写在需要它的地方，不为了填满而灌水。读者是 JavaScript 开发者，
+# 写错比写少伤害大。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-strings-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  string-literals:
+    code: |
+      const a = 'text';                 // @note 单双引号完全等价
+      const b = "text";
+      const name = "Ada";
+      const t = `你好，${name}`;         // @note 反引号：插值 + 可换行
+      const esc = 'it\'s';              // @note 转义照旧
+      const ch = "a";                   // @note! 没有字符类型：长度 1 的 string 就是它
+
+      // 插值里的表达式同样要能静态推断出类型 —— 这里没有 any 可以兜底
+      const n: number = 1;
+      const s = `第 ${n} 项`;            // @note 模板串在静态检查下照常可用
+    vs:
+      javascript: |
+        字面量写法与 JavaScript 逐字相同 —— 单双引号等价、反引号既能插值又能跨行、
+        也没有字符类型，因为底层就是同一套字符串。差别不在怎么写，而在**插值里放什么**：
+        JavaScript 里 `${任意值}` 都能拼成字符串（可能拼出 "[object Object]"），
+        这里会要求那个表达式在编译期有确定的类型，而且没有 any 可以兜底。
+        代价是从动态来源拿到的值，要先经过检查或转换才能拼进去。
+      python: |
+        Python 的 f-string 与这里的模板字符串功能对应，两边都没有字符类型这一点也一样。
+        差别在两处：f-string 不能跨行（要跨行得换成三引号），反引号写多行是常态；
+        以及检查时机 —— f-string 里放什么都行，可能到运行时才发现拼出个意外结果，
+        这里的插值表达式在编译期就必须有确定的类型。
+      java: |
+        Java 的双引号是 `String`、单引号是 `char`，两种类型不能混用；这里单双引号等价、
+        也没有 `char` 类型。Java 没有插值语法，只能用 `+` 拼接（或文本块加 `formatted`），
+        写起来更啰嗦。另一处是类型的存活期：Java 的 `String` 是对象、类型运行时还在，
+        这里的标注编译后不保留，运行时拿不到。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  string-common-ops:
+    code: |
+      const s = "hello";
+      s.length;                 // @note 5 —— 注意是 UTF-16 码元数，emoji 会算 2
+      s.toUpperCase();          // @note 返回新串，s 没变
+      s.includes("ell");        // @note true
+      s.slice(1, 3);            // @note "el"
+      s.split("");              // @note 拆成数组
+      ["a", "b"].join("-");     // @note 拼回去
+      s.replace("l", "L");      // @note! 只替换**第一处**
+      s.replaceAll("l", "L");   // @note 全替换
+      s.at(-1);                 // @note 支持负下标（slice 不支持）
+    vs:
+      javascript: |
+        方法集与默认行为跟 JavaScript 一字不差 —— `length`、`slice`、`split`、
+        `replace`、`replaceAll`、`at` 逐条相同，因为底层就是同一套字符串实现。
+        这一格没有新方法、也没有新语义；唯一能说的是角色不同的那一层：
+        同样一次调用，在 JavaScript 里可能带着任何值一路跑到运行时，
+        在这里参数或接收者类型不匹配在编译期就被拦下。
+        `identical` 是如实标注，不是偷懒。
+      python: |
+        Python 用内建函数与运算符：`len(s)`、`"ell" in s`、`s[1:3]`；
+        这里对应 `s.length`、`s.includes(...)`、`s.slice(1, 3)`。
+        最要命的一处默认值相反：Python 的 `str.replace` **默认全替换**，
+        这里只换第一处 —— 同一行代码在两边结果不同。下标规则也要留心：
+        Python 的切片支持负数、越界不抛错，这里负下标只有 `at()` 认。
+      java: |
+        Java 的 `length()` 是方法不是属性，`substring` 与这里的 `slice` 对应；
+        最容易混的是 `replace` 这一对名字：Java 的 `replace` 全替换、
+        `replaceAll` 收的是**正则**，这里正相反（`replace` 只看第一处、
+        `replaceAll` 收的是字面量字符串）。循环里拼字符串 Java 要换 `StringBuilder`，
+        这里直接 `+=` 也行。类型上 Java 有 `String` 与 `char` 之分、两者不能混用，
+        这里的字符串只有 `string` 一种。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous

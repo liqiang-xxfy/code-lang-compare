@@ -1,0 +1,94 @@
+# typescript —— express / containers
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: containers` 的那批：arrays / maps。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-containers-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  arrays:
+    code: |
+      const xs: number[] = [1, 2, 3];        // @note 元素类型写在类型位置
+      const ys: Array<number> = [4, 5];      // @note 与 number[] 等价的另一种写法
+      xs.push(4);                            // @note 方法与 JavaScript 完全相同
+      const doubled = xs.map((x) => x * 2);  // @note 回调参数自动带上元素类型
+      // xs.push("x");                       // @note! 编译错误：元素类型是 number
+
+      const pair: [string, number] = ["Ada", 36];   // @note 元组：每个位置的类型可以不同
+      const ro: readonly number[] = xs;      // @note 只读视图
+      // ro.push(9);                         // @note! 编译错误：只读数组没有 push
+      // ro[0] = 9;                          // @note! 编译错误：只读视图不能改元素
+    vs:
+      javascript: |
+        运行时一模一样 —— 同一个数组、同一批方法、同样允许稀疏。TypeScript 加的是
+        **类型层**的三样东西：给数组标出元素类型；`readonly number[]` 这种只读视图
+        （编译期禁止改写，运行时那个数组照样能改）；以及**元组**
+        （每个位置的类型、甚至长度都能固定下来）。三样编译后全部消失 ——
+        一旦值绕过类型进来（JSON、第三方库），这层保护就不再存在。
+      python: |
+        Python 只有一种 list，元素可以混着放；这里要先声明元素类型，
+        想混放得显式写成联合类型。Python 的 tuple 与这里的元组名字相近但不是一回事：
+        tuple 在**运行时**真的不可改，元组只是「类型上长度与各位类型固定」，
+        运行时还是普通数组、照样能改；想得到 Python 那种不可变得靠 `readonly`，
+        而它只在编译期成立。下标与切片两边都能用，越界行为不同：
+        Python 抛 IndexError，这里给 `undefined`。
+      java: |
+        Java 的数组**长度固定**、动态增删要换 `ArrayList`，而它的类型在编译期与运行时都在；
+        这里一个 `[]` 兼顾两头，类型却编译后整个消失。Java 的 `List.of(...)` 不可变、
+        `Arrays.asList` 是定长视图，这一串区分在这里有一份形状相近的对照物 ——
+        `readonly` 数组就是那个不可变视图，但它的不可变性只在编译期成立。
+        两边共同的底线是元素类型必须静态确定。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  maps:
+    code: |
+      const m = new Map<string, number>();   // @note Map：键与值的类型写在类型参数里
+      m.set("Ada", 90);
+      m.get("nope");                         // @note undefined —— 返回类型是 number | undefined
+      m.size;                                // @note 大小直接读
+      [...m.entries()];                      // @note 按插入顺序
+
+      // 同一个「字典」，三种类型表达方式
+      const counts: Record<string, number> = { Ada: 90 };    // @note 键值类型写全
+      interface Scores { [name: string]: number }            // @note 索引签名
+      const strict: Record<"a" | "b", number> = { a: 1 };    // @note 键可收窄成字面量联合
+      // const bad: Record<"a" | "b", number> = { c: 1 };    // @note! 编译错误：c 不是键
+    vs:
+      javascript: |
+        运行时与 JavaScript 的 `Map` 一致（同样保插入顺序、同样有 `size`、
+        取不到给 `undefined`）。TypeScript 加的是**类型参数**：`Map<string, number>`
+        把键值类型固定下来，`m.get(...)` 的返回类型自动带上 `| undefined`，
+        等于逼你处理「键可能不在」这件事。更实质的一处是「拿对象当字典」的写法 ——
+        在 JavaScript 里可以随手加键，这里必须先给那个对象声明索引签名或
+        `Record<K, V>`，否则连编译都过不去。对象与 `Map` 的取舍还是原来那一个，
+        TypeScript 只是把两种写法的契约都写清楚了。
+      python: |
+        Python 只有一种 dict；这里得**先选一种表达**：真用 `Map`，还是用一个带注解的对象
+        （`Record<K, V>` 或索引签名）。两者在运行时不是一回事（`Map` 的键可以是任何值，
+        对象的键只能是字符串或 symbol），而 Python 的 dict 把这两个角色合在一起 ——
+        所以从 Python 过来时要先想清楚用哪个，选错了会陆续撞上原型链这类历史包袱。
+        取缺失键两边都不会静默出错：Python 抛 KeyError（除非用 `get`），
+        这里 `Map.get` 给 `undefined`，两边都得自己判断。
+      java: |
+        Java 的 `Map` 也是「一个概念、多个实现」（`HashMap` 无序、`LinkedHashMap` 保插入序、
+        `TreeMap` 按键排序），这里的 `Map` 只有一种、按插入顺序遍历。
+        差别更明显的是类型用在哪儿：Java 的泛型运行时被擦除，但类型信息留在类文件里、
+        编译期还能拿来做重载；TypeScript 的类型编译后整个消失，而
+        `Record<"a" | "b", number>` 这种把键收窄成字面量联合的写法 Java 表达不出来
+        （泛型参数不能是具体的值）。取不到时 Java 给 `null`，这里给 `undefined`。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous

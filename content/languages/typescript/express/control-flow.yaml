@@ -1,0 +1,160 @@
+# typescript —— express / control-flow
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/express/features.yaml 里 `group: control-flow` 的那批：
+# conditionals / loops / iteration-protocol / switch-and-match。
+#
+# TypeScript 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 TypeScript 与那个基准两门语言（R25）—— 包括**缩写**，
+# 泛指第三门时写「另一门语言」。
+#
+# 口径说明：控制流语句本身与 JavaScript 逐字相同，本文件只写**类型那一层的增量** ——
+# 收窄、元素类型推断、判别联合上的穷尽检查。语句形态无差别的格子如实标
+# identical / analogous，不为填满而灌水。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: express-control-flow-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  conditionals:
+    code: |
+      let label: string;
+      if (score >= 60) label = "及格";
+      else label = "不及格";          // @note 语句形态不变，增量全在编译期
+
+      function pad(v: string | number): string {
+        if (typeof v === "number") {
+          return v.toFixed(2);       // @note 这个分支里 v 被收窄成 number
+        }
+        return v.trim();             // @note 走到这里 v 已是 string
+      }
+    vs:
+      javascript: |
+        `if` / `else` 的语法逐字相同 —— 毕竟超集是从同一份代码演化来的，
+        条件也沿用它那套真值判断（空数组、空对象都算真）。增量全在**编译期**：
+        同一个 `if (typeof v === "number")`，JavaScript 只是运行时判断一下，
+        TypeScript 之后还记得 v 是数字，于是分支里能直接调用数字的方法；
+        哪个分支漏了处理，剩下的类型还会被编译器点出来。
+      python: |
+        Python 用 `isinstance` 判断，收窄由另跑的类型检查器推断；TypeScript 的收窄
+        是编译器内置的，`typeof`、`in`、真值判断都能触发。真值规则两边不同：
+        Python 里空列表、空字符串都为假，TypeScript 只认那几个假值 ——
+        空数组与空对象都是**真**，`if xs:` 判空容器在这里行不通。
+      java: |
+        Java 的条件必须是 `boolean`，没有真值转换（`if (0)` 直接编译错误）；
+        TypeScript 保持动态语言那套真值判断，所以两边对「什么算假」的答案不同。
+        共同点是判断之后都能收窄：Java 16 起 `instanceof` 也能在分支里得到窄类型。
+        差别在覆盖面 —— TypeScript 的 `typeof`、真值判断、判别字段都能触发收窄，
+        Java 基本只有 `instanceof` 一条路。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  loops:
+    code: |
+      const xs: number[] = [1, 2, 3];
+
+      for (let i = 0; i < xs.length; i++) { }   // @note 三段式，形态不变
+
+      for (const x of xs) { }                   // @note x 推成 number：元素类型来自 xs
+      for (const k in obj) { }                  // @note! for...in 给的是字符串键，不是值
+
+      let n = 3;
+      while (n > 0) { n--; }
+      do { n++; } while (n < 3);                // @note 至少执行一次
+    vs:
+      javascript: |
+        循环语句本身逐字相同：三段式 `for`、`for...of`、`for...in`、`while`、
+        `do...while` 一个不缺，运行时行为也完全一致。TypeScript 只多做一件事 ——
+        `for...of` 里 `x` 的类型由被遍历对象的元素类型推出来，`for...in` 则一律是字符串键。
+        所以同样一行循环，一边写起来要回看集合的声明，另一边编辑器直接把类型告诉你。
+      python: |
+        Python 只有一种 `for`：遍历可迭代对象，计数要 `range(n)`；TypeScript 保留了三段式
+        计数循环，同时也支持直接遍历集合。需要下标时 Python 用 `enumerate`，
+        TypeScript 要么写三段式、要么用 `for...of` 配 `.entries()`。
+        `do...while`（至少执行一次）Python 没有专门语法，TypeScript 有。
+      java: |
+        两边的循环几乎一一对应：三段式 `for`、增强 for 与 `for...of`、`while`、
+        `do...while` 都对得上，是整份对照里最不需要重新学的一节。差别在遍历集合时
+        元素类型从哪来：Java 的增强 for 要在括号里写出元素类型，TypeScript 的 `for...of`
+        则由被遍历对象推出 —— 一个要你声明，一个帮你推断（推不出来时仍要显式标注）。
+    equivalence:
+      javascript: identical
+      python: divergent
+      java: analogous
+
+  iteration-protocol:
+    code: |
+      class Countdown implements Iterable<number> {   // @note 声明 Iterable<T> 才能进 for...of
+        constructor(private n: number) {}
+        [Symbol.iterator](): Iterator<number> {
+          let cur = this.n;
+          return { next: () => cur > 0 ? { value: cur--, done: false } : { done: true, value: cur } };
+        }
+      }
+
+      for (const x of new Countdown(3)) { }           // @note 1 2 3
+
+      // 数组、字符串、Map、Set 自带这套协议；普通对象没有
+      // for (const k of { a: 1 }) { }                // @note! 编译错误：普通对象不可迭代
+      // for await (const x of src) { }               // @note 异步版本走 AsyncIterable<T>
+    vs:
+      javascript: |
+        运行时的迭代协议完全一样：对象挂上 `Symbol.iterator`，`for...of`、展开运算符、
+        解构都认它。TypeScript 加的是**类型那一层** —— 声明 `Iterable<T>` 之后，
+        `for...of` 拿到的元素类型是确定的；普通对象忘了实现协议，也从运行时报错变成编译错误。
+        它还把同步与异步拆成 `Iterable<T>` 与 `AsyncIterable<T>` 两个类型，`for await` 只认后者。
+      python: |
+        两边都是运行时的协议，思路一致：Python 靠 `__iter__` / `__next__`，TypeScript 靠
+        `Symbol.iterator`。差别在类型与覆盖面：TypeScript 的协议可以标成 `Iterable<T>`，
+        编译器据此核对元素类型；而它的普通对象默认不可迭代 —— Python 的字典本身就是可迭代的
+        （默认遍历键），这是切换时最容易撞上的一处。
+      java: |
+        Java 的 `Iterable<T>` 是必须显式实现、编译期强制的接口；TypeScript 的协议是运行时的 ——
+        挂上 `Symbol.iterator` 就能被遍历，`Iterable<T>` 那层标注只参与类型检查，不影响能不能跑。
+        覆盖面也不同：Java 的字符串不是 `Iterable`，TypeScript 的字符串可以直接遍历；
+        Java 的 `Stream` 是并列的另一套惰性管道，TypeScript 没有对应的独立概念。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  switch-and-match:
+    code: |
+      type Shape =
+        | { kind: "circle"; r: number }
+        | { kind: "square"; s: number };    // @note 判别联合：用字面量字段区分种类
+
+      function area(s: Shape): number {
+        switch (s.kind) {
+          case "circle": return 3.14 * s.r ** 2;   // @note 分支里 s 收窄成圆形
+          case "square": return s.s ** 2;          // @note 成员由 kind 决定
+        }
+        // @note! 漏掉一个 case，这条路径就变得可达，编译错误：可能没有返回值
+      }
+    vs:
+      javascript: |
+        `switch` 比对的是严格相等，分支照样默认贯穿、照样要写 `break` —— 语法一字未改。
+        TypeScript 的增量在**判别联合**上：被判别的字段是字面量类型时，每个 `case` 里
+        编译器自动把它收窄成对应成员，而且漏掉哪个成员会直接报错。
+        JavaScript 的 `switch` 漏分支只会静默返回 undefined，要等用的人那里才炸。
+      python: |
+        Python 3.10 的 `match` 是结构化模式匹配，能按元组、字典、类的形状拆解并绑定变量；
+        TypeScript 的 `switch` 仍是「多路等值比较」，结构匹配要靠判别字段加收窄来模拟。
+        两边的侧重相反：Python 的每个 `case` 都要描述一个形状、漏分支静默跳过；
+        TypeScript 的形态朴素，但配上判别联合时编译器会检查有没有漏掉成员。
+      java: |
+        Java 的 `switch` 与 TypeScript 都从「等值比较加 `break`」出发，但新版 Java 有
+        箭头语法（不贯穿）、能当表达式、还支持类型与 record 解构；TypeScript 的 `switch`
+        一直停在老形态，靠判别联合把**穷尽性检查**补了回来。穷尽性的来源也不同：
+        Java 是编译器对 `switch` 本身的要求，TypeScript 是函数返回类型逼出来的。
+    equivalence:
+      javascript: analogous
+      python: divergent
+      java: analogous
