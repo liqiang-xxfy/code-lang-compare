@@ -1,0 +1,155 @@
+{
+  "lang": "go",
+  "section": "model",
+  "group": "objects",
+  "boxes": {
+    "class-declaration": {
+      "lang": "go",
+      "code": "type Account struct {          // 数据\n  Owner   string\n  balance int64                // 小写 = 包内私有\n}\n\nfunc (a *Account) Deposit(n int64) {   // ⚠ 行为写在函数上，receiver 决定它属于谁\n  a.balance += n\n}\n\nfunc (a Account) OwnerName() string { return a.Owner }\n\n// ⚠ Go 没有 class 关键字 —— 类型 + 方法就是全部",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> Account</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\"> {          </span><span style=\"color:var(--shiki-token-comment)\">// 数据</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  Owner   </span><span style=\"color:var(--shiki-token-keyword)\">string</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  balance </span><span style=\"color:var(--shiki-token-keyword)\">int64</span><span style=\"color:var(--shiki-token-comment)\">                // 小写 = 包内私有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (a </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">Account</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">Deposit</span><span style=\"color:var(--shiki-foreground)\">(n </span><span style=\"color:var(--shiki-token-keyword)\">int64</span><span style=\"color:var(--shiki-foreground)\">) {   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 行为写在函数上，receiver 决定它属于谁</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  a.balance </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-foreground)\"> n</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (a </span><span style=\"color:var(--shiki-token-function)\">Account</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">OwnerName</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> a.Owner }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// ⚠ Go 没有 class 关键字 —— 类型 + 方法就是全部</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 6,
+          "text": "行为写在函数上，receiver 决定它属于谁",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "Go 没有 class 关键字 —— 类型 + 方法就是全部",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 用 <code>class</code> 把字段和方法包在一起；Go 用\n<code>type X struct</code> 定义数据、用带 receiver 的函数定义方法 ——\n两者在源码里是分开的，方法可以写在<strong>同一个包里的任何文件</strong>里。\n另一处根本差别：Go 的方法必须与类型在同一个包，\n不像 JavaScript 可以把方法挂到任何对象上。</p>\n",
+        "python": "<p>Python 的类把属性与方法写在一起、实例可以随时加属性；\nGo 的类型与方法分开声明，而且字段在编译期固定 ——\n没有 <code>__dict__</code>、不能动态加字段。方法的 receiver\n相当于 Python 的 <code>self</code>，但它写在 <code>func</code> 关键字后、\n方法名之前，形态上是「给这个类型挂一个函数」。</p>\n",
+        "java": "<p>Java 的类里字段与方法同处一个花括号，Go 分成\n<code>type</code> 声明与带 receiver 的函数。最实际的差别是\n<strong>Go 可以给任何本包定义的类型加方法</strong>（包括 <code>type MyInt int</code>），\nJava 想给已有类型加方法只能继承或包装。\nGo 的方法也不能重载 —— 同一个类型上同名方法只能有一个。</p>\n"
+      }
+    },
+    "constructor": {
+      "lang": "go",
+      "code": "func NewAccount(owner string) *Account {   // 惯例：New + 类型名，返回指针\n  return &Account{Owner: owner}\n}\n\nfunc NewAccountWithBalance(owner string, n int64) *Account {\n  return &Account{Owner: owner, balance: n}\n}\n\n// 也可以直接构造字面量（字段导出时）\na := Account{Owner: \"Ada\"}\nb := &Account{Owner: \"Bob\"}      // 取地址，得到指针\n\n// 零值可用是 Go 的设计目标：很多类型不写构造函数也能直接用\nvar c Account                    // 字段全是零值，可以直接调用方法",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> NewAccount</span><span style=\"color:var(--shiki-foreground)\">(owner </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">Account</span><span style=\"color:var(--shiki-foreground)\"> {   </span><span style=\"color:var(--shiki-token-comment)\">// 惯例：New + 类型名，返回指针</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-function)\">Account</span><span style=\"color:var(--shiki-foreground)\">{Owner: owner}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> NewAccountWithBalance</span><span style=\"color:var(--shiki-foreground)\">(owner </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">, n </span><span style=\"color:var(--shiki-token-keyword)\">int64</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">Account</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-function)\">Account</span><span style=\"color:var(--shiki-foreground)\">{Owner: owner, balance: n}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 也可以直接构造字面量（字段导出时）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> Account</span><span style=\"color:var(--shiki-foreground)\">{Owner: </span><span style=\"color:var(--shiki-token-string-expression)\">\"Ada\"</span><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">b </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-function)\">Account</span><span style=\"color:var(--shiki-foreground)\">{Owner: </span><span style=\"color:var(--shiki-token-string-expression)\">\"Bob\"</span><span style=\"color:var(--shiki-foreground)\">}      </span><span style=\"color:var(--shiki-token-comment)\">// 取地址，得到指针</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 零值可用是 Go 的设计目标：很多类型不写构造函数也能直接用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-function)\">Account</span><span style=\"color:var(--shiki-token-comment)\">                    // 字段全是零值，可以直接调用方法</span></span></code></pre>",
+      "lineCount": 14,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 用 <code>constructor</code> 关键字配 <code>new</code>；Go 没有构造器语法，\n惯例是写一个 <code>NewXxx</code> 函数返回 <code>*Xxx</code>。调用形态也不同：\n<code>NewAccount(&quot;Ada&quot;)</code> 就是一次普通函数调用，没有 <code>new</code> 运算符。\n另一处差别是 Go 的类型<strong>零值可用</strong> —— <code>var c Account</code> 之后\n直接能调方法，JavaScript 里 <code>new</code> 之前对象根本不存在。</p>\n",
+        "python": "<p>Python 用 <code>__init__</code>（实例已存在后初始化）；Go 用\n<code>NewXxx</code> 工厂函数返回结构体或指针，没有两步过程。\nGo 还能直接用字面量 <code>Account{Owner: &quot;Ada&quot;}</code> 构造，\n这在 Python 里相当于 dataclass 的直接调用。\n零值可用也是 Go 特有的设计：<code>var c Account</code> 就是个合法可用的值。</p>\n",
+        "java": "<p>Java 的构造器与类同名、可重载；Go 的 <code>NewXxx</code> 是普通函数，\n名字自由（<code>NewAccountWithBalance</code>），因此「多种构造语义」\n表达得更清楚 —— Java 里只能靠参数列表区分。\n返回指针还是值也是 Go 要显式做的选择：<code>NewAccount</code> 惯例返回 <code>*Account</code>，\n因为结构体按值传会整体复制。Java 的对象天生是引用，没有这个选择。</p>\n"
+      }
+    },
+    "fields-and-properties": {
+      "lang": "go",
+      "code": "type User struct {\n  Name string        // 导出：外部可读可写\n  age  int           // ⚠ 私有：外部连构造都构造不出来（除非有 NewXxx）\n}\n\nfunc (u *User) Age() int { return u.age }     // 暴露只读用方法\nfunc (u *User) SetAge(a int) { u.age = a }\n\n// 没有 getter/setter 惯例 —— 社区倾向直接把字段导出\ntype Point struct{ X, Y int }        // 简单数据直接公开字段\n\n// JSON 序列化只看导出字段：小写字段不会被编码\ndata, _ := json.Marshal(User{Name: \"Ada\"})",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> User</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  Name </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-token-comment)\">        // 导出：外部可读可写</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  age  </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">           // ⚠ 私有：外部连构造都构造不出来（除非有 NewXxx）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (u </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">User</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">Age</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> u.age }     </span><span style=\"color:var(--shiki-token-comment)\">// 暴露只读用方法</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (u </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">User</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">SetAge</span><span style=\"color:var(--shiki-foreground)\">(a </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">) { u.age </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-foreground)\"> a }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有 getter/setter 惯例 —— 社区倾向直接把字段导出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> Point</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\">{ X, Y </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> }        </span><span style=\"color:var(--shiki-token-comment)\">// 简单数据直接公开字段</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// JSON 序列化只看导出字段：小写字段不会被编码</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">data, _ </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> json.</span><span style=\"color:var(--shiki-token-function)\">Marshal</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-function)\">User</span><span style=\"color:var(--shiki-foreground)\">{Name: </span><span style=\"color:var(--shiki-token-string-expression)\">\"Ada\"</span><span style=\"color:var(--shiki-foreground)\">})</span></span></code></pre>",
+      "lineCount": 13,
+      "notes": [
+        {
+          "line": 3,
+          "text": "私有：外部连构造都构造不出来（除非有 NewXxx）",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的字段默认公开、<code>#</code> 才私有；Go 的字段<strong>默认包内私有</strong>，\n大写才导出 —— 默认值相反。Go 没有属性（getter/setter 拦截），\n也没有 <code>Object.defineProperty</code> 那套；想只读就写个 <code>Age()</code> 方法。\n最实际的一处是：Go 的 JSON 序列化<strong>只处理导出字段</strong>，\n小写字段会被静默忽略 —— JavaScript 的 <code>JSON.stringify</code>\n不会漏字段，但 Go 里字段名写小了就是数据丢失。</p>\n",
+        "python": "<p>Python 的字段默认公开、<code>_x</code> 只是约定、<code>@property</code> 能拦截；\nGo 的字段默认私有且编译器强制，没有属性拦截这一层。\nGo 的导出规则还决定了序列化行为：小写字段不会被 JSON 编码，\n这在 Python 里没有对应陷阱（<code>dataclasses.asdict</code> 不看下划线）。\n两边都有「简单数据直接公开」的写法，Go 更常见。</p>\n",
+        "java": "<p>Java 惯例是 <code>private</code> 字段配 getter/setter；Go 用首字母大小写，\n惯例是<strong>该公开就直接大写，需要保护的才留小写</strong>——\n不像 Java 那样每个字段都套一层方法。\n序列化上 Java 靠注解（Jackson 的 <code>@JsonProperty</code>）能处理私有字段，\nGo 的标准库只看导出与否，小写字段一律不编码 —— 更简单也更硬。</p>\n"
+      }
+    },
+    "methods-and-receiver": {
+      "lang": "go",
+      "code": "type Counter struct{ n int }\n\nfunc (c Counter) Value() int   { return c.n }    // 值 receiver：拿到的是副本\nfunc (c *Counter) Inc()        { c.n++ }          // ⚠ 指针 receiver：改到原值\nfunc (c *Counter) Reset()      { *c = Counter{} }\n\nc := Counter{}\nc.Inc()                       // Go 自动取地址：等价于 (&c).Inc()\nc.Value()\n\n// 值 receiver 的方法改不动原值 —— 这是最常见的错误来源\nfunc (c Counter) BadInc() { c.n++ }    // ⚠ 调用后 c.n 没变",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> Counter</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\">{ n </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (c </span><span style=\"color:var(--shiki-token-function)\">Counter</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">Value</span><span style=\"color:var(--shiki-foreground)\">() </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">   { </span><span style=\"color:var(--shiki-token-keyword)\">return</span><span style=\"color:var(--shiki-foreground)\"> c.n }    </span><span style=\"color:var(--shiki-token-comment)\">// 值 receiver：拿到的是副本</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (c </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">Counter</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">Inc</span><span style=\"color:var(--shiki-foreground)\">()        { c.n</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\"> }          </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 指针 receiver：改到原值</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (c </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-token-function)\">Counter</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">Reset</span><span style=\"color:var(--shiki-foreground)\">()      { </span><span style=\"color:var(--shiki-token-keyword)\">*</span><span style=\"color:var(--shiki-foreground)\">c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-function)\"> Counter</span><span style=\"color:var(--shiki-foreground)\">{} }</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">c </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> Counter</span><span style=\"color:var(--shiki-foreground)\">{}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">c.</span><span style=\"color:var(--shiki-token-function)\">Inc</span><span style=\"color:var(--shiki-foreground)\">()                       </span><span style=\"color:var(--shiki-token-comment)\">// Go 自动取地址：等价于 (&#x26;c).Inc()</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">c.</span><span style=\"color:var(--shiki-token-function)\">Value</span><span style=\"color:var(--shiki-foreground)\">()</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 值 receiver 的方法改不动原值 —— 这是最常见的错误来源</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-foreground)\"> (c </span><span style=\"color:var(--shiki-token-function)\">Counter</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-function)\">BadInc</span><span style=\"color:var(--shiki-foreground)\">() { c.n</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-foreground)\"> }    </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 调用后 c.n 没变</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 4,
+          "text": "指针 receiver：改到原值",
+          "tone": "warn"
+        },
+        {
+          "line": 12,
+          "text": "调用后 c.n 没变",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的方法通过 <code>this</code> 拿到对象，改 <code>this.x</code> 一定改到原对象；\nGo 的 receiver 有两种，<strong>值 receiver 拿到的是副本</strong> ——\n在它里面改字段改不到调用方。这个区分是 Go 特有的，\n从 JavaScript 过来最容易写出「方法里改了但外面没变」的 bug，\n而且编译器不报错。惯例是：要改就用指针 receiver，类型上保持一致。</p>\n",
+        "python": "<p>Python 的 <code>self</code> 永远是引用，改 <code>self.x</code> 一定改到原对象；\nGo 的 receiver 分值与指针两种，值 receiver 里改字段无效 ——\n这是从 Python 过来最需要养成的新习惯。判断方法：\nreceiver 带 <code>*</code> 才能改到原值。同一个类型上混用两种 receiver\n是允许的但会造成困惑，Go 社区建议统一。</p>\n",
+        "java": "<p>Java 的 <code>this</code> 是引用，改字段一定改到原对象，没有「副本 receiver」这回事；\nGo 的值 receiver 相当于把结构体复制一份再调用 ——\n这是 Java 里完全不存在的语义。Go 的方法集规则也更细：\n值类型只拥有值 receiver 的方法，指针类型两者都有，\n这直接影响接口能否被满足（<code>*T</code> 能满足的接口 <code>T</code> 不一定能）。</p>\n"
+      }
+    },
+    "inheritance": {
+      "lang": "go",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Go <strong>没有继承</strong> —— 没有 <code>extends</code>、没有原型链。\n复用靠<strong>嵌入</strong>：把一个类型作为匿名字段放进去，\n它的方法与字段被「提升」到外层，但这不是「是一种」的关系。\nJavaScript 的 <code>class B extends A</code> 在 Go 里对应的是\n<code>type B struct { A }</code> —— 差别是 B 并不是 A，\n传参给要 A 的地方不会自动成立。</p>\n",
+        "python": "<p>Go <strong>没有继承</strong>，Python 的 <code>class B(A)</code> 没有对应语法。\n复用靠嵌入（匿名结构体字段），外层类型获得内层的方法与字段，\n但<strong>没有子类型关系</strong> —— 这与 Python 的继承有本质区别：\nPython 里 <code>isinstance(b, A)</code> 为真，Go 里 B 不是 A。\n需要「是一种」的关系时，Go 用接口（并且是隐式满足的）。</p>\n",
+        "java": "<p>Go <strong>没有继承</strong> —— 没有 <code>extends</code>，也没有 <code>super</code>。\n复用靠嵌入（匿名字段）：外层类型可以直接调用内层的方法，\n看起来像继承，但<strong>没有子类型关系</strong>，也不能覆写后多态调用到子类\n（嵌入的方法调用的是内层实现）。Java 的 <code>extends</code> 解决的两件事\n在 Go 里被拆开：代码复用用嵌入，多态用接口。</p>\n"
+      }
+    },
+    "access-control": {
+      "lang": "go",
+      "code": "type Api struct {\n  Name   string    // 导出\n  secret int       // 包内私有\n}\n\nfunc Exported() {}    // 导出\nfunc internal() {}    // 包内私有\n\n// 包级边界：internal/ 目录下的包只能被其父目录子树导入\n// import \"github.com/me/app/internal/store\"\n\n// 没有 protected、没有 friend、没有模块级可见性修饰符",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> Api</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  Name   </span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-token-comment)\">    // 导出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  secret </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">       // 包内私有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> Exported</span><span style=\"color:var(--shiki-foreground)\">() {}    </span><span style=\"color:var(--shiki-token-comment)\">// 导出</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">func</span><span style=\"color:var(--shiki-token-function)\"> internal</span><span style=\"color:var(--shiki-foreground)\">() {}    </span><span style=\"color:var(--shiki-token-comment)\">// 包内私有</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 包级边界：internal/ 目录下的包只能被其父目录子树导入</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// import \"github.com/me/app/internal/store\"</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 没有 protected、没有 friend、没有模块级可见性修饰符</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 只有两档：默认公开、<code>#</code> 真私有（类字段）。\nGo 也是两档（导出 / 包内私有），但<strong>判据是首字母大小写</strong>，\n而且作用范围是「包」而不是「类」—— Go 里没有类作用域。\n另一个 Go 独有的机制是 <code>internal/</code> 目录：路径里含 internal 的包\n只能被父目录子树导入，这是 JavaScript 里没有的语言级边界。</p>\n",
+        "python": "<p>Python 的可见性全是约定（<code>_</code> / <code>__</code> 前缀），解释器不拦；\nGo 的导出由编译器强制，大小写写错就是编译不过。\n粒度上 Go 只有「包内 / 包外」两档，Python 连这两档都靠自觉。\nGo 还多一个 <code>internal/</code> 包约定，用目录位置表达「仅供内部使用」，\n比 Python 的命名约定硬得多。</p>\n",
+        "java": "<p>Java 四档（<code>public</code> / <code>protected</code> / 包私有 / <code>private</code>），\nGo 只有两档（导出 / 包内私有）—— 没有 <code>protected</code>（没有继承）、\n没有类级私有（没有类）。Go 的「包内私有」比 Java 的\n「包私有」范围更大（一个目录里的所有文件共享），\n而 Go 的 <code>internal/</code> 目录机制在 Java 里要用模块系统才能表达。</p>\n"
+      }
+    }
+  }
+}

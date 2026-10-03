@@ -1,0 +1,125 @@
+{
+  "lang": "rust",
+  "section": "model",
+  "group": "modules",
+  "boxes": {
+    "module-unit": {
+      "lang": "rust",
+      "code": "// src/lib.rs —— crate 根\nmod parser;            // 声明一个子模块，对应 src/parser.rs 或 src/parser/mod.rs\nmod lexer {            // 也可以内联写\n  pub fn next() {}\n}\n\npub mod api {          // ⚠ pub 才能被 crate 外看见，默认私有\n  pub fn run() {}\n}\n\n// crate 是最外层单位：一个 lib 或一个 bin，由 Cargo.toml 定义",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// src/lib.rs —— crate 根</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">mod</span><span style=\"color:var(--shiki-foreground)\"> parser;            </span><span style=\"color:var(--shiki-token-comment)\">// 声明一个子模块，对应 src/parser.rs 或 src/parser/mod.rs</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">mod</span><span style=\"color:var(--shiki-foreground)\"> lexer {            </span><span style=\"color:var(--shiki-token-comment)\">// 也可以内联写</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  pub</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> next</span><span style=\"color:var(--shiki-foreground)\">() {}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-token-keyword)\"> mod</span><span style=\"color:var(--shiki-foreground)\"> api {          </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ pub 才能被 crate 外看见，默认私有</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  pub</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> run</span><span style=\"color:var(--shiki-foreground)\">() {}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// crate 是最外层单位：一个 lib 或一个 bin，由 Cargo.toml 定义</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 7,
+          "text": "pub 才能被 crate 外看见，默认私有",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的一个文件就是一个模块，没有更外层的单位；\nRust 有<strong>三层</strong>：crate（一个库或可执行文件，由 Cargo.toml 定义）、\nmodule（<code>mod</code> 声明，一个文件或一段内联代码）、以及文件本身。\n更实际的区别是可见性：JavaScript 靠「导出什么就是什么」，\nRust 的模块默认<strong>全私有</strong>，得逐个加 <code>pub</code>，连模块自身都要 <code>pub mod</code>。</p>\n",
+        "python": "<p>Python 的一个文件就是一个模块、一个目录（带 <code>__init__.py</code>）就是一个包，\n单位由文件系统决定；Rust 的模块要在代码里用 <code>mod</code> <strong>显式声明</strong>，\n漏写 <code>mod parser;</code> 那个文件根本不会被编译进去。\n可见性上两边都默认私有（Python 靠下划线约定、Rust 由编译器强制），\n但 Rust 需要逐项 <code>pub</code>，粒度更细。</p>\n",
+        "java": "<p>Java 的包由目录结构与 <code>package</code> 声明共同决定，一个文件一个公开类；\nRust 的 crate 更接近 Java 的一个 jar/模块，module 接近包。\n最大的差别在可见性：Java 的 <code>public</code> 类随处可见，\nRust 的模块树默认全私有，父模块<strong>看不到</strong>子模块的私有项 ——\n这与 Java 的包私有（同包可见）方向相反，刚转过来时最容易被这一点绊住。</p>\n"
+      }
+    },
+    "export-import": {
+      "lang": "rust",
+      "code": "// 导出：在定义处加 pub\npub fn parse(s: &str) -> i32 { 0 }\npub struct Config { pub retries: u32 }   // ⚠ 结构体 pub 了，字段还要各自 pub\n\n// 导入\nuse crate::parser::parse;        // 绝对路径从 crate 根开始\nuse crate::parser::parse as p;   // 重命名\nuse std::collections::{HashMap, HashSet};   // 一次导入多个\n\nmod inner {\n  pub(crate) fn shared() {}      // 只在这个 crate 内可见\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 导出：在定义处加 pub</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-token-keyword)\"> fn</span><span style=\"color:var(--shiki-token-function)\"> parse</span><span style=\"color:var(--shiki-foreground)\">(s</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;</span><span style=\"color:var(--shiki-token-function)\">str</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">-></span><span style=\"color:var(--shiki-token-function)\"> i32</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-constant)\">0</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-token-function)\"> Config</span><span style=\"color:var(--shiki-foreground)\"> { </span><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-foreground)\"> retries</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> u32</span><span style=\"color:var(--shiki-foreground)\"> }   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 结构体 pub 了，字段还要各自 pub</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 导入</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">parser</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">parse;        </span><span style=\"color:var(--shiki-token-comment)\">// 绝对路径从 crate 根开始</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">parser</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">parse </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> p;   </span><span style=\"color:var(--shiki-token-comment)\">// 重命名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">collections</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">{</span><span style=\"color:var(--shiki-token-function)\">HashMap</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-function)\">HashSet</span><span style=\"color:var(--shiki-foreground)\">};   </span><span style=\"color:var(--shiki-token-comment)\">// 一次导入多个</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">mod</span><span style=\"color:var(--shiki-foreground)\"> inner {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  pub</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">crate</span><span style=\"color:var(--shiki-foreground)\">) </span><span style=\"color:var(--shiki-token-keyword)\">fn</span><span style=\"color:var(--shiki-token-function)\"> shared</span><span style=\"color:var(--shiki-foreground)\">() {}      </span><span style=\"color:var(--shiki-token-comment)\">// 只在这个 crate 内可见</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 3,
+          "text": "结构体 pub 了，字段还要各自 pub",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 在文件末尾用 <code>export</code> 列出对外的东西，\n导入方按路径 <code>import</code>；Rust 的导出<strong>写在定义处</strong>（<code>pub fn</code>），\n哪里都能看到它是不是公开的，不必翻到文件末尾。\n另一处容易踩的是结构体：<code>pub struct Config</code> 之后字段仍然是私有的，\n每个字段要单独 <code>pub</code> —— JavaScript 的对象没有这种分层。</p>\n",
+        "python": "<p>Python 的导入是运行时行为，<code>from x import y</code> 真的去取属性；\nRust 的 <code>use</code> 只是<strong>路径别名</strong>，不加载任何东西 —— 模块早就在编译单元里了。\n导出上，Python 靠下划线约定（<code>_foo</code> 表示内部），\nRust 由 <code>pub</code> 强制，并且有 <code>pub(crate)</code> 这种中间粒度，\nPython 里想表达「包内可见」只能靠约定。</p>\n",
+        "java": "<p>Java 用 <code>import</code> 引入类，用 <code>public</code> 标记可见性 —— 形态上与 Rust 接近，\n但 Java 的 <code>import</code> 不影响可见性，Rust 的 <code>pub</code> 与模块树绑定。\nRust 多出 <code>pub(crate)</code> 这一档，对应 Java 的包私有但范围是<strong>整个 crate</strong>\n（可能含多个模块），比 Java 的包更大。\n另外 Rust 可以给同一个东西起别名（<code>as</code>），Java 的 <code>import</code> 没有重命名。</p>\n"
+      }
+    },
+    "default-vs-named": {
+      "lang": "rust",
+      "code": "// Rust 没有「默认导出」—— 所有公开项都是具名的，按名字取\nuse crate::parser::parse;\n\n// 想让调用方少写路径，惯用做法是提供一个「预导入」模块\npub mod prelude {\n  pub use crate::parser::parse;\n  pub use crate::config::Config;\n}\n// 调用方：use mycrate::prelude::*;",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Rust 没有「默认导出」—— 所有公开项都是具名的，按名字取</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">parser</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">parse;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 想让调用方少写路径，惯用做法是提供一个「预导入」模块</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">pub</span><span style=\"color:var(--shiki-token-keyword)\"> mod</span><span style=\"color:var(--shiki-foreground)\"> prelude {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  pub</span><span style=\"color:var(--shiki-token-keyword)\"> use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">parser</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">parse;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  pub</span><span style=\"color:var(--shiki-token-keyword)\"> use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">config</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">Config</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 调用方：use mycrate::prelude::*;</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "identical",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 有 <code>export default</code>（一个模块只能有一个无名主角），\nRust <strong>完全没有这个概念</strong> —— 每个公开项都必须有名字，\n调用的地方也就永远写得出它是谁。想让常用项好拿，\nRust 的惯用法是提供一个 <code>prelude</code> 模块再 <code>use …::*</code>，\n而不是给某个东西一个「默认」身份。</p>\n",
+        "python": "<p>Python 没有默认导出，导入必须点名（或 <code>import *</code> 全拿）——\n这一点与 Rust 一致。差别在 <code>from x import *</code>：\nPython 会真的把一堆名字灌进当前命名空间（还包括没写进 <code>__all__</code> 的），\nRust 的 <code>use …::*</code> 只拿 <code>pub</code> 的项，而且名字冲突会编译错误而不是静默覆盖。</p>\n",
+        "java": "<p>Java 没有默认导出，一切按类名点出来；Rust 同样全部具名，\n这两边一致。形式上 Rust 的 <code>use …::*</code> 接近 Java 的\n<code>import static …*</code>（静态导入），但 Java 只在静态成员上可用，\nRust 对任何 pub 项都行。两边都不会有「这个 import 到底指向谁」的歧义。</p>\n"
+      }
+    },
+    "namespace-alias": {
+      "lang": "rust",
+      "code": "use std::collections::HashMap as Map;        // 给类型起别名\nuse crate::parser::parse as parse_line;      // 给函数起别名\nuse mycrate::prelude::*;                     // 通配导入（glob）\n\ntype UserId = u64;                           // ⚠ 类型别名：另一个东西，不是导入\nuse crate::config::Config;\nuse crate::other::Config as OtherConfig;     // 同名冲突靠 as 解决",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> std</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">collections</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">HashMap</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-token-function)\"> Map</span><span style=\"color:var(--shiki-foreground)\">;        </span><span style=\"color:var(--shiki-token-comment)\">// 给类型起别名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">parser</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">parse </span><span style=\"color:var(--shiki-token-keyword)\">as</span><span style=\"color:var(--shiki-foreground)\"> parse_line;      </span><span style=\"color:var(--shiki-token-comment)\">// 给函数起别名</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> mycrate</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">prelude</span><span style=\"color:var(--shiki-token-keyword)\">::*</span><span style=\"color:var(--shiki-foreground)\">;                     </span><span style=\"color:var(--shiki-token-comment)\">// 通配导入（glob）</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> UserId</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-function)\"> u64</span><span style=\"color:var(--shiki-foreground)\">;                           </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 类型别名：另一个东西，不是导入</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">config</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">Config</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">other</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">Config</span><span style=\"color:var(--shiki-token-keyword)\"> as</span><span style=\"color:var(--shiki-token-function)\"> OtherConfig</span><span style=\"color:var(--shiki-foreground)\">;     </span><span style=\"color:var(--shiki-token-comment)\">// 同名冲突靠 as 解决</span></span></code></pre>",
+      "lineCount": 7,
+      "notes": [
+        {
+          "line": 5,
+          "text": "类型别名：另一个东西，不是导入",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "python": "analogous",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 用 <code>import { x as y }</code> 重命名，语法位置与 Rust 的\n<code>use … as …</code> 对应。Rust 多一层 <code>type X = Y</code> 类型别名 ——\n它不引入新类型、只是换个写法，JavaScript 没有对应物\n（TS 的 <code>type</code> 才有）。另外 Rust 的 glob 导入 <code>use …::*</code>\n在名字冲突时直接编译错误，JavaScript 的 <code>import *</code> 拿到的是命名空间对象，不冲突。</p>\n",
+        "python": "<p>Python 用 <code>import x as y</code> / <code>from m import f as g</code>，与 Rust 的形式接近。\n差别在冲突处理：Python 同名导入会静默覆盖，\nRust 会报 <code>the name is defined multiple times</code>，必须 <code>as</code> 掉一个。\nRust 还有 <code>type UserId = u64</code> 这种类型别名，Python 里对应的是\n赋值 <code>UserId = int</code>，但它就是个普通变量，不参与类型检查。</p>\n",
+        "java": "<p>Java 没有导入别名 —— 同名类冲突时只能写全限定名。\nRust 的 <code>use … as …</code> 是实打实的能力，同名类型可以各自改名共存。\nJava 也没有类型别名（没有 typedef），Rust 的 <code>type X = Y</code>\n能省掉一长串泛型签名，这在 Java 里只能靠继承或包装类绕过。</p>\n"
+      }
+    },
+    "module-resolution": {
+      "lang": "rust",
+      "code": "use crate::parser::parse;     // crate 根开始\nuse super::sibling;           // 父模块\nuse self::child::thing;       // 当前模块\n\n// Cargo.toml 里声明外部依赖，代码里按 crate 名引用\n// [dependencies]\n// serde = \"1\"\nuse serde::Serialize;\n\n// 同一目录下的 src/bin/*.rs 各自是一个可执行 crate",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-token-keyword)\"> crate::</span><span style=\"color:var(--shiki-foreground)\">parser</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">parse;     </span><span style=\"color:var(--shiki-token-comment)\">// crate 根开始</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> super</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">sibling;           </span><span style=\"color:var(--shiki-token-comment)\">// 父模块</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> self</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">child</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-foreground)\">thing;       </span><span style=\"color:var(--shiki-token-comment)\">// 当前模块</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// Cargo.toml 里声明外部依赖，代码里按 crate 名引用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// [dependencies]</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// serde = \"1\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">use</span><span style=\"color:var(--shiki-foreground)\"> serde</span><span style=\"color:var(--shiki-token-keyword)\">::</span><span style=\"color:var(--shiki-token-function)\">Serialize</span><span style=\"color:var(--shiki-foreground)\">;</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// 同一目录下的 src/bin/*.rs 各自是一个可执行 crate</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的解析规则是文件路径加 <code>node_modules</code> 逐级向上找；\nRust 的路径<strong>从 crate 根算起</strong>（<code>crate::</code>），或者用 <code>super::</code> / <code>self::</code>\n在模块树里走 —— 与文件系统的对应关系弱得多，同名文件放在不同模块下\n完全不会互相干扰。外部依赖走 Cargo.toml，代码里写 crate 名，\n没有「同名包装了两份、不知道解析到哪个」这种问题。</p>\n",
+        "python": "<p>Python 按 <code>sys.path</code> 顺序找模块，运行时可能被环境变量、\n当前目录、虚拟环境改变，同一个 <code>import x</code> 在不同机器上可能指向不同的东西；\nRust 的解析在编译期由模块树和 Cargo.toml 完全确定，\n运行时不参与。代价是得显式写 <code>mod</code> 声明，\n不能像 Python 那样「文件在那儿就能 import」。</p>\n",
+        "java": "<p>Java 靠 classpath 在运行时解析类名，同名类谁在前面谁生效，\n环境不同结果可能不同；Rust 在编译期锁定，没有这种不确定性。\nRust 的 <code>crate::</code> / <code>super::</code> / <code>self::</code> 是相对模块树的路径，\nJava 只有「同包直接写、跨包写全限定名」两档，没有父模块这种相对写法。</p>\n"
+      }
+    }
+  }
+}
