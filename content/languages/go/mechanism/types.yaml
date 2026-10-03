@@ -1,0 +1,247 @@
+# go —— mechanism / types
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: types` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      n := 1                    // @note 推断为 int
+      // n = "text"             // @note! 编译错误：类型定死了
+
+      // 接口值在运行时携带动态类型 —— 这是 Go 唯一的「动态」之处
+      var x any = 42
+      switch v := x.(type) {     // @note 按动态类型分支
+      case int:
+        fmt.Println(v + 1)
+      }
+
+      // 反射能在运行时看类型
+      t := reflect.TypeOf(x)     // @note int
+    vs:
+      javascript: |
+        JavaScript 的类型全在运行时；Go 静态检查，但有**两处**保留运行时类型：
+        接口值（`any` / 自定义接口）携带动态类型、`reflect` 能看到它。
+        这与 JavaScript 的「什么都能塞」形似而神不同：
+        Go 里要先把值装进接口才获得这层灵活，普通变量仍是静态的，
+        而且取出来必须显式断言 —— 灵活性是选择来的，不是默认的。
+      python: |
+        Python 全程动态，类型错误靠运行暴露；Go 在编译期检查，
+        但接口值保留了动态类型信息（`x.(type)` 与 `reflect` 都能看到）。
+        差别在**入口**：Python 里任何变量都可能装着别的类型，
+        Go 里普通变量类型固定，只有显式声明为接口的才有这层不确定性 ——
+        所以读 Go 代码时，看到接口就知道这里可能出现多种类型。
+      java: |
+        Java 与 Go 都是静态类型，也都保留运行时类型信息
+        （Java 的 `getClass` / 反射，Go 的接口与 `reflect`）。
+        差别在泛型：Java 的类型参数被擦除，运行时看不到；
+        Go 的泛型同样不在运行时保留（GC shape 实现），这点接近。
+        但 Go 的接口是**隐式满足**的，Java 的必须显式 `implements` ——
+        这决定了「什么样的值能装进这个接口」在两边是不同性质的问题。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-annotation:
+    code: |
+      func area(r float64) float64 { return 3.14 * r * r }   // @note 签名必须写类型
+
+      x := 1                     // @note 短声明，类型由初值推断
+      var y float64 = 1          // @note 显式标注
+      var z float64              // @note 只写类型，拿到零值
+
+      type Point struct { X, Y float64 }   // @note 字段必须写类型
+
+      const MaxRetry = 3         // @note 常量可以不带类型（无类型常量）
+      const Limit int = 10       // @note 也可以写类型
+    vs:
+      javascript: |
+        JavaScript 没有类型标注（TS 的标注编译后抹掉）；Go 的标注是编译器的
+        事实来源，函数签名、结构体字段、包级变量都必须写。
+        局部变量可以省（`:=` 推断），这点与 JavaScript 的「哪都不用写」
+        形成对比 —— Go 的省略是**局部**的例外，不是常态。
+      python: |
+        Python 的标注可选、运行时不检查；Go 的标注是必须的，
+        能省的只有局部变量的类型（`:=`）。有一处 Go 比 Python 松：
+        **常量可以无类型** —— `const K = 10` 不绑定具体类型，
+        赋给 `float64` 或 `int32` 都行，Python 里没有对应概念。
+      java: |
+        两边都要写类型，差在能省的范围：Java 的 `var` 只用于局部变量，
+        Go 的 `:=` 同样只用于局部，但 Go 的**包级变量**必须写 `var`，
+        不能推断（`var x = 1` 可以推断，但 `x := 1` 在包级不合法）。
+        常量上 Go 的无类型常量比 Java 的 `final` 更灵活 ——
+        Java 的字面量也有类似性质，但只覆盖基本类型的加宽。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  structural-nominal:
+    code: |
+      type Quacker interface{ Quack() string }
+
+      type Duck struct{}
+      func (Duck) Quack() string { return "嘎" }
+
+      type Robot struct{}
+      func (Robot) Quack() string { return "哔" }   // @note! 没写任何声明，Robot 就是 Quacker
+
+      func useIt(q Quacker) { println(q.Quack()) }
+      useIt(Duck{})
+      useIt(Robot{})             // @note 编译期检查：有 Quack() 就通过
+
+      // 具名类型仍然是具名的：两个字段相同的 struct 是不同类型
+      type A struct{ X int }
+      type B struct{ X int }
+      // var a A = B{1}          // @note! 编译错误，要显式转换 A(B{1})
+    vs:
+      javascript: |
+        JavaScript 的鸭子类型在运行时，Go 的接口满足在**编译期** ——
+        规则同样是「看方法不看名字」，这就是 Go 被称为
+        「静态鸭子类型」的原因。所以两边都不用写实现声明，
+        区别只在什么时候发现错误：JavaScript 到调用那一刻才炸，
+        Go 在编译时就说「Robot 没有实现 Quacker」。
+      python: |
+        Python 是运行时鸭子类型，`Protocol` 提供可选的结构化标注；
+        Go 把同一套规则搬到了编译期，而且接口本身就是一个
+        可以写进签名的**具名类型**。这让 Go 既能像 Python 一样
+        不为接口去改类型定义（甚至能给标准库的类型定义接口），
+        又能提前发现不满足 —— 这是 Go 接口设计的核心取舍。
+      java: |
+        Java 是**具名**的：类必须写 `implements`，有同名方法不算数；
+        Go 是**结构化**的：只看方法集。这是两门语言在抽象上最根本的差别。
+        Go 的规则带来两个实际好处：① 能为用不到源码的类型定义接口；
+        ② 接口可以按使用方的需要事后定义。代价是
+        「谁实现了这个接口」要靠工具分析，IDE 的跳转定义帮不上忙。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: divergent
+
+  type-narrowing:
+    code: |
+      var x any = "hello"
+
+      // 断言：不是这个类型就 ok=false
+      s, ok := x.(string)
+      if ok { fmt.Println(len(s)) }
+
+      // 不带 ok 的断言：失败直接 panic
+      // n := x.(int)            // @note! panic: interface conversion
+
+      // 类型开关：按动态类型分支，是 Go 里的标准做法
+      switch v := x.(type) {
+      case string:
+        fmt.Println("字符串", len(v))   // @note v 在这里是 string
+      case int, int64:
+        fmt.Println("整数", v)          // @note 多类型分支时 v 仍是 any
+      default:
+        fmt.Println("其它")
+      }
+    vs:
+      javascript: |
+        JavaScript 用 `typeof` / `instanceof` 在运行时判断，判断完的类型
+        只对人有意义（TS 里才有收窄）；Go 的类型断言/类型开关是**语言能力**，
+        而且 `switch v := x.(type)` 会把 `v` 在分支里变成具体类型，
+        可以直接用它的方法。另一处差别是失败方式：
+        JavaScript 判断错了就是走 else 分支，Go 不带 `ok` 的断言直接 panic。
+      python: |
+        Python 用 `isinstance` 判断再分支，判断完的类型信息靠类型检查器推断；
+        Go 用类型断言与类型开关，`switch v := x.(type)` 会把 `v`
+        绑定成具体类型 —— 这是语言层面的收窄。差别在穷尽性：
+        Python 与 Go 都不强制覆盖所有类型（Go 的 `default` 可选），
+        所以两边都可能漏掉一种情况，这一点上都不如枚举 + match 严密。
+      java: |
+        Java 传统上用 `instanceof` 判断再强转（两步，中间可能写错）；
+        Java 16 起有 `instanceof` 模式匹配、21 起 switch 支持模式 ——
+        形态上与 Go 的类型开关越来越像。差别是
+        Go 的断言可以不带 `ok`（失败 panic），Java 的强转失败抛
+        ClassCastException，两者都是运行时事故；
+        带 `ok` 的写法是 Go 独有的安全通道。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  null-safety:
+    absent: true
+    vs:
+      javascript: |
+        Go **没有空安全** —— `nil` 可以赋给任何指针、接口、切片、
+        映射与通道，用之前不检查就是运行时 panic（nil 解引用、
+        写 nil map、调用 nil 接口的方法）。JavaScript 至少有 `?.`
+        把检查写短，Go 连这个语法糖都没有，只能手写 `if x != nil`。
+        数值类型倒是不受影响 —— 它们用零值 0 而不是 nil。
+      python: |
+        Go **没有空安全**，`nil` 只对引用类类型有意义，
+        但用之前不检查就是 panic。Python 的 `None` 更普遍 ——
+        任何变量都能是 None，而 Go 的 nil 对数值与结构体无意义
+        （它们用零值）。两边都不提供编译期保证，
+        「这个值可能缺」在类型上完全看不出来。
+      java: |
+        Go 与 Java 都没有空安全：`nil` 对应 `null`，
+        解引用都是运行时 panic / NPE。区别在范围 ——
+        Java 的 `null` 能赋给任何引用类型，Go 的 `nil`
+        只对指针、接口、切片、映射、通道、函数有意义，
+        数值与结构体用零值。Java 有 `Optional` 这个库工具，
+        Go 没有对应物，惯例是「返回 (值, ok) 或 (值, error)」。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: identical
+
+  type-assertion:
+    code: |
+      var i any = 42
+      n, ok := i.(int)           // @note 安全断言：ok 表示是不是这个类型
+      // m := i.(string)         // @note! panic: interface conversion
+
+      switch v := i.(type) {     // @note 多类型时用类型开关
+      case int:
+        _ = v + 1
+      }
+
+      // 数值转换一律显式，且窄化会截断
+      var f float64 = 3.9
+      var x int = int(f)         // @note 3
+      var b byte = byte(300)     // @note! 截断成 44，编译器不拦
+
+      // 字符串解析返回 error，不抛异常
+      num, err := strconv.Atoi("42")
+    vs:
+      javascript: |
+        JavaScript 的转换大量隐式（`Number` / `String` / 运算符自己转），
+        失败得到 `NaN` 不报错；Go 没有任何隐式数值转换，
+        窄化静默截断、接口断言失败则 panic（带 `ok` 的除外）。
+        字符串转数字 Go 返回 `error`，JavaScript 用 `parseInt` 得到 NaN ——
+        一个是值、一个是哨兵，处理方式完全不同。
+      python: |
+        两边都要显式转换，失败方式不同：Python 的 `int("abc")` 抛 ValueError、
+        `int(3.9)` 截断；Go 的 `strconv.Atoi` 返回 error、
+        `int(f)` 截断，而 `byte(300)` 这类窄化**静默回绕**、不报错 ——
+        Python 里没有对应的静默截断（int 是任意精度）。
+        从接口取回具体类型 Go 用断言，Python 用 `isinstance` 判断，
+        前者会在忘记检查时 panic，后者不会。
+      java: |
+        Java 的 `(byte) 300` 与 Go 的 `byte(300)` 都是静默截断；
+        但 Java 有隐式加宽、Go **没有**，加宽也要写出来。
+        取回具体类型：Java 用 `instanceof` 判断加显式强转（两步），
+        Go 用类型断言 `v, ok := x.(T)`（一步），
+        不带 `ok` 的版本失败 panic，对应 Java 的 ClassCastException。
+        解析字符串 Java 抛 `NumberFormatException`，Go 返回 error。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous

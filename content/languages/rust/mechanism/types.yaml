@@ -1,0 +1,255 @@
+# rust —— mechanism / types
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/mechanism/features.yaml 里 `group: types` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: mechanism-types-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  static-vs-dynamic:
+    code: |
+      let n = 1;                 // @note 推断为 i32
+      // n = "text";             // @note! 编译错误：类型在编译期就定死了
+
+      // 泛型在编译期展开成具体类型的代码
+      fn first<T>(xs: &[T]) -> Option<&T> { xs.first() }
+
+      // 唯一的「运行时类型」入口是 trait 对象与 Any
+      let x: Box<dyn std::any::Any> = Box::new(42);
+      let n = x.downcast_ref::<i32>();   // @note Option<&i32>，类型不对得 None
+    vs:
+      javascript: |
+        JavaScript 的类型活在运行时：变量不带类型，`typeof` 才有值，
+        类型错误要跑到那一行才暴露。Rust 全部在编译期定死 ——
+        同样的错在 `cargo build` 时就被拒绝，产物里没有「类型不对」这种可能性。
+        代价是写泛型或异构容器时要显式表达（枚举、trait 对象），
+        不能像数组那样什么都能塞。
+      python: |
+        Python 的标注是可选的、运行时不检查，类型错误靠测试与运行暴露；
+        Rust 的类型是编译期事实，不写也推断、写错就编译不过。
+        Python 的 `isinstance` 是运行时判断，Rust 里对应的
+        `downcast_ref` 只对显式装进 `dyn Any` 的值有效 ——
+        普通值根本没有「运行时类型」这个概念，编译器早就把它抹平了。
+      java: |
+        Java 与 Rust 都是静态类型，但 Java 保留了大量运行时类型信息：
+        `getClass()`、`instanceof`、反射都能用，泛型还有类型擦除。
+        Rust 编译完基本不带类型信息（`dyn Any` 是显式选择），
+        泛型是**单态化**展开的，所以运行时既没有类型检查也没有虚表开销 ——
+        换来的是编译慢、二进制更大（每个实例化一份代码）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-annotation:
+    code: |
+      fn area(r: f64) -> f64 { 3.14159 * r * r }   // @note 函数签名必须写全
+
+      let x = 1;                                   // @note 局部变量可以推断
+      let v: Vec<u8> = Vec::new();                 // @note 推不出来时必须标注
+      let n: u32 = "42".parse().unwrap();          // @note 目标类型是推断的输入
+
+      struct Point { x: f64, y: f64 }              // @note 字段必须写类型
+      const MAX: usize = 100;                      // @note 常量必须写类型
+      static GLOBAL: i32 = 0;                      // @note static 也一样
+    vs:
+      javascript: |
+        JavaScript 没有类型标注（TS 有，但那是另一层、编译后抹掉）；
+        Rust 的标注是必须的，只是允许在**局部**省略 ——
+        函数参数与返回值、结构体字段、常量都必须写出来。
+        这个边界很关键：签名是给别人看的契约，所以强制；
+        函数体内部是本地推理，所以能省就省。
+      python: |
+        Python 的标注可写可不写、运行时不检查，只在工具里起作用；
+        Rust 的标注是编译器的事实来源，而且**推不出来时必须写**——
+        `"42".parse()` 单看表达式无法确定目标类型，所以
+        `let n: u32 = …` 的标注是必需的，不是风格。
+        换句话说 Python 里标注是给人和检查器看的，Rust 里是给编译器用的。
+      java: |
+        Java 与 Rust 都要求写类型，区别在省略的范围：Java 10 的 `var`
+        只能用于局部变量，Rust 的 `let` 从第一天就推断。
+        两边的常量都要写类型（`final int` / `const MAX: usize`）。
+        一个实际差别是数值字面量：Rust 可以写 `42u8` 把类型贴在字面量上，
+        Java 要写 `(byte) 42` 或依赖目标类型推断。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  structural-nominal:
+    code: |
+      trait Quack { fn quack(&self) -> String; }
+
+      struct Duck;
+      impl Quack for Duck { fn quack(&self) -> String { "嘎".into() } }
+
+      struct Robot;
+      // @note! Robot 也有 quack 方法，但没写 impl Quack —— 它就不是 Quack
+      impl Robot { fn quack(&self) -> String { "哔".into() } }
+
+      fn use_it<T: Quack>(x: T) { println!("{}", x.quack()); }
+      // use_it(Robot);            // @note! 编译错误：Robot 没有实现 Quack
+
+      // 类型等价也看名字：两个字段相同的 struct 是两个不同的类型
+    vs:
+      javascript: |
+        JavaScript 完全不看名字，只看有没有那个方法 —— 结构化的极致。
+        Rust 是**具名**的：类型必须显式写上 `impl Quack for Robot`，
+        光有同名方法不算数。这一条把「谁满足哪个接口」变成了编译期事实，
+        代价是给已有类型补实现时要能改代码（或写 newtype 包一层），
+        而 JavaScript 里给对象挂个方法就完事。
+      python: |
+        Python 是鸭子类型（有方法就能用），`Protocol` 提供可选的结构化标注；
+        Rust 强制具名实现 —— 不写 `impl` 就不是，编译器说了算。
+        这在跨语言时最明显：Python 里写个假对象塞进去做测试很自然，
+        Rust 里那个假对象必须真的实现 trait。
+        好处是方法名拼错、签名不匹配都在编译期暴露。
+      java: |
+        两边都是具名类型：类必须显式声明实现关系。差别在**声明的位置**——
+        Java 的 `implements` 只能在类定义处写，类型作者必须先知道接口存在；
+        Rust 的 `impl Quack for Robot` 可以写在任何地方（包括另一个模块），
+        甚至能给外部类型实现本 crate 的 trait。
+        于是 Rust 可以「事后」为已有类型补接口，Java 只能写适配器包一层。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  type-narrowing:
+    code: |
+      enum Shape {
+        Circle { r: f64 },
+        Rect { w: f64, h: f64 },
+      }
+
+      fn area(s: &Shape) -> f64 {
+        match s {                              // @note! match 收敛类型：每个分支里字段类型确定
+          Shape::Circle { r } => 3.14159 * r * r,
+          Shape::Rect { w, h } => w * h,
+        }
+      }
+
+      // 可空也走同一套
+      fn greet(name: Option<&str>) -> String {
+        match name {
+          Some(n) => format!("你好，{}", n),
+          None => "你好".into(),
+        }
+      }
+    vs:
+      javascript: |
+        JavaScript 的收窄靠运行时判断（`typeof x === 'number'`、
+        `'r' in shape`），收窄只存在于类型检查器的心智里，运行时什么都没变。
+        Rust 的 `match` 是**编译期**的：每个分支里字段类型自动确定，
+        漏掉一个变体编译不过。所以 Rust 里没有「忘了判断类型」这种 bug ——
+        不是靠写得小心，是语言不给这条路。
+      python: |
+        Python 用 `isinstance` / `hasattr` 在运行时判断并分支，
+        判断完的类型信息只对人有效；Rust 用 `match` 对枚举做穷尽分解，
+        类型在每个分支里自动收窄，而且**必须覆盖全部变体**。
+        这消灭了 Python 里「漏了一种情况」的 bug ——
+        新增一个枚举成员时，所有没处理它的 `match` 会一起编译失败。
+      java: |
+        Java 传统上用 `instanceof` 判断再强转，漏判就 ClassCastException；
+        Java 16 起有 `instanceof` 模式匹配、21 起 switch 也支持模式与穷尽性 ——
+        这些正是 Rust 一直在做的事。差别是 Rust 的载体是**枚举**：
+        「有哪几种形态」在类型定义处列一次，所有分支都被检查；
+        Java 的模式匹配作用在类层级上，穷尽性检查近年才补齐且限制更多。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  null-safety:
+    code: |
+      let found: Option<i32> = Some(3);
+
+      match found {
+        Some(n) => println!("{}", n),
+        None => println!("没有"),
+      }
+
+      let n = found.unwrap_or(0);          // @note 显式默认值
+      let n = found?;                       // @note 在返回 Result/Option 的函数里直接上传
+      let doubled = found.map(|x| x * 2);   // @note 在 Some 上做变换
+
+      fn first(xs: &[i32]) -> Option<&i32> { xs.first() }
+      // @note! 没有 null —— 想让一个值「可能缺」，它的类型就必须写成 Option
+    vs:
+      javascript: |
+        JavaScript 的 `null` 与 `undefined` 可以出现在任何变量上，
+        可选链 `?.` 只是把判断写短了，并没有让编译器盯着你。
+        Rust 里「可能缺」是**类型的一部分**：`Option<i32>` 与 `i32` 不同，
+        不处理 `None` 就拿不到里面的数 —— 所以运行时不存在
+        「某个值是 null 却没检查」这种状态。
+      python: |
+        Python 的 `None` 可以赋给任何变量，类型检查器（如果有）只能提示；
+        Rust 把它编码进类型，编译器强制处理。实际收益是：
+        Python 里 `x.attr` 撞上 None 是运行时 AttributeError，
+        Rust 里忘记处理 None 编译不过 —— 错误从「某次线上请求」
+        提前到了「敲下这行代码的十秒后」。
+      java: |
+        Java 的 `null` 是所有引用类型的默认值，NPE 是运行时事故；
+        Rust 没有 null，用 `Option<T>`，编译器强制解包。
+        Java 的 `Optional` 只是库类型，字段与参数照样能是 null，
+        而且 `Optional.get()` 忘了判断照样抛 —— 它没有把
+        「必须处理」变成语言规则。Rust 里没有绕过 `Option` 的路。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  type-assertion:
+    code: |
+      // 数值转换：as 是截断，不报错
+      let f = 3.9f64;
+      let i = f as i32;                  // @note 3
+
+      // 字符串解析：失败是值，不是异常
+      let n: Result<i32, _> = "42".parse();
+      let n = "42".parse::<i32>().unwrap_or(0);
+
+      // 从 dyn Any 取回具体类型
+      use std::any::Any;
+      let boxed: Box<dyn Any> = Box::new(42i32);
+      if let Some(n) = boxed.downcast_ref::<i32>() {
+        println!("{}", n);               // @note 类型不对就进不了这个分支
+      }
+
+      // TryFrom 表达可能失败的转换
+      let n: u8 = 300u16.try_into().unwrap_or(0);
+    vs:
+      javascript: |
+        JavaScript 的「类型转换」是运行时且大量隐式（`Number(x)`、
+        `String(x)`、运算符自己转），失败得到 `NaN` 而不报错。
+        Rust 没有任何隐式转换，显式转换分成三类：
+        `as`（截断、不会失败）、`parse` / `TryFrom`（可能失败，返回 Result）、
+        `downcast`（从 `dyn Any` 取回类型）。
+        每条路径的失败方式都写在类型里，没有「莫名得到 NaN」这种事。
+      python: |
+        Python 的 `int("abc")` 抛 ValueError、`int(3.9)` 截断 ——
+        失败与成功混在一个函数里；Rust 分开：
+        `as` 负责不会失败的截断，`parse` / `TryFrom` 负责可能失败的转换
+        并把失败放进返回值。从 `dyn Any` 取回类型 Rust 用 `downcast_ref`
+        返回 Option，Python 里对应的 `isinstance` 判断是运行时布尔，
+        不会把类型信息带下去。
+      java: |
+        Java 的 `(int) 3.9` 与 Rust 的 `f as i32` 都是截断且不报错；
+        但 Java 有隐式加宽（`int` → `long` 自动），Rust **连加宽都要写**。
+        取回具体类型上：Java 用 `instanceof` 判断再强转（两步，
+        中间可能写错），Rust 用 `downcast_ref::<T>()` 一步返回 `Option`；
+        解析字符串 Java 用 `Integer.parseInt` 抛异常，
+        Rust 的 `parse` 返回 `Result`。
+    equivalence:
+      javascript: divergent
+      python: analogous
+      java: analogous
