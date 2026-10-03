@@ -166,6 +166,7 @@ describe('章节分组随基准变，内容不随', () => {
       'declaration',
       'hoisting',
       'mutability',
+      'naming-convention',
       'scope',
       'shadowing',
     ])
@@ -229,14 +230,22 @@ describe('语言内容装载的细节', () => {
     }
   })
 
+  /*
+   * 一份内容文件里同时住着两套说法（ADR-44）：
+   *   baseline  —— 这门语言作**基准列**时显示
+   *   vs.<基准> —— 这门语言作**对比列**时显示
+   * 三门基准候选都写满，才能保证「切到任何一门基准，另外两列都有话可说」（R22）。
+   */
   it('两套角色都读得进来：baseline（基准列）与 vs.<基准 id>（对比列）', () => {
-    const js = loadPoolLanguageContent('javascript', pools)[0]!.boxes
-    expect(js.declaration!.baseline).toBeTruthy()
-    expect(js.declaration!.vs).toEqual({})
-
-    const py = loadPoolLanguageContent('python', pools)[0]!.boxes
-    expect(py.declaration!.baseline).toBeUndefined()
-    expect(py.declaration!.vs.javascript).toBeTruthy()
+    for (const lang of ['javascript', 'python', 'java']) {
+      const box = loadPoolLanguageContent(lang, pools)[0]!.boxes.declaration!
+      expect(box.baseline, `${lang} 缺 baseline`).toBeTruthy()
+      for (const base of ['javascript', 'python', 'java'].filter((b) => b !== lang)) {
+        expect(box.vs[base], `${lang} 缺 vs.${base}`).toBeTruthy()
+      }
+      // 自指没有意义：一门语言不为自己写差异说明
+      expect(box.vs[lang], `${lang} 不该给自己写 vs`).toBeUndefined()
+    }
   })
 
   it('absent 的格子被如实读出（与「还没写」可区分）', () => {

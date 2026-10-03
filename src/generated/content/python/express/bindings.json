@@ -11,12 +11,15 @@
       "notes": [],
       "absent": false,
       "equivalence": {
-        "javascript": "analogous"
+        "javascript": "analogous",
+        "java": "divergent"
       },
       "reviewState": "draft",
       "provenanceOrigin": "llm",
+      "baselineHtml": "<p><code>名字 = 值</code> 一条语句同时完成声明与赋值，没有单独的关键字。名字只是贴在对象上的\n标签，可以有多个名字指向同一个对象 —— 所以「换个名字指向」和「改对象本身」\n是两件事。</p>\n",
       "vsHtml": {
-        "javascript": "<p>JavaScript 要用 <code>let</code> / <code>const</code> / <code>var</code> 显式声明，选关键字还顺带决定了作用域\n与能否改绑；Python 的赋值语句<strong>本身就是声明</strong>，没有单独的声明关键字。</p>\n"
+        "javascript": "<p>JavaScript 要用 <code>let</code> / <code>const</code> / <code>var</code> 显式声明，选关键字还顺带决定了作用域\n与能否改绑；Python 的赋值语句<strong>本身就是声明</strong>，没有单独的声明关键字。</p>\n",
+        "java": "<p>Java 的声明要写出类型（<code>int count = 0;</code>），Python 由赋值推断，类型跟着对象走。\n两边都要求「先赋值才能用」，只是 Java 在编译期查，Python 到运行时才抛\nNameError。</p>\n"
       }
     },
     "mutability": {
@@ -33,12 +36,15 @@
       ],
       "absent": false,
       "equivalence": {
-        "javascript": "divergent"
+        "javascript": "divergent",
+        "java": "divergent"
       },
       "reviewState": "draft",
       "provenanceOrigin": "llm",
+      "baselineHtml": "<p>名字随时可以改指向（<code>n = 2</code>），语言没有常量语法，全大写的 <code>MAX = 100</code>\n只是给读者的约定。真正不可变的是<strong>值</strong>：数字、字符串、元组改不了，\n列表与字典可以。</p>\n",
       "vsHtml": {
-        "javascript": "<p>JavaScript 用 <code>const</code> 表达「不可改绑」；Python 没有常量语法，\n<code>MAX = 100</code> 只是「大家都别改」的约定，解释器照改不误。</p>\n"
+        "javascript": "<p>JavaScript 用 <code>const</code> 表达「不可改绑」，由引擎保证；Python 没有常量语法，\n<code>MAX = 100</code> 只是「大家都别改」的约定，解释器照改不误。</p>\n",
+        "java": "<p>Python 靠约定表达「别改」，Java 用 <code>final</code> 由编译器保证绑定不可改。\n两者都管不住内容：<code>final</code> 的集合照样能增删，元组里装的列表照样能改。</p>\n"
       }
     },
     "scope": {
@@ -55,12 +61,15 @@
       ],
       "absent": false,
       "equivalence": {
-        "javascript": "divergent"
+        "javascript": "divergent",
+        "java": "divergent"
       },
       "reviewState": "draft",
       "provenanceOrigin": "llm",
+      "baselineHtml": "<p>只有函数与类会产生新作用域；<code>if</code> / <code>for</code> / <code>while</code> / <code>with</code> 的块体不产生，\n循环变量会留在外面。函数内给一个名字赋值就是在建局部名 —— 想改外层的，\n必须显式写 <code>global</code> 或 <code>nonlocal</code>。</p>\n",
       "vsHtml": {
-        "javascript": "<p>JavaScript 的 <code>let</code> / <code>const</code> 以 <code>{}</code> 为边界；Python <strong>只有函数会产生新作用域</strong>，\n<code>if</code> / <code>for</code> / <code>while</code> 的块体不产生 —— 循环变量会留在外面。</p>\n"
+        "javascript": "<p>JavaScript 的 <code>let</code> / <code>const</code> 以 <code>{}</code> 为边界；Python <strong>只有函数会产生新作用域</strong>，\n<code>if</code> / <code>for</code> / <code>while</code> 的块体不产生 —— 循环变量会留在外面。</p>\n",
+        "java": "<p>Java 是块级作用域，<code>for</code> 里声明的循环变量出了循环就没了；Python 的循环变量\n会留在函数作用域里。读两边代码时，这是最容易看错的一处。</p>\n"
       }
     },
     "hoisting": {
@@ -74,7 +83,8 @@
       "reviewState": "draft",
       "provenanceOrigin": "llm",
       "vsHtml": {
-        "javascript": "<p>Python 没有变量提升这一概念。相关但不同的坑在别处：函数里只要出现过\n<code>x = ...</code>，<code>x</code> 在整个函数内就是局部名，在赋值前读它会抛 UnboundLocalError。</p>\n"
+        "javascript": "<p>Python 没有变量提升这一概念。相关但不同的坑在别处：函数里只要出现过\n<code>x = ...</code>，<code>x</code> 在整个函数内就是局部名，在赋值前读它会抛 UnboundLocalError。</p>\n",
+        "java": "<p>Java 也没有变量提升，两边都要求「先赋值才能用」—— 只是 Java 在编译期拦住，\nPython 到运行时才抛 NameError。Java 那边另有一处近亲：类的字段没写初值\n也有默认值，Python 里没有这种东西，名字在赋值那一刻才存在。</p>\n"
       }
     },
     "shadowing": {
@@ -85,12 +95,40 @@
       "notes": [],
       "absent": false,
       "equivalence": {
-        "javascript": "analogous"
+        "javascript": "analogous",
+        "java": "divergent"
       },
       "reviewState": "draft",
       "provenanceOrigin": "llm",
+      "baselineHtml": "<p>函数内赋值会新建局部名，遮蔽外层的同名名字而不改动它。想改外层必须显式声明\n<code>global</code>（模块级）或 <code>nonlocal</code>（外层函数）—— 这个显式声明正是为了防住\n「以为在改外层、其实建了局部」这类静默错误。</p>\n",
       "vsHtml": {
-        "javascript": "<p>与 JavaScript 一样是「内层新建绑定、遮蔽外层」；区别在边界 ——\nPython 的边界是函数，JavaScript 的边界是块。</p>\n"
+        "javascript": "<p>与 JavaScript 一样是「内层新建绑定、遮蔽外层」；区别在边界 ——\nPython 的边界是函数，JavaScript 的边界是块。</p>\n",
+        "java": "<p>两边都允许遮蔽，但 Java 的规则更窄：局部变量可以遮蔽同名的字段，\n内层块里再声明同名局部变量却是编译错误。Python 没有这层限制，\n遮蔽随处可发生，代价是要改外层就得显式声明。</p>\n"
+      }
+    },
+    "naming-convention": {
+      "lang": "python",
+      "code": "user_name = \"Ada\"        # 变量与函数：snake_case\nMAX_RETRY = 3            # 常量：约定用全大写\nclass UserProfile: ...   # 类：PascalCase\n\n_internal = 1            # 单下划线：表示「内部使用」\n__mangled = 2            # ⚠ 双下划线：在类里会触发名称改写，是真语义",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">user_name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"Ada\"</span><span style=\"color:var(--shiki-token-comment)\">        # 变量与函数：snake_case</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">MAX_RETRY </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">            # 常量：约定用全大写</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">class</span><span style=\"color:var(--shiki-token-function)\"> UserProfile</span><span style=\"color:var(--shiki-foreground)\">: ...   </span><span style=\"color:var(--shiki-token-comment)\"># 类：PascalCase</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">_internal </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">            # 单下划线：表示「内部使用」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">__mangled </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">            # ⚠ 双下划线：在类里会触发名称改写，是真语义</span></span></code></pre>",
+      "lineCount": 6,
+      "notes": [
+        {
+          "line": 6,
+          "text": "双下划线：在类里会触发名称改写，是真语义",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "baselineHtml": "<p>PEP 8 是社区规范，解释器不看名字。但有两处比「纯约定」多走了一步：单下划线\n前缀的名字不会被 <code>from x import *</code> 带走；双下划线前缀在类体内会被改写成\n<code>_类名__名字</code>，用来避开子类的意外覆盖。</p>\n",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 也全是约定（camelCase 变量、PascalCase 类）。它唯一带语义的名字\n形式是 <code>#</code> 私有字段 —— 那是硬性的可见性；Python 的下划线只是软约定，\n外加一层名称改写。</p>\n",
+        "java": "<p>Java 的约定是类 PascalCase、方法与字段 camelCase、常量全大写，也都是纯风格：\n可见性走 <code>public</code> / <code>private</code> 关键字。两边都不会因为改个大小写就改了谁能访问。</p>\n"
       }
     }
   }

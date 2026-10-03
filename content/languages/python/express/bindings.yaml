@@ -3,54 +3,79 @@
 # 文件名是**存放组**（group），不是展示章 —— 展示章随基准变（见 catalog/express/*.yaml），
 # 存放组不随。boxes 的 key 必须是 catalog/express/features.yaml 里 `group: bindings` 的那批。
 #
-# 注意 `hoisting` 这一格仍在：Python 的章节分组把它取舍掉了（Python 视角下不出现这一行），
-# 但以 JavaScript 为基准时它要作为一个「对方有、我方没有」的行被渲染出来。
+# 注意 `hoisting` 这一格仍在：Python 的章节分组把它取舍掉了（以 Python 为参照系时
+# 这一行不该出现），但以 JavaScript 或 Java 为基准时，它要作为一个
+# 「对方有、我方没有」的行被渲染出来 —— 存放组与展示无关，正是这个意思。
 #
-# 试点阶段只写「作对比列、基准为 JavaScript」时的 vs 说明；
-# 基准取 Java 的那一份留待内容爬坡补齐。
+# `hoisting` 是 absent（不是漏写），所以它按 R23 不要求 baseline 说明。
 
 review:
   state: draft
   provenance:
     origin: llm
     model: deepseek-v4.1-flash
-    promptTemplateId: pilot-basics-variables
+    promptTemplateId: express-bindings-v1
     generatedAt: '2026-10-03'
 
 boxes:
   declaration:
     code: |
       count = 0            # @note 赋值即声明，没有关键字
+    baseline: |
+      `名字 = 值` 一条语句同时完成声明与赋值，没有单独的关键字。名字只是贴在对象上的
+      标签，可以有多个名字指向同一个对象 —— 所以「换个名字指向」和「改对象本身」
+      是两件事。
     vs:
       javascript: |
         JavaScript 要用 `let` / `const` / `var` 显式声明，选关键字还顺带决定了作用域
         与能否改绑；Python 的赋值语句**本身就是声明**，没有单独的声明关键字。
+      java: |
+        Java 的声明要写出类型（`int count = 0;`），Python 由赋值推断，类型跟着对象走。
+        两边都要求「先赋值才能用」，只是 Java 在编译期查，Python 到运行时才抛
+        NameError。
     equivalence:
       javascript: analogous
+      java: divergent
 
   mutability:
     code: |
       n = 1
       n = 2                # @note 名字只是绑定，随时可以指向别的值
       MAX = 100            # @note! 全大写只是约定，解释器不会阻止你重新赋值
+    baseline: |
+      名字随时可以改指向（`n = 2`），语言没有常量语法，全大写的 `MAX = 100`
+      只是给读者的约定。真正不可变的是**值**：数字、字符串、元组改不了，
+      列表与字典可以。
     vs:
       javascript: |
-        JavaScript 用 `const` 表达「不可改绑」；Python 没有常量语法，
+        JavaScript 用 `const` 表达「不可改绑」，由引擎保证；Python 没有常量语法，
         `MAX = 100` 只是「大家都别改」的约定，解释器照改不误。
+      java: |
+        Python 靠约定表达「别改」，Java 用 `final` 由编译器保证绑定不可改。
+        两者都管不住内容：`final` 的集合照样能增删，元组里装的列表照样能改。
     equivalence:
       javascript: divergent
+      java: divergent
 
   scope:
     code: |
       for i in range(3):
           pass
       print(i)             # @note! 打出 2 —— 循环变量漏到了函数作用域
+    baseline: |
+      只有函数与类会产生新作用域；`if` / `for` / `while` / `with` 的块体不产生，
+      循环变量会留在外面。函数内给一个名字赋值就是在建局部名 —— 想改外层的，
+      必须显式写 `global` 或 `nonlocal`。
     vs:
       javascript: |
         JavaScript 的 `let` / `const` 以 `{}` 为边界；Python **只有函数会产生新作用域**，
         `if` / `for` / `while` 的块体不产生 —— 循环变量会留在外面。
+      java: |
+        Java 是块级作用域，`for` 里声明的循环变量出了循环就没了；Python 的循环变量
+        会留在函数作用域里。读两边代码时，这是最容易看错的一处。
     equivalence:
       javascript: divergent
+      java: divergent
 
   hoisting:
     absent: true
@@ -58,6 +83,10 @@ boxes:
       javascript: |
         Python 没有变量提升这一概念。相关但不同的坑在别处：函数里只要出现过
         `x = ...`，`x` 在整个函数内就是局部名，在赋值前读它会抛 UnboundLocalError。
+      java: |
+        Java 也没有变量提升，两边都要求「先赋值才能用」—— 只是 Java 在编译期拦住，
+        Python 到运行时才抛 NameError。Java 那边另有一处近亲：类的字段没写初值
+        也有默认值，Python 里没有这种东西，名字在赋值那一刻才存在。
 
   shadowing:
     code: |
@@ -66,9 +95,42 @@ boxes:
           x = 2            # @note 这是函数内的新局部名，不动外层
           return x
       print(f(), x)        # @note 2 1
+    baseline: |
+      函数内赋值会新建局部名，遮蔽外层的同名名字而不改动它。想改外层必须显式声明
+      `global`（模块级）或 `nonlocal`（外层函数）—— 这个显式声明正是为了防住
+      「以为在改外层、其实建了局部」这类静默错误。
     vs:
       javascript: |
         与 JavaScript 一样是「内层新建绑定、遮蔽外层」；区别在边界 ——
         Python 的边界是函数，JavaScript 的边界是块。
+      java: |
+        两边都允许遮蔽，但 Java 的规则更窄：局部变量可以遮蔽同名的字段，
+        内层块里再声明同名局部变量却是编译错误。Python 没有这层限制，
+        遮蔽随处可发生，代价是要改外层就得显式声明。
     equivalence:
       javascript: analogous
+      java: divergent
+
+  naming-convention:
+    code: |
+      user_name = "Ada"        # @note 变量与函数：snake_case
+      MAX_RETRY = 3            # @note 常量：约定用全大写
+      class UserProfile: ...   # @note 类：PascalCase
+
+      _internal = 1            # @note 单下划线：表示「内部使用」
+      __mangled = 2            # @note! 双下划线：在类里会触发名称改写，是真语义
+    baseline: |
+      PEP 8 是社区规范，解释器不看名字。但有两处比「纯约定」多走了一步：单下划线
+      前缀的名字不会被 `from x import *` 带走；双下划线前缀在类体内会被改写成
+      `_类名__名字`，用来避开子类的意外覆盖。
+    vs:
+      javascript: |
+        JavaScript 也全是约定（camelCase 变量、PascalCase 类）。它唯一带语义的名字
+        形式是 `#` 私有字段 —— 那是硬性的可见性；Python 的下划线只是软约定，
+        外加一层名称改写。
+      java: |
+        Java 的约定是类 PascalCase、方法与字段 camelCase、常量全大写，也都是纯风格：
+        可见性走 `public` / `private` 关键字。两边都不会因为改个大小写就改了谁能访问。
+    equivalence:
+      javascript: analogous
+      java: analogous

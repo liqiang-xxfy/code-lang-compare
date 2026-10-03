@@ -239,8 +239,16 @@ describe('全局选择：切换基准时的回落', () => {
     expect(resolveSwitchPath('python', { section: 'express', key: 'bindings' })).toBe(
       sectionEntryPath('python', 'express'),
     )
-    // java 还没有 express 的章节分组 → 整块没有落点
-    expect(resolveSwitchPath('java', { section: 'express', key: 'bindings' })).toBe('/404')
+    // 同一条在 java 基准下同样不存在（java 把这几条归进了「类型、声明与命名」）→ 回落
+    expect(resolveSwitchPath('java', { section: 'express', key: 'bindings' })).toBe(
+      sectionEntryPath('java', 'express'),
+    )
+  })
+
+  it('基准连一个存放组都没写时，整块没有落点（骨架期的板块就是这种状态）', () => {
+    // java 在 model 板块还没有任何内容 —— 章节分组在、内容不在，落点必须是 /404
+    expect(resolveSwitchPath('java', { section: 'model', key: 'objects' })).toBe('/404')
+    expect(sectionEntryPath('java', 'model')).toBe('/404')
   })
 
   it('列表板块：地址里没有目标，只要该基准下有内容就跳过去', () => {

@@ -3,15 +3,18 @@
 # 文件名是**存放组**（group），不是展示章 —— 展示章随基准变（见 catalog/express/*.yaml），
 # 存放组不随。boxes 的 key 必须是 catalog/express/features.yaml 里 `group: bindings` 的那批。
 #
-# 试点阶段只写「作基准列」时的 baseline 说明（JavaScript 是三大基准之一）；
-# 作对比列时的 vs（基准取另外两门）留待内容爬坡补齐。
+# 第 ③ 槽的两套说法：
+#   baseline  —— JavaScript 作基准列时显示（它自己是什么）
+#   vs.<基准> —— JavaScript 作对比列时显示（它与当前基准差在哪）
+# 两套视角无法互相推导，所以都写。`vs.<基准>` 的读者是「熟悉那门基准的人」，
+# 所以措辞要落在这个语言自己的行为上，而不是去复述对方。
 
 review:
   state: draft
   provenance:
     origin: llm
     model: deepseek-v4.1-flash
-    promptTemplateId: pilot-basics-variables
+    promptTemplateId: express-bindings-v1
     generatedAt: '2026-10-03'
 
 boxes:
@@ -23,6 +26,17 @@ boxes:
     baseline: |
       用 `let` / `const` / `var` 之一引入一个名字。前两个是块级作用域，`var` 是函数级。
       选哪个关键字，同时决定了「能不能改绑」与「在哪里可见」。
+    vs:
+      python: |
+        Python 的赋值语句本身就是声明，没有关键字可选；JavaScript 用关键字不只是风格 ——
+        `let` / `const` 顺带定下了作用域与能否改绑，选错的代价要到运行时才显形。
+      java: |
+        Java 的声明必须写出类型（`int count = 0;`，Java 10 起可写 `var count = 0;`
+        让编译器推断）。JavaScript 的声明完全不谈类型 —— 类型跟着值走，
+        关键字只管作用域与可改性。
+    equivalence:
+      python: analogous
+      java: divergent
 
   mutability:
     code: |
@@ -34,6 +48,18 @@ boxes:
     baseline: |
       `let` 的绑定可改；`const` 的绑定不可改，但它**不**让值本身不可变 ——
       对象与数组的内容照样能被修改。要真正冻结得用 `Object.freeze`，且只是浅冻结。
+    vs:
+      python: |
+        「不许改绑」这件事有没有语言保证，是两边最实在的差别：JavaScript 的 `const`
+        由引擎负责，重新赋值当场抛 TypeError；Python 没有常量语法，全大写的名字
+        只是给同事看的约定，解释器照改不误。
+      java: |
+        Java 的 `final` 与 `const` 是同一件事：**冻结绑定、不冻结内容**。
+        `final` 的集合照样能增删元素。差别在检查时机 —— Java 编译期就报错，
+        JavaScript 要运行到那一行才抛。
+    equivalence:
+      python: divergent
+      java: analogous
 
   scope:
     code: |
@@ -46,6 +72,18 @@ boxes:
     baseline: |
       `let` / `const` 以 `{}` 为边界；`var` 只有函数级作用域，在 `if` / `for` 里声明
       也会漏到外层 —— 循环里用 `var` 捕获变量是它的经典陷阱。
+    vs:
+      python: |
+        Python 只有函数与类会产生新作用域：`if` / `for` 的块体不产生，循环变量会留在
+        外面。JavaScript 的 `let` / `const` 以 `{}` 为界，循环变量出了循环就没了 ——
+        读两边代码时，这是最容易看错的一处。
+      java: |
+        Java 同样是块级作用域，而且**没有** `var` 那种函数级的逃生口：所有局部变量
+        都以 `{}` 为界。读 Java 时不必提防「这个变量其实漏到外面去了」，
+        读 JavaScript 时则要。
+    equivalence:
+      python: divergent
+      java: analogous
 
   hoisting:
     code: |
@@ -56,6 +94,19 @@ boxes:
     baseline: |
       `var` 的声明会提升到作用域顶部并初始化为 `undefined`；`let` / `const` 也会提升，
       但在声明语句执行前处于「暂时性死区」，访问即抛错。
+    vs:
+      python: |
+        以 Python 为参照看，JavaScript 多出一层「声明被提前」的行为：`var` 在声明语句
+        之前就已经存在（值是 undefined），`let` / `const` 虽然也提前，但在声明执行前
+        访问会抛错 —— 这段区间叫暂时性死区。Python 里没有对应机制，
+        名字在赋值那一刻才存在。
+      java: |
+        Java 里局部变量必须先赋值才能读，编译期就拦住；类的字段则不需要 ——
+        没写初值的字段有默认值（`0` / `false` / `null`）。JavaScript 的 `var`
+        更接近后者：一提升就给了 undefined，读它不报错，只是拿到一个空值。
+    equivalence:
+      python: divergent
+      java: divergent
 
   shadowing:
     code: |
@@ -68,3 +119,40 @@ boxes:
     baseline: |
       内层块用 `let` / `const` 声明同名变量会**新建**一个绑定，遮蔽外层而不改动它。
       换成 `var` 则是同一个变量，内层赋值会直接改掉外层 —— 这是遮蔽与「同一变量」的分界。
+    vs:
+      python: |
+        两边都是「内层新建绑定、遮蔽外层」，差别在边界落在哪：Python 的边界是函数，
+        JavaScript 的边界是块 —— 一个 `{}`、一个循环体都能造出遮蔽，
+        代价是读代码时要一直盯着块的范围。
+      java: |
+        Java 的遮蔽范围窄得多：局部变量可以遮蔽同名的**字段**，但同一方法里内层块
+        再声明一个同名局部变量是编译错误 —— 想遮蔽也遮蔽不了。
+    equivalence:
+      python: analogous
+      java: divergent
+
+  naming-convention:
+    code: |
+      const userName = "Ada";     // @note 变量与函数：camelCase
+      const MAX_RETRY = 3;        // @note 常量：SCREAMING_SNAKE_CASE
+      class UserProfile {}        // @note 类：PascalCase
+
+      class Account {
+        #balance = 0;             // @note! 唯一带语义的名字形式：# 是真私有字段
+      }
+    baseline: |
+      变量与函数 camelCase、类 PascalCase、常量全大写下划线分隔 —— 全部是社区约定，
+      引擎一个都不看。**唯一带语义的是 `#`**：`#balance` 是真私有字段，
+      写错不是「风格问题」，而是根本访问不到。
+    vs:
+      python: |
+        Python 也全是约定（PEP 8：变量与函数 snake_case、类 PascalCase）。
+        它有两处比 JavaScript 多带一点语义：单下划线前缀的名字不会被
+        `from x import *` 带走；双下划线前缀会在类里触发名称改写。
+      java: |
+        两边的约定几乎一样：类 PascalCase、方法与字段 camelCase、常量全大写。
+        差别在「可见性靠什么表达」—— Java 走 `public` / `private` 关键字，
+        与名字怎么写无关，改个大小写只会让同事皱眉。
+    equivalence:
+      python: analogous
+      java: identical
