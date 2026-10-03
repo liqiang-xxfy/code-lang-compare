@@ -1,0 +1,254 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 TypeScript 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-js2ts-erased-at-runtime
+  featureId: mechanism/type-erasure
+  title: 标注了类型，运行时却什么都不检查
+  symptom: |
+    给函数签上 `function handle(user: User)` 就以为传进来的一定是 `User`；
+    直到线上收到一个缺字段的响应，`user.name.toUpperCase()` 在运行时炸掉 ——
+    而编译器从编译到打包，一次都没报过错。
+  cause: |
+    TypeScript 的类型**只活在编译期**，产物里被整个擦除：`interface User {...}`
+    编译后一行都不剩，连 `instanceof` 都没得查。所以标注是「你对编译器的承诺」，
+    不是「运行时替你把关」。JS 本来就没有类型这层，你不会指望它；
+    可一旦开始写标注，很容易把「编辑器不报错」误读成「数据是对的」。
+  fix: |
+    把**系统边界**当作不可信输入（网络响应、`JSON.parse`、`localStorage`、
+    命令行参数、第三方回调），用运行时校验库（zod / valibot / arktype）
+    解析一遍再交给类型系统：
+
+    ```ts
+    const User = z.object({ name: z.string(), age: z.number() })
+    const user = User.parse(await res.json())   // 这里才真的检查
+    ```
+
+    内部函数之间靠静态类型，边界处靠 schema —— 两者不能互相替代。
+  severity: 3
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [类型系统, 边界]
+
+- id: pitfall-js2ts-any-contagion
+  featureId: mechanism/static-vs-dynamic
+  title: 一个 any 让整条链路失去检查
+  symptom: |
+    为了先跑通，给某个参数写了 `any`。之后所有从它派生出来的值都变成 `any`，
+    访问不存在的属性、调用不存在的方法，编译器一声不吭。
+  cause: |
+    `any` 是**双向逃生舱**：既能赋给任何类型，也能接受任何类型，而且**会传染** ——
+    `any` 的属性访问结果还是 `any`，一路往下传。
+    从 JS 迁过来时，老代码常见的做法是「先 any 掉，以后再补」，
+    结果整片区域退回 JS 的检查水平，而编辑器看起来一切正常。
+  fix: |
+    默认用 `unknown` 而不是 `any`：`unknown` 同样能接住任何值，
+    但**用之前必须先收窄**（`typeof` / `in` / schema 解析），
+    把「先放着」变成「编译器逼你说清楚」。
+    开 `noImplicitAny` 让隐式 any 直接报错；再配
+    `@typescript-eslint/no-explicit-any` 限制显式 any。
+  severity: 3
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-js2ts-assertion-not-cast
+  featureId: mechanism/type-assertion
+  title: as 不是转换，是「让编译器闭嘴」
+  symptom: |
+    `const el = document.querySelector('#app') as HTMLDivElement`，
+    以为它在做某种转换。等 `#app` 不存在时，报错发生在下一行，和 `as` 这行毫无关系。
+  cause: |
+    `as`（以及老写法 `<T>x`）是**类型断言**，运行时**一个字节都不生成**。
+    它唯一的作用是告诉编译器「按这个类型看待我」，编译器据此放行 —— 哪怕断言是错的。
+    它和 C 系语言里会真的做转换的 cast 只是长得像，语义完全不同。
+  fix: |
+    只有**你比编译器知道得多**、且能说清理由时才用 `as`；
+    需要「按运行时形态判断」时用**类型守卫**：
+
+    ```ts
+    function isDiv(el: Element): el is HTMLDivElement {
+      return el.tagName === 'DIV'
+    }
+    if (isDiv(el)) el.innerHTML = '...'   // 这里才是安全的收窄
+    ```
+
+    想从 `unknown` 拿到具体类型，用 schema 解析而不是 `as`。
+  severity: 3
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [类型系统, 收窄]
+
+- id: pitfall-js2ts-strict-off
+  featureId: mechanism/null-safety
+  title: 没开 strict，null 还在满天飞
+  symptom: |
+    项目里写了类型标注，`null` 却依然能随便传给非空参数；
+    标着 `string` 的变量运行时是 `undefined`，报错还是发生在运行期。
+  cause: |
+    TS 的空安全**不是默认开着的** —— 它由 `strictNullChecks` 控制，
+    而 `strict: false`（或只配了零散选项）时，`null` 与 `undefined`
+    对任何类型都可赋值，检查形同虚设。很多迁移项目从 `tsc --init` 的宽松版
+    或旧模板起步，就停在了这个状态。
+  fix: |
+    在 `tsconfig.json` 打开 `"strict": true`（它是一组开关的合集：
+    `strictNullChecks` / `noImplicitAny` / `strictFunctionTypes` 等）。
+    存量项目一次开不完，就逐个开关、按目录增量收紧，
+    但**别把 `strict: false` 当终点** —— 那样 TS 只剩一半价值。
+  severity: 3
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [类型系统, 空值]
+
+- id: pitfall-js2ts-non-null-promise
+  featureId: mechanism/type-narrowing
+  title: 一个 `!` 把「可能没有」按成了「一定有」
+  symptom: |
+    为了消掉 `Object is possibly 'undefined'`，顺手加了 `!`：
+    `map.get(key)!.value`。编译过了，运行到真正缺 key 的路径时崩溃。
+  cause: |
+    非空断言 `!` 是**你对编译器的单方面承诺**，和 `as` 一样不生成代码、不做检查。
+    它把「编译器不知道」偷换成「我来保证」，而迁移期恰恰最不该做这种保证 ——
+    你还没摸清每条路径。
+  fix: |
+    优先用真正的收窄手段：`if (v === undefined) return`、`??` 兜默认值、
+    可选链 `?.`、提前抛错。真要用 `!`，把它当成一次需要注释说明的例外
+    （「这个 key 在上一步刚写入」），而不是消警告的按钮。
+  severity: 2
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [空值, 收窄]
+
+- id: pitfall-js2ts-excess-property
+  featureId: mechanism/structural-nominal
+  title: 多写的字段，换个姿势就放行了
+  symptom: |
+    `const u: User = { name: 'a', age: 1, typo: true }` 会报错，
+    但 `const raw = { name: 'a', age: 1, typo: true }; const u: User = raw`
+    却通过了 —— 同一个对象，只是过了道手。
+  cause: |
+    TS 是**结构类型**：只要对象至少拥有目标类型要求的字段就兼容，多出来的字段不碍事。
+    「多余属性检查」只是针对**直接书写的对象字面量**的一条特殊规则，专抓拼写错误，
+    一道变量转手就失效。JS 那边没有这层检查，读者不会预期「赋值姿势」会改变合法性。
+  fix: |
+    把多余属性检查理解成**拼写提示**而不是**约束**。要真正拒绝未知字段，
+    得在边界处用 schema 的 `strict()` / `.passthrough(false)`，
+    而不是指望类型系统 —— 后者按设计就允许更宽的对象。
+  severity: 2
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [类型系统, 对象]
+
+- id: pitfall-js2ts-index-out-of-bounds
+  featureId: express/arrays
+  title: 数组索引 arr[0] 的类型里没有 undefined
+  symptom: |
+    写着 `const first: string = list[0]`，空数组时 `first` 是 `undefined`，
+    类型却说是 `string` —— 编译器替越界访问背了书。
+  cause: |
+    默认关闭 `noUncheckedIndexedAccess` 时，索引访问 `arr[i]` 的类型就是元素类型 `T`，
+    **不带上 `| undefined`**。这是刻意的取舍：打开它会让大量既有代码报错。
+    代价是「按索引取」「按 key 查」这两类最常用的操作，恰好绕开了空安全。
+  fix: |
+    打开 `noUncheckedIndexedAccess`（新项目直接开），迫使每处索引访问显式处理「可能没有」。
+    存量项目可以先只在新目录开 —— 它比全局开关更容易落地。
+  severity: 2
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [数组, 空值]
+
+- id: pitfall-js2ts-enum-runtime
+  featureId: express/literals
+  title: 枚举不只是类型，它会在运行时留下东西
+  symptom: |
+    数字枚举里 `Direction[0]` 居然能拿到 `'Up'`（反向映射），换成字符串枚举又不行；
+    `const enum` 在有些构建下直接报「找不到成员」。
+  cause: |
+    `enum` 是 TS 少数**会生成运行时代码**的类型特性：数字枚举生成一个双向映射对象，
+    字符串枚举只生成单向。`const enum` 本意是把成员内联掉、不留对象，
+    但它与 `isolatedModules`（Babel / esbuild / SWC 这类逐文件转译）冲突 ——
+    转译器看不到别的文件里的枚举定义。
+  fix: |
+    除非确实需要反向映射，优先用**联合字面量类型**：`type Direction = 'Up' | 'Down'` ——
+    零运行时产物，还能和普通字符串互通。需要「值 + 类型」成对时用 `as const` 对象：
+    `const Direction = { Up: 'Up', Down: 'Down' } as const`。
+  severity: 2
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [枚举, 运行时]
+
+- id: pitfall-js2ts-class-fields
+  featureId: model/fields-and-properties
+  title: 补一个字段声明，悄悄改了初始化语义
+  symptom: |
+    从 JS 的类搬过来，只是给字段补了类型标注 `name: string`，运行结果却变了：
+    父类的 getter 被遮蔽，或者子类字段把父类构造函数里赋的值冲掉。
+  cause: |
+    在 `useDefineForClassFields: true`（ES2022 语义、现代 target 的默认）下，
+    **只写声明不给初值的字段**（`name: string`）会被编译成
+    `Object.defineProperty(this, 'name', { value: undefined })` ——
+    它会遮蔽原型链上的访问器，并真的写入 `undefined`。
+    而 JS 里「只声明不赋值」根本没有对应写法，直觉上以为它是「无操作」。
+  fix: |
+    纯类型声明、不想产生任何运行时行为时加 `declare`：`declare name: string`。
+    确实要初始化为 undefined、又不想遮蔽访问器时，把类型写成 `name: string | undefined`
+    （类型里带上 undefined 会改变生成方式）。
+  severity: 2
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [类, 运行时]
+
+- id: pitfall-js2ts-generic-inference
+  featureId: mechanism/generic-declaration
+  title: 泛型推不出来时不报错，只是悄悄变宽
+  symptom: |
+    一个 `function pick<T>(o: T, k: keyof T)`，传进去对象后返回类型不知怎么退成了
+    `unknown` / `{}`，后续所有属性访问都要报错。
+  cause: |
+    推断失败时 TS 不会停下来问，而是**回退到约束的默认值**（没有约束时是 `unknown` 或 `{}`）。
+    编译仍然通过，问题被推到下游 —— 那里离原因已经很远，看起来像是别处写错了。
+  fix: |
+    调不出预期类型时**显式写出类型参数**：`pick<User>(u, 'name')`；
+    或者给 `T` 加约束（`T extends object`）缩小回退范围。
+    想要「原样返回」时确认用的是 `T` 而不是 `T extends X`（后者会窄化）。
+  severity: 2
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [泛型, 推断]
+
+- id: pitfall-js2ts-readonly-compile-only
+  featureId: express/mutability
+  title: readonly 和 as const 拦不住运行时的修改
+  symptom: |
+    标了 `readonly items: string[]` 的属性确实改不了，但它指向的**数组本身**照样 `push`；
+    `as const` 出来的对象在运行时也是普通对象，`(obj as any).x = 1` 就改掉了。
+  cause: |
+    `readonly` / `as const` 都是**编译期**约束，产物里没有任何冻结操作
+    （不像 `Object.freeze` 会真的锁住）。而且 `readonly` 是**浅**的 ——
+    它只管住「这个属性不能再赋值」，不管属性指向的对象内部。
+  fix: |
+    要运行时的真正不可变得用 `Object.freeze`（注意它同样是浅的），
+    深冻结要递归或借助 `immer` 的 `produce`。
+    把 `readonly` 当成「防团队内误改」的编译期护栏，而不是安全边界。
+  severity: 1
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [不可变, 运行时]
+
+- id: pitfall-js2ts-module-interop
+  featureId: model/export-import
+  title: import 一个类型，产物里却留下一条真实引用
+  symptom: |
+    从别的模块 `import { SomeType } from './types'` 只为用类型，编译后却生成了
+    `require('./types')` —— 在某些配置下变成运行时循环依赖或「模块不存在」。
+  cause: |
+    TS 的类型和值共用一个 `import` 语法，转译器默认**分不清**你引的是哪一半，
+    于是保守地保留整条 import。在 `isolatedModules`（Babel / esbuild / SWC 逐文件转译）下，
+    它无法跨文件判断，只能靠你标明。
+  fix: |
+    只引类型时写 `import type { SomeType } from './types'`，
+    或者开 `verbatimModuleSyntax` 让「值 import」与「类型 import」在语法上强制分开。
+    CJS 与 ESM 混用时再确认 `esModuleInterop` 与 `moduleResolution` 的搭配。
+  severity: 1
+  languages: [javascript, typescript]
+  fromBaseline: true
+  tags: [模块]

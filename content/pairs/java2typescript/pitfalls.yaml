@@ -1,0 +1,236 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 TypeScript 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-java2ts-erased-no-class
+  featureId: mechanism/type-erasure
+  title: 类型擦除后，连 Class 对象都没有
+  symptom: |
+    想用 `x instanceof User` 检查一个值，或者想在运行时拿到泛型的类型参数，
+    发现根本没有这些东西 —— interface 编译后不存在。
+  cause: |
+    Java 的泛型也擦除，但**类本身**还在：有 .class 文件、有 Class 对象，
+    `instanceof` 与反射都能用，擦除只影响类型参数。
+    TS 的擦除更彻底：**整个类型层（interface、type 别名）都不产生运行时代码**，
+    运行时只剩下值。所以 Java 里那套「靠 Class 对象做运行时判断」的手段整体失效。
+  fix: |
+    运行时要判断「是不是这个形状」，只能看值本身：
+    `typeof`、`Array.isArray`、`in`，或自定义类型守卫（`function isUser(x): x is User`）。
+    要按类判断就把类写成真的 class（class 会生成运行时对象）再用 instanceof。
+    跨进程 / 网络的数据没有类，只能靠 schema 校验。
+  severity: 3
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [类型系统, 运行时]
+
+- id: pitfall-java2ts-overload-typed-only
+  featureId: express/function-declaration
+  title: 重载只是类型层面的，实现仍然只有一个
+  symptom: |
+    照着 Java 的习惯写两个同名方法，TS 报「重复实现」；
+    写成重载签名后又发现函数体只有一个，得自己在里面判断参数。
+  cause: |
+    Java 在**运行时**按参数类型分派到不同的方法体，是真正的多态。
+    TS 的重载签名只影响**调用处**的类型检查，运行时的函数只有一个，
+    参数怎么处理完全由你在函数体里决定 —— 它更像「给一个函数写多套类型声明」。
+  fix: |
+    能不用重载就不用：改成可选参数、联合类型参数，或者干脆不同名字。
+    确实要写重载时，记住实现签名要对所有重载签名兼容，
+    并在函数体里用 `typeof` / `arguments.length` 自己分支。
+  severity: 2
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [函数, 重载]
+
+- id: pitfall-java2ts-null-and-undefined
+  featureId: express/null-and-undefined
+  title: 空值不止 null 一个
+  symptom: |
+    只熟悉 null，结果 TS 里还有 undefined ——
+    没赋值的变量、不存在的属性、没传的参数，全都可能是 undefined。
+  cause: |
+    Java 只有一个 null。JS/TS 里 undefined 是「语言层面的缺席」
+    （未初始化的变量、缺失的属性、省略的实参、无返回值的函数），
+    null 是「显式置空」。判空只写 `=== null` 会漏掉一大半。
+  fix: |
+    内部代码统一用 undefined，判空用 `x == null`（宽松相等同时覆盖两者）。
+    开 `strictNullChecks` 让编译器强制处理这两种空值 ——
+    这点反而比 Java 强：Java 的引用默认都可以是 null，编译器并不管。
+  severity: 3
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [空值]
+
+- id: pitfall-java2ts-this-not-bound
+  featureId: model/methods-and-receiver
+  title: this 不像 Java 那样总是绑在实例上
+  symptom: |
+    把 `obj.method` 当回调传给 `setTimeout` 或 `array.map`，
+    运行时报 this 是 undefined。
+  cause: |
+    Java 的方法调用总是 `receiver.method()`，`this` 在编译期就固定了。
+    JS/TS 的 `this` 由**调用时的形式**决定：`obj.method()` 得到 obj，
+    而 `f = obj.method; f()` 得到的 this 是 undefined。
+    方法被「借出去」单独调用时，它与原对象的联系就断了。
+  fix: |
+    用箭头函数属性 `method = () => {...}`（永久捕获定义处的 this），
+    或调用处 `obj.method.bind(obj)`。
+    开 `noImplicitThis`，让悬空的 this 在编译期就报错。
+  severity: 3
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [类, this]
+
+- id: pitfall-java2ts-structural-not-nominal
+  featureId: mechanism/structural-nominal
+  title: 接口是结构化的 —— 没 implements 也算实现
+  symptom: |
+    从没写过 `implements Foo`，一个对象却被当成 Foo 传进函数；
+    反过来，两个字段一样但名字不同的类型互相不兼容，也让人意外。
+  cause: |
+    Java 是**名义类型**：类型身份由名字与继承关系决定，必须显式 implements。
+    TS 是**结构类型**：只看形状是否兼容，名字不影响兼容性，
+    也不需要在声明处写 implements（写了只是检查，不是建立身份）。
+  fix: |
+    把「兼容」理解成形状匹配，而不是继承关系。
+    要模拟 Java 的名义式约束（品牌类型），可以用标记属性技巧：
+    `type UserId = string & { readonly __brand: unique symbol }`。
+    日常不需要，但读库的类型定义时会遇到。
+  severity: 3
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [类型系统, 接口]
+
+- id: pitfall-java2ts-unchecked-exceptions
+  featureId: model/throw-raise
+  title: 没有受检异常，catch 到的是 unknown
+  symptom: |
+    习惯了 throws 声明，到 TS 发现没有任何签名提示会抛什么；
+    `catch (e) { e.message }` 还报错说 e 是 unknown。
+  cause: |
+    Java 有受检异常，编译器逼你处理或声明。
+    JS/TS 完全没有这层 —— **任何函数都可能抛任何值**，
+    类型签名也不表达「会抛什么」。而且 throw 可以抛字符串、数字等任意值，
+    所以 catch 变量的类型被定为 `unknown`。
+  fix: |
+    自己 throw 时永远抛 Error 子类，保持可预测；
+    处理时先收窄：`e instanceof Error ? e.message : String(e)`。
+    受检异常那层保障在 TS 里没有，得靠文档、lint 或返回值式错误处理（如 Result 类型）自己补。
+  severity: 2
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [异常]
+
+- id: pitfall-java2ts-string-equality
+  featureId: express/equality
+  title: 字符串比较用 ===，不是 equals
+  symptom: |
+    想当然地写 `a.equals(b)`（不存在），或者用 `==` 比对象，
+    结果两个内容相同的对象判为不等。
+  cause: |
+    Java 里 `==` 比引用、`.equals()` 比值，字符串必须用 equals —— 著名的坑。
+    JS/TS 里 `===` 比引用（对象、数组永远不等，除非是同一个），
+    **没有**自动的按值比较；只有原始值（字符串、数字）的 `===` 才按值。
+  fix: |
+    原始值用 `===`（字符串、数字直接比）；
+    对象 / 数组要按值比较，就自己写深比较或用库（lodash.isEqual，或比较序列化结果）。
+    别用 `==`（会隐式转换），唯一例外是 `x == null` 判空。
+  severity: 2
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [相等]
+
+- id: pitfall-java2ts-unsound-generics
+  featureId: mechanism/generic-declaration
+  title: 泛型是「可选的、可逃逸的」
+  symptom: |
+    `const list: number[] = []` 之后 `list.push('a' as any)` 也能塞进去；
+    标着 `List<User>` 的地方运行时装着别的东西。
+  cause: |
+    Java 的泛型虽然擦除，但**编译期检查严格**，类型参数一旦确定就不容违背。
+    TS 的泛型默认是建议性的：any 能绕过、as 能强转、数组索引访问不检查越界、
+    Object 级别的赋值很宽松。它追求的是「描述现有 JS 代码」而不是「强制约束」。
+  fix: |
+    开 strict 系列选项收紧（strictFunctionTypes、noUncheckedIndexedAccess），
+    把 any 换成 unknown。要真正运行时的约束（比如固定元素类型），
+    靠 schema 校验或封装类（内部数组不直接暴露），而不是只靠类型标注。
+  severity: 2
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [泛型, 类型系统]
+
+- id: pitfall-java2ts-visibility-compile-only
+  featureId: model/access-control
+  title: private 只是编译期的，拦不住运行时代码
+  symptom: |
+    以为 `private` 字段运行时真的访问不到，结果编译后它就是个普通属性，谁都能读写。
+  cause: |
+    Java 的 private 由 JVM 在运行时强制执行。
+    TS 的 `private` / `protected` 只是**编译期**检查，产物里没有对应机制 ——
+    编译后的对象上那个属性是公开的。
+  fix: |
+    需要运行时的真私有，用 **# 私有字段**语法 `#count = 0`（ES2022，各运行时都支持）。
+    TS 的 private 当作团队内的编译期约定即可，别把它当安全边界。
+  severity: 2
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [类, 可见性]
+
+- id: pitfall-java2ts-collections
+  featureId: model/list-array
+  title: 没有 List / Set / Map 的接口体系
+  symptom: |
+    找 List、ArrayList、HashMap 的对应物，发现只有 Array、Map、Set，
+    而且没有接口与实现的分离，方法名也全不一样。
+  cause: |
+    Java 的集合是一整套接口（Collection / List / Set / Map）+ 实现（ArrayList / HashMap）。
+    JS 只有三个内置：Array（≈ List）、Map、Set ——
+    它们既是接口也是实现，没有 Collection 抽象层。方法名也不同：
+    `add` → `push` / `add`、`size()` → `size`、`put` → `set`。
+  fix: |
+    用 Array 代替 List，Map / Set 代替 HashMap / HashSet。
+    注意几个语义差：Array 是动态数组（≈ ArrayList），没有链表；
+    Map 的键可以是任意类型（不像 HashMap 只有对象），且保序；
+    `size` 是属性不是方法。
+  severity: 2
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [集合]
+
+- id: pitfall-java2ts-field-init-order
+  featureId: model/fields-and-properties
+  title: 字段初始化与声明时机不一样
+  symptom: |
+    类字段的初始化顺序，以及「只声明不给值」的行为都与 Java 不同，
+    出现了 undefined 或者意外覆盖。
+  cause: |
+    Java 里字段声明与初始化块按书写顺序在构造前执行，未初始化的引用是 null。
+    JS/TS 里类字段在实例化时初始化，`useDefineForClassFields` 开启时
+    「只声明不给值」会真的写入 undefined，并遮蔽原型上的访问器。
+    而 TS 里 `x: number` 这种纯类型声明本不该产生运行时行为，得用 declare。
+  fix: |
+    纯类型声明加 `declare`（不产生运行时代码）；
+    确实要初始化就在声明处给值，或在构造函数里赋值；
+    依赖初始化顺序时把逻辑放进构造函数显式写清楚，别依赖字段书写顺序。
+  severity: 2
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [类, 字段]
+
+- id: pitfall-java2ts-compile-is-check
+  featureId: practice/compile-run
+  title: 「编译」这个词，两边指的不是一回事
+  symptom: |
+    以为 `tsc` 像 javac 一样产出可运行的东西，或者以为「编译过了」等于「运行时没问题」。
+  cause: |
+    javac 把源码编译成字节码，是构建的必要环节。
+    `tsc` 默认只做**类型检查 + 去掉类型标注**（产出 JS），
+    现代工具链里这一步还常被 Babel / esbuild / SWC 取代（它们只转译、不检查类型），
+    于是「构建成功」可能意味着「根本没做类型检查」。
+  fix: |
+    把类型检查单独跑：CI 里加一步 `tsc --noEmit`。
+    理解职责分工：打包器负责转译与打包（快），tsc 负责类型检查（慢但准）。
+    两者都要在流水线里，别用其中一个替代另一个。
+  severity: 1
+  languages: [java, typescript]
+  fromBaseline: true
+  tags: [工具链]

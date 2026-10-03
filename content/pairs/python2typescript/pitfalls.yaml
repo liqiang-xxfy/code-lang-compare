@@ -1,0 +1,247 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 TypeScript 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+
+- id: pitfall-py2ts-erased-at-runtime
+  featureId: mechanism/type-erasure
+  title: 标注了类型，运行时什么都不检查
+  symptom: |
+    给函数签上 `function parse(raw: string): Config` 就以为返回的一定是 `Config`；
+    直到某个字段缺失，`config.port.toString()` 在运行时炸掉。
+  cause: |
+    Python 的类型标注运行时至少还挂在 `__annotations__` 上、能用
+    `typing.get_type_hints` 取出来，也还能 `isinstance` 兜底；
+    TypeScript 的类型**编译后整个消失**，产物里一行都不剩。
+    所以标注是「对编译器的承诺」，不是「运行时的检查」——
+    与 Python 不同，这里连 isinstance 都补不上。
+  fix: |
+    把系统边界（网络响应、JSON、环境变量、命令行）当不可信输入，
+    用 zod 之类的库做运行时校验再交给类型系统：
+
+    ```ts
+    const Config = z.object({ port: z.number() })
+    const cfg = Config.parse(JSON.parse(raw))   // 这里才真的检查
+    ```
+
+    可以把它理解成「Pydantic，但显式写在边界处」。
+  severity: 3
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [类型系统, 边界]
+
+- id: pitfall-py2ts-two-nulls
+  featureId: express/null-and-undefined
+  title: 空值有两个 —— null 和 undefined
+  symptom: |
+    Python 只有 `None`，到了 TS 却要面对 `null` 与 `undefined` 两个空值；
+    `if (x === null)` 漏掉 undefined 的路径，`x == null` 又拿不准是不是故意为之。
+  cause: |
+    JS/TS 里 `undefined` 是「没赋值 / 属性不存在」的默认值，`null` 是「显式置空」。
+    Python 的 `None` 一个词覆盖了两种情况，所以迁移时很容易忽略
+    二者在 `===`、可选属性、默认参数上的不同表现。
+  fix: |
+    统一口径：**内部代码一律用 undefined**（不写 `null`），
+    只在必须对接的外部数据（JSON 里显式的 null）处处理 null。
+    判空用 `x == null`（宽松相等，同时覆盖两者，这是 JS 里少数推荐用 `==` 的场合），
+    或 `x === undefined` 明确只判 undefined。
+  severity: 3
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [空值]
+
+- id: pitfall-py2ts-this-binding
+  featureId: model/methods-and-receiver
+  title: this 不是显式的 self，它会丢
+  symptom: |
+    把方法当回调传出去 `arr.map(obj.method)`，运行时报
+    「Cannot read properties of undefined」—— `this` 已经不是那个对象了。
+  cause: |
+    Python 的方法第一个参数是显式的 `self`，绑定发生在属性访问那一刻，怎么传都不丢；
+    TS/JS 的 `this` 是**隐式**的，值取决于**调用方式**而不是定义位置。
+    脱离对象单独调用（或作为回调传递）时，`this` 变成 undefined。
+  fix: |
+    三条路：① 定义成箭头函数属性 `method = () => {...}`（捕获定义处的 this）；
+    ② 调用处绑定 `obj.method.bind(obj)`；③ 干脆写成不依赖 this 的独立函数，把对象当参数传。
+    在 tsconfig 开 `noImplicitThis`，让裸用 this 直接报错。
+  severity: 3
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [类, this]
+
+- id: pitfall-py2ts-catch-unknown
+  featureId: model/try-catch
+  title: catch 到的东西是 unknown，不是异常对象
+  symptom: |
+    `catch (e) { console.log(e.message) }` 报错说 e 是 unknown；
+    或者反过来，以为 catch 的一定是 Error，结果它可能是任何被 throw 的值。
+  cause: |
+    JS/TS **可以 throw 任何值**（字符串、数字、对象），不像 Python 只能抛
+    BaseException 的子类。所以 TS 把 catch 变量的类型定成 `unknown`，
+    逼你先判断它到底是什么 —— 而 Python 的 `except Exception as e` 里
+    e 天然带 `.args`、`str(e)` 这些。
+  fix: |
+    收窄后再用：
+
+    ```ts
+    catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+    }
+    ```
+
+    自己 throw 时永远抛 `Error`（或子类），别抛裸字符串 —— 那会毁掉调用方的类型判断。
+  severity: 2
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [异常]
+
+- id: pitfall-py2ts-decorator-semantics
+  featureId: mechanism/decorator-annotation
+  title: 装饰器语法一样，语义完全不是一回事
+  symptom: |
+    看到 `@Component` 以为是 Python 那种「把函数包一层」的装饰器，
+    结果发现它改不了函数本身，只是个元数据标记，行为由框架在别处读。
+  cause: |
+    Python 的装饰器就是**高阶函数**：`@deco` 等价于 `f = deco(f)`，包一层、换一个函数出来，
+    语义透明。TS 的装饰器是**元编程钩子**：在类 / 方法 / 属性上挂元数据或替换描述符，
+    作用对象、返回值、能否改变定义各有规则，也不能像 Python 那样直接装饰任意函数。
+  fix: |
+    把 TS 装饰器理解成「框架的声明式配置」，而不是「函数的包装」。
+    要做 Python 式的包装，直接写高阶函数 `const wrapped = (f) => (...args) => {...}`，
+    不需要装饰器语法。
+  severity: 2
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [装饰器]
+
+- id: pitfall-py2ts-no-dataclass
+  featureId: model/constructor
+  title: 没有 dataclass 帮你生成构造函数
+  symptom: |
+    写了 `interface User { name: string; age: number }`，接着 `new User('a', 1)` 报错 ——
+    interface 不能 new，也没有自动的构造函数。
+  cause: |
+    TS 的 interface **只是类型**，编译后消失，没有运行时的构造逻辑，
+    更没有 Python dataclass / Pydantic 那种「按字段自动生成构造」。
+    对象字面量 `{ name: 'a', age: 1 }` 不需要类，但也就没有校验与默认值。
+  fix: |
+    要「带校验的构造」可以用 class 加显式构造函数，或者直接靠 zod 从原始数据解析出对象：
+    `const u = User.parse(raw)`。日常大多数场景根本不需要 class ——
+    一个 interface 加一个解析函数就够，别硬套 Python 的类习惯。
+  severity: 2
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [类, 构造]
+
+- id: pitfall-py2ts-static-structure
+  featureId: mechanism/static-vs-dynamic
+  title: 鸭子类型变成了编译期的结构检查
+  symptom: |
+    Python 里「有 quack() 就能当鸭子」的写法，到 TS 里必须预先声明一个类型，
+    或者到处写 as；运行时的灵活换成了编译期的报错。
+  cause: |
+    Python 在**运行时**按实际有无该属性来判断（鸭子类型），
+    TS 在**编译期**按声明的结构是否兼容来判断。二者方向相反：
+    Python 是「跑起来才知道」，TS 是「编译时就必须看出来」。
+    动态拼出来的对象（`**kwargs`、`setattr`）在 TS 里没有类型可言。
+  fix: |
+    用**结构化类型**表达：定义一个只包含你需要的方法的 interface，
+    任何满足它的对象自动兼容（不需要 implements）—— 这其实就是 TS 版的 Protocol。
+    遇到运行时才确定的形状，老实收窄成 `Record<string, unknown>` 再逐键校验。
+  severity: 2
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-py2ts-assert-not-cast
+  featureId: mechanism/type-assertion
+  title: as 不是类型转换，它什么都不做
+  symptom: |
+    `const n = someValue as number` 以为把字符串转成了数字，
+    实际运行时 `n` 还是字符串，`n.toFixed(2)` 直接崩。
+  cause: |
+    Python 的 `int(x)` / `str(x)` 是**运行时构造函数**，真的转换值；
+    `typing.cast(T, x)` 虽然也只是提示，但至少只有它一个名字。
+    TS 的 `as` 兼了两者的外表却是后者的语义：**编译期断言**，
+    运行时零操作，还可能把错误的类型强加给编译器。
+  fix: |
+    需要真的转换值就调用转换函数：`Number(x)` / `String(x)` / `parseInt(x, 10)`。
+    需要「按某个类型使用」时才用 as，且只在你比编译器知道得多时用。
+    要安全收窄用类型守卫（`typeof` / `in` / 自定义 `x is T`），而不是 as。
+  severity: 2
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [类型系统, 转换]
+
+- id: pitfall-py2ts-tuple-readable
+  featureId: model/tuple-record
+  title: 元组在 TS 里是「定长数组」，而且能改
+  symptom: |
+    以为 `[number, string]` 像 Python 的 tuple 一样不可变，结果 `t[0] = 99` 通过了。
+  cause: |
+    Python 的 tuple 是**不可变**序列；TS 的 tuple 只是「长度和每位置类型固定的数组」，
+    默认仍然可写。要不可变得显式写成 `readonly [number, string]`（或 `as const`）。
+  fix: |
+    需要不可变时标 `readonly`：`type Pair = readonly [number, string]`，
+    或者用 `as const` 从字面量推出只读元组。
+    记住 readonly 是编译期约束，运行时仍是普通数组（要真不可变得 Object.freeze）。
+  severity: 1
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [元组, 不可变]
+
+- id: pitfall-py2ts-module-hoisting
+  featureId: model/module-resolution
+  title: import 是静态的，还会被提前
+  symptom: |
+    在模块顶层写了一段有副作用的代码，以为它只在被用到时才执行；
+    结果 import 一写，它就先跑了，甚至早于本文件里的其它语句。
+  cause: |
+    Python 的 import 也是执行模块，但 TS/JS 的 ESM **import 声明会被提升**到文件顶部，
+    且模块只求值一次、循环依赖时可能拿到未初始化的绑定。
+    Python 习惯里的「import 放进函数里延迟加载」在 ESM 里也不再是常规手段。
+  fix: |
+    把有副作用的初始化放进显式函数（`init()`）而不是模块顶层；
+    真要延迟加载用**动态** `await import()`（返回 Promise，且不提升）。
+    循环依赖尽量靠拆分模块解掉，别指望执行顺序。
+  severity: 2
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [模块]
+
+- id: pitfall-py2ts-equality
+  featureId: express/equality
+  title: is None 要换成两套判等
+  symptom: |
+    把 `if x is None` 直译成 `if x === null`，漏掉了 undefined 的情况；
+    或者用 `==` 比较对象，得到的结果和 Python 的 `==` 完全不同。
+  cause: |
+    Python 的 `==` 会调用 `__eq__`（可按值比较），`is` 比身份；
+    JS/TS 的 `===` 比**引用**（对象永远不等，除非是同一个），
+    `==` 又会做**隐式类型转换**（`'1' == 1` 为 true）。
+    两边的 `==` 语义几乎相反，直觉迁移必错。
+  fix: |
+    对象 / 数组比较：用 `===` 判引用，要按值比较就自己写或上库（如 lodash.isEqual）。
+    判空用 `x == null`（同时覆盖 null 与 undefined）。
+    其它一律 `===`，把 `==` 只留给 `== null` 这一个例外。
+  severity: 2
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [相等]
+
+- id: pitfall-py2ts-no-comprehension
+  featureId: model/comprehension
+  title: 没有推导式，但 map/filter 也不是等价替换
+  symptom: |
+    把 `[x*2 for x in xs if x > 0]` 直译成 `xs.map(x => x*2).filter(...)`，
+    结果 filter 写在了 map 后面，语义对不上。
+  cause: |
+    TS 没有推导式语法，对应的是 `Array.prototype.map` / `filter` / `reduce`。
+    但「先过滤再映射」这个 Python 推导式的隐含顺序，直译时最容易搞反；
+    而且 map/filter 每次都产生新数组，链长了有中间数组开销。
+  fix: |
+    记住推导式 `[f(x) for x in xs if p(x)]` 的正确对应是 **先 filter 后 map**：
+    `xs.filter(p).map(f)`。
+    复杂场景用 `flatMap`（≈ 嵌套推导式）或 `reduce`；性能敏感时用 for 循环。
+  severity: 1
+  languages: [python, typescript]
+  fromBaseline: true
+  tags: [集合, 函数]

@@ -1,0 +1,93 @@
+# 迁移学习路线 —— 按「基准 → 目标语言」分路径
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+#
+# id 前缀就是这个方向的目录名（java2typescript），后面接序号与短名 ——
+# 它只在本文件内唯一，但带上方向前缀之后整份内容里也能一眼看出归属。
+
+- id: java2typescript-1-no-runtime-types
+  order: 1
+  title: 接受「类型只活在编译期」
+  durationHint: 2-3 小时
+  todo:
+    - '装 typescript，用 `npx tsc --init` 生成 tsconfig.json，打开 `"strict": true`'
+    - 编译一段带 interface 的代码，打开产物看类型是不是全没了
+    - 对照本工具「语言机制」板块里 TypeScript 列的「类型擦除」「静态 vs 动态」两格
+    - 接受一件事：没有 Class 对象、没有反射、没有签名里的 throws
+  acceptance:
+    - 能说出 Java 的擦除与 TS 的擦除差在哪（class 还在 vs 什么都不剩）
+    - 知道运行时判断形状要靠 typeof / in / 类型守卫，而不是 instanceof
+  resources:
+    - label: TypeScript 官方手册
+      url: https://www.typescriptlang.org/docs/handbook/intro.html
+    - label: 手册 · 日常类型
+      url: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+
+- id: java2typescript-2-types-and-nulls
+  order: 2
+  title: 类型与两个空值
+  durationHint: 2-3 天
+  todo:
+    - 过一遍联合类型、字面量类型、类型收窄；用 unknown 取代 any
+    - 把 null 的直觉扩成 null + undefined，内部统一只用 undefined
+    - 比较 strictNullChecks 与 Java 的 @Nullable：哪个真的会拦你
+    - 对照本工具「基础表达」板块里 TypeScript 列的「空值」「相等」两格
+  acceptance:
+    - 判空时能选对 `x == null` 与 `x === undefined`
+    - 能说清 TS 的 strict 比 Java 的 null 检查强在哪里
+  resources:
+    - label: 手册 · 类型收窄
+      url: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+
+- id: java2typescript-3-objects-and-classes
+  order: 3
+  title: 结构化类型与类
+  durationHint: 3-5 天
+  todo:
+    - 用 interface 表达契约，体会「没 implements 也算实现」的结构化语义
+    - 把一段 Java 的类重写成 TS，注意 this 的绑定、字段初始化、private 的失效
+    - 折腾一次 this 丢失的 bug（方法当回调传），再用箭头函数属性修好
+    - 试着用 # 私有字段，对比它与 TS private 的行为差别
+  acceptance:
+    - 能说清名义类型与结构类型的差别，以及品牌类型怎么模拟名义约束
+    - 知道哪些 Java 的运行时保障（反射、真 private）在 TS 里没有了
+  resources:
+    - label: 手册 · 对象类型
+      url: https://www.typescriptlang.org/docs/handbook/2/objects.html
+    - label: 手册 · 类
+      url: https://www.typescriptlang.org/docs/handbook/2/classes.html
+
+- id: java2typescript-4-async-and-modules
+  order: 4
+  title: 异步与模块
+  durationHint: 2-3 天
+  todo:
+    - 把 CompletableFuture 的写法改写成 Promise / async / await，注意事件循环是单线程的
+    - 弄清「没有受检异常」意味着错误路径不会出现在签名里，要自己设计错误处理
+    - 理解 ESM 的 import 提升与模块单次求值，与 Java 的 import 只是编译期声明不同
+    - 给一个接口响应写运行时校验，把外部数据与内部类型分开
+  acceptance:
+    - 能解释 Promise 与 CompletableFuture 的异同，以及为什么「忘记 await」更隐蔽
+    - 能说清没有受检异常时，怎么让错误处理仍然可靠
+  resources:
+    - label: MDN · 使用 Promise
+      url: https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide/Using_promises
+    - label: 手册 · 模块
+      url: https://www.typescriptlang.org/docs/handbook/modules.html
+
+- id: java2typescript-5-engineering
+  order: 5
+  title: 工程化收口：在真实项目里用住
+  durationHint: 1 周
+  todo:
+    - 配 typescript-eslint，打开 no-explicit-any 之类规则
+    - 在 CI 里单独加一步 `tsc --noEmit` —— 转译通过不代表类型是对的
+    - 比较 npm / pnpm 与 Maven / Gradle 的依赖管理，理解 lockfile 的角色
+    - 对照本工具「工程实践」板块里 TypeScript 列的工具链
+  acceptance:
+    - 能独立搭起一个 strict + lint + 类型检查进 CI 的 TS 工程
+    - 能说清 TS 与 Java 在构建流程上的根本差别（类型检查不是构建的一部分）
+  resources:
+    - label: typescript-eslint
+      url: https://typescript-eslint.io/
+    - label: DefinitelyTyped（@types 的来源）
+      url: https://github.com/DefinitelyTyped/DefinitelyTyped

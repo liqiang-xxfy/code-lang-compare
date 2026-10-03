@@ -1,0 +1,98 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 类型
+  aliases: [type]
+  perLanguage:
+    python: 运行时是一等对象 —— `type(x)`、`isinstance` 都真实可用
+    typescript: 只在编译期存在；运行时没有对应物，标注会被整个擦除
+  note: |
+    Python 的「类型」是能拿到手的对象，TS 的「类型」是一层编译期描述。
+    所以 Python 里 `type(x) is int` 这种运行时判断在 TS 里没有等价物 ——
+    只能用值本身做运行时判断（typeof / instanceof / schema）。
+
+- term: 协议 / 接口
+  aliases: [protocol, interface, abc]
+  perLanguage:
+    python: Protocol（typing，结构化，可选）或 ABC（抽象基类，名义式，需显式继承）
+    typescript: interface —— 结构化契约，形状匹配的对象自动兼容，无需声明继承
+  note: |
+    TS 的 interface 默认就是 Python Protocol 那种结构化语义（不用 implements），
+    而 Python 更常用的反而是名义式的 ABC。所以「我实现了这个接口」在两边含义不同：
+    TS 里可能什么都没写就满足了，Python 里必须显式继承。
+
+- term: 断言
+  aliases: [assert, assertion]
+  perLanguage:
+    python: assert 语句 —— 运行时的检查（`-O` 优化模式会被剥掉）
+    typescript: as / ! —— 编译期的类型断言，运行时什么都不做
+  note: |
+    都叫「断言」，却一个在运行时真的会拦、一个只是给编译器的提示。
+    Python 的 assert 还能被优化模式关掉，TS 的 as 则永远不产生代码。
+
+- term: 装饰器
+  aliases: [decorator]
+  perLanguage:
+    python: 高阶函数语法糖，`@deco` 等价于 `f = deco(f)`，可装饰任意函数与类
+    typescript: 元编程钩子，只能作用于类及其成员，用来挂元数据或替换描述符
+  note: |
+    语法长得一样，机制是两回事。Python 装饰器透明地换掉一个函数；
+    TS 装饰器更接近「给框架读的注解」，函数本身不一定会被替换。
+
+- term: 空值
+  aliases: [none, 'null', undefined]
+  perLanguage:
+    python: 只有一个 None，同时表达「没有值」与「显式置空」
+    typescript: 两个 —— undefined（未赋值 / 属性不存在）与 null（显式置空）
+  note: |
+    Python 的一个 None 对应 TS 的两个空值，迁移时的常见 bug 就是只判了其中一个。
+    判空统一用 `x == null` 可同时覆盖两者。
+
+- term: 鸭子类型
+  aliases: [duck-typing]
+  perLanguage:
+    python: 运行时按「有没有那个方法」判断，一切跑起来后才确定
+    typescript: 编译期按「结构是否兼容」判断，跑起来之前就要求说清楚
+  note: |
+    同一个理念（看能力不看身份），一个落在运行时，一个落在编译期。
+    TS 里想表达「有 quack() 就算鸭子」，就写一个只有 quack 的 interface，
+    满足它的对象自动兼容 —— 这是编译期的鸭子类型。
+
+- term: self / this
+  aliases: [self, this]
+  perLanguage:
+    python: 方法的第一个参数显式写 self，绑定在属性访问时确定，怎么传都不丢
+    typescript: this 是隐式关键字，值取决于调用方式，作为回调传递时会丢
+  note: |
+    显式 vs 隐式是最大的直觉差：Python 里 self 是参数，TS 里 this 是上下文。
+    迁过来第一件事就是习惯用箭头函数属性或 bind 把 this 固定住。
+
+- term: 数据类
+  aliases: [dataclass, pydantic]
+  perLanguage:
+    python: dataclass / Pydantic 按字段自动生成构造、repr、校验
+    typescript: interface 只有类型、没有运行时；要么手写 class，要么用 zod 等库解析
+  note: |
+    Python 里「声明字段就得到构造与校验」这件事，TS 的类型系统完全不管。
+    需要运行时行为就得显式写出来，或者交给 schema 库。
+
+- term: 类型转换
+  aliases: [cast, conversion]
+  perLanguage:
+    python: int() / str() / float() 是运行时转换；typing.cast 只是静态提示
+    typescript: 没有运行时转换语法；转换靠 Number() / String()，as 只是编译期断言
+  note: |
+    两个「cast」含义不同：Python 的 cast 是提示，但这门语言另有真的转换函数；
+    TS 的 as 是提示，而且没有对应的运行时转换语法 —— 转换要靠全局函数手工做。
+
+- term: 生成器
+  aliases: [generator, iterator, yield]
+  perLanguage:
+    python: 用 yield 写生成器函数，返回迭代器，惰性且一次性
+    typescript: function* 生成器返回迭代器，机制相似；但数组的 map / filter 都是立即求值
+  note: |
+    yield 的语义两边接近，都是一次性惰性序列。真正的差别在生态：
+    Python 的 itertools 与生成器惯用法更多，TS 里惰性求值常常要自己用生成器或库搭。

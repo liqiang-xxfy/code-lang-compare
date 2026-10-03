@@ -1,0 +1,94 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 类型
+  aliases: [type, class]
+  perLanguage:
+    java: 运行时的实体 —— Class 对象、反射、instanceof 都真实可用
+    arkts: 编译期的描述；运行时没有 Class 对象，反射入口也基本关闭
+  note: |
+    Java 里「类型」和 .class 绑定，ArkTS 里「类型」只到编译期。
+    所以 Java 那套反射 / getClass() 在 ArkTS 里没有对应物。
+
+- term: 空值
+  aliases: ['null', nullable, undefined]
+  perLanguage:
+    java: 引用默认可为 null，编译器不管（靠 @Nullable 与工具补）
+    arkts: 空安全默认开启，可能为空的值必须在类型里标出来并处理
+  note: |
+    这是 ArkTS 明显更强的一块：null 隐患在编译期就被拦。
+    Java 的 null 检查全靠自觉，ArkTS 是编译器逼你处理。
+
+- term: 异常
+  aliases: [exception, throwable, throw]
+  perLanguage:
+    java: 可抛任意 Throwable 子类；受检异常强制处理或声明
+    arkts: 只能抛 Error 及其子类（硬性编译规则）；没有受检异常
+  note: |
+    两边都收紧了也放松了：ArkTS 收紧了「能抛什么」，但放松了「必须声明什么」。
+    受检异常那层保障没有了，错误路径不再出现在签名里。
+
+- term: 泛型
+  aliases: [generic]
+  perLanguage:
+    java: 擦除但编译期检查严格；通配符、边界表达力强
+    arkts: 同样擦除，但能力被大幅裁剪 —— 禁条件类型、映射类型、交叉类型、索引签名
+  note: |
+    工具类型只剩 Partial / Required / Readonly / Record。
+    ArkTS 把「类型层面编程」这条路基本砍掉了，换来静态可分析。
+
+- term: 重载
+  aliases: [overload]
+  perLanguage:
+    java: 运行时按参数类型分派到不同方法体
+    arkts: 只有调用处的多套类型签名，运行时只有一个实现
+  note: |
+    构造函数也一样：支持重载签名，但实现体只有一个。
+    从 Java 过来容易高估它。
+
+- term: 反射 / 注解
+  aliases: [reflection, annotation, proxy]
+  perLanguage:
+    java: 反射加注解构成强大的元编程体系（Spring 那一套）
+    arkts: 反射基本关闭；@ 系列多是 ArkUI 框架的声明，语言层只有 @Sendable / @Concurrent
+  note: |
+    依赖运行时反射与注解处理的框架手法在 ArkTS 里行不通。
+    要「按名字找类」得写显式的映射表。
+
+- term: 并发
+  aliases: [concurrency, thread, synchronized]
+  perLanguage:
+    java: 共享内存加锁（synchronized / ReentrantLock / volatile）
+    arkts: actor 模型加内存隔离，跨执行体只能传数据；锁只有异步锁 AsyncLock
+  note: |
+    两套模型不能互推。ArkTS 的执行体之间不共享可变内存，
+    设计思路从「共享加锁」变成「消息传递」。
+
+- term: 值类型
+  aliases: [value-type, primitive, struct]
+  perLanguage:
+    java: 有原始类型（int / boolean 等，值语义）与引用类型的区分
+    arkts: 只有 number / string 是值语义；没有用户自定义的值类型，struct 是 UI 语法
+  note: |
+    看到 struct 别当成 C# / Java 的值类型 —— 它是 ArkUI 组件的声明语法。
+    需要值语义的复合数据只能靠不可变约定模拟。
+
+- term: 强制转换
+  aliases: [cast, as, instanceof]
+  perLanguage:
+    java: 强转在运行时真的检查，失败抛 ClassCastException
+    arkts: as 是编译期断言，运行时零操作，错了静默不生效
+  note: |
+    要 Java 强转那种运行时检查，用 instanceof 而不是 as。
+    这条最容易让人栽跟头：写错了不报错，只是没起作用。
+
+- term: 工具链
+  aliases: [maven, gradle, ohpm, build]
+  perLanguage:
+    java: Maven / Gradle 管依赖与构建，产物是 JAR
+    arkts: ohpm 管依赖，DevEco Studio 做 IDE 与构建，产物是 HAP
+  note: |
+    整条工具链围绕鸿蒙生态重建，Java 的构建经验在这一块用不上。

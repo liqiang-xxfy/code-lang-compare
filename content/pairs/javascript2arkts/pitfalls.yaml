@@ -1,0 +1,217 @@
+# 迁移陷阱 —— 带着 JavaScript 的习惯写 ArkTS 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+#
+# ArkTS 是 TypeScript 的受限子集。这里只列「JS 直觉会直接踩中」的禁用项与语义差，
+# 写法细节以官方 OpenHarmony 迁移指南为准。
+
+- id: pitfall-js2arkts-no-any
+  featureId: mechanism/type-annotation
+  title: 到处都要写类型，any 和 unknown 都不许用
+  symptom: |
+    习惯性地给参数写 `any`，或用 `unknown` 兜底，ArkTS 编译直接报错 ——
+    连 `x as unknown as T` 这种绕法都写不出来。
+  cause: |
+    ArkTS 把「动态类型」这条路整个堵死了：`any` / `unknown` 都在禁用清单里
+    （规则名 arkts-no-any-unknown）。运行时要靠静态类型做检查与优化，
+    所以不允许存在「类型待定」的值。
+  fix: |
+    给每个参数和变量写出具体类型。形状确实不固定时，用官方给的动态键形态
+    `Record<string, T>`，或者定义明确的 interface。
+    别指望用 any 蒙混 —— 编译器不给这个机会。
+  severity: 3
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-js2arkts-no-untyped-declaration
+  featureId: express/declaration
+  title: 无初值又无标注的声明编译不过
+  symptom: |
+    写 `let result;` 打算后面再赋值，ArkTS 报错：既没有初值也没有类型标注。
+  cause: |
+    JS 里 `let x;` 是值为 undefined 的合法声明；ArkTS 要求变量在声明处就能确定类型，
+    所以「无初值又无标注」是编译错误。它不让类型进入待定状态。
+  fix: |
+    要么给初值（`let result = 0`），要么标注（`let result: number`），
+    最省事的是把声明推迟到第一次赋值的地方 —— 顺便也更接近 const 的好习惯。
+  severity: 3
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [声明]
+
+- id: pitfall-js2arkts-no-dynamic-shape
+  featureId: model/fields-and-properties
+  title: 对象不能事后再长出新属性
+  symptom: |
+    `const user = { name: 'a' }; user.age = 1;` 在 JS 里天经地义，
+    到 ArkTS 报错，或者对象根本没按预期长出新字段。
+  cause: |
+    ArkTS 要求对象的**结构在编译期就确定**，禁止运行时增删属性、改原型。
+    这是它换取静态优化与运行时性能的代价 —— 与 JS「对象是万能字典」的模型正相反。
+  fix: |
+    固定字段就定义一个 interface，声明时把字段写全（可选的用 `?`）。
+    需要真正的动态键值对，用 `Record<string, T>` 或 `Map` ——
+    前者的索引读出的类型**带 undefined**，别忘了判空。
+  severity: 3
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [对象]
+
+- id: pitfall-js2arkts-no-destructuring
+  featureId: model/destructuring
+  title: 解构（声明、赋值、参数）全部被禁
+  symptom: |
+    `const { a, b } = obj`、`[x, y] = [y, x]`、`function f({ id }: Props)`
+    全都报错 —— 解构的三条规则各有一条禁用项。
+  cause: |
+    ArkTS 把解构语法整体禁用了。原因还是静态可分析：解构会引入
+    「隐式读取一串属性」的行为，与它「结构显式」的设计冲突。
+  fix: |
+    老老实实逐个取值：`const a = obj.a; const b = obj.b;`。
+    函数参数把对象整个传进来，在函数体里取属性。
+    交换变量用临时变量 —— 这是最需要改掉的一个 JS 习惯。
+  severity: 3
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [解构]
+
+- id: pitfall-js2arkts-no-function-expression
+  featureId: express/function-declaration
+  title: 函数表达式被禁，只有声明与箭头函数
+  symptom: |
+    写 `const f = function (x) { return x + 1 }` 报错（arkts-no-func-expressions）。
+  cause: |
+    ArkTS 禁掉了函数表达式，因为它在类型推断上的行为不如另两种写法可预测。
+    合法写法只剩**函数声明**与**箭头函数**。
+  fix: |
+    改成箭头函数 `const f = (x: number): number => x + 1`，或写成函数声明。
+    参数类型必须有；返回类型在能推断时可以省，但显式写上更稳。
+  severity: 2
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [函数]
+
+- id: pitfall-js2arkts-no-for-in
+  featureId: express/loops
+  title: for...in 被禁，遍历对象键要换方式
+  symptom: |
+    `for (const k in obj)` 报错 —— 而这是 JS 里遍历对象键的常用手法。
+  cause: |
+    `for...in` 会沿原型链枚举，行为不够静态可预测，ArkTS 直接禁用。
+    它只保留 `for...of`（用于可迭代对象）与普通的 `for`。
+  fix: |
+    遍历数组用 `for...of` 或 `forEach`；
+    遍历对象键用 `Object.keys(obj)` 拿到数组再 `for...of`；
+    有顺序要求时用 `Map` 而不是普通对象。
+  severity: 2
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [循环]
+
+- id: pitfall-js2arkts-no-var
+  featureId: express/declaration
+  title: var 被禁，只有 let 和 const
+  symptom: |
+    从老 JS 代码里带过来的 `var` 直接报错（arkts-no-var）。
+  cause: |
+    ArkTS 只认 `let` 与 `const`，去掉了 `var` 的函数作用域与提升语义。
+    作用域规则因此简单一致，与它「静态、可预测」的整体取向一致。
+  fix: |
+    `var` 一律改成 `let`（需要重新赋值）或 `const`（不需要）。优先 const。
+  severity: 1
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [声明, 作用域]
+
+- id: pitfall-js2arkts-only-error-throw
+  featureId: model/throw-raise
+  title: 只能抛 Error 及其子类 —— 这是编译规则
+  symptom: |
+    `throw 'something went wrong'` 或 `throw { code: 1 }` 报错（arkts-limited-throw）。
+  cause: |
+    JS 可以 throw 任意值（这也是 TypeScript 把 catch 变量定成 unknown 的原因）。
+    ArkTS 直接收紧：**只能抛 Error 及子类**，是硬性编译规则而不是惯例。
+  fix: |
+    抛错一律 `throw new Error('...')`；要带结构化信息就自定义 Error 子类。
+    捕获时拿到的仍需收窄（不能假定具体子类），但至少能确定它属于 Error 家族。
+  severity: 2
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [异常]
+
+- id: pitfall-js2arkts-as-silent
+  featureId: mechanism/type-assertion
+  title: as 断言错了不报错，只是静默不生效
+  symptom: |
+    写 `const x = value as SomeType` 以为运行时至少会检查一下，
+    结果断言错了什么都不发生 —— 不抛异常、不警告，只是没起作用。
+  cause: |
+    和 TypeScript 一样，ArkTS 的 `as` 不做运行时检查、不转换值；
+    但 ArkTS 编译期管得更死：毫无继承关系的类型之间**不许断言**。
+    代价是：类型层面成立、运行时对不上的情况，静默通过。
+  fix: |
+    断言只在「你确实知道运行时形态」时用。
+    要真的验证形状，用 `instanceof`（对类）或显式的属性检查。
+    别把 as 当成转换或校验。
+  severity: 3
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-js2arkts-no-as-const
+  featureId: express/mutability
+  title: as const、Object.assign、Object.fromEntries 都是禁的
+  symptom: |
+    用 `as const` 想要只读字面量、用 `Object.assign` 合并对象，都报错。
+  cause: |
+    这些特性要么依赖运行时的动态结构操作（Object.assign / Object.fromEntries），
+    要么依赖 TS 的高级类型推导（as const），都在 ArkTS 的禁用清单里。
+  fix: |
+    要只读用 `readonly` 标注或 `Readonly<T>` 工具类型（ArkTS 保留了它）；
+    合并对象就逐字段赋值，或用构造函数接收参数；
+    从键值对数组建对象，改用 Map 或手工循环。
+  severity: 2
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [不可变, 对象]
+
+- id: pitfall-js2arkts-no-reflection
+  featureId: mechanism/proxy-interception
+  title: eval、Proxy、getPrototypeOf、delete、in 基本全关
+  symptom: |
+    想用 Proxy 做拦截、用 `'key' in obj` 判断属性、用 delete 删属性，
+    发现全被禁用 —— Proxy 的 13 个 trap 一个不留。
+  cause: |
+    ArkTS 为了静态可分析，把反射入口关得只剩一条缝：
+    eval、Object.getPrototypeOf、Proxy、Symbol（只留 Symbol.iterator）、
+    delete 运算符、in 运算符都在禁用名单里（globalThis 是警告级）。
+    官方承认的替代是 **dynamic import** —— 原话是「达到类似 Class.forName() 的效果」。
+  fix: |
+    判断属性存在用 `obj.key !== undefined` 而不是 `in`；
+    「删属性」改成把值设为 undefined 或重建对象；
+    需要按名字动态加载模块时用 dynamic import。
+  severity: 2
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [元编程]
+
+- id: pitfall-js2arkts-actor-concurrency
+  featureId: mechanism/concurrency-unit
+  title: 并发是 actor + 内存隔离，不是共享内存
+  symptom: |
+    指望像 Node / 浏览器那样在「线程」间共享对象、用锁保护共享状态，
+    发现 ArkTS 里跨线程根本不能共享可变对象。
+  cause: |
+    ArkTS 的运行时是 **actor 模型 + 内存隔离**：每个 Worker / TaskPool 任务
+    有独立内存，跨线程只能传数据。三条路是 Structured Clone 深拷贝、
+    ArrayBuffer / Transferable、以及 `@Sendable` 在共享堆按引用传递。
+    锁只有**异步锁** AsyncLock（非阻塞，必须 await）。
+    JS 那边是单线程事件循环，压根没有「跨线程共享」这回事 —— 两种模型都不能直接套。
+  fix: |
+    把并发任务设计成「输入数据、返回结果」的纯函数，靠消息传递而不是共享。
+    确实要共享时用 `@Sendable` 标注的类加共享堆，并自己负责数据竞争（编译器不管）。
+    需要互斥就用 AsyncLock（记得 await）或 ConditionVariable。
+  severity: 3
+  languages: [javascript, arkts]
+  fromBaseline: true
+  tags: [并发]

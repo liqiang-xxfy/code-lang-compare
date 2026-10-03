@@ -1,0 +1,217 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 ArkTS 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+#
+# ArkTS 是 TypeScript 的受限子集。这里聚焦「Python 的动态直觉」与它的冲突。
+
+- id: pitfall-py2arkts-static-types
+  featureId: mechanism/type-annotation
+  title: 类型是强制的，动态这条路被堵死
+  symptom: |
+    习惯了一个变量先后装不同类型的值、函数参数不写类型，ArkTS 一律报错；
+    连 any / unknown 这种「先放着」的写法都不存在。
+  cause: |
+    Python 是动态类型：类型跟着值走，运行时才确定。
+    ArkTS 要求每个值在**编译期**就有确定类型，并禁用了 any / unknown 这些逃生舱。
+    从「运行时决定」到「编译时写死」，这是迁移中最大的思维转变。
+  fix: |
+    给每个参数、变量、字段写出具体类型。形状不确定时定义 interface，
+    或用 `Record<string, T>`。就当是「本来就要写的类型注解，只是这回不写就编译不过」。
+  severity: 3
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-py2arkts-declaration
+  featureId: express/declaration
+  title: 声明不能「先空着」
+  symptom: |
+    写 `let result;` 报错：既没有初值也没有类型标注。
+  cause: |
+    Python 里变量随时可以指向任何东西，声明与赋值是一回事，没有「先声明后定类型」。
+    ArkTS 要求声明处就确定类型，所以无初值又无标注是编译错误。
+  fix: |
+    给初值（`let result = 0`）或标注（`let result: number`），
+    或者把声明推迟到第一次赋值处。优先用 const。
+  severity: 2
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [声明]
+
+- id: pitfall-py2arkts-fixed-shape
+  featureId: model/fields-and-properties
+  title: 对象是固定形状的，不能 setattr
+  symptom: |
+    Python 里 `obj.new_attr = 1`、`setattr(obj, name, v)` 随手就来，
+    到 ArkTS 既不能动态加属性，也没有 setattr。
+  cause: |
+    Python 的对象本质是 `__dict__` 字典，随时能塞新键（除非用 __slots__）。
+    ArkTS 要求对象结构在编译期固定，禁止运行时增删属性 ——
+    连 `__getattr__` / `__setattr__` 这套动态属性协议也没有对应物。
+  fix: |
+    字段在 interface 或 class 里声明全。需要动态键值对就用 `Map` 或
+    `Record<string, T>`（注意 Record 索引读出带 undefined）。
+    「按名字取属性」这种需求，只能靠显式分支或映射表。
+  severity: 3
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [对象]
+
+- id: pitfall-py2arkts-null-safety
+  featureId: mechanism/null-safety
+  title: 空安全默认开启
+  symptom: |
+    一个可能是 None 的值直接拿来用，ArkTS 编译期就报错，逼你先判空。
+  cause: |
+    Python 没有空安全检查，None 随手传，出错在运行时（AttributeError）。
+    ArkTS 默认开启严格空安全：类型里要么不含空值，要么显式带 `| undefined`，
+    编译期就拦下没处理的情况。
+    （另外它有两个空值 undefined 与 null，判空用 `x == null` 可同时覆盖。）
+  fix: |
+    拥抱它：把「可能没有」写进类型 `T | undefined`，用 `?.` / `??` 或 if 收窄。
+    这比 Python 运行时才炸要好得多 —— 是少数「迁移后反而更省心」的地方。
+  severity: 3
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [空值]
+
+- id: pitfall-py2arkts-only-error
+  featureId: model/throw-raise
+  title: 只能抛 Error 及其子类
+  symptom: |
+    `throw '出错了'` 或 `throw { code: 1 }` 报错。
+  cause: |
+    Python 的异常必须是 BaseException 子类，但仍可自定义任意异常类。
+    ArkTS 更严：**只能抛 Error 及子类**，是硬性编译规则。
+  fix: |
+    `throw new Error('...')`；要结构化信息就继承 Error 自定义。
+    捕获时 Python 那种 `except ValueError as e` 的按类型分支，
+    在 ArkTS 里要自己用 instanceof 判断。
+  severity: 2
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [异常]
+
+- id: pitfall-py2arkts-no-unpacking
+  featureId: model/destructuring
+  title: 没有元组解包，也没有交换语法
+  symptom: |
+    `a, b = b, a`、`x, y = point`、以及配 `*` 的扩展解包全都没有。
+  cause: |
+    Python 的元组解包是核心语法糖，依赖「序列可迭代」这个运行时概念。
+    ArkTS 禁用了整个解构语法（声明、赋值、参数各一条规则），
+    元组解包、交换、扩展解包都写不出来。
+  fix: |
+    交换变量用临时变量；取元组的多个字段逐个取值；
+    函数要返回多个值就用一个带字段的对象或数组，调用方分开取。
+  severity: 3
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [解构]
+
+- id: pitfall-py2arkts-no-generator
+  featureId: model/generator-yield
+  title: 没有生成器，惰性序列要自己造
+  symptom: |
+    Python 里 `def gen(): yield x` 那种惰性生成，ArkTS 没有对应写法 —— 生成器被禁。
+  cause: |
+    生成器的状态机语义让静态分析复杂，ArkTS 禁用了它。
+    Python 里用生成器表达的惰性序列、无限序列，在这里要换成别的形式。
+  fix: |
+    小规模数据直接用数组加循环；需要惰性就手写一个带「取下一个」方法的迭代器对象，
+    或者用回调式 API（每处理一个元素调一次函数）。
+  severity: 3
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [迭代]
+
+- id: pitfall-py2arkts-no-reflection
+  featureId: mechanism/reflection
+  title: getattr / hasattr / 动态导入都行不通
+  symptom: |
+    Python 里 `getattr(obj, name)`、`hasattr`、`importlib.import_module(...)`
+    这些动态手段，在 ArkTS 里几乎都没有对应物。
+  cause: |
+    ArkTS 把反射入口基本关掉（eval、Proxy、getPrototypeOf、delete、in 都禁），
+    连 `'key' in obj` 都不能用。Python 那种「一切皆对象、属性可动态访问」的模型
+    在这里不成立。官方承认的替代只有 **dynamic import**。
+  fix: |
+    属性存在性用 `obj.key !== undefined`；按名字取属性写显式分支或映射表；
+    按名字加载模块用 dynamic import。设计上就要放弃「运行时反射改行为」的思路。
+  severity: 2
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [元编程]
+
+- id: pitfall-py2arkts-actor
+  featureId: mechanism/concurrency-unit
+  title: 并发是 actor 加消息传递，不是线程加 GIL
+  symptom: |
+    用 Python 的 threading / multiprocessing 直觉去想并发，发现 ArkTS 里
+    既没有共享内存的多线程，也没有进程，而是 TaskPool / Worker 加消息传数据。
+  cause: |
+    Python 的多线程受 GIL 限制、多进程靠 fork / spawn 复制内存。
+    ArkTS 是 **actor 模型 + 内存隔离**：每个执行体独立内存，跨线程只能传数据
+    （Structured Clone 深拷贝 / Transferable / @Sendable 共享堆）。
+    锁只有异步锁 AsyncLock。
+  fix: |
+    把并发单元设计成「吃输入、吐结果」的纯函数，别指望共享可变状态。
+    需要共享就用 @Sendable 加共享堆，数据竞争自己负责；互斥用 AsyncLock（必须 await）。
+  severity: 3
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [并发]
+
+- id: pitfall-py2arkts-number-only
+  featureId: express/arithmetic
+  title: 数字只有 number 一种
+  symptom: |
+    习惯 Python 的 int 与 float 分离、整数不溢出、`//` 整除、`**` 幂，
+    到 ArkTS 发现只有一个 number（双精度浮点）。
+  cause: |
+    JS/ArkTS 的数字统一是 IEEE 754 双精度浮点，没有 int / long / float 之分。
+    所以大整数会丢精度（超过 2^53），整除要用 `Math.floor(a / b)`，
+    Python 的 `//` 没有对应运算符（`**` 倒是 JS 也有）。
+  fix: |
+    整除写 `Math.floor(a / b)` 或 `Math.trunc`；幂用 `**` 或 `Math.pow`。
+    需要超出 2^53 的整数用 `BigInt`（注意它与 number 不能混算）。
+    别指望整数运算的精确性 —— 这与 Python 的任意精度整数是最根本的差别之一。
+  severity: 2
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-py2arkts-decorator-ownership
+  featureId: mechanism/decorator-annotation
+  title: 装饰器打头的东西大多是框架的，不是语言的
+  symptom: |
+    看到 `@State`、`@Prop` 以为是 Python 那种装饰器，想自己写一个包装函数，
+    发现语言层的装饰器只有 @Sendable / @Concurrent 两个。
+  cause: |
+    Python 的装饰器是高阶函数，任意函数都能装饰。
+    ArkTS 里 `@State` / `@Prop` / `@Link` 这些属于 **ArkUI 框架**，不是语言机制；
+    语言层只提供 `@Sendable`（跨线程共享）与 `@Concurrent`（并发任务）两个。
+  fix: |
+    把 ArkUI 的 @ 系列理解成「框架的声明式配置」，行为由框架读，不是包装你的函数。
+    要做 Python 式包装，直接写高阶函数，别指望 @ 语法。
+  severity: 2
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [装饰器]
+
+- id: pitfall-py2arkts-toolchain
+  featureId: practice/package-manager
+  title: 工具链整套换掉：ohpm、DevEco、.ets
+  symptom: |
+    Python 的 pip / venv / pyproject 那套在这里完全没有对应物，
+    代码文件后缀是 .ets，包管理用 ohpm，IDE 是 DevEco Studio。
+  cause: |
+    ArkTS 是 HarmonyOS 的应用开发语言，工具链围绕鸿蒙生态重建：
+    ohpm 管依赖、DevEco Studio 做 IDE 与构建、HAP 是产物包。
+    与 Python 的「装个解释器加 pip install」是两套完全不同的世界。
+  fix: |
+    按官方流程装 DevEco Studio，用它创建工程；依赖用 ohpm install。
+    别指望复用 Python 的工程化经验 —— 这一块要重新学。
+  severity: 2
+  languages: [python, arkts]
+  fromBaseline: true
+  tags: [工具链]

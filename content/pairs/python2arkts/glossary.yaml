@@ -1,0 +1,94 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 类型
+  aliases: [type]
+  perLanguage:
+    python: 跟着值走，运行时确定；type(x) 随时可查
+    arkts: 编译期写死；any / unknown 被禁，每个值都必须有确定类型
+  note: |
+    Python 的「类型」是运行时的属性，ArkTS 的「类型」是编译期的义务。
+    迁移时最需要转变的就是这个：不再有「先放着、跑起来看」的余地。
+
+- term: 对象
+  aliases: [object, dict]
+  perLanguage:
+    python: 本质是 __dict__ 字典，可随时加属性、可 setattr / getattr
+    arkts: 结构在编译期固定，禁止运行时增删属性，也没有 setattr
+  note: |
+    Python 的动态属性协议（__getattr__ / __setattr__）在 ArkTS 里没有对应物。
+    需要键值对就用 Map 或 Record，别指望对象当字典使。
+
+- term: 解包 / 解构
+  aliases: [unpacking, destructuring]
+  perLanguage:
+    python: 元组解包、交换、扩展解包都是核心语法
+    arkts: 整个解构语法被禁（声明、赋值、参数三处）
+  note: |
+    `a, b = b, a` 这种写法在 ArkTS 要拆成临时变量。
+    这是从 Python 过来最别扭的一处，但没有变通办法。
+
+- term: 生成器
+  aliases: [generator, yield, iterator]
+  perLanguage:
+    python: yield 写生成器，惰性、一次性，是常用惯用法
+    arkts: 生成器被禁；惰性序列要手写迭代器对象或改用回调
+  note: |
+    itertools 那套惰性组合子在 ArkTS 里没有对应生态。
+    数据量不大就用数组，真需要惰性得自己实现。
+
+- term: 异常
+  aliases: [exception, throw, error]
+  perLanguage:
+    python: 自定义任意 BaseException 子类，按类型分支捕获
+    arkts: '**只能抛 Error 及子类**（硬性编译规则）'
+  note: |
+    ArkTS 把可抛的类型收窄到 Error 家族。
+    捕获后的分支判断也要从「按异常类型」改成自己 instanceof。
+
+- term: 空值
+  aliases: [none, 'null', undefined]
+  perLanguage:
+    python: 只有一个 None，空安全靠自觉
+    arkts: undefined 与 null 两个；**空安全默认开启**，编译器强制你处理
+  note: |
+    这点 ArkTS 反而更强：可能为空的值在类型里就标出来，不处理编不过。
+    Python 的 None 隐患要跑到运行时才暴露。判空用 `x == null` 同时覆盖两者。
+
+- term: 装饰器
+  aliases: [decorator]
+  perLanguage:
+    python: 高阶函数语法糖，任意函数都能装饰
+    arkts: 语言层只有 @Sendable 与 @Concurrent；@State 等属 ArkUI 框架
+  note: |
+    @ 打头的语法在两边含义不同：Python 是「包装函数」，
+    ArkTS 里多数是「框架读的声明式配置」，不是语言机制。
+
+- term: 反射
+  aliases: [reflection, getattr, introspection]
+  perLanguage:
+    python: getattr / hasattr / setattr / 动态导入，一切皆可运行时访问
+    arkts: 反射入口基本关闭；官方替代只有 dynamic import
+  note: |
+    Python 里靠反射实现的插件、序列化、DI，在 ArkTS 里要换成显式写法。
+    「按名字取属性」这种需求尤其要重新设计。
+
+- term: 并发
+  aliases: [concurrency, thread, asyncio]
+  perLanguage:
+    python: 多线程受 GIL 限制，多进程复制内存，asyncio 单线程事件循环
+    arkts: actor 模型加内存隔离，TaskPool / Worker，靠消息传数据
+  note: |
+    两边的并发模型不能互推。ArkTS 的执行体之间不共享可变内存，
+    设计思路从「共享 + 锁」变成「消息传递」。
+
+- term: 包管理
+  aliases: [package, pip, ohpm]
+  perLanguage:
+    python: pip / venv / pyproject.toml，装解释器就能开工
+    arkts: ohpm 管依赖，DevEco Studio 做 IDE 与构建，产物是 HAP
+  note: |
+    整条工具链围绕鸿蒙生态重建，Python 的工程化经验在这一块用不上。

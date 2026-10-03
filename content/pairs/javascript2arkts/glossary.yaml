@@ -1,0 +1,94 @@
+# 速语词典 —— 从 JavaScript 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: any / unknown
+  aliases: [any, unknown]
+  perLanguage:
+    javascript: 没有类型标注这回事，值本来就可以是任何东西
+    arkts: 两者都是**禁用特性**，每个值都必须在编译期有确定类型
+  note: |
+    ArkTS 是 TypeScript 的受限子集，而 any / unknown 正是被砍掉的那部分。
+    从 JS 过来想「先 any 掉以后再补」的退路是不存在的。
+
+- term: 对象
+  aliases: [object, record]
+  perLanguage:
+    javascript: 万能字典，随时能加属性、删属性、改原型
+    arkts: 结构在编译期固定，禁止运行时增删属性；动态键值用 Record 或 Map
+  note: |
+    这是两种对象模型的根本差别。ArkTS 用「结构静态」换运行时性能，
+    代价是不能再把对象当临时容器用。
+
+- term: 断言
+  aliases: [assertion, as]
+  perLanguage:
+    javascript: 没有类型断言语法（只有运行时的 if 检查）
+    arkts: 有 as，但**不做运行时检查**、错了静默不生效；且无关类型之间不许断言
+  note: |
+    编译期管得比 TypeScript 还死（毫无继承关系不许断言），
+    但运行时一样什么都不会做。别把 as 当校验。
+
+- term: 解构
+  aliases: [destructuring]
+  perLanguage:
+    javascript: 声明、赋值、函数参数三种位置都能用
+    arkts: '**三种位置全部禁用**'
+  note: |
+    ArkTS 里最需要改掉的 JS 习惯。逐个取值虽然啰嗦，但换来了显式的属性访问。
+
+- term: 函数
+  aliases: [function, arrow]
+  perLanguage:
+    javascript: 函数声明、函数表达式、箭头函数三种写法都行
+    arkts: 函数表达式被禁，只剩声明与箭头函数
+  note: |
+    `const f = function () {}` 在 ArkTS 是编译错误。
+    参数类型必须有，返回类型在能推断时可省。
+
+- term: 异常
+  aliases: [exception, throw, error]
+  perLanguage:
+    javascript: 可以 throw 任何值（字符串、数字、对象）
+    arkts: '**只能抛 Error 及其子类** —— 硬性编译规则'
+  note: |
+    JS 的「throw 一个字符串」在 ArkTS 里写不出来。
+    这条限制其实让错误处理更可预测。
+
+- term: 并发
+  aliases: [concurrency, thread, worker]
+  perLanguage:
+    javascript: 单线程事件循环；Worker 之间也不能共享可变对象
+    arkts: actor 模型 + 内存隔离；TaskPool / Worker；跨线程靠消息与 @Sendable
+  note: |
+    两者都不是「共享内存 + 锁」的模型，但实现方式不同：
+    JS 是协作式单线程，ArkTS 是真的多执行体加内存隔离。
+
+- term: 锁
+  aliases: [lock, mutex, asynclock]
+  perLanguage:
+    javascript: 没有锁的概念（单线程不需要）
+    arkts: 只有**异步锁** AsyncLock（非阻塞，必须 await），另有 ConditionVariable
+  note: |
+    从 JS 过来第一次遇到「要显式加锁」这件事。注意 AsyncLock 是异步的，
+    忘记 await 就等于没锁。
+
+- term: 反射 / 元编程
+  aliases: [reflection, proxy, eval]
+  perLanguage:
+    javascript: eval、Proxy、Object.getPrototypeOf、delete、in 都能用
+    arkts: 基本全关（Proxy 的 13 个 trap 一个不留）；官方替代是 dynamic import
+  note: |
+    ArkTS 为了静态可分析把反射入口几乎封死。依赖运行时改行为的库
+    （很多 ORM、DI 框架的手法）在这里行不通。
+
+- term: 值类型 / 引用类型
+  aliases: [value-type, reference-type]
+  perLanguage:
+    javascript: 一切非原始值都是引用类型；number / string 是原始值
+    arkts: 同样是 number / string 值语义、object / array / function 引用语义
+  note: |
+    这一点两边一致，迁移时不会踩坑。真正不同的是：ArkTS **没有用户自定义的值类型**
+    （struct 是 ArkUI 组件语法，不是 C# 那种 struct）。

@@ -1,0 +1,507 @@
+{
+  "baseline": "javascript",
+  "target": "arkts",
+  "pitfalls": [
+    {
+      "id": "pitfall-js2arkts-actor-concurrency",
+      "title": "并发是 actor + 内存隔离，不是共享内存",
+      "symptomHtml": "<p>指望像 Node / 浏览器那样在「线程」间共享对象、用锁保护共享状态，\n发现 ArkTS 里跨线程根本不能共享可变对象。</p>\n",
+      "causeHtml": "<p>ArkTS 的运行时是 <strong>actor 模型 + 内存隔离</strong>：每个 Worker / TaskPool 任务\n有独立内存，跨线程只能传数据。三条路是 Structured Clone 深拷贝、\nArrayBuffer / Transferable、以及 <code>@Sendable</code> 在共享堆按引用传递。\n锁只有<strong>异步锁</strong> AsyncLock（非阻塞，必须 await）。\nJS 那边是单线程事件循环，压根没有「跨线程共享」这回事 —— 两种模型都不能直接套。</p>\n",
+      "fixHtml": "<p>把并发任务设计成「输入数据、返回结果」的纯函数，靠消息传递而不是共享。\n确实要共享时用 <code>@Sendable</code> 标注的类加共享堆，并自己负责数据竞争（编译器不管）。\n需要互斥就用 AsyncLock（记得 await）或 ConditionVariable。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-as-silent",
+      "title": "as 断言错了不报错，只是静默不生效",
+      "symptomHtml": "<p>写 <code>const x = value as SomeType</code> 以为运行时至少会检查一下，\n结果断言错了什么都不发生 —— 不抛异常、不警告，只是没起作用。</p>\n",
+      "causeHtml": "<p>和 TypeScript 一样，ArkTS 的 <code>as</code> 不做运行时检查、不转换值；\n但 ArkTS 编译期管得更死：毫无继承关系的类型之间<strong>不许断言</strong>。\n代价是：类型层面成立、运行时对不上的情况，静默通过。</p>\n",
+      "fixHtml": "<p>断言只在「你确实知道运行时形态」时用。\n要真的验证形状，用 <code>instanceof</code>（对类）或显式的属性检查。\n别把 as 当成转换或校验。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-assertion",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-any",
+      "title": "到处都要写类型，any 和 unknown 都不许用",
+      "symptomHtml": "<p>习惯性地给参数写 <code>any</code>，或用 <code>unknown</code> 兜底，ArkTS 编译直接报错 ——\n连 <code>x as unknown as T</code> 这种绕法都写不出来。</p>\n",
+      "causeHtml": "<p>ArkTS 把「动态类型」这条路整个堵死了：<code>any</code> / <code>unknown</code> 都在禁用清单里\n（规则名 arkts-no-any-unknown）。运行时要靠静态类型做检查与优化，\n所以不允许存在「类型待定」的值。</p>\n",
+      "fixHtml": "<p>给每个参数和变量写出具体类型。形状确实不固定时，用官方给的动态键形态\n<code>Record&lt;string, T&gt;</code>，或者定义明确的 interface。\n别指望用 any 蒙混 —— 编译器不给这个机会。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-annotation",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-destructuring",
+      "title": "解构（声明、赋值、参数）全部被禁",
+      "symptomHtml": "<p><code>const { a, b } = obj</code>、<code>[x, y] = [y, x]</code>、<code>function f({ id }: Props)</code>\n全都报错 —— 解构的三条规则各有一条禁用项。</p>\n",
+      "causeHtml": "<p>ArkTS 把解构语法整体禁用了。原因还是静态可分析：解构会引入\n「隐式读取一串属性」的行为，与它「结构显式」的设计冲突。</p>\n",
+      "fixHtml": "<p>老老实实逐个取值：<code>const a = obj.a; const b = obj.b;</code>。\n函数参数把对象整个传进来，在函数体里取属性。\n交换变量用临时变量 —— 这是最需要改掉的一个 JS 习惯。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/destructuring",
+      "tags": [
+        "解构"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-dynamic-shape",
+      "title": "对象不能事后再长出新属性",
+      "symptomHtml": "<p><code>const user = { name: 'a' }; user.age = 1;</code> 在 JS 里天经地义，\n到 ArkTS 报错，或者对象根本没按预期长出新字段。</p>\n",
+      "causeHtml": "<p>ArkTS 要求对象的<strong>结构在编译期就确定</strong>，禁止运行时增删属性、改原型。\n这是它换取静态优化与运行时性能的代价 —— 与 JS「对象是万能字典」的模型正相反。</p>\n",
+      "fixHtml": "<p>固定字段就定义一个 interface，声明时把字段写全（可选的用 <code>?</code>）。\n需要真正的动态键值对，用 <code>Record&lt;string, T&gt;</code> 或 <code>Map</code> ——\n前者的索引读出的类型<strong>带 undefined</strong>，别忘了判空。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/fields-and-properties",
+      "tags": [
+        "对象"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-untyped-declaration",
+      "title": "无初值又无标注的声明编译不过",
+      "symptomHtml": "<p>写 <code>let result;</code> 打算后面再赋值，ArkTS 报错：既没有初值也没有类型标注。</p>\n",
+      "causeHtml": "<p>JS 里 <code>let x;</code> 是值为 undefined 的合法声明；ArkTS 要求变量在声明处就能确定类型，\n所以「无初值又无标注」是编译错误。它不让类型进入待定状态。</p>\n",
+      "fixHtml": "<p>要么给初值（<code>let result = 0</code>），要么标注（<code>let result: number</code>），\n最省事的是把声明推迟到第一次赋值的地方 —— 顺便也更接近 const 的好习惯。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/declaration",
+      "tags": [
+        "声明"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-as-const",
+      "title": "as const、Object.assign、Object.fromEntries 都是禁的",
+      "symptomHtml": "<p>用 <code>as const</code> 想要只读字面量、用 <code>Object.assign</code> 合并对象，都报错。</p>\n",
+      "causeHtml": "<p>这些特性要么依赖运行时的动态结构操作（Object.assign / Object.fromEntries），\n要么依赖 TS 的高级类型推导（as const），都在 ArkTS 的禁用清单里。</p>\n",
+      "fixHtml": "<p>要只读用 <code>readonly</code> 标注或 <code>Readonly&lt;T&gt;</code> 工具类型（ArkTS 保留了它）；\n合并对象就逐字段赋值，或用构造函数接收参数；\n从键值对数组建对象，改用 Map 或手工循环。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/mutability",
+      "tags": [
+        "不可变",
+        "对象"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-for-in",
+      "title": "for...in 被禁，遍历对象键要换方式",
+      "symptomHtml": "<p><code>for (const k in obj)</code> 报错 —— 而这是 JS 里遍历对象键的常用手法。</p>\n",
+      "causeHtml": "<p><code>for...in</code> 会沿原型链枚举，行为不够静态可预测，ArkTS 直接禁用。\n它只保留 <code>for...of</code>（用于可迭代对象）与普通的 <code>for</code>。</p>\n",
+      "fixHtml": "<p>遍历数组用 <code>for...of</code> 或 <code>forEach</code>；\n遍历对象键用 <code>Object.keys(obj)</code> 拿到数组再 <code>for...of</code>；\n有顺序要求时用 <code>Map</code> 而不是普通对象。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/loops",
+      "tags": [
+        "循环"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-function-expression",
+      "title": "函数表达式被禁，只有声明与箭头函数",
+      "symptomHtml": "<p>写 <code>const f = function (x) { return x + 1 }</code> 报错（arkts-no-func-expressions）。</p>\n",
+      "causeHtml": "<p>ArkTS 禁掉了函数表达式，因为它在类型推断上的行为不如另两种写法可预测。\n合法写法只剩<strong>函数声明</strong>与<strong>箭头函数</strong>。</p>\n",
+      "fixHtml": "<p>改成箭头函数 <code>const f = (x: number): number =&gt; x + 1</code>，或写成函数声明。\n参数类型必须有；返回类型在能推断时可以省，但显式写上更稳。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/function-declaration",
+      "tags": [
+        "函数"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-reflection",
+      "title": "eval、Proxy、getPrototypeOf、delete、in 基本全关",
+      "symptomHtml": "<p>想用 Proxy 做拦截、用 <code>'key' in obj</code> 判断属性、用 delete 删属性，\n发现全被禁用 —— Proxy 的 13 个 trap 一个不留。</p>\n",
+      "causeHtml": "<p>ArkTS 为了静态可分析，把反射入口关得只剩一条缝：\neval、Object.getPrototypeOf、Proxy、Symbol（只留 Symbol.iterator）、\ndelete 运算符、in 运算符都在禁用名单里（globalThis 是警告级）。\n官方承认的替代是 <strong>dynamic import</strong> —— 原话是「达到类似 Class.forName() 的效果」。</p>\n",
+      "fixHtml": "<p>判断属性存在用 <code>obj.key !== undefined</code> 而不是 <code>in</code>；\n「删属性」改成把值设为 undefined 或重建对象；\n需要按名字动态加载模块时用 dynamic import。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/proxy-interception",
+      "tags": [
+        "元编程"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-only-error-throw",
+      "title": "只能抛 Error 及其子类 —— 这是编译规则",
+      "symptomHtml": "<p><code>throw 'something went wrong'</code> 或 <code>throw { code: 1 }</code> 报错（arkts-limited-throw）。</p>\n",
+      "causeHtml": "<p>JS 可以 throw 任意值（这也是 TypeScript 把 catch 变量定成 unknown 的原因）。\nArkTS 直接收紧：<strong>只能抛 Error 及子类</strong>，是硬性编译规则而不是惯例。</p>\n",
+      "fixHtml": "<p>抛错一律 <code>throw new Error('...')</code>；要带结构化信息就自定义 Error 子类。\n捕获时拿到的仍需收窄（不能假定具体子类），但至少能确定它属于 Error 家族。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/throw-raise",
+      "tags": [
+        "异常"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-js2arkts-no-var",
+      "title": "var 被禁，只有 let 和 const",
+      "symptomHtml": "<p>从老 JS 代码里带过来的 <code>var</code> 直接报错（arkts-no-var）。</p>\n",
+      "causeHtml": "<p>ArkTS 只认 <code>let</code> 与 <code>const</code>，去掉了 <code>var</code> 的函数作用域与提升语义。\n作用域规则因此简单一致，与它「静态、可预测」的整体取向一致。</p>\n",
+      "fixHtml": "<p><code>var</code> 一律改成 <code>let</code>（需要重新赋值）或 <code>const</code>（不需要）。优先 const。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/declaration",
+      "tags": [
+        "声明",
+        "作用域"
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "any / unknown",
+      "aliases": [
+        "any",
+        "unknown"
+      ],
+      "perLanguage": {
+        "javascript": "没有类型标注这回事，值本来就可以是任何东西",
+        "arkts": "两者都是**禁用特性**，每个值都必须在编译期有确定类型"
+      },
+      "note": "ArkTS 是 TypeScript 的受限子集，而 any / unknown 正是被砍掉的那部分。\n从 JS 过来想「先 any 掉以后再补」的退路是不存在的。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "对象",
+      "aliases": [
+        "object",
+        "record"
+      ],
+      "perLanguage": {
+        "javascript": "万能字典，随时能加属性、删属性、改原型",
+        "arkts": "结构在编译期固定，禁止运行时增删属性；动态键值用 Record 或 Map"
+      },
+      "note": "这是两种对象模型的根本差别。ArkTS 用「结构静态」换运行时性能，\n代价是不能再把对象当临时容器用。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "断言",
+      "aliases": [
+        "assertion",
+        "as"
+      ],
+      "perLanguage": {
+        "javascript": "没有类型断言语法（只有运行时的 if 检查）",
+        "arkts": "有 as，但**不做运行时检查**、错了静默不生效；且无关类型之间不许断言"
+      },
+      "note": "编译期管得比 TypeScript 还死（毫无继承关系不许断言），\n但运行时一样什么都不会做。别把 as 当校验。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "解构",
+      "aliases": [
+        "destructuring"
+      ],
+      "perLanguage": {
+        "javascript": "声明、赋值、函数参数三种位置都能用",
+        "arkts": "**三种位置全部禁用**"
+      },
+      "note": "ArkTS 里最需要改掉的 JS 习惯。逐个取值虽然啰嗦，但换来了显式的属性访问。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "函数",
+      "aliases": [
+        "function",
+        "arrow"
+      ],
+      "perLanguage": {
+        "javascript": "函数声明、函数表达式、箭头函数三种写法都行",
+        "arkts": "函数表达式被禁，只剩声明与箭头函数"
+      },
+      "note": "`const f = function () {}` 在 ArkTS 是编译错误。\n参数类型必须有，返回类型在能推断时可省。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "异常",
+      "aliases": [
+        "exception",
+        "throw",
+        "error"
+      ],
+      "perLanguage": {
+        "javascript": "可以 throw 任何值（字符串、数字、对象）",
+        "arkts": "**只能抛 Error 及其子类** —— 硬性编译规则"
+      },
+      "note": "JS 的「throw 一个字符串」在 ArkTS 里写不出来。\n这条限制其实让错误处理更可预测。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "并发",
+      "aliases": [
+        "concurrency",
+        "thread",
+        "worker"
+      ],
+      "perLanguage": {
+        "javascript": "单线程事件循环；Worker 之间也不能共享可变对象",
+        "arkts": "actor 模型 + 内存隔离；TaskPool / Worker；跨线程靠消息与 @Sendable"
+      },
+      "note": "两者都不是「共享内存 + 锁」的模型，但实现方式不同：\nJS 是协作式单线程，ArkTS 是真的多执行体加内存隔离。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "锁",
+      "aliases": [
+        "lock",
+        "mutex",
+        "asynclock"
+      ],
+      "perLanguage": {
+        "javascript": "没有锁的概念（单线程不需要）",
+        "arkts": "只有**异步锁** AsyncLock（非阻塞，必须 await），另有 ConditionVariable"
+      },
+      "note": "从 JS 过来第一次遇到「要显式加锁」这件事。注意 AsyncLock 是异步的，\n忘记 await 就等于没锁。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "反射 / 元编程",
+      "aliases": [
+        "reflection",
+        "proxy",
+        "eval"
+      ],
+      "perLanguage": {
+        "javascript": "eval、Proxy、Object.getPrototypeOf、delete、in 都能用",
+        "arkts": "基本全关（Proxy 的 13 个 trap 一个不留）；官方替代是 dynamic import"
+      },
+      "note": "ArkTS 为了静态可分析把反射入口几乎封死。依赖运行时改行为的库\n（很多 ORM、DI 框架的手法）在这里行不通。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "term": "值类型 / 引用类型",
+      "aliases": [
+        "value-type",
+        "reference-type"
+      ],
+      "perLanguage": {
+        "javascript": "一切非原始值都是引用类型；number / string 是原始值",
+        "arkts": "同样是 number / string 值语义、object / array / function 引用语义"
+      },
+      "note": "这一点两边一致，迁移时不会踩坑。真正不同的是：ArkTS **没有用户自定义的值类型**\n（struct 是 ArkUI 组件语法，不是 C# 那种 struct）。\n",
+      "baseline": "javascript",
+      "target": "arkts"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "javascript2arkts-1-restricted-subset",
+      "order": 1,
+      "title": "先接受「这是一个受限子集」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 DevEco Studio，跑通一个空的 ArkTS 工程，确认工具链能编译 .ets",
+        "通读官方 OpenHarmony 迁移指南的禁用特性清单，把与 JS 相关的条目勾出来",
+        "对照本工具「语言机制」板块里 ArkTS 列，看它与你熟悉的 JS 差在哪些格",
+        "记住一句话：ArkTS 不是「另一个 JS」，是把动态特性砍掉换静态分析的 TS 子集"
+      ],
+      "acceptance": [
+        "能说出 ArkTS 禁用清单里的前五条，并知道它们为什么被禁",
+        "能解释 any / unknown 为什么在这门语言里不存在"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者官网 · ArkTS",
+          "url": "https://developer.huawei.com/consumer/cn/arkts/"
+        },
+        {
+          "label": "OpenHarmony 官方文档仓库",
+          "url": "https://github.com/openharmony/docs"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "javascript2arkts-2-syntax-differences",
+      "order": 2,
+      "title": "语法层：把被禁的写法改过来",
+      "durationHint": "2-3 天",
+      "todo": [
+        "把 var 改成 let / const，把函数表达式改成箭头函数",
+        "把解构（声明、赋值、参数三处）逐个改成显式取值",
+        "把 for...in 改成 for...of 或 Object.keys 循环",
+        "把 `let x;` 补上类型或初值；把 throw 字符串改成 throw new Error"
+      ],
+      "acceptance": [
+        "拿到一段 JS 代码，能直接指出哪些行在 ArkTS 里编译不过",
+        "能不查文档写出合法的变量声明、函数定义、对象构造"
+      ],
+      "resources": [
+        {
+          "label": "ArkTS 语言导览（官方）",
+          "url": "https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/arkts-get-started"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "javascript2arkts-3-object-model",
+      "order": 3,
+      "title": "对象模型：从动态到静态",
+      "durationHint": "3-5 天",
+      "todo": [
+        "给每个「随手拼出来的对象」写一个 interface，体会结构固定的写法",
+        "需要动态键的场景改用 Record 或 Map，注意 Record 索引读出带 undefined",
+        "用 instanceof 和属性检查代替 in、delete、Proxy 这些被禁的反射手段",
+        "搞清 readonly / Readonly 与 as const 的取舍（后者被禁）"
+      ],
+      "acceptance": [
+        "能说清 ArkTS 的对象为什么不能动态加属性，以及这对设计的影响",
+        "能在不用反射的前提下，写出需要「按名字取属性」的逻辑"
+      ],
+      "resources": [
+        {
+          "label": "OpenHarmony 官方文档仓库",
+          "url": "https://github.com/openharmony/docs"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "javascript2arkts-4-concurrency",
+      "order": 4,
+      "title": "并发：actor 模型与跨线程传数据",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 TaskPool 跑一个耗时计算，理解它与事件循环里「异步」的根本差别",
+        "试着跨线程传一个对象，体会内存隔离 —— 直接传引用是不行的",
+        "用 @Sendable 在共享堆传引用，并想清楚谁来负责数据竞争（答案是开发者）",
+        "用 AsyncLock 做一次互斥，注意它必须 await 才生效"
+      ],
+      "acceptance": [
+        "能说清 actor 模型与共享内存模型的差别，以及 JS 为何没有这个问题",
+        "能设计出「输入数据、返回结果」的并发任务，而不是共享可变状态"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者官网 · ArkTS",
+          "url": "https://developer.huawei.com/consumer/cn/arkts/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    },
+    {
+      "id": "javascript2arkts-5-engineering",
+      "order": 5,
+      "title": "工程化收口：进入 HarmonyOS 应用开发",
+      "durationHint": "1 周",
+      "todo": [
+        "用 ohpm 管依赖，理解它与 npm 的差别",
+        "学 ArkUI 的声明式 UI（@State / @Prop / @Link）—— 记住这属框架，不是语言层",
+        "给一个页面接上真实数据，走通「取数 → 状态更新 → 重渲染」",
+        "对照本工具「工程实践」板块里 ArkTS 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖、能跑起来的 ArkTS 应用",
+        "能分清「语言层特性」与「ArkUI 框架特性」，不再把 @State 当成语言机制"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者文档",
+          "url": "https://developer.huawei.com/consumer/cn/doc/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "arkts"
+    }
+  ]
+}

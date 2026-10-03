@@ -1,0 +1,506 @@
+{
+  "baseline": "python",
+  "target": "arkts",
+  "pitfalls": [
+    {
+      "id": "pitfall-py2arkts-actor",
+      "title": "并发是 actor 加消息传递，不是线程加 GIL",
+      "symptomHtml": "<p>用 Python 的 threading / multiprocessing 直觉去想并发，发现 ArkTS 里\n既没有共享内存的多线程，也没有进程，而是 TaskPool / Worker 加消息传数据。</p>\n",
+      "causeHtml": "<p>Python 的多线程受 GIL 限制、多进程靠 fork / spawn 复制内存。\nArkTS 是 <strong>actor 模型 + 内存隔离</strong>：每个执行体独立内存，跨线程只能传数据\n（Structured Clone 深拷贝 / Transferable / @Sendable 共享堆）。\n锁只有异步锁 AsyncLock。</p>\n",
+      "fixHtml": "<p>把并发单元设计成「吃输入、吐结果」的纯函数，别指望共享可变状态。\n需要共享就用 @Sendable 加共享堆，数据竞争自己负责；互斥用 AsyncLock（必须 await）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-fixed-shape",
+      "title": "对象是固定形状的，不能 setattr",
+      "symptomHtml": "<p>Python 里 <code>obj.new_attr = 1</code>、<code>setattr(obj, name, v)</code> 随手就来，\n到 ArkTS 既不能动态加属性，也没有 setattr。</p>\n",
+      "causeHtml": "<p>Python 的对象本质是 <code>__dict__</code> 字典，随时能塞新键（除非用 <strong>slots</strong>）。\nArkTS 要求对象结构在编译期固定，禁止运行时增删属性 ——\n连 <code>__getattr__</code> / <code>__setattr__</code> 这套动态属性协议也没有对应物。</p>\n",
+      "fixHtml": "<p>字段在 interface 或 class 里声明全。需要动态键值对就用 <code>Map</code> 或\n<code>Record&lt;string, T&gt;</code>（注意 Record 索引读出带 undefined）。\n「按名字取属性」这种需求，只能靠显式分支或映射表。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/fields-and-properties",
+      "tags": [
+        "对象"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-no-generator",
+      "title": "没有生成器，惰性序列要自己造",
+      "symptomHtml": "<p>Python 里 <code>def gen(): yield x</code> 那种惰性生成，ArkTS 没有对应写法 —— 生成器被禁。</p>\n",
+      "causeHtml": "<p>生成器的状态机语义让静态分析复杂，ArkTS 禁用了它。\nPython 里用生成器表达的惰性序列、无限序列，在这里要换成别的形式。</p>\n",
+      "fixHtml": "<p>小规模数据直接用数组加循环；需要惰性就手写一个带「取下一个」方法的迭代器对象，\n或者用回调式 API（每处理一个元素调一次函数）。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/generator-yield",
+      "tags": [
+        "迭代"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-no-unpacking",
+      "title": "没有元组解包，也没有交换语法",
+      "symptomHtml": "<p><code>a, b = b, a</code>、<code>x, y = point</code>、以及配 <code>*</code> 的扩展解包全都没有。</p>\n",
+      "causeHtml": "<p>Python 的元组解包是核心语法糖，依赖「序列可迭代」这个运行时概念。\nArkTS 禁用了整个解构语法（声明、赋值、参数各一条规则），\n元组解包、交换、扩展解包都写不出来。</p>\n",
+      "fixHtml": "<p>交换变量用临时变量；取元组的多个字段逐个取值；\n函数要返回多个值就用一个带字段的对象或数组，调用方分开取。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/destructuring",
+      "tags": [
+        "解构"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-null-safety",
+      "title": "空安全默认开启",
+      "symptomHtml": "<p>一个可能是 None 的值直接拿来用，ArkTS 编译期就报错，逼你先判空。</p>\n",
+      "causeHtml": "<p>Python 没有空安全检查，None 随手传，出错在运行时（AttributeError）。\nArkTS 默认开启严格空安全：类型里要么不含空值，要么显式带 <code>| undefined</code>，\n编译期就拦下没处理的情况。\n（另外它有两个空值 undefined 与 null，判空用 <code>x == null</code> 可同时覆盖。）</p>\n",
+      "fixHtml": "<p>拥抱它：把「可能没有」写进类型 <code>T | undefined</code>，用 <code>?.</code> / <code>??</code> 或 if 收窄。\n这比 Python 运行时才炸要好得多 —— 是少数「迁移后反而更省心」的地方。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-static-types",
+      "title": "类型是强制的，动态这条路被堵死",
+      "symptomHtml": "<p>习惯了一个变量先后装不同类型的值、函数参数不写类型，ArkTS 一律报错；\n连 any / unknown 这种「先放着」的写法都不存在。</p>\n",
+      "causeHtml": "<p>Python 是动态类型：类型跟着值走，运行时才确定。\nArkTS 要求每个值在<strong>编译期</strong>就有确定类型，并禁用了 any / unknown 这些逃生舱。\n从「运行时决定」到「编译时写死」，这是迁移中最大的思维转变。</p>\n",
+      "fixHtml": "<p>给每个参数、变量、字段写出具体类型。形状不确定时定义 interface，\n或用 <code>Record&lt;string, T&gt;</code>。就当是「本来就要写的类型注解，只是这回不写就编译不过」。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-annotation",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-declaration",
+      "title": "声明不能「先空着」",
+      "symptomHtml": "<p>写 <code>let result;</code> 报错：既没有初值也没有类型标注。</p>\n",
+      "causeHtml": "<p>Python 里变量随时可以指向任何东西，声明与赋值是一回事，没有「先声明后定类型」。\nArkTS 要求声明处就确定类型，所以无初值又无标注是编译错误。</p>\n",
+      "fixHtml": "<p>给初值（<code>let result = 0</code>）或标注（<code>let result: number</code>），\n或者把声明推迟到第一次赋值处。优先用 const。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/declaration",
+      "tags": [
+        "声明"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-decorator-ownership",
+      "title": "装饰器打头的东西大多是框架的，不是语言的",
+      "symptomHtml": "<p>看到 <code>@State</code>、<code>@Prop</code> 以为是 Python 那种装饰器，想自己写一个包装函数，\n发现语言层的装饰器只有 @Sendable / @Concurrent 两个。</p>\n",
+      "causeHtml": "<p>Python 的装饰器是高阶函数，任意函数都能装饰。\nArkTS 里 <code>@State</code> / <code>@Prop</code> / <code>@Link</code> 这些属于 <strong>ArkUI 框架</strong>，不是语言机制；\n语言层只提供 <code>@Sendable</code>（跨线程共享）与 <code>@Concurrent</code>（并发任务）两个。</p>\n",
+      "fixHtml": "<p>把 ArkUI 的 @ 系列理解成「框架的声明式配置」，行为由框架读，不是包装你的函数。\n要做 Python 式包装，直接写高阶函数，别指望 @ 语法。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/decorator-annotation",
+      "tags": [
+        "装饰器"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-no-reflection",
+      "title": "getattr / hasattr / 动态导入都行不通",
+      "symptomHtml": "<p>Python 里 <code>getattr(obj, name)</code>、<code>hasattr</code>、<code>importlib.import_module(...)</code>\n这些动态手段，在 ArkTS 里几乎都没有对应物。</p>\n",
+      "causeHtml": "<p>ArkTS 把反射入口基本关掉（eval、Proxy、getPrototypeOf、delete、in 都禁），\n连 <code>'key' in obj</code> 都不能用。Python 那种「一切皆对象、属性可动态访问」的模型\n在这里不成立。官方承认的替代只有 <strong>dynamic import</strong>。</p>\n",
+      "fixHtml": "<p>属性存在性用 <code>obj.key !== undefined</code>；按名字取属性写显式分支或映射表；\n按名字加载模块用 dynamic import。设计上就要放弃「运行时反射改行为」的思路。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/reflection",
+      "tags": [
+        "元编程"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-number-only",
+      "title": "数字只有 number 一种",
+      "symptomHtml": "<p>习惯 Python 的 int 与 float 分离、整数不溢出、<code>//</code> 整除、<code>**</code> 幂，\n到 ArkTS 发现只有一个 number（双精度浮点）。</p>\n",
+      "causeHtml": "<p>JS/ArkTS 的数字统一是 IEEE 754 双精度浮点，没有 int / long / float 之分。\n所以大整数会丢精度（超过 2^53），整除要用 <code>Math.floor(a / b)</code>，\nPython 的 <code>//</code> 没有对应运算符（<code>**</code> 倒是 JS 也有）。</p>\n",
+      "fixHtml": "<p>整除写 <code>Math.floor(a / b)</code> 或 <code>Math.trunc</code>；幂用 <code>**</code> 或 <code>Math.pow</code>。\n需要超出 2^53 的整数用 <code>BigInt</code>（注意它与 number 不能混算）。\n别指望整数运算的精确性 —— 这与 Python 的任意精度整数是最根本的差别之一。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-only-error",
+      "title": "只能抛 Error 及其子类",
+      "symptomHtml": "<p><code>throw '出错了'</code> 或 <code>throw { code: 1 }</code> 报错。</p>\n",
+      "causeHtml": "<p>Python 的异常必须是 BaseException 子类，但仍可自定义任意异常类。\nArkTS 更严：<strong>只能抛 Error 及子类</strong>，是硬性编译规则。</p>\n",
+      "fixHtml": "<p><code>throw new Error('...')</code>；要结构化信息就继承 Error 自定义。\n捕获时 Python 那种 <code>except ValueError as e</code> 的按类型分支，\n在 ArkTS 里要自己用 instanceof 判断。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/throw-raise",
+      "tags": [
+        "异常"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-py2arkts-toolchain",
+      "title": "工具链整套换掉：ohpm、DevEco、.ets",
+      "symptomHtml": "<p>Python 的 pip / venv / pyproject 那套在这里完全没有对应物，\n代码文件后缀是 .ets，包管理用 ohpm，IDE 是 DevEco Studio。</p>\n",
+      "causeHtml": "<p>ArkTS 是 HarmonyOS 的应用开发语言，工具链围绕鸿蒙生态重建：\nohpm 管依赖、DevEco Studio 做 IDE 与构建、HAP 是产物包。\n与 Python 的「装个解释器加 pip install」是两套完全不同的世界。</p>\n",
+      "fixHtml": "<p>按官方流程装 DevEco Studio，用它创建工程；依赖用 ohpm install。\n别指望复用 Python 的工程化经验 —— 这一块要重新学。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "practice/package-manager",
+      "tags": [
+        "工具链"
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "类型",
+      "aliases": [
+        "type"
+      ],
+      "perLanguage": {
+        "python": "跟着值走，运行时确定；type(x) 随时可查",
+        "arkts": "编译期写死；any / unknown 被禁，每个值都必须有确定类型"
+      },
+      "note": "Python 的「类型」是运行时的属性，ArkTS 的「类型」是编译期的义务。\n迁移时最需要转变的就是这个：不再有「先放着、跑起来看」的余地。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "对象",
+      "aliases": [
+        "object",
+        "dict"
+      ],
+      "perLanguage": {
+        "python": "本质是 __dict__ 字典，可随时加属性、可 setattr / getattr",
+        "arkts": "结构在编译期固定，禁止运行时增删属性，也没有 setattr"
+      },
+      "note": "Python 的动态属性协议（__getattr__ / __setattr__）在 ArkTS 里没有对应物。\n需要键值对就用 Map 或 Record，别指望对象当字典使。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "解包 / 解构",
+      "aliases": [
+        "unpacking",
+        "destructuring"
+      ],
+      "perLanguage": {
+        "python": "元组解包、交换、扩展解包都是核心语法",
+        "arkts": "整个解构语法被禁（声明、赋值、参数三处）"
+      },
+      "note": "`a, b = b, a` 这种写法在 ArkTS 要拆成临时变量。\n这是从 Python 过来最别扭的一处，但没有变通办法。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "生成器",
+      "aliases": [
+        "generator",
+        "yield",
+        "iterator"
+      ],
+      "perLanguage": {
+        "python": "yield 写生成器，惰性、一次性，是常用惯用法",
+        "arkts": "生成器被禁；惰性序列要手写迭代器对象或改用回调"
+      },
+      "note": "itertools 那套惰性组合子在 ArkTS 里没有对应生态。\n数据量不大就用数组，真需要惰性得自己实现。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "异常",
+      "aliases": [
+        "exception",
+        "throw",
+        "error"
+      ],
+      "perLanguage": {
+        "python": "自定义任意 BaseException 子类，按类型分支捕获",
+        "arkts": "**只能抛 Error 及子类**（硬性编译规则）"
+      },
+      "note": "ArkTS 把可抛的类型收窄到 Error 家族。\n捕获后的分支判断也要从「按异常类型」改成自己 instanceof。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "空值",
+      "aliases": [
+        "none",
+        "null",
+        "undefined"
+      ],
+      "perLanguage": {
+        "python": "只有一个 None，空安全靠自觉",
+        "arkts": "undefined 与 null 两个；**空安全默认开启**，编译器强制你处理"
+      },
+      "note": "这点 ArkTS 反而更强：可能为空的值在类型里就标出来，不处理编不过。\nPython 的 None 隐患要跑到运行时才暴露。判空用 `x == null` 同时覆盖两者。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "装饰器",
+      "aliases": [
+        "decorator"
+      ],
+      "perLanguage": {
+        "python": "高阶函数语法糖，任意函数都能装饰",
+        "arkts": "语言层只有 @Sendable 与 @Concurrent；@State 等属 ArkUI 框架"
+      },
+      "note": "@ 打头的语法在两边含义不同：Python 是「包装函数」，\nArkTS 里多数是「框架读的声明式配置」，不是语言机制。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "反射",
+      "aliases": [
+        "reflection",
+        "getattr",
+        "introspection"
+      ],
+      "perLanguage": {
+        "python": "getattr / hasattr / setattr / 动态导入，一切皆可运行时访问",
+        "arkts": "反射入口基本关闭；官方替代只有 dynamic import"
+      },
+      "note": "Python 里靠反射实现的插件、序列化、DI，在 ArkTS 里要换成显式写法。\n「按名字取属性」这种需求尤其要重新设计。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "并发",
+      "aliases": [
+        "concurrency",
+        "thread",
+        "asyncio"
+      ],
+      "perLanguage": {
+        "python": "多线程受 GIL 限制，多进程复制内存，asyncio 单线程事件循环",
+        "arkts": "actor 模型加内存隔离，TaskPool / Worker，靠消息传数据"
+      },
+      "note": "两边的并发模型不能互推。ArkTS 的执行体之间不共享可变内存，\n设计思路从「共享 + 锁」变成「消息传递」。\n",
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "term": "包管理",
+      "aliases": [
+        "package",
+        "pip",
+        "ohpm"
+      ],
+      "perLanguage": {
+        "python": "pip / venv / pyproject.toml，装解释器就能开工",
+        "arkts": "ohpm 管依赖，DevEco Studio 做 IDE 与构建，产物是 HAP"
+      },
+      "note": "整条工具链围绕鸿蒙生态重建，Python 的工程化经验在这一块用不上。\n",
+      "baseline": "python",
+      "target": "arkts"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "python2arkts-1-dynamic-to-static",
+      "order": 1,
+      "title": "从动态类型转到静态类型",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 DevEco Studio，跑通一个空工程，确认能编译 .ets",
+        "写一段你在 Python 里很熟的逻辑，用 ArkTS 重写，体会「处处要写类型」",
+        "记住没有 any / unknown、没有运行时类型判断这两件事",
+        "对照本工具「语言机制」板块里 ArkTS 列的「静态 vs 动态」「类型标注」两格"
+      ],
+      "acceptance": [
+        "能解释 Python 的运行时类型与 ArkTS 的编译期类型各在什么时刻起作用",
+        "知道为什么 ArkTS 里「先放着以后再补类型」这条路不存在"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者官网 · ArkTS",
+          "url": "https://developer.huawei.com/consumer/cn/arkts/"
+        }
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "python2arkts-2-syntax-restrictions",
+      "order": 2,
+      "title": "语法层：把被禁的写法改过来",
+      "durationHint": "2-3 天",
+      "todo": [
+        "把元组解包、变量交换改成显式逐项取值",
+        "把生成器函数改写成数组或手写迭代器",
+        "把 throw 任意对象改成 throw new Error；按类型捕获改成 instanceof 分支",
+        "对照本工具「基础表达」板块里 ArkTS 列的写法差异"
+      ],
+      "acceptance": [
+        "拿到一段 Python 代码，能指出哪些惯用法在 ArkTS 里没有对应写法",
+        "能不查文档写出合法的声明、函数、对象构造"
+      ],
+      "resources": [
+        {
+          "label": "ArkTS 语言导览（官方）",
+          "url": "https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/arkts-get-started"
+        },
+        {
+          "label": "OpenHarmony 官方文档仓库",
+          "url": "https://github.com/openharmony/docs"
+        }
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "python2arkts-3-object-model",
+      "order": 3,
+      "title": "对象模型：从 __dict__ 到固定结构",
+      "durationHint": "3-5 天",
+      "todo": [
+        "给每个「随手拼出来的对象」写一个 interface，体会结构固定的约束",
+        "需要动态键的场景改用 Map 或 Record，注意 Record 索引读出带 undefined",
+        "把用 getattr / setattr 实现的逻辑，改写成显式分支或映射表",
+        "体会上「空安全默认开启」的好处：可能为空的值不处理就编不过"
+      ],
+      "acceptance": [
+        "能说清 Python 的动态属性与 ArkTS 的固定结构各自适合什么样的设计",
+        "能在不用反射的前提下完成「按名字取属性」这类需求"
+      ],
+      "resources": [
+        {
+          "label": "OpenHarmony 官方文档仓库",
+          "url": "https://github.com/openharmony/docs"
+        }
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "python2arkts-4-concurrency",
+      "order": 4,
+      "title": "并发：从 GIL 与 asyncio 到 actor",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 TaskPool 跑一个 CPU 密集任务，体会它绕开了 Python 那种 GIL 限制",
+        "试着跨执行体传对象，理解内存隔离 —— 传的是副本或可转移对象",
+        "用 @Sendable 在共享堆传引用，并想清楚谁负责数据竞争（答案是开发者）",
+        "用 AsyncLock 做一次互斥，注意必须 await 才生效"
+      ],
+      "acceptance": [
+        "能说清 Python 的 asyncio 与 ArkTS 的事件循环、以及多执行体并发各自的适用场景",
+        "能把一个「共享状态加锁」的设计改写成消息传递式"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者官网 · ArkTS",
+          "url": "https://developer.huawei.com/consumer/cn/arkts/"
+        }
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    },
+    {
+      "id": "python2arkts-5-engineering",
+      "order": 5,
+      "title": "工程化收口：进入 HarmonyOS 应用开发",
+      "durationHint": "1 周",
+      "todo": [
+        "用 ohpm 管依赖，忘掉 pip / venv 那套",
+        "学 ArkUI 的声明式 UI（@State / @Prop / @Link），记住这属框架不是语言",
+        "给一个页面接上真实数据，走通「取数 → 状态更新 → 重渲染」",
+        "对照本工具「工程实践」板块里 ArkTS 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个能跑起来的 ArkTS 应用",
+        "能分清语言层特性与 ArkUI 框架特性"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者文档",
+          "url": "https://developer.huawei.com/consumer/cn/doc/"
+        }
+      ],
+      "baseline": "python",
+      "target": "arkts"
+    }
+  ]
+}

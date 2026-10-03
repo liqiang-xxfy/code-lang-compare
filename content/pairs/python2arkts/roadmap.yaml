@@ -1,0 +1,87 @@
+# 迁移学习路线 —— 按「基准 → 目标语言」分路径
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+#
+# id 前缀就是这个方向的目录名（python2arkts），后面接序号与短名 ——
+# 它只在本文件内唯一，但带上方向前缀之后整份内容里也能一眼看出归属。
+
+- id: python2arkts-1-dynamic-to-static
+  order: 1
+  title: 从动态类型转到静态类型
+  durationHint: 2-3 小时
+  todo:
+    - 装 DevEco Studio，跑通一个空工程，确认能编译 .ets
+    - 写一段你在 Python 里很熟的逻辑，用 ArkTS 重写，体会「处处要写类型」
+    - 记住没有 any / unknown、没有运行时类型判断这两件事
+    - 对照本工具「语言机制」板块里 ArkTS 列的「静态 vs 动态」「类型标注」两格
+  acceptance:
+    - 能解释 Python 的运行时类型与 ArkTS 的编译期类型各在什么时刻起作用
+    - 知道为什么 ArkTS 里「先放着以后再补类型」这条路不存在
+  resources:
+    - label: HarmonyOS 开发者官网 · ArkTS
+      url: https://developer.huawei.com/consumer/cn/arkts/
+
+- id: python2arkts-2-syntax-restrictions
+  order: 2
+  title: 语法层：把被禁的写法改过来
+  durationHint: 2-3 天
+  todo:
+    - 把元组解包、变量交换改成显式逐项取值
+    - 把生成器函数改写成数组或手写迭代器
+    - 把 throw 任意对象改成 throw new Error；按类型捕获改成 instanceof 分支
+    - 对照本工具「基础表达」板块里 ArkTS 列的写法差异
+  acceptance:
+    - 拿到一段 Python 代码，能指出哪些惯用法在 ArkTS 里没有对应写法
+    - 能不查文档写出合法的声明、函数、对象构造
+  resources:
+    - label: ArkTS 语言导览（官方）
+      url: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/arkts-get-started
+    - label: OpenHarmony 官方文档仓库
+      url: https://github.com/openharmony/docs
+
+- id: python2arkts-3-object-model
+  order: 3
+  title: 对象模型：从 __dict__ 到固定结构
+  durationHint: 3-5 天
+  todo:
+    - 给每个「随手拼出来的对象」写一个 interface，体会结构固定的约束
+    - 需要动态键的场景改用 Map 或 Record，注意 Record 索引读出带 undefined
+    - 把用 getattr / setattr 实现的逻辑，改写成显式分支或映射表
+    - 体会上「空安全默认开启」的好处：可能为空的值不处理就编不过
+  acceptance:
+    - 能说清 Python 的动态属性与 ArkTS 的固定结构各自适合什么样的设计
+    - 能在不用反射的前提下完成「按名字取属性」这类需求
+  resources:
+    - label: OpenHarmony 官方文档仓库
+      url: https://github.com/openharmony/docs
+
+- id: python2arkts-4-concurrency
+  order: 4
+  title: 并发：从 GIL 与 asyncio 到 actor
+  durationHint: 3-5 天
+  todo:
+    - 用 TaskPool 跑一个 CPU 密集任务，体会它绕开了 Python 那种 GIL 限制
+    - 试着跨执行体传对象，理解内存隔离 —— 传的是副本或可转移对象
+    - 用 @Sendable 在共享堆传引用，并想清楚谁负责数据竞争（答案是开发者）
+    - 用 AsyncLock 做一次互斥，注意必须 await 才生效
+  acceptance:
+    - 能说清 Python 的 asyncio 与 ArkTS 的事件循环、以及多执行体并发各自的适用场景
+    - 能把一个「共享状态加锁」的设计改写成消息传递式
+  resources:
+    - label: HarmonyOS 开发者官网 · ArkTS
+      url: https://developer.huawei.com/consumer/cn/arkts/
+
+- id: python2arkts-5-engineering
+  order: 5
+  title: 工程化收口：进入 HarmonyOS 应用开发
+  durationHint: 1 周
+  todo:
+    - 用 ohpm 管依赖，忘掉 pip / venv 那套
+    - 学 ArkUI 的声明式 UI（@State / @Prop / @Link），记住这属框架不是语言
+    - 给一个页面接上真实数据，走通「取数 → 状态更新 → 重渲染」
+    - 对照本工具「工程实践」板块里 ArkTS 列的工具链
+  acceptance:
+    - 能独立搭起一个能跑起来的 ArkTS 应用
+    - 能分清语言层特性与 ArkUI 框架特性
+  resources:
+    - label: HarmonyOS 开发者文档
+      url: https://developer.huawei.com/consumer/cn/doc/

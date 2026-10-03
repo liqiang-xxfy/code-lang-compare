@@ -1,0 +1,87 @@
+# 迁移学习路线 —— 按「基准 → 目标语言」分路径
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+#
+# id 前缀就是这个方向的目录名（javascript2arkts），后面接序号与短名 ——
+# 它只在本文件内唯一，但带上方向前缀之后整份内容里也能一眼看出归属。
+
+- id: javascript2arkts-1-restricted-subset
+  order: 1
+  title: 先接受「这是一个受限子集」
+  durationHint: 2-3 小时
+  todo:
+    - 装 DevEco Studio，跑通一个空的 ArkTS 工程，确认工具链能编译 .ets
+    - 通读官方 OpenHarmony 迁移指南的禁用特性清单，把与 JS 相关的条目勾出来
+    - 对照本工具「语言机制」板块里 ArkTS 列，看它与你熟悉的 JS 差在哪些格
+    - 记住一句话：ArkTS 不是「另一个 JS」，是把动态特性砍掉换静态分析的 TS 子集
+  acceptance:
+    - 能说出 ArkTS 禁用清单里的前五条，并知道它们为什么被禁
+    - 能解释 any / unknown 为什么在这门语言里不存在
+  resources:
+    - label: HarmonyOS 开发者官网 · ArkTS
+      url: https://developer.huawei.com/consumer/cn/arkts/
+    - label: OpenHarmony 官方文档仓库
+      url: https://github.com/openharmony/docs
+
+- id: javascript2arkts-2-syntax-differences
+  order: 2
+  title: 语法层：把被禁的写法改过来
+  durationHint: 2-3 天
+  todo:
+    - 把 var 改成 let / const，把函数表达式改成箭头函数
+    - 把解构（声明、赋值、参数三处）逐个改成显式取值
+    - 把 for...in 改成 for...of 或 Object.keys 循环
+    - 把 `let x;` 补上类型或初值；把 throw 字符串改成 throw new Error
+  acceptance:
+    - 拿到一段 JS 代码，能直接指出哪些行在 ArkTS 里编译不过
+    - 能不查文档写出合法的变量声明、函数定义、对象构造
+  resources:
+    - label: ArkTS 语言导览（官方）
+      url: https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/arkts-get-started
+
+- id: javascript2arkts-3-object-model
+  order: 3
+  title: 对象模型：从动态到静态
+  durationHint: 3-5 天
+  todo:
+    - 给每个「随手拼出来的对象」写一个 interface，体会结构固定的写法
+    - 需要动态键的场景改用 Record 或 Map，注意 Record 索引读出带 undefined
+    - 用 instanceof 和属性检查代替 in、delete、Proxy 这些被禁的反射手段
+    - 搞清 readonly / Readonly 与 as const 的取舍（后者被禁）
+  acceptance:
+    - 能说清 ArkTS 的对象为什么不能动态加属性，以及这对设计的影响
+    - 能在不用反射的前提下，写出需要「按名字取属性」的逻辑
+  resources:
+    - label: OpenHarmony 官方文档仓库
+      url: https://github.com/openharmony/docs
+
+- id: javascript2arkts-4-concurrency
+  order: 4
+  title: 并发：actor 模型与跨线程传数据
+  durationHint: 3-5 天
+  todo:
+    - 用 TaskPool 跑一个耗时计算，理解它与事件循环里「异步」的根本差别
+    - 试着跨线程传一个对象，体会内存隔离 —— 直接传引用是不行的
+    - 用 @Sendable 在共享堆传引用，并想清楚谁来负责数据竞争（答案是开发者）
+    - 用 AsyncLock 做一次互斥，注意它必须 await 才生效
+  acceptance:
+    - 能说清 actor 模型与共享内存模型的差别，以及 JS 为何没有这个问题
+    - 能设计出「输入数据、返回结果」的并发任务，而不是共享可变状态
+  resources:
+    - label: HarmonyOS 开发者官网 · ArkTS
+      url: https://developer.huawei.com/consumer/cn/arkts/
+
+- id: javascript2arkts-5-engineering
+  order: 5
+  title: 工程化收口：进入 HarmonyOS 应用开发
+  durationHint: 1 周
+  todo:
+    - 用 ohpm 管依赖，理解它与 npm 的差别
+    - 学 ArkUI 的声明式 UI（@State / @Prop / @Link）—— 记住这属框架，不是语言层
+    - 给一个页面接上真实数据，走通「取数 → 状态更新 → 重渲染」
+    - 对照本工具「工程实践」板块里 ArkTS 列的工具链
+  acceptance:
+    - 能独立搭起一个带依赖、能跑起来的 ArkTS 应用
+    - 能分清「语言层特性」与「ArkUI 框架特性」，不再把 @State 当成语言机制
+  resources:
+    - label: HarmonyOS 开发者文档
+      url: https://developer.huawei.com/consumer/cn/doc/

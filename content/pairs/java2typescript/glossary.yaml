@@ -1,0 +1,96 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 类型
+  aliases: [type, class]
+  perLanguage:
+    java: 类型是运行时的实体 —— 有 Class 对象、能反射、能 instanceof
+    typescript: 类型只在编译期存在；运行时被擦除，interface / type 不产生代码
+  note: |
+    Java 里「类型」和 .class 文件绑定，TS 里「类型」纯粹是给编译器的描述。
+    所以 Java 那套反射 / instanceof / getClass() 在 TS 里没有对应物，
+    运行时要判断形状只能看值本身。
+
+- term: 接口
+  aliases: [interface]
+  perLanguage:
+    java: 名义式 —— 必须显式 implements，类型身份由声明决定
+    typescript: 结构化 —— 形状匹配即兼容，不必 implements，名字也不参与判断
+  note: |
+    同一个 interface 关键字，一个是「身份」，一个是「形状」。
+    Java 里没 implements 就不算实现；TS 里长得像就算 —— 这会让「意外的兼容」变多。
+
+- term: 泛型
+  aliases: [generic]
+  perLanguage:
+    java: 擦除但编译期检查严格，通配符与边界表达力强
+    typescript: 同样擦除，但默认宽松得多 —— any 可绕、as 可强转、索引不查越界
+  note: |
+    两边都叫「泛型」，约束强度差很远。Java 的泛型是编译器强制的，
+    TS 的泛型更像「给 IDE 和调用方看的建议」，要收紧得靠 strict 系列选项。
+
+- term: 重载
+  aliases: [overload]
+  perLanguage:
+    java: 运行时按参数类型分派到不同方法体，是真正的多态
+    typescript: 只是调用处的多套类型签名，运行时只有一个函数体
+  note: |
+    TS 的重载改不了运行时行为，参数处理全靠函数体里的判断。
+    从 Java 过来容易高估它，以为写了重载签名运行时就分开了。
+
+- term: 空值
+  aliases: ['null', undefined, nullable]
+  perLanguage:
+    java: 只有 null；引用默认可空，编译器不管（靠注解与工具补）
+    typescript: 两个 —— null 与 undefined；严格模式强制显式处理
+  note: |
+    TS 在这点上反而更强：strictNullChecks 把 null / undefined 编进类型，逼你处理。
+    Java 的 null 全靠自觉与 @Nullable 注解。
+
+- term: 异常
+  aliases: [exception, throw, checked]
+  perLanguage:
+    java: 受检异常由编译器强制处理或声明 throws
+    typescript: 完全没有受检异常；任何函数都可能抛任何值，签名不表达
+  note: |
+    这是 TS 明显更弱的一块：错误路径不出现在类型里。
+    要恢复那种「编译器逼你处理」的保障，得自己用 Result 类型或 lint 规则搭。
+
+- term: 可见性
+  aliases: [private, protected, access]
+  perLanguage:
+    java: private / protected 由运行时强制（JVM 保证）
+    typescript: private / protected 只是编译期检查；运行时属性是公开的
+  note: |
+    TS 的可见性修饰符不是安全边界。# 私有字段（ES2022）才是运行时的真私有，
+    两者可以叠用。
+
+- term: 集合
+  aliases: [collection, list, map]
+  perLanguage:
+    java: 接口与实现分离的一整套（Collection / List / Set / Map + 实现类）
+    typescript: 只有 Array、Map、Set 三个内置，既是接口也是实现
+  note: |
+    JS 没有 Collection 抽象层。方法名要重新记：add→push / add、size()→size、put→set。
+    Map 的键可以是任意类型且保序，这点比 HashMap 宽松。
+
+- term: 相等
+  aliases: [equals, equality]
+  perLanguage:
+    java: == 比引用，.equals() 按值；字符串必须用 equals
+    typescript: === 比引用（原始值才按值）；没有自动的按值比较方法
+  note: |
+    两边的「==」都危险但方向不同：Java 的 == 比引用（对象内容相同时为 false），
+    JS 的 == 做隐式类型转换。到 TS 里，对象按值比较得自己写或用库。
+
+- term: 编译
+  aliases: [compile, javac, tsc]
+  perLanguage:
+    java: javac 产出字节码，是运行的必要环节
+    typescript: tsc 只做类型检查 + 去类型；产物是 JS，现代工具链常由别的工具转译
+  note: |
+    这个差别决定了「构建通过」的含义：Java 里编译过就基本能跑，
+    TS 里构建（转译）过完全可能没做类型检查 —— 要单独跑 tsc --noEmit。

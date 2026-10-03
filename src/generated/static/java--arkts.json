@@ -1,0 +1,510 @@
+{
+  "baseline": "java",
+  "target": "arkts",
+  "pitfalls": [
+    {
+      "id": "pitfall-java2arkts-actor",
+      "title": "没有共享内存的线程，是 actor 加内存隔离",
+      "symptomHtml": "<p>想写一个 <code>synchronized</code> 块保护共享对象，或让多个「线程」操作同一份数据，\n发现 ArkTS 的执行体之间根本不共享可变内存。</p>\n",
+      "causeHtml": "<p>Java 的并发是共享内存加锁（synchronized / ReentrantLock / volatile）。\nArkTS 是 <strong>actor 模型 + 内存隔离</strong>：每个 Worker / TaskPool 任务独立内存，\n跨线程只能传数据。锁只有异步锁 AsyncLock（非阻塞，必须 await），\n另有 ConditionVariable。</p>\n",
+      "fixHtml": "<p>把并发单元设计成「吃输入、吐结果」的纯函数，靠消息传递而不是共享状态。\n确实要共享就用 @Sendable 加共享堆，数据竞争自己负责。\n互斥用 AsyncLock（记得 await）—— 它不像 synchronized 那样是阻塞的。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-no-reflection",
+      "title": "反射基本被关掉",
+      "symptomHtml": "<p>想靠反射做序列化、DI、按类名创建对象，发现 getClass、Proxy、getPrototypeOf\n这些都没有，连 <code>'key' in obj</code> 都被禁。</p>\n",
+      "causeHtml": "<p>ArkTS 为了静态可分析，把反射入口封得只剩一条缝：\neval、Object.getPrototypeOf、Proxy（13 个 trap 全禁）、\nSymbol（只留 Symbol.iterator）、delete、in 都在禁用名单里。\n官方承认的替代只有 <strong>dynamic import</strong>（原话是「达到类似 Class.forName() 的效果」）。</p>\n",
+      "fixHtml": "<p>依赖反射的框架手法（注解处理器、运行时 DI）在这门语言里行不通。\n改成显式注册表或工厂函数：把「按名字找类」变成一张手写的映射表。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/reflection",
+      "tags": [
+        "元编程"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-null-safety",
+      "title": "空安全默认开启，null 不再是默认可赋值",
+      "symptomHtml": "<p>Java 里引用默认可以是 null，随手传随手用；到 ArkTS，\n一个可能为空的值不判空就编译不过。</p>\n",
+      "causeHtml": "<p>Java 没有编译器层面的空安全（靠 @Nullable 注解与工具补）。\nArkTS 默认开启严格空安全：类型里要么不含空值，要么显式带 <code>| undefined</code>，\n编译期就拦下没处理的分支。</p>\n",
+      "fixHtml": "<p>把「可能没有」写进类型 <code>T | undefined</code>，用 <code>?.</code> / <code>??</code> 或 if 收窄。\n这比 Java 的 null 隐患强得多 —— 是迁移后明显更省心的一块。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-annotation-ownership",
+      "title": "装饰器的归属与 Java 注解不同",
+      "symptomHtml": "<p>把 <code>@State</code>、<code>@Prop</code> 当成 Java 注解那种「可被反射读取的元数据」，\n想自己写注解处理器，发现语言层只有 @Sendable / @Concurrent。</p>\n",
+      "causeHtml": "<p>Java 的注解配合反射形成强大的元编程体系（Spring 那一套）。\nArkTS 里 <code>@State</code> / <code>@Prop</code> / <code>@Link</code> 属于 <strong>ArkUI 框架</strong>，是框架的声明式配置；\n语言层只有 <code>@Sendable</code>（跨线程共享）与 <code>@Concurrent</code>（并发任务）。\n加上反射被关，注解处理器那套思路在这里不成立。</p>\n",
+      "fixHtml": "<p>把 ArkUI 的 @ 系列当成「给框架读的标记」，别指望像 Java 注解那样被你的代码反射处理。\n需要元编程时改成显式的注册与调用。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/decorator-annotation",
+      "tags": [
+        "装饰器"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-as-silent",
+      "title": "as 断言不做运行时检查，错了静默不生效",
+      "symptomHtml": "<p>用 <code>as</code> 想做一个 Java 风格的强制转换，期望类型不对时抛异常，\n结果错了什么都不发生 —— 不抛、不警告。</p>\n",
+      "causeHtml": "<p>Java 的强制转换在运行时真的会检查，错了抛 ClassCastException。\nArkTS 的 <code>as</code> 是<strong>编译期断言</strong>，运行时零操作，断言错了静默通过。\n编译期它管得比 TypeScript 还死（毫无继承关系的类型不许断言），\n但类型层面成立、运行时对不上的情况没有任何拦截。</p>\n",
+      "fixHtml": "<p>要运行时检查就用 <code>instanceof</code>（对类）—— 这才对应 Java 的强转语义。\nas 只在「你确实知道运行时形态」时用，别当成转换或校验。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-assertion",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-field-init",
+      "title": "类字段必须初始化或在构造函数里赋值",
+      "symptomHtml": "<p>声明了一个字段没给初值，期望它默认为 0 / null（Java 的字段默认值），\nArkTS 要求必须有初值或在构造函数里赋值。</p>\n",
+      "causeHtml": "<p>Java 的实例字段有默认值（0 / false / null），不写初值也合法。\nArkTS 没有这层默认：字段要么声明处给值，要么构造函数里赋值，否则报错。\n加上严格空安全，<code>string</code> 类型的字段不能是 undefined，必须真的给个字符串。</p>\n",
+      "fixHtml": "<p>字段声明处给初值，或在构造函数里确保赋值。\n确实可能为空就把类型写成 <code>T | undefined</code>，并在用之前判空。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/fields-and-properties",
+      "tags": [
+        "类",
+        "字段"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-generics-weaker",
+      "title": "泛型能力比 Java 弱不少",
+      "symptomHtml": "<p>习惯用的交叉类型、索引签名、映射类型、条件类型，ArkTS 里都不支持；\n工具类型只剩 Partial / Required / Readonly / Record 四个。</p>\n",
+      "causeHtml": "<p>ArkTS 出于静态可分析的考虑，砍掉了大部分「类型层面编程」的能力：\n禁条件类型（含 infer）、映射类型、交叉类型、索引访问、索引签名、类型查询、this 类型。\n泛型推断也受限（不能只靠返回类型反推 T）。</p>\n",
+      "fixHtml": "<p>把复杂类型运算改成显式声明：多写几个 interface，少用类型体操。\n需要「键值对」用 Record；需要可选 / 只读用那四个保留的工具类型。\n这不是缺点，是把可分析性放在了表达力前面。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-constraint",
+      "tags": [
+        "泛型"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-number-only",
+      "title": "数字只有 number 一种，没有 int / long / double",
+      "symptomHtml": "<p>找 int、long、double、byte，发现只有一个 number；\n而且大整数会丢精度、整除没有专门运算符。</p>\n",
+      "causeHtml": "<p>JS/ArkTS 的数字统一是 IEEE 754 双精度浮点。\nJava 的整数类型体系、溢出回绕、整数除法在这里都不存在。</p>\n",
+      "fixHtml": "<p>整数除法用 <code>Math.floor(a / b)</code> 或 <code>Math.trunc</code>；\n超过 2^53 的整数用 <code>BigInt</code>（不能与 number 混算）；\n位运算按 32 位处理，与 Java 的 long 位运算不同。\n涉及金额、ID 这类精度敏感的场景尤其要小心。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-only-error",
+      "title": "只能抛 Error 及其子类，也没有受检异常",
+      "symptomHtml": "<p>写 <code>throw new MyException()</code>（自己定义的非 Error 异常）报错；\n而且方法签名里写 throws 也没有意义。</p>\n",
+      "causeHtml": "<p>Java 可以抛任意 Throwable 子类，还有受检异常逼你声明。\nArkTS 只能抛 <strong>Error 及其子类</strong>（硬性编译规则），也没有受检异常这层 ——\n错误路径不出现在签名里。</p>\n",
+      "fixHtml": "<p>自定义错误时继承 Error，而不是自造一个异常基类。\nJava 那种「靠 throws 让编译器逼调用方处理」的保障没有了，\n要靠文档、lint 或返回值式错误处理自己补。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/throw-raise",
+      "tags": [
+        "异常"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-overload-typed-only",
+      "title": "重载只有类型签名，运行时只有一个函数",
+      "symptomHtml": "<p>写两个同名函数（不同参数）报错；写成重载签名后函数体只有一个，得自己判断参数。</p>\n",
+      "causeHtml": "<p>Java 的重载在运行时按参数类型分派到不同方法体。\nArkTS（沿用 TS）的重载签名只影响调用处的类型检查，运行时只有一个实现 ——\n构造函数同样如此（支持重载签名，但实现体只有一个）。</p>\n",
+      "fixHtml": "<p>尽量不用重载：改成可选参数、联合类型参数，或不同名字的方法。\n必须写时，实现签名要对所有重载签名兼容，并在函数体里手动分支。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/parameters",
+      "tags": [
+        "函数",
+        "重载"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-toolchain",
+      "title": "从 Maven / Gradle 换到 ohpm 加 DevEco",
+      "symptomHtml": "<p>找 pom.xml / build.gradle 的对应物，发现是 oh-package.json5；\n依赖管理用 ohpm，IDE 是 DevEco Studio，产物是 HAP。</p>\n",
+      "causeHtml": "<p>ArkTS 是 HarmonyOS 的应用开发语言，工具链围绕鸿蒙生态重建。\nJava 那套 Maven / Gradle / JAR 的结构在这里不适用。</p>\n",
+      "fixHtml": "<p>按官方流程装 DevEco Studio 并用它建工程，依赖用 ohpm，\n理解 HAP 打包与签名流程。把 Java 的构建经验暂时放下，重新学这一套。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "practice/package-manager",
+      "tags": [
+        "工具链"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "pitfall-java2arkts-no-value-types",
+      "title": "没有 Java 那种值类型，struct 是 UI 语法",
+      "symptomHtml": "<p>看到 <code>struct</code> 关键字，以为是 C# / Java 值类型那种东西，\n结果它是 ArkUI 组件的声明语法，不是语言的值类型。</p>\n",
+      "causeHtml": "<p>Java 有原始类型（int / boolean 等，值语义）与引用类型的区分。\nArkTS 只有 number / string 是值语义，其余（object / array / function）都是引用；\n它<strong>没有提供用户自定义的值类型</strong>，<code>struct</code> 是 ArkUI 的组件语法。</p>\n",
+      "fixHtml": "<p>需要「值语义」的复合数据，靠约定（不可变、每次返回新对象）来模拟，\n或用基本类型组合。别把 struct 当成值类型关键字用。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "arkts"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "类型",
+      "aliases": [
+        "type",
+        "class"
+      ],
+      "perLanguage": {
+        "java": "运行时的实体 —— Class 对象、反射、instanceof 都真实可用",
+        "arkts": "编译期的描述；运行时没有 Class 对象，反射入口也基本关闭"
+      },
+      "note": "Java 里「类型」和 .class 绑定，ArkTS 里「类型」只到编译期。\n所以 Java 那套反射 / getClass() 在 ArkTS 里没有对应物。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "空值",
+      "aliases": [
+        "null",
+        "nullable",
+        "undefined"
+      ],
+      "perLanguage": {
+        "java": "引用默认可为 null，编译器不管（靠 @Nullable 与工具补）",
+        "arkts": "空安全默认开启，可能为空的值必须在类型里标出来并处理"
+      },
+      "note": "这是 ArkTS 明显更强的一块：null 隐患在编译期就被拦。\nJava 的 null 检查全靠自觉，ArkTS 是编译器逼你处理。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "异常",
+      "aliases": [
+        "exception",
+        "throwable",
+        "throw"
+      ],
+      "perLanguage": {
+        "java": "可抛任意 Throwable 子类；受检异常强制处理或声明",
+        "arkts": "只能抛 Error 及其子类（硬性编译规则）；没有受检异常"
+      },
+      "note": "两边都收紧了也放松了：ArkTS 收紧了「能抛什么」，但放松了「必须声明什么」。\n受检异常那层保障没有了，错误路径不再出现在签名里。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic"
+      ],
+      "perLanguage": {
+        "java": "擦除但编译期检查严格；通配符、边界表达力强",
+        "arkts": "同样擦除，但能力被大幅裁剪 —— 禁条件类型、映射类型、交叉类型、索引签名"
+      },
+      "note": "工具类型只剩 Partial / Required / Readonly / Record。\nArkTS 把「类型层面编程」这条路基本砍掉了，换来静态可分析。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "重载",
+      "aliases": [
+        "overload"
+      ],
+      "perLanguage": {
+        "java": "运行时按参数类型分派到不同方法体",
+        "arkts": "只有调用处的多套类型签名，运行时只有一个实现"
+      },
+      "note": "构造函数也一样：支持重载签名，但实现体只有一个。\n从 Java 过来容易高估它。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "反射 / 注解",
+      "aliases": [
+        "reflection",
+        "annotation",
+        "proxy"
+      ],
+      "perLanguage": {
+        "java": "反射加注解构成强大的元编程体系（Spring 那一套）",
+        "arkts": "反射基本关闭；@ 系列多是 ArkUI 框架的声明，语言层只有 @Sendable / @Concurrent"
+      },
+      "note": "依赖运行时反射与注解处理的框架手法在 ArkTS 里行不通。\n要「按名字找类」得写显式的映射表。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "并发",
+      "aliases": [
+        "concurrency",
+        "thread",
+        "synchronized"
+      ],
+      "perLanguage": {
+        "java": "共享内存加锁（synchronized / ReentrantLock / volatile）",
+        "arkts": "actor 模型加内存隔离，跨执行体只能传数据；锁只有异步锁 AsyncLock"
+      },
+      "note": "两套模型不能互推。ArkTS 的执行体之间不共享可变内存，\n设计思路从「共享加锁」变成「消息传递」。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "值类型",
+      "aliases": [
+        "value-type",
+        "primitive",
+        "struct"
+      ],
+      "perLanguage": {
+        "java": "有原始类型（int / boolean 等，值语义）与引用类型的区分",
+        "arkts": "只有 number / string 是值语义；没有用户自定义的值类型，struct 是 UI 语法"
+      },
+      "note": "看到 struct 别当成 C# / Java 的值类型 —— 它是 ArkUI 组件的声明语法。\n需要值语义的复合数据只能靠不可变约定模拟。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "强制转换",
+      "aliases": [
+        "cast",
+        "as",
+        "instanceof"
+      ],
+      "perLanguage": {
+        "java": "强转在运行时真的检查，失败抛 ClassCastException",
+        "arkts": "as 是编译期断言，运行时零操作，错了静默不生效"
+      },
+      "note": "要 Java 强转那种运行时检查，用 instanceof 而不是 as。\n这条最容易让人栽跟头：写错了不报错，只是没起作用。\n",
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "term": "工具链",
+      "aliases": [
+        "maven",
+        "gradle",
+        "ohpm",
+        "build"
+      ],
+      "perLanguage": {
+        "java": "Maven / Gradle 管依赖与构建，产物是 JAR",
+        "arkts": "ohpm 管依赖，DevEco Studio 做 IDE 与构建，产物是 HAP"
+      },
+      "note": "整条工具链围绕鸿蒙生态重建，Java 的构建经验在这一块用不上。\n",
+      "baseline": "java",
+      "target": "arkts"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2arkts-1-runtime-guarantees",
+      "order": 1,
+      "title": "接受「很多 Java 的运行时保障没有了」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 DevEco Studio，跑通一个空工程，确认能编译 .ets",
+        "编译一段带 interface 与泛型的代码，打开产物看类型是不是全没了",
+        "试着用反射 / 注解做点什么，感受这条路的封死程度",
+        "对照本工具「语言机制」板块里 ArkTS 列的反射与泛型两格"
+      ],
+      "acceptance": [
+        "能列出 ArkTS 相对 Java 少掉的三种运行时能力（Class 对象、真 private、反射）",
+        "能解释空安全默认开启为什么是「更强」而不是「更严」"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者官网 · ArkTS",
+          "url": "https://developer.huawei.com/consumer/cn/arkts/"
+        },
+        {
+          "label": "OpenHarmony 官方文档仓库",
+          "url": "https://github.com/openharmony/docs"
+        }
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "java2arkts-2-types-and-exceptions",
+      "order": 2,
+      "title": "类型与异常：把直觉调过来",
+      "durationHint": "2-3 天",
+      "todo": [
+        "把 null 的用法全部改成可空类型加判空（`T | undefined` + ?. / ??）",
+        "把自定义异常改成继承 Error；体会没有受检异常后错误处理要怎么设计",
+        "把 number 相关代码检查一遍：整除、大整数、位运算都要重新写",
+        "用 instanceof 代替 as 做强转，理解 as 静默失效的坑"
+      ],
+      "acceptance": [
+        "能说清 Java 的 null 隐患与 ArkTS 的编译期空安全差别",
+        "能在没有受检异常的情况下，设计出可靠的错误处理"
+      ],
+      "resources": [
+        {
+          "label": "ArkTS 语言导览（官方）",
+          "url": "https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/arkts-get-started"
+        }
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "java2arkts-3-objects-and-generics",
+      "order": 3,
+      "title": "对象、类与受限的泛型",
+      "durationHint": "3-5 天",
+      "todo": [
+        "把一段 Java 类改写成 ArkTS，注意字段必须初始化、重载只有类型签名",
+        "把泛型代码里用到的索引签名 / 映射类型，改成显式 interface",
+        "用注册表或工厂函数代替「按类名反射创建对象」",
+        "分清 ArkUI 的 @State 等框架语法与语言层的 @Sendable / @Concurrent"
+      ],
+      "acceptance": [
+        "能说清名义类型与结构类型的差别，以及这对设计的影响",
+        "能在泛型能力受限的前提下，把原来靠类型体操实现的逻辑改成显式声明"
+      ],
+      "resources": [
+        {
+          "label": "OpenHarmony 官方文档仓库",
+          "url": "https://github.com/openharmony/docs"
+        }
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "java2arkts-4-concurrency",
+      "order": 4,
+      "title": "并发：从共享内存加锁到 actor",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 TaskPool 跑一个耗时任务，体会执行体之间不共享内存",
+        "试着跨执行体传对象，理解 Structured Clone 与 Transferable 两条路",
+        "用 @Sendable 在共享堆传引用，想清楚谁负责数据竞争（答案是开发者）",
+        "用 AsyncLock 做一次互斥，注意必须 await —— 它不是阻塞锁"
+      ],
+      "acceptance": [
+        "能说清 Java 的 synchronized 模型与 ArkTS 的 actor 模型差别",
+        "能把一个「共享状态加锁」的设计改写成消息传递式"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者官网 · ArkTS",
+          "url": "https://developer.huawei.com/consumer/cn/arkts/"
+        }
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    },
+    {
+      "id": "java2arkts-5-engineering",
+      "order": 5,
+      "title": "工程化收口：进入 HarmonyOS 应用开发",
+      "durationHint": "1 周",
+      "todo": [
+        "用 ohpm 管依赖，理解它与 Maven / Gradle 的差别",
+        "学 ArkUI 的声明式 UI（@State / @Prop / @Link）",
+        "给一个页面接上真实数据，走通「取数 → 状态更新 → 重渲染」",
+        "对照本工具「工程实践」板块里 ArkTS 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个能跑起来的 ArkTS 应用",
+        "能分清语言层特性与 ArkUI 框架特性"
+      ],
+      "resources": [
+        {
+          "label": "HarmonyOS 开发者文档",
+          "url": "https://developer.huawei.com/consumer/cn/doc/"
+        }
+      ],
+      "baseline": "java",
+      "target": "arkts"
+    }
+  ]
+}

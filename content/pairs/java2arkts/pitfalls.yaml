@@ -1,0 +1,226 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 ArkTS 会踩的坑
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩
+#
+# ArkTS 是 TypeScript 的受限子集。这里聚焦「Java 的静态类型 + JVM 生态直觉」与它的冲突。
+
+- id: pitfall-java2arkts-null-safety
+  featureId: mechanism/null-safety
+  title: 空安全默认开启，null 不再是默认可赋值
+  symptom: |
+    Java 里引用默认可以是 null，随手传随手用；到 ArkTS，
+    一个可能为空的值不判空就编译不过。
+  cause: |
+    Java 没有编译器层面的空安全（靠 @Nullable 注解与工具补）。
+    ArkTS 默认开启严格空安全：类型里要么不含空值，要么显式带 `| undefined`，
+    编译期就拦下没处理的分支。
+  fix: |
+    把「可能没有」写进类型 `T | undefined`，用 `?.` / `??` 或 if 收窄。
+    这比 Java 的 null 隐患强得多 —— 是迁移后明显更省心的一块。
+  severity: 3
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [空值]
+
+- id: pitfall-java2arkts-only-error
+  featureId: model/throw-raise
+  title: 只能抛 Error 及其子类，也没有受检异常
+  symptom: |
+    写 `throw new MyException()`（自己定义的非 Error 异常）报错；
+    而且方法签名里写 throws 也没有意义。
+  cause: |
+    Java 可以抛任意 Throwable 子类，还有受检异常逼你声明。
+    ArkTS 只能抛 **Error 及其子类**（硬性编译规则），也没有受检异常这层 ——
+    错误路径不出现在签名里。
+  fix: |
+    自定义错误时继承 Error，而不是自造一个异常基类。
+    Java 那种「靠 throws 让编译器逼调用方处理」的保障没有了，
+    要靠文档、lint 或返回值式错误处理自己补。
+  severity: 2
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [异常]
+
+- id: pitfall-java2arkts-actor
+  featureId: mechanism/concurrency-unit
+  title: 没有共享内存的线程，是 actor 加内存隔离
+  symptom: |
+    想写一个 `synchronized` 块保护共享对象，或让多个「线程」操作同一份数据，
+    发现 ArkTS 的执行体之间根本不共享可变内存。
+  cause: |
+    Java 的并发是共享内存加锁（synchronized / ReentrantLock / volatile）。
+    ArkTS 是 **actor 模型 + 内存隔离**：每个 Worker / TaskPool 任务独立内存，
+    跨线程只能传数据。锁只有异步锁 AsyncLock（非阻塞，必须 await），
+    另有 ConditionVariable。
+  fix: |
+    把并发单元设计成「吃输入、吐结果」的纯函数，靠消息传递而不是共享状态。
+    确实要共享就用 @Sendable 加共享堆，数据竞争自己负责。
+    互斥用 AsyncLock（记得 await）—— 它不像 synchronized 那样是阻塞的。
+  severity: 3
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [并发]
+
+- id: pitfall-java2arkts-no-reflection
+  featureId: mechanism/reflection
+  title: 反射基本被关掉
+  symptom: |
+    想靠反射做序列化、DI、按类名创建对象，发现 getClass、Proxy、getPrototypeOf
+    这些都没有，连 `'key' in obj` 都被禁。
+  cause: |
+    ArkTS 为了静态可分析，把反射入口封得只剩一条缝：
+    eval、Object.getPrototypeOf、Proxy（13 个 trap 全禁）、
+    Symbol（只留 Symbol.iterator）、delete、in 都在禁用名单里。
+    官方承认的替代只有 **dynamic import**（原话是「达到类似 Class.forName() 的效果」）。
+  fix: |
+    依赖反射的框架手法（注解处理器、运行时 DI）在这门语言里行不通。
+    改成显式注册表或工厂函数：把「按名字找类」变成一张手写的映射表。
+  severity: 3
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [元编程]
+
+- id: pitfall-java2arkts-generics-weaker
+  featureId: mechanism/generic-constraint
+  title: 泛型能力比 Java 弱不少
+  symptom: |
+    习惯用的交叉类型、索引签名、映射类型、条件类型，ArkTS 里都不支持；
+    工具类型只剩 Partial / Required / Readonly / Record 四个。
+  cause: |
+    ArkTS 出于静态可分析的考虑，砍掉了大部分「类型层面编程」的能力：
+    禁条件类型（含 infer）、映射类型、交叉类型、索引访问、索引签名、类型查询、this 类型。
+    泛型推断也受限（不能只靠返回类型反推 T）。
+  fix: |
+    把复杂类型运算改成显式声明：多写几个 interface，少用类型体操。
+    需要「键值对」用 Record；需要可选 / 只读用那四个保留的工具类型。
+    这不是缺点，是把可分析性放在了表达力前面。
+  severity: 2
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [泛型]
+
+- id: pitfall-java2arkts-number-only
+  featureId: express/arithmetic
+  title: 数字只有 number 一种，没有 int / long / double
+  symptom: |
+    找 int、long、double、byte，发现只有一个 number；
+    而且大整数会丢精度、整除没有专门运算符。
+  cause: |
+    JS/ArkTS 的数字统一是 IEEE 754 双精度浮点。
+    Java 的整数类型体系、溢出回绕、整数除法在这里都不存在。
+  fix: |
+    整数除法用 `Math.floor(a / b)` 或 `Math.trunc`；
+    超过 2^53 的整数用 `BigInt`（不能与 number 混算）；
+    位运算按 32 位处理，与 Java 的 long 位运算不同。
+    涉及金额、ID 这类精度敏感的场景尤其要小心。
+  severity: 2
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [数值]
+
+- id: pitfall-java2arkts-field-init
+  featureId: model/fields-and-properties
+  title: 类字段必须初始化或在构造函数里赋值
+  symptom: |
+    声明了一个字段没给初值，期望它默认为 0 / null（Java 的字段默认值），
+    ArkTS 要求必须有初值或在构造函数里赋值。
+  cause: |
+    Java 的实例字段有默认值（0 / false / null），不写初值也合法。
+    ArkTS 没有这层默认：字段要么声明处给值，要么构造函数里赋值，否则报错。
+    加上严格空安全，`string` 类型的字段不能是 undefined，必须真的给个字符串。
+  fix: |
+    字段声明处给初值，或在构造函数里确保赋值。
+    确实可能为空就把类型写成 `T | undefined`，并在用之前判空。
+  severity: 2
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [类, 字段]
+
+- id: pitfall-java2arkts-overload-typed-only
+  featureId: express/parameters
+  title: 重载只有类型签名，运行时只有一个函数
+  symptom: |
+    写两个同名函数（不同参数）报错；写成重载签名后函数体只有一个，得自己判断参数。
+  cause: |
+    Java 的重载在运行时按参数类型分派到不同方法体。
+    ArkTS（沿用 TS）的重载签名只影响调用处的类型检查，运行时只有一个实现 ——
+    构造函数同样如此（支持重载签名，但实现体只有一个）。
+  fix: |
+    尽量不用重载：改成可选参数、联合类型参数，或不同名字的方法。
+    必须写时，实现签名要对所有重载签名兼容，并在函数体里手动分支。
+  severity: 2
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [函数, 重载]
+
+- id: pitfall-java2arkts-annotation-ownership
+  featureId: mechanism/decorator-annotation
+  title: 装饰器的归属与 Java 注解不同
+  symptom: |
+    把 `@State`、`@Prop` 当成 Java 注解那种「可被反射读取的元数据」，
+    想自己写注解处理器，发现语言层只有 @Sendable / @Concurrent。
+  cause: |
+    Java 的注解配合反射形成强大的元编程体系（Spring 那一套）。
+    ArkTS 里 `@State` / `@Prop` / `@Link` 属于 **ArkUI 框架**，是框架的声明式配置；
+    语言层只有 `@Sendable`（跨线程共享）与 `@Concurrent`（并发任务）。
+    加上反射被关，注解处理器那套思路在这里不成立。
+  fix: |
+    把 ArkUI 的 @ 系列当成「给框架读的标记」，别指望像 Java 注解那样被你的代码反射处理。
+    需要元编程时改成显式的注册与调用。
+  severity: 2
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [装饰器]
+
+- id: pitfall-java2arkts-no-value-types
+  featureId: mechanism/value-vs-reference
+  title: 没有 Java 那种值类型，struct 是 UI 语法
+  symptom: |
+    看到 `struct` 关键字，以为是 C# / Java 值类型那种东西，
+    结果它是 ArkUI 组件的声明语法，不是语言的值类型。
+  cause: |
+    Java 有原始类型（int / boolean 等，值语义）与引用类型的区分。
+    ArkTS 只有 number / string 是值语义，其余（object / array / function）都是引用；
+    它**没有提供用户自定义的值类型**，`struct` 是 ArkUI 的组件语法。
+  fix: |
+    需要「值语义」的复合数据，靠约定（不可变、每次返回新对象）来模拟，
+    或用基本类型组合。别把 struct 当成值类型关键字用。
+  severity: 1
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-java2arkts-as-silent
+  featureId: mechanism/type-assertion
+  title: as 断言不做运行时检查，错了静默不生效
+  symptom: |
+    用 `as` 想做一个 Java 风格的强制转换，期望类型不对时抛异常，
+    结果错了什么都不发生 —— 不抛、不警告。
+  cause: |
+    Java 的强制转换在运行时真的会检查，错了抛 ClassCastException。
+    ArkTS 的 `as` 是**编译期断言**，运行时零操作，断言错了静默通过。
+    编译期它管得比 TypeScript 还死（毫无继承关系的类型不许断言），
+    但类型层面成立、运行时对不上的情况没有任何拦截。
+  fix: |
+    要运行时检查就用 `instanceof`（对类）—— 这才对应 Java 的强转语义。
+    as 只在「你确实知道运行时形态」时用，别当成转换或校验。
+  severity: 2
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [类型系统]
+
+- id: pitfall-java2arkts-toolchain
+  featureId: practice/package-manager
+  title: 从 Maven / Gradle 换到 ohpm 加 DevEco
+  symptom: |
+    找 pom.xml / build.gradle 的对应物，发现是 oh-package.json5；
+    依赖管理用 ohpm，IDE 是 DevEco Studio，产物是 HAP。
+  cause: |
+    ArkTS 是 HarmonyOS 的应用开发语言，工具链围绕鸿蒙生态重建。
+    Java 那套 Maven / Gradle / JAR 的结构在这里不适用。
+  fix: |
+    按官方流程装 DevEco Studio 并用它建工程，依赖用 ohpm，
+    理解 HAP 打包与签名流程。把 Java 的构建经验暂时放下，重新学这一套。
+  severity: 2
+  languages: [java, arkts]
+  fromBaseline: true
+  tags: [工具链]

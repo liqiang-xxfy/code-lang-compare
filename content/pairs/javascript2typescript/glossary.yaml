@@ -1,0 +1,100 @@
+# 速语词典 —— 从 JavaScript 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词（函数、循环、字符串）不必收 ——
+# 读者不会误解的东西，收了只是稀释。
+
+- term: 类型
+  aliases: [type]
+  perLanguage:
+    javascript: 指**运行时**值的种类 —— `typeof x` 的那几个字符串，而且会随值本身变
+    typescript: 一套**编译期**的集合论类型系统；运行时没有对应物，标注在产物里被擦除
+  note: |
+    「类型」在两个语境里指的不是一回事：JS 的 typeof 是运行时事实，
+    TS 的类型是编译期的静态描述。TS 里说「这个值是 string」，
+    运行时 `typeof` 它未必得到 `'string'` —— 边界数据没校验时就不会。
+
+- term: 接口
+  aliases: [interface]
+  perLanguage:
+    javascript: 没有这个概念；靠「对象上有对应的方法」隐式满足，无处可写
+    typescript: 结构类型的契约；同名 interface 会**自动合并**，且不产生运行时产物
+  note: |
+    TS 的 interface 是**结构**的（长得像就算），不是名义的 —— 与 Java 的 interface 只是同形。
+    它还能被重复声明合并（declaration merging），库作者常拿它做扩展，
+    读者容易被「同一个 interface 有两处定义」绕进去。
+
+- term: 断言
+  aliases: [assertion, assert]
+  perLanguage:
+    javascript: console.assert / Node 的 assert —— 运行时检查，条件不成立就报错
+    typescript: as / ! —— **编译期**的类型断言，运行时什么都不做
+  note: |
+    最危险的同名不同义之一：JS 的 assert 真在运行时验证，
+    TS 的 as 是「让编译器闭嘴」。把 TS 的 as 当成 JS 的 assert、
+    以为它在检查数据，是迁移期的经典事故。
+
+- term: 泛型
+  aliases: [generic, template]
+  perLanguage:
+    javascript: 没有（JSDoc 用 @template 勉强表达，类型层面并不成立）
+    typescript: 类型参数 `<T>`，编译期替换；运行时被擦除，不为每种实参生成专门版本
+  note: |
+    和 Java 的泛型也不同：两者都会擦除，但 TS 推不出类型参数时**静默变宽**
+    （退成 unknown 或 {}），不报错 —— 问题被推到下游才显形。
+
+- term: 枚举
+  aliases: [enum]
+  perLanguage:
+    javascript: 没有 enum；惯例是用 Object.freeze 包一个字面量，或直接写字符串常量
+    typescript: 有 enum 关键字，是少数**会生成运行时代码**的类型特性
+  note: |
+    数字枚举有反向映射（值 → 名），字符串枚举没有；`const enum` 与逐文件转译工具冲突。
+    新代码更推荐 `as const` 对象或联合字面量类型。
+
+- term: 重载
+  aliases: [overload]
+  perLanguage:
+    javascript: 同名函数后定义的覆盖前一个，没有重载这回事
+    typescript: 支持**重载签名**，但只是类型层面的多个签名 —— 实现仍然只有一个函数体
+  note: |
+    TS 的重载不像 Java 那样在运行时区分，它只影响调用处的类型检查：
+    你得自己写一个能兼容所有重载签名的实现，并在函数体里手动分支。
+
+- term: 装饰器
+  aliases: [decorator]
+  perLanguage:
+    javascript: 标准提案语法，作用在类的成员上，生态里用得还不普遍
+    typescript: 有两套语义并存 —— 旧的 experimentalDecorators 与新的标准装饰器
+  note: |
+    同一个 @xxx 语法，TS 里跑的是哪一套取决于 tsconfig：
+    开了 experimentalDecorators 是旧提案，关掉才贴近新标准。
+    两边对参数、返回值、能否改描述符的规则都不同，读别人的代码前先看配置。
+
+- term: 严格模式
+  aliases: [strict]
+  perLanguage:
+    javascript: JS 的 'use strict' —— 运行时指令，影响赋值、this、静默失败等行为
+    typescript: tsconfig 的 strict 选项 —— 一组**编译期**检查开关的合集
+  note: |
+    两者毫无关系，只是撞了名字。JS 的严格模式影响运行结果，
+    TS 的 strict 只影响编译期报不报错 —— 开了 strict 不等于运行时多了任何检查。
+
+- term: 编译 / 转译
+  aliases: [compile, transpile, build]
+  perLanguage:
+    javascript: 严格说没有「编译」，只有打包（bundle）与降级转换（Babel / SWC 转译）
+    typescript: tsc 做两件事 —— 类型检查，以及把 TS 语法转成 JS
+  note: |
+    现代工具链常把这两件事拆开：Vite / esbuild / SWC 只做转译（快，但不做类型检查），
+    `tsc --noEmit` 单独跑类型检查。所以「构建通过了」不代表类型是对的。
+
+- term: 联合类型
+  aliases: [union]
+  perLanguage:
+    javascript: 没有类型层面的「或」；`a || b` 是运行时的值选择
+    typescript: '`A | B` 表示值属于其中之一，用之前必须收窄才能访问各自成员'
+  note: |
+    别和 `||` 混：`A | B` 是类型层面的并集，运行时并不存在。
+    访问联合类型的属性时，只有两边都有的成员才允许直接访问 ——
+    这正是它逼你写收窄的地方。

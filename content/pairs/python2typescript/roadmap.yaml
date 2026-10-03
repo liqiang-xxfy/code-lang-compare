@@ -1,0 +1,95 @@
+# 迁移学习路线 —— 按「基准 → 目标语言」分路径
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+#
+# id 前缀就是这个方向的目录名（python2typescript），后面接序号与短名 ——
+# 它只在本文件内唯一，但带上方向前缀之后整份内容里也能一眼看出归属。
+
+- id: python2typescript-1-dynamic-to-static
+  order: 1
+  title: 先接受「编译期」这道关
+  durationHint: 2-3 小时
+  todo:
+    - '装 typescript，用 `npx tsc --init` 生成 tsconfig.json，并把 `"strict": true` 打开'
+    - 写一段你在 Python 里很熟的小逻辑，用 TS 重写，感受「写之前就要想清楚类型」
+    - 对照本工具「语言机制」板块里 TypeScript 列的「静态 vs 动态」「类型擦除」两格
+    - 记住一件事：类型是给编译器的，运行时它不存在 —— 与 Python 的 `__annotations__` 不同
+  acceptance:
+    - 能说出 Python 的运行时类型检查与 TS 的编译期类型检查各在什么时刻发生
+    - 能解释为什么 TS 需要 zod 这类库，而 Python 有 Pydantic
+  resources:
+    - label: TypeScript 官方手册
+      url: https://www.typescriptlang.org/docs/handbook/intro.html
+    - label: 手册 · 从 JavaScript 迁移（对其它语言背景同样适用）
+      url: https://www.typescriptlang.org/docs/handbook/migrating-from-javascript.html
+
+- id: python2typescript-2-types-and-nulls
+  order: 2
+  title: 类型基础与两个空值
+  durationHint: 2-3 天
+  todo:
+    - 过一遍原始类型、联合类型、字面量类型；练习用 typeof / in 做收窄
+    - 把 `None` 的直觉拆成 undefined 与 null 两种，并统一内部代码只用 undefined
+    - 把 `any` 全换成 `unknown`，体会每次使用前必须收窄的感觉
+    - 对照本工具「基础表达」板块里 TypeScript 列的「空值」「相等」两格
+  acceptance:
+    - 遇到空值时，能立刻判断该用 `x == null` 还是 `x === undefined`
+    - 能说清 unknown 与 any 的区别，并解释为什么默认选前者
+  resources:
+    - label: 手册 · 日常类型
+      url: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+    - label: 手册 · 类型收窄
+      url: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+
+- id: python2typescript-3-objects-and-classes
+  order: 3
+  title: 对象、类与结构化类型
+  durationHint: 3-5 天
+  todo:
+    - 用 interface 表达「有这些能力就算数」—— 体会它就是编译期的 Protocol
+    - 把 dataclass 的写法在 TS 里重写一遍，看看要补多少样板，或改用 zod 解析
+    - 折腾一次 this 丢失的 bug（把方法当回调传），然后用箭头函数属性修好
+    - 写几个泛型函数，注意「推断失败时静默变宽」这个反直觉行为
+  acceptance:
+    - 能说清结构化类型与 Python 鸭子类型的关系：同一理念，一个在编译期一个在运行时
+    - 能在需要时用 class + 显式构造，也能克制住「什么都写成类」的冲动
+  resources:
+    - label: 手册 · 对象类型
+      url: https://www.typescriptlang.org/docs/handbook/2/objects.html
+    - label: 手册 · 类
+      url: https://www.typescriptlang.org/docs/handbook/2/classes.html
+
+- id: python2typescript-4-async-and-modules
+  order: 4
+  title: 异步与模块
+  durationHint: 2-3 天
+  todo:
+    - 把一段 asyncio 代码改写成 async / await，注意「事件循环只有一个、默认单线程」
+    - 弄清 ESM 的 import 会提升、模块只求值一次，与 Python 的 import 执行时机不同
+    - 处理一次循环依赖，理解为什么 ESM 不像 Python 那样容易靠 import 顺序绕开
+    - 给一个接口响应写 zod schema，把边界校验和内部类型分开
+  acceptance:
+    - 能解释 Promise 与 asyncio Task 的异同，以及为什么「忘记 await」在 TS 里更隐蔽
+    - 能写动态 import 做延迟加载，并说清它与静态 import 的执行时机差别
+  resources:
+    - label: 手册 · 模块
+      url: https://www.typescriptlang.org/docs/handbook/modules.html
+    - label: MDN · 使用 Promise
+      url: https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide/Using_promises
+
+- id: python2typescript-5-engineering
+  order: 5
+  title: 工程化收口：在真实项目里用住
+  durationHint: 1 周
+  todo:
+    - 配 typescript-eslint，打开 no-explicit-any 之类规则
+    - 在 CI 里单独加一步 `tsc --noEmit` —— 构建（转译）通过不代表类型是对的
+    - 把一个几百行的 Python 小工具改写成 TS 并跑起来，感受两种语言的取舍
+    - 对照本工具「工程实践」板块里 TypeScript 列的工具链
+  acceptance:
+    - 能独立搭起一个 strict + lint + 类型检查进 CI 的 TS 工程
+    - 能说清迁移策略：为什么先开 strict、为什么边界处必须运行时校验
+  resources:
+    - label: typescript-eslint
+      url: https://typescript-eslint.io/
+    - label: zod（边界处的运行时校验）
+      url: https://zod.dev/

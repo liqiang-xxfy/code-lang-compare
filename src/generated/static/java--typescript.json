@@ -1,0 +1,523 @@
+{
+  "baseline": "java",
+  "target": "typescript",
+  "pitfalls": [
+    {
+      "id": "pitfall-java2ts-erased-no-class",
+      "title": "类型擦除后，连 Class 对象都没有",
+      "symptomHtml": "<p>想用 <code>x instanceof User</code> 检查一个值，或者想在运行时拿到泛型的类型参数，\n发现根本没有这些东西 —— interface 编译后不存在。</p>\n",
+      "causeHtml": "<p>Java 的泛型也擦除，但<strong>类本身</strong>还在：有 .class 文件、有 Class 对象，\n<code>instanceof</code> 与反射都能用，擦除只影响类型参数。\nTS 的擦除更彻底：<strong>整个类型层（interface、type 别名）都不产生运行时代码</strong>，\n运行时只剩下值。所以 Java 里那套「靠 Class 对象做运行时判断」的手段整体失效。</p>\n",
+      "fixHtml": "<p>运行时要判断「是不是这个形状」，只能看值本身：\n<code>typeof</code>、<code>Array.isArray</code>、<code>in</code>，或自定义类型守卫（<code>function isUser(x): x is User</code>）。\n要按类判断就把类写成真的 class（class 会生成运行时对象）再用 instanceof。\n跨进程 / 网络的数据没有类，只能靠 schema 校验。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-erasure",
+      "tags": [
+        "类型系统",
+        "运行时"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-null-and-undefined",
+      "title": "空值不止 null 一个",
+      "symptomHtml": "<p>只熟悉 null，结果 TS 里还有 undefined ——\n没赋值的变量、不存在的属性、没传的参数，全都可能是 undefined。</p>\n",
+      "causeHtml": "<p>Java 只有一个 null。JS/TS 里 undefined 是「语言层面的缺席」\n（未初始化的变量、缺失的属性、省略的实参、无返回值的函数），\nnull 是「显式置空」。判空只写 <code>=== null</code> 会漏掉一大半。</p>\n",
+      "fixHtml": "<p>内部代码统一用 undefined，判空用 <code>x == null</code>（宽松相等同时覆盖两者）。\n开 <code>strictNullChecks</code> 让编译器强制处理这两种空值 ——\n这点反而比 Java 强：Java 的引用默认都可以是 null，编译器并不管。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/null-and-undefined",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-structural-not-nominal",
+      "title": "接口是结构化的 —— 没 implements 也算实现",
+      "symptomHtml": "<p>从没写过 <code>implements Foo</code>，一个对象却被当成 Foo 传进函数；\n反过来，两个字段一样但名字不同的类型互相不兼容，也让人意外。</p>\n",
+      "causeHtml": "<p>Java 是<strong>名义类型</strong>：类型身份由名字与继承关系决定，必须显式 implements。\nTS 是<strong>结构类型</strong>：只看形状是否兼容，名字不影响兼容性，\n也不需要在声明处写 implements（写了只是检查，不是建立身份）。</p>\n",
+      "fixHtml": "<p>把「兼容」理解成形状匹配，而不是继承关系。\n要模拟 Java 的名义式约束（品牌类型），可以用标记属性技巧：\n<code>type UserId = string &amp; { readonly __brand: unique symbol }</code>。\n日常不需要，但读库的类型定义时会遇到。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/structural-nominal",
+      "tags": [
+        "类型系统",
+        "接口"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-this-not-bound",
+      "title": "this 不像 Java 那样总是绑在实例上",
+      "symptomHtml": "<p>把 <code>obj.method</code> 当回调传给 <code>setTimeout</code> 或 <code>array.map</code>，\n运行时报 this 是 undefined。</p>\n",
+      "causeHtml": "<p>Java 的方法调用总是 <code>receiver.method()</code>，<code>this</code> 在编译期就固定了。\nJS/TS 的 <code>this</code> 由<strong>调用时的形式</strong>决定：<code>obj.method()</code> 得到 obj，\n而 <code>f = obj.method; f()</code> 得到的 this 是 undefined。\n方法被「借出去」单独调用时，它与原对象的联系就断了。</p>\n",
+      "fixHtml": "<p>用箭头函数属性 <code>method = () =&gt; {...}</code>（永久捕获定义处的 this），\n或调用处 <code>obj.method.bind(obj)</code>。\n开 <code>noImplicitThis</code>，让悬空的 this 在编译期就报错。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/methods-and-receiver",
+      "tags": [
+        "类",
+        "this"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-collections",
+      "title": "没有 List / Set / Map 的接口体系",
+      "symptomHtml": "<p>找 List、ArrayList、HashMap 的对应物，发现只有 Array、Map、Set，\n而且没有接口与实现的分离，方法名也全不一样。</p>\n",
+      "causeHtml": "<p>Java 的集合是一整套接口（Collection / List / Set / Map）+ 实现（ArrayList / HashMap）。\nJS 只有三个内置：Array（≈ List）、Map、Set ——\n它们既是接口也是实现，没有 Collection 抽象层。方法名也不同：\n<code>add</code> → <code>push</code> / <code>add</code>、<code>size()</code> → <code>size</code>、<code>put</code> → <code>set</code>。</p>\n",
+      "fixHtml": "<p>用 Array 代替 List，Map / Set 代替 HashMap / HashSet。\n注意几个语义差：Array 是动态数组（≈ ArrayList），没有链表；\nMap 的键可以是任意类型（不像 HashMap 只有对象），且保序；\n<code>size</code> 是属性不是方法。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/list-array",
+      "tags": [
+        "集合"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-field-init-order",
+      "title": "字段初始化与声明时机不一样",
+      "symptomHtml": "<p>类字段的初始化顺序，以及「只声明不给值」的行为都与 Java 不同，\n出现了 undefined 或者意外覆盖。</p>\n",
+      "causeHtml": "<p>Java 里字段声明与初始化块按书写顺序在构造前执行，未初始化的引用是 null。\nJS/TS 里类字段在实例化时初始化，<code>useDefineForClassFields</code> 开启时\n「只声明不给值」会真的写入 undefined，并遮蔽原型上的访问器。\n而 TS 里 <code>x: number</code> 这种纯类型声明本不该产生运行时行为，得用 declare。</p>\n",
+      "fixHtml": "<p>纯类型声明加 <code>declare</code>（不产生运行时代码）；\n确实要初始化就在声明处给值，或在构造函数里赋值；\n依赖初始化顺序时把逻辑放进构造函数显式写清楚，别依赖字段书写顺序。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/fields-and-properties",
+      "tags": [
+        "类",
+        "字段"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-overload-typed-only",
+      "title": "重载只是类型层面的，实现仍然只有一个",
+      "symptomHtml": "<p>照着 Java 的习惯写两个同名方法，TS 报「重复实现」；\n写成重载签名后又发现函数体只有一个，得自己在里面判断参数。</p>\n",
+      "causeHtml": "<p>Java 在<strong>运行时</strong>按参数类型分派到不同的方法体，是真正的多态。\nTS 的重载签名只影响<strong>调用处</strong>的类型检查，运行时的函数只有一个，\n参数怎么处理完全由你在函数体里决定 —— 它更像「给一个函数写多套类型声明」。</p>\n",
+      "fixHtml": "<p>能不用重载就不用：改成可选参数、联合类型参数，或者干脆不同名字。\n确实要写重载时，记住实现签名要对所有重载签名兼容，\n并在函数体里用 <code>typeof</code> / <code>arguments.length</code> 自己分支。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/function-declaration",
+      "tags": [
+        "函数",
+        "重载"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-string-equality",
+      "title": "字符串比较用 ===，不是 equals",
+      "symptomHtml": "<p>想当然地写 <code>a.equals(b)</code>（不存在），或者用 <code>==</code> 比对象，\n结果两个内容相同的对象判为不等。</p>\n",
+      "causeHtml": "<p>Java 里 <code>==</code> 比引用、<code>.equals()</code> 比值，字符串必须用 equals —— 著名的坑。\nJS/TS 里 <code>===</code> 比引用（对象、数组永远不等，除非是同一个），\n<strong>没有</strong>自动的按值比较；只有原始值（字符串、数字）的 <code>===</code> 才按值。</p>\n",
+      "fixHtml": "<p>原始值用 <code>===</code>（字符串、数字直接比）；\n对象 / 数组要按值比较，就自己写深比较或用库（lodash.isEqual，或比较序列化结果）。\n别用 <code>==</code>（会隐式转换），唯一例外是 <code>x == null</code> 判空。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/equality",
+      "tags": [
+        "相等"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-unchecked-exceptions",
+      "title": "没有受检异常，catch 到的是 unknown",
+      "symptomHtml": "<p>习惯了 throws 声明，到 TS 发现没有任何签名提示会抛什么；\n<code>catch (e) { e.message }</code> 还报错说 e 是 unknown。</p>\n",
+      "causeHtml": "<p>Java 有受检异常，编译器逼你处理或声明。\nJS/TS 完全没有这层 —— <strong>任何函数都可能抛任何值</strong>，\n类型签名也不表达「会抛什么」。而且 throw 可以抛字符串、数字等任意值，\n所以 catch 变量的类型被定为 <code>unknown</code>。</p>\n",
+      "fixHtml": "<p>自己 throw 时永远抛 Error 子类，保持可预测；\n处理时先收窄：<code>e instanceof Error ? e.message : String(e)</code>。\n受检异常那层保障在 TS 里没有，得靠文档、lint 或返回值式错误处理（如 Result 类型）自己补。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/throw-raise",
+      "tags": [
+        "异常"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-unsound-generics",
+      "title": "泛型是「可选的、可逃逸的」",
+      "symptomHtml": "<p><code>const list: number[] = []</code> 之后 <code>list.push('a' as any)</code> 也能塞进去；\n标着 <code>List&lt;User&gt;</code> 的地方运行时装着别的东西。</p>\n",
+      "causeHtml": "<p>Java 的泛型虽然擦除，但<strong>编译期检查严格</strong>，类型参数一旦确定就不容违背。\nTS 的泛型默认是建议性的：any 能绕过、as 能强转、数组索引访问不检查越界、\nObject 级别的赋值很宽松。它追求的是「描述现有 JS 代码」而不是「强制约束」。</p>\n",
+      "fixHtml": "<p>开 strict 系列选项收紧（strictFunctionTypes、noUncheckedIndexedAccess），\n把 any 换成 unknown。要真正运行时的约束（比如固定元素类型），\n靠 schema 校验或封装类（内部数组不直接暴露），而不是只靠类型标注。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-declaration",
+      "tags": [
+        "泛型",
+        "类型系统"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-visibility-compile-only",
+      "title": "private 只是编译期的，拦不住运行时代码",
+      "symptomHtml": "<p>以为 <code>private</code> 字段运行时真的访问不到，结果编译后它就是个普通属性，谁都能读写。</p>\n",
+      "causeHtml": "<p>Java 的 private 由 JVM 在运行时强制执行。\nTS 的 <code>private</code> / <code>protected</code> 只是<strong>编译期</strong>检查，产物里没有对应机制 ——\n编译后的对象上那个属性是公开的。</p>\n",
+      "fixHtml": "<p>需要运行时的真私有，用 <strong># 私有字段</strong>语法 <code>#count = 0</code>（ES2022，各运行时都支持）。\nTS 的 private 当作团队内的编译期约定即可，别把它当安全边界。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/access-control",
+      "tags": [
+        "类",
+        "可见性"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-java2ts-compile-is-check",
+      "title": "「编译」这个词，两边指的不是一回事",
+      "symptomHtml": "<p>以为 <code>tsc</code> 像 javac 一样产出可运行的东西，或者以为「编译过了」等于「运行时没问题」。</p>\n",
+      "causeHtml": "<p>javac 把源码编译成字节码，是构建的必要环节。\n<code>tsc</code> 默认只做<strong>类型检查 + 去掉类型标注</strong>（产出 JS），\n现代工具链里这一步还常被 Babel / esbuild / SWC 取代（它们只转译、不检查类型），\n于是「构建成功」可能意味着「根本没做类型检查」。</p>\n",
+      "fixHtml": "<p>把类型检查单独跑：CI 里加一步 <code>tsc --noEmit</code>。\n理解职责分工：打包器负责转译与打包（快），tsc 负责类型检查（慢但准）。\n两者都要在流水线里，别用其中一个替代另一个。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "practice/compile-run",
+      "tags": [
+        "工具链"
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "类型",
+      "aliases": [
+        "type",
+        "class"
+      ],
+      "perLanguage": {
+        "java": "类型是运行时的实体 —— 有 Class 对象、能反射、能 instanceof",
+        "typescript": "类型只在编译期存在；运行时被擦除，interface / type 不产生代码"
+      },
+      "note": "Java 里「类型」和 .class 文件绑定，TS 里「类型」纯粹是给编译器的描述。\n所以 Java 那套反射 / instanceof / getClass() 在 TS 里没有对应物，\n运行时要判断形状只能看值本身。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface"
+      ],
+      "perLanguage": {
+        "java": "名义式 —— 必须显式 implements，类型身份由声明决定",
+        "typescript": "结构化 —— 形状匹配即兼容，不必 implements，名字也不参与判断"
+      },
+      "note": "同一个 interface 关键字，一个是「身份」，一个是「形状」。\nJava 里没 implements 就不算实现；TS 里长得像就算 —— 这会让「意外的兼容」变多。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic"
+      ],
+      "perLanguage": {
+        "java": "擦除但编译期检查严格，通配符与边界表达力强",
+        "typescript": "同样擦除，但默认宽松得多 —— any 可绕、as 可强转、索引不查越界"
+      },
+      "note": "两边都叫「泛型」，约束强度差很远。Java 的泛型是编译器强制的，\nTS 的泛型更像「给 IDE 和调用方看的建议」，要收紧得靠 strict 系列选项。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "重载",
+      "aliases": [
+        "overload"
+      ],
+      "perLanguage": {
+        "java": "运行时按参数类型分派到不同方法体，是真正的多态",
+        "typescript": "只是调用处的多套类型签名，运行时只有一个函数体"
+      },
+      "note": "TS 的重载改不了运行时行为，参数处理全靠函数体里的判断。\n从 Java 过来容易高估它，以为写了重载签名运行时就分开了。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "空值",
+      "aliases": [
+        "null",
+        "undefined",
+        "nullable"
+      ],
+      "perLanguage": {
+        "java": "只有 null；引用默认可空，编译器不管（靠注解与工具补）",
+        "typescript": "两个 —— null 与 undefined；严格模式强制显式处理"
+      },
+      "note": "TS 在这点上反而更强：strictNullChecks 把 null / undefined 编进类型，逼你处理。\nJava 的 null 全靠自觉与 @Nullable 注解。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "异常",
+      "aliases": [
+        "exception",
+        "throw",
+        "checked"
+      ],
+      "perLanguage": {
+        "java": "受检异常由编译器强制处理或声明 throws",
+        "typescript": "完全没有受检异常；任何函数都可能抛任何值，签名不表达"
+      },
+      "note": "这是 TS 明显更弱的一块：错误路径不出现在类型里。\n要恢复那种「编译器逼你处理」的保障，得自己用 Result 类型或 lint 规则搭。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "可见性",
+      "aliases": [
+        "private",
+        "protected",
+        "access"
+      ],
+      "perLanguage": {
+        "java": "private / protected 由运行时强制（JVM 保证）",
+        "typescript": "private / protected 只是编译期检查；运行时属性是公开的"
+      },
+      "note": "TS 的可见性修饰符不是安全边界。# 私有字段（ES2022）才是运行时的真私有，\n两者可以叠用。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "集合",
+      "aliases": [
+        "collection",
+        "list",
+        "map"
+      ],
+      "perLanguage": {
+        "java": "接口与实现分离的一整套（Collection / List / Set / Map + 实现类）",
+        "typescript": "只有 Array、Map、Set 三个内置，既是接口也是实现"
+      },
+      "note": "JS 没有 Collection 抽象层。方法名要重新记：add→push / add、size()→size、put→set。\nMap 的键可以是任意类型且保序，这点比 HashMap 宽松。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "相等",
+      "aliases": [
+        "equals",
+        "equality"
+      ],
+      "perLanguage": {
+        "java": "== 比引用，.equals() 按值；字符串必须用 equals",
+        "typescript": "=== 比引用（原始值才按值）；没有自动的按值比较方法"
+      },
+      "note": "两边的「==」都危险但方向不同：Java 的 == 比引用（对象内容相同时为 false），\nJS 的 == 做隐式类型转换。到 TS 里，对象按值比较得自己写或用库。\n",
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "term": "编译",
+      "aliases": [
+        "compile",
+        "javac",
+        "tsc"
+      ],
+      "perLanguage": {
+        "java": "javac 产出字节码，是运行的必要环节",
+        "typescript": "tsc 只做类型检查 + 去类型；产物是 JS，现代工具链常由别的工具转译"
+      },
+      "note": "这个差别决定了「构建通过」的含义：Java 里编译过就基本能跑，\nTS 里构建（转译）过完全可能没做类型检查 —— 要单独跑 tsc --noEmit。\n",
+      "baseline": "java",
+      "target": "typescript"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2typescript-1-no-runtime-types",
+      "order": 1,
+      "title": "接受「类型只活在编译期」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 typescript，用 `npx tsc --init` 生成 tsconfig.json，打开 `\"strict\": true`",
+        "编译一段带 interface 的代码，打开产物看类型是不是全没了",
+        "对照本工具「语言机制」板块里 TypeScript 列的「类型擦除」「静态 vs 动态」两格",
+        "接受一件事：没有 Class 对象、没有反射、没有签名里的 throws"
+      ],
+      "acceptance": [
+        "能说出 Java 的擦除与 TS 的擦除差在哪（class 还在 vs 什么都不剩）",
+        "知道运行时判断形状要靠 typeof / in / 类型守卫，而不是 instanceof"
+      ],
+      "resources": [
+        {
+          "label": "TypeScript 官方手册",
+          "url": "https://www.typescriptlang.org/docs/handbook/intro.html"
+        },
+        {
+          "label": "手册 · 日常类型",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/everyday-types.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "java2typescript-2-types-and-nulls",
+      "order": 2,
+      "title": "类型与两个空值",
+      "durationHint": "2-3 天",
+      "todo": [
+        "过一遍联合类型、字面量类型、类型收窄；用 unknown 取代 any",
+        "把 null 的直觉扩成 null + undefined，内部统一只用 undefined",
+        "比较 strictNullChecks 与 Java 的 @Nullable：哪个真的会拦你",
+        "对照本工具「基础表达」板块里 TypeScript 列的「空值」「相等」两格"
+      ],
+      "acceptance": [
+        "判空时能选对 `x == null` 与 `x === undefined`",
+        "能说清 TS 的 strict 比 Java 的 null 检查强在哪里"
+      ],
+      "resources": [
+        {
+          "label": "手册 · 类型收窄",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/narrowing.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "java2typescript-3-objects-and-classes",
+      "order": 3,
+      "title": "结构化类型与类",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 interface 表达契约，体会「没 implements 也算实现」的结构化语义",
+        "把一段 Java 的类重写成 TS，注意 this 的绑定、字段初始化、private 的失效",
+        "折腾一次 this 丢失的 bug（方法当回调传），再用箭头函数属性修好",
+        "试着用"
+      ],
+      "acceptance": [
+        "能说清名义类型与结构类型的差别，以及品牌类型怎么模拟名义约束",
+        "知道哪些 Java 的运行时保障（反射、真 private）在 TS 里没有了"
+      ],
+      "resources": [
+        {
+          "label": "手册 · 对象类型",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/objects.html"
+        },
+        {
+          "label": "手册 · 类",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/classes.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "java2typescript-4-async-and-modules",
+      "order": 4,
+      "title": "异步与模块",
+      "durationHint": "2-3 天",
+      "todo": [
+        "把 CompletableFuture 的写法改写成 Promise / async / await，注意事件循环是单线程的",
+        "弄清「没有受检异常」意味着错误路径不会出现在签名里，要自己设计错误处理",
+        "理解 ESM 的 import 提升与模块单次求值，与 Java 的 import 只是编译期声明不同",
+        "给一个接口响应写运行时校验，把外部数据与内部类型分开"
+      ],
+      "acceptance": [
+        "能解释 Promise 与 CompletableFuture 的异同，以及为什么「忘记 await」更隐蔽",
+        "能说清没有受检异常时，怎么让错误处理仍然可靠"
+      ],
+      "resources": [
+        {
+          "label": "MDN · 使用 Promise",
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide/Using_promises"
+        },
+        {
+          "label": "手册 · 模块",
+          "url": "https://www.typescriptlang.org/docs/handbook/modules.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    },
+    {
+      "id": "java2typescript-5-engineering",
+      "order": 5,
+      "title": "工程化收口：在真实项目里用住",
+      "durationHint": "1 周",
+      "todo": [
+        "配 typescript-eslint，打开 no-explicit-any 之类规则",
+        "在 CI 里单独加一步 `tsc --noEmit` —— 转译通过不代表类型是对的",
+        "比较 npm / pnpm 与 Maven / Gradle 的依赖管理，理解 lockfile 的角色",
+        "对照本工具「工程实践」板块里 TypeScript 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个 strict + lint + 类型检查进 CI 的 TS 工程",
+        "能说清 TS 与 Java 在构建流程上的根本差别（类型检查不是构建的一部分）"
+      ],
+      "resources": [
+        {
+          "label": "typescript-eslint",
+          "url": "https://typescript-eslint.io/"
+        },
+        {
+          "label": "DefinitelyTyped（@types 的来源）",
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped"
+        }
+      ],
+      "baseline": "java",
+      "target": "typescript"
+    }
+  ]
+}

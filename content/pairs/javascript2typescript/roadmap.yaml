@@ -1,0 +1,101 @@
+# 迁移学习路线 —— 按「基准 → 目标语言」分路径
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+#
+# id 前缀就是这个方向的目录名（javascript2typescript），后面接序号与短名 ——
+# 它只在本文件内唯一，但带上方向前缀之后整份内容里也能一眼看出归属。
+
+- id: javascript2typescript-1-strict-first
+  order: 1
+  title: 先让 tsc 跑起来，并且一开始就开 strict
+  durationHint: 2-3 小时
+  todo:
+    - 装 typescript，用 `npx tsc --init` 生成 tsconfig.json
+    - '把 `"strict": true` 打开 —— 这是后面所有学习的地基，中途再开代价翻倍'
+    - 把一个几百行的 .js 改名成 .ts，看它报多少错；先别急着修，感受一下检查的密度
+    - 打开 TypeScript Playground，把同一段代码在 strict 开 / 关两种设置下各贴一遍，看差异
+  acceptance:
+    - 能说出「编译期检查」与「运行时行为」是两回事，并知道类型标注不会进入产物
+    - 能独立解释 `tsc` 与打包器（Vite / esbuild）各自负责什么
+  resources:
+    - label: TypeScript 官方手册
+      url: https://www.typescriptlang.org/docs/handbook/intro.html
+    - label: TypeScript Playground（在线试 strict 开关）
+      url: https://www.typescriptlang.org/play
+    - label: tsconfig 全部选项参考
+      url: https://www.typescriptlang.org/tsconfig
+
+- id: javascript2typescript-2-types-and-narrowing
+  order: 2
+  title: 从「会标注」到「会收窄」
+  durationHint: 2-3 天
+  todo:
+    - 过一遍原始类型、数组、元组、联合类型、字面量类型（`'a' | 'b'`）
+    - 把 `any` 逐个换成 `unknown`，然后练习用 typeof / in / instanceof / 类型守卫把它收窄回来
+    - 对照本工具「语言机制」板块里 TypeScript 列的「类型擦除」「空安全」两格
+    - 刻意写几个「编译通过但运行时炸」的例子（`as` 断言错类型），把教训记进本方向的迁移陷阱
+  acceptance:
+    - 遇到 `Object is possibly 'undefined'` 时，能写出收窄而不是用 `!` 压掉
+    - 能说清 `unknown` 与 `any` 的区别，以及为什么默认该选前者
+  resources:
+    - label: 手册 · 日常类型
+      url: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+    - label: 手册 · 类型收窄
+      url: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+
+- id: javascript2typescript-3-objects-and-generics
+  order: 3
+  title: 对象类型、泛型与推断
+  durationHint: 3-5 天
+  todo:
+    - 弄清 interface 与 type 的取舍，以及 interface 的声明合并行为
+    - 写几个泛型函数，体会「推断失败时静默变宽」有多难查
+    - 掌握 keyof、索引访问类型、映射类型这几块「类型层面编程」的基石
+    - 用 zod 之类的库给一个接口响应写 schema，把边界校验补起来
+  acceptance:
+    - 能写出带约束的泛型函数，并在推断失败时知道怎么显式指定类型参数
+    - 能说清结构类型是什么，以及为什么「多写一个字段」有时报错有时不报
+  resources:
+    - label: 手册 · 对象类型
+      url: https://www.typescriptlang.org/docs/handbook/2/objects.html
+    - label: 手册 · 泛型
+      url: https://www.typescriptlang.org/docs/handbook/2/generics.html
+    - label: zod（边界处的运行时校验）
+      url: https://zod.dev/
+
+- id: javascript2typescript-4-classes-and-modules
+  order: 4
+  title: 类、模块与第三方类型
+  durationHint: 3-5 天
+  todo:
+    - 分清类字段的「纯类型声明」与「真的初始化」，用 declare 处理前者
+    - 掌握 `import type`，并理解为什么转译器分不清类型与值的 import
+    - 给一个没有类型的第三方库写一份最小的 .d.ts，理解声明文件的角色
+    - 处理一次 CJS 与 ESM 混用的报错，搞清 esModuleInterop 与 moduleResolution
+  acceptance:
+    - 能解释 useDefineForClassFields 为什么会改变类的运行结果
+    - 能在遇到「找不到模块的类型声明」时，知道去哪儿找或怎么写
+  resources:
+    - label: 手册 · 类
+      url: https://www.typescriptlang.org/docs/handbook/2/classes.html
+    - label: 手册 · 模块与模块解析
+      url: https://www.typescriptlang.org/docs/handbook/modules.html
+
+- id: javascript2typescript-5-engineering
+  order: 5
+  title: 工程化收口：在真实项目里用住
+  durationHint: 1 周
+  todo:
+    - 配 typescript-eslint，把 no-explicit-any、no-unnecessary-type-assertion 之类打开
+    - 在 CI 里单独加一步 `tsc --noEmit` —— 构建通过不代表类型是对的
+    - 从 DefinitelyTyped 找几个常用库的类型包，理解 @types/xxx 的解析顺序
+    - 用「allowJs + 逐目录收紧」的方式，把一个大 JS 项目逐步迁到 TS
+  acceptance:
+    - 能独立搭起一个 strict + lint + 类型检查进 CI 的 TS 工程
+    - 能说清迁移策略：为什么先开 strict、为什么边界处要运行时校验
+  resources:
+    - label: typescript-eslint
+      url: https://typescript-eslint.io/
+    - label: DefinitelyTyped（@types 的来源）
+      url: https://github.com/DefinitelyTyped/DefinitelyTyped
+    - label: 手册 · 从 JavaScript 迁移
+      url: https://www.typescriptlang.org/docs/handbook/migrating-from-javascript.html

@@ -1,0 +1,524 @@
+{
+  "baseline": "python",
+  "target": "typescript",
+  "pitfalls": [
+    {
+      "id": "pitfall-py2ts-erased-at-runtime",
+      "title": "标注了类型，运行时什么都不检查",
+      "symptomHtml": "<p>给函数签上 <code>function parse(raw: string): Config</code> 就以为返回的一定是 <code>Config</code>；\n直到某个字段缺失，<code>config.port.toString()</code> 在运行时炸掉。</p>\n",
+      "causeHtml": "<p>Python 的类型标注运行时至少还挂在 <code>__annotations__</code> 上、能用\n<code>typing.get_type_hints</code> 取出来，也还能 <code>isinstance</code> 兜底；\nTypeScript 的类型<strong>编译后整个消失</strong>，产物里一行都不剩。\n所以标注是「对编译器的承诺」，不是「运行时的检查」——\n与 Python 不同，这里连 isinstance 都补不上。</p>\n",
+      "fixHtml": "<p>把系统边界（网络响应、JSON、环境变量、命令行）当不可信输入，\n用 zod 之类的库做运行时校验再交给类型系统：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> Config</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> z</span><span style=\"color:var(--shiki-token-function)\">.object</span><span style=\"color:var(--shiki-foreground)\">({ port</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> z</span><span style=\"color:var(--shiki-token-function)\">.number</span><span style=\"color:var(--shiki-foreground)\">() })</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> cfg</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> Config</span><span style=\"color:var(--shiki-token-function)\">.parse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-constant)\">JSON</span><span style=\"color:var(--shiki-token-function)\">.parse</span><span style=\"color:var(--shiki-foreground)\">(raw))   </span><span style=\"color:var(--shiki-token-comment)\">// 这里才真的检查</span></span></code></pre>\n<p>可以把它理解成「Pydantic，但显式写在边界处」。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-erasure",
+      "tags": [
+        "类型系统",
+        "边界"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-this-binding",
+      "title": "this 不是显式的 self，它会丢",
+      "symptomHtml": "<p>把方法当回调传出去 <code>arr.map(obj.method)</code>，运行时报\n「Cannot read properties of undefined」—— <code>this</code> 已经不是那个对象了。</p>\n",
+      "causeHtml": "<p>Python 的方法第一个参数是显式的 <code>self</code>，绑定发生在属性访问那一刻，怎么传都不丢；\nTS/JS 的 <code>this</code> 是<strong>隐式</strong>的，值取决于<strong>调用方式</strong>而不是定义位置。\n脱离对象单独调用（或作为回调传递）时，<code>this</code> 变成 undefined。</p>\n",
+      "fixHtml": "<p>三条路：① 定义成箭头函数属性 <code>method = () =&gt; {...}</code>（捕获定义处的 this）；\n② 调用处绑定 <code>obj.method.bind(obj)</code>；③ 干脆写成不依赖 this 的独立函数，把对象当参数传。\n在 tsconfig 开 <code>noImplicitThis</code>，让裸用 this 直接报错。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/methods-and-receiver",
+      "tags": [
+        "类",
+        "this"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-two-nulls",
+      "title": "空值有两个 —— null 和 undefined",
+      "symptomHtml": "<p>Python 只有 <code>None</code>，到了 TS 却要面对 <code>null</code> 与 <code>undefined</code> 两个空值；\n<code>if (x === null)</code> 漏掉 undefined 的路径，<code>x == null</code> 又拿不准是不是故意为之。</p>\n",
+      "causeHtml": "<p>JS/TS 里 <code>undefined</code> 是「没赋值 / 属性不存在」的默认值，<code>null</code> 是「显式置空」。\nPython 的 <code>None</code> 一个词覆盖了两种情况，所以迁移时很容易忽略\n二者在 <code>===</code>、可选属性、默认参数上的不同表现。</p>\n",
+      "fixHtml": "<p>统一口径：<strong>内部代码一律用 undefined</strong>（不写 <code>null</code>），\n只在必须对接的外部数据（JSON 里显式的 null）处处理 null。\n判空用 <code>x == null</code>（宽松相等，同时覆盖两者，这是 JS 里少数推荐用 <code>==</code> 的场合），\n或 <code>x === undefined</code> 明确只判 undefined。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/null-and-undefined",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-assert-not-cast",
+      "title": "as 不是类型转换，它什么都不做",
+      "symptomHtml": "<p><code>const n = someValue as number</code> 以为把字符串转成了数字，\n实际运行时 <code>n</code> 还是字符串，<code>n.toFixed(2)</code> 直接崩。</p>\n",
+      "causeHtml": "<p>Python 的 <code>int(x)</code> / <code>str(x)</code> 是<strong>运行时构造函数</strong>，真的转换值；\n<code>typing.cast(T, x)</code> 虽然也只是提示，但至少只有它一个名字。\nTS 的 <code>as</code> 兼了两者的外表却是后者的语义：<strong>编译期断言</strong>，\n运行时零操作，还可能把错误的类型强加给编译器。</p>\n",
+      "fixHtml": "<p>需要真的转换值就调用转换函数：<code>Number(x)</code> / <code>String(x)</code> / <code>parseInt(x, 10)</code>。\n需要「按某个类型使用」时才用 as，且只在你比编译器知道得多时用。\n要安全收窄用类型守卫（<code>typeof</code> / <code>in</code> / 自定义 <code>x is T</code>），而不是 as。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-assertion",
+      "tags": [
+        "类型系统",
+        "转换"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-catch-unknown",
+      "title": "catch 到的东西是 unknown，不是异常对象",
+      "symptomHtml": "<p><code>catch (e) { console.log(e.message) }</code> 报错说 e 是 unknown；\n或者反过来，以为 catch 的一定是 Error，结果它可能是任何被 throw 的值。</p>\n",
+      "causeHtml": "<p>JS/TS <strong>可以 throw 任何值</strong>（字符串、数字、对象），不像 Python 只能抛\nBaseException 的子类。所以 TS 把 catch 变量的类型定成 <code>unknown</code>，\n逼你先判断它到底是什么 —— 而 Python 的 <code>except Exception as e</code> 里\ne 天然带 <code>.args</code>、<code>str(e)</code> 这些。</p>\n",
+      "fixHtml": "<p>收窄后再用：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">catch</span><span style=\"color:var(--shiki-foreground)\"> (e) {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  const</span><span style=\"color:var(--shiki-token-constant)\"> msg</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> e </span><span style=\"color:var(--shiki-token-keyword)\">instanceof</span><span style=\"color:var(--shiki-token-function)\"> Error</span><span style=\"color:var(--shiki-token-keyword)\"> ?</span><span style=\"color:var(--shiki-token-constant)\"> e</span><span style=\"color:var(--shiki-foreground)\">.message </span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> String</span><span style=\"color:var(--shiki-foreground)\">(e)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>\n<p>自己 throw 时永远抛 <code>Error</code>（或子类），别抛裸字符串 —— 那会毁掉调用方的类型判断。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/try-catch",
+      "tags": [
+        "异常"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-decorator-semantics",
+      "title": "装饰器语法一样，语义完全不是一回事",
+      "symptomHtml": "<p>看到 <code>@Component</code> 以为是 Python 那种「把函数包一层」的装饰器，\n结果发现它改不了函数本身，只是个元数据标记，行为由框架在别处读。</p>\n",
+      "causeHtml": "<p>Python 的装饰器就是<strong>高阶函数</strong>：<code>@deco</code> 等价于 <code>f = deco(f)</code>，包一层、换一个函数出来，\n语义透明。TS 的装饰器是<strong>元编程钩子</strong>：在类 / 方法 / 属性上挂元数据或替换描述符，\n作用对象、返回值、能否改变定义各有规则，也不能像 Python 那样直接装饰任意函数。</p>\n",
+      "fixHtml": "<p>把 TS 装饰器理解成「框架的声明式配置」，而不是「函数的包装」。\n要做 Python 式的包装，直接写高阶函数 <code>const wrapped = (f) =&gt; (...args) =&gt; {...}</code>，\n不需要装饰器语法。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/decorator-annotation",
+      "tags": [
+        "装饰器"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-equality",
+      "title": "is None 要换成两套判等",
+      "symptomHtml": "<p>把 <code>if x is None</code> 直译成 <code>if x === null</code>，漏掉了 undefined 的情况；\n或者用 <code>==</code> 比较对象，得到的结果和 Python 的 <code>==</code> 完全不同。</p>\n",
+      "causeHtml": "<p>Python 的 <code>==</code> 会调用 <code>__eq__</code>（可按值比较），<code>is</code> 比身份；\nJS/TS 的 <code>===</code> 比<strong>引用</strong>（对象永远不等，除非是同一个），\n<code>==</code> 又会做<strong>隐式类型转换</strong>（<code>'1' == 1</code> 为 true）。\n两边的 <code>==</code> 语义几乎相反，直觉迁移必错。</p>\n",
+      "fixHtml": "<p>对象 / 数组比较：用 <code>===</code> 判引用，要按值比较就自己写或上库（如 lodash.isEqual）。\n判空用 <code>x == null</code>（同时覆盖 null 与 undefined）。\n其它一律 <code>===</code>，把 <code>==</code> 只留给 <code>== null</code> 这一个例外。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/equality",
+      "tags": [
+        "相等"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-module-hoisting",
+      "title": "import 是静态的，还会被提前",
+      "symptomHtml": "<p>在模块顶层写了一段有副作用的代码，以为它只在被用到时才执行；\n结果 import 一写，它就先跑了，甚至早于本文件里的其它语句。</p>\n",
+      "causeHtml": "<p>Python 的 import 也是执行模块，但 TS/JS 的 ESM <strong>import 声明会被提升</strong>到文件顶部，\n且模块只求值一次、循环依赖时可能拿到未初始化的绑定。\nPython 习惯里的「import 放进函数里延迟加载」在 ESM 里也不再是常规手段。</p>\n",
+      "fixHtml": "<p>把有副作用的初始化放进显式函数（<code>init()</code>）而不是模块顶层；\n真要延迟加载用<strong>动态</strong> <code>await import()</code>（返回 Promise，且不提升）。\n循环依赖尽量靠拆分模块解掉，别指望执行顺序。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/module-resolution",
+      "tags": [
+        "模块"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-no-dataclass",
+      "title": "没有 dataclass 帮你生成构造函数",
+      "symptomHtml": "<p>写了 <code>interface User { name: string; age: number }</code>，接着 <code>new User('a', 1)</code> 报错 ——\ninterface 不能 new，也没有自动的构造函数。</p>\n",
+      "causeHtml": "<p>TS 的 interface <strong>只是类型</strong>，编译后消失，没有运行时的构造逻辑，\n更没有 Python dataclass / Pydantic 那种「按字段自动生成构造」。\n对象字面量 <code>{ name: 'a', age: 1 }</code> 不需要类，但也就没有校验与默认值。</p>\n",
+      "fixHtml": "<p>要「带校验的构造」可以用 class 加显式构造函数，或者直接靠 zod 从原始数据解析出对象：\n<code>const u = User.parse(raw)</code>。日常大多数场景根本不需要 class ——\n一个 interface 加一个解析函数就够，别硬套 Python 的类习惯。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/constructor",
+      "tags": [
+        "类",
+        "构造"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-static-structure",
+      "title": "鸭子类型变成了编译期的结构检查",
+      "symptomHtml": "<p>Python 里「有 quack() 就能当鸭子」的写法，到 TS 里必须预先声明一个类型，\n或者到处写 as；运行时的灵活换成了编译期的报错。</p>\n",
+      "causeHtml": "<p>Python 在<strong>运行时</strong>按实际有无该属性来判断（鸭子类型），\nTS 在<strong>编译期</strong>按声明的结构是否兼容来判断。二者方向相反：\nPython 是「跑起来才知道」，TS 是「编译时就必须看出来」。\n动态拼出来的对象（<code>**kwargs</code>、<code>setattr</code>）在 TS 里没有类型可言。</p>\n",
+      "fixHtml": "<p>用<strong>结构化类型</strong>表达：定义一个只包含你需要的方法的 interface，\n任何满足它的对象自动兼容（不需要 implements）—— 这其实就是 TS 版的 Protocol。\n遇到运行时才确定的形状，老实收窄成 <code>Record&lt;string, unknown&gt;</code> 再逐键校验。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/static-vs-dynamic",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-no-comprehension",
+      "title": "没有推导式，但 map/filter 也不是等价替换",
+      "symptomHtml": "<p>把 <code>[x*2 for x in xs if x &gt; 0]</code> 直译成 <code>xs.map(x =&gt; x*2).filter(...)</code>，\n结果 filter 写在了 map 后面，语义对不上。</p>\n",
+      "causeHtml": "<p>TS 没有推导式语法，对应的是 <code>Array.prototype.map</code> / <code>filter</code> / <code>reduce</code>。\n但「先过滤再映射」这个 Python 推导式的隐含顺序，直译时最容易搞反；\n而且 map/filter 每次都产生新数组，链长了有中间数组开销。</p>\n",
+      "fixHtml": "<p>记住推导式 <code>[f(x) for x in xs if p(x)]</code> 的正确对应是 <strong>先 filter 后 map</strong>：\n<code>xs.filter(p).map(f)</code>。\n复杂场景用 <code>flatMap</code>（≈ 嵌套推导式）或 <code>reduce</code>；性能敏感时用 for 循环。</p>\n",
+      "severity": 1,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/comprehension",
+      "tags": [
+        "集合",
+        "函数"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-py2ts-tuple-readable",
+      "title": "元组在 TS 里是「定长数组」，而且能改",
+      "symptomHtml": "<p>以为 <code>[number, string]</code> 像 Python 的 tuple 一样不可变，结果 <code>t[0] = 99</code> 通过了。</p>\n",
+      "causeHtml": "<p>Python 的 tuple 是<strong>不可变</strong>序列；TS 的 tuple 只是「长度和每位置类型固定的数组」，\n默认仍然可写。要不可变得显式写成 <code>readonly [number, string]</code>（或 <code>as const</code>）。</p>\n",
+      "fixHtml": "<p>需要不可变时标 <code>readonly</code>：<code>type Pair = readonly [number, string]</code>，\n或者用 <code>as const</code> 从字面量推出只读元组。\n记住 readonly 是编译期约束，运行时仍是普通数组（要真不可变得 Object.freeze）。</p>\n",
+      "severity": 1,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/tuple-record",
+      "tags": [
+        "元组",
+        "不可变"
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "类型",
+      "aliases": [
+        "type"
+      ],
+      "perLanguage": {
+        "python": "运行时是一等对象 —— `type(x)`、`isinstance` 都真实可用",
+        "typescript": "只在编译期存在；运行时没有对应物，标注会被整个擦除"
+      },
+      "note": "Python 的「类型」是能拿到手的对象，TS 的「类型」是一层编译期描述。\n所以 Python 里 `type(x) is int` 这种运行时判断在 TS 里没有等价物 ——\n只能用值本身做运行时判断（typeof / instanceof / schema）。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "协议 / 接口",
+      "aliases": [
+        "protocol",
+        "interface",
+        "abc"
+      ],
+      "perLanguage": {
+        "python": "Protocol（typing，结构化，可选）或 ABC（抽象基类，名义式，需显式继承）",
+        "typescript": "interface —— 结构化契约，形状匹配的对象自动兼容，无需声明继承"
+      },
+      "note": "TS 的 interface 默认就是 Python Protocol 那种结构化语义（不用 implements），\n而 Python 更常用的反而是名义式的 ABC。所以「我实现了这个接口」在两边含义不同：\nTS 里可能什么都没写就满足了，Python 里必须显式继承。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "断言",
+      "aliases": [
+        "assert",
+        "assertion"
+      ],
+      "perLanguage": {
+        "python": "assert 语句 —— 运行时的检查（`-O` 优化模式会被剥掉）",
+        "typescript": "as / ! —— 编译期的类型断言，运行时什么都不做"
+      },
+      "note": "都叫「断言」，却一个在运行时真的会拦、一个只是给编译器的提示。\nPython 的 assert 还能被优化模式关掉，TS 的 as 则永远不产生代码。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "装饰器",
+      "aliases": [
+        "decorator"
+      ],
+      "perLanguage": {
+        "python": "高阶函数语法糖，`@deco` 等价于 `f = deco(f)`，可装饰任意函数与类",
+        "typescript": "元编程钩子，只能作用于类及其成员，用来挂元数据或替换描述符"
+      },
+      "note": "语法长得一样，机制是两回事。Python 装饰器透明地换掉一个函数；\nTS 装饰器更接近「给框架读的注解」，函数本身不一定会被替换。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "空值",
+      "aliases": [
+        "none",
+        "null",
+        "undefined"
+      ],
+      "perLanguage": {
+        "python": "只有一个 None，同时表达「没有值」与「显式置空」",
+        "typescript": "两个 —— undefined（未赋值 / 属性不存在）与 null（显式置空）"
+      },
+      "note": "Python 的一个 None 对应 TS 的两个空值，迁移时的常见 bug 就是只判了其中一个。\n判空统一用 `x == null` 可同时覆盖两者。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "鸭子类型",
+      "aliases": [
+        "duck-typing"
+      ],
+      "perLanguage": {
+        "python": "运行时按「有没有那个方法」判断，一切跑起来后才确定",
+        "typescript": "编译期按「结构是否兼容」判断，跑起来之前就要求说清楚"
+      },
+      "note": "同一个理念（看能力不看身份），一个落在运行时，一个落在编译期。\nTS 里想表达「有 quack() 就算鸭子」，就写一个只有 quack 的 interface，\n满足它的对象自动兼容 —— 这是编译期的鸭子类型。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "self / this",
+      "aliases": [
+        "self",
+        "this"
+      ],
+      "perLanguage": {
+        "python": "方法的第一个参数显式写 self，绑定在属性访问时确定，怎么传都不丢",
+        "typescript": "this 是隐式关键字，值取决于调用方式，作为回调传递时会丢"
+      },
+      "note": "显式 vs 隐式是最大的直觉差：Python 里 self 是参数，TS 里 this 是上下文。\n迁过来第一件事就是习惯用箭头函数属性或 bind 把 this 固定住。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "数据类",
+      "aliases": [
+        "dataclass",
+        "pydantic"
+      ],
+      "perLanguage": {
+        "python": "dataclass / Pydantic 按字段自动生成构造、repr、校验",
+        "typescript": "interface 只有类型、没有运行时；要么手写 class，要么用 zod 等库解析"
+      },
+      "note": "Python 里「声明字段就得到构造与校验」这件事，TS 的类型系统完全不管。\n需要运行时行为就得显式写出来，或者交给 schema 库。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "类型转换",
+      "aliases": [
+        "cast",
+        "conversion"
+      ],
+      "perLanguage": {
+        "python": "int() / str() / float() 是运行时转换；typing.cast 只是静态提示",
+        "typescript": "没有运行时转换语法；转换靠 Number() / String()，as 只是编译期断言"
+      },
+      "note": "两个「cast」含义不同：Python 的 cast 是提示，但这门语言另有真的转换函数；\nTS 的 as 是提示，而且没有对应的运行时转换语法 —— 转换要靠全局函数手工做。\n",
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "term": "生成器",
+      "aliases": [
+        "generator",
+        "iterator",
+        "yield"
+      ],
+      "perLanguage": {
+        "python": "用 yield 写生成器函数，返回迭代器，惰性且一次性",
+        "typescript": "function* 生成器返回迭代器，机制相似；但数组的 map / filter 都是立即求值"
+      },
+      "note": "yield 的语义两边接近，都是一次性惰性序列。真正的差别在生态：\nPython 的 itertools 与生成器惯用法更多，TS 里惰性求值常常要自己用生成器或库搭。\n",
+      "baseline": "python",
+      "target": "typescript"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "python2typescript-1-dynamic-to-static",
+      "order": 1,
+      "title": "先接受「编译期」这道关",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 typescript，用 `npx tsc --init` 生成 tsconfig.json，并把 `\"strict\": true` 打开",
+        "写一段你在 Python 里很熟的小逻辑，用 TS 重写，感受「写之前就要想清楚类型」",
+        "对照本工具「语言机制」板块里 TypeScript 列的「静态 vs 动态」「类型擦除」两格",
+        "记住一件事：类型是给编译器的，运行时它不存在 —— 与 Python 的 `__annotations__` 不同"
+      ],
+      "acceptance": [
+        "能说出 Python 的运行时类型检查与 TS 的编译期类型检查各在什么时刻发生",
+        "能解释为什么 TS 需要 zod 这类库，而 Python 有 Pydantic"
+      ],
+      "resources": [
+        {
+          "label": "TypeScript 官方手册",
+          "url": "https://www.typescriptlang.org/docs/handbook/intro.html"
+        },
+        {
+          "label": "手册 · 从 JavaScript 迁移（对其它语言背景同样适用）",
+          "url": "https://www.typescriptlang.org/docs/handbook/migrating-from-javascript.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "python2typescript-2-types-and-nulls",
+      "order": 2,
+      "title": "类型基础与两个空值",
+      "durationHint": "2-3 天",
+      "todo": [
+        "过一遍原始类型、联合类型、字面量类型；练习用 typeof / in 做收窄",
+        "把 `None` 的直觉拆成 undefined 与 null 两种，并统一内部代码只用 undefined",
+        "把 `any` 全换成 `unknown`，体会每次使用前必须收窄的感觉",
+        "对照本工具「基础表达」板块里 TypeScript 列的「空值」「相等」两格"
+      ],
+      "acceptance": [
+        "遇到空值时，能立刻判断该用 `x == null` 还是 `x === undefined`",
+        "能说清 unknown 与 any 的区别，并解释为什么默认选前者"
+      ],
+      "resources": [
+        {
+          "label": "手册 · 日常类型",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/everyday-types.html"
+        },
+        {
+          "label": "手册 · 类型收窄",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/narrowing.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "python2typescript-3-objects-and-classes",
+      "order": 3,
+      "title": "对象、类与结构化类型",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 interface 表达「有这些能力就算数」—— 体会它就是编译期的 Protocol",
+        "把 dataclass 的写法在 TS 里重写一遍，看看要补多少样板，或改用 zod 解析",
+        "折腾一次 this 丢失的 bug（把方法当回调传），然后用箭头函数属性修好",
+        "写几个泛型函数，注意「推断失败时静默变宽」这个反直觉行为"
+      ],
+      "acceptance": [
+        "能说清结构化类型与 Python 鸭子类型的关系：同一理念，一个在编译期一个在运行时",
+        "能在需要时用 class + 显式构造，也能克制住「什么都写成类」的冲动"
+      ],
+      "resources": [
+        {
+          "label": "手册 · 对象类型",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/objects.html"
+        },
+        {
+          "label": "手册 · 类",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/classes.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "python2typescript-4-async-and-modules",
+      "order": 4,
+      "title": "异步与模块",
+      "durationHint": "2-3 天",
+      "todo": [
+        "把一段 asyncio 代码改写成 async / await，注意「事件循环只有一个、默认单线程」",
+        "弄清 ESM 的 import 会提升、模块只求值一次，与 Python 的 import 执行时机不同",
+        "处理一次循环依赖，理解为什么 ESM 不像 Python 那样容易靠 import 顺序绕开",
+        "给一个接口响应写 zod schema，把边界校验和内部类型分开"
+      ],
+      "acceptance": [
+        "能解释 Promise 与 asyncio Task 的异同，以及为什么「忘记 await」在 TS 里更隐蔽",
+        "能写动态 import 做延迟加载，并说清它与静态 import 的执行时机差别"
+      ],
+      "resources": [
+        {
+          "label": "手册 · 模块",
+          "url": "https://www.typescriptlang.org/docs/handbook/modules.html"
+        },
+        {
+          "label": "MDN · 使用 Promise",
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide/Using_promises"
+        }
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    },
+    {
+      "id": "python2typescript-5-engineering",
+      "order": 5,
+      "title": "工程化收口：在真实项目里用住",
+      "durationHint": "1 周",
+      "todo": [
+        "配 typescript-eslint，打开 no-explicit-any 之类规则",
+        "在 CI 里单独加一步 `tsc --noEmit` —— 构建（转译）通过不代表类型是对的",
+        "把一个几百行的 Python 小工具改写成 TS 并跑起来，感受两种语言的取舍",
+        "对照本工具「工程实践」板块里 TypeScript 列的工具链"
+      ],
+      "acceptance": [
+        "能独立搭起一个 strict + lint + 类型检查进 CI 的 TS 工程",
+        "能说清迁移策略：为什么先开 strict、为什么边界处必须运行时校验"
+      ],
+      "resources": [
+        {
+          "label": "typescript-eslint",
+          "url": "https://typescript-eslint.io/"
+        },
+        {
+          "label": "zod（边界处的运行时校验）",
+          "url": "https://zod.dev/"
+        }
+      ],
+      "baseline": "python",
+      "target": "typescript"
+    }
+  ]
+}

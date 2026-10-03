@@ -1,0 +1,534 @@
+{
+  "baseline": "javascript",
+  "target": "typescript",
+  "pitfalls": [
+    {
+      "id": "pitfall-js2ts-any-contagion",
+      "title": "一个 any 让整条链路失去检查",
+      "symptomHtml": "<p>为了先跑通，给某个参数写了 <code>any</code>。之后所有从它派生出来的值都变成 <code>any</code>，\n访问不存在的属性、调用不存在的方法，编译器一声不吭。</p>\n",
+      "causeHtml": "<p><code>any</code> 是<strong>双向逃生舱</strong>：既能赋给任何类型，也能接受任何类型，而且<strong>会传染</strong> ——\n<code>any</code> 的属性访问结果还是 <code>any</code>，一路往下传。\n从 JS 迁过来时，老代码常见的做法是「先 any 掉，以后再补」，\n结果整片区域退回 JS 的检查水平，而编辑器看起来一切正常。</p>\n",
+      "fixHtml": "<p>默认用 <code>unknown</code> 而不是 <code>any</code>：<code>unknown</code> 同样能接住任何值，\n但<strong>用之前必须先收窄</strong>（<code>typeof</code> / <code>in</code> / schema 解析），\n把「先放着」变成「编译器逼你说清楚」。\n开 <code>noImplicitAny</code> 让隐式 any 直接报错；再配\n<code>@typescript-eslint/no-explicit-any</code> 限制显式 any。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/static-vs-dynamic",
+      "tags": [
+        "类型系统"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-assertion-not-cast",
+      "title": "as 不是转换，是「让编译器闭嘴」",
+      "symptomHtml": "<p><code>const el = document.querySelector('#app') as HTMLDivElement</code>，\n以为它在做某种转换。等 <code>#app</code> 不存在时，报错发生在下一行，和 <code>as</code> 这行毫无关系。</p>\n",
+      "causeHtml": "<p><code>as</code>（以及老写法 <code>&lt;T&gt;x</code>）是<strong>类型断言</strong>，运行时<strong>一个字节都不生成</strong>。\n它唯一的作用是告诉编译器「按这个类型看待我」，编译器据此放行 —— 哪怕断言是错的。\n它和 C 系语言里会真的做转换的 cast 只是长得像，语义完全不同。</p>\n",
+      "fixHtml": "<p>只有<strong>你比编译器知道得多</strong>、且能说清理由时才用 <code>as</code>；\n需要「按运行时形态判断」时用<strong>类型守卫</strong>：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">function</span><span style=\"color:var(--shiki-token-function)\"> isDiv</span><span style=\"color:var(--shiki-foreground)\">(el</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-function)\"> Element</span><span style=\"color:var(--shiki-foreground)\">)</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-foreground)\"> el </span><span style=\"color:var(--shiki-token-keyword)\">is</span><span style=\"color:var(--shiki-token-function)\"> HTMLDivElement</span><span style=\"color:var(--shiki-foreground)\"> {</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">  return</span><span style=\"color:var(--shiki-token-constant)\"> el</span><span style=\"color:var(--shiki-foreground)\">.tagName </span><span style=\"color:var(--shiki-token-keyword)\">===</span><span style=\"color:var(--shiki-token-string-expression)\"> 'DIV'</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> (</span><span style=\"color:var(--shiki-token-function)\">isDiv</span><span style=\"color:var(--shiki-foreground)\">(el)) </span><span style=\"color:var(--shiki-token-constant)\">el</span><span style=\"color:var(--shiki-foreground)\">.innerHTML </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> '...'</span><span style=\"color:var(--shiki-token-comment)\">   // 这里才是安全的收窄</span></span></code></pre>\n<p>想从 <code>unknown</code> 拿到具体类型，用 schema 解析而不是 <code>as</code>。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-assertion",
+      "tags": [
+        "类型系统",
+        "收窄"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-erased-at-runtime",
+      "title": "标注了类型，运行时却什么都不检查",
+      "symptomHtml": "<p>给函数签上 <code>function handle(user: User)</code> 就以为传进来的一定是 <code>User</code>；\n直到线上收到一个缺字段的响应，<code>user.name.toUpperCase()</code> 在运行时炸掉 ——\n而编译器从编译到打包，一次都没报过错。</p>\n",
+      "causeHtml": "<p>TypeScript 的类型<strong>只活在编译期</strong>，产物里被整个擦除：<code>interface User {...}</code>\n编译后一行都不剩，连 <code>instanceof</code> 都没得查。所以标注是「你对编译器的承诺」，\n不是「运行时替你把关」。JS 本来就没有类型这层，你不会指望它；\n可一旦开始写标注，很容易把「编辑器不报错」误读成「数据是对的」。</p>\n",
+      "fixHtml": "<p>把<strong>系统边界</strong>当作不可信输入（网络响应、<code>JSON.parse</code>、<code>localStorage</code>、\n命令行参数、第三方回调），用运行时校验库（zod / valibot / arktype）\n解析一遍再交给类型系统：</p>\n<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> User</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> z</span><span style=\"color:var(--shiki-token-function)\">.object</span><span style=\"color:var(--shiki-foreground)\">({ name</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> z</span><span style=\"color:var(--shiki-token-function)\">.string</span><span style=\"color:var(--shiki-foreground)\">()</span><span style=\"color:var(--shiki-token-punctuation)\">,</span><span style=\"color:var(--shiki-foreground)\"> age</span><span style=\"color:var(--shiki-token-keyword)\">:</span><span style=\"color:var(--shiki-token-constant)\"> z</span><span style=\"color:var(--shiki-token-function)\">.number</span><span style=\"color:var(--shiki-foreground)\">() })</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> user</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> User</span><span style=\"color:var(--shiki-token-function)\">.parse</span><span style=\"color:var(--shiki-foreground)\">(</span><span style=\"color:var(--shiki-token-keyword)\">await</span><span style=\"color:var(--shiki-token-constant)\"> res</span><span style=\"color:var(--shiki-token-function)\">.json</span><span style=\"color:var(--shiki-foreground)\">())   </span><span style=\"color:var(--shiki-token-comment)\">// 这里才真的检查</span></span></code></pre>\n<p>内部函数之间靠静态类型，边界处靠 schema —— 两者不能互相替代。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-erasure",
+      "tags": [
+        "类型系统",
+        "边界"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-strict-off",
+      "title": "没开 strict，null 还在满天飞",
+      "symptomHtml": "<p>项目里写了类型标注，<code>null</code> 却依然能随便传给非空参数；\n标着 <code>string</code> 的变量运行时是 <code>undefined</code>，报错还是发生在运行期。</p>\n",
+      "causeHtml": "<p>TS 的空安全<strong>不是默认开着的</strong> —— 它由 <code>strictNullChecks</code> 控制，\n而 <code>strict: false</code>（或只配了零散选项）时，<code>null</code> 与 <code>undefined</code>\n对任何类型都可赋值，检查形同虚设。很多迁移项目从 <code>tsc --init</code> 的宽松版\n或旧模板起步，就停在了这个状态。</p>\n",
+      "fixHtml": "<p>在 <code>tsconfig.json</code> 打开 <code>&quot;strict&quot;: true</code>（它是一组开关的合集：\n<code>strictNullChecks</code> / <code>noImplicitAny</code> / <code>strictFunctionTypes</code> 等）。\n存量项目一次开不完，就逐个开关、按目录增量收紧，\n但<strong>别把 <code>strict: false</code> 当终点</strong> —— 那样 TS 只剩一半价值。</p>\n",
+      "severity": 3,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "类型系统",
+        "空值"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-class-fields",
+      "title": "补一个字段声明，悄悄改了初始化语义",
+      "symptomHtml": "<p>从 JS 的类搬过来，只是给字段补了类型标注 <code>name: string</code>，运行结果却变了：\n父类的 getter 被遮蔽，或者子类字段把父类构造函数里赋的值冲掉。</p>\n",
+      "causeHtml": "<p>在 <code>useDefineForClassFields: true</code>（ES2022 语义、现代 target 的默认）下，\n<strong>只写声明不给初值的字段</strong>（<code>name: string</code>）会被编译成\n<code>Object.defineProperty(this, 'name', { value: undefined })</code> ——\n它会遮蔽原型链上的访问器，并真的写入 <code>undefined</code>。\n而 JS 里「只声明不赋值」根本没有对应写法，直觉上以为它是「无操作」。</p>\n",
+      "fixHtml": "<p>纯类型声明、不想产生任何运行时行为时加 <code>declare</code>：<code>declare name: string</code>。\n确实要初始化为 undefined、又不想遮蔽访问器时，把类型写成 <code>name: string | undefined</code>\n（类型里带上 undefined 会改变生成方式）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/fields-and-properties",
+      "tags": [
+        "类",
+        "运行时"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-enum-runtime",
+      "title": "枚举不只是类型，它会在运行时留下东西",
+      "symptomHtml": "<p>数字枚举里 <code>Direction[0]</code> 居然能拿到 <code>'Up'</code>（反向映射），换成字符串枚举又不行；\n<code>const enum</code> 在有些构建下直接报「找不到成员」。</p>\n",
+      "causeHtml": "<p><code>enum</code> 是 TS 少数<strong>会生成运行时代码</strong>的类型特性：数字枚举生成一个双向映射对象，\n字符串枚举只生成单向。<code>const enum</code> 本意是把成员内联掉、不留对象，\n但它与 <code>isolatedModules</code>（Babel / esbuild / SWC 这类逐文件转译）冲突 ——\n转译器看不到别的文件里的枚举定义。</p>\n",
+      "fixHtml": "<p>除非确实需要反向映射，优先用<strong>联合字面量类型</strong>：<code>type Direction = 'Up' | 'Down'</code> ——\n零运行时产物，还能和普通字符串互通。需要「值 + 类型」成对时用 <code>as const</code> 对象：\n<code>const Direction = { Up: 'Up', Down: 'Down' } as const</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/literals",
+      "tags": [
+        "枚举",
+        "运行时"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-excess-property",
+      "title": "多写的字段，换个姿势就放行了",
+      "symptomHtml": "<p><code>const u: User = { name: 'a', age: 1, typo: true }</code> 会报错，\n但 <code>const raw = { name: 'a', age: 1, typo: true }; const u: User = raw</code>\n却通过了 —— 同一个对象，只是过了道手。</p>\n",
+      "causeHtml": "<p>TS 是<strong>结构类型</strong>：只要对象至少拥有目标类型要求的字段就兼容，多出来的字段不碍事。\n「多余属性检查」只是针对<strong>直接书写的对象字面量</strong>的一条特殊规则，专抓拼写错误，\n一道变量转手就失效。JS 那边没有这层检查，读者不会预期「赋值姿势」会改变合法性。</p>\n",
+      "fixHtml": "<p>把多余属性检查理解成<strong>拼写提示</strong>而不是<strong>约束</strong>。要真正拒绝未知字段，\n得在边界处用 schema 的 <code>strict()</code> / <code>.passthrough(false)</code>，\n而不是指望类型系统 —— 后者按设计就允许更宽的对象。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/structural-nominal",
+      "tags": [
+        "类型系统",
+        "对象"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-generic-inference",
+      "title": "泛型推不出来时不报错，只是悄悄变宽",
+      "symptomHtml": "<p>一个 <code>function pick&lt;T&gt;(o: T, k: keyof T)</code>，传进去对象后返回类型不知怎么退成了\n<code>unknown</code> / <code>{}</code>，后续所有属性访问都要报错。</p>\n",
+      "causeHtml": "<p>推断失败时 TS 不会停下来问，而是<strong>回退到约束的默认值</strong>（没有约束时是 <code>unknown</code> 或 <code>{}</code>）。\n编译仍然通过，问题被推到下游 —— 那里离原因已经很远，看起来像是别处写错了。</p>\n",
+      "fixHtml": "<p>调不出预期类型时<strong>显式写出类型参数</strong>：<code>pick&lt;User&gt;(u, 'name')</code>；\n或者给 <code>T</code> 加约束（<code>T extends object</code>）缩小回退范围。\n想要「原样返回」时确认用的是 <code>T</code> 而不是 <code>T extends X</code>（后者会窄化）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-declaration",
+      "tags": [
+        "泛型",
+        "推断"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-index-out-of-bounds",
+      "title": "数组索引 arr[0] 的类型里没有 undefined",
+      "symptomHtml": "<p>写着 <code>const first: string = list[0]</code>，空数组时 <code>first</code> 是 <code>undefined</code>，\n类型却说是 <code>string</code> —— 编译器替越界访问背了书。</p>\n",
+      "causeHtml": "<p>默认关闭 <code>noUncheckedIndexedAccess</code> 时，索引访问 <code>arr[i]</code> 的类型就是元素类型 <code>T</code>，\n<strong>不带上 <code>| undefined</code></strong>。这是刻意的取舍：打开它会让大量既有代码报错。\n代价是「按索引取」「按 key 查」这两类最常用的操作，恰好绕开了空安全。</p>\n",
+      "fixHtml": "<p>打开 <code>noUncheckedIndexedAccess</code>（新项目直接开），迫使每处索引访问显式处理「可能没有」。\n存量项目可以先只在新目录开 —— 它比全局开关更容易落地。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arrays",
+      "tags": [
+        "数组",
+        "空值"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-non-null-promise",
+      "title": "一个 `!` 把「可能没有」按成了「一定有」",
+      "symptomHtml": "<p>为了消掉 <code>Object is possibly 'undefined'</code>，顺手加了 <code>!</code>：\n<code>map.get(key)!.value</code>。编译过了，运行到真正缺 key 的路径时崩溃。</p>\n",
+      "causeHtml": "<p>非空断言 <code>!</code> 是<strong>你对编译器的单方面承诺</strong>，和 <code>as</code> 一样不生成代码、不做检查。\n它把「编译器不知道」偷换成「我来保证」，而迁移期恰恰最不该做这种保证 ——\n你还没摸清每条路径。</p>\n",
+      "fixHtml": "<p>优先用真正的收窄手段：<code>if (v === undefined) return</code>、<code>??</code> 兜默认值、\n可选链 <code>?.</code>、提前抛错。真要用 <code>!</code>，把它当成一次需要注释说明的例外\n（「这个 key 在上一步刚写入」），而不是消警告的按钮。</p>\n",
+      "severity": 2,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-narrowing",
+      "tags": [
+        "空值",
+        "收窄"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-module-interop",
+      "title": "import 一个类型，产物里却留下一条真实引用",
+      "symptomHtml": "<p>从别的模块 <code>import { SomeType } from './types'</code> 只为用类型，编译后却生成了\n<code>require('./types')</code> —— 在某些配置下变成运行时循环依赖或「模块不存在」。</p>\n",
+      "causeHtml": "<p>TS 的类型和值共用一个 <code>import</code> 语法，转译器默认<strong>分不清</strong>你引的是哪一半，\n于是保守地保留整条 import。在 <code>isolatedModules</code>（Babel / esbuild / SWC 逐文件转译）下，\n它无法跨文件判断，只能靠你标明。</p>\n",
+      "fixHtml": "<p>只引类型时写 <code>import type { SomeType } from './types'</code>，\n或者开 <code>verbatimModuleSyntax</code> 让「值 import」与「类型 import」在语法上强制分开。\nCJS 与 ESM 混用时再确认 <code>esModuleInterop</code> 与 <code>moduleResolution</code> 的搭配。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/export-import",
+      "tags": [
+        "模块"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "pitfall-js2ts-readonly-compile-only",
+      "title": "readonly 和 as const 拦不住运行时的修改",
+      "symptomHtml": "<p>标了 <code>readonly items: string[]</code> 的属性确实改不了，但它指向的<strong>数组本身</strong>照样 <code>push</code>；\n<code>as const</code> 出来的对象在运行时也是普通对象，<code>(obj as any).x = 1</code> 就改掉了。</p>\n",
+      "causeHtml": "<p><code>readonly</code> / <code>as const</code> 都是<strong>编译期</strong>约束，产物里没有任何冻结操作\n（不像 <code>Object.freeze</code> 会真的锁住）。而且 <code>readonly</code> 是<strong>浅</strong>的 ——\n它只管住「这个属性不能再赋值」，不管属性指向的对象内部。</p>\n",
+      "fixHtml": "<p>要运行时的真正不可变得用 <code>Object.freeze</code>（注意它同样是浅的），\n深冻结要递归或借助 <code>immer</code> 的 <code>produce</code>。\n把 <code>readonly</code> 当成「防团队内误改」的编译期护栏，而不是安全边界。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/mutability",
+      "tags": [
+        "不可变",
+        "运行时"
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "类型",
+      "aliases": [
+        "type"
+      ],
+      "perLanguage": {
+        "javascript": "指**运行时**值的种类 —— `typeof x` 的那几个字符串，而且会随值本身变",
+        "typescript": "一套**编译期**的集合论类型系统；运行时没有对应物，标注在产物里被擦除"
+      },
+      "note": "「类型」在两个语境里指的不是一回事：JS 的 typeof 是运行时事实，\nTS 的类型是编译期的静态描述。TS 里说「这个值是 string」，\n运行时 `typeof` 它未必得到 `'string'` —— 边界数据没校验时就不会。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface"
+      ],
+      "perLanguage": {
+        "javascript": "没有这个概念；靠「对象上有对应的方法」隐式满足，无处可写",
+        "typescript": "结构类型的契约；同名 interface 会**自动合并**，且不产生运行时产物"
+      },
+      "note": "TS 的 interface 是**结构**的（长得像就算），不是名义的 —— 与 Java 的 interface 只是同形。\n它还能被重复声明合并（declaration merging），库作者常拿它做扩展，\n读者容易被「同一个 interface 有两处定义」绕进去。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "断言",
+      "aliases": [
+        "assertion",
+        "assert"
+      ],
+      "perLanguage": {
+        "javascript": "console.assert / Node 的 assert —— 运行时检查，条件不成立就报错",
+        "typescript": "as / ! —— **编译期**的类型断言，运行时什么都不做"
+      },
+      "note": "最危险的同名不同义之一：JS 的 assert 真在运行时验证，\nTS 的 as 是「让编译器闭嘴」。把 TS 的 as 当成 JS 的 assert、\n以为它在检查数据，是迁移期的经典事故。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic",
+        "template"
+      ],
+      "perLanguage": {
+        "javascript": "没有（JSDoc 用 @template 勉强表达，类型层面并不成立）",
+        "typescript": "类型参数 `<T>`，编译期替换；运行时被擦除，不为每种实参生成专门版本"
+      },
+      "note": "和 Java 的泛型也不同：两者都会擦除，但 TS 推不出类型参数时**静默变宽**\n（退成 unknown 或 {}），不报错 —— 问题被推到下游才显形。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "枚举",
+      "aliases": [
+        "enum"
+      ],
+      "perLanguage": {
+        "javascript": "没有 enum；惯例是用 Object.freeze 包一个字面量，或直接写字符串常量",
+        "typescript": "有 enum 关键字，是少数**会生成运行时代码**的类型特性"
+      },
+      "note": "数字枚举有反向映射（值 → 名），字符串枚举没有；`const enum` 与逐文件转译工具冲突。\n新代码更推荐 `as const` 对象或联合字面量类型。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "重载",
+      "aliases": [
+        "overload"
+      ],
+      "perLanguage": {
+        "javascript": "同名函数后定义的覆盖前一个，没有重载这回事",
+        "typescript": "支持**重载签名**，但只是类型层面的多个签名 —— 实现仍然只有一个函数体"
+      },
+      "note": "TS 的重载不像 Java 那样在运行时区分，它只影响调用处的类型检查：\n你得自己写一个能兼容所有重载签名的实现，并在函数体里手动分支。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "装饰器",
+      "aliases": [
+        "decorator"
+      ],
+      "perLanguage": {
+        "javascript": "标准提案语法，作用在类的成员上，生态里用得还不普遍",
+        "typescript": "有两套语义并存 —— 旧的 experimentalDecorators 与新的标准装饰器"
+      },
+      "note": "同一个 @xxx 语法，TS 里跑的是哪一套取决于 tsconfig：\n开了 experimentalDecorators 是旧提案，关掉才贴近新标准。\n两边对参数、返回值、能否改描述符的规则都不同，读别人的代码前先看配置。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "严格模式",
+      "aliases": [
+        "strict"
+      ],
+      "perLanguage": {
+        "javascript": "JS 的 'use strict' —— 运行时指令，影响赋值、this、静默失败等行为",
+        "typescript": "tsconfig 的 strict 选项 —— 一组**编译期**检查开关的合集"
+      },
+      "note": "两者毫无关系，只是撞了名字。JS 的严格模式影响运行结果，\nTS 的 strict 只影响编译期报不报错 —— 开了 strict 不等于运行时多了任何检查。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "编译 / 转译",
+      "aliases": [
+        "compile",
+        "transpile",
+        "build"
+      ],
+      "perLanguage": {
+        "javascript": "严格说没有「编译」，只有打包（bundle）与降级转换（Babel / SWC 转译）",
+        "typescript": "tsc 做两件事 —— 类型检查，以及把 TS 语法转成 JS"
+      },
+      "note": "现代工具链常把这两件事拆开：Vite / esbuild / SWC 只做转译（快，但不做类型检查），\n`tsc --noEmit` 单独跑类型检查。所以「构建通过了」不代表类型是对的。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "term": "联合类型",
+      "aliases": [
+        "union"
+      ],
+      "perLanguage": {
+        "javascript": "没有类型层面的「或」；`a || b` 是运行时的值选择",
+        "typescript": "`A | B` 表示值属于其中之一，用之前必须收窄才能访问各自成员"
+      },
+      "note": "别和 `||` 混：`A | B` 是类型层面的并集，运行时并不存在。\n访问联合类型的属性时，只有两边都有的成员才允许直接访问 ——\n这正是它逼你写收窄的地方。\n",
+      "baseline": "javascript",
+      "target": "typescript"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "javascript2typescript-1-strict-first",
+      "order": 1,
+      "title": "先让 tsc 跑起来，并且一开始就开 strict",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "装 typescript，用 `npx tsc --init` 生成 tsconfig.json",
+        "把 `\"strict\": true` 打开 —— 这是后面所有学习的地基，中途再开代价翻倍",
+        "把一个几百行的 .js 改名成 .ts，看它报多少错；先别急着修，感受一下检查的密度",
+        "打开 TypeScript Playground，把同一段代码在 strict 开 / 关两种设置下各贴一遍，看差异"
+      ],
+      "acceptance": [
+        "能说出「编译期检查」与「运行时行为」是两回事，并知道类型标注不会进入产物",
+        "能独立解释 `tsc` 与打包器（Vite / esbuild）各自负责什么"
+      ],
+      "resources": [
+        {
+          "label": "TypeScript 官方手册",
+          "url": "https://www.typescriptlang.org/docs/handbook/intro.html"
+        },
+        {
+          "label": "TypeScript Playground（在线试 strict 开关）",
+          "url": "https://www.typescriptlang.org/play"
+        },
+        {
+          "label": "tsconfig 全部选项参考",
+          "url": "https://www.typescriptlang.org/tsconfig"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "javascript2typescript-2-types-and-narrowing",
+      "order": 2,
+      "title": "从「会标注」到「会收窄」",
+      "durationHint": "2-3 天",
+      "todo": [
+        "过一遍原始类型、数组、元组、联合类型、字面量类型（`'a' | 'b'`）",
+        "把 `any` 逐个换成 `unknown`，然后练习用 typeof / in / instanceof / 类型守卫把它收窄回来",
+        "对照本工具「语言机制」板块里 TypeScript 列的「类型擦除」「空安全」两格",
+        "刻意写几个「编译通过但运行时炸」的例子（`as` 断言错类型），把教训记进本方向的迁移陷阱"
+      ],
+      "acceptance": [
+        "遇到 `Object is possibly 'undefined'` 时，能写出收窄而不是用 `!` 压掉",
+        "能说清 `unknown` 与 `any` 的区别，以及为什么默认该选前者"
+      ],
+      "resources": [
+        {
+          "label": "手册 · 日常类型",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/everyday-types.html"
+        },
+        {
+          "label": "手册 · 类型收窄",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/narrowing.html"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "javascript2typescript-3-objects-and-generics",
+      "order": 3,
+      "title": "对象类型、泛型与推断",
+      "durationHint": "3-5 天",
+      "todo": [
+        "弄清 interface 与 type 的取舍，以及 interface 的声明合并行为",
+        "写几个泛型函数，体会「推断失败时静默变宽」有多难查",
+        "掌握 keyof、索引访问类型、映射类型这几块「类型层面编程」的基石",
+        "用 zod 之类的库给一个接口响应写 schema，把边界校验补起来"
+      ],
+      "acceptance": [
+        "能写出带约束的泛型函数，并在推断失败时知道怎么显式指定类型参数",
+        "能说清结构类型是什么，以及为什么「多写一个字段」有时报错有时不报"
+      ],
+      "resources": [
+        {
+          "label": "手册 · 对象类型",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/objects.html"
+        },
+        {
+          "label": "手册 · 泛型",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/generics.html"
+        },
+        {
+          "label": "zod（边界处的运行时校验）",
+          "url": "https://zod.dev/"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "javascript2typescript-4-classes-and-modules",
+      "order": 4,
+      "title": "类、模块与第三方类型",
+      "durationHint": "3-5 天",
+      "todo": [
+        "分清类字段的「纯类型声明」与「真的初始化」，用 declare 处理前者",
+        "掌握 `import type`，并理解为什么转译器分不清类型与值的 import",
+        "给一个没有类型的第三方库写一份最小的 .d.ts，理解声明文件的角色",
+        "处理一次 CJS 与 ESM 混用的报错，搞清 esModuleInterop 与 moduleResolution"
+      ],
+      "acceptance": [
+        "能解释 useDefineForClassFields 为什么会改变类的运行结果",
+        "能在遇到「找不到模块的类型声明」时，知道去哪儿找或怎么写"
+      ],
+      "resources": [
+        {
+          "label": "手册 · 类",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/classes.html"
+        },
+        {
+          "label": "手册 · 模块与模块解析",
+          "url": "https://www.typescriptlang.org/docs/handbook/modules.html"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    },
+    {
+      "id": "javascript2typescript-5-engineering",
+      "order": 5,
+      "title": "工程化收口：在真实项目里用住",
+      "durationHint": "1 周",
+      "todo": [
+        "配 typescript-eslint，把 no-explicit-any、no-unnecessary-type-assertion 之类打开",
+        "在 CI 里单独加一步 `tsc --noEmit` —— 构建通过不代表类型是对的",
+        "从 DefinitelyTyped 找几个常用库的类型包，理解 @types/xxx 的解析顺序",
+        "用「allowJs + 逐目录收紧」的方式，把一个大 JS 项目逐步迁到 TS"
+      ],
+      "acceptance": [
+        "能独立搭起一个 strict + lint + 类型检查进 CI 的 TS 工程",
+        "能说清迁移策略：为什么先开 strict、为什么边界处要运行时校验"
+      ],
+      "resources": [
+        {
+          "label": "typescript-eslint",
+          "url": "https://typescript-eslint.io/"
+        },
+        {
+          "label": "DefinitelyTyped（@types 的来源）",
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped"
+        },
+        {
+          "label": "手册 · 从 JavaScript 迁移",
+          "url": "https://www.typescriptlang.org/docs/handbook/migrating-from-javascript.html"
+        }
+      ],
+      "baseline": "javascript",
+      "target": "typescript"
+    }
+  ]
+}
