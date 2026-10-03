@@ -1,0 +1,110 @@
+{
+  "lang": "go",
+  "section": "express",
+  "group": "values",
+  "boxes": {
+    "literals": {
+      "lang": "go",
+      "code": "n := 42                   // 默认推断为 int（位宽随平台，通常是 64 位）\nbig := 1_000_000          // 下划线是给人看的分隔符\nhex := 0xff               // 还有 0o 八进制、0b 二进制\n\nch := 'a'                 // ⚠ rune 字面量，类型是 int32\ns := \"hello\"              // 字符串不可变，字节序列是 UTF-8\nraw := `含 \"引号\" 的原文`  // 反引号原始字符串，不处理转义",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">n </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 42</span><span style=\"color:var(--shiki-token-comment)\">                   // 默认推断为 int（位宽随平台，通常是 64 位）</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">big </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-punctuation)\">_</span><span style=\"color:var(--shiki-token-constant)\">000</span><span style=\"color:var(--shiki-token-punctuation)\">_</span><span style=\"color:var(--shiki-token-constant)\">000</span><span style=\"color:var(--shiki-token-comment)\">          // 下划线是给人看的分隔符</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">hex </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> 0x</span><span style=\"color:var(--shiki-token-constant)\">ff</span><span style=\"color:var(--shiki-token-comment)\">               // 还有 0o 八进制、0b 二进制</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">ch </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> 'a'</span><span style=\"color:var(--shiki-token-comment)\">                 // ⚠ rune 字面量，类型是 int32</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"hello\"</span><span style=\"color:var(--shiki-token-comment)\">              // 字符串不可变，字节序列是 UTF-8</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">raw </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> `含 \"引号\" 的原文`</span><span style=\"color:var(--shiki-token-comment)\">  // 反引号原始字符串，不处理转义</span></span></code></pre>",
+      "lineCount": 7,
+      "notes": [
+        {
+          "line": 5,
+          "text": "rune 字面量，类型是 int32",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Go 与 JavaScript 都有「一种数字类型走天下」的表象，底子不同：\nGo 的 <code>int</code> 是有符号整数、位宽随平台（通常 64 位），还有 <code>int8</code> / <code>int64</code>\n等明确位宽可选；JavaScript 只有双精度浮点 <code>number</code>，\n整数与浮点不分，大整数要另外用 <code>BigInt</code>。\n字符串两边都不可变，但 Go 多一种原始字符串（反引号），\n写正则与多行文本不用层层转义。</p>\n",
+        "python": "<p>Python 的 <code>1</code> 是任意精度整数，Go 的 <code>1</code> 是固定位宽的 <code>int</code>，溢出会静默回绕 ——\n这是从 Python 过来最容易忽略的一处。字符上两边都有区分：\nPython 的 <code>str</code> 是字符序列，Go 的 <code>rune</code> 是 <code>int32</code>（一个码点），\n而 <code>string</code> 是字节序列；Go 用单引号写 rune、双引号写 string，\nPython 两者都用引号，靠内容区分。</p>\n",
+        "java": "<p>Java 的 <code>int</code> 是固定 32 位、<code>long</code> 是 64 位，Go 的 <code>int</code> 位宽随平台 ——\n想固定位宽得写 <code>int32</code> / <code>int64</code>。两边的字符字面量都是单引号，\n但 Java 的 <code>char</code> 是 16 位 UTF-16 单元，Go 的 <code>rune</code> 是 32 位码点，\n处理 emoji 这类字符时行为不同：Java 的一个字符可能是两个 <code>char</code>。</p>\n"
+      }
+    },
+    "type-inference": {
+      "lang": "go",
+      "code": "a := 42                     // 推断为 int\nb := \"text\"                 // 推断为 string\nvar c = 3.5                 // var 加初值也推断\nvar d float64               // 只写类型，拿到零值 0\n\nconst K = 10                // ⚠ 无类型常量：可以赋给任何数值类型\nvar f float64 = K           // 同一份 K 也能当浮点用\nvar i int32 = K             // 没有转换，因为 K 还没有类型",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 42</span><span style=\"color:var(--shiki-token-comment)\">                     // 推断为 int</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">b </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"text\"</span><span style=\"color:var(--shiki-token-comment)\">                 // 推断为 string</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> c </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-constant)\"> 3.5</span><span style=\"color:var(--shiki-token-comment)\">                 // var 加初值也推断</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> d </span><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-token-comment)\">               // 只写类型，拿到零值 0</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">const</span><span style=\"color:var(--shiki-token-constant)\"> K</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 10</span><span style=\"color:var(--shiki-token-comment)\">                // ⚠ 无类型常量：可以赋给任何数值类型</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> f </span><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> K           </span><span style=\"color:var(--shiki-token-comment)\">// 同一份 K 也能当浮点用</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">int32</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-foreground)\"> K             </span><span style=\"color:var(--shiki-token-comment)\">// 没有转换，因为 K 还没有类型</span></span></code></pre>",
+      "lineCount": 8,
+      "notes": [
+        {
+          "line": 6,
+          "text": "无类型常量：可以赋给任何数值类型",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Go 的推断与 JavaScript 的「变量没有类型」完全是两回事：\n<code>a := 42</code> 之后 <code>a</code> 的类型就固定是 <code>int</code> 了，<code>a = &quot;text&quot;</code> 编译不过。\nGo 还有一样 JavaScript 没有的东西 —— <strong>无类型常量</strong>：\n<code>const K = 10</code> 不绑定具体类型，赋给 <code>float64</code> 或 <code>int32</code> 变量都行，\n这让常量表达式不必到处写转换。</p>\n",
+        "python": "<p>Python 的标注是可选的、运行时不检查；Go 的 <code>:=</code> 是编译器必须完成的推断，\n推不出来就报错。差别最明显的地方在常量：Python 没有常量语法，\nGo 的 <code>const K = 10</code> 是<strong>无类型</strong>的，可以不加转换地赋给任意数值类型 ——\n这不是省略标注，而是刻意保留到使用点才定型。</p>\n",
+        "java": "<p>Java 的 <code>var</code> 只能用于局部变量，且推断结果就地固定；\nGo 的 <code>:=</code> 同样是就地定型，但推断范围更宽：常量可以是<strong>无类型</strong>的，\n在使用点才决定类型。Java 里数字字面量也有类似性质\n（<code>int</code> 字面量可赋给 <code>long</code>），但那只覆盖基本类型的加宽，\nGo 的无类型常量连浮点与整数之间都能通吃。</p>\n"
+      }
+    },
+    "null-and-undefined": {
+      "lang": "go",
+      "code": "var s []int                 // 零值是 nil —— 但 nil slice 可以直接 append\nvar m map[string]int        // nil map 不能写，写了会 panic\nvar p *int                  // 指针的零值也是 nil\n\nif v, ok := m[\"k\"]; ok {    // 取值同时问「在不在」\n  fmt.Println(v)\n}\n\nvar x int                   // 未初始化的变量是零值 0，不是「未定义」",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> s []</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">                 // 零值是 nil —— 但 nil slice 可以直接 append</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> m </span><span style=\"color:var(--shiki-token-keyword)\">map</span><span style=\"color:var(--shiki-foreground)\">[</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">]</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">        // nil map 不能写，写了会 panic</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> p </span><span style=\"color:var(--shiki-token-keyword)\">*int</span><span style=\"color:var(--shiki-token-comment)\">                  // 指针的零值也是 nil</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> v, ok </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> m[</span><span style=\"color:var(--shiki-token-string-expression)\">\"k\"</span><span style=\"color:var(--shiki-foreground)\">]; ok {    </span><span style=\"color:var(--shiki-token-comment)\">// 取值同时问「在不在」</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  fmt.</span><span style=\"color:var(--shiki-token-function)\">Println</span><span style=\"color:var(--shiki-foreground)\">(v)</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> x </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-comment)\">                   // 未初始化的变量是零值 0，不是「未定义」</span></span></code></pre>",
+      "lineCount": 9,
+      "notes": [],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Go 没有 <code>undefined</code>，每个变量一诞生就有<strong>零值</strong>：数字是 0、字符串是 &quot;&quot;、\n布尔是 false、指针与切片是 nil。所以「这个变量有没有被赋过值」\n在 Go 里问不出来 —— 它总有一个值。JavaScript 的 <code>undefined</code>\n能在任何变量上出现，Go 的 <code>nil</code> 只对指针、切片、映射、通道、\n函数与接口这几类有意义，<code>var x int</code> 永远是 0 而不是 nil。</p>\n",
+        "python": "<p>Python 用 <code>None</code> 表示「没有」，而 <code>None</code> 可以出现在任何变量里；\nGo 用零值代替了一部分场景（数字 0、字符串 &quot;&quot;），\n<code>nil</code> 只留给引用类类型。读 Go 时一个 <code>nil</code> 切片可以直接 <code>append</code>、\n一个 <code>nil</code> 映射写入却会 panic —— 这类区分 Python 里没有对应物。</p>\n",
+        "java": "<p>Java 的引用类型默认是 <code>null</code>，读写都可能吃 <code>NullPointerException</code>；\nGo 的 <code>nil</code> 只覆盖引用类类型，且<strong>用起来更安全一点</strong>：\n<code>nil</code> 切片可读可 append、<code>nil</code> 映射可读不可写、<code>nil</code> 通道收发都会永久阻塞。\nJava 里「取值顺便问在不在」得用 <code>containsKey</code> 再 <code>get</code>（两次查找），\nGo 用 <code>v, ok := m[&quot;k&quot;]</code> 一次完成。</p>\n"
+      }
+    },
+    "type-conversion": {
+      "lang": "go",
+      "code": "var i int = 7\nvar f float64 = float64(i)   // ⚠ 必须显式转换，Go 没有隐式数值提升\nvar j int64 = int64(i)\n\nvar n int32 = 300\nvar b byte = byte(n)         // 窄化会截断，编译器不拦\n\nvar any interface{} = \"hello\"\ns, ok := any.(string)        // 类型断言，ok 为 false 时不 panic\n// s2 := any.(string)        // —— ⚠ 不带 ok 时断言失败会 panic",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> i </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 7</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> f </span><span style=\"color:var(--shiki-token-keyword)\">float64</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> float64</span><span style=\"color:var(--shiki-foreground)\">(i)   </span><span style=\"color:var(--shiki-token-comment)\">// ⚠ 必须显式转换，Go 没有隐式数值提升</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> j </span><span style=\"color:var(--shiki-token-keyword)\">int64</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> int64</span><span style=\"color:var(--shiki-foreground)\">(i)</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> n </span><span style=\"color:var(--shiki-token-keyword)\">int32</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 300</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> b </span><span style=\"color:var(--shiki-token-keyword)\">byte</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-keyword)\"> byte</span><span style=\"color:var(--shiki-foreground)\">(n)         </span><span style=\"color:var(--shiki-token-comment)\">// 窄化会截断，编译器不拦</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> any </span><span style=\"color:var(--shiki-token-keyword)\">interface</span><span style=\"color:var(--shiki-foreground)\">{} </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"hello\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s, ok </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> any</span><span style=\"color:var(--shiki-foreground)\">.(</span><span style=\"color:var(--shiki-token-keyword)\">string</span><span style=\"color:var(--shiki-foreground)\">)        </span><span style=\"color:var(--shiki-token-comment)\">// 类型断言，ok 为 false 时不 panic</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// s2 := any.(string)        // —— ⚠ 不带 ok 时断言失败会 panic</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 2,
+          "text": "必须显式转换，Go 没有隐式数值提升",
+          "tone": "warn"
+        },
+        {
+          "line": 10,
+          "text": "不带 ok 时断言失败会 panic",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的转换大量是隐式的（<code>&quot;3&quot; * 2</code>、<code>1 + &quot;2&quot;</code>），\nGo <strong>一个隐式数值转换都没有</strong>：<code>int</code> 到 <code>float64</code> 也要写出 <code>float64(i)</code>。\n另外 Go 的接口值取回具体类型要走类型断言 <code>x.(string)</code>，\n带 <code>ok</code> 的写法把失败变成值；JavaScript 没有静态类型，\n也就没有「断言」这一步，取到什么全看运行时。</p>\n",
+        "python": "<p>两边都要显式转换，但失败方式不同：Python 的 <code>int(&quot;abc&quot;)</code> 抛 ValueError，\nGo 的数字转换不会有「失败」这回事 —— <code>byte(300)</code> 直接截断成 44，\n不报错也不抛异常。字符串转数字 Go 走 <code>strconv.Atoi</code>，它返回 error\n而不是抛异常。从接口值取回具体类型用类型断言，这是 Python 没有的步骤。</p>\n",
+        "java": "<p>Java 有隐式加宽（<code>int</code> 到 <code>long</code> 自动），Go <strong>没有</strong> —— 加宽也得写出来。\n两者都有显式窄化：Java 写 <code>(byte) 300</code>，Go 写 <code>byte(n)</code>，\n都会静默截断。取回具体类型的方式不同：Java 用强转或 <code>instanceof</code> 判断，\nGo 用类型断言，<code>v, ok := x.(T)</code> 是它的安全形态，\n失败时 <code>ok</code> 为 false 而不是抛异常。</p>\n"
+      }
+    }
+  }
+}

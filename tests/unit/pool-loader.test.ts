@@ -269,8 +269,42 @@ describe('语言内容装载的细节', () => {
   })
 
   it('没有内容的语言被跳过，而不是抛错', () => {
-    expect(loadPoolLanguageContent('rust', pools)).toEqual([])
-    expect(loadPoolLanguageContent('go', pools)).toEqual([])
+    /*
+     * 这条要**从当前状态派生**，不能钉死某一门语言 ——
+     * 「哪几门还没写内容」在 S7 爬坡期每批都在变（rust / go 在 S7.5 之前也是空的）。
+     * 稳定的事实是：只声明了 meta.yaml、没有启用也没有内容目录的语言永远是空的。
+     */
+    const metaOnly = ['typescript', 'arkts', 'kotlin', 'swift', 'dart']
+    const empty = metaOnly.filter((id) => listLanguageGroupFiles(id).length === 0)
+    expect(empty.length, 'meta-only 语言列表已失效，请同步').toBeGreaterThan(0)
+    for (const id of empty) {
+      expect(loadPoolLanguageContent(id, pools), id).toEqual([])
+    }
+    // 反向：有内容文件的语言必须被读出来，不能静默丢成空
+    for (const id of ['javascript', 'python', 'java']) {
+      expect(loadPoolLanguageContent(id, pools).length, id).toBeGreaterThan(0)
+    }
+  })
+
+  it('非基准语言（对比列）没有 baseline，但三份 vs 写全', () => {
+    /*
+     * 架构 §4.4 规则 4：非基准语言的 `baseline` 可以省略 —— 它们永远不会被渲染成基准列。
+     * rust / go 是第一批这样的语言（S7.5），这条同时守住「别顺手给它们补 baseline」。
+     */
+    for (const id of ['rust', 'go']) {
+      const groups = loadPoolLanguageContent(id, pools)
+      if (groups.length === 0) continue // 还没开写，跳过（爬坡期）
+      for (const g of groups) {
+        for (const [featureId, box] of Object.entries(g.boxes)) {
+          const where = `${id}/${g.section}/${g.group} → ${featureId}`
+          expect(box.baseline, `${where} 不该有 baseline`).toBeUndefined()
+          for (const base of ['javascript', 'python', 'java']) {
+            expect(box.vs[base], `${where} 缺 vs.${base}`).toBeTruthy()
+          }
+          expect(box.vs[id], `${where} 不该给自己写 vs`).toBeUndefined()
+        }
+      }
+    }
   })
 })
 

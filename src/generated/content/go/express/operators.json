@@ -1,0 +1,110 @@
+{
+  "lang": "go",
+  "section": "express",
+  "group": "operators",
+  "boxes": {
+    "arithmetic": {
+      "lang": "go",
+      "code": "a := 7 / 2                  // 3 —— 整数除法向零截断\nb := 7.0 / 2.0              // 3.5\nc := 7 % 3                  // 1；% 对负数取余，符号跟被除数\n\nvar max uint8 = 255\nover := max + 1             // ⚠ 不会 panic，静默回绕到 0 —— Go 没有溢出检查\n\ni := 0\ni++                         // ⚠ 只能当语句写；++i 不合法，i++ 也不能当表达式\ni += 1",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 7</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2</span><span style=\"color:var(--shiki-token-comment)\">                  // 3 —— 整数除法向零截断</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">b </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 7.0</span><span style=\"color:var(--shiki-token-keyword)\"> /</span><span style=\"color:var(--shiki-token-constant)\"> 2.0</span><span style=\"color:var(--shiki-token-comment)\">              // 3.5</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">c </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 7</span><span style=\"color:var(--shiki-token-keyword)\"> %</span><span style=\"color:var(--shiki-token-constant)\"> 3</span><span style=\"color:var(--shiki-token-comment)\">                  // 1；% 对负数取余，符号跟被除数</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">var</span><span style=\"color:var(--shiki-foreground)\"> max </span><span style=\"color:var(--shiki-token-keyword)\">uint8</span><span style=\"color:var(--shiki-token-keyword)\"> =</span><span style=\"color:var(--shiki-token-constant)\"> 255</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">over </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> max </span><span style=\"color:var(--shiki-token-keyword)\">+</span><span style=\"color:var(--shiki-token-constant)\"> 1</span><span style=\"color:var(--shiki-token-comment)\">             // ⚠ 不会 panic，静默回绕到 0 —— Go 没有溢出检查</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 0</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i</span><span style=\"color:var(--shiki-token-keyword)\">++</span><span style=\"color:var(--shiki-token-comment)\">                         // ⚠ 只能当语句写；++i 不合法，i++ 也不能当表达式</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">i </span><span style=\"color:var(--shiki-token-keyword)\">+=</span><span style=\"color:var(--shiki-token-constant)\"> 1</span></span></code></pre>",
+      "lineCount": 10,
+      "notes": [
+        {
+          "line": 6,
+          "text": "不会 panic，静默回绕到 0 —— Go 没有溢出检查",
+          "tone": "warn"
+        },
+        {
+          "line": 9,
+          "text": "只能当语句写；++i 不合法，i++ 也不能当表达式",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "analogous",
+        "java": "analogous"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 只有一种数字类型，<code>7 / 2</code> 得 3.5；Go 的整数除法会截断，\n<code>7 / 2</code> 得 3 —— 想做浮点除法得先把操作数写成浮点。\n溢出行为也不同：JavaScript 的 <code>number</code> 溢出成 <code>Infinity</code> 或丢精度，\nGo 的定宽整数<strong>静默回绕</strong>，<code>uint8(255) + 1</code> 得 0，不报错也不 panic。\n<code>++</code> 上两边写法一样，但 Go 只允许它单独成句，不能写 <code>x = i++</code>。</p>\n",
+        "python": "<p>Python 用 <code>//</code> 做整除、<code>/</code> 做真除法，Go 只有 <code>/</code>，语义由操作数类型决定；\nPython 的 <code>%</code> 对负数取模结果符号跟除数，Go 的 <code>%</code> 符号跟被除数 ——\n处理负数时这是实打实的行为差异。溢出上 Python 完全不必操心\n（整数任意精度），Go 的定宽整数会静默回绕，且没有 <code>checked_add</code>\n这类安全版本可换。</p>\n",
+        "java": "<p>两边几乎逐条对应：整数除法截断、<code>%</code> 取余、<code>++</code> 存在。\n差别在 <code>++</code> 的地位：Java 的 <code>i++</code> 是表达式，可以嵌在赋值或参数里；\nGo 把它降级成语句，<code>x = i++</code> 编译不过 —— 这让带副作用的表达式\n少了一种，读代码时更好判断求值顺序。溢出两边都是静默回绕。</p>\n"
+      }
+    },
+    "equality": {
+      "lang": "go",
+      "code": "a := 5 == 5                 // true，唯一一个相等运算符\ns1 := \"hi\"\ns2 := \"hi\"\nsame := s1 == s2            // true —— 字符串按内容比较\n\ntype Point struct{ X, Y int }\np1 := Point{1, 2}\np2 := Point{1, 2}\neq := p1 == p2              // true —— 字段都可比较的结构体可比较\n\nxs := []int{1}\n// bad := xs == []int{1}    // —— ⚠ 编译错误：切片只能和 nil 比较",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">a </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> 5</span><span style=\"color:var(--shiki-token-keyword)\"> ==</span><span style=\"color:var(--shiki-token-constant)\"> 5</span><span style=\"color:var(--shiki-token-comment)\">                 // true，唯一一个相等运算符</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s1 </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"hi\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">s2 </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"hi\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">same </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> s1 </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> s2            </span><span style=\"color:var(--shiki-token-comment)\">// true —— 字符串按内容比较</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">type</span><span style=\"color:var(--shiki-token-function)\"> Point</span><span style=\"color:var(--shiki-token-keyword)\"> struct</span><span style=\"color:var(--shiki-foreground)\">{ X, Y </span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\"> }</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">p1 </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> Point</span><span style=\"color:var(--shiki-foreground)\">{</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">p2 </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-function)\"> Point</span><span style=\"color:var(--shiki-foreground)\">{</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">, </span><span style=\"color:var(--shiki-token-constant)\">2</span><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">eq </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> p1 </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-foreground)\"> p2              </span><span style=\"color:var(--shiki-token-comment)\">// true —— 字段都可比较的结构体可比较</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">xs </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> []</span><span style=\"color:var(--shiki-token-keyword)\">int</span><span style=\"color:var(--shiki-foreground)\">{</span><span style=\"color:var(--shiki-token-constant)\">1</span><span style=\"color:var(--shiki-foreground)\">}</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// bad := xs == []int{1}    // —— ⚠ 编译错误：切片只能和 nil 比较</span></span></code></pre>",
+      "lineCount": 12,
+      "notes": [
+        {
+          "line": 12,
+          "text": "编译错误：切片只能和 nil 比较",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "divergent"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Go 没有 <code>===</code>，只有 <code>==</code>，而且类型不同不能比较（编译期就拦）。\n引用类型上差别最大：JavaScript 的对象与数组比的是地址，\n<code>{} == {}</code> 恒为 false；Go 的<strong>结构体逐字段比较</strong>，\n<code>Point{1,2} == Point{1,2}</code> 是 true，但<strong>切片与映射不可比较</strong>，\n除了跟 <code>nil</code> 比 —— 这一条 JavaScript 里没有对应限制，数组照样能比（比地址）。</p>\n",
+        "python": "<p>Python 的 <code>==</code> 走 <code>__eq__</code>，列表、字典都能按内容比较；\nGo 的结构体也能逐字段比较，但<strong>切片、映射、函数不可比较</strong>，\n写 <code>xs == ys</code> 是编译错误，只能自己写循环或 <code>reflect.DeepEqual</code>。\nPython 用 <code>is</code> 比身份，Go 没有身份比较运算符，\n要比指针地址得直接比指针值。</p>\n",
+        "java": "<p>Java 的 <code>==</code> 比引用、<code>equals</code> 比内容，是新手最容易踩的一处；\nGo 的 <code>==</code> 直接比内容（数组与结构体逐字段），没有 <code>equals</code> 这一步。\n但 Go 划了一条 Java 没有的线：<strong>切片、映射、函数不可比较</strong>，\n编译期就拒绝，逼你在「DeepEqual 还是有意义的部分比较」之间做选择。\nJava 的数组用 <code>==</code> 比引用、<code>Arrays.equals</code> 比内容，与 Go 的数组可 <code>==</code> 相反。</p>\n"
+      }
+    },
+    "logical": {
+      "lang": "go",
+      "code": "ok := true && false         // false\neither := true || false     // true\nnot := !ok                  // true —— 取反是 !，不是 not\n\n// var x int = 1\n// if x { }                 // —— ⚠ 编译错误：条件必须是 bool\n\nname := user.Name\nif user == nil || name == \"\" {   // && 与 || 都是短路的\n  name = \"匿名\"\n}",
+      "html": "<pre class=\"shiki css-variables\" style=\"background-color:var(--shiki-background);color:var(--shiki-foreground)\" tabindex=\"0\"><code><span class=\"line\"><span style=\"color:var(--shiki-foreground)\">ok </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> true</span><span style=\"color:var(--shiki-token-keyword)\"> &#x26;&#x26;</span><span style=\"color:var(--shiki-token-constant)\"> false</span><span style=\"color:var(--shiki-token-comment)\">         // false</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">either </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-constant)\"> true</span><span style=\"color:var(--shiki-token-keyword)\"> ||</span><span style=\"color:var(--shiki-token-constant)\"> false</span><span style=\"color:var(--shiki-token-comment)\">     // true</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">not </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-token-keyword)\"> !</span><span style=\"color:var(--shiki-foreground)\">ok                  </span><span style=\"color:var(--shiki-token-comment)\">// true —— 取反是 !，不是 not</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// var x int = 1</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-comment)\">// if x { }                 // —— ⚠ 编译错误：条件必须是 bool</span></span>\n<span class=\"line\"></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">name </span><span style=\"color:var(--shiki-token-keyword)\">:=</span><span style=\"color:var(--shiki-foreground)\"> user.Name</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-token-keyword)\">if</span><span style=\"color:var(--shiki-foreground)\"> user </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-token-constant)\"> nil</span><span style=\"color:var(--shiki-token-keyword)\"> ||</span><span style=\"color:var(--shiki-foreground)\"> name </span><span style=\"color:var(--shiki-token-keyword)\">==</span><span style=\"color:var(--shiki-token-string-expression)\"> \"\"</span><span style=\"color:var(--shiki-foreground)\"> {   </span><span style=\"color:var(--shiki-token-comment)\">// &#x26;&#x26; 与 || 都是短路的</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">  name </span><span style=\"color:var(--shiki-token-keyword)\">=</span><span style=\"color:var(--shiki-token-string-expression)\"> \"匿名\"</span></span>\n<span class=\"line\"><span style=\"color:var(--shiki-foreground)\">}</span></span></code></pre>",
+      "lineCount": 11,
+      "notes": [
+        {
+          "line": 6,
+          "text": "编译错误：条件必须是 bool",
+          "tone": "warn"
+        }
+      ],
+      "absent": false,
+      "equivalence": {
+        "javascript": "divergent",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>JavaScript 的 <code>&amp;&amp;</code> / <code>||</code> 返回操作数本身（<code>a || b</code> 被当默认值语法），\nGo 的严格返回 <code>bool</code>。条件上两边都严格：JavaScript 的 <code>if (1)</code> 合法\n（做了真值转换），Go 的 <code>if</code> 只接受 <code>bool</code>，<code>if x</code> 里 x 是整数就编译不过。\n想在 Go 里表达「空则取默认」，得老老实实写 <code>if</code>，不能用 <code>||</code> 兜底。</p>\n",
+        "python": "<p>Go 的 <code>&amp;&amp;</code> / <code>||</code> 只作用于 <code>bool</code>，没有 Python 那套真值规则\n（空列表、0、&quot;&quot; 判假）—— <code>if xs</code> 在 Python 里是「列表非空」，\n在 Go 里编译不过，必须写 <code>len(xs) &gt; 0</code>。这个差别让 Go 代码里\n「这个值算不算有」永远是显式的，读的时候不必回忆真值表。</p>\n",
+        "java": "<p>Java 与 Go 在这条上几乎一致：<code>&amp;&amp;</code> / <code>||</code> 严格返回 <code>boolean</code>、\n短路求值、条件位置只接受 <code>boolean</code>。唯一差别是 Java 还有\n<code>&amp;</code> / <code>|</code> 可以当非短路布尔运算符用，Go 的 <code>&amp;</code> / <code>|</code> 只做位运算，\n没有非短路的逻辑版本。</p>\n"
+      }
+    },
+    "operator-overloading": {
+      "lang": "go",
+      "code": "",
+      "html": "",
+      "lineCount": 0,
+      "notes": [],
+      "absent": true,
+      "equivalence": {
+        "javascript": "identical",
+        "python": "divergent",
+        "java": "identical"
+      },
+      "reviewState": "draft",
+      "provenanceOrigin": "llm",
+      "vsHtml": {
+        "javascript": "<p>Go <strong>不支持运算符重载</strong>，JavaScript 也不支持 —— 两边在这条上是\n同一个立场。差别在「不支持」之后怎么办：JavaScript 会让 <code>+</code> 退化成\n字符串拼接或 NaN，Go 直接编译不过，必须写成 <code>a.Add(b)</code> 这样的方法调用。\n所以 Go 里自定义类型的算术永远是显式方法名，不会出现\n「这个 <code>+</code> 到底做了什么」的疑问。</p>\n",
+        "python": "<p>Go <strong>不支持运算符重载</strong> —— 没有 <code>__add__</code> 那样的钩子，\n自定义类型要做加法只能定义 <code>Add</code> 方法。这是从 Python 过来\n最容易低估的一条：矩阵、向量、金额这类类型在 Python 里\n写 <code>a + b</code> 很自然，在 Go 里一律是 <code>a.Add(b)</code>。\n代价是代码更长，收益是任何一个 <code>+</code> 的行为都不必去查定义。</p>\n",
+        "java": "<p>Go <strong>不支持运算符重载</strong>，Java 也不支持 —— 立场相同，\n都是「只给内建类型保留运算符」。Java 为字符串的 <code>+</code> 开了编译器特例，\nGo 连这个特例都没有：字符串拼接必须写 <code>+</code> 之外的\n<code>strings.Join</code> 或 <code>+=</code>（<code>+=</code> 对字符串是允许的）。\n自定义类型两边都只能写方法。</p>\n"
+      }
+    }
+  }
+}
