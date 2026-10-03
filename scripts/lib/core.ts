@@ -9,8 +9,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import yaml from 'js-yaml'
 import {
+  baselineCatalogSchema,
   catalogSchema,
   chapterSchema,
+  featurePoolSchema,
   languageContentFileSchema,
   languageMetaSchema,
   registrySchema,
@@ -19,9 +21,11 @@ import {
   scopedRoadmapStageSchema,
   snippetFileSchema,
   type Annotation,
+  type BaselineCatalog,
   type BoxSource,
   type Catalog,
   type Chapter,
+  type FeaturePool,
   type LanguageMeta,
   type Registry,
   type ScopedGlossary,
@@ -84,8 +88,12 @@ export function loadRegistry(): Registry {
  *    但万一进程被中断，残留目录会让整个仓库的校验失败（实测踩到过，
  *    表现为测试间歇性失败，报 R8「有 meta.yaml 但未在 registry 注册」）
  */
-export function isPrivateLanguageDir(id: string): boolean {
+export function isPrivateDir(id: string): boolean {
   return id.startsWith('_')
+}
+
+export function isPrivateLanguageDir(id: string): boolean {
+  return isPrivateDir(id)
 }
 
 /** 语言「是否存在」由目录决定；「是否启用」由 registry 决定（单一开关）。 */
@@ -430,12 +438,13 @@ export interface LanguageChapterContent {
   boxes: Record<string, BoxSource>
 }
 
-function readLanguageChapterFile(
-  langId: string,
-  section: string,
-  chapterId: string,
-  file: string,
-): LanguageChapterContent {
+/**
+ * 读一个语言内容文件并补齐 `review`（文件级默认 → 条目级覆盖）。
+ *
+ * 抽出来是因为文件布局在 S6.5 前后各有一套（按展示章 / 按存放组），
+ * 而**解析与 review 补齐这一步完全相同** —— 复制一份必然漂移。
+ */
+function readLanguageBoxesFile(file: string): { rel: string; boxes: Record<string, BoxSource> } {
   const rel = path.relative(ROOT, file)
   const parsed = languageContentFileSchema.safeParse(readYaml(file))
   if (!parsed.success) {
@@ -454,6 +463,16 @@ function readLanguageChapterFile(
     }
     boxes[featureId] = { ...entry, review }
   }
+  return { rel, boxes }
+}
+
+function readLanguageChapterFile(
+  langId: string,
+  section: string,
+  chapterId: string,
+  file: string,
+): LanguageChapterContent {
+  const { rel, boxes } = readLanguageBoxesFile(file)
   return { file: rel, lang: langId, section, chapter: chapterId, boxes }
 }
 
@@ -503,6 +522,154 @@ export function listLanguageContentFiles(
         section,
         chapter: path.basename(file, '.yaml'),
       })
+    }
+  }
+  return out
+}
+
+/* ────────────────── v2.1 清单：池 + 每基准分组（S6.5，只新增） ──────────────────
+ *
+ * 目标形态见 docs/对比内容架构.md §2.5。与上面那套「一份板块一份清单」**并列存在**到 S6.5c，
+ * 那之前两条管线并存：旧 loader 只读 `catalog/*.yaml`（顶层单文件）与
+ * `languages/<id>/<板块>/<展示章>.yaml`，对新目录 `catalog/<板块>/` 完全不可见。
+ */
+
+/** 某个 (板块, 存放组) 下的语言内容文件 —— `languages/<语言>/<板块>/<group>.yaml` */
+export interface LanguageGroupContent {
+  /** 相对仓库根的路径，用于错误定位 */
+  file: string
+  lang: string
+  section: string
+  /** 存放组 = 文件名（去扩展名）。**不是展示章** —— 展示章随基准变，这个不随 */
+  group: string
+  boxes: Record<string, BoxSource>
+}
+
+/** 池里出现过的全部存放组（去重，保持首次出现的顺序） */
+export function groupsOfPool(pool: FeaturePool): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const f of pool.features) {
+    if (seen.has(f.group)) continue
+    seen.add(f.group)
+    out.push(f.group)
+  }
+  return out
+}
+
+/**
+ * feature 池：`content/catalog/<板块>/features.yaml`。
+ *
+ * 一个板块只有一个池 —— 它回答「这个板块有哪些知识点」，与基准无关。
+ */
+export function loadFeaturePools(): { pools: FeaturePool[]; issues: LoadIssue[] } {
+  const pools: FeaturePool[] = []
+  const issues: LoadIssue[] = []
+  for (const section of listDirs(CATALOG_DIR)) {
+    if (isPrivateDir(section)) continue
+    const dir = path.join(CATALOG_DIR, section)
+    const file = path.join(dir, 'features.yaml')
+    const rel = path.relative(ROOT, file)
+    if (!exists(file)) {
+      // 目录里有 yaml、却没有池 —— 那些文件里的引用无处解析
+      if (listFiles(dir).length) {
+        issues.push({
+          where: rel,
+          message: `目录 '${section}/' 缺 features.yaml —— 章节分组引用的知识点无处解析`,
+        })
+      }
+      continue
+    }
+    const parsed = featurePoolSchema.safeParse(readYaml(file))
+    if (!parsed.success) {
+      throw new Error(
+        `feature 池解析失败：${rel}\n${parsed.error.issues
+          .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+          .join('\n')}`,
+      )
+    }
+    // 目录名即板块 id。不一致时上报而不抛 —— 交给分析期判级（沿用手法）
+    if (parsed.data.section !== section) {
+      issues.push({
+        where: rel,
+        message: `目录名「${section}」与 section 字段「${parsed.data.section}」不一致`,
+      })
+    }
+    pools.push(parsed.data)
+  }
+  return { pools, issues }
+}
+
+/**
+ * 各基准的章节分组：`content/catalog/<板块>/<基准 id>.yaml`。
+ *
+ * 文件缺失 = 该基准在这个板块还没有章节（未开工），**不是错误**，因此不报 issue。
+ * 文件名不是已知基准候选时才是问题：拼错会让整节内容静默消失。
+ */
+export function loadBaselineCatalogs(
+  knownBaselineIds: readonly string[],
+): { catalogs: BaselineCatalog[]; issues: LoadIssue[] } {
+  const catalogs: BaselineCatalog[] = []
+  const issues: LoadIssue[] = []
+  const known = new Set(knownBaselineIds)
+  for (const section of listDirs(CATALOG_DIR)) {
+    if (isPrivateDir(section)) continue
+    for (const file of listFiles(path.join(CATALOG_DIR, section))) {
+      const name = path.basename(file, '.yaml')
+      if (name === 'features') continue
+      const rel = path.relative(ROOT, file)
+      if (!known.has(name)) {
+        issues.push({
+          where: rel,
+          message: `文件名「${name}」不是已知的基准候选 —— 章节分组只能挂在基准语言上`,
+        })
+        continue
+      }
+      const parsed = baselineCatalogSchema.safeParse(readYaml(file))
+      if (!parsed.success) {
+        throw new Error(
+          `章节分组解析失败：${rel}\n${parsed.error.issues
+            .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+            .join('\n')}`,
+        )
+      }
+      if (parsed.data.section !== section) {
+        issues.push({
+          where: rel,
+          message: `目录名「${section}」与 section 字段「${parsed.data.section}」不一致`,
+        })
+      }
+      if (parsed.data.baseline !== name) {
+        issues.push({
+          where: rel,
+          message: `文件名「${name}」与 baseline 字段「${parsed.data.baseline}」不一致`,
+        })
+      }
+      catalogs.push(parsed.data)
+    }
+  }
+  return { catalogs, issues }
+}
+
+/**
+ * 装载一门语言的内容（**由池的存放组驱动**，S6.5）。
+ *
+ * 与 `loadLanguageContent`（由展示章驱动）的关键差别：文件第三段是 `group`，与基准无关。
+ * 于是同一个 feature 无论被哪个基准分到哪一章，内容都只此一份。
+ */
+export function loadPoolLanguageContent(
+  langId: string,
+  pools: readonly FeaturePool[],
+  options: { includePrivate?: boolean } = {},
+): LanguageGroupContent[] {
+  if (!options.includePrivate && isPrivateLanguageDir(langId)) return []
+  const out: LanguageGroupContent[] = []
+  for (const pool of pools) {
+    for (const group of groupsOfPool(pool)) {
+      const file = path.join(LANGUAGES_DIR, langId, pool.section, `${group}.yaml`)
+      if (!exists(file)) continue
+      const { rel, boxes } = readLanguageBoxesFile(file)
+      out.push({ file: rel, lang: langId, section: pool.section, group, boxes })
     }
   }
   return out

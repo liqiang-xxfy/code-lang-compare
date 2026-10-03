@@ -106,7 +106,8 @@ describe('语言内容装载（loadLanguageContent）', () => {
 describe('装载器的边界（不误吃旧布局）', () => {
   it('孤儿扫描跳过旧的 snippets/ 与 `_` 前缀目录', () => {
     const files = listLanguageContentFiles('javascript')
-    expect(files.map((f) => f.section)).toEqual(['basics'])
+    // S6.5 期间两套布局并存：basics（旧，第 3 步删）与 express（新的存放组布局）
+    expect(files.map((f) => f.section).sort()).toEqual(['basics', 'express'])
     for (const f of files) {
       expect(f.section).not.toBe('snippets')
       expect(f.section.startsWith('_')).toBe(false)

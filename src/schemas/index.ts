@@ -820,6 +820,9 @@ export const catalogChapterSchema = z
 /**
  * 一个板块的清单 —— 回答「我们要对比哪些点」，不回答「某门语言怎么讲」。
  * 因此它与语言无关，也不含 target 之类的方向概念。
+ *
+ * **S6.5 起被下面「池 + 每基准分组」的两层结构取代**（docs/对比内容架构.md §2.5），
+ * 迁移期内两者并存，S6.5c 原子切换后本 schema 与它的装载器一起删除。
  */
 export const catalogSchema = z
   .object({
@@ -827,6 +830,75 @@ export const catalogSchema = z
     title: z.string().min(1),
     /** 数组顺序即章节顺序 */
     chapters: z.array(catalogChapterSchema).min(1),
+  })
+  .strict()
+
+/* ── 清单（S6.5）：feature 池 + 每基准的章节分组 ──
+ *
+ * 清单从「一份板块一份」拆成两层，因为**章节分类要做成每个基准各一份**：
+ *   · 池回答「这个板块有哪些知识点」—— 与基准无关，全站唯一
+ *   · 章节分组回答「某个基准怎么把它们讲给读者听」—— 章节名、分组、顺序、取舍都可以不同
+ *
+ * 两层的接缝是 `group`（**存放组**）：池里的每个 feature 声明自己写进哪个内容文件。
+ * 于是同一个 feature 可以在 JS 视角下落在「对象与原型」章、在 Python 视角下落在「类继承」章，
+ * **而它的内容只写一份**。存放单位与展示单位由此解耦 —— 这是本层结构的全部收益。
+ */
+
+/**
+ * 池里的一个 feature —— 在 `catalogFeatureSchema` 之上多一个 `group`。
+ *
+ * `group` 是**存放组**，即内容文件名：`languages/<语言>/<板块>/<group>.yaml`。
+ * 它必须与基准无关，否则「每基准一份章节分类」会退化成「每基准一份内容」。
+ */
+export const poolFeatureSchema = catalogFeatureSchema
+  .extend({ group: kebabIdSchema })
+  .strict()
+
+/**
+ * feature 池：`content/catalog/<板块>/features.yaml`。
+ *
+ * 池里的**顺序不表达任何东西** —— 展示顺序全在章节分组里。这里只求好读。
+ */
+export const featurePoolSchema = z
+  .object({
+    section: sectionSchema,
+    title: z.string().min(1),
+    features: z.array(poolFeatureSchema).min(1),
+  })
+  .strict()
+
+/**
+ * 某一基准下的一个章节。
+ *
+ * 与 `catalogChapterSchema` 的关键差别：`features` 是**池里 feature id 的引用**，
+ * 不是内联的 feature 对象 —— 知识点自身的属性（title / kind / …）只该有一份，在池里。
+ */
+export const baselineChapterSchema = z
+  .object({
+    /** 该基准下的章节 id。只在「该基准 × 该板块」内唯一 —— 同名不代表同义 */
+    id: kebabIdSchema,
+    title: z.string().min(1),
+    summary: z.string().optional(),
+    /** 数组顺序即行顺序。元素是池里的 feature id */
+    features: z.array(kebabIdSchema).min(1),
+  })
+  .strict()
+
+/**
+ * 某个基准在某个板块下的章节分组：`content/catalog/<板块>/<基准 id>.yaml`。
+ *
+ * `section` 与 `baseline` 都必须显式声明并与目录名、文件名一致（R20c）——
+ * 这个文件不再能只靠文件名唯一确定自己的身份。
+ *
+ * **文件缺失 = 该基准在这个板块还没有章节**，视为未开工（左栏整组隐藏），
+ * 因此不需要占位文件。
+ */
+export const baselineCatalogSchema = z
+  .object({
+    section: sectionSchema,
+    baseline: z.string().min(1),
+    /** 数组顺序即章节顺序 */
+    chapters: z.array(baselineChapterSchema).min(1),
   })
   .strict()
 
@@ -1001,6 +1073,13 @@ export type GlobalFeatureId = z.infer<typeof globalFeatureIdSchema>
 export type CatalogFeature = z.infer<typeof catalogFeatureSchema>
 export type CatalogChapter = z.infer<typeof catalogChapterSchema>
 export type Catalog = z.infer<typeof catalogSchema>
+/** 池里的一个知识点 = feature 自身的属性 + 存放组（S6.5） */
+export type PoolFeature = z.infer<typeof poolFeatureSchema>
+/** feature 池：`catalog/<板块>/features.yaml`（S6.5） */
+export type FeaturePool = z.infer<typeof featurePoolSchema>
+export type BaselineChapter = z.infer<typeof baselineChapterSchema>
+/** 某基准在某板块下的章节分组：`catalog/<板块>/<基准 id>.yaml`（S6.5） */
+export type BaselineCatalog = z.infer<typeof baselineCatalogSchema>
 /** 对比框，`review` 已必填（下游消费用） */
 export type BoxSource = z.infer<typeof boxSchema>
 /** 对比框条目，`review` 可省略（语言内容文件里写的形态） */

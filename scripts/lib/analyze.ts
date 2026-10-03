@@ -29,6 +29,7 @@ import {
   listLanguageIds,
   loadAllLanguageMeta,
   loadCatalog,
+  loadFeaturePools,
   loadLanguageContent,
   loadPairListsV2,
   loadRegistry,
@@ -269,6 +270,14 @@ export function analyzeContent(): Analysis {
   const coverage: Record<string, { have: number; total: number }> = {}
   for (const lang of enabledLanguageIds) coverage[lang] = { have: 0, total: features.length }
 
+  /*
+   * S6.5 过渡期容忍：已经迁到「池 + 每基准分组」布局的板块（`catalog/<板块>/features.yaml`），
+   * 其内容文件由新装载器管，旧的按章清单里当然找不到它们 —— 不该报成孤儿。
+   *
+   * 这条与它下面的 `continue` 在 S6.5c 原子切换时**连同旧规则一起删除**。
+   */
+  const poolSections = new Set<string>(loadFeaturePools().pools.map((p) => p.section))
+
   // R22 / R24 按 (语言, 板块) 汇总成一条 —— 逐条会打印上百行，把真正要看的 error 埋掉
   const vsMissing = new Map<string, number>()
   const suspectedMissing = new Map<string, number>()
@@ -284,6 +293,7 @@ export function analyzeContent(): Analysis {
     /* R20a 孤儿文件：语言目录里存在、但清单没登记的 (板块, 章节) */
     const knownChapters = new Set(features.map((f) => `${f.section}/${f.chapter}`))
     for (const f of listLanguageContentFiles(lang)) {
+      if (poolSections.has(f.section)) continue // S6.5 过渡，见上面 poolSections 的注释
       if (!knownChapters.has(`${f.section}/${f.chapter}`)) {
         err(
           'R20',
