@@ -1,0 +1,74 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词不必收 —— 读者不会误解的东西，收了只是稀释。
+
+- term: 结构体
+  aliases: [struct, class, pojo]
+  perLanguage:
+    go: struct 只有字段，方法是定义在类型之外、靠接收者关联的；没有继承，复用靠嵌入
+    java: class 把字段与方法装在一起，支持继承、抽象类与运行期多态
+  note: 少了继承之后类型层次会整体变浅 —— 这不是缺失，是 Go 刻意的取舍。
+
+- term: 接口
+  aliases: [interface, implements]
+  perLanguage:
+    go: 隐式满足 —— 方法集齐了就算实现，没有 implements 可写；接口通常定义在**使用方**；接口值是一对（类型, 值）
+    java: 显式 implements 的名义式契约，编译期强制；接口可以带 default 方法；引用可以为 null
+  note: 两处关键差别：Go 不需要声明「我实现了谁」，以及 nil 指针装进接口后接口本身不等于 nil。
+
+- term: 错误
+  aliases: [error, exception, throw]
+  perLanguage:
+    go: error 是普通返回值，由调用方显式检查；包装用 %w，判定用 errors.Is / errors.As；忘检查是静默的
+    java: 异常自动向上传播，受检异常由编译器强制处理；栈信息自动附带
+  note: 一边强制你看见、另一边默认不打扰你 —— 迁移后最容易丢的就是「一定会被处理」这层保证。
+
+- term: 零值
+  aliases: [zero value, 'null', default]
+  perLanguage:
+    go: 所有变量都有确定的零值（0 / "" / false / nil），不存在「未初始化」
+    java: 字段有默认值（对象是 null），局部变量必须先赋值；null 表示「没有对象」
+  note: Go 用「没有未初始化状态」换掉了「空」这个状态位 —— 需要区分「没设置」与「设置为零值」时得用指针字段。
+
+- term: 切片 / 数组
+  aliases: [slice, array, list]
+  perLanguage:
+    go: '`[N]T` 是数组（值类型，赋值即复制）；`[]T` 是切片（引用底层数组的窗口，共享）'
+    java: 数组 `T[]` 定长且是引用类型；可变长度用 ArrayList 等集合，subList 返回视图
+  note: Go 把「定长」与「可变长」拆成两个类型，而 Java 用数组与集合两类 —— 但共享语义的直觉要按 Go 的规则重建。
+
+- term: 映射
+  aliases: [map, hashmap, dict]
+  perLanguage:
+    go: map 是内置引用类型，零值为 nil；nil map 可读不可写，写就 panic，必须 make 或字面量初始化
+    java: HashMap 一创建就可写，键用 equals 与 hashCode 判定，可以存 null 键值
+  note: Go 那边多了一个 Java 没有的状态（nil map），而它恰恰在写的时候才炸。
+
+- term: 通道
+  aliases: [channel, chan, blockingqueue]
+  perLanguage:
+    go: 语言内置的通信原语，goroutine 之间传值；默认无缓冲，收发会互相阻塞；select 可以多路等待
+    java: 语言层面没有，用 BlockingQueue 表达，靠库而不是语法
+  note: 在 Go 里它是**语法**（`<-` 是运算符，`select` 是关键字），在 Java 里它是**库** —— 这个差别决定了并发代码的写法有多不一样。
+
+- term: 包
+  aliases: [package, module, import]
+  perLanguage:
+    go: 目录即包，包名与目录名可以不同；可见性由首字母大小写决定，没有 protected；依赖用 go.mod 声明
+    java: package 是命名空间，可见性由 public / protected / private 决定；依赖用构建工具声明
+  note: Go 那边「包名」与「导入路径最后一段」经常不一致，读 import 时要看清映射到哪个名字。
+
+- term: 泛型
+  aliases: [generic, type parameter]
+  perLanguage:
+    go: 类型参数 + 约束接口（可以用 `int | float64` 这样的类型集）；没有通配符，没有泛型方法
+    java: 擦除式泛型，运行期不保留类型参数；有通配符 `? extends`，有泛型方法
+  note: 别把通配符的直觉带过来 —— Go 用约束表达「任意满足这些操作的类型」，与 Java 的型变是两套思路。
+
+- term: 方法 / 接收者
+  aliases: [receiver, this, method]
+  perLanguage:
+    go: 方法在类型之外定义，靠接收者关联；值接收者拿到副本，指针接收者才能改到原值
+    java: 方法必须在类里，this 永远指向当前实例，不存在「副本接收者」这回事
+  note: 「值接收者还是指针接收者」是 Go 特有的决定，Java 里没有对应物 —— 它决定了调这个方法会不会改到原对象。

@@ -1,0 +1,74 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词不必收 —— 读者不会误解的东西，收了只是稀释。
+
+- term: 对象
+  aliases: [object, instance]
+  perLanguage:
+    javascript: 一切非原始值都是对象；「对象字面量」是最常用的数据结构，同时也是字典
+    java: 对象是类的实例，字段与方法由类定义；没有「随手造一个字典对象」的写法
+  note: Java 那边「对象」与「数据结构」是两件事（后者要靠 Map / record），JS 里它们共用同一个东西。
+
+- term: 数组 / 列表
+  aliases: [array, list]
+  perLanguage:
+    javascript: Array 是动态的，长度可变、元素类型可混、越界读得 undefined 而不抛异常
+    java: 数组定长且元素类型固定；要可变长度得用 List 这类集合
+  note: JS 的 Array 更像 Java 的 ArrayList，而不是 Java 的数组 —— 迁移时别按 `int[]` 的直觉去用它。
+
+- term: 映射
+  aliases: [map, object, hashmap]
+  perLanguage:
+    javascript: 两个东西：对象字面量（键被强制转成字符串，带原型链）与 Map（任意键、真哈希表）
+    java: HashMap / TreeMap 等，键是对象且用 equals 与 hashCode 判定
+  note: JS 用对象当字典时键会退化成字符串 —— 需要真正的映射语义就用 Map，别用对象凑。
+
+- term: 类
+  aliases: [class, prototype]
+  perLanguage:
+    javascript: class 语法只是原型链的糖；方法挂在原型上，可以在运行期给实例挂新属性
+    java: 类在编译期就定死形状，字段与方法由声明决定；实例形状不可改
+  note: 语法长得像，但 JS 的类不是「编译期模板」—— 运行期想改就能改，这既是灵活性也是 bug 来源。
+
+- term: 接口
+  aliases: [interface, contract]
+  perLanguage:
+    javascript: 没有语言级概念，靠结构性隐式满足 —— 对象有对应的方法就算数
+    java: 显式 implements 的名义式契约，编译期强制检查；可以有 default 方法
+  note: 一边「能跑就算实现」，一边「没写 implements 就不是」—— 这个差别决定了重构时编译器能帮你多少。
+
+- term: 异常
+  aliases: [exception, error, throw]
+  perLanguage:
+    javascript: 只有一套 Error 体系，没有受检异常；异步错误走 Promise 拒绝通道，可能连 try/catch 都包不住
+    java: 受检异常由编译器强制处理（try/catch 或 throws），非受检异常才靠自觉
+  note: 从 Java 过来最明显的感觉是「没人逼我处理了」—— 那层保护要自己补（catch + 兜底日志）。
+
+- term: 空值
+  aliases: ['null', undefined, none]
+  perLanguage:
+    javascript: 两个：undefined（引擎默认）与 null（作者显式写的空），彼此 !==
+    java: 一个 null；且基本类型不能为 null，只有包装类型能
+  note: 数量从一变二，判空就得多想一层；反过来 JS 里没有「基本类型/包装类型」那层，也不会有拆箱异常。
+
+- term: 数字
+  aliases: [number, int, long, double]
+  perLanguage:
+    javascript: 只有一种 number（双精度浮点），安全整数到 2^53-1；更大的整数要用 BigInt
+    java: int / long / double 各有位宽与精度，整数运算精确且溢出会回绕
+  note: JS 没有整数类型这件事，在 ID、金额、时间戳上都会咬人 —— 而且它不报错。
+
+- term: 线程
+  aliases: [thread, concurrency, event loop]
+  perLanguage:
+    javascript: 单线程 + 事件循环；异步靠排队而不是并行，阻塞执行栈就是阻塞一切
+    java: 真多线程，共享内存、需要同步；线程池是标配
+  note: 「开个线程去做」这句话在 JS 里没有对应写法 —— 要并行只能交给 Worker，且不共享内存。
+
+- term: 函数
+  aliases: [function, lambda, method reference, closure]
+  perLanguage:
+    javascript: 函数是一等公民，可以赋值、传参、返回，闭包随手可得
+    java: 方法是类的成员；lambda 只能赋给函数式接口，捕获的变量必须事实上不可变
+  note: 两边都能写 lambda，但 JS 的闭包能捕获并修改外部变量 —— 这带来了 Java 里不存在的共享状态 bug。

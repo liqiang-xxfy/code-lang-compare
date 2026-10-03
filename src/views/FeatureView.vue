@@ -3,13 +3,11 @@ import { computed, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import CodeBlock from '@/components/code/CodeBlock.vue'
 import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
-import EquivalenceBaselineNote from '@/components/compare/EquivalenceBaselineNote.vue'
 import PitfallCard from '@/components/content/PitfallCard.vue'
 import PageCrumb from '@/components/ui/PageCrumb.vue'
 import { useI18n } from '@/composables/useI18n'
 import { usePageMeta } from '@/composables/usePageMeta'
 import { badgeOf, explanationOf } from '@/content/boxView'
-import { getCachedBlockDiffs, getCachedDiff } from '@/content/diff'
 import {
   chapterContaining,
   chapterPathOf,
@@ -23,13 +21,11 @@ import {
 import { defaultCompareLanguageId } from '@/generated/registry.gen'
 import { useContentStore } from '@/stores/content'
 import { useLanguageStore } from '@/stores/language'
-import { useUiStore } from '@/stores/ui'
 import type { LanguageMeta } from '@/schemas'
 
 const route = useRoute()
 const content = useContentStore()
 const languages = useLanguageStore()
-const ui = useUiStore()
 const { t } = useI18n()
 
 /**
@@ -143,36 +139,6 @@ const crumbs = computed(() => {
   return items
 })
 
-/**
- * 基准差异模式下给非基准列计算行级 diff（运行时算 + 缓存）。
- * 返回值与 `box.blocks` 按下标对齐，单段内容恒为长度 1。
- */
-function diffsFor(langId: string) {
-  if (ui.viewMode !== 'baseline-diff' || langId === featureBaseline.value) return null
-  const base = boxOf(featureBaseline.value)
-  const target = boxOf(langId)
-  if (!base || !target) return null
-  const key = `${gid.value}|${featureBaseline.value}|${langId}`
-
-  const baseBlocks = base.blocks?.map((b) => b.code)
-  const targetBlocks = target.blocks?.map((b) => b.code)
-  if (baseBlocks?.length && targetBlocks?.length) {
-    return getCachedBlockDiffs(key, baseBlocks, targetBlocks)
-  }
-  if (!base.code || !target.code) return null
-  return [getCachedDiff(key, base.code, target.code)]
-}
-
-/** 两侧都是多段、但段数不同 —— 无法逐段对齐 */
-function blocksMismatch(langId: string): boolean {
-  if (ui.viewMode !== 'baseline-diff' || langId === featureBaseline.value) return false
-  const base = boxOf(featureBaseline.value)
-  const target = boxOf(langId)
-  return Boolean(
-    base?.blocks?.length && target?.blocks?.length && base.blocks.length !== target.blocks.length,
-  )
-}
-
 usePageMeta(
   () => (meta.value ? `${meta.value.title} 的跨语言对照` : undefined),
   () =>
@@ -221,8 +187,6 @@ usePageMeta(
       </p>
     </section>
 
-    <EquivalenceBaselineNote :baseline="featureBaseline" />
-
     <div class="pc-cards">
       <article
         v-for="lang in columns"
@@ -242,8 +206,6 @@ usePageMeta(
             :lang-meta="lang"
             :explanation-html="explanationOf(boxOf(lang.id)!, lang.id, featureBaseline)"
             :equivalence="badgeOf(boxOf(lang.id)!, lang.id, featureBaseline)"
-            :diffs="diffsFor(lang.id)"
-            :blocks-mismatch="blocksMismatch(lang.id)"
             :is-baseline="lang.id === featureBaseline"
             show-line-numbers
           />

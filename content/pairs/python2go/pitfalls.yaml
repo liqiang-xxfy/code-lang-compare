@@ -1,0 +1,235 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 Go 会踩的坑
+# 组织方式：按「症状」索引（症状 → 原因 → 解法），而不是按语法点
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩（对应界面上的 ⭐ 数量）
+#
+# 只讲本方向的两门语言：Python 习惯在 Go 上失效的地方。
+
+- id: pitfall-integer-division
+  title: 除号的结果反过来了
+  symptom: |
+    Python 里 `total / page_size` 得浮点、`//` 才整除；到了 Go，
+    `total / page_size` **本身就是整除** —— 分页算出来是对的，
+    但任何需要小数的地方都静默丢了精度：`7 / 2` 得 `3` 而不是 `3.5`。
+  cause: |
+    Go 的 `/` 对两个整数做整数除法，要浮点必须至少有一个操作数是浮点类型。
+    这与 Python 正好相反：Python 的 `/` 永远是真除法，取整要额外写 `//`。
+  fix: |
+    要浮点就显式转类型：`float64(a) / float64(b)`（Go 不会隐式转换，这一步躲不掉）。
+    迁移时**逐个检查每个 `/`**：原来那行是 `//` 还是 `/`，决定这边该不该转 ——
+    这个决定 Python 以前替你做了，现在归你。
+  severity: 3
+  languages: [python, go]
+  fromBaseline: true
+  featureId: express/arithmetic
+  tags: [数值, 运算符]
+
+- id: pitfall-no-truthiness
+  title: if 只接受布尔值，空列表不能当条件
+  symptom: |
+    Python 里 `if items:`、`if s:`、`while queue:` 都是日常写法。
+    换成 Go 后这些全是编译错误：`non-boolean condition`。
+  cause: |
+    Go 没有「真值/假值」这个概念 —— 条件必须是 `bool` 类型，没有隐式转换。
+    这是它刻意的设计：Python 里「哪些值算假」是每个类型各自实现的 `__bool__`，
+    Go 干脆取消了这个自由度。
+  fix: |
+    条件写全：切片用 `len(items) > 0`，字符串用 `s != ""`，
+    指针与接口用 `x != nil`。
+    好处是**读代码时不需要再去查某个类型的 `__bool__`** —— 代价是啰嗦。
+  severity: 3
+  languages: [python, go]
+  fromBaseline: true
+  featureId: express/conditionals
+  tags: [真值, 语法]
+
+- id: pitfall-nil-map-write
+  title: 声明了 map 就能读，一写就 panic
+  symptom: |
+    `var m map[string]int` 之后 `m["a"] = 1` 直接 panic：
+    `assignment to entry in nil map`。而读 `m["a"]` 却是合法的，返回零值 ——
+    于是「读没问题」让人以为写也没问题。
+  cause: |
+    Go 的 map 是引用类型，零值是 `nil`。nil map 允许读（长度 0、取值给零值），
+    但不允许写。Python 的 `d = {}` 直接就是一个可写空字典 —— 没有这个中间态。
+  fix: |
+    一律用 `make` 或字面量初始化：`m := make(map[string]int)` 或 `m := map[string]int{}`。
+    判空要看 `m == nil`，不要用 `len(m) == 0`：两者对 nil map 与空 map 的答案相同，
+    但只有前者能告诉你「写下去会不会 panic」。
+  severity: 3
+  languages: [python, go]
+  fromBaseline: true
+  featureId: model/map-dict
+  tags: [集合, 空值]
+
+- id: pitfall-slice-shared-backing
+  title: 切片是同一块内存的窗口，append 会改到别人
+  symptom: |
+    从一个大切片切出小块传出去，对方 `append` 之后，原切片里的值被改了；
+    或者改了小块的某个元素，原切片跟着变。Python 里 `a[1:3]` 得到的是**新列表**，
+    改它不影响原列表 —— 这个直觉在 Go 里是错的。
+  cause: |
+    Go 的切片是「指针 + 长度 + 容量」的三元组，切片操作共享底层数组，不复制数据。
+    Python 的切片会复制一份新列表（浅拷贝）。
+  fix: |
+    需要独立副本就显式复制：`cp := append([]T(nil), s...)` 或
+    `cp := make([]T, len(s)); copy(cp, s)`。
+    还要注意 `append` 在容量够时原地写、容量不够时才新分配 ——
+    「这段代码会不会改到别人」取决于容量，是把 bug 藏得最深的一类。
+  severity: 3
+  languages: [python, go]
+  fromBaseline: true
+  featureId: model/slicing
+  tags: [集合, 引用]
+
+- id: pitfall-error-is-value
+  title: 错误是返回值，不是异常
+  symptom: |
+    Python 里不处理异常，它会自己往上冒，最后在日志里留下完整的栈。
+    换成 Go 后，忘了检查的那个 `err` **就那样被丢掉了** ——
+    没有栈、没有日志，函数安静地返回了零值，问题在很远的地方才显形。
+  cause: |
+    Go 把错误当作普通返回值（`error` 接口），由调用方显式检查。
+    没有异常传播机制，因此也没有「忘记处理就会炸」这层保护 ——
+    恰恰相反，忘记处理是静默的。
+  fix: |
+    每个返回 `error` 的调用后面立刻写 `if err != nil { return ..., err }`，
+    或显式 `_ =` 表明「我确实要丢弃它」（让读代码的人看见这是决定，不是疏忽）。
+    用 `golangci-lint` 的 errcheck 一类检查把漏掉的揪出来 ——
+    这一条不能靠自觉。
+  severity: 3
+  languages: [python, go]
+  fromBaseline: true
+  featureId: model/error-propagation
+  tags: [异常, 错误处理]
+
+- id: pitfall-typed-nil-interface
+  title: 装进接口的 nil 指针，不等于 nil
+  symptom: |
+    `var p *MyError = nil; var e error = p` 之后 `e != nil` 是 **true**。
+    于是「没出错」的判断失效，一个本该为空的错误对象被当成真错误一路传上去。
+  cause: |
+    Go 的接口值是一对（类型, 值）。只要**类型**那一半不是 nil，接口本身就不等于 nil，
+    哪怕值是 nil 指针。Python 只有一个 None，不存在「两个都像空但不是同一个空」的状态。
+  fix: |
+    要么把变量声明成接口类型（`var e error`）再赋值，
+    要么在返回处显式判空后再返回 `nil`（而不是返回那个 nil 指针）。
+    这条是 Go 里公认最反直觉的坑之一，评审时值得专门看一眼。
+  severity: 3
+  languages: [python, go]
+  fromBaseline: true
+  featureId: model/interface
+  tags: [接口, 空值]
+
+- id: pitfall-string-is-bytes
+  title: 索引字符串拿到的是字节，不是字符
+  symptom: |
+    `s[0]` 在 Python 里是第一个字符，在 Go 里是**第一个字节**（类型是 byte）。
+    `s[0:3]` 想取前三个字，遇到中文就会把一个字切成两半，得到乱码。
+  cause: |
+    Go 的字符串是只读的字节序列（约定为 UTF-8），索引与切片按字节走。
+    Python 3 的字符串是码点序列，索引与切片按字符走。
+  fix: |
+    按字符遍历用 `for i, r := range s`（`r` 是 rune）。
+    要按下标取第 n 个字符，先转 `[]rune(s)` 再索引。
+    长度也要分清：`len(s)` 是字节数，`utf8.RuneCountInString(s)` 才是字符数。
+  severity: 3
+  languages: [python, go]
+  fromBaseline: true
+  featureId: express/string-common-ops
+  tags: [字符串, 编码]
+
+- id: pitfall-err-shadowed
+  title: := 把外层的 err 遮蔽了
+  symptom: |
+    函数里先 `x, err := f()`，后面某处又写 `y, err := g()` ——
+    这个 `:=` 因为 `y` 是新变量而合法，但它同时**新建了一个同名的 err**，
+    外层那个还是 nil。最后的 `return err` 返回的是外层那个，错误凭空消失。
+  cause: |
+    Python 的赋值永远改的是同一个名字（没有声明与遮蔽之分）。
+    Go 的 `:=` 在「至少有一个新变量」时合法，剩下的变量会被**重新声明**而不是赋值 ——
+    语法上完全看不出来。
+  fix: |
+    确定要复用外层 err 时写 `=` 而不是 `:=`（前提是变量都已声明）。
+    把 `golangci-lint` 的 shadow 检查打开 —— 这个坑肉眼极难发现，
+    但静态检查一眼就能抓出来。
+  severity: 2
+  languages: [python, go]
+  fromBaseline: true
+  featureId: express/shadowing
+  tags: [作用域, 错误处理]
+
+- id: pitfall-unused-is-an-error
+  title: 声明了不用，编译不过
+  symptom: |
+    Python 里写完一行中途放弃的代码，只要不运行到就没事。
+    Go 里多声明一个变量、多 import 一个包，**直接编译失败**：
+    `declared and not used` / `imported and not used`。
+  cause: |
+    Go 把「未使用」当成错误而不是警告，且没有开关可以关掉。
+    这是刻意设计：它消灭了一整类「改到一半留下的残骸」。
+  fix: |
+    临时不用就写 `_ = x`（明确表达「我知道它没用」），
+    或干脆删掉。真正麻烦的是调试期：想留一个变量看值，就用 `_ = x` 或
+    临时 `fmt.Println` 再删 —— 别想着关掉这个检查。
+  severity: 2
+  languages: [python, go]
+  fromBaseline: true
+  featureId: express/declaration
+  tags: [声明, 工具链]
+
+- id: pitfall-zero-value-not-none
+  title: 没有 None，只有零值
+  symptom: |
+    Python 里用 `None` 表示「这个字段没设置」，读的时候判 `is None` 就能区分。
+    Go 的 struct 字段永远有零值（`0` / `""` / `false`），
+    于是「没设置」与「设置成了 0」变得无法区分 —— 配置项被 0 悄悄覆盖。
+  cause: |
+    Go 保证所有变量都有确定的零值，这是它「没有未初始化状态」的设计。
+    代价是失去了「空」这个额外的状态位（除非用指针或 `sql.NullXxx` 一类包装）。
+  fix: |
+    需要三态（未设置 / 设置为零值 / 设置为非零）时用**指针字段**（`*int`，nil 即未设置）
+    或 `optional` 风格的包装类型。
+    判断时一律 `if x != nil`，不要用零值当哨兵 —— 那正是这条坑的来源。
+  severity: 2
+  languages: [python, go]
+  fromBaseline: true
+  featureId: express/literals
+  tags: [空值, 类型]
+
+- id: pitfall-multi-return-not-tuple
+  title: 多返回值不是元组，不能当值用
+  symptom: |
+    Python 的 `return a, b` 得到一个 tuple，可以存进列表、可以传给别人、可以解包。
+    Go 的多返回值只能在**赋值与返回**两个位置解包：
+    `x := f()` 编译不过，`g(f())` 也编译不过。
+  cause: |
+    Go 的多返回值是函数签名的一部分，不是一等公民的值 —— 语言里根本没有「元组」这个类型。
+  fix: |
+    需要把它当值传递时，定义一个结构体（哪怕只有两个字段），
+    或者两边分别接出来再处理。这层额外的类型在跨包边界上反而是好事：
+    它给「两个返回值」起了名字。
+  severity: 2
+  languages: [python, go]
+  fromBaseline: true
+  featureId: express/return-values
+  tags: [函数, 类型]
+
+- id: pitfall-capitalization-exports
+  title: 首字母大写才是公开的
+  symptom: |
+    Python 用 `_prefix` 表达「这是内部的」，其余默认公开。
+    Go 反过来：**首字母大写才导出**，小写就是包私有 ——
+    函数名写成 `parseConfig` 之后，别的包根本 import 不到，
+    报错信息是「undefined」，不告诉你是因为大小写。
+  cause: |
+    可见性由标识符的**首字母大小写**决定，没有 public / private 关键字。
+    这是语言层面的规则，不是命名风格。
+  fix: |
+    要跨包使用的类型、函数、字段、方法一律首字母大写。
+    struct 字段还有个连带后果：只有导出的字段才能被 JSON 序列化 ——
+    写 `type User struct { name string }` 会得到 `{}`，且**不报错**。
+  severity: 1
+  languages: [python, go]
+  fromBaseline: true
+  featureId: model/access-control
+  tags: [可见性, 命名]

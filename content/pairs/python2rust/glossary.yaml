@@ -1,0 +1,74 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词不必收 —— 读者不会误解的东西，收了只是稀释。
+
+- term: 所有权
+  aliases: [ownership, move]
+  perLanguage:
+    rust: 每个值有唯一所有者，赋值默认**移动**，移动后原变量在编译期失效；要共享得显式借用或克隆
+    python: 变量只是名字，赋值让两个名字指向同一个对象（引用计数决定何时回收）；没有「失效」这个状态
+  note: 名字都叫「赋值」，一边是移动、一边是绑定 —— 这条差异会渗透到你写的每一行代码里。
+
+- term: 借用
+  aliases: [borrow, reference]
+  perLanguage:
+    rust: '`&T` 只读、`&mut T` 可写；「多个只读」或「一个可写」二选一，由编译器强制'
+    python: 没有这个概念 —— 引用随手传，什么时候能改、谁在改，语言不做检查
+  note: 借用检查不是「限制」，它把 Python 里那些运行期才暴露的别名 bug 提前到了编译期。
+
+- term: 生命周期
+  aliases: [lifetime]
+  perLanguage:
+    rust: 标注（如 'a）用来向编译器**描述**输入与输出的借用关系，不是设置存活时长
+    python: 对象活到没人引用为止，由引用计数自动决定，无需也无法标注
+  note: 它不是「手动内存管理」—— 内存释放时机仍然由编译器算，标注只在借用关系无法推断时才需要写。
+
+- term: 空值与错误
+  aliases: [option, result, none]
+  perLanguage:
+    rust: '`Option<T>` 表示可能没有，`Result<T, E>` 表示可能失败；两者都必须显式处理，且可以嵌套'
+    python: None 一个值兼任「没有」；错误走异常，与返回值分开
+  note: Rust 把两件事都编码进类型，于是「忘了处理」变成编译错误；Python 靠约定与运行期。
+
+- term: 特征
+  aliases: [trait, interface, protocol]
+  perLanguage:
+    rust: trait 既当接口用、也当泛型约束用，还能给已有类型补实现；实现必须落在孤儿规则允许的位置
+    python: Protocol（结构化）或 ABC（名义式）；也能给任意类挂方法（猴子补丁）
+  note: 功能上 Rust 的 trait 覆盖更广，但**不能给外部类型实现外部 trait** —— 这正是 Python 里随手打补丁做不到的那部分。
+
+- term: 可变性
+  aliases: [mut, mutable]
+  perLanguage:
+    rust: '`let` 默认不可变，要改必须写 `let mut`；可变性是绑定的一部分，写进类型里'
+    python: 没有声明层面的是否可变，能不能改取决于对象类型（list 能改、tuple 不能）
+  note: 一边把可变性写在变量上、一边写在类型上 —— 读代码时该看哪里完全不同。
+
+- term: 切片
+  aliases: [slice, str]
+  perLanguage:
+    rust: '`&[T]` 是对一段数据的**借用**，不复制；`&str` 是不可变的字符串切片，不能按下标取字符'
+    python: 切片产生新的 list / str（浅拷贝），支持负下标与步长
+  note: 共享还是复制、能不能按下标访问 —— 两处直觉都要反过来。
+
+- term: 克隆
+  aliases: [clone, copy, deepcopy]
+  perLanguage:
+    rust: '`.clone()` 是显式的深复制，写出来才发生；实现了 Copy 的简单类型才隐式复制'
+    python: 赋值不复制；`copy.copy` 浅拷贝、`copy.deepcopy` 深拷贝，也是显式调用
+  note: 这一条两边反而接近 —— 差异在于 Rust 里 clone 很显眼（借用检查逼你想清楚），Python 里漏掉一次深拷贝不容易被发现。
+
+- term: 迭代器
+  aliases: [iterator, generator]
+  perLanguage:
+    rust: 适配器（map / filter）是惰性的，必须被 collect 一类的消费者驱动才会执行
+    python: 生成器惰性，但列表推导式**立即求值** —— 同一个写法两种时机
+  note: 从列表推导式过来的人最容易踩：`.map()` 不接消费者，就什么都不会发生，也不报错。
+
+- term: 宏
+  aliases: [macro, println]
+  perLanguage:
+    rust: 名字带 `!` 的宏在编译期展开，能接收可变数量的参数、能生成代码；与函数是两套机制
+    python: 没有宏；元编程靠装饰器与运行期反射完成
+  note: 看到 `println!` 的感叹号要意识到它不是函数调用 —— 这决定了它能做到函数做不到的事（比如编译期检查格式串）。

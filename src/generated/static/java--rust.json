@@ -1,0 +1,540 @@
+{
+  "baseline": "java",
+  "target": "rust",
+  "pitfalls": [
+    {
+      "id": "pitfall-assignment-moves",
+      "title": "赋值之后，原来那个变量就不能用了",
+      "symptomHtml": "<p>Java 里对象都是引用，<code>B b = a;</code> 之后两个变量指向同一个对象，随时都能用。\nRust 里 <code>let b = a;</code> 之后 <code>a</code> <strong>在编译期就失效了</strong>：\n<code>value borrowed here after move</code> —— 连读一下都不行。</p>\n",
+      "causeHtml": "<p>Java 靠 GC 管理堆对象，引用可以随意复制，对象活到没人引用为止。\nRust 没有 GC：每个值有唯一所有者，赋值默认<strong>转移所有权</strong>，\n要多个使用者必须显式借用（<code>&amp;</code>）或克隆（<code>.clone()</code>）。</p>\n",
+      "fixHtml": "<p>只读用借用 <code>let b = &amp;a;</code>；确实要两份独立数据才 <code>clone()</code>。\n编译器报 moved 时先问「这里到底是共享还是复制」再动手 ——\n条件反射地 clone 会把所有权检查带来的好处全部抵消，代码也会变慢。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/ownership-borrow",
+      "tags": [
+        "所有权",
+        "内存"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-cannot-mutate-while-borrowed",
+      "title": "一边遍历一边改，编译不过",
+      "symptomHtml": "<p>Java 里遍历 Map 的同时改它是允许的（用 ConcurrentHashMap 更是明确支持），\nRust 里同一段代码直接编译失败：不能在有不可变借用时再取可变借用。\n「编译不过」在这里是好消息 —— 同样的代码在 Java 里是运行期才乱。</p>\n",
+      "causeHtml": "<p>Rust 的借用检查器强制「要么多个只读借用，要么一个可写借用」，二者不能同时存在。\n这是它消灭数据竞争的机制，代价是某些在 Java 里「碰巧安全」的写法写不出来。</p>\n",
+      "fixHtml": "<p>先收集键再用：<code>let keys: Vec&lt;_&gt; = map.keys().cloned().collect();</code> 再遍历 keys 去改 map。\n或者用 <code>retain</code> / <code>iter_mut</code> 这类<strong>专门为原地修改设计的 API</strong> ——\n遇到这类报错时，多半存在一个更贴合意图的标准库方法。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/ownership-borrow",
+      "tags": [
+        "借用",
+        "集合"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-integer-overflow-profile-dependent",
+      "title": "整数溢出：调试时 panic，发布时回绕",
+      "symptomHtml": "<p>Java 的 int 溢出<strong>永远</strong>是静默回绕（<code>Integer.MAX_VALUE + 1</code> 得最小值），\n这一点至少是一致的。Rust 里溢出在 debug 构建下 panic、\n在 release 构建下才回绕 —— 同一个 bug 本地必现、上线后变成安静的错误数值。</p>\n",
+      "causeHtml": "<p>Rust 的整数有固定位宽，溢出行为按构建配置分叉是刻意的：\n开发期希望它炸，发布期不希望线上崩。而这恰好制造了最难查的局面。</p>\n",
+      "fixHtml": "<p>不确信取值范围时用显式 API：<code>checked_add</code>（返回 Option）、\n<code>saturating_add</code>（饱和）、<code>wrapping_add</code>（明确要回绕）。\n要从 Java 过来就用 <code>Math.addExact</code> 那种语义的话，Rust 对应的是 <code>checked_add</code> ——\n两者都是「溢出就报错」，而 Rust 需要你写出来。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "溢出"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-no-exceptions-result",
+      "title": "异常没了，错误是返回值",
+      "symptomHtml": "<p>Java 里抛异常、上层统一 catch、finally 收尾，是一整套现成的机制。\nRust 里没有异常：错误是 <code>Result&lt;T, E&gt;</code>，靠 <code>?</code> 往上传；\n漏掉处理的 Result 会得到一个编译警告（<code>#[must_use]</code>），而不是运行期爆炸。</p>\n",
+      "causeHtml": "<p>Rust 把「可恢复的错误」（Result）与「不可恢复的 bug」（panic）分成两套机制。\n没有 finally，收尾靠 RAII：值离开作用域时自动析构。</p>\n",
+      "fixHtml": "<p>函数返回 <code>Result</code>，用 <code>?</code> 传播（它会在出错时提前返回）。\n自定义错误类型并实现 <code>std::error::Error</code>，需要动态错误就 <code>Box&lt;dyn Error&gt;</code>。\n资源清理不用写 finally —— 交给 RAII，这也顺手消灭了「忘记关闭」。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/throw-raise",
+      "tags": [
+        "异常",
+        "错误处理"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-no-null-use-option",
+      "title": "没有 null，也没有 NullPointerException",
+      "symptomHtml": "<p>Java 里 <code>null</code> 是万能的「没有」，代价是运行期可能 NPE（于是到处写判空）。\nRust 里没有 null：返回 <code>None</code> 的类型是 <code>Option&lt;T&gt;</code>，不能当引用用；\n而且 <code>Option&lt;Option&lt;T&gt;&gt;</code> 完全合法 —— 「没有」与「有一个空值」被分开了。</p>\n",
+      "causeHtml": "<p>Rust 把「可能没有」编码进类型，编译器强制你处理两个分支。\n好处是 NPE 这一整类问题在编译期就没了，代价是 Java 里那种\n「用 null 表示三种含义」的写法必须摊开重写。</p>\n",
+      "fixHtml": "<p>处理用 <code>match</code>、<code>if let</code>，或组合子 <code>map</code> / <code>and_then</code> / <code>unwrap_or_else</code>。\n取默认值用 <code>unwrap_or</code>；<code>unwrap()</code> 是「没有就 panic」，只在确实不可能为 None 时用。\n可选参数用 <code>Option&lt;T&gt;</code> 而不是重载 —— Rust 没有重载。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "空值",
+        "类型"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-string-not-indexable",
+      "title": "字符串不能按下标取字符",
+      "symptomHtml": "<p>Java 的 <code>s.charAt(0)</code> 至少给你一个 UTF-16 码元，<code>s.length()</code> 也是按码元算。\nRust 里 <code>s[0]</code> 是<strong>编译错误</strong> —— 语言根本不提供这个操作；\n<code>s.len()</code> 给的是字节数，与「几个字」不是一回事。</p>\n",
+      "causeHtml": "<p>Rust 的 String 是 UTF-8 字节序列。按下标取「第 n 个字符」需要从头扫描，\n是 O(n) 而不是 O(1)，语言不愿意把它伪装成一次索引；\n切在字符中间还会产生非法字符串。</p>\n",
+      "fixHtml": "<p>要字符用 <code>s.chars().nth(i)</code>（注意是线性代价），或先 <code>let v: Vec&lt;char&gt; = s.chars().collect()</code>。\n要字节用 <code>s.as_bytes()</code>。\n遍历一律 <code>for c in s.chars()</code> —— 这也顺手避免了把多字节字符切坏。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串",
+        "编码"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-copy-vs-clone",
+      "title": "不是所有类型都该 clone",
+      "symptomHtml": "<p>Java 里对象传来传去都是引用，从来没有「这个赋值会不会复制」这个问题。\nRust 里每个赋值都要面对它：实现了 <code>Copy</code> 的类型隐式复制（整数、bool），\n其余类型需要显式 <code>.clone()</code> —— 而 clone 是真实的内存复制。</p>\n",
+      "causeHtml": "<p><code>Copy</code> 是「按位复制就够」的标记，只给简单类型；它让这些类型用起来像 Java 的基本类型。\n自定义类型除非所有字段都是 Copy，否则不能是 Copy。</p>\n",
+      "fixHtml": "<p>小类型可以考虑派生 <code>Copy</code>（用起来最接近 Java 的直觉）；\n含堆数据的类型保持只 Clone，并认真对待每次 clone 的代价。\n一个类里到处 clone 通常是所有权设计没想清楚 —— 值得回头改结构，而不是继续加 clone。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/value-vs-reference",
+      "tags": [
+        "所有权",
+        "类型"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-erasure-vs-monomorphization",
+      "title": "泛型不是擦除的，也没有反射可用",
+      "symptomHtml": "<p>Java 的泛型编译后擦除，运行期拿不到 <code>List&lt;String&gt;</code> 的类型参数，\n但能用反射绕一圈。Rust 的泛型为每个具体类型<strong>生成一份代码</strong>（单态化），\n没有擦除 —— 但反过来，运行期也完全没有类型信息可查，反射那套不存在。</p>\n",
+      "causeHtml": "<p>Java 为了兼容旧代码选择擦除，并保留了反射这一层；\nRust 为了性能与「零成本抽象」选择单态化，代价是代码体积增大、且没有运行期类型系统。</p>\n",
+      "fixHtml": "<p>需要「按类型做不同的事」时不能查类型，要么用 trait 的方法分派，\n要么显式传一个标记类型参数。\n担心编译产物变大可以改用 <code>dyn Trait</code>（动态分派，与 Java 的接口调用更像）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/type-erasure",
+      "tags": [
+        "泛型",
+        "类型"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-lifetime-annotations",
+      "title": "返回引用要写生命周期",
+      "symptomHtml": "<p>Java 里返回对象内部字段的引用（或 getter）天经地义，GC 保证它不会悬空。\nRust 里一旦函数返回引用，编译器常常要求写 <code>&lt;'a&gt;</code> 把输入与输出的关系讲明白，\n报错信息还很长。</p>\n",
+      "causeHtml": "<p>没有 GC，编译器必须能证明「返回的引用活得比调用方更久」。\n生命周期标注不是设置存活时长，而是<strong>告诉编译器输入与输出的借用关系</strong>。</p>\n",
+      "fixHtml": "<p>多数情况照编译器提示加个 <code>'a</code> 就够了，别急着改结构。\n如果一个结构体被迫到处带生命周期参数，通常说明<strong>它应该拥有数据</strong>（存 <code>String</code> 而不是 <code>&amp;str</code>）——\n这是设计信号，不是标注技巧问题。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/lifetime",
+      "tags": [
+        "借用",
+        "类型"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-no-inheritance",
+      "title": "没有继承，也没有抽象类",
+      "symptomHtml": "<p>Java 里用抽象类定义模板方法、子类填空，是很常见的结构。Rust 里没有 extends，\n也没有抽象类 —— 只有 trait（接口）与组合。</p>\n",
+      "causeHtml": "<p>Rust 刻意不做实现继承（它带来的脆弱基类问题不值得）。\n复用靠组合：把公共部分做成字段或独立类型，行为靠 trait 表达。</p>\n",
+      "fixHtml": "<p>公共行为 → trait（可以带默认实现，这部分与 Java 的 default 方法对应）。\n公共状态 → 放进结构体字段，用组合而不是继承。\n不要试图用 <code>Deref</code> 模拟继承 —— 那是给智能指针用的，拿来当 extends 会在别处咬人。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/inheritance",
+      "tags": [
+        "类",
+        "继承"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-shared-state-needs-arc-mutex",
+      "title": "共享可变状态要把意图写进类型",
+      "symptomHtml": "<p>Java 里随手 new 一个对象传给多个线程，加个 synchronized 就完事。\nRust 里同样的设计要写成 <code>Arc&lt;Mutex&lt;T&gt;&gt;</code>，一层套一层 ——\n而且编译器还会追问：这个类型到底能不能跨线程（Send / Sync）？</p>\n",
+      "causeHtml": "<p>Rust 默认不允许「多个所有者 + 可变」，因为那正是数据竞争与别名 bug 的来源。\n要这个能力必须显式选择一套机制，把「谁在什么时候能改」编码进类型。</p>\n",
+      "fixHtml": "<p>跨线程共享：<code>Arc&lt;Mutex&lt;T&gt;&gt;</code>（读多写少可以换 <code>RwLock</code>）。\n但在包之前先问一句：<strong>这个共享真的必要吗</strong> ——\n多半可以改成「把数据传进去、把结果传出来」，那样一层都不用包。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/shared-state",
+      "tags": [
+        "并发",
+        "共享状态"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-orphan-rule",
+      "title": "不能给别人的类型实现别人的接口",
+      "symptomHtml": "<p>Java 里可以给任意类实现自己的接口，也可以在第三方库的类型上做扩展\n（继承它、或者写工具类）。Rust 里给一个外部类型实现一个外部 trait，\n编译直接拒绝：孤儿规则。</p>\n",
+      "causeHtml": "<p>孤儿规则要求「类型或 trait 至少有一个是本 crate 定义的」。\n它保证同一份实现不会被两个地方各写一遍、在链接时打架 ——\n这也是 Rust 没有「依赖冲突导致行为不确定」的原因之一。</p>\n",
+      "fixHtml": "<p>用 newtype 包一层：<code>struct MyVec(Vec&lt;i32&gt;);</code> 然后给 <code>MyVec</code> 实现。\n要的是给已有类型加方法而不改类型，就定义自己的扩展 trait ——\n这是 Rust 社区表达「给别人的类型加方法」的标准做法（Java 那边对应的是静态工具类）。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/mixin-trait",
+      "tags": [
+        "特征",
+        "可见性"
+      ],
+      "baseline": "java",
+      "target": "rust"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "所有权",
+      "aliases": [
+        "ownership",
+        "move",
+        "gc"
+      ],
+      "perLanguage": {
+        "rust": "每个值有唯一所有者，赋值默认**移动**，移动后原变量在编译期失效；没有 GC，析构时机是确定",
+        "java": "对象由 GC 管理，引用可以随意复制；对象活到没人引用为止，回收时机不确定"
+      },
+      "note": "「什么时候释放」从运行期不确定变成了编译期确定 —— 这是迁移后最先感受到的差别。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "借用",
+      "aliases": [
+        "borrow",
+        "reference"
+      ],
+      "perLanguage": {
+        "rust": "`&T` 只读、`&mut T` 可写；「多个只读」或「一个可写」二选一，由编译器强制",
+        "java": "没有这个概念 —— 引用随手传，谁在什么时候改由 synchronized 之类的约定管"
+      },
+      "note": "借用检查不是「限制」，它把 Java 里靠约定与运行期才暴露的别名 bug 提前到了编译期。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "生命周期",
+      "aliases": [
+        "lifetime"
+      ],
+      "perLanguage": {
+        "rust": "标注（如 'a）用来向编译器**描述**输入与输出的借用关系，不是设置存活时长",
+        "java": "没有对应概念；GC 保证引用不会悬空，因此也不需要标注"
+      },
+      "note": "它不是「手动内存管理」—— 释放时机仍然由编译器算，标注只在借用关系无法推断时才需要写。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "空值与错误",
+      "aliases": [
+        "option",
+        "result",
+        "null",
+        "exception"
+      ],
+      "perLanguage": {
+        "rust": "`Option<T>` 表示可能没有，`Result<T, E>` 表示可能失败；两者都必须显式处理，且可以嵌套",
+        "java": "null 表示「没有」，代价是可能 NPE；错误走异常，受检异常由编译器强制处理"
+      },
+      "note": "Rust 把两件事都编码进类型，于是「忘了处理」变成编译错误；Java 一边靠编译器（受检异常）、一边靠自觉（null）。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "特征",
+      "aliases": [
+        "trait",
+        "interface"
+      ],
+      "perLanguage": {
+        "rust": "trait 既当接口用、也当泛型约束用，还能给已有类型补实现；可以带默认方法",
+        "java": "interface 是名义式契约，类必须显式 implements；默认方法有，但不能后补到别人的类上"
+      },
+      "note": "功能上 trait 覆盖更广，但**不能给外部类型实现外部 trait** —— 这正是 Java 里给第三方类型写工具类做不到的那部分。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic",
+        "type parameter"
+      ],
+      "perLanguage": {
+        "rust": "单态化 —— 每个具体类型生成一份代码，运行期没有类型参数可查，因此也没有反射",
+        "java": "擦除 —— 运行期同一个类，类型参数拿不到，但可以靠反射绕一圈"
+      },
+      "note": "一边换来性能（零成本抽象）、一边换来兼容与反射 —— 这个取舍决定了各自能做什么。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "可变性",
+      "aliases": [
+        "mut",
+        "final"
+      ],
+      "perLanguage": {
+        "rust": "`let` 默认不可变，要改必须写 `let mut`；可变性是绑定的一部分，写进类型里",
+        "java": "`final` 只约束「不能重新赋值」，对象内容照样能改；没有「整个对象不可变」的声明"
+      },
+      "note": "Java 的 final 与 Rust 的 let 看起来像，其实管的事不同 —— Rust 的不可变借用会真的挡住内部修改。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "克隆",
+      "aliases": [
+        "clone",
+        "copy",
+        "deepcopy"
+      ],
+      "perLanguage": {
+        "rust": "`.clone()` 是显式复制；实现了 `Copy` 的简单类型才隐式复制，且 Copy 与 Drop 互斥",
+        "java": "`clone()` 是 Object 上的受保护方法，语义由各实现自定，实践中多数人改用拷贝构造器"
+      },
+      "note": "名字一样，地位不同：Rust 的 clone 是所有权体系的一部分，什么时候该调它是设计问题，不只是性能问题。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "包 / 构建单元",
+      "aliases": [
+        "crate",
+        "module",
+        "package",
+        "jar"
+      ],
+      "perLanguage": {
+        "rust": "crate 是编译单元（库或可执行），module 是 crate 内的命名空间；依赖由 Cargo.toml 声明并按语义化版本解析",
+        "java": "package 是命名空间，jar 是分发单元；依赖由构建工具声明，靠 classpath 组装"
+      },
+      "note": "Rust 的「crate 边界」是编译期真实存在的墙（孤儿规则、可见性都按它划），Java 的 jar 更接近分发单位。",
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "term": "宏",
+      "aliases": [
+        "macro",
+        "annotation",
+        "println"
+      ],
+      "perLanguage": {
+        "rust": "名字带 `!` 的宏在编译期展开，能接收可变数量的参数、能生成代码；与函数是两套机制",
+        "java": "没有宏；注解处理器（annotation processor）能在编译期生成代码，但用途与写法都不同"
+      },
+      "note": "看到 `println!` 的感叹号要意识到它不是函数调用 —— 这决定了它能做到函数做不到的事（比如编译期检查格式串）。",
+      "baseline": "java",
+      "target": "rust"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2rust-1-anchor",
+      "order": 1,
+      "title": "先接受「没有 GC、没有 null、没有异常」",
+      "durationHint": "3-4 小时",
+      "todo": [
+        "通读本工具「语言机制」板块的 Java 视角，把 Maven/cargo、GC/所有权这类映射先建起来",
+        "只回答四个问题：类型系统、并发模型、值语义 vs 引用语义在「语言机制」板块，错误处理在「数据与抽象」板块",
+        "明确写下「哪些 Java 直觉必须丢掉」——引用随意复制、null 走天下、异常随处可抛、继承复用行为"
+      ],
+      "acceptance": [
+        "能用自己的话说清「移动」与「借用」的区别，以及为什么赋值会让原变量失效",
+        "知道 Rust 没有 null 与异常，它们分别由 Option 与 Result 承担"
+      ],
+      "resources": [
+        {
+          "label": "Rust 程序设计语言（中文版）",
+          "url": "https://kaisery.github.io/trpl-zh-cn/"
+        },
+        {
+          "label": "Rust 官方文档",
+          "url": "https://doc.rust-lang.org/"
+        }
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "java2rust-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1 周",
+      "todo": [
+        "按本工具「基础表达」板块逐章逐格对比，重点看标为「语义不同」的格子",
+        "特别留意三处会直接编译失败的：字符串不能按下标索引、遍历时不能改集合、赋值即移动",
+        "练习把一段 Stream 链改写成 Rust 的迭代器链，并记得接上 collect",
+        "把踩到的坑记进本方向的「迁移陷阱」清单，并打上自己的严重度"
+      ],
+      "acceptance": [
+        "能独立写出变量、Vec、HashMap、控制流、函数定义，无编译错误",
+        "能解释为什么 `let mut` 是必需的，以及它与 Java 的 final 管的事有何不同",
+        "遇到借用检查报错时，能判断该借用、该克隆、还是该改设计"
+      ],
+      "resources": [
+        {
+          "label": "Rust 语言参考",
+          "url": "https://doc.rust-lang.org/reference/"
+        },
+        {
+          "label": "Rust by Example",
+          "url": "https://doc.rust-lang.org/rust-by-example/"
+        }
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "java2rust-3-practice",
+      "order": 3,
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "2 周",
+      "todo": [
+        "做 Exercism 的 Rust track，接受 mentor 评审",
+        "把写过的一个小工具（100-300 行）用 Rust 重写一遍",
+        "重写时不要查原文件——凭记忆写，写完再对照",
+        "刻意让编译器当老师：先写直觉版本，再照着报错改，把每次报错的原因记下来"
+      ],
+      "acceptance": [
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法",
+        "写完能跑 cargo clippy 且基本无告警"
+      ],
+      "resources": [
+        {
+          "label": "Exercism Rust Track",
+          "url": "https://exercism.org/tracks/rust"
+        },
+        {
+          "label": "TheAlgorithms Rust",
+          "url": "https://github.com/TheAlgorithms/Rust"
+        }
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "java2rust-4-deep",
+      "order": 4,
+      "title": "补齐语义层（所有权与并发）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "真正理解借用检查：把一段在 Java 里靠共享对象实现的逻辑，改成传值 + 返回的写法",
+        "理解 Send 与 Sync 两个标记特征各自约束了什么，为什么它们能让数据竞争变成编译错误",
+        "把一段 synchronized 保护的代码改成 Arc + Mutex，再换通道写一遍",
+        "分清 panic 与 Result：什么该 panic、什么该返回错误",
+        "读一遍标准库某个类型的 Clone 与 Copy 实现，理解两者的分界"
+      ],
+      "acceptance": [
+        "能解释为什么 Rust 的并发代码能通过编译就基本不会有数据竞争",
+        "能说清 Arc 与 Rc、Mutex 与 RwLock 各自的适用边界",
+        "能判断一个函数该返回 Result 还是该 panic"
+      ],
+      "resources": [
+        {
+          "label": "Rust 官方 · 无畏并发",
+          "url": "https://doc.rust-lang.org/book/ch16-00-concurrency.html"
+        },
+        {
+          "label": "Rust 官方 · 错误处理",
+          "url": "https://doc.rust-lang.org/book/ch09-00-error-handling.html"
+        }
+      ],
+      "baseline": "java",
+      "target": "rust"
+    },
+    {
+      "id": "java2rust-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 cargo 建一个真实项目，跑通「写代码 → test → clippy → build」",
+        "把 Maven 三段坐标的心智映射到 Cargo.toml 与 Cargo.lock，理解语义化版本在这里怎么被解析",
+        "用 `cargo test` 写单元测试与集成测试，注意测试是写在同一个文件里的",
+        "配好 rustfmt 与 clippy，并把 `cargo fmt --check` 挂进 CI"
+      ],
+      "acceptance": [
+        "能独立搭起一个带测试、lint、格式化的 Rust 工程",
+        "能说清 crate / module / feature flag 各自解决什么问题",
+        "能解释为什么 Rust 没有「运行时依赖」这件事，以及它换来了什么"
+      ],
+      "resources": [
+        {
+          "label": "Cargo 官方手册",
+          "url": "https://doc.rust-lang.org/cargo/"
+        },
+        {
+          "label": "Clippy",
+          "url": "https://doc.rust-lang.org/clippy/"
+        }
+      ],
+      "baseline": "java",
+      "target": "rust"
+    }
+  ]
+}

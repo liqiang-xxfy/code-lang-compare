@@ -1,0 +1,98 @@
+# 迁移学习路线 —— 按「基准 → 目标语言」分路径
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+#
+# id 前缀就是这个方向的目录名（java2rust），后面接序号与短名。
+
+- id: java2rust-1-anchor
+  order: 1
+  title: 先接受「没有 GC、没有 null、没有异常」
+  durationHint: 3-4 小时
+  todo:
+    - 通读本工具「语言机制」板块的 Java 视角，把 Maven/cargo、GC/所有权这类映射先建起来
+    - 只回答四个问题：类型系统、并发模型、值语义 vs 引用语义在「语言机制」板块，错误处理在「数据与抽象」板块
+    - 明确写下「哪些 Java 直觉必须丢掉」——引用随意复制、null 走天下、异常随处可抛、继承复用行为
+  acceptance:
+    - 能用自己的话说清「移动」与「借用」的区别，以及为什么赋值会让原变量失效
+    - 知道 Rust 没有 null 与异常，它们分别由 Option 与 Result 承担
+  resources:
+    - label: Rust 程序设计语言（中文版）
+      url: https://kaisery.github.io/trpl-zh-cn/
+    - label: Rust 官方文档
+      url: https://doc.rust-lang.org/
+
+- id: java2rust-2-basics
+  order: 2
+  title: 基础表达逐条对照
+  durationHint: 1 周
+  todo:
+    - 按本工具「基础表达」板块逐章逐格对比，重点看标为「语义不同」的格子
+    - 特别留意三处会直接编译失败的：字符串不能按下标索引、遍历时不能改集合、赋值即移动
+    - 练习把一段 Stream 链改写成 Rust 的迭代器链，并记得接上 collect
+    - 把踩到的坑记进本方向的「迁移陷阱」清单，并打上自己的严重度
+  acceptance:
+    - 能独立写出变量、Vec、HashMap、控制流、函数定义，无编译错误
+    - 能解释为什么 `let mut` 是必需的，以及它与 Java 的 final 管的事有何不同
+    - 遇到借用检查报错时，能判断该借用、该克隆、还是该改设计
+  resources:
+    - label: Rust 语言参考
+      url: https://doc.rust-lang.org/reference/
+    - label: Rust by Example
+      url: https://doc.rust-lang.org/rust-by-example/
+
+- id: java2rust-3-practice
+  order: 3
+  title: 动手写（占全部时间的 70%）
+  durationHint: 2 周
+  todo:
+    - 做 Exercism 的 Rust track，接受 mentor 评审
+    - 把写过的一个小工具（100-300 行）用 Rust 重写一遍
+    - 重写时不要查原文件——凭记忆写，写完再对照
+    - 刻意让编译器当老师：先写直觉版本，再照着报错改，把每次报错的原因记下来
+  acceptance:
+    - Exercism 完成 15 题以上
+    - 能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法
+    - 写完能跑 cargo clippy 且基本无告警
+  resources:
+    - label: Exercism Rust Track
+      url: https://exercism.org/tracks/rust
+    - label: TheAlgorithms Rust
+      url: https://github.com/TheAlgorithms/Rust
+
+- id: java2rust-4-deep
+  order: 4
+  title: 补齐语义层（所有权与并发）
+  durationHint: 1-2 周
+  todo:
+    - 真正理解借用检查：把一段在 Java 里靠共享对象实现的逻辑，改成传值 + 返回的写法
+    - 理解 Send 与 Sync 两个标记特征各自约束了什么，为什么它们能让数据竞争变成编译错误
+    - 把一段 synchronized 保护的代码改成 Arc + Mutex，再换通道写一遍
+    - 分清 panic 与 Result：什么该 panic、什么该返回错误
+    - 读一遍标准库某个类型的 Clone 与 Copy 实现，理解两者的分界
+  acceptance:
+    - 能解释为什么 Rust 的并发代码能通过编译就基本不会有数据竞争
+    - 能说清 Arc 与 Rc、Mutex 与 RwLock 各自的适用边界
+    - 能判断一个函数该返回 Result 还是该 panic
+  resources:
+    - label: Rust 官方 · 无畏并发
+      url: https://doc.rust-lang.org/book/ch16-00-concurrency.html
+    - label: Rust 官方 · 错误处理
+      url: https://doc.rust-lang.org/book/ch09-00-error-handling.html
+
+- id: java2rust-5-ecosystem
+  order: 5
+  title: 工程化与生态收口
+  durationHint: 3-5 天
+  todo:
+    - 用 cargo 建一个真实项目，跑通「写代码 → test → clippy → build」
+    - 把 Maven 三段坐标的心智映射到 Cargo.toml 与 Cargo.lock，理解语义化版本在这里怎么被解析
+    - 用 `cargo test` 写单元测试与集成测试，注意测试是写在同一个文件里的
+    - 配好 rustfmt 与 clippy，并把 `cargo fmt --check` 挂进 CI
+  acceptance:
+    - 能独立搭起一个带测试、lint、格式化的 Rust 工程
+    - 能说清 crate / module / feature flag 各自解决什么问题
+    - 能解释为什么 Rust 没有「运行时依赖」这件事，以及它换来了什么
+  resources:
+    - label: Cargo 官方手册
+      url: https://doc.rust-lang.org/cargo/
+    - label: Clippy
+      url: https://doc.rust-lang.org/clippy/

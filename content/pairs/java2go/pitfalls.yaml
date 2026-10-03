@@ -1,0 +1,237 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 Go 会踩的坑
+# 组织方式：按「症状」索引（症状 → 原因 → 解法），而不是按语法点
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩（对应界面上的 ⭐ 数量）
+#
+# 只讲本方向的两门语言：Java 习惯在 Go 上失效的地方。
+
+- id: pitfall-no-inheritance
+  title: 没有类，也没有继承
+  symptom: |
+    Java 里靠抽象基类 + 继承把公共字段与行为提上去，这套设计在 Go 里写不出来：
+    没有 extends、没有重写、没有 super。硬套「父类子类」的思路会越写越别扭，
+    最后变成到处复制字段。
+  cause: |
+    Go 只有结构体与接口，复用靠**嵌入**（把一个类型放进另一个类型）而不是继承。
+    嵌入是组合：外层获得内层的字段与方法，但没有多态覆盖 ——
+    内层方法里调用的还是内层自己的实现。
+  fix: |
+    先问「这里是 is-a 还是 has-a」，绝大多数继承其实都是 has-a，用嵌入直接表达。
+    需要多态就用接口：定义在使用方，靠方法集隐式满足。
+    这一条不只是语法差别 —— 它会让你的类型层次整体变浅，那是好事。
+  severity: 3
+  languages: [java, go]
+  fromBaseline: true
+  featureId: model/inheritance
+  tags: [类, 继承]
+
+- id: pitfall-error-is-value
+  title: 异常没了，错误变成返回值
+  symptom: |
+    Java 里抛出去、在上层统一 catch 的写法在 Go 里不存在。
+    忘了检查的那个 `err` 会被安静地丢掉 —— 没有栈、没有日志，
+    函数返回零值继续跑，问题在很远的地方才显形。
+  cause: |
+    Go 把错误当作普通返回值（error 接口），没有异常传播机制。
+    因此也没有「忘记处理就会炸」这层保护 —— 恰恰相反，忘记处理是静默的。
+  fix: |
+    每个返回 error 的调用后面立刻写 `if err != nil`。
+    要包装上下文用 `fmt.Errorf("...: %w", err)`（`%w` 保留错误链），
+    上层用 `errors.Is` / `errors.As` 判断 —— 这是 Go 版的异常类型匹配。
+    开 golangci-lint 的 errcheck，漏掉的靠工具抓。
+  severity: 3
+  languages: [java, go]
+  fromBaseline: true
+  featureId: model/error-propagation
+  tags: [异常, 错误处理]
+
+- id: pitfall-nil-map-write
+  title: 声明了 map 就能读，一写就 panic
+  symptom: |
+    `var m map[string]int` 之后 `m["a"] = 1` 直接 panic：
+    `assignment to entry in nil map`。而读 `m["a"]` 却合法（返回零值）——
+    「读没问题」让人以为写也没问题。
+  cause: |
+    Go 的 map 是引用类型，零值是 nil。Java 的 `new HashMap<>()` 一创建就可写，
+    没有「已声明但不可用」这个中间态。
+  fix: |
+    一律用 `make` 或字面量初始化：`m := make(map[string]int)`。
+    判空看 `m == nil`，不要用 `len(m) == 0` ——
+    两者对 nil map 与空 map 的答案相同，但只有前者能告诉你「写下去会不会 panic」。
+  severity: 3
+  languages: [java, go]
+  fromBaseline: true
+  featureId: model/map-dict
+  tags: [集合, 空值]
+
+- id: pitfall-slice-shared-backing
+  title: 切片是同一块内存的窗口
+  symptom: |
+    Java 里 `list.subList(1, 3)` 返回的是**视图**（改它会改到原 list，
+    这一点 Java 自己也算个坑）；而 `new ArrayList<>(list.subList(...))` 是副本。
+    Go 的切片只有一个行为：**共享底层数组**，改它一定影响原数据。
+  cause: |
+    Go 的切片是「指针 + 长度 + 容量」的三元组，切片操作不复制数据。
+    没有「默认复制」的切片操作，要副本必须显式写出来。
+  fix: |
+    要独立副本用 `append([]T(nil), s...)` 或 `copy`。
+    还要注意 append 在容量够时原地写、不够时才新分配 ——
+    「会不会改到别人」取决于容量，这是藏得最深的一类 bug。
+  severity: 3
+  languages: [java, go]
+  fromBaseline: true
+  featureId: model/slicing
+  tags: [集合, 引用]
+
+- id: pitfall-typed-nil-interface
+  title: 装进接口的 nil 指针，不等于 nil
+  symptom: |
+    Java 里 `obj == null` 就是判空，没有第二种空。
+    Go 里把 nil 指针赋给接口变量之后，**接口本身不等于 nil**：
+    `var e error = (*MyErr)(nil)` 之后 `e != nil` 是 true，
+    于是「没出错」的判断失效，一个空错误被当成真错误传上去。
+  cause: |
+    Go 的接口值是一对（类型, 值）。只要类型那一半不是 nil，接口就不等于 nil，
+    哪怕值是 nil 指针。这是 Go 里公认最反直觉的坑之一。
+  fix: |
+    变量声明成接口类型（`var e error`）再赋值；
+    或者在返回处先判空、直接返回 `nil` 而不是那个 nil 指针。
+    评审时专门看一眼「可能返回 nil 指针的函数」—— 这里出的错最难查。
+  severity: 3
+  languages: [java, go]
+  fromBaseline: true
+  featureId: model/interface
+  tags: [接口, 空值]
+
+- id: pitfall-string-is-bytes
+  title: 字符串按字节索引，中文会被切坏
+  symptom: |
+    Java 的 `s.charAt(0)` 至少给你一个 UTF-16 码元，`s.length()` 也是按码元算。
+    Go 的 `s[0]` 给的是**字节**，`len(s)` 是字节数：
+    对 "你好" 取 `s[0:3]` 会把第二个字切成半个，得到乱码。
+  cause: |
+    Go 的字符串是只读字节序列（约定 UTF-8），索引与切片按字节走。
+    这与 Java 的 char 是 UTF-16 码元一样「都不是真正的字符」，
+    但错位的方向不同，所以迁移时的直觉会失灵。
+  fix: |
+    按字符遍历用 `for i, r := range s`（`r` 是 rune）。
+    要按下标取第 n 个字符，先转 `[]rune(s)`。
+    字符数用 `utf8.RuneCountInString(s)`，不是 `len(s)`。
+  severity: 3
+  languages: [java, go]
+  fromBaseline: true
+  featureId: express/string-common-ops
+  tags: [字符串, 编码]
+
+- id: pitfall-goroutine-not-thread
+  title: goroutine 不是线程，也别指望有线程池
+  symptom: |
+    Java 里任务提交给线程池、靠 Future 拿结果；共享对象加锁保护。
+    Go 里 `go f()` 看起来更简单，但把「随手共享内存」的习惯带过来，
+    就会撞上数据竞争 —— 而且 `go test -race` 之外，它平时完全看不出来。
+  cause: |
+    goroutine 由运行期调度到少量线程上，模型是「并发」而不是「并行」。
+    语言为此提供了通道与 `select` 作为一等公民，
+    但**共享内存并没有被禁止** —— 只是没人替你保护。
+  fix: |
+    优先用「通过通信共享内存」：把数据通过通道传给下一个 goroutine，
+    而不是让两边同时摸同一块内存。
+    确实要共享时用 Mutex / atomic，并且每个可能阻塞的函数都带上 `context.Context` 做取消。
+  severity: 3
+  languages: [java, go]
+  fromBaseline: true
+  featureId: mechanism/concurrency-unit
+  tags: [并发, 共享状态]
+
+- id: pitfall-generics-differ
+  title: 泛型不是擦除式的
+  symptom: |
+    Java 的泛型编译后擦除，`List<String>` 与 `List<Integer>` 运行期是同一个类，
+    因此可以写通配符 `? extends T`、可以反射拿到泛型信息（部分）。
+    Go 的泛型是另一套：没有通配符，没有「泛型方法」，约束用接口的**类型集**表达。
+  cause: |
+    两门语言的泛型是为不同目标设计的：Java 为了兼容旧代码而擦除，
+    Go 为了保持编译速度与运行期表示简单，用类型参数 + 约束接口。
+  fix: |
+    别把 `? extends` 的直觉带过来 —— 需要「任意数值类型」时写
+    `[T int | float64]` 这样的联合约束，而不是找通配符。
+    也不需要包一层 `Box<T>` 来绕擦除：Go 的泛型没有这个问题。
+  severity: 2
+  languages: [java, go]
+  fromBaseline: true
+  featureId: mechanism/generic-constraint
+  tags: [泛型, 类型]
+
+- id: pitfall-defer-is-function-scoped
+  title: defer 的作用域是函数，不是代码块
+  symptom: |
+    Java 的 try-with-resources 在**离开块**时关闭资源，
+    finally 也跟着 try 块走。Go 的 `defer` 压到函数返回时才执行 ——
+    在循环里 defer 关闭文件，会一直堆到函数结束才关。
+  cause: |
+    defer 的触发点是函数返回（按后进先出执行），不是块结束。
+    循环开了一千个句柄，就同时挂着一千个未关闭的。
+  fix: |
+    循环里要用 defer 就把循环体抽成一个函数，让 defer 落在那个函数上。
+    或者显式在循环末尾关闭并检查错误（`defer f.Close()` 的错误是**被丢弃的**，
+    这是另一个常见问题）。
+  severity: 2
+  languages: [java, go]
+  fromBaseline: true
+  featureId: model/finally-cleanup
+  tags: [资源, 作用域]
+
+- id: pitfall-unused-is-an-error
+  title: 声明了不用，编译不过
+  symptom: |
+    Java 里未使用的局部变量、未使用的 import 最多是个警告，IDE 灰一下。
+    Go 里它是**编译错误**：`declared and not used` / `imported and not used`，
+    而且没有开关可以关掉。
+  cause: |
+    Go 把「未使用」当错误而不是警告。这是刻意设计：
+    它消灭了一整类「改到一半留下的残骸」，代价是调试期不方便。
+  fix: |
+    临时不用就写 `_ = x`（明确表达「我知道它没用」），或者干脆删掉。
+    调试时想看值就临时打印再删 —— 别指望关掉这个检查。
+  severity: 2
+  languages: [java, go]
+  fromBaseline: true
+  featureId: express/declaration
+  tags: [声明, 工具链]
+
+- id: pitfall-int-width-is-platform-dependent
+  title: int 的位宽不再固定
+  symptom: |
+    Java 的 `int` 永远是 32 位、`long` 永远是 64 位 —— 这些数字可以写进协议文档。
+    Go 的 `int` 位宽**取决于平台**（32 位机器上是 32 位），
+    于是序列化、哈希、二进制布局在换平台后可能不一样。
+  cause: |
+    Go 的 `int` 是「够装下标就好」的机器字长类型，
+    要确定的位宽必须写 `int32` / `int64` 这样的显式类型。
+  fix: |
+    涉及协议、文件格式、跨语言交互的数值一律用显式位宽类型（int32 / int64 / uint32 …）。
+    `int` 只用在计数、下标这类不跨边界的地方。
+    另外 Go 有**无符号**类型，Java 没有 —— 从 Java 过来时别忽略 `uint8` 与 `byte` 的差别。
+  severity: 2
+  languages: [java, go]
+  fromBaseline: true
+  featureId: express/type-inference
+  tags: [类型, 数值]
+
+- id: pitfall-capitalization-exports
+  title: 首字母大写才是 public
+  symptom: |
+    Java 用 `public` / `private` / `protected` 三个关键字，包级私有还有个默认可见性。
+    Go 只有一条规则：**首字母大写才导出**，小写就是包私有。
+    方法名写成 `parseConfig` 之后，别的包 import 不到，报错只说「undefined」。
+  cause: |
+    可见性由标识符首字母的大小写决定，没有关键字，也没有 protected 这个层级。
+  fix: |
+    要跨包使用的一律首字母大写。
+    结构体字段还有连带后果：**只有导出的字段才会被 JSON 序列化** ——
+    写 `type User struct { name string }` 会序列化出 `{}`，且不报错。
+    包内共享的设计改用「同包多文件」来表达，而不是 protected。
+  severity: 1
+  languages: [java, go]
+  fromBaseline: true
+  featureId: model/access-control
+  tags: [可见性, 命名]

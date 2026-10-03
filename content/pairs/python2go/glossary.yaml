@@ -1,0 +1,74 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词不必收 —— 读者不会误解的东西，收了只是稀释。
+
+- term: 切片 / 列表
+  aliases: [slice, list]
+  perLanguage:
+    go: '`[]T` 是「指针 + 长度 + 容量」的三元组，切片操作**共享底层数组**，不复制数据'
+    python: list 是独立对象；`a[1:3]` 切出来的是**新列表**（浅拷贝），改它不影响原列表
+  note: 名字都叫「切片」，但一边共享、一边复制 —— 这是本方向上最容易带错的一条直觉。Go 的数组 `[N]T` 才是值类型。
+
+- term: 映射 / 字典
+  aliases: [map, dict]
+  perLanguage:
+    go: map 是引用类型，零值为 nil；nil map 可读不可写，写就 panic，必须 make 或字面量初始化
+    python: dict 没有「未初始化」状态，`{}` 直接就可写；空字典与不存在的键都能安全处理
+  note: Go 那边多了一个 Python 没有的状态（nil map），而它恰恰在写的时候才炸。
+
+- term: 结构体
+  aliases: [struct, class, dataclass]
+  perLanguage:
+    go: struct 只有字段，没有继承与方法内联；方法定义在类型之外，靠接收者关联
+    python: class 把字段与方法装在一起，支持继承、多继承与运行时改属性
+  note: Go 用组合代替继承：把 struct 嵌进另一个 struct，外层自动获得内层的字段与方法。
+
+- term: 接口
+  aliases: [interface, protocol]
+  perLanguage:
+    go: 隐式满足 —— 只要方法集齐了就算实现了接口，没有 implements 可写；接口通常定义在使用方
+    python: Protocol（结构化）或 ABC（名义式，必须显式继承）
+  note: Go 的接口偏「先有实现、再抽象出接口」，且接口值是一对（类型, 值）—— 装进 nil 指针后接口本身不等于 nil。
+
+- term: 方法 / 接收者
+  aliases: [receiver, self, method]
+  perLanguage:
+    go: 方法在类型之外定义，靠接收者与类型关联；值接收者拿到的是副本，指针接收者才能改到原值
+    python: 方法的第一个参数是 self，由语言自动传入，永远是同一个对象的引用
+  note: 「值接收者还是指针接收者」是 Go 特有的决定，Python 里没有对应物 —— 它决定了调这个方法会不会改到原对象。
+
+- term: 错误
+  aliases: [error, exception]
+  perLanguage:
+    go: error 是普通返回值，由调用方显式检查；忘检查是**静默**的，没有栈也没有日志
+    python: 异常会自动向上传播，未捕获时留下完整栈；忘处理会炸得很响
+  note: 两边都把「出错」建模成值，但一边强制你看见、另一边默认不打扰你 —— 迁移后最容易丢的就是这层保护。
+
+- term: 零值
+  aliases: [zero value, none]
+  perLanguage:
+    go: 所有变量都有确定的零值（0 / "" / false / nil），不存在「未初始化」
+    python: 变量未赋值就是不存在（NameError）；「空」由 None 表达，与 0、"" 区分得开
+  note: Go 用「没有未初始化状态」换掉了「空」这个状态位 —— 需要三态时得用指针字段自己补回来。
+
+- term: 通道
+  aliases: [channel, chan, queue]
+  perLanguage:
+    go: 语言内置的通信原语，goroutine 之间传值；默认无缓冲，收发会互相阻塞
+    python: 语言层面没有，用 queue.Queue 或 asyncio.Queue 表达，靠库而不是语法
+  note: 在 Go 里它是**语法**（`<-` 是运算符，`select` 是关键字），在 Python 里它是**库** —— 这个差别决定了并发代码的写法有多不一样。
+
+- term: 包 / 模块
+  aliases: [package, module, import]
+  perLanguage:
+    go: 目录即包，包名与目录名可以不同；导入路径是仓库地址加子目录，可见性由首字母大小写决定
+    python: 一个 .py 文件是 module，含 __init__.py 的目录是 package；可见性靠下划线约定
+  note: Go 那边「包名」与「导入路径的最后一段」经常不一致，读 import 时要看清映射到哪个名字。
+
+- term: 延迟调用
+  aliases: [defer, finally, context manager]
+  perLanguage:
+    go: defer 把调用压栈，函数返回时逆序执行；作用域是**函数**，不是代码块
+    python: with 语句的清理范围是代码块，退出块就执行；finally 跟 try 走
+  note: 作用域不同是会咬人的：在循环里 defer 一个关闭操作，它们会全部堆到函数返回时才执行 —— 循环开了一千个句柄，就同时挂着一千个未关闭。

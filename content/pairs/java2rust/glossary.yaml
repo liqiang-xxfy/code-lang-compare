@@ -1,0 +1,74 @@
+# 速语词典 —— 从 Java 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词不必收 —— 读者不会误解的东西，收了只是稀释。
+
+- term: 所有权
+  aliases: [ownership, move, gc]
+  perLanguage:
+    rust: 每个值有唯一所有者，赋值默认**移动**，移动后原变量在编译期失效；没有 GC，析构时机是确定
+    java: 对象由 GC 管理，引用可以随意复制；对象活到没人引用为止，回收时机不确定
+  note: 「什么时候释放」从运行期不确定变成了编译期确定 —— 这是迁移后最先感受到的差别。
+
+- term: 借用
+  aliases: [borrow, reference]
+  perLanguage:
+    rust: '`&T` 只读、`&mut T` 可写；「多个只读」或「一个可写」二选一，由编译器强制'
+    java: 没有这个概念 —— 引用随手传，谁在什么时候改由 synchronized 之类的约定管
+  note: 借用检查不是「限制」，它把 Java 里靠约定与运行期才暴露的别名 bug 提前到了编译期。
+
+- term: 生命周期
+  aliases: [lifetime]
+  perLanguage:
+    rust: 标注（如 'a）用来向编译器**描述**输入与输出的借用关系，不是设置存活时长
+    java: 没有对应概念；GC 保证引用不会悬空，因此也不需要标注
+  note: 它不是「手动内存管理」—— 释放时机仍然由编译器算，标注只在借用关系无法推断时才需要写。
+
+- term: 空值与错误
+  aliases: [option, result, 'null', exception]
+  perLanguage:
+    rust: '`Option<T>` 表示可能没有，`Result<T, E>` 表示可能失败；两者都必须显式处理，且可以嵌套'
+    java: null 表示「没有」，代价是可能 NPE；错误走异常，受检异常由编译器强制处理
+  note: Rust 把两件事都编码进类型，于是「忘了处理」变成编译错误；Java 一边靠编译器（受检异常）、一边靠自觉（null）。
+
+- term: 特征
+  aliases: [trait, interface]
+  perLanguage:
+    rust: trait 既当接口用、也当泛型约束用，还能给已有类型补实现；可以带默认方法
+    java: interface 是名义式契约，类必须显式 implements；默认方法有，但不能后补到别人的类上
+  note: 功能上 trait 覆盖更广，但**不能给外部类型实现外部 trait** —— 这正是 Java 里给第三方类型写工具类做不到的那部分。
+
+- term: 泛型
+  aliases: [generic, type parameter]
+  perLanguage:
+    rust: 单态化 —— 每个具体类型生成一份代码，运行期没有类型参数可查，因此也没有反射
+    java: 擦除 —— 运行期同一个类，类型参数拿不到，但可以靠反射绕一圈
+  note: 一边换来性能（零成本抽象）、一边换来兼容与反射 —— 这个取舍决定了各自能做什么。
+
+- term: 可变性
+  aliases: [mut, final]
+  perLanguage:
+    rust: '`let` 默认不可变，要改必须写 `let mut`；可变性是绑定的一部分，写进类型里'
+    java: '`final` 只约束「不能重新赋值」，对象内容照样能改；没有「整个对象不可变」的声明'
+  note: Java 的 final 与 Rust 的 let 看起来像，其实管的事不同 —— Rust 的不可变借用会真的挡住内部修改。
+
+- term: 克隆
+  aliases: [clone, copy, deepcopy]
+  perLanguage:
+    rust: '`.clone()` 是显式复制；实现了 `Copy` 的简单类型才隐式复制，且 Copy 与 Drop 互斥'
+    java: '`clone()` 是 Object 上的受保护方法，语义由各实现自定，实践中多数人改用拷贝构造器'
+  note: 名字一样，地位不同：Rust 的 clone 是所有权体系的一部分，什么时候该调它是设计问题，不只是性能问题。
+
+- term: 包 / 构建单元
+  aliases: [crate, module, package, jar]
+  perLanguage:
+    rust: crate 是编译单元（库或可执行），module 是 crate 内的命名空间；依赖由 Cargo.toml 声明并按语义化版本解析
+    java: package 是命名空间，jar 是分发单元；依赖由构建工具声明，靠 classpath 组装
+  note: Rust 的「crate 边界」是编译期真实存在的墙（孤儿规则、可见性都按它划），Java 的 jar 更接近分发单位。
+
+- term: 宏
+  aliases: [macro, annotation, println]
+  perLanguage:
+    rust: 名字带 `!` 的宏在编译期展开，能接收可变数量的参数、能生成代码；与函数是两套机制
+    java: 没有宏；注解处理器（annotation processor）能在编译期生成代码，但用途与写法都不同
+  note: 看到 `println!` 的感叹号要意识到它不是函数调用 —— 这决定了它能做到函数做不到的事（比如编译期检查格式串）。

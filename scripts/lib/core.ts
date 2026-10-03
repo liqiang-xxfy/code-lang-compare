@@ -13,6 +13,7 @@ import {
   featurePoolSchema,
   languageContentFileSchema,
   languageMetaSchema,
+  pairMetaSchema,
   registrySchema,
   scopedGlossarySchema,
   scopedPitfallSchema,
@@ -22,6 +23,7 @@ import {
   type BoxSource,
   type FeaturePool,
   type LanguageMeta,
+  type PairMeta,
   type Registry,
   type ScopedGlossary,
   type ScopedPitfall,
@@ -101,14 +103,69 @@ export function loadLanguageMeta(id: string): LanguageMeta {
   return languageMetaSchema.parse(readYaml(path.join(LANGUAGES_DIR, id, 'meta.yaml')))
 }
 
+/**
+ * 语言按 **registry.yaml 里 `languages:` 段的声明顺序**排（ADR-58）。
+ *
+ * 为什么顺序要有单一真源：它会**直接出现在界面上** —— 基准选择器、对比语言
+ * 勾选条、矩阵的列、首页三张基准卡都按它排。曾经按目录名字母序，
+ * 于是界面成了 Java / JS / Py、Go 排在 Python 前面；而「哪门在前更好读」
+ * 是内容判断，不是文件系统的属性，该由人写在注册表里。
+ *
+ * 未在注册表里声明的（`_` 私有目录、`verify:ext` 造的临时语言）排在末尾，
+ * 相互之间保持传入顺序 —— `Array#sort` 是稳定的，不必额外写比较器。
+ *
+ * ⚠ 与 [scripts/build/generate-registry.ts] 是**同一套判据**：那边写进
+ * `registry.gen.ts`，这边喂校验与报告。两处分叉就会出现「报告里的顺序
+ * 与页面上的顺序不一致」这种要对着看才发现的错。
+ */
+export function sortByDeclaredOrder<T extends { id: string }>(metas: T[]): T[] {
+  const rank = declaredLanguageRanker()
+  return metas.slice().sort((a, b) => rank(a.id) - rank(b.id))
+}
+
+/** registry 里 `languages` 段的声明顺序 —— **书写序即显示序**（ADR-58） */
+function declaredLanguageOrder(): string[] {
+  // 缓存：一次进程里 registry.yaml 不会变，而这个函数会在排序里被反复取用
+  declaredOrderCache ??= Object.keys(loadRegistry().languages)
+  return declaredOrderCache
+}
+let declaredOrderCache: string[] | null = null
+
+/**
+ * 给语言 id 求它在书写序里的位次；未声明的排到最后。
+ *
+ * **取一次、别放进比较函数里** —— 位次函数本身很便宜，但重复构造它就要重复读注册表。
+ */
+export function declaredLanguageRanker(): (id: string) => number {
+  return rankerOf(declaredLanguageOrder())
+}
+
+function rankerOf(declared: readonly string[]): (id: string) => number {
+  return (id) => {
+    const i = declared.indexOf(id)
+    return i === -1 ? declared.length : i
+  }
+}
+
 export function loadAllLanguageMeta(): LanguageMeta[] {
-  return listLanguageIds().map(loadLanguageMeta)
+  return sortByDeclaredOrder(listLanguageIds().map(loadLanguageMeta))
 }
 
 function loadArray(file: string): unknown[] {
   if (!exists(file)) return []
   const raw = readYaml(file)
   return Array.isArray(raw) ? raw : []
+}
+
+/**
+ * 一个方向的 `meta.yaml` —— 速查内容的来源与校对留痕（ADR-66）。
+ *
+ * **缺失是合法的**：刚刚建立的方向目录、以及私有目录，都不该因为还没补留痕就让构建失败。
+ * 但文件存在却解析不过就抛 —— 那说明写错了，和三个内容文件对形状的态度一致。
+ */
+function loadPairMeta(file: string): PairMeta | undefined {
+  if (!exists(file)) return undefined
+  return pairMetaSchema.parse(readYaml(file))
 }
 
 export function loadI18n(): Record<string, unknown> {
@@ -445,6 +502,8 @@ export interface PairListsV2 {
   dir: string
   baseline: string
   target: string
+  /** `meta.yaml` 的来源与校对留痕。文件不存在时为 undefined（合法） */
+  meta?: PairMeta | undefined
   pitfalls: ScopedPitfall[]
   glossary: ScopedGlossary[]
   roadmaps: ScopedRoadmapStage[]
@@ -502,6 +561,7 @@ export function loadPairListsV2(
     pairs.push({
       dir: rel,
       ...ctx,
+      meta: loadPairMeta(path.join(dir, 'meta.yaml')),
       pitfalls: loadArray(path.join(dir, 'pitfalls.yaml')).map((x) =>
         scopedPitfallSchema.parse({ ...(x as object), ...ctx }),
       ),
@@ -513,5 +573,19 @@ export function loadPairListsV2(
         .sort((a, b) => a.order - b.order),
     })
   }
-  return { pairs: pairs.sort((a, b) => a.dir.localeCompare(b.dir)), issues }
+  /*
+   * 排序按**语言书写序**（registry 里 languages 段的声明顺序），不是目录名字典序。
+   *
+   * 这个顺序是可见的：左栏的方向列表，以及 `resolvePairTarget` 在「勾选里没有该基准
+   * 可用的目标」时回落的 `available[0]`（ADR-67）。字典序在这里会选错 —— 补齐 12 个
+   * 方向后，python 基准的可用集按字典序排成 [go, javascript, java, rust]，
+   * 于是「以 Python 为基准」的读者打开速查默认看到的是「Python 迁 Go」。
+   */
+  const rank = rankerOf(declaredLanguageOrder())
+  return {
+    pairs: pairs.sort(
+      (a, b) => rank(a.baseline) - rank(b.baseline) || rank(a.target) - rank(b.target),
+    ),
+    issues,
+  }
 }

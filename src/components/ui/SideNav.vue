@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from 'vue-router'
 import { computed } from 'vue'
+import BaselineTabs from '@/components/ui/BaselineTabs.vue'
+import { useI18n } from '@/composables/useI18n'
 import {
   chapterPathOf,
   orderedSections,
@@ -17,6 +19,7 @@ import type { Section } from '@/schemas'
 const route = useRoute()
 const languages = useLanguageStore()
 const ui = useUiStore()
+const { t } = useI18n()
 
 const baseline = computed(() => languages.effectiveBaseline)
 
@@ -107,6 +110,26 @@ const groups = computed<NavGroup[]>(() => {
     而且 v-if 会让 aria-controls 指向一个不存在的元素。
   -->
   <aside v-show="ui.sideNavOpen" id="pc-sidenav" class="pc-side" aria-label="内容导航">
+    <!--
+      基准语言放在左栏顶部并**吸顶**：它是整页的参照系（换它 = 换一整套内容与地址），
+      而左栏是这份内容的目录 —— 参照系与目录放在一起，读者不必在两处之间来回确认
+      「我现在是以谁为基准在看谁」。
+
+      吸顶的意义在长菜单上：左栏本身是滚动区（`overflow-y: auto`），
+      JS/Python/Java 三个按钮若跟着目录一起滚上去，读到「工程实践」那一节时
+      就再也看不到当前基准是谁了。`position: sticky; top: 0` 让它始终留在
+      左栏顶端，且必须自带不透明底色 —— 否则滚过去的菜单项会从它身下透出来。
+
+      代价（已知并接受）：左栏收起时它也一起消失。基准切换因此只在菜单展开时可用，
+      而它此前在顶栏是常驻的。
+    -->
+    <div class="pc-side-baseline">
+      <div class="pc-side-baseline-box">
+        <span class="pc-side-baseline-label">{{ t('baseline.label') }}</span>
+        <BaselineTabs />
+      </div>
+    </div>
+
     <ul class="pc-snav">
       <li v-for="group in groups" :key="group.key" class="pc-snav-item">
         <RouterLink
@@ -133,6 +156,66 @@ const groups = computed<NavGroup[]>(() => {
 </template>
 
 <style scoped>
+/*
+ * 左栏顶部的基准语言组（吸顶）。分两层，两层各自只干一件事：
+ *
+ *  · **带状底**（`.pc-side-baseline`）—— 负责吸顶、挡底、**定高**。`top: 0` 是相对
+ *    左栏这个**滚动口**的上沿，不是相对页面：左栏（`.pc-side`）自己是
+ *    `overflow-y: auto` 的滚动容器，所以吸的是「左栏顶部」。它的底色必须不透明
+ *    且与左栏同色（`--pc-bg`），否则滚过去的菜单项会从它身下透出来。
+ *  · **方框**（`.pc-side-baseline-box`）—— 负责长得像页内那条对比语言选择条：
+ *    同样的 `--pc-bg-elev` 底 + 圆角边框，同样的「标签 + chip」一行排布。
+ *    两个选择器属于同一件事的两个层级，长相一致才不会让人以为是两种控件。
+ *
+ * **高度由内容撑（不去凑页内那条）**：两个吸顶件要平齐，让**右边向左看齐** ——
+ * 左栏这个是"基准"，页内那条照着它调（两边共用同一套 chip 与同样的纵向内边距，
+ * 高度自然相等）。反过来把这里拉高去凑 `--pc-lang-bar-h`，左栏的方框会明显发虚
+ * （内容被撑开、上下多出一截空白），而且页内那条一折行就会把这个值带跑。
+ *
+ * **上内边距 = `--pc-sticky-gap`，那段不是"撑开内容"，而是吸顶后与顶栏之间的
+ * 呼吸位**：sticky 约束的是本块的**边框盒**，块吸在滚动口上沿后，方框由这段
+ * 上内边距往下推。因为本块自带不透明底色，那 8px 是侧栏底色而不是缝 ——
+ * 滚上去的菜单项从它底下过，不会从缝里透出来。页内那条用同一个变量留同样一截，
+ * 两个方框的上沿因此永远对齐（这才是"上内边距必须是 0"那句话真正要防的东西：
+ * 两侧留得不一样多）。
+ * 下边那 10px 是把方框与目录分开的常规间距，与页内那条的 margin-bottom 各管各的。
+ *
+ * z-index 只需要压过同栏内的链接，与顶栏（30）/ 页内选择条（20）不在一个层叠
+ * 上下文里，刻意取小值 —— 取大了反而会在窄屏（左栏变成正文上方的一块）时
+ * 盖住别的东西。
+ */
+.pc-side-baseline {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--pc-sticky-gap) var(--pc-pad) 10px;
+  background: var(--pc-bg);
+}
+/*
+ * 与 `.pc-lang-bar` 同一套外观：抬升底 + 1px 边框 + 圆角 + **同样的纵向内边距**。
+ *
+ * 纵向 6px 是"两个吸顶件平齐"的契约值：两边最矮的内容都是 `.pc-btn` chip
+ * （高度 6+29.6+6+2 = 43.6px，完全由它决定）。改这里的纵向 padding
+ * 就得同时改 `.pc-lang-bar` 的，否则右边会比左边高一截。
+ */
+.pc-side-baseline-box {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--pc-bg-elev);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius);
+}
+.pc-side-baseline-label {
+  font-size: var(--pc-fs-xs);
+  font-weight: 600;
+  color: var(--pc-text-mute);
+  white-space: nowrap;
+}
+
 /*
  * 左侧菜单：一级 = 板块，二级 = 章节。
  *

@@ -1,0 +1,536 @@
+{
+  "baseline": "python",
+  "target": "rust",
+  "pitfalls": [
+    {
+      "id": "pitfall-assignment-moves",
+      "title": "赋值之后，原来那个变量就不能用了",
+      "symptomHtml": "<p><code>let b = a;</code> 之后再用 <code>a</code> 直接编译失败：<code>value borrowed here after move</code>。\nPython 里 <code>b = a</code> 只是多了一个名字指向同一个对象，两个名字都能继续用。</p>\n",
+      "causeHtml": "<p>Rust 没有隐式的引用语义：赋值默认<strong>移动所有权</strong>，移动之后原变量在编译期就失效了。\n要两边都能用，要么显式借用（<code>&amp;a</code>），要么显式克隆（<code>a.clone()</code>）——\n这个选择由你写下来，而不是由运行时悄悄决定。</p>\n",
+      "fixHtml": "<p>只读用借用：<code>let b = &amp;a;</code>。\n确实要两份独立数据才 <code>clone()</code>（它是一次真实的内存复制，不是免费的）。\n编译器报「moved」时，先问「这里到底是共享还是复制」，再选借用或克隆 ——\n不要条件反射地 clone，那会把所有权检查的好处全部抵消掉。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/ownership-borrow",
+      "tags": [
+        "所有权",
+        "内存"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-cannot-mutate-while-borrowed",
+      "title": "一边遍历一边改，编译不过",
+      "symptomHtml": "<p>Python 里 <code>for k in list(d): d[k] += 1</code> 或者读着集合又往里加元素，都能跑。\nRust 里同样的写法直接编译失败：不能在有不可变借用时再取可变借用。\n「编译不过」在这里是好消息 —— 同样的代码在别的语言里是运行期才乱。</p>\n",
+      "causeHtml": "<p>借用检查器强制「要么多个只读借用，要么一个可写借用」，二者不能同时存在。\n这是它消灭数据竞争的机制，代价是某些在 Python 里「碰巧安全」的写法写不出来。</p>\n",
+      "fixHtml": "<p>先收集再用：<code>let keys: Vec&lt;_&gt; = map.keys().cloned().collect();</code> 然后遍历 <code>keys</code> 去改 <code>map</code>。\n或者用 <code>retain</code> / <code>iter_mut</code> 这类<strong>专门为原地修改设计的 API</strong> ——\n遇到这类报错时，多半是有一个更贴合意图的标准库方法。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/ownership-borrow",
+      "tags": [
+        "借用",
+        "集合"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-integer-overflow",
+      "title": "整数溢出：调试时 panic，发布时悄悄回绕",
+      "symptomHtml": "<p>Python 的整数不会溢出（自动变成大整数）。Rust 里溢出在\n<strong>debug 构建下 panic、release 构建下回绕</strong>——\n于是同一个 bug 在本地必现、上了线就变成安静的错误数值。</p>\n",
+      "causeHtml": "<p>Rust 的整数有固定位宽。溢出行为按构建配置分叉是刻意的：\n开发期希望它炸，发布期不希望线上崩。\n而这恰好制造了「本地和线上行为不一致」这个最难查的局面。</p>\n",
+      "fixHtml": "<p>不确信取值范围时用显式 API：<code>checked_add</code>（返回 Option）、\n<code>saturating_add</code>（饱和）、<code>wrapping_add</code>（明确要回绕）。\n需要 Python 那种无限精度就用 <code>num-bigint</code>。\n<strong>别让默认行为替你做决定</strong> —— 默认行为取决于构建配置。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "溢出"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-option-not-none",
+      "title": "没有 None，只有 Option",
+      "symptomHtml": "<p>Python 里 <code>None</code> 是「可能没有值」的通用表示，函数返回 Optional[int] 就直接用 None 占位。\nRust 里返回 <code>None</code> 却不能当 <code>Option</code> 用：类型不匹配，编译不过。\n反过来，<code>Option&lt;Option&lt;T&gt;&gt;</code> 是完全合法的 —— 「没有」与「有一个空值」被分开了。</p>\n",
+      "causeHtml": "<p>Rust 没有 null，用 <code>Option&lt;T&gt;</code> 把「可能没有」编码进类型，编译器强制你处理两个分支。\n这也意味着 Python 里那种「用 None 表示三种含义」的写法在这边必须摊开。</p>\n",
+      "fixHtml": "<p>处理用 <code>match</code>、<code>if let</code>，或组合子 <code>map</code> / <code>and_then</code> / <code>unwrap_or_else</code>。\n取默认值用 <code>unwrap_or</code>（想顺便算一下就用 <code>unwrap_or_else</code>）——\n<code>unwrap()</code> 是「没有就 panic」，只在确实不可能为 None 时用。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/null-safety",
+      "tags": [
+        "空值",
+        "类型"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-string-not-indexable",
+      "title": "字符串不能按下标取字符",
+      "symptomHtml": "<p>Python 的 <code>s[0]</code> 是第一个字符、<code>s[1:3]</code> 是切片。Rust 里 <code>s[0]</code> 是<strong>编译错误</strong>，\n不是运行期报错 —— 语言根本不提供这个操作。</p>\n",
+      "causeHtml": "<p>Rust 的 String 是 UTF-8 字节序列。按下标取「第 n 个字符」需要从头扫描，\n是 O(n) 而不是 O(1)，语言不愿意把它伪装成一次索引。切片同理：\n切在字符中间会产生非法字符串。</p>\n",
+      "fixHtml": "<p>要字符用 <code>s.chars().nth(i)</code>（注意它是线性代价）或先 <code>let v: Vec&lt;char&gt; = s.chars().collect()</code>。\n要字节用 <code>s.as_bytes()</code>。\n遍历一律 <code>for c in s.chars()</code> —— 这也顺手避免了把多字节字符切坏。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串",
+        "编码"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-integer-division",
+      "title": "除号的结果反过来了",
+      "symptomHtml": "<p>Python 里 <code>total / page_size</code> 得浮点、<code>//</code> 才整除；Rust 的 <code>/</code> 本身就是整除，\n<code>7 / 2</code> 得 <code>3</code> 而不是 <code>3.5</code> —— 需要小数的地方静默丢了精度。</p>\n",
+      "causeHtml": "<p>Rust 的 <code>/</code> 对两个整数做整数除法，要浮点必须至少有一个操作数是浮点类型。\n与 Python 正好相反：Python 的 <code>/</code> 永远是真除法。</p>\n",
+      "fixHtml": "<p>要浮点就显式转：<code>a as f64 / b as f64</code>（Rust 不做隐式数值转换）。\n迁移时逐个检查每个 <code>/</code>：原来那行要的是整除还是真除法 —— 这个决定以前由 Python 替你做。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "运算符"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-iterators-are-lazy",
+      "title": "迭代器不消费就什么都不做",
+      "symptomHtml": "<p>Python 的列表推导式 <code>[f(x) for x in xs]</code> 立刻算出结果。\nRust 里 <code>.map()</code> / <code>.filter()</code> 是<strong>惰性</strong>的：不接一个消费动作，\n这段代码既不报错也什么都不做 —— 日志里空空如也。</p>\n",
+      "causeHtml": "<p>Rust 的迭代器适配器返回的是新的迭代器，直到遇到 <code>collect</code> / <code>sum</code> / <code>for</code>\n这类消费者才真正开始跑。这与 Python 的生成器一致，但<strong>与列表推导式相反</strong>。</p>\n",
+      "fixHtml": "<p>需要结果就 <code>.collect::&lt;Vec&lt;_&gt;&gt;()</code>（或 <code>sum()</code> / <code>count()</code> / <code>for_each()</code>）。\n副作用写在 <code>for</code> 循环或 <code>for_each</code> 里，别指望 <code>map</code> 里的 <code>println!</code> 会执行 ——\n这是从 Python 过来最常见的一次「代码跑了但没反应」。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/lazy-evaluation",
+      "tags": [
+        "迭代",
+        "惰性"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-lifetime-annotations",
+      "title": "返回引用要写生命周期",
+      "symptomHtml": "<p>Python 里返回对象内部的引用是家常便饭，没有任何标注。\nRust 里一旦函数返回引用，编译器常常要求你写 <code>&lt;'a&gt;</code> 把输入与输出的关系讲明白，\n报错信息还很长。</p>\n",
+      "causeHtml": "<p>生命周期标注不是「设置引用的存活时间」，而是<strong>告诉编译器输入与输出的借用关系</strong>。\n编译器能自动推断的情形很多，但一旦有多个引用参数、无法判断返回值借的是哪一个，\n就必须由你指定。</p>\n",
+      "fixHtml": "<p>多数情况下「加个 <code>'a</code>」就够了，先照编译器提示加，别急着改结构。\n如果一个结构体被迫到处带生命周期参数，通常说明<strong>它应该拥有数据</strong>（存 <code>String</code> 而不是 <code>&amp;str</code>）——\n这往往是设计信号，不是标注技巧问题。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/lifetime",
+      "tags": [
+        "借用",
+        "类型"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-shared-mutable-state",
+      "title": "想共享可变状态，得先把意图写清楚",
+      "symptomHtml": "<p>Python 里随手就能让两个对象共享同一个列表，各自往里塞东西。\nRust 里同样的设计会撞上借用检查：多个所有者要 <code>Rc</code>，\n运行期可变性要 <code>RefCell</code>，跨线程还要换成 <code>Arc</code> 与 <code>Mutex</code> —— 一层套一层。</p>\n",
+      "causeHtml": "<p>Rust 默认不允许「多个所有者 + 可变」，因为那正是数据竞争与别名 bug 的来源。\n要这个能力就必须显式选择一套机制，把「谁在什么时候能改」写进类型里。</p>\n",
+      "fixHtml": "<p>单线程：<code>Rc&lt;RefCell&lt;T&gt;&gt;</code>；跨线程：<code>Arc&lt;Mutex&lt;T&gt;&gt;</code>。\n但在动手包之前先问一句：<strong>这个共享真的必要吗</strong> ——\n多半可以改成「把数据传进去、把结果传出来」，那样一层都不用包。\nPython 里能随手共享，不代表那个设计本身是清楚的。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/shared-state",
+      "tags": [
+        "所有权",
+        "并发"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-slice-is-a-borrow",
+      "title": "切片是借用，不是副本",
+      "symptomHtml": "<p>Python 里 <code>a[1:3]</code> 切出来的是<strong>新列表</strong>，改它不影响原列表。\nRust 里 <code>&amp;a[1..3]</code> 是对原数据的只读借用：既不能改（编译器拦），\n也不能在原数据被改动之后再继续用。</p>\n",
+      "causeHtml": "<p>Rust 的切片是「指针 + 长度」，与 Python 的切片共享语义相反：\n这边默认不复制，想复制必须写 <code>to_vec()</code> / <code>to_owned()</code>。</p>\n",
+      "fixHtml": "<p>只读就借用（<code>&amp;a[1..3]</code>），要独立副本就 <code>a[1..3].to_vec()</code>。\n注意边界写法也不同：Rust 用 <code>1..3</code>（末端开区间，与 Python 一致），\n但<strong>不支持负下标与步长</strong> —— 那些要自己算或走迭代器。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/slicing",
+      "tags": [
+        "集合",
+        "借用"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-unwrap-is-a-panic",
+      "title": "unwrap 出错就是崩溃，而且捕不回来",
+      "symptomHtml": "<p>Python 的异常即使没在本地处理，也会往上冒、留下栈、可以被最外层兜住。\nRust 的 <code>.unwrap()</code> 遇到 None / Err 直接 panic ——\n默认情况下它<strong>不是</strong>可恢复的错误，会带走整个线程。</p>\n",
+      "causeHtml": "<p>Rust 把「可恢复的错误」（<code>Result</code>）与「不可恢复的 bug」（<code>panic!</code>）分成两套机制。\n<code>unwrap</code> 属于后者。它不是「抛异常」的简写，而是「我断定这里不会失败」的断言。</p>\n",
+      "fixHtml": "<p>库代码里一律把 <code>Result</code> 往上传（用 <code>?</code> 运算符，它是最常用的那个字符）。\n只在「失败即程序逻辑错误」时用 <code>unwrap</code> / <code>expect</code>，\n并且用 <code>expect(&quot;...&quot;)</code> 写明理由 —— 那句话会出现在 panic 信息里。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/error-propagation",
+      "tags": [
+        "异常",
+        "错误处理"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "pitfall-orphan-rule",
+      "title": "不能给别人的类型实现别人的特征",
+      "symptomHtml": "<p>Python 里随时可以给任何类打补丁、挂新方法（猴子补丁）。\nRust 里想给一个外部类型实现一个外部特征，编译直接拒绝：孤儿规则。</p>\n",
+      "causeHtml": "<p>孤儿规则要求「类型或特征至少有一个是本 crate 定义的」。\n它保证同一份实现不会被两个地方各写一遍、在链接时打架 ——\n代价是 Python 那种「在第三方类型上补方法」的写法没有了。</p>\n",
+      "fixHtml": "<p>用 newtype 包一层：<code>struct MyVec(Vec&lt;i32&gt;);</code> 然后给 <code>MyVec</code> 实现。\n要的是给已有类型加方法而不改类型，就定义自己的扩展特征（trait extension）——\n这是 Rust 社区表达「猴子补丁」的标准做法。</p>\n",
+      "severity": 1,
+      "languages": [
+        "python",
+        "rust"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/mixin-trait",
+      "tags": [
+        "特征",
+        "可见性"
+      ],
+      "baseline": "python",
+      "target": "rust"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "所有权",
+      "aliases": [
+        "ownership",
+        "move"
+      ],
+      "perLanguage": {
+        "rust": "每个值有唯一所有者，赋值默认**移动**，移动后原变量在编译期失效；要共享得显式借用或克隆",
+        "python": "变量只是名字，赋值让两个名字指向同一个对象（引用计数决定何时回收）；没有「失效」这个状态"
+      },
+      "note": "名字都叫「赋值」，一边是移动、一边是绑定 —— 这条差异会渗透到你写的每一行代码里。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "借用",
+      "aliases": [
+        "borrow",
+        "reference"
+      ],
+      "perLanguage": {
+        "rust": "`&T` 只读、`&mut T` 可写；「多个只读」或「一个可写」二选一，由编译器强制",
+        "python": "没有这个概念 —— 引用随手传，什么时候能改、谁在改，语言不做检查"
+      },
+      "note": "借用检查不是「限制」，它把 Python 里那些运行期才暴露的别名 bug 提前到了编译期。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "生命周期",
+      "aliases": [
+        "lifetime"
+      ],
+      "perLanguage": {
+        "rust": "标注（如 'a）用来向编译器**描述**输入与输出的借用关系，不是设置存活时长",
+        "python": "对象活到没人引用为止，由引用计数自动决定，无需也无法标注"
+      },
+      "note": "它不是「手动内存管理」—— 内存释放时机仍然由编译器算，标注只在借用关系无法推断时才需要写。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "空值与错误",
+      "aliases": [
+        "option",
+        "result",
+        "none"
+      ],
+      "perLanguage": {
+        "rust": "`Option<T>` 表示可能没有，`Result<T, E>` 表示可能失败；两者都必须显式处理，且可以嵌套",
+        "python": "None 一个值兼任「没有」；错误走异常，与返回值分开"
+      },
+      "note": "Rust 把两件事都编码进类型，于是「忘了处理」变成编译错误；Python 靠约定与运行期。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "特征",
+      "aliases": [
+        "trait",
+        "interface",
+        "protocol"
+      ],
+      "perLanguage": {
+        "rust": "trait 既当接口用、也当泛型约束用，还能给已有类型补实现；实现必须落在孤儿规则允许的位置",
+        "python": "Protocol（结构化）或 ABC（名义式）；也能给任意类挂方法（猴子补丁）"
+      },
+      "note": "功能上 Rust 的 trait 覆盖更广，但**不能给外部类型实现外部 trait** —— 这正是 Python 里随手打补丁做不到的那部分。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "可变性",
+      "aliases": [
+        "mut",
+        "mutable"
+      ],
+      "perLanguage": {
+        "rust": "`let` 默认不可变，要改必须写 `let mut`；可变性是绑定的一部分，写进类型里",
+        "python": "没有声明层面的是否可变，能不能改取决于对象类型（list 能改、tuple 不能）"
+      },
+      "note": "一边把可变性写在变量上、一边写在类型上 —— 读代码时该看哪里完全不同。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "切片",
+      "aliases": [
+        "slice",
+        "str"
+      ],
+      "perLanguage": {
+        "rust": "`&[T]` 是对一段数据的**借用**，不复制；`&str` 是不可变的字符串切片，不能按下标取字符",
+        "python": "切片产生新的 list / str（浅拷贝），支持负下标与步长"
+      },
+      "note": "共享还是复制、能不能按下标访问 —— 两处直觉都要反过来。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "克隆",
+      "aliases": [
+        "clone",
+        "copy",
+        "deepcopy"
+      ],
+      "perLanguage": {
+        "rust": "`.clone()` 是显式的深复制，写出来才发生；实现了 Copy 的简单类型才隐式复制",
+        "python": "赋值不复制；`copy.copy` 浅拷贝、`copy.deepcopy` 深拷贝，也是显式调用"
+      },
+      "note": "这一条两边反而接近 —— 差异在于 Rust 里 clone 很显眼（借用检查逼你想清楚），Python 里漏掉一次深拷贝不容易被发现。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "迭代器",
+      "aliases": [
+        "iterator",
+        "generator"
+      ],
+      "perLanguage": {
+        "rust": "适配器（map / filter）是惰性的，必须被 collect 一类的消费者驱动才会执行",
+        "python": "生成器惰性，但列表推导式**立即求值** —— 同一个写法两种时机"
+      },
+      "note": "从列表推导式过来的人最容易踩：`.map()` 不接消费者，就什么都不会发生，也不报错。",
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "term": "宏",
+      "aliases": [
+        "macro",
+        "println"
+      ],
+      "perLanguage": {
+        "rust": "名字带 `!` 的宏在编译期展开，能接收可变数量的参数、能生成代码；与函数是两套机制",
+        "python": "没有宏；元编程靠装饰器与运行期反射完成"
+      },
+      "note": "看到 `println!` 的感叹号要意识到它不是函数调用 —— 这决定了它能做到函数做不到的事（比如编译期检查格式串）。",
+      "baseline": "python",
+      "target": "rust"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "python2rust-1-anchor",
+      "order": 1,
+      "title": "先接受「每个值只有一个主人」",
+      "durationHint": "3-4 小时",
+      "todo": [
+        "通读本工具「语言机制」板块的 Python 视角，把 pip/cargo、引用计数/所有权这类映射先建起来",
+        "只回答四个问题：类型系统、并发模型、值语义 vs 引用语义在「语言机制」板块，错误处理在「数据与抽象」板块",
+        "明确写下「哪些 Python 直觉必须丢掉」——赋值即共享、随手改对象、异常随处可抛、None 一个值走天下"
+      ],
+      "acceptance": [
+        "能用自己的话说清「移动」与「借用」的区别，以及为什么赋值会让原变量失效",
+        "知道 Rust 没有 None 与异常，它们分别由 Option 与 Result 承担"
+      ],
+      "resources": [
+        {
+          "label": "Rust 程序设计语言（中文版）",
+          "url": "https://kaisery.github.io/trpl-zh-cn/"
+        },
+        {
+          "label": "Rust 官方文档",
+          "url": "https://doc.rust-lang.org/"
+        }
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "python2rust-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "1 周",
+      "todo": [
+        "按本工具「基础表达」板块逐章逐格对比，重点看标为「语义不同」的格子",
+        "特别留意三处会直接编译失败的：字符串不能按下标索引、遍历时不能改集合、赋值即移动",
+        "练习把一段 Python 的推导式改写成 Rust 的迭代器链，并记得接上 collect",
+        "把踩到的坑记进本方向的「迁移陷阱」清单，并打上自己的严重度"
+      ],
+      "acceptance": [
+        "能独立写出变量、Vec、HashMap、控制流、函数定义，无编译错误",
+        "能解释为什么 `let mut` 是必需的，以及它在读代码时提供了什么信息",
+        "遇到借用检查报错时，能判断该借用、该克隆、还是该改设计"
+      ],
+      "resources": [
+        {
+          "label": "Rust 语言参考",
+          "url": "https://doc.rust-lang.org/reference/"
+        },
+        {
+          "label": "Rust by Example",
+          "url": "https://doc.rust-lang.org/rust-by-example/"
+        }
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "python2rust-3-practice",
+      "order": 3,
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "2 周",
+      "todo": [
+        "做 Exercism 的 Rust track，接受 mentor 评审",
+        "把写过的一个小 Python 脚本（100-300 行）用 Rust 重写一遍",
+        "重写时不要查 Python 原文件——凭记忆写，写完再对照",
+        "刻意让编译器当老师：先写直觉版本，再照着报错改，把每次报错的原因记下来"
+      ],
+      "acceptance": [
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法",
+        "写完能跑 cargo clippy 且基本无告警"
+      ],
+      "resources": [
+        {
+          "label": "Exercism Rust Track",
+          "url": "https://exercism.org/tracks/rust"
+        },
+        {
+          "label": "TheAlgorithms Rust",
+          "url": "https://github.com/TheAlgorithms/Rust"
+        }
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "python2rust-4-deep",
+      "order": 4,
+      "title": "补齐语义层（所有权与并发）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "真正理解借用检查：把一段在 Python 里靠共享对象实现的逻辑，改成传值 + 返回的写法",
+        "理解 Send 与 Sync 两个标记特征各自约束了什么",
+        "用 Arc 与 Mutex 写一遍多线程共享计数器，再换通道写一遍",
+        "分清 panic 与 Result：什么该 panic、什么该返回错误",
+        "读一遍标准库某个类型的 Clone 与 Copy 实现，理解两者的分界"
+      ],
+      "acceptance": [
+        "能解释为什么 Rust 的并发代码能通过编译就基本不会有数据竞争",
+        "能说清 Rc 与 Arc、RefCell 与 Mutex 各自的适用边界",
+        "能判断一个函数该返回 Result 还是该 panic"
+      ],
+      "resources": [
+        {
+          "label": "Rust 官方 · 无畏并发",
+          "url": "https://doc.rust-lang.org/book/ch16-00-concurrency.html"
+        },
+        {
+          "label": "Rust 官方 · 错误处理",
+          "url": "https://doc.rust-lang.org/book/ch09-00-error-handling.html"
+        }
+      ],
+      "baseline": "python",
+      "target": "rust"
+    },
+    {
+      "id": "python2rust-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 cargo 建一个真实项目，跑通「写代码 → test → clippy → build」",
+        "把 pip 的心智映射到 Cargo.toml 与 Cargo.lock，理解语义化版本在这里怎么被解析",
+        "用 `cargo test` 写单元测试与集成测试，注意测试是写在同一个文件里的",
+        "配好 rustfmt 与 clippy，并把 `cargo fmt --check` 挂进 CI"
+      ],
+      "acceptance": [
+        "能独立搭起一个带测试、lint、格式化的 Rust 工程",
+        "能说清 crate / module / feature flag 各自解决什么问题",
+        "能解释为什么 Rust 没有\"运行时依赖\"这件事，以及它换来了什么"
+      ],
+      "resources": [
+        {
+          "label": "Cargo 官方手册",
+          "url": "https://doc.rust-lang.org/cargo/"
+        },
+        {
+          "label": "Clippy",
+          "url": "https://doc.rust-lang.org/clippy/"
+        }
+      ],
+      "baseline": "python",
+      "target": "rust"
+    }
+  ]
+}

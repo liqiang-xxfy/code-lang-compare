@@ -1,0 +1,536 @@
+{
+  "baseline": "python",
+  "target": "go",
+  "pitfalls": [
+    {
+      "id": "pitfall-error-is-value",
+      "title": "错误是返回值，不是异常",
+      "symptomHtml": "<p>Python 里不处理异常，它会自己往上冒，最后在日志里留下完整的栈。\n换成 Go 后，忘了检查的那个 <code>err</code> <strong>就那样被丢掉了</strong> ——\n没有栈、没有日志，函数安静地返回了零值，问题在很远的地方才显形。</p>\n",
+      "causeHtml": "<p>Go 把错误当作普通返回值（<code>error</code> 接口），由调用方显式检查。\n没有异常传播机制，因此也没有「忘记处理就会炸」这层保护 ——\n恰恰相反，忘记处理是静默的。</p>\n",
+      "fixHtml": "<p>每个返回 <code>error</code> 的调用后面立刻写 <code>if err != nil { return ..., err }</code>，\n或显式 <code>_ =</code> 表明「我确实要丢弃它」（让读代码的人看见这是决定，不是疏忽）。\n用 <code>golangci-lint</code> 的 errcheck 一类检查把漏掉的揪出来 ——\n这一条不能靠自觉。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/error-propagation",
+      "tags": [
+        "异常",
+        "错误处理"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-integer-division",
+      "title": "除号的结果反过来了",
+      "symptomHtml": "<p>Python 里 <code>total / page_size</code> 得浮点、<code>//</code> 才整除；到了 Go，\n<code>total / page_size</code> <strong>本身就是整除</strong> —— 分页算出来是对的，\n但任何需要小数的地方都静默丢了精度：<code>7 / 2</code> 得 <code>3</code> 而不是 <code>3.5</code>。</p>\n",
+      "causeHtml": "<p>Go 的 <code>/</code> 对两个整数做整数除法，要浮点必须至少有一个操作数是浮点类型。\n这与 Python 正好相反：Python 的 <code>/</code> 永远是真除法，取整要额外写 <code>//</code>。</p>\n",
+      "fixHtml": "<p>要浮点就显式转类型：<code>float64(a) / float64(b)</code>（Go 不会隐式转换，这一步躲不掉）。\n迁移时<strong>逐个检查每个 <code>/</code></strong>：原来那行是 <code>//</code> 还是 <code>/</code>，决定这边该不该转 ——\n这个决定 Python 以前替你做了，现在归你。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "运算符"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-nil-map-write",
+      "title": "声明了 map 就能读，一写就 panic",
+      "symptomHtml": "<p><code>var m map[string]int</code> 之后 <code>m[&quot;a&quot;] = 1</code> 直接 panic：\n<code>assignment to entry in nil map</code>。而读 <code>m[&quot;a&quot;]</code> 却是合法的，返回零值 ——\n于是「读没问题」让人以为写也没问题。</p>\n",
+      "causeHtml": "<p>Go 的 map 是引用类型，零值是 <code>nil</code>。nil map 允许读（长度 0、取值给零值），\n但不允许写。Python 的 <code>d = {}</code> 直接就是一个可写空字典 —— 没有这个中间态。</p>\n",
+      "fixHtml": "<p>一律用 <code>make</code> 或字面量初始化：<code>m := make(map[string]int)</code> 或 <code>m := map[string]int{}</code>。\n判空要看 <code>m == nil</code>，不要用 <code>len(m) == 0</code>：两者对 nil map 与空 map 的答案相同，\n但只有前者能告诉你「写下去会不会 panic」。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/map-dict",
+      "tags": [
+        "集合",
+        "空值"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-no-truthiness",
+      "title": "if 只接受布尔值，空列表不能当条件",
+      "symptomHtml": "<p>Python 里 <code>if items:</code>、<code>if s:</code>、<code>while queue:</code> 都是日常写法。\n换成 Go 后这些全是编译错误：<code>non-boolean condition</code>。</p>\n",
+      "causeHtml": "<p>Go 没有「真值/假值」这个概念 —— 条件必须是 <code>bool</code> 类型，没有隐式转换。\n这是它刻意的设计：Python 里「哪些值算假」是每个类型各自实现的 <code>__bool__</code>，\nGo 干脆取消了这个自由度。</p>\n",
+      "fixHtml": "<p>条件写全：切片用 <code>len(items) &gt; 0</code>，字符串用 <code>s != &quot;&quot;</code>，\n指针与接口用 <code>x != nil</code>。\n好处是<strong>读代码时不需要再去查某个类型的 <code>__bool__</code></strong> —— 代价是啰嗦。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/conditionals",
+      "tags": [
+        "真值",
+        "语法"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-slice-shared-backing",
+      "title": "切片是同一块内存的窗口，append 会改到别人",
+      "symptomHtml": "<p>从一个大切片切出小块传出去，对方 <code>append</code> 之后，原切片里的值被改了；\n或者改了小块的某个元素，原切片跟着变。Python 里 <code>a[1:3]</code> 得到的是<strong>新列表</strong>，\n改它不影响原列表 —— 这个直觉在 Go 里是错的。</p>\n",
+      "causeHtml": "<p>Go 的切片是「指针 + 长度 + 容量」的三元组，切片操作共享底层数组，不复制数据。\nPython 的切片会复制一份新列表（浅拷贝）。</p>\n",
+      "fixHtml": "<p>需要独立副本就显式复制：<code>cp := append([]T(nil), s...)</code> 或\n<code>cp := make([]T, len(s)); copy(cp, s)</code>。\n还要注意 <code>append</code> 在容量够时原地写、容量不够时才新分配 ——\n「这段代码会不会改到别人」取决于容量，是把 bug 藏得最深的一类。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/slicing",
+      "tags": [
+        "集合",
+        "引用"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-string-is-bytes",
+      "title": "索引字符串拿到的是字节，不是字符",
+      "symptomHtml": "<p><code>s[0]</code> 在 Python 里是第一个字符，在 Go 里是<strong>第一个字节</strong>（类型是 byte）。\n<code>s[0:3]</code> 想取前三个字，遇到中文就会把一个字切成两半，得到乱码。</p>\n",
+      "causeHtml": "<p>Go 的字符串是只读的字节序列（约定为 UTF-8），索引与切片按字节走。\nPython 3 的字符串是码点序列，索引与切片按字符走。</p>\n",
+      "fixHtml": "<p>按字符遍历用 <code>for i, r := range s</code>（<code>r</code> 是 rune）。\n要按下标取第 n 个字符，先转 <code>[]rune(s)</code> 再索引。\n长度也要分清：<code>len(s)</code> 是字节数，<code>utf8.RuneCountInString(s)</code> 才是字符数。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串",
+        "编码"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-typed-nil-interface",
+      "title": "装进接口的 nil 指针，不等于 nil",
+      "symptomHtml": "<p><code>var p *MyError = nil; var e error = p</code> 之后 <code>e != nil</code> 是 <strong>true</strong>。\n于是「没出错」的判断失效，一个本该为空的错误对象被当成真错误一路传上去。</p>\n",
+      "causeHtml": "<p>Go 的接口值是一对（类型, 值）。只要<strong>类型</strong>那一半不是 nil，接口本身就不等于 nil，\n哪怕值是 nil 指针。Python 只有一个 None，不存在「两个都像空但不是同一个空」的状态。</p>\n",
+      "fixHtml": "<p>要么把变量声明成接口类型（<code>var e error</code>）再赋值，\n要么在返回处显式判空后再返回 <code>nil</code>（而不是返回那个 nil 指针）。\n这条是 Go 里公认最反直觉的坑之一，评审时值得专门看一眼。</p>\n",
+      "severity": 3,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/interface",
+      "tags": [
+        "接口",
+        "空值"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-err-shadowed",
+      "title": ":= 把外层的 err 遮蔽了",
+      "symptomHtml": "<p>函数里先 <code>x, err := f()</code>，后面某处又写 <code>y, err := g()</code> ——\n这个 <code>:=</code> 因为 <code>y</code> 是新变量而合法，但它同时<strong>新建了一个同名的 err</strong>，\n外层那个还是 nil。最后的 <code>return err</code> 返回的是外层那个，错误凭空消失。</p>\n",
+      "causeHtml": "<p>Python 的赋值永远改的是同一个名字（没有声明与遮蔽之分）。\nGo 的 <code>:=</code> 在「至少有一个新变量」时合法，剩下的变量会被<strong>重新声明</strong>而不是赋值 ——\n语法上完全看不出来。</p>\n",
+      "fixHtml": "<p>确定要复用外层 err 时写 <code>=</code> 而不是 <code>:=</code>（前提是变量都已声明）。\n把 <code>golangci-lint</code> 的 shadow 检查打开 —— 这个坑肉眼极难发现，\n但静态检查一眼就能抓出来。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/shadowing",
+      "tags": [
+        "作用域",
+        "错误处理"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-multi-return-not-tuple",
+      "title": "多返回值不是元组，不能当值用",
+      "symptomHtml": "<p>Python 的 <code>return a, b</code> 得到一个 tuple，可以存进列表、可以传给别人、可以解包。\nGo 的多返回值只能在<strong>赋值与返回</strong>两个位置解包：\n<code>x := f()</code> 编译不过，<code>g(f())</code> 也编译不过。</p>\n",
+      "causeHtml": "<p>Go 的多返回值是函数签名的一部分，不是一等公民的值 —— 语言里根本没有「元组」这个类型。</p>\n",
+      "fixHtml": "<p>需要把它当值传递时，定义一个结构体（哪怕只有两个字段），\n或者两边分别接出来再处理。这层额外的类型在跨包边界上反而是好事：\n它给「两个返回值」起了名字。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/return-values",
+      "tags": [
+        "函数",
+        "类型"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-unused-is-an-error",
+      "title": "声明了不用，编译不过",
+      "symptomHtml": "<p>Python 里写完一行中途放弃的代码，只要不运行到就没事。\nGo 里多声明一个变量、多 import 一个包，<strong>直接编译失败</strong>：\n<code>declared and not used</code> / <code>imported and not used</code>。</p>\n",
+      "causeHtml": "<p>Go 把「未使用」当成错误而不是警告，且没有开关可以关掉。\n这是刻意设计：它消灭了一整类「改到一半留下的残骸」。</p>\n",
+      "fixHtml": "<p>临时不用就写 <code>_ = x</code>（明确表达「我知道它没用」），\n或干脆删掉。真正麻烦的是调试期：想留一个变量看值，就用 <code>_ = x</code> 或\n临时 <code>fmt.Println</code> 再删 —— 别想着关掉这个检查。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/declaration",
+      "tags": [
+        "声明",
+        "工具链"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-zero-value-not-none",
+      "title": "没有 None，只有零值",
+      "symptomHtml": "<p>Python 里用 <code>None</code> 表示「这个字段没设置」，读的时候判 <code>is None</code> 就能区分。\nGo 的 struct 字段永远有零值（<code>0</code> / <code>&quot;&quot;</code> / <code>false</code>），\n于是「没设置」与「设置成了 0」变得无法区分 —— 配置项被 0 悄悄覆盖。</p>\n",
+      "causeHtml": "<p>Go 保证所有变量都有确定的零值，这是它「没有未初始化状态」的设计。\n代价是失去了「空」这个额外的状态位（除非用指针或 <code>sql.NullXxx</code> 一类包装）。</p>\n",
+      "fixHtml": "<p>需要三态（未设置 / 设置为零值 / 设置为非零）时用<strong>指针字段</strong>（<code>*int</code>，nil 即未设置）\n或 <code>optional</code> 风格的包装类型。\n判断时一律 <code>if x != nil</code>，不要用零值当哨兵 —— 那正是这条坑的来源。</p>\n",
+      "severity": 2,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/literals",
+      "tags": [
+        "空值",
+        "类型"
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-capitalization-exports",
+      "title": "首字母大写才是公开的",
+      "symptomHtml": "<p>Python 用 <code>_prefix</code> 表达「这是内部的」，其余默认公开。\nGo 反过来：<strong>首字母大写才导出</strong>，小写就是包私有 ——\n函数名写成 <code>parseConfig</code> 之后，别的包根本 import 不到，\n报错信息是「undefined」，不告诉你是因为大小写。</p>\n",
+      "causeHtml": "<p>可见性由标识符的<strong>首字母大小写</strong>决定，没有 public / private 关键字。\n这是语言层面的规则，不是命名风格。</p>\n",
+      "fixHtml": "<p>要跨包使用的类型、函数、字段、方法一律首字母大写。\nstruct 字段还有个连带后果：只有导出的字段才能被 JSON 序列化 ——\n写 <code>type User struct { name string }</code> 会得到 <code>{}</code>，且<strong>不报错</strong>。</p>\n",
+      "severity": 1,
+      "languages": [
+        "python",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/access-control",
+      "tags": [
+        "可见性",
+        "命名"
+      ],
+      "baseline": "python",
+      "target": "go"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "切片 / 列表",
+      "aliases": [
+        "slice",
+        "list"
+      ],
+      "perLanguage": {
+        "go": "`[]T` 是「指针 + 长度 + 容量」的三元组，切片操作**共享底层数组**，不复制数据",
+        "python": "list 是独立对象；`a[1:3]` 切出来的是**新列表**（浅拷贝），改它不影响原列表"
+      },
+      "note": "名字都叫「切片」，但一边共享、一边复制 —— 这是本方向上最容易带错的一条直觉。Go 的数组 `[N]T` 才是值类型。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "映射 / 字典",
+      "aliases": [
+        "map",
+        "dict"
+      ],
+      "perLanguage": {
+        "go": "map 是引用类型，零值为 nil；nil map 可读不可写，写就 panic，必须 make 或字面量初始化",
+        "python": "dict 没有「未初始化」状态，`{}` 直接就可写；空字典与不存在的键都能安全处理"
+      },
+      "note": "Go 那边多了一个 Python 没有的状态（nil map），而它恰恰在写的时候才炸。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "结构体",
+      "aliases": [
+        "struct",
+        "class",
+        "dataclass"
+      ],
+      "perLanguage": {
+        "go": "struct 只有字段，没有继承与方法内联；方法定义在类型之外，靠接收者关联",
+        "python": "class 把字段与方法装在一起，支持继承、多继承与运行时改属性"
+      },
+      "note": "Go 用组合代替继承：把 struct 嵌进另一个 struct，外层自动获得内层的字段与方法。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface",
+        "protocol"
+      ],
+      "perLanguage": {
+        "go": "隐式满足 —— 只要方法集齐了就算实现了接口，没有 implements 可写；接口通常定义在使用方",
+        "python": "Protocol（结构化）或 ABC（名义式，必须显式继承）"
+      },
+      "note": "Go 的接口偏「先有实现、再抽象出接口」，且接口值是一对（类型, 值）—— 装进 nil 指针后接口本身不等于 nil。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "方法 / 接收者",
+      "aliases": [
+        "receiver",
+        "self",
+        "method"
+      ],
+      "perLanguage": {
+        "go": "方法在类型之外定义，靠接收者与类型关联；值接收者拿到的是副本，指针接收者才能改到原值",
+        "python": "方法的第一个参数是 self，由语言自动传入，永远是同一个对象的引用"
+      },
+      "note": "「值接收者还是指针接收者」是 Go 特有的决定，Python 里没有对应物 —— 它决定了调这个方法会不会改到原对象。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "错误",
+      "aliases": [
+        "error",
+        "exception"
+      ],
+      "perLanguage": {
+        "go": "error 是普通返回值，由调用方显式检查；忘检查是**静默**的，没有栈也没有日志",
+        "python": "异常会自动向上传播，未捕获时留下完整栈；忘处理会炸得很响"
+      },
+      "note": "两边都把「出错」建模成值，但一边强制你看见、另一边默认不打扰你 —— 迁移后最容易丢的就是这层保护。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "零值",
+      "aliases": [
+        "zero value",
+        "none"
+      ],
+      "perLanguage": {
+        "go": "所有变量都有确定的零值（0 / \"\" / false / nil），不存在「未初始化」",
+        "python": "变量未赋值就是不存在（NameError）；「空」由 None 表达，与 0、\"\" 区分得开"
+      },
+      "note": "Go 用「没有未初始化状态」换掉了「空」这个状态位 —— 需要三态时得用指针字段自己补回来。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "通道",
+      "aliases": [
+        "channel",
+        "chan",
+        "queue"
+      ],
+      "perLanguage": {
+        "go": "语言内置的通信原语，goroutine 之间传值；默认无缓冲，收发会互相阻塞",
+        "python": "语言层面没有，用 queue.Queue 或 asyncio.Queue 表达，靠库而不是语法"
+      },
+      "note": "在 Go 里它是**语法**（`<-` 是运算符，`select` 是关键字），在 Python 里它是**库** —— 这个差别决定了并发代码的写法有多不一样。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "包 / 模块",
+      "aliases": [
+        "package",
+        "module",
+        "import"
+      ],
+      "perLanguage": {
+        "go": "目录即包，包名与目录名可以不同；导入路径是仓库地址加子目录，可见性由首字母大小写决定",
+        "python": "一个 .py 文件是 module，含 __init__.py 的目录是 package；可见性靠下划线约定"
+      },
+      "note": "Go 那边「包名」与「导入路径的最后一段」经常不一致，读 import 时要看清映射到哪个名字。",
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "term": "延迟调用",
+      "aliases": [
+        "defer",
+        "finally",
+        "context manager"
+      ],
+      "perLanguage": {
+        "go": "defer 把调用压栈，函数返回时逆序执行；作用域是**函数**，不是代码块",
+        "python": "with 语句的清理范围是代码块，退出块就执行；finally 跟 try 走"
+      },
+      "note": "作用域不同是会咬人的：在循环里 defer 一个关闭操作，它们会全部堆到函数返回时才执行 —— 循环开了一千个句柄，就同时挂着一千个未关闭。",
+      "baseline": "python",
+      "target": "go"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "python2go-1-anchor",
+      "order": 1,
+      "title": "先接受「没有异常、没有类、没有 None」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "通读本工具「语言机制」板块的 Python 视角，把 pip/go mod、asyncio/goroutine 这类映射先建起来",
+        "只回答四个问题：类型系统、并发模型、值语义 vs 引用语义在「语言机制」板块，错误处理在「数据与抽象」板块",
+        "明确写下「哪些 Python 直觉必须丢掉」——空容器为假、异常会自动冒泡、切片是副本、一切皆对象"
+      ],
+      "acceptance": [
+        "能说清 error 是值而不是异常，以及为什么代码里到处是 `if err != nil`",
+        "知道 Go 没有类与继承，组合与接口各替代了哪一部分",
+        "知道 Go 没有 None，只有零值，以及这会让「没设置」变得难以表达"
+      ],
+      "resources": [
+        {
+          "label": "Go 官方教程（中文）",
+          "url": "https://go.dev/tour/welcome/1"
+        },
+        {
+          "label": "Effective Go",
+          "url": "https://go.dev/doc/effective_go"
+        }
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "python2go-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "3-5 天",
+      "todo": [
+        "按本工具「基础表达」板块逐章逐格对比，重点看标为「语义不同」的格子",
+        "特别留意三处会静默出错的：整数除法、切片共享底层数组、字符串按字节索引",
+        "练习把一段 Python 的推导式与生成器改写成 Go 的 for 循环",
+        "把踩到的坑记进本方向的「迁移陷阱」清单，并打上自己的严重度"
+      ],
+      "acceptance": [
+        "能独立写出变量、切片、map、控制流、函数定义，无编译错误",
+        "能说清切片与数组的区别，以及 append 为什么会改到别人",
+        "能解释「首字母大写才是导出的」这条规则影响哪些声明"
+      ],
+      "resources": [
+        {
+          "label": "Go 语言规范",
+          "url": "https://go.dev/ref/spec"
+        }
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "python2go-3-practice",
+      "order": 3,
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "做 Exercism 的 Go track，接受 mentor 评审",
+        "把写过的一个小 Python 脚本（100-300 行）用 Go 重写一遍",
+        "重写时不要查 Python 原文件——凭记忆写，写完再对照",
+        "刻意改写那些靠推导式与链式调用完成的逻辑，体会 for 循环 + 早返回的写法"
+      ],
+      "acceptance": [
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法",
+        "写完能顺手跑 gofmt 与 go vet 且无告警"
+      ],
+      "resources": [
+        {
+          "label": "Exercism Go Track",
+          "url": "https://exercism.org/tracks/go"
+        },
+        {
+          "label": "TheAlgorithms Go",
+          "url": "https://github.com/TheAlgorithms/Go"
+        }
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "python2go-4-deep",
+      "order": 4,
+      "title": "补齐语义层（并发与内存）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "真正理解「通过通信共享内存」：先用通道写一遍生产者-消费者，再用 Mutex 写一遍",
+        "用 select + time.After 给一个并发任务加超时，对比 Python 里怎么实现",
+        "理解 context.Context 为什么是每个可能阻塞的函数的第一个参数",
+        "跑一次 go test -race，看它抓到什么、也看它抓不到什么",
+        "理解切片与 map 的扩容行为，以及为什么并发写 map 会直接 panic"
+      ],
+      "acceptance": [
+        "能解释 goroutine 与 asyncio 任务在调度与取消上的根本差别",
+        "能说清 channel 与 Mutex 各自适合什么场景",
+        "能写出带超时与取消的并发代码"
+      ],
+      "resources": [
+        {
+          "label": "Go 官方博客 · 通过通信共享内存",
+          "url": "https://go.dev/blog/codelab-share"
+        },
+        {
+          "label": "Go 并发模式（中文）",
+          "url": "https://github.com/goinaction/code"
+        }
+      ],
+      "baseline": "python",
+      "target": "go"
+    },
+    {
+      "id": "python2go-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 go mod 建一个真实项目，跑通「写代码 → test → vet → build」",
+        "把 pip 的心智映射到 go.mod / go.sum，理解 go mod tidy 为什么既增又删",
+        "用标准库的 testing 写表驱动测试，对比 pytest 参数化用例的写法差异",
+        "配好 gofmt 与 golangci-lint（注意 shadow 与 errcheck 两项检查）"
+      ],
+      "acceptance": [
+        "能独立搭起一个带测试、lint、格式化的 Go 工程",
+        "能说清 package / module / import 路径各自解决什么问题",
+        "能解释为什么 Go 社区没有\"格式化风格之争\""
+      ],
+      "resources": [
+        {
+          "label": "Go Modules 参考",
+          "url": "https://go.dev/ref/mod"
+        },
+        {
+          "label": "golangci-lint",
+          "url": "https://golangci-lint.run/"
+        }
+      ],
+      "baseline": "python",
+      "target": "go"
+    }
+  ]
+}

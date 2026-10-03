@@ -1,0 +1,539 @@
+{
+  "baseline": "java",
+  "target": "go",
+  "pitfalls": [
+    {
+      "id": "pitfall-error-is-value",
+      "title": "异常没了，错误变成返回值",
+      "symptomHtml": "<p>Java 里抛出去、在上层统一 catch 的写法在 Go 里不存在。\n忘了检查的那个 <code>err</code> 会被安静地丢掉 —— 没有栈、没有日志，\n函数返回零值继续跑，问题在很远的地方才显形。</p>\n",
+      "causeHtml": "<p>Go 把错误当作普通返回值（error 接口），没有异常传播机制。\n因此也没有「忘记处理就会炸」这层保护 —— 恰恰相反，忘记处理是静默的。</p>\n",
+      "fixHtml": "<p>每个返回 error 的调用后面立刻写 <code>if err != nil</code>。\n要包装上下文用 <code>fmt.Errorf(&quot;...: %w&quot;, err)</code>（<code>%w</code> 保留错误链），\n上层用 <code>errors.Is</code> / <code>errors.As</code> 判断 —— 这是 Go 版的异常类型匹配。\n开 golangci-lint 的 errcheck，漏掉的靠工具抓。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/error-propagation",
+      "tags": [
+        "异常",
+        "错误处理"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-goroutine-not-thread",
+      "title": "goroutine 不是线程，也别指望有线程池",
+      "symptomHtml": "<p>Java 里任务提交给线程池、靠 Future 拿结果；共享对象加锁保护。\nGo 里 <code>go f()</code> 看起来更简单，但把「随手共享内存」的习惯带过来，\n就会撞上数据竞争 —— 而且 <code>go test -race</code> 之外，它平时完全看不出来。</p>\n",
+      "causeHtml": "<p>goroutine 由运行期调度到少量线程上，模型是「并发」而不是「并行」。\n语言为此提供了通道与 <code>select</code> 作为一等公民，\n但<strong>共享内存并没有被禁止</strong> —— 只是没人替你保护。</p>\n",
+      "fixHtml": "<p>优先用「通过通信共享内存」：把数据通过通道传给下一个 goroutine，\n而不是让两边同时摸同一块内存。\n确实要共享时用 Mutex / atomic，并且每个可能阻塞的函数都带上 <code>context.Context</code> 做取消。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发",
+        "共享状态"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-nil-map-write",
+      "title": "声明了 map 就能读，一写就 panic",
+      "symptomHtml": "<p><code>var m map[string]int</code> 之后 <code>m[&quot;a&quot;] = 1</code> 直接 panic：\n<code>assignment to entry in nil map</code>。而读 <code>m[&quot;a&quot;]</code> 却合法（返回零值）——\n「读没问题」让人以为写也没问题。</p>\n",
+      "causeHtml": "<p>Go 的 map 是引用类型，零值是 nil。Java 的 <code>new HashMap&lt;&gt;()</code> 一创建就可写，\n没有「已声明但不可用」这个中间态。</p>\n",
+      "fixHtml": "<p>一律用 <code>make</code> 或字面量初始化：<code>m := make(map[string]int)</code>。\n判空看 <code>m == nil</code>，不要用 <code>len(m) == 0</code> ——\n两者对 nil map 与空 map 的答案相同，但只有前者能告诉你「写下去会不会 panic」。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/map-dict",
+      "tags": [
+        "集合",
+        "空值"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-no-inheritance",
+      "title": "没有类，也没有继承",
+      "symptomHtml": "<p>Java 里靠抽象基类 + 继承把公共字段与行为提上去，这套设计在 Go 里写不出来：\n没有 extends、没有重写、没有 super。硬套「父类子类」的思路会越写越别扭，\n最后变成到处复制字段。</p>\n",
+      "causeHtml": "<p>Go 只有结构体与接口，复用靠<strong>嵌入</strong>（把一个类型放进另一个类型）而不是继承。\n嵌入是组合：外层获得内层的字段与方法，但没有多态覆盖 ——\n内层方法里调用的还是内层自己的实现。</p>\n",
+      "fixHtml": "<p>先问「这里是 is-a 还是 has-a」，绝大多数继承其实都是 has-a，用嵌入直接表达。\n需要多态就用接口：定义在使用方，靠方法集隐式满足。\n这一条不只是语法差别 —— 它会让你的类型层次整体变浅，那是好事。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/inheritance",
+      "tags": [
+        "类",
+        "继承"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-slice-shared-backing",
+      "title": "切片是同一块内存的窗口",
+      "symptomHtml": "<p>Java 里 <code>list.subList(1, 3)</code> 返回的是<strong>视图</strong>（改它会改到原 list，\n这一点 Java 自己也算个坑）；而 <code>new ArrayList&lt;&gt;(list.subList(...))</code> 是副本。\nGo 的切片只有一个行为：<strong>共享底层数组</strong>，改它一定影响原数据。</p>\n",
+      "causeHtml": "<p>Go 的切片是「指针 + 长度 + 容量」的三元组，切片操作不复制数据。\n没有「默认复制」的切片操作，要副本必须显式写出来。</p>\n",
+      "fixHtml": "<p>要独立副本用 <code>append([]T(nil), s...)</code> 或 <code>copy</code>。\n还要注意 append 在容量够时原地写、不够时才新分配 ——\n「会不会改到别人」取决于容量，这是藏得最深的一类 bug。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/slicing",
+      "tags": [
+        "集合",
+        "引用"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-string-is-bytes",
+      "title": "字符串按字节索引，中文会被切坏",
+      "symptomHtml": "<p>Java 的 <code>s.charAt(0)</code> 至少给你一个 UTF-16 码元，<code>s.length()</code> 也是按码元算。\nGo 的 <code>s[0]</code> 给的是<strong>字节</strong>，<code>len(s)</code> 是字节数：\n对 &quot;你好&quot; 取 <code>s[0:3]</code> 会把第二个字切成半个，得到乱码。</p>\n",
+      "causeHtml": "<p>Go 的字符串是只读字节序列（约定 UTF-8），索引与切片按字节走。\n这与 Java 的 char 是 UTF-16 码元一样「都不是真正的字符」，\n但错位的方向不同，所以迁移时的直觉会失灵。</p>\n",
+      "fixHtml": "<p>按字符遍历用 <code>for i, r := range s</code>（<code>r</code> 是 rune）。\n要按下标取第 n 个字符，先转 <code>[]rune(s)</code>。\n字符数用 <code>utf8.RuneCountInString(s)</code>，不是 <code>len(s)</code>。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/string-common-ops",
+      "tags": [
+        "字符串",
+        "编码"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-typed-nil-interface",
+      "title": "装进接口的 nil 指针，不等于 nil",
+      "symptomHtml": "<p>Java 里 <code>obj == null</code> 就是判空，没有第二种空。\nGo 里把 nil 指针赋给接口变量之后，<strong>接口本身不等于 nil</strong>：\n<code>var e error = (*MyErr)(nil)</code> 之后 <code>e != nil</code> 是 true，\n于是「没出错」的判断失效，一个空错误被当成真错误传上去。</p>\n",
+      "causeHtml": "<p>Go 的接口值是一对（类型, 值）。只要类型那一半不是 nil，接口就不等于 nil，\n哪怕值是 nil 指针。这是 Go 里公认最反直觉的坑之一。</p>\n",
+      "fixHtml": "<p>变量声明成接口类型（<code>var e error</code>）再赋值；\n或者在返回处先判空、直接返回 <code>nil</code> 而不是那个 nil 指针。\n评审时专门看一眼「可能返回 nil 指针的函数」—— 这里出的错最难查。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/interface",
+      "tags": [
+        "接口",
+        "空值"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-defer-is-function-scoped",
+      "title": "defer 的作用域是函数，不是代码块",
+      "symptomHtml": "<p>Java 的 try-with-resources 在<strong>离开块</strong>时关闭资源，\nfinally 也跟着 try 块走。Go 的 <code>defer</code> 压到函数返回时才执行 ——\n在循环里 defer 关闭文件，会一直堆到函数结束才关。</p>\n",
+      "causeHtml": "<p>defer 的触发点是函数返回（按后进先出执行），不是块结束。\n循环开了一千个句柄，就同时挂着一千个未关闭的。</p>\n",
+      "fixHtml": "<p>循环里要用 defer 就把循环体抽成一个函数，让 defer 落在那个函数上。\n或者显式在循环末尾关闭并检查错误（<code>defer f.Close()</code> 的错误是<strong>被丢弃的</strong>，\n这是另一个常见问题）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/finally-cleanup",
+      "tags": [
+        "资源",
+        "作用域"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-generics-differ",
+      "title": "泛型不是擦除式的",
+      "symptomHtml": "<p>Java 的泛型编译后擦除，<code>List&lt;String&gt;</code> 与 <code>List&lt;Integer&gt;</code> 运行期是同一个类，\n因此可以写通配符 <code>? extends T</code>、可以反射拿到泛型信息（部分）。\nGo 的泛型是另一套：没有通配符，没有「泛型方法」，约束用接口的<strong>类型集</strong>表达。</p>\n",
+      "causeHtml": "<p>两门语言的泛型是为不同目标设计的：Java 为了兼容旧代码而擦除，\nGo 为了保持编译速度与运行期表示简单，用类型参数 + 约束接口。</p>\n",
+      "fixHtml": "<p>别把 <code>? extends</code> 的直觉带过来 —— 需要「任意数值类型」时写\n<code>[T int | float64]</code> 这样的联合约束，而不是找通配符。\n也不需要包一层 <code>Box&lt;T&gt;</code> 来绕擦除：Go 的泛型没有这个问题。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/generic-constraint",
+      "tags": [
+        "泛型",
+        "类型"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-int-width-is-platform-dependent",
+      "title": "int 的位宽不再固定",
+      "symptomHtml": "<p>Java 的 <code>int</code> 永远是 32 位、<code>long</code> 永远是 64 位 —— 这些数字可以写进协议文档。\nGo 的 <code>int</code> 位宽<strong>取决于平台</strong>（32 位机器上是 32 位），\n于是序列化、哈希、二进制布局在换平台后可能不一样。</p>\n",
+      "causeHtml": "<p>Go 的 <code>int</code> 是「够装下标就好」的机器字长类型，\n要确定的位宽必须写 <code>int32</code> / <code>int64</code> 这样的显式类型。</p>\n",
+      "fixHtml": "<p>涉及协议、文件格式、跨语言交互的数值一律用显式位宽类型（int32 / int64 / uint32 …）。\n<code>int</code> 只用在计数、下标这类不跨边界的地方。\n另外 Go 有<strong>无符号</strong>类型，Java 没有 —— 从 Java 过来时别忽略 <code>uint8</code> 与 <code>byte</code> 的差别。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/type-inference",
+      "tags": [
+        "类型",
+        "数值"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-unused-is-an-error",
+      "title": "声明了不用，编译不过",
+      "symptomHtml": "<p>Java 里未使用的局部变量、未使用的 import 最多是个警告，IDE 灰一下。\nGo 里它是<strong>编译错误</strong>：<code>declared and not used</code> / <code>imported and not used</code>，\n而且没有开关可以关掉。</p>\n",
+      "causeHtml": "<p>Go 把「未使用」当错误而不是警告。这是刻意设计：\n它消灭了一整类「改到一半留下的残骸」，代价是调试期不方便。</p>\n",
+      "fixHtml": "<p>临时不用就写 <code>_ = x</code>（明确表达「我知道它没用」），或者干脆删掉。\n调试时想看值就临时打印再删 —— 别指望关掉这个检查。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/declaration",
+      "tags": [
+        "声明",
+        "工具链"
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "pitfall-capitalization-exports",
+      "title": "首字母大写才是 public",
+      "symptomHtml": "<p>Java 用 <code>public</code> / <code>private</code> / <code>protected</code> 三个关键字，包级私有还有个默认可见性。\nGo 只有一条规则：<strong>首字母大写才导出</strong>，小写就是包私有。\n方法名写成 <code>parseConfig</code> 之后，别的包 import 不到，报错只说「undefined」。</p>\n",
+      "causeHtml": "<p>可见性由标识符首字母的大小写决定，没有关键字，也没有 protected 这个层级。</p>\n",
+      "fixHtml": "<p>要跨包使用的一律首字母大写。\n结构体字段还有连带后果：<strong>只有导出的字段才会被 JSON 序列化</strong> ——\n写 <code>type User struct { name string }</code> 会序列化出 <code>{}</code>，且不报错。\n包内共享的设计改用「同包多文件」来表达，而不是 protected。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "go"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/access-control",
+      "tags": [
+        "可见性",
+        "命名"
+      ],
+      "baseline": "java",
+      "target": "go"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "结构体",
+      "aliases": [
+        "struct",
+        "class",
+        "pojo"
+      ],
+      "perLanguage": {
+        "go": "struct 只有字段，方法是定义在类型之外、靠接收者关联的；没有继承，复用靠嵌入",
+        "java": "class 把字段与方法装在一起，支持继承、抽象类与运行期多态"
+      },
+      "note": "少了继承之后类型层次会整体变浅 —— 这不是缺失，是 Go 刻意的取舍。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface",
+        "implements"
+      ],
+      "perLanguage": {
+        "go": "隐式满足 —— 方法集齐了就算实现，没有 implements 可写；接口通常定义在**使用方**；接口值是一对（类型, 值）",
+        "java": "显式 implements 的名义式契约，编译期强制；接口可以带 default 方法；引用可以为 null"
+      },
+      "note": "两处关键差别：Go 不需要声明「我实现了谁」，以及 nil 指针装进接口后接口本身不等于 nil。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "错误",
+      "aliases": [
+        "error",
+        "exception",
+        "throw"
+      ],
+      "perLanguage": {
+        "go": "error 是普通返回值，由调用方显式检查；包装用 %w，判定用 errors.Is / errors.As；忘检查是静默的",
+        "java": "异常自动向上传播，受检异常由编译器强制处理；栈信息自动附带"
+      },
+      "note": "一边强制你看见、另一边默认不打扰你 —— 迁移后最容易丢的就是「一定会被处理」这层保证。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "零值",
+      "aliases": [
+        "zero value",
+        "null",
+        "default"
+      ],
+      "perLanguage": {
+        "go": "所有变量都有确定的零值（0 / \"\" / false / nil），不存在「未初始化」",
+        "java": "字段有默认值（对象是 null），局部变量必须先赋值；null 表示「没有对象」"
+      },
+      "note": "Go 用「没有未初始化状态」换掉了「空」这个状态位 —— 需要区分「没设置」与「设置为零值」时得用指针字段。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "切片 / 数组",
+      "aliases": [
+        "slice",
+        "array",
+        "list"
+      ],
+      "perLanguage": {
+        "go": "`[N]T` 是数组（值类型，赋值即复制）；`[]T` 是切片（引用底层数组的窗口，共享）",
+        "java": "数组 `T[]` 定长且是引用类型；可变长度用 ArrayList 等集合，subList 返回视图"
+      },
+      "note": "Go 把「定长」与「可变长」拆成两个类型，而 Java 用数组与集合两类 —— 但共享语义的直觉要按 Go 的规则重建。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "映射",
+      "aliases": [
+        "map",
+        "hashmap",
+        "dict"
+      ],
+      "perLanguage": {
+        "go": "map 是内置引用类型，零值为 nil；nil map 可读不可写，写就 panic，必须 make 或字面量初始化",
+        "java": "HashMap 一创建就可写，键用 equals 与 hashCode 判定，可以存 null 键值"
+      },
+      "note": "Go 那边多了一个 Java 没有的状态（nil map），而它恰恰在写的时候才炸。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "通道",
+      "aliases": [
+        "channel",
+        "chan",
+        "blockingqueue"
+      ],
+      "perLanguage": {
+        "go": "语言内置的通信原语，goroutine 之间传值；默认无缓冲，收发会互相阻塞；select 可以多路等待",
+        "java": "语言层面没有，用 BlockingQueue 表达，靠库而不是语法"
+      },
+      "note": "在 Go 里它是**语法**（`<-` 是运算符，`select` 是关键字），在 Java 里它是**库** —— 这个差别决定了并发代码的写法有多不一样。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "包",
+      "aliases": [
+        "package",
+        "module",
+        "import"
+      ],
+      "perLanguage": {
+        "go": "目录即包，包名与目录名可以不同；可见性由首字母大小写决定，没有 protected；依赖用 go.mod 声明",
+        "java": "package 是命名空间，可见性由 public / protected / private 决定；依赖用构建工具声明"
+      },
+      "note": "Go 那边「包名」与「导入路径最后一段」经常不一致，读 import 时要看清映射到哪个名字。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "泛型",
+      "aliases": [
+        "generic",
+        "type parameter"
+      ],
+      "perLanguage": {
+        "go": "类型参数 + 约束接口（可以用 `int | float64` 这样的类型集）；没有通配符，没有泛型方法",
+        "java": "擦除式泛型，运行期不保留类型参数；有通配符 `? extends`，有泛型方法"
+      },
+      "note": "别把通配符的直觉带过来 —— Go 用约束表达「任意满足这些操作的类型」，与 Java 的型变是两套思路。",
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "term": "方法 / 接收者",
+      "aliases": [
+        "receiver",
+        "this",
+        "method"
+      ],
+      "perLanguage": {
+        "go": "方法在类型之外定义，靠接收者关联；值接收者拿到副本，指针接收者才能改到原值",
+        "java": "方法必须在类里，this 永远指向当前实例，不存在「副本接收者」这回事"
+      },
+      "note": "「值接收者还是指针接收者」是 Go 特有的决定，Java 里没有对应物 —— 它决定了调这个方法会不会改到原对象。",
+      "baseline": "java",
+      "target": "go"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2go-1-anchor",
+      "order": 1,
+      "title": "先接受「没有继承、没有异常、没有 null」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "通读本工具「语言机制」板块的 Java 视角，把 Maven/go mod、线程池/goroutine 这类映射先建起来",
+        "只回答四个问题：类型系统、并发模型、值语义 vs 引用语义在「语言机制」板块，错误处理在「数据与抽象」板块",
+        "明确写下「哪些 Java 直觉必须丢掉」——抽象基类提公共行为、异常自动冒泡、共享对象加锁就安全、一切都能为 null"
+      ],
+      "acceptance": [
+        "能说清 error 是值而不是异常，以及为什么代码里到处是 `if err != nil`",
+        "知道 Go 没有类与继承，组合与接口各替代了哪一部分",
+        "知道 Go 没有 null，只有零值，以及这会让「没设置」变得难以表达"
+      ],
+      "resources": [
+        {
+          "label": "Go 官方教程（中文）",
+          "url": "https://go.dev/tour/welcome/1"
+        },
+        {
+          "label": "Effective Go",
+          "url": "https://go.dev/doc/effective_go"
+        }
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "java2go-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "3-5 天",
+      "todo": [
+        "按本工具「基础表达」板块逐章逐格对比，重点看标为「语义不同」的格子",
+        "特别留意三处会静默出错的：切片共享底层数组、字符串按字节索引、int 的位宽随平台变",
+        "练习把一段 Java 的 Stream 链改写成 Go 的 for 循环",
+        "把踩到的坑记进本方向的「迁移陷阱」清单，并打上自己的严重度"
+      ],
+      "acceptance": [
+        "能独立写出变量、切片、map、控制流、函数定义，无编译错误",
+        "能说清切片与数组的区别，以及 append 为什么会改到别人",
+        "能解释「首字母大写才是导出的」这条规则影响哪些声明"
+      ],
+      "resources": [
+        {
+          "label": "Go 语言规范",
+          "url": "https://go.dev/ref/spec"
+        }
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "java2go-3-practice",
+      "order": 3,
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "做 Exercism 的 Go track，接受 mentor 评审",
+        "把写过的一个小工具（100-300 行）用 Go 重写一遍",
+        "重写时不要查原文件——凭记忆写，写完再对照",
+        "刻意把一处靠继承复用的设计改成嵌入，体会类型层次变浅之后的样子"
+      ],
+      "acceptance": [
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法",
+        "写完能顺手跑 gofmt 与 go vet 且无告警"
+      ],
+      "resources": [
+        {
+          "label": "Exercism Go Track",
+          "url": "https://exercism.org/tracks/go"
+        },
+        {
+          "label": "TheAlgorithms Go",
+          "url": "https://github.com/TheAlgorithms/Go"
+        }
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "java2go-4-deep",
+      "order": 4,
+      "title": "补齐语义层（并发与内存）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "真正理解「通过通信共享内存」：先用通道写一遍生产者-消费者，再用 Mutex 写一遍",
+        "用 select + time.After 给一个并发任务加超时，对比 Java 里怎么实现",
+        "理解 context.Context 为什么是每个可能阻塞的函数的第一个参数",
+        "跑一次 go test -race，看它抓到什么、也看它抓不到什么",
+        "理解切片与 map 的扩容行为，以及为什么并发写 map 会直接 panic"
+      ],
+      "acceptance": [
+        "能解释 goroutine 与线程池在调度、取消、错误传播上的差别",
+        "能说清 channel 与 Mutex 各自适合什么场景",
+        "能写出带超时与取消的并发代码"
+      ],
+      "resources": [
+        {
+          "label": "Go 官方博客 · 通过通信共享内存",
+          "url": "https://go.dev/blog/codelab-share"
+        },
+        {
+          "label": "Go 并发模式（中文）",
+          "url": "https://github.com/goinaction/code"
+        }
+      ],
+      "baseline": "java",
+      "target": "go"
+    },
+    {
+      "id": "java2go-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 go mod 建一个真实项目，跑通「写代码 → test → vet → build」",
+        "把 Maven 三段坐标的心智映射到 go.mod / go.sum，理解 go mod tidy 为什么既增又删",
+        "用标准库的 testing 写表驱动测试，对比 JUnit 参数化用例的写法差异",
+        "配好 gofmt 与 golangci-lint（注意 shadow 与 errcheck 两项检查）"
+      ],
+      "acceptance": [
+        "能独立搭起一个带测试、lint、格式化的 Go 工程",
+        "能说清 package / module / import 路径各自解决什么问题",
+        "能解释为什么 Go 社区没有「格式化风格之争」"
+      ],
+      "resources": [
+        {
+          "label": "Go Modules 参考",
+          "url": "https://go.dev/ref/mod"
+        },
+        {
+          "label": "golangci-lint",
+          "url": "https://golangci-lint.run/"
+        }
+      ],
+      "baseline": "java",
+      "target": "go"
+    }
+  ]
+}

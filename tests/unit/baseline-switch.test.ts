@@ -4,7 +4,8 @@
  * 这组断言守的是最容易**静默**失效的几个性质：
  *   1. 基准以**路由参数**为准，localStorage 只是无基准路由的兜底
  *   2. 「已启用」≠「有资格当基准」—— 只有标了 baseline: true 的语言能被选中
- *   3. 基础语法多列（基准 + 勾选）；对级板块锁定成 [基准, 目标]
+ *   3. 章节型板块多列（基准 + 勾选，**可以一门都不勾 = 只看基准**）；
+ *      对级板块锁定成 [基准, 目标]
  *   4. **目标语言不在 URL 里**，所以「现在该看哪个方向」必须可推导且可预测
  *   5. 切基准时的回落（骨架期 Python / Java 只有 1 章、只有部分方向）
  *
@@ -19,8 +20,7 @@ import {
   defaultCompareLanguageId,
   enabledLanguageIds,
 } from '@/generated/registry.gen'
-import { getCachedDiff } from '@/content/diff'
-import { chaptersOf, hasChapterContent, manifest, resolvePairTarget } from '@/content/repository'
+import { chaptersOf, hasChapterContent, manifest, pairTargetsOf, resolvePairTarget } from '@/content/repository'
 import { resolveSwitchPath } from '@/composables/useBaselineSwitch'
 import { pickColumns } from '@/composables/useVisibleColumns'
 import { sectionEntryPath } from '@/router'
@@ -57,7 +57,8 @@ beforeEach(() => {
 
 describe('全局选择：候选集合与默认值', () => {
   it('候选恰好是 JS / Python / Java，默认基准是 JS', () => {
-    expect([...baselineLanguageIds]).toEqual(['java', 'javascript', 'python'])
+    // 顺序 = registry.yaml 里 languages 段的声明序（ADR-58），不是字母序
+    expect([...baselineLanguageIds]).toEqual(['javascript', 'python', 'java'])
     expect(defaultBaselineLanguageId).toBe('javascript')
   })
 
@@ -81,9 +82,8 @@ describe('全局选择：列的计算', () => {
     for (const id of baselineLanguageIds) {
       store.setRouteContext(id, 'basics')
       expect(store.orderedMeta[0]?.id).toBe(id)
-      // 基准恰好就是默认对比语言时（python 基准），对比列会回落到另一门 ——
-      // 但任何情况下都不允许出现"基准与对比列是同一门"这种恒等的空列
-      expect(store.compareMeta.length).toBeGreaterThan(0)
+      // 基准恰好就是唯一勾选的那门时（python 基准 × 默认对比语言），
+      // 对比列就是空的 —— 只剩基准一列，不补位
       expect(store.compareMeta.map((m) => m.id)).not.toContain(id)
     }
   })
@@ -98,7 +98,7 @@ describe('全局选择：列的计算', () => {
     const store = useLanguageStore()
     store.setRouteContext('javascript', 'basics')
     store.toggleCompare('go')
-    expect(store.orderedMeta.map((m) => m.id)).toEqual(['javascript', 'go', 'python'])
+    expect(store.orderedMeta.map((m) => m.id)).toEqual(['javascript', 'python', 'go'])
     expect(store.compareMeta.map((m) => m.id)).not.toContain('javascript')
   })
 
@@ -138,28 +138,35 @@ describe('全局选择：列的计算', () => {
     expect(store.isPairMode).toBe(false)
   })
 
-  it('基准换成被勾选的那门时补齐一列 —— 不会出现「看着是勾上的、其实没勾」', () => {
+  it('一门对比语言都没勾时只留基准列 —— 不补一门用户没勾的', () => {
+    const store = useLanguageStore()
+    store.setRouteContext('javascript', 'basics')
+    store.toggleCompare(defaultCompareLanguageId) // 取消默认勾选的那门
+    expect(store.compareLangs).toEqual([])
+    expect(store.compareMeta).toEqual([])
+    expect(store.orderedMeta.map((m) => m.id)).toEqual(['javascript'])
+  })
+
+  it('基准换成被勾选的那门时，那一门从对比列里退出 —— 不补位', () => {
     const store = useLanguageStore()
     store.reset() // 勾选集合 = [默认对比语言]
     store.setRouteContext('python', 'basics')
-    // 默认对比语言恰好就是 python 基准本身：归一化必须补一门非基准语言进去，
-    // 否则 compareMeta 的回落分支会给出一门不在 compareLangs 里的语言 ——
-    // 界面把它显示成已勾选，用户去取消它，toggleCompare 反而把它加进去。
-    const checked = store.compareLangs.filter((id) => id !== 'python')
-    expect(checked.length).toBeGreaterThan(0)
-    // 「勾选集合」与「渲染列」恒等
-    expect(store.compareMeta.map((m) => m.id)).toEqual(checked)
+    // 默认对比语言恰好就是 python 基准本身：它此刻的身份是基准列，不是对比列。
+    // 曾经这里会补一门非基准语言进去，于是页面上并列着一列没勾上的语言 ——
+    // 用户点它想「取消」，走的却是 toggleCompare 的新增分支。
+    expect(store.compareLangs).toEqual([defaultCompareLanguageId])
+    expect(store.orderedMeta.map((m) => m.id)).toEqual(['python'])
   })
 
   it('本章有实现的勾选语言按列序跟上，基准列恒在最左', () => {
     const store = useLanguageStore()
     store.setRouteContext('java', 'basics')
     store.toggleCompare('go')
-    // 枚举顺序是 go / java / javascript / python / rust，列序照它走
-    expect(store.orderedMeta.map((m) => m.id)).toEqual(['java', 'go', 'python'])
+    // 枚举顺序是 javascript / python / java / go / rust（registry 声明序），列序照它走
+    expect(store.orderedMeta.map((m) => m.id)).toEqual(['java', 'python', 'go'])
     // 基准列即便本章没有实现也保留；其余按「真有实现」过筛
     expect(pickColumns(store.orderedMeta, 'java', new Set(['python', 'go'])).map((m) => m.id)).toEqual(
-      ['java', 'go', 'python'],
+      ['java', 'python', 'go'],
     )
   })
 
@@ -178,18 +185,71 @@ describe('全局选择：列的计算', () => {
   })
 })
 
+/**
+ * 「我熟悉 Python」那个入口的真实场景：默认对比语言就是 Python，
+ * 而读者点进去的基准也是 Python —— 唯一的勾选被基准吃掉，页面只剩一列。
+ *
+ * 修的是**勾选集合本身**（进得去、点得掉），不是在渲染层补一列：
+ * 补出来的列不在 compareLangs 里，会被画成「已勾」却点不掉（ADR-34）。
+ */
+describe('全局选择：进入基准时，救回被基准吃掉的那一勾', () => {
+  it('唯一勾选就是新基准时，换成默认对比语言', () => {
+    const store = useLanguageStore()
+    store.reset() // 勾选集合 = [默认对比语言]，而它就是下面这个基准
+    store.ensureCompareFor(defaultCompareLanguageId)
+    expect(store.compareLangs).toEqual([defaultBaselineLanguageId])
+
+    // 页面因此拿到两列，而不是退化成「只有基准」
+    store.setRouteContext(defaultCompareLanguageId, 'basics')
+    expect(store.orderedMeta.map((m) => m.id)).toEqual([
+      defaultCompareLanguageId,
+      defaultBaselineLanguageId,
+    ])
+  })
+
+  it('空集合不补位 —— 那是读者表达过的「只看基准」（ADR-63）', () => {
+    const store = useLanguageStore()
+    store.toggleCompare(defaultCompareLanguageId) // 取消最后一项 → []
+    store.ensureCompareFor(defaultCompareLanguageId)
+    expect(store.compareLangs).toEqual([])
+  })
+
+  it('还有别的勾选能当对比列时，不动读者的选择', () => {
+    const store = useLanguageStore()
+    store.toggleCompare('go')
+    const before = [...store.compareLangs]
+    store.ensureCompareFor(defaultCompareLanguageId)
+    expect(store.compareLangs).toEqual(before)
+  })
+
+  it('换回默认基准时同样成立（两门基准互为默认对比语言）', () => {
+    const store = useLanguageStore()
+    store.reset()
+    store.ensureCompareFor(defaultCompareLanguageId)
+    store.ensureCompareFor(defaultBaselineLanguageId)
+    expect(store.compareLangs).toEqual([defaultCompareLanguageId])
+  })
+})
+
 describe('全局选择：目标语言如何推导（它不在 URL 里）', () => {
   it('优先取用户最近挑的那门', () => {
     expect(resolvePairTarget('javascript', 'pitfalls', ['python', 'go'], 'go')).toBe('go')
   })
 
   it('最近挑的那门在该板块没有内容时，回落到已勾选里第一个有内容的', () => {
-    // python 基准下目前只有 → java 一个方向有内容
-    expect(resolvePairTarget('python', 'pitfalls', ['go', 'java'], 'go')).toBe('java')
+    // 在 python 基准下挑 python —— 它是当前基准，永远不可能出现在自己的方向里
+    const available = pairTargetsOf('python', 'pitfalls')
+    const other = available.find((t) => t !== available[0])!
+    expect(resolvePairTarget('python', 'pitfalls', [other], 'python')).toBe(other)
   })
 
-  it('勾选的都没内容时，回落到该板块第一个可用方向', () => {
-    expect(resolvePairTarget('python', 'pitfalls', ['go', 'rust'], null)).toBe('java')
+  it('勾选的都没内容时，回落到该板块第一个可用方向（按书写序，不是字典序）', () => {
+    // 首访时勾选里是默认对比语言 python，而当前基准就是 python ——
+    // 这正是「勾选里没有任何可用目标」那条分支的真实触发场景（不是造出来的用例）。
+    // 「第一个」由语言书写序决定（ADR-67）：字典序会先排到 go，书写序先排到 javascript。
+    const available = pairTargetsOf('python', 'pitfalls')
+    expect(available[0]).toBe('javascript')
+    expect(resolvePairTarget('python', 'pitfalls', ['python'], null)).toBe(available[0])
   })
 
   it('该板块一个方向都没有时返回 null（调用方据此 404）', () => {
@@ -299,32 +359,6 @@ describe('全局选择：切换基准时的回落', () => {
   })
 })
 
-describe('全局选择：diff 按基准重算', () => {
-  it('缓存 key 含 (feature, 基准, 目标)——换基准不会读到上一个基准的结果', () => {
-    const jsCode = 'const a = 1\nconsole.log(a)'
-    const pyCode = 'a = 1\nprint(a)'
-
-    const jsToPy = getCachedDiff('f1|javascript|python', jsCode, pyCode)
-    const pyToJs = getCachedDiff('f1|python|javascript', pyCode, jsCode)
-
-    expect(pyToJs).not.toBe(jsToPy)
-    expect(getCachedDiff('f1|javascript|python', jsCode, pyCode)).toBe(jsToPy)
-  })
-
-  it('两个方向的差异结果确实不同 —— 基准可切意味着 diff 可切', () => {
-    const jsCode = 'const a = 1\nconsole.log(a)'
-    const pyCode = 'a = 1\nprint(a)'
-
-    const jsToPy = getCachedDiff('f2|javascript|python', jsCode, pyCode)
-    const pyToJs = getCachedDiff('f2|python|javascript', pyCode, jsCode)
-
-    expect(jsToPy.total).toBe(pyCode.split('\n').length)
-    expect(pyToJs.total).toBe(jsCode.split('\n').length)
-    expect(jsToPy.changed.size).toBe(2)
-    expect(pyToJs.changed.size).toBe(2)
-  })
-})
-
 describe('全局选择：manifest 是客户端唯一的「有哪些方向」来源', () => {
   it('每个 pair 都属于一个已启用的基准候选，且目标 ≠ 基准', () => {
     expect(manifest.pairs.length).toBeGreaterThan(0)
@@ -342,6 +376,31 @@ describe('全局选择：manifest 是客户端唯一的「有哪些方向」来�
       // 基准级板块没有方向概念 —— 有 direction 就说明配错了 scope
       expect(s.scope).toBe('baseline')
       expect(manifest.pairs.some((p) => p.sections.includes(s.id))).toBe(false)
+    }
+  })
+
+  /*
+   * ADR-67：方向的顺序**按语言书写序**，不是目录名字典序。
+   *
+   * 这个顺序不止是显示顺序 —— `resolvePairTarget` 在「勾选里没有该基准可用的目标」
+   * 时回落到 `available[0]`，于是它同时决定了「以 Python 为基准的读者打开速查默认看到
+   * 哪个方向」。字典序下补齐 12 个方向后 python 基准会落到 go，书写序下落回 javascript。
+   * 构建期的 SEO 选向（`pickPairTarget`）与预渲染探针都跟着这一条走。
+   */
+  it('ADR-67：可用目标按语言书写序排列（回落取的就是第一个）', () => {
+    const rank = (id: string): number => enabledLanguageIds.indexOf(id as never)
+    for (const section of manifest.sections.filter((s) => s.scope === 'pair').map((s) => s.id)) {
+      for (const baseline of baselineLanguageIds) {
+        const available = pairTargetsOf(baseline, section)
+        const ranks = available.map(rank)
+        expect(ranks, `${baseline}/${section} 的目标不是书写序`).toEqual(
+          [...ranks].sort((x, y) => x - y),
+        )
+        if (available.length) {
+          // 一门都没勾时回落 available[0] —— 它必须是书写序第一个，不是字典序第一个
+          expect(resolvePairTarget(baseline, section, [], null)).toBe(available[0])
+        }
+      }
     }
   })
 })

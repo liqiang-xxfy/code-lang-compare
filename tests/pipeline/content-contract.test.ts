@@ -6,6 +6,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { analyzeContent, globalIdOf } from '../../scripts/lib/analyze'
+import { loadAllLanguageMeta, loadRegistry } from '../../scripts/lib/core'
+import { findLanguageWords } from '../../scripts/lib/lang-mention'
 import { baselineCatalogSchema, languageContentFileSchema, provenanceSchema } from '../../src/schemas'
 
 const a = analyzeContent()
@@ -151,13 +153,19 @@ describe('架构决策的可执行断言', () => {
     }
   })
 
-  it('ADR-45：速查三兄弟保留方向性，词典只讲本方向的两门语言', () => {
+  it('ADR-45 / ADR-68：速查三兄弟保留方向性，陷阱与词典都只讲本方向的两门语言', () => {
     expect(a.pairs.length).toBeGreaterThan(0)
     for (const pair of a.pairs) {
       const allowed = new Set([pair.baseline, pair.target])
       for (const g of pair.glossary) {
         for (const lang of Object.keys(g.perLanguage)) {
           expect(allowed.has(lang), `${g.term} 的 perLanguage 含第三门语言 ${lang}`).toBe(true)
+        }
+      }
+      // 陷阱的 languages 曾经只查「语言存不存在」，于是能悄悄多写一门第三语言
+      for (const p of pair.pitfalls) {
+        for (const lang of p.languages) {
+          expect(allowed.has(lang), `${p.id} 的 languages 含第三门语言 ${lang}`).toBe(true)
         }
       }
     }
@@ -182,5 +190,51 @@ describe('架构决策的可执行断言', () => {
     expect(languageContentFileSchema.safeParse({ group: 'bindings', boxes: {} }).success).toBe(false)
     // 全局 id 必须是两段 —— 带章节段的三段形态不再是合法 id（章节随基准变）
     expect(a.features.every((f) => f.id.split('/').length === 2)).toBe(true)
+  })
+})
+
+/* ────────────── 速查正文的写作口径 ──────────────
+ *
+ * 速查三兄弟的正文是**散文**：`perLanguage` 的键有 R5 守着、对比框的 `@note` 有 R25 守着，
+ * 而 `symptom` / `cause` / `fix` / `note` / `todo` / `acceptance` 里的字**没有任何规则在看**。
+ * 「只讲本方向两门语言」这条口径此前只写在文档里，靠人守 —— 于是 TypeScript 与 Java
+ * 悄悄出现在别的方向的词典里，一直没被发现。这两条断言把它变成机器守的。
+ */
+describe('速查正文的写作口径', () => {
+  const languageMetas = loadAllLanguageMeta()
+  const sectionLabels = new Set(Object.values(loadRegistry().sections).map((s) => s.label))
+
+  /** 一个方向里全部面向读者的文字。**url 除外** —— 域名与路径里本来就有语言名 */
+  function readerFacingTexts(pair: (typeof a.pairs)[number]): string[] {
+    const out: string[] = []
+    for (const p of pair.pitfalls) out.push(p.title, p.symptom, p.cause, p.fix)
+    for (const g of pair.glossary) {
+      out.push(g.term, ...g.aliases, ...Object.values(g.perLanguage))
+      if (g.note) out.push(g.note)
+    }
+    for (const s of pair.roadmaps) {
+      out.push(s.title, ...s.todo, ...s.acceptance, ...s.resources.map((r) => r.label))
+      if (s.durationHint) out.push(s.durationHint)
+    }
+    return out
+  }
+
+  it('只讲本方向的两门语言 —— 点名第三门，读者会以为那里也会踩到同样的坑', () => {
+    for (const pair of a.pairs) {
+      const banned = languageMetas.filter((m) => m.id !== pair.baseline && m.id !== pair.target)
+      for (const text of readerFacingTexts(pair)) {
+        expect(findLanguageWords(text, banned), `${pair.dir}：${text.slice(0, 60)}`).toEqual([])
+      }
+    }
+  })
+
+  it('提到的板块名必须是注册表里真实存在的板块', () => {
+    for (const pair of a.pairs) {
+      for (const text of readerFacingTexts(pair)) {
+        for (const m of text.matchAll(/「([^」]{1,12})」板块/g)) {
+          expect(sectionLabels.has(m[1]!), `${pair.dir} 提到不存在的板块「${m[1]}」`).toBe(true)
+        }
+      }
+    }
   })
 })

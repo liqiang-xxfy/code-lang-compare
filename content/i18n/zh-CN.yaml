@@ -33,23 +33,12 @@ viewMode:
   label: 展示方式
   matrix: 矩阵
   sideBySide: 卡片并排
-  baselineDiff: 基准差异
 
 baseline:
   label: 基准语言
   hint: 基准列固定在左侧并冻结滚动
   current: 当前基准：{name}
   switch: 切换基准语言
-  # {name} = 当前页面的基准语言名
-  #
-  # P7 之后徽章的参照系就是**当前页面的基准**（内容按 (基准,目标) 对撰写，ADR-24），
-  # 所以这句话不再是「与上面选的东西无关」的免责声明，而是在说明这一页的
-  # 判断标准是什么。切换基准会换到另一套内容 —— 它有自己的地址。
-  # 注意：i18n 文案是**纯文本**，不经过 Markdown 渲染，所以这里不能写 ** 之类的标记。
-  # 折叠态的摘要行。参照系（哪一门语言）必须留在这里 —— 它是这一页的判断标准，
-  # 四个符号的含义才是可以按需展开的细节。
-  referenceNoteSummary: 等价性徽章（= ≈ ≠ ∅）以本页基准 {name} 为参照系 —— 各符号含义
-  referenceNote: 等价性徽章（= ≈ ≠ ∅）以本页基准 {name} 为参照系判定：= 同构、≈ 形似、≠ 语义不同、∅ 该语言没有这个概念。基准列自身不显示徽章 —— 它就是参照系。
   switchHint: 每个基准有各自的一套内容与地址，切换会跳转到对应的页面。
 
 density:
@@ -84,37 +73,30 @@ pitfalls:
   targetLang: 目标语言
   allTargets: 全部
 
-sections:
-  # 板块标题也不在这里 —— 见上面 nav 段的说明，它们声明在 registry.yaml 的 sections 段
-  # （页面标题用 length 较长的 title，左栏用较短的 label）。
-  # {langs} = 本模块实际对照的语言。
-  # 覆盖范围是内容属性，对比列是用户偏好 —— 两者不一致时要说明，
-  # 否则「勾了却没反应」看起来像坏了。
-  scopeHint: 本模块目前只对照 {langs}，其余语言尚未写入本模块。
-
 compare:
   baselineLabel: 以 {name} 为基准
   targetLabel: 对照 {name}
   columns: 对比列 = 基准 + 你勾选的语言
 
-# 每个板块页内那条语言选择条（CompareLanguageBar）。基准与对比语言并排在这里，
-# 但用两种控件语法分开：基准是连体分段控件（页面本身），对比语言是各自独立的
-# chip（页内的列，且多选框 / 单选本身就说明了这个板块是"多列并排"还是"一篇文章"）。
+# 每个板块页内那条对比语言选择条（CompareLanguageBar）。基准不在这里 ——
+# 它在顶栏（它是整页的参照系，且没有对比列的首页 / 速查页同样需要它）。
 compareBar:
   groupLabel: 对比语言
   # 基础语法：基准 + 多选，勾几门并排几门
   multiHint: 勾几门就并排对照几门；本模块没写入的语言不会成列。
   # 其余四个板块：逐方向撰写，一次只看一个方向
   singleHint: 迁移教程、陷阱、词典与路线是逐方向撰写的，一次只看一个方向。
-  # 灰显项的 title：本板块没有这个方向的内容
-  unavailable: 本板块还没有这个方向的内容
+  # 灰显项的 title 有两种，理由不同，不能混成一句：
+  #   · 本板块 / 本章没有这门语言的内容（点了也不会有列）
+  #   · 它正是当前基准，已经占着最左那一列
+  unavailable: 本模块还没有这门语言的内容
+  # {name} = 当前基准语言名
+  isBaseline: '{name} 是当前基准，已经占了最左的基准列'
+  # 卡片并排横向溢出时的提示：{n} = 可见列数
+  hScrollHint: 共 {n} 门语言，可左右拖动查看
   # {requested} = 你最近想看的方向，{actual} = 本板块实际显示的方向。
   # 说明为什么不覆写偏好，而不是替他改掉 —— 回到有该方向的板块时会自动恢复。
   fallback: 本板块暂无 {requested} 的内容，已显示 {actual}。
-
-filter:
-  onlyDifferent: 只看有差异的
-  onlyDifferentHint: 隐藏所有语言写法一致的项
 
 code:
   copy: 复制代码
@@ -125,18 +107,10 @@ code:
   # 对比框的 `absent` 声明：本语言**没有**这个概念（区别于「还没写」）
   noConcept: 本语言无此概念
   language: 语言
-  # 以 { 开头的普通标量必须加引号，否则 YAML 会当成流式映射解析失败
-  lineCount: '{n} 行'
-  diffFromBaseline: 相对基准
-  diffChanged: '{n} 行不同'
-  diffAdded: '{n} 行新增'
-  # 两侧都是多段、但段数不同：无法逐段对齐。宁可不着色，也不给出错位的对照
-  blocksMismatch: 两边的分段结构不同，未做逐行对照
 
 review:
   draft: 未经人工校对
   draftHint: 这条内容由模型生成、尚未经过人工复核，可能包含错误。发现错误请反馈。
-  draftSection: 本节有 {n} 条实现尚未经过人工校对。模型生成的内容可能包含错误，请以官方文档为准。
   reviewed: 已校对
   verified: 已复核
 

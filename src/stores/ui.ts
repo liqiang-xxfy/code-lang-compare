@@ -5,8 +5,15 @@ import { usePersistedState } from '@/composables/usePersistedState'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type Density = 'compact' | 'comfortable'
-/** 三种展示模式 —— 是同一个对比视图的三种布局，不是三个视图（§5.4） */
-export type ViewMode = 'matrix' | 'side-by-side' | 'baseline-diff'
+/**
+ * 两种展示模式 —— 同一个对比视图的两种排法，不是两个视图。
+ *
+ * 曾经还有第三种 `baseline-diff`（给非基准列的行级 diff 着色）与一个
+ * 「只看有差异的」过滤开关，两者在 S9 一并删除：它们各自回答的问题
+ * 已经由别的机制回答了 —— 差异由等价性徽章（= ≈ ≠ ∅）说明，
+ * 而"哪些格子值得看"交给章节本身的取舍。留下的两个模式是纯粹的排版选择。
+ */
+export type ViewMode = 'matrix' | 'side-by-side'
 
 export const useUiStore = defineStore('ui', () => {
   // 枚举型设置一律带 allowed 守卫：存值非法时回退默认，避免「一个选项都没高亮」的静默失败
@@ -17,9 +24,8 @@ export const useUiStore = defineStore('ui', () => {
     allowed: ['compact', 'comfortable'] as const,
   })
   const viewMode = usePersistedState<ViewMode>('ui:viewMode', 'matrix', {
-    allowed: ['matrix', 'side-by-side', 'baseline-diff'] as const,
+    allowed: ['matrix', 'side-by-side'] as const,
   })
-  const onlyDifferent = usePersistedState<boolean>('ui:onlyDifferent', false)
   /**
    * 左侧内容导航是否展开。
    *
@@ -73,7 +79,6 @@ export const useUiStore = defineStore('ui', () => {
     resolvedTheme,
     density,
     viewMode,
-    onlyDifferent,
     sideNavOpen,
     applyToDocument,
     cycleTheme,

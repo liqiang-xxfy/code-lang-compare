@@ -3,11 +3,11 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import CodeBlock from '@/components/code/CodeBlock.vue'
 import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
+import ScrollRow from '@/components/compare/ScrollRow.vue'
 import { useI18n } from '@/composables/useI18n'
 import { badgeOf, explanationOf } from '@/content/boxView'
 import { featureAnchor, featurePathOf } from '@/content/repository'
 import type { CatalogChapter, LanguageMeta, RenderedBox, Section } from '@/schemas'
-import { useUiStore } from '@/stores/ui'
 
 /**
  * 并排卡片：每个 feature 一块面板，面板里每门语言一张卡。
@@ -25,7 +25,6 @@ const props = defineProps<{
   boxes: Record<string, Record<string, RenderedBox>>
 }>()
 
-const ui = useUiStore()
 const { t } = useI18n()
 
 /** 全局 feature id = `<板块>/<feature>` —— 不含章（章随基准变） */
@@ -33,17 +32,8 @@ const gidOf = (featureId: string) => `${props.section}/${featureId}`
 const boxOf = (featureId: string, lang: string): RenderedBox | undefined =>
   props.boxes[lang]?.[featureId]
 
-const features = computed(() =>
-  props.chapter.features.filter((f) => {
-    if (!ui.onlyDifferent) return true
-    return props.columns.some((l) => {
-      const box = boxOf(f.id, l.id)
-      if (!box) return false
-      const badge = badgeOf(box, l.id, props.baseline)
-      return badge !== null && badge !== 'identical'
-    })
-  }),
-)
+/** 面板**就是**该基准这一章声明的 features —— 排序与取舍都在章节分组里，视图不再过筛 */
+const features = computed(() => props.chapter.features)
 
 /** 徽章行去掉基准列 —— 那枚「=」是自指、零信息量 */
 const comparedColumns = computed(() => props.columns.filter((l) => l.id !== props.baseline))
@@ -52,7 +42,7 @@ const comparedColumns = computed(() => props.columns.filter((l) => l.id !== prop
 <template>
   <div>
     <section
-      v-for="feature in features"
+      v-for="(feature, index) in features"
       :id="featureAnchor(gidOf(feature.id))"
       :key="feature.id"
       class="pc-panel pc-anchored"
@@ -80,7 +70,11 @@ const comparedColumns = computed(() => props.columns.filter((l) => l.id !== prop
         <p v-if="feature.summary">{{ feature.summary }}</p>
       </header>
 
-      <div class="pc-cards">
+      <!--
+        每排各自量自己的溢出；文字提示只在第一排出现 ——
+        同一页有六七个 feature 面板，各挂一句同样的话就成了噪声。
+      -->
+      <ScrollRow :count="columns.length" :show-hint="index === 0">
         <article v-for="lang in columns" :key="`${feature.id}-${lang.id}`" class="pc-card">
           <div class="pc-card-head">
             <strong>{{ lang.name }}</strong>
@@ -100,7 +94,7 @@ const comparedColumns = computed(() => props.columns.filter((l) => l.id !== prop
             <p v-else class="pc-hint">{{ t('emptyCell') }}</p>
           </div>
         </article>
-      </div>
+      </ScrollRow>
     </section>
 
     <div v-if="!features.length" class="pc-empty">{{ t('allSame') }}</div>

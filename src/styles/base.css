@@ -204,17 +204,43 @@ input {
   width: 236px;
   flex-shrink: 0;
   border-right: 1px solid var(--pc-border);
-  padding: var(--pc-pad-lg) 0;
+  /*
+   * 底部刻意多留一截（五倍常规间距）。侧栏是**内部滚动**的
+   * （overflow-y + max-height），不留这截空白时，滚到底的最后一条会紧贴
+   * 视口下沿 —— 既难看，也不好判断"到底了没有"。留白是唯一能说明
+   * 「下面没有了」的信号，所以它得是空白，不能是别的元素。
+   * 尾巴留够，滚到底时最后一条能滚到视线中部，而不是擦着屏幕边。
+   *
+   * **上边距刻意是 0**：顶部那截间距由 `.pc-side-baseline`（吸顶块）自己带
+   * （`--pc-sticky-gap`）。左栏的内容上沿必须就是滚动口上沿 —— 留了 padding-top，
+   * 吸顶块的边框盒就会低一截起步，页内那条对比语言选择条按同一个变量留间隙时
+   * 两边对不上（此前实测差 14px）。
+   */
+  padding: 0 0 calc(var(--pc-pad-lg) * 5);
   overflow-y: auto;
+  /*
+   * 滚到底之后**不要把滚动传给页面**。
+   *
+   * 浏览器默认的滚动链（scroll chaining）是：内层容器滚到边界后，同方向的
+   * 继续滚动交给祖先。在这里就成了「左栏翻到底，正文跟着一起动」——
+   * 而左栏与正文是两块互不相干的内容，读者的鼠标停在左栏上，
+   * 预期动的是左栏。`contain` 只挡链式传递，容器自身的回弹与光效照旧。
+   */
+  overscroll-behavior: contain;
   max-height: calc(100vh - var(--pc-header-h));
   position: sticky;
   top: var(--pc-header-h);
 }
 
+/*
+ * 正文底部同样多留一截（四倍常规间距）。长对照表滚到底时，最后一行
+ * 紧贴着视口下沿会让人以为"下面还有"而继续滑 —— 而页面已经到底了。
+ * 留白把最后一行抬离边缘，「读完了」这件事才是看得见的。
+ */
 .pc-main {
   flex: 1;
   min-width: 0;
-  padding: var(--pc-pad-lg);
+  padding: var(--pc-pad-lg) var(--pc-pad-lg) calc(var(--pc-pad-lg) * 4);
   max-width: 1600px;
 }
 
@@ -300,45 +326,6 @@ input {
   color: #fff;
   font-weight: 600;
 }
-/*
- * 基准语言分段控件（BaselineTabs，挂在对比语言选择条上）。
- *
- * 与旁边的对比语言 .pc-btn chip **刻意用两种语法**：
- *   · 分段控件 = 同一个字段的几个取值，连成一体，选中段实心填充（"整页换掉"）
- *   · chip      = 各自独立的开关，彼此分开，选中态只上浅色（"多勾一列"）
- * 形态本身在说明「谁是页面、谁是页内的列」，不靠一句说明去解释。
- * 因此这里不复用 .pc-seg —— 那个是顶栏密度开关用的、选中态也是实心的，
- * 两者混用会让"实心"这个信号失去意义。
- */
-.pc-baseline-seg {
-  display: inline-flex;
-  border: 1px solid var(--pc-border-strong);
-  border-radius: var(--pc-radius);
-  overflow: hidden;
-  background: var(--pc-bg-soft);
-}
-.pc-baseline-seg button {
-  padding: 5px 12px;
-  background: transparent;
-  border: 0;
-  border-right: 1px solid var(--pc-border);
-  cursor: pointer;
-  font-size: var(--pc-fs-xs);
-  color: var(--pc-text-soft);
-}
-.pc-baseline-seg button:last-child {
-  border-right: 0;
-}
-.pc-baseline-seg button:hover {
-  background: var(--pc-bg-hover);
-  color: var(--pc-text);
-}
-.pc-baseline-seg button[aria-checked='true'] {
-  background: var(--pc-accent);
-  color: #fff;
-  font-weight: 600;
-}
-
 /* ── 等价性徽章（颜色 + 图标 + 文字 三重编码）──────────────── */
 .pc-eq {
   display: inline-flex;
@@ -408,15 +395,13 @@ input {
 }
 
 /*
- * 多段对照（如「错误写法 / 正确写法」）：每段一个代码块，段间用细线分隔。
+ * 多段对照（如「错误写法 / 正确写法」）：每段一个代码块。
  * 段标签是并排视图里唯一能说明「第 2 段在跟哪一段比」的东西，不能省。
+ * 段间不再另加分隔线 —— 上一段的 `.pc-code-body` 底边框已经是一条，再加会成双线。
  */
 .pc-blocks {
   display: flex;
   flex-direction: column;
-}
-.pc-code-block + .pc-code-block {
-  border-top: 1px solid var(--pc-border);
 }
 .pc-block-label {
   padding: 3px 8px;
@@ -429,11 +414,36 @@ input {
 
 .pc-code-body {
   overflow-x: auto;
+  /*
+   * 正文与其下方内容（说明 / 页脚）之间的分隔线。
+   *
+   * 锚在正文的**下边**而不是下方元素的**上边**：正文是唯一必然存在的一段 ——
+   * 说明可以没有，页脚也只在有差异摘要或展开按钮时才渲染 —— 锚在它们身上，
+   * 要么漏一条（都没有时）要么多一条（都在时）。锚在正文上则恒为一。
+   *
+   * 页脚、代码输出、多段分隔的 border-top 都因此去掉了，避免与这条叠成双线。
+   */
+  border-bottom: 1px solid var(--pc-border);
 }
 
+/*
+ * 右边多留一点：代码是 `white-space: pre` + 横向可滚，滚到最右时最后一个字符
+ * 正好贴着边框 —— 那一格恰恰是读者最需要看清的地方（行尾注释、右括号配对）。
+ * 左侧不加：行号要贴着左边起，多出来的空白只是白占宽度。
+ *
+ * **`width: max-content` 是这个留白能不能看见的关键**，不是可有可无的一行：
+ * `pre` 默认是块级、宽度 100%，于是它的 padding-right 落在**容器之内**，
+ * 而横向溢出的是里面那层 `code`（`white-space: pre` 的长行）—— 滚到最右时
+ * 看到的是 `code` 的右沿，`pre` 那段留白被它盖在后面，实测只剩 1px。
+ * 让 `pre` 自己去贴合内容之后，留白成了溢出内容的最右一截，才真的看得见
+ * （实测 1px → 17px）。`min-width: 100%` 保证短代码块仍然铺满整宽。
+ */
 .pc-code pre.shiki {
   margin: 0;
+  width: max-content;
+  min-width: 100%;
   padding: var(--pc-pad);
+  padding-right: calc(var(--pc-pad) + 8px);
   font-family: var(--pc-mono);
   font-size: var(--pc-code-fs);
   line-height: var(--pc-line-h);
@@ -494,10 +504,10 @@ input {
  *    反过来只给 `.line` 设 max-content 是不行的 —— 那样每行宽度等于**它自己**
  *    的长度，短行的行号压根没有可移动的空间，长行一滚编号就跟着跑。
  *
- *  · min-width 保证短代码块仍然铺满，否则 diff 色块只会涂一半。
+ *  · min-width 保证短代码块仍然铺满整宽，否则行号底色只涂一半。
  *
  * 行号因此要自带底色：滚动时它浮在代码上面，没有底色就会被文字穿透。
- * 底色取代码块自身的背景，diff 行上的轻微色差是可接受的代价。
+ * 底色取代码块自身的背景。
  */
 .pc-code.with-lines pre.shiki code {
   display: grid;
@@ -537,16 +547,8 @@ input {
   color: var(--pc-text-soft);
   font-size: var(--pc-fs-sm);
 }
-.pc-code pre.shiki code > .line.diff-added {
-  background: color-mix(in srgb, var(--pc-eq-identical) 14%, transparent);
-}
-.pc-code pre.shiki code > .line.diff-changed {
-  background: color-mix(in srgb, var(--pc-eq-analogous) 16%, transparent);
-}
-
 .pc-code-extra {
   padding: 8px 10px;
-  border-top: 1px dashed var(--pc-border);
   font-size: var(--pc-fs-sm);
   color: var(--pc-text-soft);
 }
@@ -565,16 +567,27 @@ input {
   gap: 6px;
   align-items: center;
   padding: 4px 8px;
-  border-top: 1px solid var(--pc-border);
   background: var(--pc-bg-elev);
   font-size: var(--pc-fs-xs);
   color: var(--pc-text-mute);
 }
 
+/*
+ * 被裁剪的正文用遮罩淡出，而遮罩同样作用于元素自身的边框 —— 上面那条
+ * border-bottom 的渐变末端（100% 处）正好是 transparent，会被一起淡掉。
+ * 所以这一种情况下分隔线改由页脚补回（裁剪必然伴随展开按钮，页脚一定在：
+ * `clipped ⟹ clipable ⟹ footVisible`）。
+ *
+ * 多段那一条只认**最后一段**：页脚只与它相邻，前面某段被裁剪不影响这里。
+ */
+.pc-code-body.is-clipped + .pc-code-foot,
+.pc-blocks:has(> .pc-code-block:last-child .pc-code-body.is-clipped) + .pc-code-foot {
+  border-top: 1px solid var(--pc-border);
+}
+
 .pc-output {
   margin: 0;
   padding: 6px 8px;
-  border-top: 1px dashed var(--pc-border);
   background: var(--pc-bg);
   font-family: var(--pc-mono);
   font-size: var(--pc-fs-xs);
@@ -616,14 +629,15 @@ table.pc-matrix td {
 }
 
 table.pc-matrix thead th {
-  position: sticky;
   /*
-   * 吸附在顶栏下沿 + 页内语言选择条之下。选择条自己也是 sticky 的、z-index 更高
-   * （20 > 5），表头不躲开它就会被整条盖住 —— 长表格往下翻就再也看不到列名。
-   * 选择条会随窗口变窄折行，高度不固定，所以由 CompareLanguageBar 实测写入
-   * --pc-lang-bar-h，这里不做估算。
+   * **表头不吸顶** —— 矩阵随页面一起滚，列名滚出视口就滚出去了。
+   *
+   * 曾经这里是 `top: calc(var(--pc-header-h) + var(--pc-lang-bar-h))`，把列名钉在
+   * 语言条下沿。现在只保留 `position: sticky` 而**不给 `top`**：不带约束轴的
+   * sticky 在纵向滚动时不会吸附，`.pc-col-feature` 的 `left: 0`（横向滚动时冻结
+   * 首列）照旧可用。
    */
-  top: calc(var(--pc-header-h) + var(--pc-lang-bar-h, 0px));
+  position: sticky;
   z-index: 3;
   background: var(--pc-bg-soft);
   padding: 6px 10px;
@@ -723,6 +737,33 @@ table.pc-matrix tbody tr:hover th.pc-col-feature {
   padding-bottom: 6px;
 }
 
+/*
+ * 横向溢出的提示（ScrollRow）：一排卡片滚出去的那几列，不给任何信号就
+ * 等于不存在。遮罩用**页面底色**渐隐（卡片是抬升色，渐隐读起来就是"没入背景"），
+ * 而渐隐的宽度够窄，不至于把最后一列的代码糊掉。
+ */
+.pc-scroll-viewport {
+  position: relative;
+}
+.pc-scroll-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30px;
+  pointer-events: none;
+}
+.pc-scroll-fade.is-right {
+  right: 0;
+  background: linear-gradient(to right, transparent, var(--pc-bg));
+}
+.pc-scroll-fade.is-left {
+  left: 0;
+  background: linear-gradient(to left, transparent, var(--pc-bg));
+}
+.pc-scroll-hint {
+  margin: 6px 0 0;
+}
+
 .pc-card {
   scroll-snap-align: start;
   border: 1px solid var(--pc-border);
@@ -792,10 +833,10 @@ table.pc-matrix tbody tr:hover th.pc-col-feature {
 /*
  * 页内目录的跳转落点（对照点的锚）。
  *
- * 少了 `scroll-margin-top`，跳过去时标题会被**吸附的语言条与矩阵表头盖住** ——
- * 而那两条正是这两页最占空间的固定元素。偏移量必须与它们同源：
- * 顶栏高度是常量，语言条高度由 CompareLanguageBar 实测写入 `--pc-lang-bar-h`
- * （它会换行，不是常数，所以不能在 CSS 里估一个值）。
+ * 少了 `scroll-margin-top`，跳过去时标题会被**吸附的页内语言条盖住** ——
+ * 它是这两页最占空间的固定元素（矩阵表头跟着页面滚，不在此列）。
+ * 偏移量必须与它同源：顶栏高度是常量，语言条高度由 CompareLanguageBar 实测写入
+ * `--pc-lang-bar-h`（它会换行，不是常数，所以不能在 CSS 里估一个值）。
  */
 .pc-anchored {
   scroll-margin-top: calc(var(--pc-header-h) + var(--pc-lang-bar-h, 0px) + 12px);

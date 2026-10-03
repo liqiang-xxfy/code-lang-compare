@@ -20,6 +20,7 @@ import {
   boxSchema,
   featurePoolSchema,
   languageContentFileSchema,
+  pairMetaSchema,
 } from '../../src/schemas'
 
 const baselineIds = loadAllLanguageMeta()
@@ -328,6 +329,33 @@ describe('方向性内容装载（loadPairListsV2）', () => {
       expect(p.baseline).toBe(hit!.baseline)
       expect(p.target).toBe(hit!.target)
     }
+  })
+
+  it('meta.yaml 缺失不报错 —— 刚建立的方向目录还没补留痕是合法的', () => {
+    const r = loadPairListsV2()
+    expect(r.issues).toEqual([])
+    // 键恒存在（值可能是 undefined）：loader 不会因缺文件而中断，也不会漏读存在的文件
+    for (const p of r.pairs) expect('meta' in p).toBe(true)
+  })
+
+  it('方向 meta.yaml 的 review 会被解析出来，而不是被静默丢弃', () => {
+    const raw = {
+      review: {
+        state: 'draft',
+        provenance: {
+          origin: 'llm',
+          model: 'claude-code-agent',
+          promptTemplateId: 'pairs-v2-batch',
+          generatedAt: '2026-10-03',
+        },
+      },
+    }
+    // 三个 pairs schema 都不是 .strict()，没写进 schema 的字段会被无声剥掉 —— 这条钉住它被接住了
+    const parsed = pairMetaSchema.parse(raw)
+    expect(parsed.review.provenance.origin).toBe('llm')
+    expect(parsed.review.state).toBe('draft')
+    // review 是必填：空 meta 是写错了，不是「还没写」
+    expect(pairMetaSchema.safeParse({}).success).toBe(false)
   })
 
   it('未知语言 id 拼成的目录名 → 记入 issues，不静默挂到错误方向', () => {

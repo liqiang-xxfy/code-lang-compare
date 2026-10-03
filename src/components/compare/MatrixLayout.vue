@@ -5,10 +5,8 @@ import CodeBlock from '@/components/code/CodeBlock.vue'
 import EquivalenceBadge from '@/components/compare/EquivalenceBadge.vue'
 import { useI18n } from '@/composables/useI18n'
 import { badgeOf, explanationOf } from '@/content/boxView'
-import { getCachedBlockDiffs, getCachedDiff, type LineDiff } from '@/content/diff'
 import { featureAnchor, featurePathOf } from '@/content/repository'
 import type { CatalogChapter, LanguageMeta, RenderedBox, Section } from '@/schemas'
-import { useUiStore } from '@/stores/ui'
 
 /**
  * 矩阵：行 = **该基准的**章节分组里的 feature，列 = 可见语言，格 = 对比框。
@@ -24,10 +22,8 @@ const props = defineProps<{
   columns: LanguageMeta[]
   /** 已加载的格子，key = 语言 id → feature id。缺的那个语言先按「加载中」渲染 */
   boxes: Record<string, Record<string, RenderedBox>>
-  diffMode?: boolean
 }>()
 
-const ui = useUiStore()
 const { t } = useI18n()
 
 /** 全局 feature id = `<板块>/<feature>` —— 锚点与详情页链接都用它，不含章（章随基准变） */
@@ -35,54 +31,11 @@ const gidOf = (featureId: string) => `${props.section}/${featureId}`
 const boxOf = (featureId: string, lang: string): RenderedBox | undefined =>
   props.boxes[lang]?.[featureId]
 
-const rows = computed(() =>
-  props.chapter.features.filter((f) => {
-    if (!ui.onlyDifferent) return true
-    return props.columns.some((l) => {
-      const box = boxOf(f.id, l.id)
-      if (!box) return false
-      const badge = badgeOf(box, l.id, props.baseline)
-      return badge !== null && badge !== 'identical'
-    })
-  }),
-)
+/** 行**就是**该基准这一章声明的 features —— 排序与取舍都在章节分组里，视图不再过筛 */
+const rows = computed(() => props.chapter.features)
 
 /** 徽章行用的列：去掉基准（那枚「=」是自指、零信息量） */
 const comparedColumns = computed(() => props.columns.filter((l) => l.id !== props.baseline))
-
-/**
- * 基准列永远不画 diff（它是参照系本身）；diff 在运行时算，按 (feature, 基准, 语言) 缓存。
- *
- * 返回值与 `box.blocks` 按下标对齐，单段内容恒为长度 1。
- * 多段**必须逐段算** —— 每段各有自己的行号空间。
- */
-function diffsFor(featureId: string, lang: string): Array<LineDiff | null> | null {
-  if (!props.diffMode || lang === props.baseline) return null
-  const base = boxOf(featureId, props.baseline)
-  const target = boxOf(featureId, lang)
-  if (!base || !target) return null
-  const key = `${gidOf(featureId)}|${props.baseline}|${lang}`
-
-  const baseBlocks = base.blocks?.map((b) => b.code)
-  const targetBlocks = target.blocks?.map((b) => b.code)
-  if (baseBlocks?.length && targetBlocks?.length) {
-    // 段数不同时返回 null —— 调用方据此显示「未做逐行对照」，而不是给一份错位的着色
-    return getCachedBlockDiffs(key, baseBlocks, targetBlocks)
-  }
-
-  if (!base.code || !target.code) return null
-  return [getCachedDiff(key, base.code, target.code)]
-}
-
-/** 两侧都是多段、但段数不同 —— 无法逐段对齐 */
-function blocksMismatch(featureId: string, lang: string): boolean {
-  if (!props.diffMode || lang === props.baseline) return false
-  const base = boxOf(featureId, props.baseline)
-  const target = boxOf(featureId, lang)
-  return Boolean(
-    base?.blocks?.length && target?.blocks?.length && base.blocks.length !== target.blocks.length,
-  )
-}
 </script>
 
 <template>
@@ -142,8 +95,6 @@ function blocksMismatch(featureId: string, lang: string): boolean {
                 :lang-meta="lang"
                 :explanation-html="explanationOf(boxOf(feature.id, lang.id)!, lang.id, baseline)"
                 :equivalence="badgeOf(boxOf(feature.id, lang.id)!, lang.id, baseline)"
-                :diffs="diffsFor(feature.id, lang.id)"
-                :blocks-mismatch="blocksMismatch(feature.id, lang.id)"
                 :is-baseline="lang.id === baseline"
               />
             </div>

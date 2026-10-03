@@ -1,0 +1,236 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 Rust 会踩的坑
+# 组织方式：按「症状」索引（症状 → 原因 → 解法），而不是按语法点
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩（对应界面上的 ⭐ 数量）
+#
+# 只讲本方向的两门语言：Python 习惯在 Rust 上失效的地方。
+
+- id: pitfall-assignment-moves
+  title: 赋值之后，原来那个变量就不能用了
+  symptom: |
+    `let b = a;` 之后再用 `a` 直接编译失败：`value borrowed here after move`。
+    Python 里 `b = a` 只是多了一个名字指向同一个对象，两个名字都能继续用。
+  cause: |
+    Rust 没有隐式的引用语义：赋值默认**移动所有权**，移动之后原变量在编译期就失效了。
+    要两边都能用，要么显式借用（`&a`），要么显式克隆（`a.clone()`）——
+    这个选择由你写下来，而不是由运行时悄悄决定。
+  fix: |
+    只读用借用：`let b = &a;`。
+    确实要两份独立数据才 `clone()`（它是一次真实的内存复制，不是免费的）。
+    编译器报「moved」时，先问「这里到底是共享还是复制」，再选借用或克隆 ——
+    不要条件反射地 clone，那会把所有权检查的好处全部抵消掉。
+  severity: 3
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: mechanism/ownership-borrow
+  tags: [所有权, 内存]
+
+- id: pitfall-cannot-mutate-while-borrowed
+  title: 一边遍历一边改，编译不过
+  symptom: |
+    Python 里 `for k in list(d): d[k] += 1` 或者读着集合又往里加元素，都能跑。
+    Rust 里同样的写法直接编译失败：不能在有不可变借用时再取可变借用。
+    「编译不过」在这里是好消息 —— 同样的代码在别的语言里是运行期才乱。
+  cause: |
+    借用检查器强制「要么多个只读借用，要么一个可写借用」，二者不能同时存在。
+    这是它消灭数据竞争的机制，代价是某些在 Python 里「碰巧安全」的写法写不出来。
+  fix: |
+    先收集再用：`let keys: Vec<_> = map.keys().cloned().collect();` 然后遍历 `keys` 去改 `map`。
+    或者用 `retain` / `iter_mut` 这类**专门为原地修改设计的 API** ——
+    遇到这类报错时，多半是有一个更贴合意图的标准库方法。
+  severity: 3
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: mechanism/ownership-borrow
+  tags: [借用, 集合]
+
+- id: pitfall-integer-overflow
+  title: 整数溢出：调试时 panic，发布时悄悄回绕
+  symptom: |
+    Python 的整数不会溢出（自动变成大整数）。Rust 里溢出在
+    **debug 构建下 panic、release 构建下回绕**——
+    于是同一个 bug 在本地必现、上了线就变成安静的错误数值。
+  cause: |
+    Rust 的整数有固定位宽。溢出行为按构建配置分叉是刻意的：
+    开发期希望它炸，发布期不希望线上崩。
+    而这恰好制造了「本地和线上行为不一致」这个最难查的局面。
+  fix: |
+    不确信取值范围时用显式 API：`checked_add`（返回 Option）、
+    `saturating_add`（饱和）、`wrapping_add`（明确要回绕）。
+    需要 Python 那种无限精度就用 `num-bigint`。
+    **别让默认行为替你做决定** —— 默认行为取决于构建配置。
+  severity: 3
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: express/arithmetic
+  tags: [数值, 溢出]
+
+- id: pitfall-integer-division
+  title: 除号的结果反过来了
+  symptom: |
+    Python 里 `total / page_size` 得浮点、`//` 才整除；Rust 的 `/` 本身就是整除，
+    `7 / 2` 得 `3` 而不是 `3.5` —— 需要小数的地方静默丢了精度。
+  cause: |
+    Rust 的 `/` 对两个整数做整数除法，要浮点必须至少有一个操作数是浮点类型。
+    与 Python 正好相反：Python 的 `/` 永远是真除法。
+  fix: |
+    要浮点就显式转：`a as f64 / b as f64`（Rust 不做隐式数值转换）。
+    迁移时逐个检查每个 `/`：原来那行要的是整除还是真除法 —— 这个决定以前由 Python 替你做。
+  severity: 2
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: express/arithmetic
+  tags: [数值, 运算符]
+
+- id: pitfall-string-not-indexable
+  title: 字符串不能按下标取字符
+  symptom: |
+    Python 的 `s[0]` 是第一个字符、`s[1:3]` 是切片。Rust 里 `s[0]` 是**编译错误**，
+    不是运行期报错 —— 语言根本不提供这个操作。
+  cause: |
+    Rust 的 String 是 UTF-8 字节序列。按下标取「第 n 个字符」需要从头扫描，
+    是 O(n) 而不是 O(1)，语言不愿意把它伪装成一次索引。切片同理：
+    切在字符中间会产生非法字符串。
+  fix: |
+    要字符用 `s.chars().nth(i)`（注意它是线性代价）或先 `let v: Vec<char> = s.chars().collect()`。
+    要字节用 `s.as_bytes()`。
+    遍历一律 `for c in s.chars()` —— 这也顺手避免了把多字节字符切坏。
+  severity: 3
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: express/string-common-ops
+  tags: [字符串, 编码]
+
+- id: pitfall-option-not-none
+  title: 没有 None，只有 Option
+  symptom: |
+    Python 里 `None` 是「可能没有值」的通用表示，函数返回 Optional[int] 就直接用 None 占位。
+    Rust 里返回 `None` 却不能当 `Option` 用：类型不匹配，编译不过。
+    反过来，`Option<Option<T>>` 是完全合法的 —— 「没有」与「有一个空值」被分开了。
+  cause: |
+    Rust 没有 null，用 `Option<T>` 把「可能没有」编码进类型，编译器强制你处理两个分支。
+    这也意味着 Python 里那种「用 None 表示三种含义」的写法在这边必须摊开。
+  fix: |
+    处理用 `match`、`if let`，或组合子 `map` / `and_then` / `unwrap_or_else`。
+    取默认值用 `unwrap_or`（想顺便算一下就用 `unwrap_or_else`）——
+    `unwrap()` 是「没有就 panic」，只在确实不可能为 None 时用。
+  severity: 3
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: mechanism/null-safety
+  tags: [空值, 类型]
+
+- id: pitfall-unwrap-is-a-panic
+  title: unwrap 出错就是崩溃，而且捕不回来
+  symptom: |
+    Python 的异常即使没在本地处理，也会往上冒、留下栈、可以被最外层兜住。
+    Rust 的 `.unwrap()` 遇到 None / Err 直接 panic ——
+    默认情况下它**不是**可恢复的错误，会带走整个线程。
+  cause: |
+    Rust 把「可恢复的错误」（`Result`）与「不可恢复的 bug」（`panic!`）分成两套机制。
+    `unwrap` 属于后者。它不是「抛异常」的简写，而是「我断定这里不会失败」的断言。
+  fix: |
+    库代码里一律把 `Result` 往上传（用 `?` 运算符，它是最常用的那个字符）。
+    只在「失败即程序逻辑错误」时用 `unwrap` / `expect`，
+    并且用 `expect("...")` 写明理由 —— 那句话会出现在 panic 信息里。
+  severity: 2
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: model/error-propagation
+  tags: [异常, 错误处理]
+
+- id: pitfall-slice-is-a-borrow
+  title: 切片是借用，不是副本
+  symptom: |
+    Python 里 `a[1:3]` 切出来的是**新列表**，改它不影响原列表。
+    Rust 里 `&a[1..3]` 是对原数据的只读借用：既不能改（编译器拦），
+    也不能在原数据被改动之后再继续用。
+  cause: |
+    Rust 的切片是「指针 + 长度」，与 Python 的切片共享语义相反：
+    这边默认不复制，想复制必须写 `to_vec()` / `to_owned()`。
+  fix: |
+    只读就借用（`&a[1..3]`），要独立副本就 `a[1..3].to_vec()`。
+    注意边界写法也不同：Rust 用 `1..3`（末端开区间，与 Python 一致），
+    但**不支持负下标与步长** —— 那些要自己算或走迭代器。
+  severity: 2
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: model/slicing
+  tags: [集合, 借用]
+
+- id: pitfall-shared-mutable-state
+  title: 想共享可变状态，得先把意图写清楚
+  symptom: |
+    Python 里随手就能让两个对象共享同一个列表，各自往里塞东西。
+    Rust 里同样的设计会撞上借用检查：多个所有者要 `Rc`，
+    运行期可变性要 `RefCell`，跨线程还要换成 `Arc` 与 `Mutex` —— 一层套一层。
+  cause: |
+    Rust 默认不允许「多个所有者 + 可变」，因为那正是数据竞争与别名 bug 的来源。
+    要这个能力就必须显式选择一套机制，把「谁在什么时候能改」写进类型里。
+  fix: |
+    单线程：`Rc<RefCell<T>>`；跨线程：`Arc<Mutex<T>>`。
+    但在动手包之前先问一句：**这个共享真的必要吗** ——
+    多半可以改成「把数据传进去、把结果传出来」，那样一层都不用包。
+    Python 里能随手共享，不代表那个设计本身是清楚的。
+  severity: 2
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: mechanism/shared-state
+  tags: [所有权, 并发]
+
+- id: pitfall-lifetime-annotations
+  title: 返回引用要写生命周期
+  symptom: |
+    Python 里返回对象内部的引用是家常便饭，没有任何标注。
+    Rust 里一旦函数返回引用，编译器常常要求你写 `<'a>` 把输入与输出的关系讲明白，
+    报错信息还很长。
+  cause: |
+    生命周期标注不是「设置引用的存活时间」，而是**告诉编译器输入与输出的借用关系**。
+    编译器能自动推断的情形很多，但一旦有多个引用参数、无法判断返回值借的是哪一个，
+    就必须由你指定。
+  fix: |
+    多数情况下「加个 `'a`」就够了，先照编译器提示加，别急着改结构。
+    如果一个结构体被迫到处带生命周期参数，通常说明**它应该拥有数据**（存 `String` 而不是 `&str`）——
+    这往往是设计信号，不是标注技巧问题。
+  severity: 2
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: mechanism/lifetime
+  tags: [借用, 类型]
+
+- id: pitfall-iterators-are-lazy
+  title: 迭代器不消费就什么都不做
+  symptom: |
+    Python 的列表推导式 `[f(x) for x in xs]` 立刻算出结果。
+    Rust 里 `.map()` / `.filter()` 是**惰性**的：不接一个消费动作，
+    这段代码既不报错也什么都不做 —— 日志里空空如也。
+  cause: |
+    Rust 的迭代器适配器返回的是新的迭代器，直到遇到 `collect` / `sum` / `for`
+    这类消费者才真正开始跑。这与 Python 的生成器一致，但**与列表推导式相反**。
+  fix: |
+    需要结果就 `.collect::<Vec<_>>()`（或 `sum()` / `count()` / `for_each()`）。
+    副作用写在 `for` 循环或 `for_each` 里，别指望 `map` 里的 `println!` 会执行 ——
+    这是从 Python 过来最常见的一次「代码跑了但没反应」。
+  severity: 2
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: model/lazy-evaluation
+  tags: [迭代, 惰性]
+
+- id: pitfall-orphan-rule
+  title: 不能给别人的类型实现别人的特征
+  symptom: |
+    Python 里随时可以给任何类打补丁、挂新方法（猴子补丁）。
+    Rust 里想给一个外部类型实现一个外部特征，编译直接拒绝：孤儿规则。
+  cause: |
+    孤儿规则要求「类型或特征至少有一个是本 crate 定义的」。
+    它保证同一份实现不会被两个地方各写一遍、在链接时打架 ——
+    代价是 Python 那种「在第三方类型上补方法」的写法没有了。
+  fix: |
+    用 newtype 包一层：`struct MyVec(Vec<i32>);` 然后给 `MyVec` 实现。
+    要的是给已有类型加方法而不改类型，就定义自己的扩展特征（trait extension）——
+    这是 Rust 社区表达「猴子补丁」的标准做法。
+  severity: 1
+  languages: [python, rust]
+  fromBaseline: true
+  featureId: model/mixin-trait
+  tags: [特征, 可见性]

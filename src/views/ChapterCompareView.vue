@@ -18,7 +18,7 @@ import {
 import { sectionOfRoute } from '@/router'
 import { useContentStore } from '@/stores/content'
 import { useLanguageStore } from '@/stores/language'
-import { getLanguageMeta } from '@/generated/registry.gen'
+import { enabledLanguageMeta, getLanguageMeta } from '@/generated/registry.gen'
 import type { RenderedBox } from '@/schemas'
 
 const route = useRoute()
@@ -69,6 +69,22 @@ const columns = computed(() => {
 const columnIds = computed(() => columns.value.map((m) => m.id))
 
 /**
+ * 本章真有内容的语言集合 —— 交给选择条，把「点了也不会有列」的项**提前**置灰。
+ *
+ * 覆盖全部已启用语言（而不是只覆盖已勾选的那几门）：置灰是给"还没勾"的项看的，
+ * 只算已勾的等于什么都没说。判据与上面的列裁剪、与构建期的路由判据同源。
+ */
+const availableLangs = computed(() => {
+  const s = section.value
+  if (!s) return null
+  return new Set(
+    enabledLanguageMeta
+      .filter((m) => hasChapterContent(m.id, baselineId.value, s, chapterId.value))
+      .map((m) => m.id),
+  )
+})
+
+/**
  * 已加载的格子：把本章引用的若干存放组**合并**成一门语言一份的扁平表。
  *
  * 没加载完的列不设键 —— 布局据此显示「加载中」而不是「还没写」。
@@ -110,15 +126,6 @@ const nav = computed(() =>
 
 const baselineName = computed(() => getLanguageMeta(baselineId.value)?.name ?? baselineId.value)
 
-/** 章内还有多少格是「未经人工校对」的 draft */
-const draftCount = computed(() => {
-  let n = 0
-  for (const perLang of Object.values(boxes.value)) {
-    for (const box of Object.values(perLang)) if (box.reviewState === 'draft') n += 1
-  }
-  return n
-})
-
 /** 板块名取自注册表 —— i18n 里那组按板块写死的 key 已随之废弃 */
 const sectionLabel = computed(() => (section.value ? (sectionDefOf(section.value)?.title ?? '') : ''))
 
@@ -157,14 +164,11 @@ usePageMeta(
       <section class="pc-page-head">
         <h1>{{ chapter.title }}</h1>
         <p v-if="chapter.summary">{{ chapter.summary }}</p>
-        <p v-if="draftCount" class="pc-note-box" style="margin-top: 10px">
-          {{ t('review.draftSection', { n: draftCount }) }}
-        </p>
       </section>
     </template>
 
     <!-- 多选（多列并排）还是单选（一篇文章），由板块注册表的 columns 决定 -->
-    <CompareLanguageBar v-if="section" :section="section" />
+    <CompareLanguageBar v-if="section" :section="section" :available="availableLangs" />
 
     <template v-if="chapter && section">
       <CompareSurface

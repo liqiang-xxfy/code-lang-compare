@@ -36,6 +36,7 @@ import { gzipSync } from 'node:zlib'
 import {
   GENERATED_DIR,
   PUBLIC_DIR,
+  declaredLanguageRanker,
   extractNotes,
   groupsOfPool,
   loadI18n,
@@ -91,10 +92,11 @@ type A = ReturnType<typeof analyzeContent>
  * 某个方向，SEO 文案说的必须就是它。
  */
 function pickPairTarget(a: A, baseline: string, section: Section): string | null {
+  const rank = declaredLanguageRanker()
   const available = a.pairs
     .filter((p) => p.baseline === baseline && hasPairSection(p, section))
     .map((p) => p.target)
-    .sort()
+    .sort((x, y) => rank(x) - rank(y))
   if (!available.length) return null
   return available.includes(a.registry.defaultCompareLanguage)
     ? a.registry.defaultCompareLanguage
@@ -483,9 +485,14 @@ async function main(): Promise<void> {
     prerenderExtra: PRERENDER_EXTRA,
     seo: buildSeo(a, routeList),
     sections: sectionDefs,
-    pairs: pairs.sort(
-      (x, y) => x.baseline.localeCompare(y.baseline) || x.target.localeCompare(y.target),
-    ),
+    /*
+     * 方向顺序**不在这里排** —— `analyzeContent()` 已经按语言书写序排好（ADR-67），
+     * 上面这个 for 循环原样保留它。此前这里按 `baseline.localeCompare()` 重排过一遍，
+     * 那会让 `manifest.pairs` 的顺序与运行时 `pairTargetsOf` 的回落判据分叉：
+     * 补齐 12 个方向后，字典序下 python 基准的可用集第一个是 go，
+     * 而书写序下是 javascript —— 静态 SEO 文案与页面实际渲染的方向会各说各话。
+     */
+    pairs,
     counts: {
       features: a.stats.featureCount,
       boxes: a.stats.boxCount,

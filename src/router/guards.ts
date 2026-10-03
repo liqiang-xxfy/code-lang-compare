@@ -10,7 +10,6 @@ import {
   sectionDefOf,
   sectionIsChapter,
 } from '@/content/repository'
-import { enabledLanguageIds } from '@/generated/registry.gen'
 import { useContentStore } from '@/stores/content'
 import { useLanguageStore } from '@/stores/language'
 import type { Section } from '@/schemas'
@@ -32,12 +31,10 @@ function visibleLangs(
   section: Section,
   chapter: string,
 ): string[] {
+  // 与 store 的 compareMeta 同口径：一门都没勾就只加载基准列，不补位
   const picked = languages.compareLangs.filter((id) => id !== baseline)
-  // 与 store 的 compareMeta 同口径：一门都没勾时回落到第一门非基准语言
-  const fallback = enabledLanguageIds.find((id) => id !== baseline)
-  const others = picked.length ? picked : fallback ? [fallback] : []
   // 判据是「在这一章里真有内容」—— 章节引用的是若干存放组，某门语言可能一个都没写
-  return [baseline, ...others].filter((id) => hasChapterContent(id, baseline, section, chapter))
+  return [baseline, ...picked].filter((id) => hasChapterContent(id, baseline, section, chapter))
 }
 
 /**
@@ -57,6 +54,16 @@ export function installGuards(router: Router, pinia: Pinia): void {
   router.beforeEach(async (to) => {
     const content = useContentStore(pinia)
     const languages = useLanguageStore(pinia)
+
+    /*
+     * 先修「唯一的勾选恰好就是本页基准」这种退化（点「我熟悉 Python」时，
+     * 默认对比语言 Python 被基准吃掉，页面只剩一列），**再**算可见列。
+     *
+     * 顺序不能反：下面每个分支都按 `compareLangs` 决定加载哪几列分片，
+     * 修晚了就会出现「加载了一列、渲染另一列」—— 预渲染直接产出空壳。
+     */
+    const routeBaseline = String(to.params.baseline ?? '')
+    if (isEnabledLanguage(routeBaseline)) languages.ensureCompareFor(routeBaseline)
 
     /*
      * 3 段地址：章节型板块的**入口** redirect，或列表型板块自己的落点。
@@ -134,9 +141,7 @@ export function installGuards(router: Router, pinia: Pinia): void {
       if (!meta || !isSection(meta.section)) return { name: 'not-found' }
       const baseline = languages.effectiveBaseline
       const picked = languages.compareLangs.filter((id) => id !== baseline)
-      const fallback = enabledLanguageIds.find((id) => id !== baseline)
-      const others = picked.length ? picked : fallback ? [fallback] : []
-      const cols = [baseline, ...others].filter((id) => hasBoxGroup(id, meta.section, meta.group))
+      const cols = [baseline, ...picked].filter((id) => hasBoxGroup(id, meta.section, meta.group))
       await content.ensureChapter(meta.section, [meta.group], cols)
       return true
     }

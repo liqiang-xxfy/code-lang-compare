@@ -1,0 +1,237 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 Rust 会踩的坑
+# 组织方式：按「症状」索引（症状 → 原因 → 解法），而不是按语法点
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩（对应界面上的 ⭐ 数量）
+#
+# 只讲本方向的两门语言：Java 习惯在 Rust 上失效的地方。
+
+- id: pitfall-assignment-moves
+  title: 赋值之后，原来那个变量就不能用了
+  symptom: |
+    Java 里对象都是引用，`B b = a;` 之后两个变量指向同一个对象，随时都能用。
+    Rust 里 `let b = a;` 之后 `a` **在编译期就失效了**：
+    `value borrowed here after move` —— 连读一下都不行。
+  cause: |
+    Java 靠 GC 管理堆对象，引用可以随意复制，对象活到没人引用为止。
+    Rust 没有 GC：每个值有唯一所有者，赋值默认**转移所有权**，
+    要多个使用者必须显式借用（`&`）或克隆（`.clone()`）。
+  fix: |
+    只读用借用 `let b = &a;`；确实要两份独立数据才 `clone()`。
+    编译器报 moved 时先问「这里到底是共享还是复制」再动手 ——
+    条件反射地 clone 会把所有权检查带来的好处全部抵消，代码也会变慢。
+  severity: 3
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: mechanism/ownership-borrow
+  tags: [所有权, 内存]
+
+- id: pitfall-cannot-mutate-while-borrowed
+  title: 一边遍历一边改，编译不过
+  symptom: |
+    Java 里遍历 Map 的同时改它是允许的（用 ConcurrentHashMap 更是明确支持），
+    Rust 里同一段代码直接编译失败：不能在有不可变借用时再取可变借用。
+    「编译不过」在这里是好消息 —— 同样的代码在 Java 里是运行期才乱。
+  cause: |
+    Rust 的借用检查器强制「要么多个只读借用，要么一个可写借用」，二者不能同时存在。
+    这是它消灭数据竞争的机制，代价是某些在 Java 里「碰巧安全」的写法写不出来。
+  fix: |
+    先收集键再用：`let keys: Vec<_> = map.keys().cloned().collect();` 再遍历 keys 去改 map。
+    或者用 `retain` / `iter_mut` 这类**专门为原地修改设计的 API** ——
+    遇到这类报错时，多半存在一个更贴合意图的标准库方法。
+  severity: 3
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: mechanism/ownership-borrow
+  tags: [借用, 集合]
+
+- id: pitfall-no-null-use-option
+  title: 没有 null，也没有 NullPointerException
+  symptom: |
+    Java 里 `null` 是万能的「没有」，代价是运行期可能 NPE（于是到处写判空）。
+    Rust 里没有 null：返回 `None` 的类型是 `Option<T>`，不能当引用用；
+    而且 `Option<Option<T>>` 完全合法 —— 「没有」与「有一个空值」被分开了。
+  cause: |
+    Rust 把「可能没有」编码进类型，编译器强制你处理两个分支。
+    好处是 NPE 这一整类问题在编译期就没了，代价是 Java 里那种
+    「用 null 表示三种含义」的写法必须摊开重写。
+  fix: |
+    处理用 `match`、`if let`，或组合子 `map` / `and_then` / `unwrap_or_else`。
+    取默认值用 `unwrap_or`；`unwrap()` 是「没有就 panic」，只在确实不可能为 None 时用。
+    可选参数用 `Option<T>` 而不是重载 —— Rust 没有重载。
+  severity: 3
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: mechanism/null-safety
+  tags: [空值, 类型]
+
+- id: pitfall-no-exceptions-result
+  title: 异常没了，错误是返回值
+  symptom: |
+    Java 里抛异常、上层统一 catch、finally 收尾，是一整套现成的机制。
+    Rust 里没有异常：错误是 `Result<T, E>`，靠 `?` 往上传；
+    漏掉处理的 Result 会得到一个编译警告（`#[must_use]`），而不是运行期爆炸。
+  cause: |
+    Rust 把「可恢复的错误」（Result）与「不可恢复的 bug」（panic）分成两套机制。
+    没有 finally，收尾靠 RAII：值离开作用域时自动析构。
+  fix: |
+    函数返回 `Result`，用 `?` 传播（它会在出错时提前返回）。
+    自定义错误类型并实现 `std::error::Error`，需要动态错误就 `Box<dyn Error>`。
+    资源清理不用写 finally —— 交给 RAII，这也顺手消灭了「忘记关闭」。
+  severity: 3
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: model/throw-raise
+  tags: [异常, 错误处理]
+
+- id: pitfall-integer-overflow-profile-dependent
+  title: 整数溢出：调试时 panic，发布时回绕
+  symptom: |
+    Java 的 int 溢出**永远**是静默回绕（`Integer.MAX_VALUE + 1` 得最小值），
+    这一点至少是一致的。Rust 里溢出在 debug 构建下 panic、
+    在 release 构建下才回绕 —— 同一个 bug 本地必现、上线后变成安静的错误数值。
+  cause: |
+    Rust 的整数有固定位宽，溢出行为按构建配置分叉是刻意的：
+    开发期希望它炸，发布期不希望线上崩。而这恰好制造了最难查的局面。
+  fix: |
+    不确信取值范围时用显式 API：`checked_add`（返回 Option）、
+    `saturating_add`（饱和）、`wrapping_add`（明确要回绕）。
+    要从 Java 过来就用 `Math.addExact` 那种语义的话，Rust 对应的是 `checked_add` ——
+    两者都是「溢出就报错」，而 Rust 需要你写出来。
+  severity: 3
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: express/arithmetic
+  tags: [数值, 溢出]
+
+- id: pitfall-string-not-indexable
+  title: 字符串不能按下标取字符
+  symptom: |
+    Java 的 `s.charAt(0)` 至少给你一个 UTF-16 码元，`s.length()` 也是按码元算。
+    Rust 里 `s[0]` 是**编译错误** —— 语言根本不提供这个操作；
+    `s.len()` 给的是字节数，与「几个字」不是一回事。
+  cause: |
+    Rust 的 String 是 UTF-8 字节序列。按下标取「第 n 个字符」需要从头扫描，
+    是 O(n) 而不是 O(1)，语言不愿意把它伪装成一次索引；
+    切在字符中间还会产生非法字符串。
+  fix: |
+    要字符用 `s.chars().nth(i)`（注意是线性代价），或先 `let v: Vec<char> = s.chars().collect()`。
+    要字节用 `s.as_bytes()`。
+    遍历一律 `for c in s.chars()` —— 这也顺手避免了把多字节字符切坏。
+  severity: 3
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: express/string-common-ops
+  tags: [字符串, 编码]
+
+- id: pitfall-erasure-vs-monomorphization
+  title: 泛型不是擦除的，也没有反射可用
+  symptom: |
+    Java 的泛型编译后擦除，运行期拿不到 `List<String>` 的类型参数，
+    但能用反射绕一圈。Rust 的泛型为每个具体类型**生成一份代码**（单态化），
+    没有擦除 —— 但反过来，运行期也完全没有类型信息可查，反射那套不存在。
+  cause: |
+    Java 为了兼容旧代码选择擦除，并保留了反射这一层；
+    Rust 为了性能与「零成本抽象」选择单态化，代价是代码体积增大、且没有运行期类型系统。
+  fix: |
+    需要「按类型做不同的事」时不能查类型，要么用 trait 的方法分派，
+    要么显式传一个标记类型参数。
+    担心编译产物变大可以改用 `dyn Trait`（动态分派，与 Java 的接口调用更像）。
+  severity: 2
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: mechanism/type-erasure
+  tags: [泛型, 类型]
+
+- id: pitfall-no-inheritance
+  title: 没有继承，也没有抽象类
+  symptom: |
+    Java 里用抽象类定义模板方法、子类填空，是很常见的结构。Rust 里没有 extends，
+    也没有抽象类 —— 只有 trait（接口）与组合。
+  cause: |
+    Rust 刻意不做实现继承（它带来的脆弱基类问题不值得）。
+    复用靠组合：把公共部分做成字段或独立类型，行为靠 trait 表达。
+  fix: |
+    公共行为 → trait（可以带默认实现，这部分与 Java 的 default 方法对应）。
+    公共状态 → 放进结构体字段，用组合而不是继承。
+    不要试图用 `Deref` 模拟继承 —— 那是给智能指针用的，拿来当 extends 会在别处咬人。
+  severity: 2
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: model/inheritance
+  tags: [类, 继承]
+
+- id: pitfall-shared-state-needs-arc-mutex
+  title: 共享可变状态要把意图写进类型
+  symptom: |
+    Java 里随手 new 一个对象传给多个线程，加个 synchronized 就完事。
+    Rust 里同样的设计要写成 `Arc<Mutex<T>>`，一层套一层 ——
+    而且编译器还会追问：这个类型到底能不能跨线程（Send / Sync）？
+  cause: |
+    Rust 默认不允许「多个所有者 + 可变」，因为那正是数据竞争与别名 bug 的来源。
+    要这个能力必须显式选择一套机制，把「谁在什么时候能改」编码进类型。
+  fix: |
+    跨线程共享：`Arc<Mutex<T>>`（读多写少可以换 `RwLock`）。
+    但在包之前先问一句：**这个共享真的必要吗** ——
+    多半可以改成「把数据传进去、把结果传出来」，那样一层都不用包。
+  severity: 2
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: mechanism/shared-state
+  tags: [并发, 共享状态]
+
+- id: pitfall-lifetime-annotations
+  title: 返回引用要写生命周期
+  symptom: |
+    Java 里返回对象内部字段的引用（或 getter）天经地义，GC 保证它不会悬空。
+    Rust 里一旦函数返回引用，编译器常常要求写 `<'a>` 把输入与输出的关系讲明白，
+    报错信息还很长。
+  cause: |
+    没有 GC，编译器必须能证明「返回的引用活得比调用方更久」。
+    生命周期标注不是设置存活时长，而是**告诉编译器输入与输出的借用关系**。
+  fix: |
+    多数情况照编译器提示加个 `'a` 就够了，别急着改结构。
+    如果一个结构体被迫到处带生命周期参数，通常说明**它应该拥有数据**（存 `String` 而不是 `&str`）——
+    这是设计信号，不是标注技巧问题。
+  severity: 2
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: mechanism/lifetime
+  tags: [借用, 类型]
+
+- id: pitfall-copy-vs-clone
+  title: 不是所有类型都该 clone
+  symptom: |
+    Java 里对象传来传去都是引用，从来没有「这个赋值会不会复制」这个问题。
+    Rust 里每个赋值都要面对它：实现了 `Copy` 的类型隐式复制（整数、bool），
+    其余类型需要显式 `.clone()` —— 而 clone 是真实的内存复制。
+  cause: |
+    `Copy` 是「按位复制就够」的标记，只给简单类型；它让这些类型用起来像 Java 的基本类型。
+    自定义类型除非所有字段都是 Copy，否则不能是 Copy。
+  fix: |
+    小类型可以考虑派生 `Copy`（用起来最接近 Java 的直觉）；
+    含堆数据的类型保持只 Clone，并认真对待每次 clone 的代价。
+    一个类里到处 clone 通常是所有权设计没想清楚 —— 值得回头改结构，而不是继续加 clone。
+  severity: 2
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: mechanism/value-vs-reference
+  tags: [所有权, 类型]
+
+- id: pitfall-orphan-rule
+  title: 不能给别人的类型实现别人的接口
+  symptom: |
+    Java 里可以给任意类实现自己的接口，也可以在第三方库的类型上做扩展
+    （继承它、或者写工具类）。Rust 里给一个外部类型实现一个外部 trait，
+    编译直接拒绝：孤儿规则。
+  cause: |
+    孤儿规则要求「类型或 trait 至少有一个是本 crate 定义的」。
+    它保证同一份实现不会被两个地方各写一遍、在链接时打架 ——
+    这也是 Rust 没有「依赖冲突导致行为不确定」的原因之一。
+  fix: |
+    用 newtype 包一层：`struct MyVec(Vec<i32>);` 然后给 `MyVec` 实现。
+    要的是给已有类型加方法而不改类型，就定义自己的扩展 trait ——
+    这是 Rust 社区表达「给别人的类型加方法」的标准做法（Java 那边对应的是静态工具类）。
+  severity: 1
+  languages: [java, rust]
+  fromBaseline: true
+  featureId: model/mixin-trait
+  tags: [特征, 可见性]

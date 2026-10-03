@@ -13,9 +13,6 @@ import {
   languageMeta,
 } from '@/generated/registry.gen'
 
-/** 软上限：超过 4 列时横向阅读已经吃力，UI 会提示切换基准差异模式 */
-export const SOFT_COLUMN_LIMIT = 4
-
 /**
  * 语言选择状态。
  *
@@ -26,8 +23,9 @@ export const SOFT_COLUMN_LIMIT = 4
  *     用于首页入口、`/search`、`/attributions` 这些没有基准的路由
  *   · **对比语言仍存本地**（默认 `defaultCompareLanguage`），它是个人偏好而不是内容维度 ——
  *     把它写进 URL 会让组合数从 3 涨到 3×15
- *   · 基础语法用**多选**（`compareLangs`）；对级板块（迁移教程/陷阱/词典/路线）
- *     用**单选**（`preferredTarget`），列锁定为 `[基准, 目标]`，不跟多选走
+ *   · 章节型板块用**多选**（`compareLangs`，**可以一门都不勾 = 只看基准列**）；
+ *     对级板块（迁移教程/陷阱/词典/路线）用**单选**（`preferredTarget`），
+ *     列锁定为 `[基准, 目标]`，不跟多选走
  *
  * 两个选择控件并排挂在每个板块页内的选择条上（CompareLanguageBar）：基准是
  * 连体分段控件（BaselineTabs），对比语言是各自独立的 chip。形态与行为都不同 ——
@@ -60,12 +58,25 @@ export const useLanguageStore = defineStore('language', () => {
     ? enabledLanguageIds.filter((id) => !knownSet.has(id) && id !== lastBaseline.value)
     : []
   let sanitized = compareLangs.value.filter((id) => enabledSet.has(id))
-  if (newlyAdded.length) {
+  /*
+   * 自动并入新语言只在**用户本来就有勾选**时发生。
+   *
+   * 勾选集合为空是用户明确表达过的选择（「我只要基准这一列」），
+   * 往里面塞一门他没要的语言，等于把他刚清掉的列又补回来。
+   */
+  if (newlyAdded.length && sanitized.length) {
     sanitized = [...enabledLanguageIds].filter(
       (id) => sanitized.includes(id) || newlyAdded.includes(id),
     )
   }
-  if (!sanitized.length) sanitized = [defaultCompareLanguageId]
+  /*
+   * 空集合**原样保留** —— 不回落到默认对比语言。
+   *
+   * 曾经这里有一句 `if (!sanitized.length) sanitized = [default]`：用户把对比语言
+   * 全部取消后，下次进页面又冒出 Python 那一列，而且是**没有勾选态的一列**
+   * （它不在 compareLangs 里），看着像控件失灵。「一门都没勾 = 只看基准」
+   * 是读者能自己表达的状态，没有理由替他补位（与 ADR-34 的裁剪不补位同一条原则）。
+   */
   compareLangs.value = sanitized
   knownLangs.value = [...enabledLanguageIds]
 
@@ -94,14 +105,18 @@ export const useLanguageStore = defineStore('language', () => {
     return baselineLanguageIds[0] ?? enabledLanguageIds[0]!
   })
 
-  /** 多选出来的对比语言（已去掉基准自身与停用语言） */
+  /**
+   * 多选出来的对比语言（已去掉基准自身与停用语言）。
+   *
+   * **一门都没勾就是空** —— 这里曾经回落到第一门非基准语言，好让页面不至于
+   * 退化成单列。代价和 ADR-34 里那层兜底一模一样：补出来的那门用户既没勾、
+   * 也去不掉（界面照 `compareMeta` 渲染勾选态，就会把一门没勾的语言显示成已勾），
+   * 而「我只要看基准」本来是读者能自己表达的状态。
+   */
   const compareMeta = computed(() => {
     const base = effectiveBaseline.value
     const picked = compareLangs.value.filter((id) => enabledSet.has(id) && id !== base)
-    if (picked.length) return enabledLanguageMeta.filter((m) => picked.includes(m.id))
-    // 一门都没选（或选的全是基准自己）时回落到第一门非基准语言，保证至少有对比列
-    const fallback = enabledLanguageIds.find((id) => id !== base)
-    return fallback ? enabledLanguageMeta.filter((m) => m.id === fallback) : []
+    return enabledLanguageMeta.filter((m) => picked.includes(m.id))
   })
 
   /**
@@ -142,43 +157,15 @@ export const useLanguageStore = defineStore('language', () => {
     return base ? [base, ...compareMeta.value] : compareMeta.value
   })
 
-  const overSoftLimit = computed(() => orderedMeta.value.length > SOFT_COLUMN_LIMIT)
   const baselineCandidates = computed(() =>
     enabledLanguageMeta.filter((m) => candidateSet.has(m.id)),
   )
   /** 对级板块下不允许在页内切列 —— 列由目标语言决定，换列等于换一篇文章 */
   const isPairMode = computed(() => pairTarget.value !== null)
 
-  /**
-   * 保证「勾选集合」里至少有一门非基准语言。
-   *
-   * 为什么需要：`compareMeta` 在一门非基准语言都没勾时会**回落**到第一门非基准
-   * 语言，但那一门并不在 `compareLangs` 里。界面若照 `compareMeta` 渲染勾选态，
-   * 就会把一门用户没勾的语言显示成已勾选 —— 他去取消它，`toggleCompare` 走的是
-   * else 分支，**看着是取消、实际是新增**。把回落值写回存储，两者就恒等了。
-   */
-  function ensureCompareColumn(): void {
-    const base = effectiveBaseline.value
-    if (compareLangs.value.some((id) => enabledSet.has(id) && id !== base)) return
-    const fallback = enabledLanguageIds.find((id) => id !== base)
-    if (fallback) {
-      compareLangs.value = [...enabledLanguageIds].filter(
-        (x) => compareLangs.value.includes(x) || x === fallback,
-      )
-    }
-  }
-
   function setRouteContext(baseline: string | null, section: Section | null): void {
     routeBaseline.value = baseline
     routeSection.value = section
-    /*
-     * 只在**对比板块**里归一化。
-     *
-     * 没有板块的页面（首页 / 速查 / 内容来源）根本没有"对比列"这回事，而那里
-     * `effectiveBaseline` 会落到 localStorage 的「上次选择」上 —— 在那里补一列
-     * 等于趁用户看首页时悄悄改掉他的勾选集合。
-     */
-    if (section) ensureCompareColumn()
   }
 
   /**
@@ -219,7 +206,7 @@ export const useLanguageStore = defineStore('language', () => {
     if (!enabledSet.has(id) || id === effectiveBaseline.value) return
     const set = new Set(compareLangs.value)
     if (set.has(id)) {
-      if (set.size <= 1) return // 至少保留一列
+      // 取消最后一门是允许的 —— 空集合 = 只看基准列，不是一种要拦住的错误状态
       set.delete(id)
       if (preferredTarget.value === id) preferredTarget.value = ''
     } else {
@@ -233,6 +220,32 @@ export const useLanguageStore = defineStore('language', () => {
   function setBaselinePreference(id: string): void {
     if (!candidateSet.has(id)) return
     lastBaseline.value = id
+  }
+
+  /**
+   * 进入某个基准时，把**唯一的那一勾被基准吃掉**的情况救回来。
+   *
+   * 触发场景：默认对比语言是 Python，而读者点的正是「我熟悉 Python」——
+   * 唯一的勾选此刻的身份是基准列，多选对比于是退化成只剩一列基准。
+   *
+   * 与 ADR-63 的「读者主动清空」是两回事：那里集合本来就是空的，是读者
+   * 表达过的「我只要基准这一列」；这里集合非空，只是那一勾与基准重合了，
+   * 读者的对比意图落空了而已。
+   *
+   * 修正的是**勾选集合本身**，而不是在渲染层补一列 —— 补出来的那列不在
+   * `compareLangs` 里，界面会把一门没勾的语言画成已勾，读者点它想「取消」
+   * 却走 `toggleCompare` 的新增分支（ADR-34 记的就是这个坑）。写进集合则
+   * 勾选态、点掉的路径都是自洽的。
+   */
+  function ensureCompareFor(baseline: string): void {
+    const selected = compareLangs.value.filter((id) => enabledSet.has(id))
+    // 空集合 = 读者明确表达的「只看基准」，不补位（ADR-63）
+    if (!selected.length) return
+    // 还有别的勾选能当对比列，轮不到这里操心
+    if (selected.some((id) => id !== baseline)) return
+    // 优先默认对比语言；它正是基准时（python × python）让位给书写序里的下一门
+    const fallback = [defaultCompareLanguageId, ...enabledLanguageIds].find((id) => id !== baseline)
+    if (fallback) compareLangs.value = [fallback]
   }
 
   function reset(): void {
@@ -251,17 +264,17 @@ export const useLanguageStore = defineStore('language', () => {
     /** 用户最近主动挑的方向；页内选择条据此渲染「本板块暂无 X」的回落提示 */
     preferredTarget,
     isPairMode,
-    /** 基础语法的**勾选集合**（区别于 compareMeta：那个含回落，见 ensureCompareColumn） */
+    /** 章节型板块的**勾选集合**（可以为空 = 只看基准列；区别于 compareMeta：那个已过滤掉基准与停用语言） */
     compareLangs,
     compareMeta,
     orderedMeta,
     allMeta: computed(() => languageMeta),
     enabledMeta: enabledLanguageMeta,
     baselineCandidates,
-    overSoftLimit,
     setRouteContext,
     rememberBaseline,
     setBaselinePreference,
+    ensureCompareFor,
     preferTarget,
     setPairTarget,
     resolveTargetFor,

@@ -146,7 +146,7 @@ usePageMeta(
         -->
         <div v-for="card in baselineCards" :key="card.id" class="pc-panel pc-baseline-card">
           <RouterLink :to="card.to" class="pc-baseline-main">
-            <h3 style="font-size: var(--pc-fs-lg); margin-bottom: 4px">以 {{ card.name }} 为基准</h3>
+            <h3 style="font-size: var(--pc-fs-lg); margin-bottom: 4px">我熟悉 {{ card.name }}</h3>
             <p class="pc-hint" style="margin: 0">
               {{ card.chapterCount }} 个模块 · {{ card.featureCount }} 个对照点
             </p>
@@ -217,6 +217,15 @@ usePageMeta(
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* 这三张是入口而非普通面板：用强调色底 + 强调色描边把它从 .pc-panel 里挑出来，
+     让「这是可以点的」在不动鼠标时也看得出来 */
+  background-color: var(--pc-accent-soft);
+  border-color: color-mix(in srgb, var(--pc-accent) 30%, var(--pc-border));
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 .pc-baseline-main {
   display: block;
@@ -224,7 +233,14 @@ usePageMeta(
   color: inherit;
 }
 .pc-baseline-card:hover {
+  /* 底色再加深一档（比常态更浓的强调色），与边框、浮起一起构成「可点」的三重提示 */
+  background-color: color-mix(in srgb, var(--pc-accent) 18%, var(--pc-bg-elev));
   border-color: var(--pc-accent);
+  box-shadow: var(--pc-shadow);
+  transform: translateY(-2px);
+}
+.pc-baseline-card:hover .pc-baseline-main h3 {
+  color: var(--pc-accent);
 }
 /* 次级入口：与主链接拉开层级，别看起来像同一张卡片的第二行标题 */
 .pc-baseline-lang {

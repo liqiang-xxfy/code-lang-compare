@@ -1,0 +1,238 @@
+# 迁移陷阱 —— 带着 Java 的习惯写 JavaScript 会踩的坑
+# 组织方式：按「症状」索引（症状 → 原因 → 解法），而不是按语法点
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩（对应界面上的 ⭐ 数量）
+#
+# 只讲本方向的两门语言：Java 习惯在 JS 上失效的地方。
+
+- id: pitfall-equals-becomes-strict
+  title: equals 与 == 的分工换了名字
+  symptom: |
+    Java 里字符串比较必须用 `equals`，`==` 比的是引用 —— 这条规矩刻在肌肉里。
+    到了 JS 只剩一个 `===`：对字符串这类原始值是**比值**（这是你想要的），
+    但对对象仍然是比引用 —— 两个内容相同的对象 `===` 得 false。
+  cause: |
+    Java 的 `==`（引用）与 `equals`（值）是两个方法，分工写在使用处；
+    JS 的 `===`（严格等于）与 `==`（宽松等于）是按**是否做类型转换**分的，
+    而「对象比引用」这件事两个运算符都保持。
+  fix: |
+    一律用 `===`（`==` 会做类型转换，见本方向另一条）。
+    比较对象内容时语言不会帮你 —— 要么逐字段比，要么引入一套值相等工具，
+    别指望有 `equals` 那样的重载点。
+  severity: 3
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: express/equality
+  tags: [相等, 运算符]
+
+- id: pitfall-integer-division
+  title: 除号不再自动整除
+  symptom: |
+    Java 里 `total / pageSize` 两个 int 相除就是整除，得 `3`。
+    同样一行搬到 JS 变成 `3.5` —— 页码显示成小数，
+    拿去当数组下标取到 undefined。
+  cause: |
+    Java 有整数类型，`/` 对两个整数做整数除法（且向零取整）。
+    JS 只有一种数字类型（双精度浮点），`/` 永远得浮点。
+  fix: |
+    要整除写 `Math.trunc(a / b)`（对应 Java 的向零取整）。
+    注意**不要用 `Math.floor`**：负数上它得 `-4`，而 Java 的 `int` 除法得 `-3` ——
+    这是迁移时最容易看走眼的一处。
+  severity: 3
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: express/arithmetic
+  tags: [数值, 运算符]
+
+- id: pitfall-long-precision-lost
+  title: 64 位整数装不下
+  symptom: |
+    Java 的 `long` 能精确表示到 2^63-1，数据库主键、雪花 ID 常用它。
+    到了 JS，所有数字都是双精度浮点，**超过 2^53 就丢精度**：
+    `9007199254740993` 会变成 `9007199254740992`，而且不报错。
+  cause: |
+    JS 的 number 是 IEEE 754 双精度，安全整数上限是 2^53-1。
+    没有单独的整数类型，因此也没有 `long` 可以选。
+  fix: |
+    大整数用 `BigInt`（字面量加 `n` 后缀），但它不能与 number 混算，
+    且不能被 JSON 直接序列化。
+    更常见的做法是**全程当字符串传**，只在需要运算时转 BigInt ——
+    尤其是 ID：从接口拿到就不要再转成 number。
+  severity: 3
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: express/arithmetic
+  tags: [数值, 精度]
+
+- id: pitfall-implicit-conversion
+  title: 类型错误不再在编译期拦住
+  symptom: |
+    Java 里 `1 + "1"` 编译不过（或者说，结果是字符串这件事编译器已经告诉你了）。
+    JS 里它安静地得到 `"11"`，一路传下去，直到某个地方拿它做算术才出问题 ——
+    而那时离出错点已经很远了。
+  cause: |
+    Java 是静态强类型，类型不匹配在编译期报错。
+    JS 是动态弱类型：类型在运行期定，且 `+` 对字符串做拼接、对其他做加法，遇到类型不一致就隐式转换。
+  fix: |
+    这条路没有编译器兜底，只能靠工具：用类型标注在编辑期检查，
+    用 `===` 拒绝隐式转换，做算术前显式 `Number(x)` 并处理 `NaN`。
+    排查这类 bug 时优先打印**中间变量的类型**，而不是盯着公式看。
+  severity: 3
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: express/type-conversion
+  tags: [类型, 运算符]
+
+- id: pitfall-this-binding
+  title: this 不再永远指向本实例
+  symptom: |
+    Java 里 `this` 在方法内永远指向当前实例，扔进匿名类里也是（指向外层实例）。
+    JS 里 `this` 由**调用点**决定：把方法取出来单独调用、或者当回调传出去之后，
+    `this` 就不是那个对象了，`this.count` 得 undefined。
+  cause: |
+    Java 的 this 是词法绑定的（写在哪就指谁）；
+    JS 的 this 是运行期绑定的（四种规则：默认、隐式、显式、new），
+    只有箭头函数例外 —— 它没有自己的 this，取外层那个。
+  fix: |
+    回调里用箭头函数（`() => this.method()`），
+    或者用类的箭头函数字段把绑定钉死。
+    这条在把方法当参数传的每一处都要检查一遍 ——
+    包括 `setTimeout(this.run, 100)` 这种看起来最无害的写法。
+  severity: 3
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: model/methods-and-receiver
+  tags: [类, 函数]
+
+- id: pitfall-single-threaded
+  title: 没有线程，也没有 sleep
+  symptom: |
+    Java 里开一个线程做耗时任务、主线程继续走，是标准做法。
+    JS 里没有线程可开：一段耗时的同步代码会**卡住整个页面**，
+    所有回调和渲染都排在它后面等着。而 `Thread.sleep` 也没有对应物。
+  cause: |
+    JS 是单线程 + 事件循环：只有一条执行栈，
+    异步靠「把回调排进队列」实现，而不是靠并行。
+    阻塞这条栈就是阻塞一切。
+  fix: |
+    耗时任务切成小片，用异步 API 让出控制权；
+    真要并行只能交给 Worker 或子进程，且它们之间靠消息通信，不共享内存。
+    注意「让出控制权」需要真的 `await`：一个长时间的 `for` 循环不会自己让路。
+  severity: 3
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: mechanism/concurrency-unit
+  tags: [并发, 事件循环]
+
+- id: pitfall-array-is-dynamic
+  title: 数组没有固定长度，也没有类型
+  symptom: |
+    Java 的 `int[] a = new int[10]` 定长、越界抛异常、元素类型固定。
+    JS 的数组可以随便 push、可以越界读（得 undefined 而不是抛异常）、
+    还能同时装数字和字符串 —— 三个保护一起消失。
+  cause: |
+    JS 的 Array 是对象（`typeof [] === 'object'`），
+    长度是动态属性，越界访问只是「取一个不存在的属性」，返回 undefined。
+  fix: |
+    越界读要显式判：用 `at(-1)` 处理负下标时也要注意它越界返回 undefined。
+    需要定长与类型约束时靠类型标注与运行期检查自己补，
+    或者用 `Object.freeze` 防止误改（但那只挡第一层）。
+  severity: 2
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: model/list-array
+  tags: [集合, 类型]
+
+- id: pitfall-map-keys-are-strings
+  title: 对象当 Map 用，键全被转成字符串
+  symptom: |
+    Java 的 `HashMap` 什么都能当键，且 `map.get(1)` 与 `map.get("1")` 是两个不同的键。
+    JS 里用对象当字典时，键一律被转成字符串：
+    `obj[1]` 与 `obj["1"]` 是**同一个**，数字键的语义悄悄变了。
+  cause: |
+    JS 的对象属性名只能是字符串或符号（其他类型会被强制转换）。
+    语言为此提供了另一个类型 Map 来装任意类型的键。
+  fix: |
+    键是字符串时用对象字面量（习惯、可序列化）；
+    **键可能是其他类型、或需要保持插入顺序与频繁增删时，用 `Map`**（它有 get / set / has，且键不做转换）。
+    另外注意遍历顺序：对象的整数样式键永远排在前面。
+  severity: 2
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: model/map-dict
+  tags: [集合, 类型]
+
+- id: pitfall-unchecked-exceptions
+  title: 没有受检异常，也没人逼你处理
+  symptom: |
+    Java 的受检异常让编译器逼你写 try/catch 或 throws —— 处理得难看，但**不会漏**。
+    JS 里没有任何检查：忘了 catch 的 Promise 会产生一条「未处理的拒绝」，
+    在浏览器里只留一行控制台警告，页面照常跑。
+  cause: |
+    Java 把异常分成受检与非受检两类，用类型系统强制前者被处理。
+    JS 只有一个 Error 体系，且异步错误走的是 Promise 的拒绝通道，
+    连 try/catch 都未必包得住（取决于有没有 await）。
+  fix: |
+    每个 Promise 链结尾都要有 catch，或者全程 async/await 配 try/catch。
+    在 Node 侧挂上 `unhandledRejection` 与 `uncaughtException` 的兜底日志 ——
+    这相当于自己补上 Java 编译器原来替你做的那层检查。
+  severity: 2
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: model/error-types
+  tags: [异常, 错误处理]
+
+- id: pitfall-null-splits-in-two
+  title: null 变成了两个
+  symptom: |
+    Java 只有一个 `null`，判空写 `x == null` 就够了。
+    JS 有 `null` 与 `undefined` 两个：没赋值的变量、缺字段的对象、没传的参数都是 `undefined`，
+    而它们彼此 `===` 不相等 —— 只判一个会漏。
+  cause: |
+    `undefined` 是引擎给的默认值，`null` 是作者显式写的空，
+    语言没有把它们统一（这与 Java 的设计取舍正好相反）。
+  fix: |
+    对外数据用 `null`、内部变量用 `undefined`，先定一个约定。
+    判「空」用 `x == null`（宽松等于在这里恰好同时匹配两者，是它唯一被广泛接受的用法），
+    判字段存在用 `'key' in obj`。
+  severity: 2
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: express/null-and-undefined
+  tags: [空值]
+
+- id: pitfall-var-is-not-block-scoped
+  title: var 不像 Java 的局部变量那样按块生效
+  symptom: |
+    Java 的局部变量出了 `{}` 就失效，循环变量也是。
+    JS 里用 `var` 声明时，变量属于**整个函数**：循环结束后还在，
+    而且循环里创建的闭包共享同一个绑定 —— 回调全部拿到最后那个值。
+  cause: |
+    `var` 是函数级作用域（这是 JS 早期的设计），块不构成边界。
+    后来加入的 `let` / `const` 才是块级的。
+  fix: |
+    一律 `let` / `const`，把 `var` 当笔误处理。
+    看到老代码里的 `var`，要先确认它有没有被跨块使用，再决定替换 ——
+    直接替换有可能改变作用域、暴露原本被遮蔽的变量。
+  severity: 2
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: express/scope
+  tags: [作用域, 声明]
+
+- id: pitfall-sort-is-lexicographic
+  title: 排序默认按字符串比
+  symptom: |
+    Java 的 `Arrays.sort(int[])` 就是按数值排。JS 的 `[10, 9, 1].sort()` 得到
+    `[1, 10, 9]` —— 它把元素转成字符串再按字典序比，且**不报错**。
+  cause: |
+    JS 的 Array.sort 为了能排任意类型，默认走「转字符串再比」这条路；
+    数值比较必须由调用方提供比较函数。
+  fix: |
+    排数字一律写 `(a, b) => a - b`（降序 `b - a`）。
+    另外 `sort` 是**原地排序**并返回同一个数组 ——
+    想保留原数组要先复制：`[...arr].sort(...)`。
+  severity: 1
+  languages: [java, javascript]
+  fromBaseline: true
+  featureId: model/collection-mutability
+  tags: [集合, 排序]

@@ -7,6 +7,9 @@
  *     · allLanguageIds     ← 扫描 content/languages/<id>/meta.yaml，**内容源可引用任意一门**
  *     · enabledLanguageIds ← 由 content/registry.yaml 决定，**UI 只渲染已启用的**
  *   加语言只需加目录 + 在 registry 里注册，类型自动派生，没有任何手写代码要改。
+ *
+ * 数组的**顺序**同样来自 registry.yaml —— 那是界面上的显示顺序（ADR-58），
+ * 与目录名无关。基准候选、对比语言勾选条、矩阵列、首页基准卡全按它排。
  */
 import path from 'node:path'
 import type { LanguageMeta } from '../../src/schemas'
@@ -16,6 +19,7 @@ import {
   listLanguageIds,
   loadLanguageMeta,
   loadRegistry,
+  sortByDeclaredOrder,
   writeText,
 } from '../lib/core'
 import { generateSections } from './generate-sections'
@@ -42,7 +46,12 @@ export function generateRegistry(options: RegistryGenOptions = {}): RegistryGenR
   const publicIds = listLanguageIds()
   const privateIds = listLanguageIds({ includePrivate: true }).filter(isPrivateLanguageDir)
   const dirIds = includePrivate ? [...publicIds, ...privateIds].sort() : publicIds
-  const metas = dirIds.map((id) => loadLanguageMeta(id))
+  /*
+   * 顺序 = registry.yaml 的声明顺序（ADR-58）。**在装载之后重排**，而不是先按
+   * 声明的 id 列表去装载：后者遇到「登记了但目录不在」时会先抛出 ENOENT，
+   * 把下面那条 R8 口径的人话报错盖掉。
+   */
+  const metas = sortByDeclaredOrder(dirIds.map((id) => loadLanguageMeta(id)))
 
   // 一致性检查：只对「公开」语言做。
   // 私有目录（_template / _fixturelang）本来就不该出现在 registry 里。

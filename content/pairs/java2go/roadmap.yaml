@@ -1,0 +1,97 @@
+# 迁移学习路线 —— 按「基准 → 目标语言」分路径
+# acceptance 是可勾选项（前端勾选状态存 localStorage）
+#
+# id 前缀就是这个方向的目录名（java2go），后面接序号与短名。
+
+- id: java2go-1-anchor
+  order: 1
+  title: 先接受「没有继承、没有异常、没有 null」
+  durationHint: 2-3 小时
+  todo:
+    - 通读本工具「语言机制」板块的 Java 视角，把 Maven/go mod、线程池/goroutine 这类映射先建起来
+    - 只回答四个问题：类型系统、并发模型、值语义 vs 引用语义在「语言机制」板块，错误处理在「数据与抽象」板块
+    - 明确写下「哪些 Java 直觉必须丢掉」——抽象基类提公共行为、异常自动冒泡、共享对象加锁就安全、一切都能为 null
+  acceptance:
+    - 能说清 error 是值而不是异常，以及为什么代码里到处是 `if err != nil`
+    - 知道 Go 没有类与继承，组合与接口各替代了哪一部分
+    - 知道 Go 没有 null，只有零值，以及这会让「没设置」变得难以表达
+  resources:
+    - label: Go 官方教程（中文）
+      url: https://go.dev/tour/welcome/1
+    - label: Effective Go
+      url: https://go.dev/doc/effective_go
+
+- id: java2go-2-basics
+  order: 2
+  title: 基础表达逐条对照
+  durationHint: 3-5 天
+  todo:
+    - 按本工具「基础表达」板块逐章逐格对比，重点看标为「语义不同」的格子
+    - 特别留意三处会静默出错的：切片共享底层数组、字符串按字节索引、int 的位宽随平台变
+    - 练习把一段 Java 的 Stream 链改写成 Go 的 for 循环
+    - 把踩到的坑记进本方向的「迁移陷阱」清单，并打上自己的严重度
+  acceptance:
+    - 能独立写出变量、切片、map、控制流、函数定义，无编译错误
+    - 能说清切片与数组的区别，以及 append 为什么会改到别人
+    - 能解释「首字母大写才是导出的」这条规则影响哪些声明
+  resources:
+    - label: Go 语言规范
+      url: https://go.dev/ref/spec
+
+- id: java2go-3-practice
+  order: 3
+  title: 动手写（占全部时间的 70%）
+  durationHint: 1-2 周
+  todo:
+    - 做 Exercism 的 Go track，接受 mentor 评审
+    - 把写过的一个小工具（100-300 行）用 Go 重写一遍
+    - 重写时不要查原文件——凭记忆写，写完再对照
+    - 刻意把一处靠继承复用的设计改成嵌入，体会类型层次变浅之后的样子
+  acceptance:
+    - Exercism 完成 15 题以上
+    - 能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法
+    - 写完能顺手跑 gofmt 与 go vet 且无告警
+  resources:
+    - label: Exercism Go Track
+      url: https://exercism.org/tracks/go
+    - label: TheAlgorithms Go
+      url: https://github.com/TheAlgorithms/Go
+
+- id: java2go-4-deep
+  order: 4
+  title: 补齐语义层（并发与内存）
+  durationHint: 1-2 周
+  todo:
+    - 真正理解「通过通信共享内存」：先用通道写一遍生产者-消费者，再用 Mutex 写一遍
+    - 用 select + time.After 给一个并发任务加超时，对比 Java 里怎么实现
+    - 理解 context.Context 为什么是每个可能阻塞的函数的第一个参数
+    - 跑一次 go test -race，看它抓到什么、也看它抓不到什么
+    - 理解切片与 map 的扩容行为，以及为什么并发写 map 会直接 panic
+  acceptance:
+    - 能解释 goroutine 与线程池在调度、取消、错误传播上的差别
+    - 能说清 channel 与 Mutex 各自适合什么场景
+    - 能写出带超时与取消的并发代码
+  resources:
+    - label: Go 官方博客 · 通过通信共享内存
+      url: https://go.dev/blog/codelab-share
+    - label: Go 并发模式（中文）
+      url: https://github.com/goinaction/code
+
+- id: java2go-5-ecosystem
+  order: 5
+  title: 工程化与生态收口
+  durationHint: 3-5 天
+  todo:
+    - 用 go mod 建一个真实项目，跑通「写代码 → test → vet → build」
+    - 把 Maven 三段坐标的心智映射到 go.mod / go.sum，理解 go mod tidy 为什么既增又删
+    - 用标准库的 testing 写表驱动测试，对比 JUnit 参数化用例的写法差异
+    - 配好 gofmt 与 golangci-lint（注意 shadow 与 errcheck 两项检查）
+  acceptance:
+    - 能独立搭起一个带测试、lint、格式化的 Go 工程
+    - 能说清 package / module / import 路径各自解决什么问题
+    - 能解释为什么 Go 社区没有「格式化风格之争」
+  resources:
+    - label: Go Modules 参考
+      url: https://go.dev/ref/mod
+    - label: golangci-lint
+      url: https://golangci-lint.run/

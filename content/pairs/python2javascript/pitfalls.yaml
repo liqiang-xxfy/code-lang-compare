@@ -1,0 +1,229 @@
+# 迁移陷阱 —— 带着 Python 的习惯写 JavaScript 会踩的坑
+# 组织方式：按「症状」索引（症状 → 原因 → 解法），而不是按语法点
+# severity: 1 = 一般 / 2 = 经常踩 / 3 = 必踩（对应界面上的 ⭐ 数量）
+#
+# 只讲本方向的两门语言：Python 习惯在 JS 上失效的地方。
+
+- id: pitfall-integer-division
+  title: 整数除法不再自动向下取整
+  symptom: |
+    Python 里 `total // page_size` 得到的整数页码，换成 JS 写 `total / page_size`
+    后变成小数：`7 / 2` 是 `3.5` 而不是 `3`。拿它去索引数组得到 `undefined`，
+    或者页码显示出「第 3.5 页」。
+  cause: |
+    Python 有两个除法运算符：`/` 得浮点、`//` 向下取整。
+    JS 只有一种数字类型，`/` 永远得浮点，「取整」必须另写一步。
+  fix: |
+    整除写 `Math.floor(a / b)`（对应 `//`）；确实要向零取整时写 `Math.trunc(a / b)`。
+    两者在负数上不同（`Math.floor(-3.5)` 是 `-4`，`Math.trunc(-3.5)` 是 `-3`）——
+    **迁移时先想清楚原来那个 `//` 要的是哪一种**，那是 Python 替你做的决定。
+  severity: 3
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: express/arithmetic
+  tags: [数值, 运算符]
+
+- id: pitfall-truthiness-empty-container
+  title: 空数组、空对象在 JS 里是真值
+  symptom: |
+    Python 里 `if items:` 判非空是标准写法；直译成 JS 的 `if (items)` 后，
+    空数组照样进分支 —— 因为它永远是真值。判断看起来「一直成立」，却不一定报错。
+  cause: |
+    Python 的 `__bool__` 由容器长度决定，空容器为假。
+    JS 的假值只有 8 个原始值（`false` / `0` / `-0` / `0n` / `""` / `null` / `undefined` / `NaN`），
+    对象与数组**永远是真值**。
+  fix: |
+    JS 里判非空一律写明：数组用 `items.length > 0`，对象用 `Object.keys(obj).length > 0`。
+    这不是风格问题 —— `if (items)` 在 JS 里**恒为真**，是一句永远成立的空话。
+  severity: 3
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: express/logical
+  tags: [真值, 集合]
+
+- id: pitfall-loose-equality
+  title: 等于号在 JS 里会偷偷做类型转换
+  symptom: |
+    Python 里 `1 == "1"` 是 False，直觉上「不同类型就是不相等」。
+    但 JS 的 `1 == "1"` 是 true，`"" == 0` 也是 true —— 本该拦住的分支全部放行。
+  cause: |
+    Python 的 `==` 只在数值类型之间兼容（`1 == 1.0` 为真），从不把字符串转成数字。
+    JS 的 `==` 会按规范做类型转换（转换规则本身有十几条）。
+  fix: |
+    JS 一律用 `===`，把 `==` 当笔误。
+    顺带记住：JS 里判 `null` / `undefined` 有惯用法 `x == null`（同时匹配两者）——
+    它是这条规则唯一被广泛接受的例外。
+  severity: 3
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: express/equality
+  tags: [运算符, 类型]
+
+- id: pitfall-none-splits-in-two
+  title: None 变成了两个值
+  symptom: |
+    Python 里只有一个空值 `None`，判空写 `if x is None` 就够了。
+    到了 JS 有 `null` 与 `undefined` 两个：变量没赋值是 `undefined`，
+    显式清空惯例用 `null`，而它们 `===` 彼此不相等 —— 判空开始漏。
+  cause: |
+    JS 的两个空值来自不同的历史来源：`undefined` 是「引擎给的默认值」，
+    `null` 是「作者显式写的空」。语言没有把它们统一。
+  fix: |
+    选一个作为团队约定（通常对外数据用 `null`、内部变量用 `undefined`），别混用。
+    判「空」用 `x == null`（见上一条：它同时匹配两个），
+    判「属性存在」用 `'key' in obj` 或 `Object.hasOwn(obj, 'key')`。
+  severity: 2
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: express/null-and-undefined
+  tags: [空值]
+
+- id: pitfall-plus-concatenates
+  title: 加号会把数字变成字符串
+  symptom: |
+    Python 里 `1 + "1"` 直接 TypeError，问题当场暴露。
+    JS 里它安静地得到 `"11"` —— 一路传下去，直到某个地方拿字符串去算数才爆。
+  cause: |
+    Python 几乎不做隐式转换，类型不匹配就抛异常。
+    JS 的 `+` 有双重职责（数值加法与字符串拼接），遇到字符串就把另一边也转成字符串。
+  fix: |
+    JS 里做算术前显式转换：`Number(x)` 或 `parseInt(x, 10)`，并处理 `NaN`。
+    排查这类 bug 时优先怀疑**下游接收到的类型**，而不是上游的计算公式 ——
+    出错的往往是几步之前那次安静的拼接。
+  severity: 3
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: express/type-conversion
+  tags: [类型, 运算符]
+
+- id: pitfall-block-scope-returns
+  title: 出了花括号，变量就没了
+  symptom: |
+    Python 里 `if` / `for` 块不产生作用域，块里赋的值外面照样能用。
+    换成 JS 的 `let` / `const` 后，同样的写法在块外引用会直接抛 ReferenceError。
+  cause: |
+    Python 只有函数、类、模块产生作用域，块不产生。
+    JS 的 `let` / `const` 是块级作用域 —— 花括号就是边界。
+  fix: |
+    要在块外使用的变量，**在块外先声明**，块里只赋值。
+    反过来，JS 的 `var` 是函数级作用域（可以跨块），但它在循环里会退化成共享绑定
+    （见本方向另一条陷阱），不要用它来「修」这个问题。
+  severity: 2
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: express/scope
+  tags: [作用域, 声明]
+
+- id: pitfall-closure-loop-variable
+  title: 循环里的闭包捕获了同一个变量
+  symptom: |
+    循环里给一组回调绑定当前值，回调触发时全部拿到**最后一个值**，
+    而写代码的人以为每个回调记住的是自己那一轮。
+  cause: |
+    Python 的 `for` 变量是函数作用域里的**单个绑定**，闭包共享它 —— 所以这是
+    Python 的坑。JS 的 `let` 每次迭代新建绑定，本来是对的；
+    但一旦写成 `var`，就退化回 Python 那种共享语义。
+  fix: |
+    JS 侧一律 `let` / `const`，看到 `var` 就当它是笔误。
+    Python 侧没有对应语法，要用默认参数把当前值钉进闭包：`lambda i=i: ...`。
+    两个方向的症状一模一样，但**成因正好相反**，迁移时不要照着症状改。
+  severity: 2
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: express/closures
+  tags: [闭包, 作用域]
+
+- id: pitfall-for-in-gives-keys
+  title: for...in 给的是字符串键，不是值
+  symptom: |
+    Python 的 `for x in items:` 直接拿到元素，直译成 JS 的 `for (const x in items)`
+    后，`x` 变成 `"0"`、`"1"`、`"2"` 这样的**字符串下标**，
+    拿它做算术会得到 `"0" + 1 === "01"` 这种结果。
+  cause: |
+    JS 有三个遍历语法，含义各不相同：`for...in` 遍历**键**（且会带上原型链上的可枚举键），
+    `for...of` 遍历**可迭代对象的值**，`forEach` 走回调。
+    Python 只有一种直觉（遍历元素），所以直译时最容易选中错误的那一个。
+  fix: |
+    要元素用 `for (const x of items)`（或 `items.forEach`）。
+    `for...in` 只用于遍历普通对象的键，且几乎总该配 `Object.hasOwn(obj, k)` 过滤。
+  severity: 3
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: express/iteration-protocol
+  tags: [迭代, 循环]
+
+- id: pitfall-sorted-vs-sort
+  title: sort 会改掉原数组
+  symptom: |
+    Python 的 `sorted(x)` 返回新列表、`x.sort()` 原地改，两个名字分得很清楚。
+    JS 只有 `x.sort()` —— 它**原地排序并返回同一个数组**，
+    于是 `const y = x.sort()` 里那个 `y` 并不是副本，`x` 已经被改了。
+  cause: |
+    JS 的 Array 方法里，原地修改与返回新数组混在一起：
+    `sort` / `reverse` / `splice` 改原数组，`map` / `filter` / `slice` 不改。
+    这层区分没有体现在命名上。
+  fix: |
+    想保留原数组就显式复制再排：`[...x].sort(...)`。
+    另外 JS 的 `sort()` 默认按**字符串**比较（`[10, 9].sort()` 得 `[10, 9]`），
+    排数字必须给比较函数 `(a, b) => a - b`。
+  severity: 2
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: model/collection-mutability
+  tags: [集合, 可变]
+
+- id: pitfall-assignment-is-reference
+  title: 赋值给的是同一份，切片语法却不在
+  symptom: |
+    Python 里 `b = a` 也是引用同一个列表，但至少有 `a[:]`、`list(a)`、`copy.deepcopy(a)`
+    这几条现成的路。换成 JS 后 `b = a` 同样是同一份，而 `a[:]` 这个写法直接语法错误。
+  cause: |
+    两门语言的赋值都是绑定到同一个对象（这一点一致，不是差异）。
+    真正的差异在**复制手段**：Python 用切片语法表达浅拷贝，JS 用展开语法。
+  fix: |
+    浅拷贝写 `[...a]`（数组）或 `{ ...o }`（对象）；深层复制用 `structuredClone(a)`。
+    注意这三种都只到第一层或按结构化克隆规则走 ——
+    迁移时如果原代码依赖的是深拷贝，`[...a]` 会静默地不够。
+  severity: 2
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: model/slicing
+  tags: [集合, 引用]
+
+- id: pitfall-this-is-dynamic
+  title: this 取决于怎么调用，而不是定义在哪
+  symptom: |
+    Python 的 `self` 是第一个参数、由语言自动传，永远不会变。
+    JS 的 `this` 由**调用点**决定：把方法取出来单独调用（`const f = obj.method; f()`）
+    之后 `this` 就不再是那个对象，`this.x` 得到 `undefined`。
+  cause: |
+    `self` 是显式参数，作用域规则和普通变量一样；
+    `this` 是隐式绑定的，绑定值在调用时才确定（四种绑定规则：默认、隐式、显式、new）。
+  fix: |
+    传方法时用箭头函数包一层（`() => obj.method()`），或定义时就绑死
+    （类的箭头函数字段、`bind`）。
+    箭头函数没有自己的 `this`，它取定义处外层的 —— 这也是它在回调里更安全的原因。
+  severity: 3
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: model/methods-and-receiver
+  tags: [类, 函数]
+
+- id: pitfall-throw-anything
+  title: 抛出来的不一定是 Error
+  symptom: |
+    Python 的 `raise` 只接受异常对象，`except` 拿到的必然是异常。
+    JS 的 `throw` 可以抛任何值（`throw "出错了"`、`throw 42`），
+    于是 `catch (e)` 里 `e.message` 是 `undefined`，错误信息在日志里消失。
+  cause: |
+    Python 的异常体系是类型化的（`BaseException` 之下的一棵树），语言强制这一点。
+    JS 的 `throw` 没有类型约束，惯例（抛 Error 或其子类）靠人守。
+  fix: |
+    自己抛一律 `throw new Error("...")`，要带结构就继承 Error。
+    catch 侧不要假设 `e` 是 Error：先判 `e instanceof Error` 再取 `message`，
+    否则记日志时把它 `String(e)` 或 `JSON.stringify(e)` 出来。
+  severity: 2
+  languages: [python, javascript]
+  fromBaseline: true
+  featureId: model/error-types
+  tags: [异常]

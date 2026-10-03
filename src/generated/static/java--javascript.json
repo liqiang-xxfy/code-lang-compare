@@ -1,0 +1,540 @@
+{
+  "baseline": "java",
+  "target": "javascript",
+  "pitfalls": [
+    {
+      "id": "pitfall-equals-becomes-strict",
+      "title": "equals 与 == 的分工换了名字",
+      "symptomHtml": "<p>Java 里字符串比较必须用 <code>equals</code>，<code>==</code> 比的是引用 —— 这条规矩刻在肌肉里。\n到了 JS 只剩一个 <code>===</code>：对字符串这类原始值是<strong>比值</strong>（这是你想要的），\n但对对象仍然是比引用 —— 两个内容相同的对象 <code>===</code> 得 false。</p>\n",
+      "causeHtml": "<p>Java 的 <code>==</code>（引用）与 <code>equals</code>（值）是两个方法，分工写在使用处；\nJS 的 <code>===</code>（严格等于）与 <code>==</code>（宽松等于）是按<strong>是否做类型转换</strong>分的，\n而「对象比引用」这件事两个运算符都保持。</p>\n",
+      "fixHtml": "<p>一律用 <code>===</code>（<code>==</code> 会做类型转换，见本方向另一条）。\n比较对象内容时语言不会帮你 —— 要么逐字段比，要么引入一套值相等工具，\n别指望有 <code>equals</code> 那样的重载点。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/equality",
+      "tags": [
+        "相等",
+        "运算符"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-implicit-conversion",
+      "title": "类型错误不再在编译期拦住",
+      "symptomHtml": "<p>Java 里 <code>1 + &quot;1&quot;</code> 编译不过（或者说，结果是字符串这件事编译器已经告诉你了）。\nJS 里它安静地得到 <code>&quot;11&quot;</code>，一路传下去，直到某个地方拿它做算术才出问题 ——\n而那时离出错点已经很远了。</p>\n",
+      "causeHtml": "<p>Java 是静态强类型，类型不匹配在编译期报错。\nJS 是动态弱类型：类型在运行期定，且 <code>+</code> 对字符串做拼接、对其他做加法，遇到类型不一致就隐式转换。</p>\n",
+      "fixHtml": "<p>这条路没有编译器兜底，只能靠工具：用类型标注在编辑期检查，\n用 <code>===</code> 拒绝隐式转换，做算术前显式 <code>Number(x)</code> 并处理 <code>NaN</code>。\n排查这类 bug 时优先打印<strong>中间变量的类型</strong>，而不是盯着公式看。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/type-conversion",
+      "tags": [
+        "类型",
+        "运算符"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-integer-division",
+      "title": "除号不再自动整除",
+      "symptomHtml": "<p>Java 里 <code>total / pageSize</code> 两个 int 相除就是整除，得 <code>3</code>。\n同样一行搬到 JS 变成 <code>3.5</code> —— 页码显示成小数，\n拿去当数组下标取到 undefined。</p>\n",
+      "causeHtml": "<p>Java 有整数类型，<code>/</code> 对两个整数做整数除法（且向零取整）。\nJS 只有一种数字类型（双精度浮点），<code>/</code> 永远得浮点。</p>\n",
+      "fixHtml": "<p>要整除写 <code>Math.trunc(a / b)</code>（对应 Java 的向零取整）。\n注意<strong>不要用 <code>Math.floor</code></strong>：负数上它得 <code>-4</code>，而 Java 的 <code>int</code> 除法得 <code>-3</code> ——\n这是迁移时最容易看走眼的一处。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "运算符"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-long-precision-lost",
+      "title": "64 位整数装不下",
+      "symptomHtml": "<p>Java 的 <code>long</code> 能精确表示到 2^63-1，数据库主键、雪花 ID 常用它。\n到了 JS，所有数字都是双精度浮点，<strong>超过 2^53 就丢精度</strong>：\n<code>9007199254740993</code> 会变成 <code>9007199254740992</code>，而且不报错。</p>\n",
+      "causeHtml": "<p>JS 的 number 是 IEEE 754 双精度，安全整数上限是 2^53-1。\n没有单独的整数类型，因此也没有 <code>long</code> 可以选。</p>\n",
+      "fixHtml": "<p>大整数用 <code>BigInt</code>（字面量加 <code>n</code> 后缀），但它不能与 number 混算，\n且不能被 JSON 直接序列化。\n更常见的做法是<strong>全程当字符串传</strong>，只在需要运算时转 BigInt ——\n尤其是 ID：从接口拿到就不要再转成 number。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/arithmetic",
+      "tags": [
+        "数值",
+        "精度"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-single-threaded",
+      "title": "没有线程，也没有 sleep",
+      "symptomHtml": "<p>Java 里开一个线程做耗时任务、主线程继续走，是标准做法。\nJS 里没有线程可开：一段耗时的同步代码会<strong>卡住整个页面</strong>，\n所有回调和渲染都排在它后面等着。而 <code>Thread.sleep</code> 也没有对应物。</p>\n",
+      "causeHtml": "<p>JS 是单线程 + 事件循环：只有一条执行栈，\n异步靠「把回调排进队列」实现，而不是靠并行。\n阻塞这条栈就是阻塞一切。</p>\n",
+      "fixHtml": "<p>耗时任务切成小片，用异步 API 让出控制权；\n真要并行只能交给 Worker 或子进程，且它们之间靠消息通信，不共享内存。\n注意「让出控制权」需要真的 <code>await</code>：一个长时间的 <code>for</code> 循环不会自己让路。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "mechanism/concurrency-unit",
+      "tags": [
+        "并发",
+        "事件循环"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-this-binding",
+      "title": "this 不再永远指向本实例",
+      "symptomHtml": "<p>Java 里 <code>this</code> 在方法内永远指向当前实例，扔进匿名类里也是（指向外层实例）。\nJS 里 <code>this</code> 由<strong>调用点</strong>决定：把方法取出来单独调用、或者当回调传出去之后，\n<code>this</code> 就不是那个对象了，<code>this.count</code> 得 undefined。</p>\n",
+      "causeHtml": "<p>Java 的 this 是词法绑定的（写在哪就指谁）；\nJS 的 this 是运行期绑定的（四种规则：默认、隐式、显式、new），\n只有箭头函数例外 —— 它没有自己的 this，取外层那个。</p>\n",
+      "fixHtml": "<p>回调里用箭头函数（<code>() =&gt; this.method()</code>），\n或者用类的箭头函数字段把绑定钉死。\n这条在把方法当参数传的每一处都要检查一遍 ——\n包括 <code>setTimeout(this.run, 100)</code> 这种看起来最无害的写法。</p>\n",
+      "severity": 3,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/methods-and-receiver",
+      "tags": [
+        "类",
+        "函数"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-array-is-dynamic",
+      "title": "数组没有固定长度，也没有类型",
+      "symptomHtml": "<p>Java 的 <code>int[] a = new int[10]</code> 定长、越界抛异常、元素类型固定。\nJS 的数组可以随便 push、可以越界读（得 undefined 而不是抛异常）、\n还能同时装数字和字符串 —— 三个保护一起消失。</p>\n",
+      "causeHtml": "<p>JS 的 Array 是对象（<code>typeof [] === 'object'</code>），\n长度是动态属性，越界访问只是「取一个不存在的属性」，返回 undefined。</p>\n",
+      "fixHtml": "<p>越界读要显式判：用 <code>at(-1)</code> 处理负下标时也要注意它越界返回 undefined。\n需要定长与类型约束时靠类型标注与运行期检查自己补，\n或者用 <code>Object.freeze</code> 防止误改（但那只挡第一层）。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/list-array",
+      "tags": [
+        "集合",
+        "类型"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-map-keys-are-strings",
+      "title": "对象当 Map 用，键全被转成字符串",
+      "symptomHtml": "<p>Java 的 <code>HashMap</code> 什么都能当键，且 <code>map.get(1)</code> 与 <code>map.get(&quot;1&quot;)</code> 是两个不同的键。\nJS 里用对象当字典时，键一律被转成字符串：\n<code>obj[1]</code> 与 <code>obj[&quot;1&quot;]</code> 是<strong>同一个</strong>，数字键的语义悄悄变了。</p>\n",
+      "causeHtml": "<p>JS 的对象属性名只能是字符串或符号（其他类型会被强制转换）。\n语言为此提供了另一个类型 Map 来装任意类型的键。</p>\n",
+      "fixHtml": "<p>键是字符串时用对象字面量（习惯、可序列化）；\n<strong>键可能是其他类型、或需要保持插入顺序与频繁增删时，用 <code>Map</code></strong>（它有 get / set / has，且键不做转换）。\n另外注意遍历顺序：对象的整数样式键永远排在前面。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/map-dict",
+      "tags": [
+        "集合",
+        "类型"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-null-splits-in-two",
+      "title": "null 变成了两个",
+      "symptomHtml": "<p>Java 只有一个 <code>null</code>，判空写 <code>x == null</code> 就够了。\nJS 有 <code>null</code> 与 <code>undefined</code> 两个：没赋值的变量、缺字段的对象、没传的参数都是 <code>undefined</code>，\n而它们彼此 <code>===</code> 不相等 —— 只判一个会漏。</p>\n",
+      "causeHtml": "<p><code>undefined</code> 是引擎给的默认值，<code>null</code> 是作者显式写的空，\n语言没有把它们统一（这与 Java 的设计取舍正好相反）。</p>\n",
+      "fixHtml": "<p>对外数据用 <code>null</code>、内部变量用 <code>undefined</code>，先定一个约定。\n判「空」用 <code>x == null</code>（宽松等于在这里恰好同时匹配两者，是它唯一被广泛接受的用法），\n判字段存在用 <code>'key' in obj</code>。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/null-and-undefined",
+      "tags": [
+        "空值"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-unchecked-exceptions",
+      "title": "没有受检异常，也没人逼你处理",
+      "symptomHtml": "<p>Java 的受检异常让编译器逼你写 try/catch 或 throws —— 处理得难看，但<strong>不会漏</strong>。\nJS 里没有任何检查：忘了 catch 的 Promise 会产生一条「未处理的拒绝」，\n在浏览器里只留一行控制台警告，页面照常跑。</p>\n",
+      "causeHtml": "<p>Java 把异常分成受检与非受检两类，用类型系统强制前者被处理。\nJS 只有一个 Error 体系，且异步错误走的是 Promise 的拒绝通道，\n连 try/catch 都未必包得住（取决于有没有 await）。</p>\n",
+      "fixHtml": "<p>每个 Promise 链结尾都要有 catch，或者全程 async/await 配 try/catch。\n在 Node 侧挂上 <code>unhandledRejection</code> 与 <code>uncaughtException</code> 的兜底日志 ——\n这相当于自己补上 Java 编译器原来替你做的那层检查。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/error-types",
+      "tags": [
+        "异常",
+        "错误处理"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-var-is-not-block-scoped",
+      "title": "var 不像 Java 的局部变量那样按块生效",
+      "symptomHtml": "<p>Java 的局部变量出了 <code>{}</code> 就失效，循环变量也是。\nJS 里用 <code>var</code> 声明时，变量属于<strong>整个函数</strong>：循环结束后还在，\n而且循环里创建的闭包共享同一个绑定 —— 回调全部拿到最后那个值。</p>\n",
+      "causeHtml": "<p><code>var</code> 是函数级作用域（这是 JS 早期的设计），块不构成边界。\n后来加入的 <code>let</code> / <code>const</code> 才是块级的。</p>\n",
+      "fixHtml": "<p>一律 <code>let</code> / <code>const</code>，把 <code>var</code> 当笔误处理。\n看到老代码里的 <code>var</code>，要先确认它有没有被跨块使用，再决定替换 ——\n直接替换有可能改变作用域、暴露原本被遮蔽的变量。</p>\n",
+      "severity": 2,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/scope",
+      "tags": [
+        "作用域",
+        "声明"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "pitfall-sort-is-lexicographic",
+      "title": "排序默认按字符串比",
+      "symptomHtml": "<p>Java 的 <code>Arrays.sort(int[])</code> 就是按数值排。JS 的 <code>[10, 9, 1].sort()</code> 得到\n<code>[1, 10, 9]</code> —— 它把元素转成字符串再按字典序比，且<strong>不报错</strong>。</p>\n",
+      "causeHtml": "<p>JS 的 Array.sort 为了能排任意类型，默认走「转字符串再比」这条路；\n数值比较必须由调用方提供比较函数。</p>\n",
+      "fixHtml": "<p>排数字一律写 <code>(a, b) =&gt; a - b</code>（降序 <code>b - a</code>）。\n另外 <code>sort</code> 是<strong>原地排序</strong>并返回同一个数组 ——\n想保留原数组要先复制：<code>[...arr].sort(...)</code>。</p>\n",
+      "severity": 1,
+      "languages": [
+        "java",
+        "javascript"
+      ],
+      "fromBaseline": true,
+      "featureId": "model/collection-mutability",
+      "tags": [
+        "集合",
+        "排序"
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "对象",
+      "aliases": [
+        "object",
+        "instance"
+      ],
+      "perLanguage": {
+        "javascript": "一切非原始值都是对象；「对象字面量」是最常用的数据结构，同时也是字典",
+        "java": "对象是类的实例，字段与方法由类定义；没有「随手造一个字典对象」的写法"
+      },
+      "note": "Java 那边「对象」与「数据结构」是两件事（后者要靠 Map / record），JS 里它们共用同一个东西。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "数组 / 列表",
+      "aliases": [
+        "array",
+        "list"
+      ],
+      "perLanguage": {
+        "javascript": "Array 是动态的，长度可变、元素类型可混、越界读得 undefined 而不抛异常",
+        "java": "数组定长且元素类型固定；要可变长度得用 List 这类集合"
+      },
+      "note": "JS 的 Array 更像 Java 的 ArrayList，而不是 Java 的数组 —— 迁移时别按 `int[]` 的直觉去用它。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "映射",
+      "aliases": [
+        "map",
+        "object",
+        "hashmap"
+      ],
+      "perLanguage": {
+        "javascript": "两个东西：对象字面量（键被强制转成字符串，带原型链）与 Map（任意键、真哈希表）",
+        "java": "HashMap / TreeMap 等，键是对象且用 equals 与 hashCode 判定"
+      },
+      "note": "JS 用对象当字典时键会退化成字符串 —— 需要真正的映射语义就用 Map，别用对象凑。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "类",
+      "aliases": [
+        "class",
+        "prototype"
+      ],
+      "perLanguage": {
+        "javascript": "class 语法只是原型链的糖；方法挂在原型上，可以在运行期给实例挂新属性",
+        "java": "类在编译期就定死形状，字段与方法由声明决定；实例形状不可改"
+      },
+      "note": "语法长得像，但 JS 的类不是「编译期模板」—— 运行期想改就能改，这既是灵活性也是 bug 来源。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "接口",
+      "aliases": [
+        "interface",
+        "contract"
+      ],
+      "perLanguage": {
+        "javascript": "没有语言级概念，靠结构性隐式满足 —— 对象有对应的方法就算数",
+        "java": "显式 implements 的名义式契约，编译期强制检查；可以有 default 方法"
+      },
+      "note": "一边「能跑就算实现」，一边「没写 implements 就不是」—— 这个差别决定了重构时编译器能帮你多少。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "异常",
+      "aliases": [
+        "exception",
+        "error",
+        "throw"
+      ],
+      "perLanguage": {
+        "javascript": "只有一套 Error 体系，没有受检异常；异步错误走 Promise 拒绝通道，可能连 try/catch 都包不住",
+        "java": "受检异常由编译器强制处理（try/catch 或 throws），非受检异常才靠自觉"
+      },
+      "note": "从 Java 过来最明显的感觉是「没人逼我处理了」—— 那层保护要自己补（catch + 兜底日志）。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "空值",
+      "aliases": [
+        "null",
+        "undefined",
+        "none"
+      ],
+      "perLanguage": {
+        "javascript": "两个：undefined（引擎默认）与 null（作者显式写的空），彼此 !==",
+        "java": "一个 null；且基本类型不能为 null，只有包装类型能"
+      },
+      "note": "数量从一变二，判空就得多想一层；反过来 JS 里没有「基本类型/包装类型」那层，也不会有拆箱异常。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "数字",
+      "aliases": [
+        "number",
+        "int",
+        "long",
+        "double"
+      ],
+      "perLanguage": {
+        "javascript": "只有一种 number（双精度浮点），安全整数到 2^53-1；更大的整数要用 BigInt",
+        "java": "int / long / double 各有位宽与精度，整数运算精确且溢出会回绕"
+      },
+      "note": "JS 没有整数类型这件事，在 ID、金额、时间戳上都会咬人 —— 而且它不报错。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "线程",
+      "aliases": [
+        "thread",
+        "concurrency",
+        "event loop"
+      ],
+      "perLanguage": {
+        "javascript": "单线程 + 事件循环；异步靠排队而不是并行，阻塞执行栈就是阻塞一切",
+        "java": "真多线程，共享内存、需要同步；线程池是标配"
+      },
+      "note": "「开个线程去做」这句话在 JS 里没有对应写法 —— 要并行只能交给 Worker，且不共享内存。",
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "term": "函数",
+      "aliases": [
+        "function",
+        "lambda",
+        "method reference",
+        "closure"
+      ],
+      "perLanguage": {
+        "javascript": "函数是一等公民，可以赋值、传参、返回，闭包随手可得",
+        "java": "方法是类的成员；lambda 只能赋给函数式接口，捕获的变量必须事实上不可变"
+      },
+      "note": "两边都能写 lambda，但 JS 的闭包能捕获并修改外部变量 —— 这带来了 Java 里不存在的共享状态 bug。",
+      "baseline": "java",
+      "target": "javascript"
+    }
+  ],
+  "roadmaps": [
+    {
+      "id": "java2javascript-1-anchor",
+      "order": 1,
+      "title": "先接受「没有编译器兜底」",
+      "durationHint": "2-3 小时",
+      "todo": [
+        "通读本工具「语言机制」板块的 Java 视角，把 Maven/npm、线程/事件循环这类映射先建起来",
+        "只回答四个问题：类型系统、并发模型、值语义 vs 引用语义在「语言机制」板块，错误处理在「数据与抽象」板块",
+        "明确写下「哪些 Java 直觉必须丢掉」——类型在编译期定死、受检异常逼你处理、只有一条线程、只有一种数字类型"
+      ],
+      "acceptance": [
+        "能说出 JS 与 Java 在「相等比较」和「空值」上的两条根本差异",
+        "知道 JS 只有一种数字类型，且它装不下 long 的全部范围"
+      ],
+      "resources": [
+        {
+          "label": "MDN JavaScript 指南（中文）",
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide"
+        },
+        {
+          "label": "JavaScript.info（现代教程）",
+          "url": "https://javascript.info/"
+        }
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "java2javascript-2-basics",
+      "order": 2,
+      "title": "基础表达逐条对照",
+      "durationHint": "2-3 天",
+      "todo": [
+        "按本工具「基础表达」板块逐章逐格对比，重点看标为「语义不同」的格子",
+        "每看一格，手写一遍两边的代码（不要复制）——建立肌肉记忆",
+        "把踩到的坑记进本方向的「迁移陷阱」清单，并打上自己的严重度"
+      ],
+      "acceptance": [
+        "能独立写出变量、数组与对象、控制流、函数定义，无语法错误",
+        "能解释 `===` 与 `==` 的区别，并知道为什么判 null 时反而常用 `x == null`",
+        "能说清 `let` 与 `var` 在作用域上的差别"
+      ],
+      "resources": [
+        {
+          "label": "MDN · 相等比较与何时用 ===",
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/Strict_equality"
+        },
+        {
+          "label": "MDN · JavaScript 数据类型与数据结构",
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Data_structures"
+        }
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "java2javascript-3-practice",
+      "order": 3,
+      "title": "动手写（占全部时间的 70%）",
+      "durationHint": "1-2 周",
+      "todo": [
+        "做 Exercism 的 JavaScript track，接受 mentor 评审",
+        "把写过的一个小工具（100-300 行）用 JS 重写一遍，跑在 Node 上",
+        "重写时不要查原文件——凭记忆写，写完再对照",
+        "刻意用一轮 map / filter / reduce 链，体会它与 Stream 的分工差异"
+      ],
+      "acceptance": [
+        "Exercism 完成 15 题以上",
+        "能独立完成一个 100 行以上的命令行工具，不依赖翻译式写法",
+        "能说清什么时候该用链式调用、什么时候该回到 for 循环"
+      ],
+      "resources": [
+        {
+          "label": "Exercism JavaScript Track",
+          "url": "https://exercism.org/tracks/javascript"
+        },
+        {
+          "label": "TheAlgorithms JavaScript",
+          "url": "https://github.com/TheAlgorithms/JavaScript"
+        }
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "java2javascript-4-deep",
+      "order": 4,
+      "title": "补齐语义层（事件循环与异步）",
+      "durationHint": "3-5 天",
+      "todo": [
+        "真正理解事件循环：为什么一段 CPU 密集的代码会卡住所有回调",
+        "理解微任务与宏任务的排队顺序，用一段 console.log 验证自己的理解",
+        "把一段线程池 + Future 的代码改写成 Promise 与 async/await，重点是异常在哪一步浮出来",
+        "理解闭包与作用域：为什么 `var` 在循环里会退化成共享绑定"
+      ],
+      "acceptance": [
+        "能解释 JS 的单线程模型与 Java 的多线程在共享状态上的根本差别",
+        "能说清 Promise.all 与等待一组 Future 在「一个失败会怎样」上的差别",
+        "能写出不会阻塞事件循环的批处理代码"
+      ],
+      "resources": [
+        {
+          "label": "MDN · 事件循环",
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Event_loop"
+        },
+        {
+          "label": "MDN · 使用 Promise",
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide/Using_promises"
+        }
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    },
+    {
+      "id": "java2javascript-5-ecosystem",
+      "order": 5,
+      "title": "工程化与生态收口",
+      "durationHint": "3-5 天",
+      "todo": [
+        "用 npm 建一个真实项目，理解 package.json 与构建坐标的分工差异",
+        "跑一次 npm ci，理解 lockfile 为什么是可复现安装的前提",
+        "配好 ESLint 与 Prettier，理解为什么这里是两个工具而不是一个",
+        "用 vitest 或 node:test 写测试，注意断言风格与 JUnit 的差别",
+        "加上类型标注与编辑期检查，把编译期的那层保护补回来一部分"
+      ],
+      "acceptance": [
+        "能独立搭起一个带依赖管理、lint、格式化、测试的 Node 工程",
+        "能说清 dependencies / devDependencies / peerDependencies 各自解决什么问题",
+        "能解释 node_modules 为什么会那么大，以及 pnpm 之类的工具在解决什么"
+      ],
+      "resources": [
+        {
+          "label": "npm 官方文档",
+          "url": "https://docs.npmjs.com/"
+        },
+        {
+          "label": "Node.js 官方文档",
+          "url": "https://nodejs.org/docs/latest/api/"
+        }
+      ],
+      "baseline": "java",
+      "target": "javascript"
+    }
+  ]
+}

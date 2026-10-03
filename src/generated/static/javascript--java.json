@@ -162,25 +162,6 @@
       "target": "java"
     },
     {
-      "id": "pitfall-js2java-block-scope",
-      "title": "循环变量出了循环就不见了",
-      "symptomHtml": "<p><code>for (int i = 0; i &lt; n; i++) { }</code> 之后想用 <code>i</code>，编译报错「找不到符号」。</p>\n",
-      "causeHtml": "<p>Java 的局部变量是<strong>块级作用域</strong>，循环变量声明在括号里，出了循环就失效。\nJS 的 <code>let</code> 同样是块级 —— 这一点两边一致，所以从 JS 过来不会踩；\n但如果同时接触 Python（它的块不产生作用域），会混淆。</p>\n",
-      "fixHtml": "<p>把「变量可见范围」按 <code>{}</code> 来读。要在循环外使用就在外面先声明，\n循环里只赋值。</p>\n",
-      "severity": 2,
-      "languages": [
-        "javascript",
-        "java"
-      ],
-      "fromBaseline": true,
-      "featureId": "express/scope",
-      "tags": [
-        "作用域"
-      ],
-      "baseline": "javascript",
-      "target": "java"
-    },
-    {
       "id": "pitfall-js2java-finally-return",
       "title": "finally 里写 return，异常被静默吞掉",
       "symptomHtml": "<p>方法本该抛异常，却正常返回了一个值；调用方以为成功了。\n排查时发现异常确实抛出过，只是不见了。</p>\n",
@@ -238,6 +219,25 @@
       ],
       "baseline": "javascript",
       "target": "java"
+    },
+    {
+      "id": "pitfall-js2java-block-scope",
+      "title": "循环变量出了循环就不见了",
+      "symptomHtml": "<p><code>for (int i = 0; i &lt; n; i++) { }</code> 之后想用 <code>i</code>，编译报错「找不到符号」。</p>\n",
+      "causeHtml": "<p>Java 的局部变量是<strong>块级作用域</strong>，循环变量声明在括号里，出了循环就失效。\nJS 的 <code>let</code> 同样是块级 —— 这一点两边一致，所以<strong>从 JS 过来不会踩</strong>。\n把它列在这里是因为「作用域」这一格在本方向上恰好是同构的，\n别把其他语言的作用域直觉一起搬过来。</p>\n",
+      "fixHtml": "<p>把「变量可见范围」按 <code>{}</code> 来读。要在循环外使用就在外面先声明，\n循环里只赋值。</p>\n",
+      "severity": 1,
+      "languages": [
+        "javascript",
+        "java"
+      ],
+      "fromBaseline": true,
+      "featureId": "express/scope",
+      "tags": [
+        "作用域"
+      ],
+      "baseline": "javascript",
+      "target": "java"
     }
   ],
   "glossary": [
@@ -263,7 +263,7 @@
         "type"
       ],
       "perLanguage": {
-        "javascript": "无语言级概念，靠鸭子类型隐式满足（TypeScript 才引入 interface，且只在编译期存在）",
+        "javascript": "无语言级概念，靠鸭子类型隐式满足 —— 对象有对应的方法就算「是」它，没有 implements 可写",
         "java": "显式 implements 的名义式契约，编译期强制检查；可以有 default 方法实现"
       },
       "note": "JS 里\"能跑就是实现了\"，Java 里\"没写 implements 就不是\"。",
@@ -323,7 +323,7 @@
         "type parameter"
       ],
       "perLanguage": {
-        "javascript": "没有 —— 数组与 Map 装什么都可以，类型约束只能靠 TypeScript 在编译期给",
+        "javascript": "没有 —— 数组与 Map 装什么都可以，类型约束在语言层面无处可写",
         "java": "编译期检查、运行期擦除；`List<String>` 与 `List<Integer>` 在运行时是同一个类，且不能装基本类型"
       },
       "note": "JS 的\"什么都能装\"到了 Java 变成\"必须写明装什么\"，代价是多一层装箱。",
@@ -397,13 +397,13 @@
   ],
   "roadmaps": [
     {
-      "id": "js2java-1-anchor",
+      "id": "javascript2java-1-anchor",
       "order": 1,
       "title": "先建立心智模型，不要背语法",
       "durationHint": "2-3 小时",
       "todo": [
-        "通读本工具「心智模型」板块的 JavaScript 视角，把 npm/Maven、事件循环/真并行这类映射建起来",
-        "只回答四个问题（答案在「心智模型」板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
+        "通读本工具「语言机制」板块的 JavaScript 视角，把 npm/Maven、事件循环/真并行这类映射建起来",
+        "只回答四个问题（答案在「语言机制」与「数据与抽象」两个板块里）：类型系统、并发模型、错误处理、值语义 vs 引用语义",
         "明确写下「哪些 JS 直觉必须丢掉」——隐式类型转换、`==` 的宽松语义、对象即字典、单线程所以不用锁"
       ],
       "acceptance": [
@@ -424,15 +424,15 @@
       "target": "java"
     },
     {
-      "id": "js2java-2-basics",
+      "id": "javascript2java-2-basics",
       "order": 2,
-      "title": "基础语法逐条对照",
+      "title": "基础表达逐条对照",
       "durationHint": "3-5 天",
       "todo": [
-        "按本工具「基础语法」板块的 8 个章节逐格对比，每看一格手写一遍两边的代码（不要复制）",
+        "按本工具「基础表达」板块逐章逐格对比，每看一格手写一遍两边的代码（不要复制）",
         "特别留意三处会静默算错的：整数除法、整数溢出、`subList` 的视图语义",
         "练习把一段 JS 的 `Array.map/filter/reduce` 链改写成 Java 的 Stream",
-        "把踩到的坑记进「迁移陷阱」板块并打上自己的严重度"
+        "把踩到的坑记进本方向的「迁移陷阱」清单并打上自己的严重度"
       ],
       "acceptance": [
         "能独立写出变量、集合、控制流、方法定义，无编译错误",
@@ -449,7 +449,7 @@
       "target": "java"
     },
     {
-      "id": "js2java-3-practice",
+      "id": "javascript2java-3-practice",
       "order": 3,
       "title": "动手写（占全部时间的 70%）",
       "durationHint": "1-2 周",
@@ -478,7 +478,7 @@
       "target": "java"
     },
     {
-      "id": "js2java-4-deep",
+      "id": "javascript2java-4-deep",
       "order": 4,
       "title": "补齐语义层（并发与内存）",
       "durationHint": "3-5 天",
@@ -507,7 +507,7 @@
       "target": "java"
     },
     {
-      "id": "js2java-5-ecosystem",
+      "id": "javascript2java-5-ecosystem",
       "order": 5,
       "title": "工程化与生态收口",
       "durationHint": "1 周",

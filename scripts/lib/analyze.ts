@@ -680,10 +680,13 @@ export function analyzeContent(): Analysis {
     const allowed = new Set([pair.baseline, pair.target])
 
     /*
-     * featureId 是**软引用**，且搬过来的这批陷阱全指向 v1 的旧 id
-     * （`basics-javascript/truthiness` 那种），而现在的全局 id 是 `<板块>/<feature>` ——
-     * 悬空是预期的，等 S7 重写对应章节时接上。
-     * 所以这里是 warn 而不是 error，且按目录汇总（一个方向动辄十几条）。
+     * 对级陷阱与对级词典都只允许讲这一个方向的两门语言（ADR-68）。
+     * 多一门第三语言，读者会以为「带着当前基准的习惯」也会在那里踩到同样的坑 ——
+     * 而这条内容根本没在讲那个方向。
+     *
+     * `featureId` 则是**软引用**：断了只是「陷阱 → 特性」那条反查链断掉，陷阱本身照常
+     * 渲染，所以是 warn 而不是 error，且按目录汇总（一个方向动辄十几条）。
+     * 悬空最常见的成因是 feature 改名或被某个基准取舍了 —— 那是可以合法发生的，不是写错。
      */
     let dangling = 0
     for (const p of pair.pitfalls) {
@@ -692,6 +695,12 @@ export function analyzeContent(): Analysis {
       for (const lang of p.languages) {
         if (!allLanguageIds.includes(lang)) {
           err('R5', `${where}/pitfalls.yaml#${p.id}`, `语言 '${lang}' 不存在`)
+        } else if (!allowed.has(lang)) {
+          err(
+            'R5',
+            `${where}/pitfalls.yaml#${p.id}`,
+            `languages 含 '${lang}'，但本目录只讲 ${pair.baseline} → ${pair.target}（陷阱只能讲这两门语言）`,
+          )
         }
       }
     }
@@ -699,14 +708,12 @@ export function analyzeContent(): Analysis {
       warn(
         'R5',
         `${where}/pitfalls.yaml`,
-        `${dangling} 条陷阱的 featureId 指向旧架构的 id —— S7 重写对应章节时重新指向`,
+        `${dangling} 条陷阱的 featureId 在 featureIndex 里查不到 —— 那条「相关特性」反查链会断`,
       )
     }
 
     /*
-     * 对级词典只允许讲这一个方向的两门语言。
-     * 留着一门第三语言，读者会以为「带着当前基准的习惯」也会在那里踩到同样的坑 ——
-     * 而这条术语根本没在讲那个方向。
+     * 词典的 `perLanguage` 是数据键，多一门就是多一列；判据与上面的陷阱同源。
      */
     for (const g of pair.glossary) {
       glossary.push(g)

@@ -28,6 +28,16 @@ const ui = useUiStore()
 watch(
   () => [route.params.baseline, route.params.section] as const,
   ([baseline]) => {
+    /*
+     * 先救回「唯一的勾选恰好是本页基准」那种退化（点「我熟悉 Python」时，
+     * 默认对比语言 Python 被基准吃掉，整页只剩一列），再写路由上下文。
+     *
+     * 路由守卫里也调了同一个函数 —— 那里是为了**按修正后的集合加载分片**；
+     * 这里是为了**渲染它的那个 store 实例**。两处都留：守卫与首屏渲染未必
+     * 跑在同一个 store 上（整页加载时首屏那一路就不经过守卫），少一处就会出现
+     * 「内存里是一门、页面上是另一门」。函数本身幂等，重复调用无副作用。
+     */
+    if (typeof baseline === 'string') languages.ensureCompareFor(baseline)
     languages.setRouteContext(
       typeof baseline === 'string' ? baseline : null,
       sectionOfRoute(route),
@@ -108,10 +118,7 @@ const isActive = (item: { match: string }): boolean =>
         </RouterLink>
       </nav>
 
-      <!--
-        基准语言与对比语言都不在顶栏：它们是同一件事的两个层级，并排放在
-        板块页内那条选择条上（CompareLanguageBar）。
-      -->
+      <!-- 基准语言不在顶栏：它在左侧菜单栏顶部吸顶（SideNav） -->
       <div class="pc-controls">
         <DensityToggle />
         <ThemeToggle />

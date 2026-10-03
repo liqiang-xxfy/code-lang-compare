@@ -1,0 +1,76 @@
+# 速语词典 —— 从 Python 出发最容易误解的术语
+# 只讲这一个方向的两门语言（R5 是 error，写第三门会被拦下）
+#
+# 选词标准：**同名不同义**优先。含义相同的词不必收 —— 读者不会误解的东西，收了只是稀释。
+
+- term: 列表 / 数组
+  aliases: [list, array]
+  perLanguage:
+    javascript: Array（可变、长度可变、元素类型可混）；「定长」这件事语言层面没有
+    python: list（可变）；tuple（不可变，常被当成定长数组用）
+  note: 两边都是动态数组，性能直觉可以直接迁移 —— 差异在「不可变版本」：Python 有 tuple，JS 只能靠约定。
+
+- term: 字典 / 对象
+  aliases: [dict, object, map]
+  perLanguage:
+    javascript: Object 字面量（键只能是字符串或符号，且带原型链）或 Map（任意键、真哈希表）
+    python: dict（任意可哈希键，3.7 起保证插入有序）
+  note: |
+    Python 只有一个 dict，JS 有两个东西。选型看键：**字符串键用对象字面量，其他类型的键用 Map**。
+    另外 JS 对象的键顺序有两套规则（整数样式的键永远排在前面），不要拿它当有序字典用。
+
+- term: 元组
+  aliases: [tuple]
+  perLanguage:
+    javascript: 没有这个类型 —— 只有长度随意的数组，或者只读的类型标注（编译期约束）
+    python: tuple，不可变、可哈希（能当 dict 的键）、可解包
+  note: 缺失的不只是「不可变」：Python 的 tuple 能当键，JS 的数组不能 —— 需要这种用法时要换设计。
+
+- term: 真值
+  aliases: [truthy, falsy]
+  perLanguage:
+    javascript: 假值只有 false / 0 / -0 / 0n / "" / null / undefined / NaN；**空数组与空对象都是真值**
+    python: 由 __bool__ 决定，空容器（[] / {} / "" / set()）一律为假
+  note: 这是本方向上最容易静默出错的一条：从 Python 带过来的 `if items:` 在 JS 里恒为真。
+
+- term: 迭代器 / 生成器
+  aliases: [iterator, generator, yield]
+  perLanguage:
+    javascript: 协议是 Symbol.iterator + next()；生成器函数用 function* 与 yield；异步版本用 for await
+    python: __iter__ / __next__；生成器函数用 yield，且是一次性消耗品
+  note: 机制几乎一一对应，但 JS 多一个坑：`for...in` 遍历的是键而不是值，与 Python 的 for 直觉相反。
+
+- term: 装饰器
+  aliases: [decorator]
+  perLanguage:
+    javascript: 提案语法 @decorator，写在类与方法上，生态里用得还不普遍
+    python: 成熟的语法特性 @decorator，可作用于任意函数与类，本质是高阶函数
+  note: 写法一样、地位差很远。Python 里装饰器是日常工具，JS 里它更接近「框架内部会用到的东西」。
+
+- term: 模块 / 包
+  aliases: [module, package, import]
+  perLanguage:
+    javascript: 一个文件即一个模块（ESM），用 import / export；package 指从 npm 装来的那个东西
+    python: 一个 .py 文件是 module，含 __init__.py 的目录是 package，用 import / from ... import
+  note: Python 的 import 路径是「包层级」，JS 的 import 说明符是「相对路径或包名」—— 同一句话在两边指的层次不同。
+
+- term: 切片
+  aliases: [slice, slicing]
+  perLanguage:
+    javascript: 只有 slice(start, end) 方法，末端是开区间；字符串与数组各有一份
+    python: 切片语法 a[1:3]、a[::2]、负下标，是语言级的索引协议
+  note: JS 的 slice 只覆盖了 Python 切片的一小部分 —— 步长、负下标、逆序在 JS 里都要手写循环或链式调用。
+
+- term: self / this
+  aliases: [self, this]
+  perLanguage:
+    javascript: 由**调用点**决定绑定到谁，四种绑定规则；箭头函数没有自己的 this
+    python: 方法的第一个参数，由语言自动传入，作用域规则与普通变量相同
+  note: 名字像、语义完全不同：self 是「传进来的」，this 是「调用时定下来的」—— 这一条决定了回调里该不该用箭头函数。
+
+- term: None / null / undefined
+  aliases: [none, 'null', undefined]
+  perLanguage:
+    javascript: 两个空值：undefined（引擎默认）与 null（作者显式写的空），彼此 !==
+    python: 只有一个 None，且它是单例（判等一律用 is None）
+  note: 从「一个空值」到「两个空值」是本方向最常见的漏判来源。约定一个、别混用。

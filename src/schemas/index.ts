@@ -89,9 +89,9 @@ export const sectionDefSchema = z
   .object({
     /** 左栏排序 —— 板块顺序是策展决策，不是字母序 */
     order: z.number().int().nonnegative(),
-    /** 侧栏与导航用的短名（如「基础语法」） */
+    /** 侧栏与导航用的短名（如「基础表达」） */
     label: z.string().min(1),
-    /** 页面 H1 用的长名（如「基础语法对比」） */
+    /** 页面 H1 用的长名（如「基础表达对比」） */
     title: z.string().min(1),
     shape: z.enum(['chapter', 'list']),
     scope: z.enum(['baseline', 'pair']),
@@ -264,8 +264,8 @@ export const roadmapStageSchema = z.object({
 /* ──────────────── 列表资源 × (基准, 目标) 对 ──────────────── */
 
 /**
- * 陷阱 / 词典 / 路线三类列表资源现在是**对级**的：它们挂在
- * `content/topics/<baseline><target 短码>/` 目录里，归属由目录名决定。
+ * 陷阱 / 词典 / 路线三类列表资源是**对级**的：它们挂在
+ * `content/pairs/<基准>2<目标>/` 目录里，归属由目录名决定。
  *
  * 为什么 pair 由 loader 注入而不写进每条 YAML：
  * 12 个对里同一条陷阱可能要出现多次（若它跨多个方向成立），
@@ -279,6 +279,21 @@ export const pairContextSchema = z.object({
 export const scopedPitfallSchema = pitfallSchema.extend(pairContextSchema.shape)
 export const scopedGlossarySchema = glossaryTermSchema.extend(pairContextSchema.shape)
 export const scopedRoadmapStageSchema = roadmapStageSchema.extend(pairContextSchema.shape)
+
+/**
+ * 一个方向的 `meta.yaml` —— 速查三兄弟的来源与校对留痕。
+ *
+ * 三个内容文件（`pitfalls` / `glossary` / `roadmap`）的顶层**是数组**，没有文件级
+ * 的容身之处；把顶层改成 `{ review, items }` 会打破沿用至今的旧契约。所以留痕放在
+ * **每个方向一份**的 `meta.yaml` 里，与 `languages/<语言>/meta.yaml` 同构。
+ *
+ * **这一层刻意不接入校验规则**（ADR-66）：它只让字段被解析 —— 三个 pairs schema
+ * 都不是 `.strict()`，不写进 schema 的字段会被**静默丢弃**，那才是真正会骗人的形态。
+ * 它不代表 R3 / R6 / R17 开始管辖速查内容。
+ */
+export const pairMetaSchema = z.object({
+  review: reviewRecordSchema,
+})
 
 /* ────────────────────────── 注册表 ────────────────────────── */
 
@@ -366,6 +381,7 @@ export type PairContext = z.infer<typeof pairContextSchema>
 export type ScopedPitfall = z.infer<typeof scopedPitfallSchema>
 export type ScopedGlossary = z.infer<typeof scopedGlossarySchema>
 export type ScopedRoadmapStage = z.infer<typeof scopedRoadmapStageSchema>
+export type PairMeta = z.infer<typeof pairMetaSchema>
 export type Registry = z.infer<typeof registrySchema>
 
 /* ────────────────────────── 构建产物形态（非 YAML 契约） ────────────────────────── */
