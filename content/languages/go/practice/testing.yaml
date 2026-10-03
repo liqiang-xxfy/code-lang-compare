@@ -1,0 +1,244 @@
+# go —— practice / testing
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: testing` 的那批。
+#
+# Go 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Go 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-testing-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  test-framework:
+    code: |
+      // @note 测试文件必须以 _test.go 结尾，放在**同一个包**里
+      package calc
+
+      import "testing"
+
+      func TestAdd(t *testing.T) {          // @note 函数名必须 Test 开头
+        if got := Add(1, 2); got != 3 {
+          t.Errorf("Add(1,2) = %d, 期望 3", got)
+        }
+      }
+
+      // 运行：
+      //   go test ./...              跑全部
+      //   go test -run TestAdd       只跑匹配的
+      //   go test -v                 打印每个用例
+      // @note! 测试框架是标准库的一部分，不需要任何依赖
+    vs:
+      javascript: |
+        JavaScript 的测试框架要挑要装（Jest / Vitest / Mocha）；
+        Go 的 `testing` 包与 `go test` 是**标准库的一部分** ——
+        新建项目就能写测试，零依赖。另一处差别是文件组织：
+        Go 的测试文件与被测代码在**同一个包**里（`_test.go` 后缀），
+        可以测未导出的函数；JavaScript 通常放独立目录、只能测导出的东西。
+        Go 还有个「外部测试包」的写法（`package calc_test`），
+        用来只测公开 API —— 与内部测试包并存。
+      python: |
+        Python 要选 pytest / unittest，还要遵守发现规则与目录习惯；
+        Go 的框架内建，规则唯一：文件名 `_test.go`、函数名 `Test` 开头、
+        参数 `*testing.T`。位置上也不同 —— Go 的测试与被测代码同包，
+        能直接调用未导出函数；Python 惯例是独立的 `test_*.py`，
+        测私有函数要靠改名或反射。
+        两边都支持子测试与并行（`t.Run` / `t.Parallel` 对 pytest 的 fixture）。
+      java: |
+        Java 要选 JUnit 并让构建工具接上插件；Go 的测试框架内建，
+        `go test` 就是全部。组织上差别明显：Java 是
+        `src/test/java` 下同包名（能测包私有成员），
+        Go 是同目录同包（能测所有未导出项，不只是包私有）。
+        断言风格也不同：JUnit 用 `assertEquals`，Go 干脆手写 `if`（见下一格）。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  assertions:
+    code: |
+      // @note Go **没有断言库** —— 手写 if 加 t.Errorf 就是标准做法
+      if got := Add(1, 2); got != 3 {
+        t.Errorf("Add(1,2) = %d, 期望 3", got)   // @note 记失败但继续跑
+      }
+
+      // @note t.Fatalf 会立刻终止当前测试函数（后续检查不再执行）
+      if cfg == nil {
+        t.Fatalf("配置为空")
+      }
+
+      // 惯用的辅助函数：把重复的 if 收起来
+      func assertEqual[T comparable](t *testing.T, got, want T) {
+        t.Helper()                                // @note 报错行号指向调用处
+        if got != want {
+          t.Errorf("得到 %v，期望 %v", got, want)
+        }
+      }
+    vs:
+      javascript: |
+        JavaScript 的断言来自测试库（`expect(a).toBe(b)`），
+        可读性好、失败信息丰富；Go **刻意不提供断言库** ——
+        标准做法就是手写 `if got != want { t.Errorf(...) }`，
+        社区认为这样一眼能看出「到底在比什么」，也不引入额外语法。
+        代价是啰嗦（每个检查三行）。另外 `t.Errorf` 与 `t.Fatalf` 的区分
+        在 JavaScript 里对应「记失败」与「立刻抛」两种行为。
+      python: |
+        Python 有 `assert`（但 `-O` 模式下会被去掉），pytest 会重写它
+        给出详细对比；Go 没有断言语法，手写 `if` + `t.Errorf`，
+        而且**不会**自动打印两个值 —— 得自己在消息里写清楚。
+        这种「什么都不替你做」的取向与 Python 的「让断言读起来像句子」
+        正好相反。Go 的 `t.Helper()` 是 Python 里没有的小工具：
+        让辅助函数的报错指向调用点而不是辅助函数本身。
+      java: |
+        Java 的 JUnit 提供 `assertEquals(expected, actual)`，
+        失败信息自动带上两个值；Go 要手写比较与消息，
+        但因此**没有「参数顺序写反」这个经典陷阱** ——
+        JUnit 里把实际值写在前面会导致报错信息完全误导。
+        Go 的 `t.Errorf` 对应「记录失败继续跑」（像 JUnit 的软断言），
+        `t.Fatalf` 对应「立刻终止」，区分比 JUnit 更明确。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  mocking:
+    code: |
+      // @note Go 的 mock 靠**接口 + 手写假实现** —— 语言不提供任何机制
+      type Store interface {
+        Get(id string) (string, error)
+      }
+
+      type fakeStore struct { data map[string]string }
+      func (f fakeStore) Get(id string) (string, error) {
+        v, ok := f.data[id]
+        if !ok { return "", errors.New("not found") }
+        return v, nil
+      }
+
+      func TestLoad(t *testing.T) {
+        svc := NewService(fakeStore{data: map[string]string{"a": "1"}})
+        // …
+      }
+
+      // 也可以用 mockery / gomock 从接口**生成** mock（编译期生成代码）
+    vs:
+      javascript: |
+        JavaScript 可以 `jest.mock('./module')` 在运行时替换整个模块、
+        用 `jest.fn()` 造任意假函数 —— 灵活、几乎零成本。
+        Go **没有运行时打桩能力**，替代方案是靠**接口**：
+        被测代码依赖接口，测试时传一个手写的假实现，
+        或者用 mockery / gomock 从接口生成 mock 代码。
+        这条路要求代码从一开始就为可替换性设计，
+        换来的是「这段代码依赖什么」在类型上完全显式。
+      python: |
+        Python 的 `unittest.mock` 能在运行时给任何属性打补丁
+        （`patch('module.func')`）；Go 做不到 —— 没有动态属性查找。
+        Go 的做法是接口 + 手写 fake，或从接口生成 mock。
+        实际影响：Python 里可以给「没设计过的代码」补测试，
+        Go 里如果一段代码直接调具体类型，就只能先重构出接口。
+        这也让 Go 的依赖注入写得更普遍（构造函数收接口）。
+      java: |
+        Java 有 Mockito（动态代理/字节码增强），能在运行时
+        `when(store.get("a")).thenReturn("1")`；Go **没有等价物** ——
+        打桩只能在编译期完成（手写 fake 或用工具生成实现）。
+        实践上 Go 更依赖接口注入：`func NewService(s Store)`，
+        测试时传假实现 —— 比 Mockito 啰嗦，但没有
+        「mock 写得太随意、测试与实现耦合」这类问题。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  parameterized-tests:
+    code: |
+      // @note **表驱动测试**是 Go 的招牌写法 —— 用切片存用例，循环跑
+      func TestParse(t *testing.T) {
+        cases := []struct {
+          name  string
+          input string
+          want  int
+        }{
+          {"正整数", "42", 42},
+          {"负数", "-7", -7},
+          {"空串", "", 0},
+        }
+
+        for _, c := range cases {
+          t.Run(c.name, func(t *testing.T) {   // @note! 每个用例成为独立子测试
+            if got := Parse(c.input); got != c.want {
+              t.Errorf("Parse(%q) = %d, 期望 %d", c.input, got, c.want)
+            }
+          })
+        }
+      }
+      // 好处：加用例只加一行；失败信息带用例名；可 go test -run 'TestParse/负数' 单跑
+    vs:
+      javascript: |
+        JavaScript 框架普遍有 `it.each([...])`，Go 没有专门的语法 ——
+        但 Go 的**表驱动测试**是同一件事的另一种写法：
+        用例存进结构体切片、循环里用 `t.Run` 起子测试。
+        实际效果接近（每个用例独立报告、能单跑、失败带名字），
+        差别是 Go 的写法更啰嗦但更灵活 ——
+        用例结构体可以带任意字段（依赖、期望错误等），
+        而 `it.each` 的表格是扁平的。
+      python: |
+        pytest 用 `@pytest.mark.parametrize` 装饰器声明参数组合，
+        框架负责展开；Go 用**表驱动**：用例是普通数据结构、
+        循环是普通循环，`t.Run` 起子测试。
+        两者都能单跑某个用例、都带用例名，但 Go 的写法把
+        「测试是一个数据表」这件事写得更显式，
+        代价是要多写十几行骨架，而且新增字段要改结构体定义。
+      java: |
+        JUnit 5 用 `@ParameterizedTest` + `@MethodSource`，
+        用例来源可以是一个方法；Go 的表驱动用例写在函数内部，
+        更紧凑也更容易看懂。
+        两者都能给用例命名（JUnit 的 `name = "…"` 对 Go 的结构体字段），
+        都能单跑。差别在数据来源的表达力：JUnit 的方法可以动态生成用例，
+        Go 的表通常是字面量（也能是函数调用，但不如注解声明式）。
+    equivalence:
+      javascript: analogous
+      python: analogous
+      java: analogous
+
+  coverage:
+    code: |
+      // @note 覆盖率**内建**在 go test 里，不需要装任何东西
+      go test -cover ./...
+
+      // @note 生成覆盖率文件，再用浏览器看逐行标注
+      go test -coverprofile=cover.out ./...
+      go tool cover -html=cover.out
+
+      // @note 按函数统计
+      go tool cover -func=cover.out
+
+      // @note! 可以给「覆盖率低于阈值就失败」加门槛
+      //   go test -cover -coverprofile=cover.out ./... && go tool cover -func=cover.out | tail -1
+    vs:
+      javascript: |
+        JavaScript 要配覆盖率工具（Jest 的 `--coverage` 内置但绑定框架，
+        其他要靠 c8 / nyc），还要设阈值与报告格式。
+        Go 的 `go test -cover` 是 **`go test` 的一个开关**，
+        而且 `go tool cover -html` 能直接生成逐行标注的页面 ——
+        从测量到可视化全在标准工具链里，不用装任何东西。
+      python: |
+        Python 要装 `coverage.py` 或 pytest-cov，配置报告格式与排除规则；
+        Go 的覆盖率是 `go test` 的一个开关，`go tool cover -html`
+        直接出 HTML 报告。这是 Go 工具链「一体化」的又一个例子。
+        统计口径上两边都能给出行与函数级覆盖，
+        Go 还能区分「语句覆盖」与「块覆盖」的粒度差异（`-covermode`）。
+      java: |
+        Java 要用 JaCoCo 这类插件，接进 Maven/Gradle 才有报告，
+        还要配输出目录与阈值检查；Go 的 `go test -cover`
+        加上 `go tool cover` 就完成了测量与可视化。
+        差异的根源是工具链哲学：Java 的构建工具是平台、
+        能力靠插件拼；Go 把常用能力直接做进 go 命令。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent

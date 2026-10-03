@@ -1,0 +1,226 @@
+# rust —— practice / testing
+#
+# 文件名是**存放组**（group），不是展示章。boxes 的 key 必须是
+# catalog/practice/features.yaml 里 `group: testing` 的那批。
+#
+# Rust 不是基准候选，**没有 baseline 字段**，三份 vs 必须写全（R22）；
+# vs.<基准> 里只能出现 Rust 与那个基准两门语言（R25）。
+
+review:
+  state: draft
+  provenance:
+    origin: llm
+    model: deepseek-v4.1-flash
+    promptTemplateId: practice-testing-v1
+    generatedAt: '2026-10-03'
+
+boxes:
+  test-framework:
+    code: |
+      // @note 单元测试写在同一个文件里，用 #[cfg(test)] 圈起来 —— 不进发布构建
+      #[cfg(test)]
+      mod tests {
+        use super::*;
+
+        #[test]
+        fn adds_two_numbers() {
+          assert_eq!(add(1, 2), 3);
+        }
+      }
+
+      // @note 集成测试放 tests/ 目录，每个文件是一个独立 crate，只能用公开 API
+      //   tests/integration.rs
+
+      // 运行：
+      //   cargo test              跑全部
+      //   cargo test adds         只跑名字含 adds 的
+      //   cargo test -- --nocapture   显示 println! 输出
+    vs:
+      javascript: |
+        JavaScript 的测试框架是**要挑的**（Jest / Vitest / Mocha + Chai …），
+        还得配测试运行器与配置。Rust 的 `#[test]` 与 `cargo test`
+        是语言与工具链自带的 —— 新建一个 crate 就能写测试，
+        零依赖零配置。另一个结构上的差别是位置：
+        Rust 的单元测试**和被测代码在同一个文件里**（`#[cfg(test)] mod tests`），
+        可以测私有函数；JavaScript 通常测试写在独立的 `__tests__` 目录，
+        只能通过导出的接口测。
+      python: |
+        Python 要选 pytest / unittest，还要配 `conftest.py`、
+        测试发现规则。Rust 的 `cargo test` 开箱即用，
+        测试发现规则唯一（`#[test]` 标注的函数）。
+        单元测试的位置也不同：Rust 惯例是**同文件内**的
+        `#[cfg(test)] mod tests`（能测私有项、阅读时挨着实现），
+        Python 惯例是独立的 `test_*.py`。
+        另一个 Rust 特有的区分是单元测试与 `tests/` 目录下的集成测试 ——
+        后者只能访问公开 API，像外部使用者一样测。
+      java: |
+        Java 要选 JUnit / TestNG，还要构建工具插件配合；
+        Rust 的测试框架内建，`cargo test` 直接可用。
+        命名与组织上两边都有惯例：Java 是 `src/test/java` 下同包名，
+        Rust 是同文件内 `#[cfg(test)] mod tests`（单测）+
+        `tests/` 目录（集成测试）。Rust 的这个二分更明确地对应
+        「测内部实现」与「测公开契约」两种意图。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  assertions:
+    code: |
+      // @note 断言是**宏**，不是函数 —— 失败时会打印左右两边的值
+      assert!(x > 0);
+
+      assert_eq!(add(1, 2), 3);          // @note 相等，失败时打印两个值
+      assert_ne!(a, b);
+      assert_eq!(add(1, 2), 3, "加法错了");   // @note 可以带自定义消息
+
+      // @note 期望 panic 的测试
+      #[test]
+      #[should_panic(expected = "除数为零")]
+      fn divides_by_zero() {
+        divide(1, 0);
+      }
+
+      // @note 用 Result 返回错误也是合法测试（配 ? 更顺）
+      #[test]
+      fn parses() -> Result<(), std::num::ParseIntError> {
+        let n: i32 = "42".parse()?;
+        assert_eq!(n, 42);
+        Ok(())
+      }
+    vs:
+      javascript: |
+        JavaScript 的断言来自测试库（Jest 的 `expect(...).toBe(...)`、
+        Chai 的 `expect().to.equal()`），换框架就要换一套写法。
+        Rust 的 `assert!` / `assert_eq!` 是**标准库宏**，
+        在任何项目里都一样，不需要引入依赖。
+        另一处差别是「期望 panic」：Rust 有 `#[should_panic]` 属性，
+        把「这里就该崩」写成一等测试；JavaScript 里要 `expect(fn).toThrow()`，
+        形态相近但来自库。
+      python: |
+        Python 的 `assert` 语句在优化模式（`-O`）下会被整个去掉，
+        所以测试里通常用 pytest 的 `assert` 重写或 `unittest` 的
+        `self.assertEqual`。Rust 的 `assert_eq!` 是宏、
+        任何构建模式下都在，而且失败信息自带左右值。
+        期望 panic 上 Rust 有 `#[should_panic(expected = "…")]`，
+        pytest 用 `pytest.raises(...)`，两边都能断言消息内容。
+      java: |
+        Java 的断言来自 JUnit（`assertEquals(expected, actual)`），
+        注意**期望值在前**、实际值在后，写反了报错信息会误导；
+        Rust 的 `assert_eq!(left, right)` 两边对称，
+        失败时打印两个值，没有「哪个在前」的坑。
+        期望异常上 JUnit 用 `assertThrows`，
+        Rust 用 `#[should_panic]` 属性 —— 一个在测试体内、一个在函数上。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: analogous
+
+  mocking:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有内建的 mock 机制** —— 没有 `jest.mock` 那样的
+        模块级替换，也没有运行时的打桩能力（没有反射、没有动态代理）。
+        做法是**围绕 trait 设计**：把外部依赖抽成 trait，
+        测试时传一个手写的假实现；或者用 `mockall` 这类宏
+        在编译期生成 mock 类型。
+        这与 JavaScript 的「随手 jest.mock 一下」差别很大 ——
+        Rust 要求被测代码从一开始就为可替换性留出接口。
+      python: |
+        Rust **没有内建 mock**（没有 `unittest.mock` 那样
+        运行时打补丁的能力 —— 它依赖动态属性查找，Rust 没有）。
+        替代路线是 trait + 手写假实现，或用 `mockall` 宏生成。
+        这带来一个显著的正面后果：能被测的代码必须显式依赖抽象，
+        所以 Rust 代码天然更容易替换依赖；
+        Python 里 `patch` 可以给任何东西打桩，灵活但也让
+        「这段代码到底依赖了什么」变得不透明。
+      java: |
+        Java 有 Mockito 这类成熟框架（靠动态代理或字节码增强），
+        Rust **没有等价物** —— 没有运行时反射与动态代理，
+        打桩只能在**编译期**做（`mockall` 宏生成实现）。
+        实践上 Rust 更依赖「依赖注入 + trait 对象」这套设计：
+        构造函数收 `Box<dyn Repository>`，测试时传假实现。
+        这比 Mockito 的 `when(...).thenReturn(...)` 啰嗦，
+        但依赖关系在类型上完全显式。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  parameterized-tests:
+    code: |
+      // @note 标准库**没有**参数化测试语法 —— 手写循环是最常见的做法
+      #[test]
+      fn parses_all_cases() {
+        let cases = [
+          ("1", 1),
+          ("42", 42),
+          ("-7", -7),
+        ];
+        for (input, expected) in cases {
+          assert_eq!(input.parse::<i32>().unwrap(), expected, "输入 {}", input);
+        }
+      }
+
+      // 社区用 rstest 这类库补上：
+      //   #[rstest]
+      //   #[case("1", 1)]
+      //   #[case("42", 42)]
+      //   fn parses(#[case] input: &str, #[case] expected: i32) { … }
+    vs:
+      javascript: |
+        JavaScript 的测试框架普遍内建参数化写法
+        （`it.each([[1,1],[2,4]])('…', (a, b) => …)`）。
+        Rust 的标准测试框架**没有**这个语法 —— 只能手写循环遍历用例数组，
+        或者引入 `rstest` 这样的库。
+        手写循环的代价是：所有用例算**一个测试**，
+        第一个失败后面的就不跑了，也看不出「一共过了几个」；
+        用库可以每个 case 单独报告，但要加依赖。
+      python: |
+        pytest 的 `@pytest.mark.parametrize` 是标准做法，
+        每个参数组合算一个独立用例、报告清晰。
+        Rust 的标准框架没有对应能力 —— 手写循环时所有用例
+        挤在一个测试里，失败就中断；想要独立报告得用 `rstest`。
+        从 Python 过来会觉得这是明显的退步，
+        不过 Rust 里通常靠「一个测试函数覆盖一组边界值」的写法弥补。
+      java: |
+        JUnit 5 有 `@ParameterizedTest` + `@ValueSource` / `@MethodSource`，
+        每个参数组合是独立用例；Rust 的标准框架没有这个能力，
+        手写循环就是「一个测试跑完所有用例」。
+        共同点是两边都支持给用例命名/带说明，
+        但 Rust 的说明只能写进断言消息里，不会成为用例名 ——
+        失败时看到的还是同一个测试函数名。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
+
+  coverage:
+    absent: true
+    vs:
+      javascript: |
+        Rust **没有内建的覆盖率工具** —— `cargo test` 不报覆盖率，
+        要装 `cargo-llvm-cov`（基于 LLVM 的插桩）或 `cargo-tarpaulin`。
+        这与 JavaScript 生态（Jest 自带 `--coverage`、
+        c8 / nyc 随手可用）差别明显。
+        原因一半是工具链分工：Rust 倾向于把这类能力留给社区工具，
+        标准工具链只保底（build / test / fmt / clippy 四件）。
+      python: |
+        Python 用 `coverage.py` 或 pytest-cov，需要单独装；
+        Rust 也没有内建覆盖率，要装 `cargo-llvm-cov` 这类工具。
+        两边都是「额外装一个工具」，但 Rust 的实现基于 LLVM 插桩、
+        数字通常更准（尤其对泛型实例化与内联后的代码），
+        而且能报告**分支**覆盖；Python 的覆盖率受解释器执行路径影响，
+        对 `if` 的短路分支统计没那么细。
+      java: |
+        Java 有 JaCoCo / Cobertura，通常作为构建插件接入；
+        Rust 没有内建覆盖率，靠 `cargo-llvm-cov` 这类社区工具。
+        两边的覆盖率统计口径接近（行/分支），
+        但 Rust 的泛型单态化会让同一份源码出现多个实例 ——
+        覆盖率报告里可能看到同一个函数被算多次，
+        这是 Java 的擦除式泛型不会有的现象。
+    equivalence:
+      javascript: divergent
+      python: divergent
+      java: divergent
