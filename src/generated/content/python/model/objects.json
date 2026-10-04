@@ -15,7 +15,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>类是<strong>运行时的对象</strong>：可以反射、可以动态创建（<code>type(...)</code>）、可以作为值传递。\n类属性与实例属性共用一条查找链（先实例、后类），所以「这个属性从哪来」\n要看是谁设的。<code>self</code> 必须显式写在每个方法的第一个参数里 ——\n这不是啰嗦，而是「方法就是普通函数」这个设计的直接后果。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>class</code> 是语法糖，运行时没有类这个实体；Python 的类是\n真对象。两边的属性查找都是「沿一条链往上找」，但这里多了类属性这一层\n显式概念，而 JavaScript 要理解成原型链。</p>\n",
@@ -34,7 +33,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>__init__</code> <strong>不是构造函数</strong> —— 调用 <code>User(...)</code> 时对象已经由 <code>__new__</code> 造好了，\n<code>__init__</code> 只是往里填东西（所以它不该有返回值）。想做多种构造方式就写\n<strong>类方法</strong>（<code>@classmethod</code> 的 <code>from_xxx</code>），这是标准库里的通行惯例\n（<code>datetime.fromtimestamp</code>、<code>dict.fromkeys</code>）。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>constructor</code> 也是唯一入口、多种构造靠静态工厂；\n两边思路一样。差别是 Python 把「造对象」与「初始化」拆成了\n<code>__new__</code> / <code>__init__</code> 两步，JavaScript 合成了一步。</p>\n",
@@ -53,7 +51,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>类属性与实例属性分开：类属性共享一份，实例属性各是各的（在 <code>__init__</code> 里\n赋 <code>self.x</code> 就创建了，<strong>不需要预先声明</strong>）。<code>@property</code> 把方法伪装成属性，\n访问时不带括号、背后可能跑代码。<code>__slots__</code> 能限制实例属性名并省内存 ——\n这是「属性不必声明」的一个代价的补偿。</p>\n",
       "vsHtml": {
         "javascript": "<p>两边都能定义「像属性的方法」，写法不同（<code>get</code> / <code>set</code> vs <code>@property</code>）。\n差别在属性从哪来：JavaScript 的实例字段要在类体里声明或在构造函数里赋，\n这里随便 <code>self.x = ...</code> 就创建了 —— 灵活但打错字也不会报错。</p>\n",
@@ -78,7 +75,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>self</code> 是显式参数，绑定发生在<strong>取属性的那一刻</strong> —— <code>f = c.bump</code> 之后\n<code>f()</code> 一切正常，不存在「丢了接收者」这回事。类方法用 <code>@classmethod</code>\n收 <code>cls</code>，静态方法用 <code>@staticmethod</code> 谁都不收。区分这三种是 Python 里\n很容易忽略的一处：装饰器决定了第一个参数到底是什么。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>this</code> 由<strong>调用方式</strong>决定，方法取出来单独调用就丢了；\nPython 在取属性时就绑定好，所以「把方法当回调传出去」在这边完全安全。\n这是两边读代码时最需要换脑子的一处。</p>\n",
@@ -103,7 +99,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>支持多继承</strong>，冲突由 MRO（方法解析顺序）裁决 —— 它是确定的、可查询的\n（<code>C.__mro__</code>），不是「先写谁就赢」这种模糊规则。实际用法里很少真的多继承，\n最常见的是 <strong>mixin</strong>：一个只提供一小块行为的类，混进来补某种能力。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只能单继承，多份行为复用要靠混入原型或组合；Python 有多继承\n加 MRO 这套正式机制。两边的继承本质也不同：那边是原型链，\n这里是类与类的父子关系。</p>\n",
@@ -138,7 +133,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>全是约定</strong>：单下划线表示内部、双下划线触发名称改写（<code>__x</code> 变成\n<code>_类名__x</code>），但两者<strong>都能访问</strong>。双下划线的目的不是保密，\n而是让子类里同名的 <code>__x</code> 不会意外覆盖父类的那个 —— 它是为继承设计的，\n不是为封装设计的。真要保密只能靠闭包或设计上的隔离。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>#</code> 是引擎级的真私有（类外访问是语法错误、反射也拿不到），\nPython 两个下划线加起来也只是改名。所以「这个字段是不是真碰不到」\n在两边的答案完全不同。</p>\n",

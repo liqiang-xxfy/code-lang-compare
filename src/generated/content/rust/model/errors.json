@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>throw</code> 抛出异常 —— 它是一次<strong>控制流跳转</strong>，\n调用栈上任何一层没 catch 就会一路炸到顶层。Rust 分成两种：\n可恢复的失败用返回 <code>Result</code>（调用方必须处理），\n不可恢复的用 <code>panic!</code>（直接终止）。所以 Rust 里\n「这个函数会不会失败」写在签名上，而 JavaScript 里看不出来。</p>\n",
         "python": "<p>Python 的 <code>raise</code> 是控制流跳转，异常会沿调用栈上抛；\nRust 把「可能失败」编码进返回类型 <code>Result&lt;T, E&gt;</code>，\n失败是一个普通的返回值，不打断执行流。Python 里\n<code>raise</code> 与 <code>assert</code> 都能中断程序，Rust 的对应物是\n<code>Err</code>（可处理）与 <code>panic!</code>（不可恢复），分得很清楚。</p>\n",
@@ -58,7 +57,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust <strong>没有 try / catch</strong>。处理失败靠三样东西：<code>match</code>（两个分支都写）、\n<code>if let Err(e)</code>（只关心失败）、以及 <code>?</code>（失败就往上抛）。\n<code>unwrap()</code> 看着最省事，但它失败时是 panic 而不是抛异常 ——\nJavaScript 的 <code>throw</code> 还能被上层 catch 住，Rust 的 panic\n默认没有人接得住（除非专门设 hook），所以 <code>unwrap()</code> 只该用在\n「我确信它不会失败」的地方。</p>\n",
         "python": "<p>Rust <strong>没有 try / except</strong>，对应物是按值处理：<code>match</code> 相当于\n<code>try/except</code> 的两个分支，<code>?</code> 相当于「不处理，往上抛」。\n差别在于<strong>显式程度</strong>：Python 里忘了 try 的代码照样跑，\n出错时才抛；Rust 的 <code>Result</code> 不解开就用不了里面的值，\n编译器逼你在每个调用点做决定。</p>\n",
@@ -84,7 +82,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>try { … } finally { … }</code> 保证清理，\n或者用 <code>using</code>（新语法）。Rust <strong>不需要写清理代码</strong> ——\n值的生命周期由作用域决定，离开 <code>{}</code> 时编译器自动插入析构调用。\n所以 Rust 代码里看不到 finally，也看不到手动 close；\n即便中途 panic，栈展开时同样会跑析构。</p>\n",
         "python": "<p>Python 用 <code>try / finally</code> 或 <code>with</code> 语句管理资源；\nRust 用作用域加 <code>Drop</code> trait —— 后者更彻底：<strong>任何</strong>类型都能定义\n析构行为，且由编译器保证调用，不依赖作者记得写 <code>with</code>。\n离开块时自动清理、panic 时也会清理，Python 的 <code>with</code>\n在这一点上已经接近，但仍需要显式进入上下文。</p>\n",
@@ -104,7 +101,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>Error</code> 基类加子类表达错误类型，靠 <code>instanceof</code> 分派 ——\n但任何值都能被 throw（字符串、数字都行）。Rust 的错误<strong>必须实现\n<code>std::error::Error</code></strong>，且类型在函数签名里写出来，不能乱丢。\n分派上 Rust 用 <code>match</code> 配枚举，编译器会检查你有没有处理完所有变体；\nJavaScript 的 <code>instanceof</code> 链漏一个分支只会静默走空。</p>\n",
         "python": "<p>Python 用异常类层级表达错误类型，靠 <code>except 类名</code> 捕获；\nRust 用实现了 <code>Error</code> 的枚举，靠 <code>match</code> 分派。\n关键差别是<strong>穷尽性</strong>：Rust 的 <code>match</code> 漏掉一个错误变体编译不过，\nPython 的 <code>except</code> 链漏掉一种就让它继续上抛（有时正是想要的，\n但没有编译器提醒你）。Python 的异常对象带 traceback，\nRust 的错误默认只有值，要堆栈得额外引入库。</p>\n",
@@ -124,7 +120,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 自定义错误要 <code>class MyError extends Error</code>，\n还得手动修 <code>name</code> 与原型链（历史上 <code>instanceof</code> 会失灵）。\nRust 要实现 <code>Display</code> 与 <code>Error</code> 两个 trait，样板更多，\n但每个错误类型都必须能打印成人话 —— 编译器不允许你写一个\n「没有说明」的错误。不想手写样板可以用 <code>thiserror</code> 宏。</p>\n",
         "python": "<p>Python 定义异常类就是 <code>class MyError(Exception): pass</code>，非常轻；\nRust 要为一个错误类型写 <code>Display</code> 与 <code>Error</code> 的实现，\n明显更啰嗦，好处是错误信息<strong>强制可读</strong>（<code>Display</code> 是必需的），\n不会出现「抛了一个打印出来是 <code>&lt;object at 0x…&gt;</code> 的异常」。\nPython 的异常可以随便带属性，Rust 的错误类型是结构体，字段是类型化的。</p>\n",
@@ -144,7 +139,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的异常自动沿调用栈上抛，中间层什么都不用写；\nRust 每一层都要在签名上声明 <code>Result</code>，并用 <code>?</code> 显式往上递 ——\n多写的东西换来的是「这个函数会失败、失败是什么类型」写在类型里。\n中间层想加点上下文，JavaScript 可以 catch 后重新 throw，\nRust 通常把原错误包进新的枚举变体里，保留底层原因。</p>\n",
         "python": "<p>Python 里不写 try 的异常会自动上抛，栈信息自动累积；\nRust 每个中间函数都要返回 <code>Result</code> 并用 <code>?</code> 传递，\n否则调用方拿不到错误。代价是签名更啰嗦、收益是失败路径在类型上可见。\n两者都能保留「底层原因」：Python 是 <code>raise … from e</code>，\nRust 是把原错误放进枚举变体或用 <code>source()</code> 串成错误链。</p>\n",

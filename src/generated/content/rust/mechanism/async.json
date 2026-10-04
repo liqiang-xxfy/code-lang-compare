@@ -16,7 +16,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust <strong>没有内建的事件循环</strong>。标准库只有 <code>async</code> / <code>.await</code> 的语法\n与 <code>Future</code> trait，驱动它们的执行器（executor）不在标准库里 ——\n实际项目用 tokio 或 async-std。JavaScript 的运行时自带事件循环，\n<code>await</code> 直接就能跑；Rust 里必须先在 <code>main</code> 上挂一个运行时\n（<code>#[tokio::main]</code>），否则异步代码什么都不做。</p>\n",
         "python": "<p>Rust <strong>没有内建事件循环</strong> —— 标准库提供 <code>Future</code> 与 <code>async</code> 语法，\n但谁来轮询得自己选（tokio / async-std）。Python 的 <code>asyncio</code>\n是标准库的一部分，事件循环是现成的。这带来一个实际差别：\nPython 里「用异步」是零依赖的选择，Rust 里几乎一定意味着\n引入一个大依赖，且不同库的运行时不一定能混用。</p>\n",
@@ -36,7 +35,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>回调在两边都是普通函数值，写法接近。差别在约束：\nJavaScript 的回调可以随便捕获外部变量；Rust 的闭包要被\n跨线程调用时必须 <code>Send + 'static</code>，捕获引用往往编译不过 ——\n于是需要把数据 clone 或 move 进去。这也是 Rust 里\n回调风格不如 Future 常见的原因：借用检查让嵌套回调很快就写不动了。</p>\n",
         "python": "<p>Python 的闭包回调与 Rust 的差不多，但 Python 有 GIL、\n不关心线程安全标记；Rust 的回调一旦要跨线程执行\n（异步运行时基本都跨），就必须满足 <code>Send + 'static</code>，\n捕获引用会编译失败。所以 Rust 里回调写起来更重，\n惯用做法是返回 <code>Future</code> 交给执行器编排。</p>\n",
@@ -62,7 +60,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「代表未来结果的值」，但<strong>激发的时机相反</strong>：\nJavaScript 的 Promise 一造出来就开始执行（<code>new Promise(executor)</code>\n立刻调用 executor），Rust 的 <code>Future</code> 什么都不做，\n直到被 <code>.await</code> 或交给执行器。所以 Rust 里\n<code>let f = work();</code> 然后忘了 await，什么都不会发生（编译器会警告），\nJavaScript 里 <code>const p = work()</code> 已经在跑了。</p>\n",
         "python": "<p>Python 的协程对象与 Rust 的 Future 一样是<strong>惰性</strong>的 ——\n不 await 就不执行，这一点两边一致。差别在驱动方式：\nPython 有 <code>asyncio.run</code> / <code>loop.create_task</code> 这样的标准入口，\nRust 的执行器是第三方库（tokio / async-std）。\n另外 Rust 的 <code>Future</code> 要 <code>Pin</code> 才能轮询，Python 里没有这层包装。</p>\n",
@@ -88,7 +85,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>语法几乎一样（<code>async</code> / <code>await</code>），但有两处硬差别：\n① JavaScript 的 <code>await</code> 在顶层模块里可以直接用，Rust 需要\n一个运行时把 <code>main</code> 驱动起来；② JavaScript 的 <code>async</code> 函数\n返回 Promise，调用即执行；Rust 的 <code>async fn</code> 返回 <code>Future</code>，\n调用不执行，要等 <code>.await</code>。顺序写得一样、执行时机不同。</p>\n",
         "python": "<p><code>async</code> / <code>await</code> 的写法两边几乎相同，<code>asyncio.run</code> 对应\n<code>#[tokio::main]</code>。差别在于 Rust 的异步函数返回的是\n<code>impl Future</code>，需要执行器；Python 的协程由 asyncio 直接驱动。\n并发写法上 Python 用 <code>asyncio.gather</code>，Rust 用 <code>tokio::join!</code> / <code>futures::join!</code> ——\n注意直接 <code>.await</code> 两次是顺序执行，这一点两边一样容易写错。</p>\n",
@@ -119,7 +115,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>AbortController</code> 显式取消，被调方要主动检查\n<code>signal.aborted</code> 才真的停下来 —— 忘了检查就没取消。\nRust 的取消是<strong>结构性</strong>的：Future 被 drop 掉就不再被轮询，\n不需要被调方配合。代价是「取消可能发生在任意 await 点」，\n要清理得靠 <code>Drop</code>，而不是写在某个 <code>catch</code> 里。</p>\n",
         "python": "<p>Python 用 <code>task.cancel()</code> 抛 <code>CancelledError</code> 进协程，\n被取消方能捕获它做清理（但要重新抛出）——\n也就是「取消是一次异常注入」。Rust 的取消是\n直接把 Future 丢掉，没有异常、没有给被取消方反应的机会，\n清理只能靠 <code>Drop</code>。两边的清理位置因此完全不同。</p>\n",

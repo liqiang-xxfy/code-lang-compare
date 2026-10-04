@@ -16,7 +16,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>function*</code> 加 <code>yield</code> 写生成器，是语法级的；\nKotlin 没有这个语法，最接近的是 <code>sequence { }</code> 这个构建器函数 ——\n它靠一个<strong>挂起式的 lambda</strong> 达到同样的效果，\n写起来像，但机制不同（一个是语言关键字，一个是标准库函数）。\n另一处是惰性的边界：JavaScript 的生成器天然是惰性的；\nKotlin 的 <code>sequence</code> 也是，但如果写成返回 <code>List</code> 的函数，\n就变成一次性算完了 —— 惰性在这边取决于你选了哪个类型。</p>\n",
         "python": "<p><strong>这是两个语言差别最大的一处之一</strong>：Python 的 <code>yield</code> 是语言特性，\n一个函数里出现它就整体变成生成器，写法极简；\nKotlin 完全没有这个机制，要写 <code>sequence { yield(x) }</code>，\n而且那个函数必须显式声明返回 <code>Sequence&lt;T&gt;</code>。\n所以 Python 里三行的生成器，在 Kotlin 里要么写成构建器、\n要么手写一个迭代器类。代价换来的是类型明确：\n看到 <code>Sequence&lt;Int&gt;</code> 就知道它是惰性的，不用读函数体。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>map</code> / <code>filter</code> 链，与 Kotlin 几乎可以逐条对应，\n连「立即求值」这一点都一样（JavaScript 的数组方法也是急切的）。\n差别在<strong>链上有什么</strong>：Kotlin 标准库多出一批\n（<code>associateWith</code> / <code>groupBy</code> / <code>zip</code> / <code>distinct</code> / <code>sortedBy</code>），\nJavaScript 里有些要自己写、有些是新加的。两边的共同点是\n都得靠方法名猜行为，没有语法层面的表达。</p>\n",
         "python": "<p><strong>写法上的分野</strong>：Python 的 <code>[x * 2 for x in xs if ...]</code>\n是一行讲完「取哪些、每个怎么变」的语法；\nKotlin 要拆成 <code>filter { }.map { }</code> 两个方法调用，\n而且<strong>顺序要自己排</strong>（先 filter 再 map 与反过来结果可能不同）。\n好处是每一步在做什么一眼可见、也容易在中途插别的操作；\n代价是表达力靠自己组织，写不出 Python 那种密集的一行。</p>\n",
@@ -62,7 +60,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的数组方法一律<strong>急切</strong>，每一步都产生一个新数组 ——\n与 Kotlin 的 <code>Iterable</code> 版本一致。要惰性两条路：\n手写生成器，或者用较新的迭代器辅助方法。\nKotlin 的 <code>Sequence</code> 是把惰性做成了<strong>一个类型</strong>，\n在链首加一句 <code>.asSequence()</code> 就整体切换 ——\n这种「同一个链、两种求值时机」的写法在那边没有对应物。</p>\n",
         "python": "<p>两边的分界方式相似：Python 靠生成器表达式（<code>(... for ...)</code>）\n与 <code>map</code> / <code>filter</code> 的惰性版本，Kotlin 靠 <code>Sequence</code> 类型。\n差别在<strong>切换的成本</strong>：Python 里换一对圆括号就变了；\nKotlin 要在链首显式写 <code>.asSequence()</code>，而且之后不能再按 List 用。\n这条显式切换其实更安全 —— 读代码时能看出这一段是不是惰性的。\n两边都有一条共同的坑：惰性的链只跑一次就耗尽，反复遍历要重新构造。</p>\n",
@@ -88,7 +85,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的解构写法很像（<code>const { name } = u</code> ↔ <code>val (name) = u</code>），\n但<strong>依据不同</strong>：JavaScript 按<strong>属性名</strong>取，名字写错得到 undefined；\nKotlin 按<strong>位置</strong>取（<code>component1</code> / <code>component2</code>），\n名字是你自己起的、写什么都行，位置才是真的 ——\n所以重排字段顺序在 Kotlin 里是个静默的破坏性改动。\n好处是 Kotlin 的数组、Map 条目、任何类都能解构，不限于对象字面量。</p>\n",
         "python": "<p>Python 的 <code>name, age = u</code> 同样按位置，\n与 Kotlin 的 <code>val (name, age) = u</code> 规则一致，这一点两边相同。\n差别在<strong>能拆多长</strong>：Python 的可迭代对象天然可解包，有几个元素就拆几个；\nKotlin 靠类型提供 <code>componentN</code>，标准库给 <code>List</code> 与数组备到了<strong>第 5 个</strong> ——\n所以常见的短列表照样能解构，超过 5 个分量才要自己定义。\n另一处是来源范围：Python 连字符串都能直接拆，Kotlin 只认提供了 <code>componentN</code> 的类型。\n另一处是 Kotlin 的 <code>_</code> 跳过某个分量时<strong>不会调用</strong>那一步，Python 也会照解。</p>\n",

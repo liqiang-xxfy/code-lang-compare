@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>let</code> 长得一样，含义却是反的：JavaScript 的 <code>let</code> 声明出来<strong>可以改</strong>，\n要禁止改得写 <code>const</code>；Rust 的 <code>let</code> 声明出来<strong>不能改</strong>，要能改必须写 <code>mut</code>。\n还有一处时机差别 —— JavaScript 越权改绑要到运行时才抛 TypeError，\nRust 是编译不过。读 Rust 时看到裸 <code>let</code>，先默认它不会变。</p>\n",
         "python": "<p>Python 的赋值语句本身就是声明，且任何名字随时可以重新绑定；Rust 的\n<code>let</code> 一次只引入一个默认冻结的绑定，想改必须回头把 <code>mut</code> 补上 ——\n而绑定一旦离开作用域就不能再补。Python 读代码时不必关心「这个名字后面会不会变」，\nRust 里 <code>mut</code> 的有无就是作者对这个问题给出的答案。</p>\n",
@@ -53,7 +52,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>这是最容易看错的一处：JavaScript 的 <code>const</code> 只冻结<strong>绑定</strong>，<code>const list = []</code>\n之后 <code>list.push(1)</code> 照样合法；Rust 的 <code>let</code> 冻结的是<strong>整个值</strong>，\n没有 <code>mut</code> 的 <code>Vec</code> 连 <code>push</code> 都编译不过。想在 Rust 里改内容，\n必须在声明处就把 <code>mut</code> 写上 —— 没有中途反悔的余地。</p>\n",
         "python": "<p>Python 没有常量语法，所有名字都能重新绑定，列表也永远可以就地修改；\nRust 把「能不能改」提到类型层面并强制到每一个使用点。写 Rust 时\n<code>mut</code> 是一个需要作者主动声明的意图，读代码时它也如实告诉你\n「这个值在这里之后会变」—— Python 里没有等价的信息。</p>\n",
@@ -79,7 +77,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都以 <code>{}</code> 为界，Rust 少一个 JavaScript 最需要提防的东西：\n<code>var</code> 那种函数级的逃生口在这里不存在，所有 <code>let</code> 一律块级。\n多出来的是块能当表达式用 —— <code>let x = { … };</code> 在 JavaScript 里\n要靠立即执行函数或额外变量，在 Rust 里就是普通写法。</p>\n",
         "python": "<p>Python 只有函数与类会产生新作用域，<code>if</code> / <code>for</code> 的块体不产生，\n循环变量会漏到外面；Rust 的每个 <code>{}</code> 都是一层边界，出了块名字就没了。\n另外 Rust 的块有值：把一组计算裹进块里、用最后一行当结果，\n不需要先声明一个变量再写回去。</p>\n",
@@ -99,7 +96,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust 没有变量提升这一概念。名字由 <code>let</code> 引入，在这一行之前它根本不存在 ——\n访问它得到的不是 <code>undefined</code>，而是编译错误 <code>cannot find value in this scope</code>。\n所以 JavaScript 里「<code>var</code> 读出来是 undefined、<code>let</code> 是暂时性死区」这层区分，\n在这里没有对应物。</p>\n",
         "python": "<p>Rust 和 Python 一样没有提升：名字在绑定语句执行之后才存在。\n区别是发现问题的时机 —— Python 在运行到那一行时抛 NameError，\nRust 在编译期就报 <code>cannot find value in this scope</code>。</p>\n",
@@ -125,7 +121,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>遮蔽本身两边都成立，但 JavaScript 在同一个块里重复声明同名 <code>let</code> 是语法错误，\nRust 允许 —— 而且<strong>允许换类型</strong>。<code>let s = s.len();</code> 在 JavaScript 里\n只能换个变量名，在 Rust 里是常规手法：拿一个中间值算完，把同名的新绑定接着往下用。\n这是读 Rust 时最需要留意的一点：同名的两个 <code>s</code> 可能根本不是同一个类型。</p>\n",
         "python": "<p>Python 里重新赋值就是改掉原来那个名字，没有「新绑定遮蔽旧绑定」这层区分，\n<code>s = len(s)</code> 之后旧值就没了。Rust 的遮蔽是<strong>新建</strong>一个绑定，\n旧的那个依然存在（只是不再可达），类型也可以完全不同。\n代价是读代码时要意识到「这个 <code>s</code> 与上面的 <code>s</code> 不是一回事」。</p>\n",
@@ -145,7 +140,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的命名全是社区约定，引擎一个都不看；Rust 的编译器会<strong>发警告</strong>：\n变量或函数写成 camelCase 会得到一条 <code>non_snake_case</code>，\n类型写成 snake_case 会得到 <code>non_camel_case_types</code>。不是错误，\n但默认就开着，所以 Rust 代码库的命名一致性比 JavaScript 项目更容易维持。</p>\n",
         "python": "<p>两边的变量与函数都是 snake_case、类型都是 CamelCase（Rust 的 CamelCase\n含枚举与 trait）。区别在强制力：Python 的 PEP 8 靠工具与review，\n解释器完全不看；Rust 把命名规则做进了编译器 lint，\n写错会收到警告。Python 里还有 <code>_</code> / <code>__</code> 前缀那层弱语义，Rust 没有对应物。</p>\n",

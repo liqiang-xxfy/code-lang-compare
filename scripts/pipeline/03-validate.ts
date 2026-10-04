@@ -3,13 +3,11 @@
  *
  * 规则集（v2，见 docs/完整项目架构.md §6）：
  *   R1       schema     结构合法性
- *   R3       provenance 出处 / 许可 / 台账命中
  *   R4/R9    @note      标记全部解析，且前缀必须是该语言自己的注释符
  *   R5       refs       引用完整性（refFeatureId / 陷阱 featureId / 词典语言）
  *   R6       status     发布门槛（受 registry.publishPolicy 控制）
  *   R7       links      URL 协议白名单（仅 https）
  *   R8       naming     目录名 === meta.id、基准候选与默认值自洽
- *   R10      台账       每条许可义务都有可核对的履行位置
  *   R17      review     校对状态升级需留记录
  *   R20      清单-文件  孤儿文件 error / 覆盖率缺口 warn / 文件名与 section 一致
  *   R21      key 合法性 语言文件里的 box key 必须在清单的该章里
@@ -64,11 +62,6 @@ function printReport(report: ValidationReport): void {
   lines.push(`  内容规模：${s.featureCount} 个 Feature / ${s.boxCount} 个对比框`)
   lines.push(
     `  审阅状态：${Object.entries(s.byState)
-      .map(([k, v]) => `${k}=${v}`)
-      .join('  ') || '（无）'}`,
-  )
-  lines.push(
-    `  内容来源：${Object.entries(s.byOrigin)
       .map(([k, v]) => `${k}=${v}`)
       .join('  ') || '（无）'}`,
   )

@@ -16,7 +16,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能随时抛、都不需要在签名里声明，这一点很像。\n差别在<strong>能抛什么</strong>：JavaScript 可以 <code>throw &quot;字符串&quot;</code>、\n<code>throw {code: 1}</code> 甚至 <code>throw 42</code> —— 抛出去的东西不必是 Error；\nKotlin 要求必须是 <code>Throwable</code> 的子类，所以调用方捕获时\n总能拿到一个有意义的对象（有消息、有栈）。\n另一处是 <code>throw</code> 的位置：Kotlin 里它是表达式，\n能直接写在 <code>?:</code> 右边当「兜底就是炸」，JavaScript 里 <code>throw</code> 是语句。</p>\n",
         "python": "<p>两边都不强制声明异常，这一点相同。差别在<strong>异常的种类纪律</strong>：\nPython 可以 <code>raise &quot;字符串&quot;</code>（会得到一个 TypeError，因为\nraise 要求 BaseException），日常也经常自定义异常类；\nKotlin 明确要求 <code>Throwable</code> 子类，而且把\n<code>Error</code>（不该捕获的严重问题）与 <code>Exception</code>（业务错误）\n分成两支，惯例上前者不捕获。\n另一处是 Kotlin 的 <code>throw</code> 是表达式，能嵌进表达式里用。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>try / catch</code> 形态一致，主要差别在<strong>类型</strong>：\nJavaScript 的 <code>catch</code> 不写类型，拿到的东西得自己判断是不是 Error；\nKotlin 必须写明要接哪种异常，多个 <code>catch</code> 从上往下匹配，\n所以「这个分支在接什么」是明摆着的。\n另一处是取值：JavaScript 的 <code>try</code> 是语句，取结果要靠在外层先声明变量；\nKotlin 的 <code>try</code> 是表达式，直接 <code>val n = try { ... } catch { ... }</code>。</p>\n",
         "python": "<p>两边都能接多种异常、都不强制声明。差别在<strong>匹配的粒度</strong>：\nPython 把多个异常类型写在一个 <code>except</code> 里（<code>except (A, B):</code>），\nKotlin 是一类一个 <code>catch</code> 分支；Python 还有 <code>else</code> 子句\n（没出错时走），Kotlin 没有，得靠 <code>try</code> 表达式取值来代替。\n另一处是 Python 的裸 <code>except:</code> 能接住一切（包括键盘中断），\nKotlin 至少要求写出类型，最宽也只能到 <code>Exception</code>。</p>\n",
@@ -68,7 +66,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>finally</code> 都是「无论怎样都执行」，语义一致。\n差别在<strong>关资源这件事</strong>：JavaScript 没有 <code>use</code> 这类语言级辅助，\n要么手工在 <code>finally</code> 里关，要么用 <code>await using</code> 那种较新的语法；\nKotlin 的 <code>use</code> 是一个标准库扩展函数，一行收住\n「打开、用、无论如何关掉」这三步，也不用记资源的类型。</p>\n",
         "python": "<p>Python 的 <code>finally</code> 与 Kotlin 的语义相同。关资源两边都用语言级辅助：\nPython 是 <code>with</code> 语句（协议是 <code>__enter__</code> / <code>__exit__</code>），\nKotlin 是 <code>use</code>（协议是 <code>Closeable</code>）—— 用途一样，\n但 Python 的 <code>with</code> 是关键字、能接多个资源，Kotlin 的 <code>use</code>\n是个函数、一次一个。另一处是 Kotlin 明确写了\n「<code>finally</code> 不改变 try 的结果值」，Python 的 <code>finally</code> 里\n<code>return</code> 反而会覆盖掉原来的返回值，两边在这点上一个澄清、一个埋雷。</p>\n",
@@ -94,7 +91,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的异常体系只有一层（<code>Error</code> 与它的子类），\n并没有「不该捕获的严重错误」这一支，所有错误一视同仁；\nKotlin 从 <code>Throwable</code> 分出 <code>Error</code> 与 <code>Exception</code> 两支，\n惯例上前者不捕获 —— <code>OutOfMemoryError</code> 这类接住了也做不了什么。\n另一处是标准库给的断言函数：JavaScript 里断言要自己写\n<code>if (...) throw new Error(...)</code>，Kotlin 有 <code>require</code> / <code>check</code> 一行搞定。</p>\n",
         "python": "<p>两边都只有「异常」这一层，没有「不该捕获」的分支\n（Python 的 <code>BaseException</code> 与 <code>Exception</code> 那层分野用途不同，\n主要是为了不让裸 <code>except</code> 接住键盘中断）。\n差别在<strong>标准库给的断言工具</strong>：Python 有 <code>assert</code> 语句，\n但它会被优化开关整个去掉；Kotlin 的 <code>require</code> / <code>check</code>\n是普通函数，永远生效，而且会抛带明确消息的异常 ——\n用同一套写法既能当断言又能当参数校验。</p>\n",
@@ -125,7 +121,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都靠继承内置错误类型来定义自己的错误。\n差别在<strong>构造与字段</strong>：JavaScript 自定义错误要手写\n<code>constructor(msg) { super(msg); this.name = ... }</code>，\n还要小心原型链；Kotlin 一行 <code>class X(val id: String) : Exception(&quot;...&quot;)</code>\n既声明了字段又调了父构造器。\n另一处是带「原因」的构造：两边都支持，但 Kotlin 的异常\n默认就带栈、带 cause 链，JavaScript 要自己维护。</p>\n",
         "python": "<p>Python 的自定义异常通常就是 <code>class CartEmpty(Exception): pass</code>，\n要带字段得自己写 <code>__init__</code>；Kotlin 在主构造器里\n直接声明属性，写法更短。\n差别在<strong>基类的选择</strong>：Python 几乎都继承 <code>Exception</code>，\n不太区分「运行时」与「受检」（本来也没有）；\nKotlin 惯例上更常继承 <code>RuntimeException</code>，因为受检那一套已经取消，\n继承 <code>Exception</code> 反而显得像是从别处带过来的包袱。</p>\n",
@@ -151,7 +146,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都靠「往上冒」传播，中间层不写任何东西 —— 这一层很像。\n差别在<strong>有没有「把失败收成值」的官方工具</strong>：\nJavaScript 靠 Promise 的 reject 或者自己返回 <code>{ok, error}</code>；\nKotlin 标准库直接给了 <code>Result</code> 与 <code>runCatching</code>，\n失败是一个正常的值，能用 <code>fold</code> 一次分完两条路。\n另一处是 Kotlin 多一层「给别的语言看」的注解，JavaScript 没有对应问题。</p>\n",
         "python": "<p>两边都靠冒泡传播，中间层不声明 —— 这一点相同。\n差别在**「可能失败」怎么表达**：Python 的惯例是用异常\n（<code>try/except</code>），或者返回一个特殊值再判断；\nKotlin 的 <code>Result</code> 把「成功值或异常」做成一个<strong>值</strong>，\n让失败可以像普通数据那样被传递与组合 —— 但它<strong>不会强制你处理</strong>，\n丢掉不看得不到任何提醒。所以它更像「把异常变成一个可传递的对象」，\n而不是「编译器盯着你两条路都写」。</p>\n",

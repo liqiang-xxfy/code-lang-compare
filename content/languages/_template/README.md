@@ -50,11 +50,6 @@ content/languages/<语言>/
 ```yaml
 review:                        # 文件级默认，某一格可用自己的 review 覆盖
   state: draft
-  provenance:
-    origin: llm
-    model: <模型名>
-    promptTemplateId: <模板 id>
-    generatedAt: '2026-01-01'
 
 boxes:
   declaration:                 # key 必须是池里 group 等于本文件名的那批 feature id 之一

@@ -20,7 +20,7 @@ import {
  * 三套内容各有一个 URL（`/compare/<基准>/...`），所以
  *
  *   · **基准以路由参数为准**（`routeBaseline`），localStorage 只记「上次选的是谁」，
- *     用于首页入口、`/search`、`/attributions` 这些没有基准的路由
+ *     用于首页入口、`/search` 这些没有基准的路由
  *   · **对比语言仍存本地**（默认 `defaultCompareLanguage`），它是个人偏好而不是内容维度 ——
  *     把它写进 URL 会让组合数从 3 涨到 3×15
  *   · 章节型板块用**多选**（`compareLangs`，**可以一门都不勾 = 只看基准列**）；

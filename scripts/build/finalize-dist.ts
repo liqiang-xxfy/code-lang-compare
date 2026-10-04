@@ -158,8 +158,7 @@ function probeTextFor(route: string): string | null {
  * 检查会静默不干活，而构建照样绿。所以对内容型路由改成**硬要求**：
  * 探针为 null 直接判失败，而不是跳过。
  *
- * `/` 与 `/attributions` 不在其列：它们是静态页，探针只能取到刚注入的 SEO 文案
- * （自证），没有意义。
+ * `/` 不在其列：它是静态页，探针只能取到刚注入的 SEO 文案（自证），没有意义。
  */
 const MUST_PROBE = /^\/(compare|feature|lang)\//
 

@@ -21,7 +21,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>依赖由<strong>构建工具</strong>管（Maven 或 Gradle），没有独立的包管理器这一层。\n构件按<strong>坐标</strong>（<code>groupId:artifactId:version</code>）从仓库取，本地有缓存仓库\n（<code>~/.m2</code>），远程有 Maven Central 与私服。所以「换构建工具」\n基本等于换一套项目结构 —— 这是与前两家最不一样的地方。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 把包管理与构建分开（npm 装东西、Vite 打包），\nJava 的构建工具两件事一起管。好处是只有一个配置入口，\n代价是「只想换个包管理器」这件事在这里不存在。</p>\n",
@@ -46,7 +45,6 @@
         "python": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>用坐标声明，<code>&lt;scope&gt;</code> 表达「什么时候需要」：<code>compile</code>（默认，到处都要）、\n<code>test</code>、<code>provided</code>（由运行环境提供）、<code>runtime</code>。<strong>传递依赖是默认行为</strong> ——\n依赖的依赖也会进来，因此版本冲突处理是家常便饭\n（Maven 取「路径最近优先」，<code>mvn dependency:tree</code> 是排查入口）。</p>\n",
       "vsHtml": {
         "javascript": "<p>两边的声明都是「名字 + 版本 + 用途」，用途的表达方式不同\n（这里用 <code>&lt;scope&gt;</code>，JavaScript 用分区字段名）。\n差别在传递依赖的处理：Java 有明确的仲裁规则，\nJavaScript 可能装出多份副本。</p>\n",
@@ -71,7 +69,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>语法上支持区间（<code>[1.0,2.0)</code>），但<strong>实践里几乎都写精确版本</strong> ——\n因为传递依赖的仲裁规则会让范围约束的效果变得难以预测。\n多模块项目常靠 <strong>BOM</strong>（导入一份统一的版本清单）来对齐版本。\n与别的语言相比，这里更依赖「发布时写死 + 依赖管理工具」，\n而不是运行时解析范围。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 默认用范围符号（<code>^</code>），装的时候才解析出具体版本，\n锁文件固化结果；Java 习惯直接写死精确版本。\n两种取向：一个把决定推迟到安装时，一个在声明时就定死。</p>\n",
@@ -96,7 +93,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>Maven 没有锁文件</strong> —— 同一份 POM 在不同时间可能解析出不同版本，\n「可复现安装」要靠写死精确版本、BOM 与私服代理来间接保证。\nGradle 提供了依赖锁定（生成 <code>gradle.lockfile</code>），\n这是近些年才补上的。所以这件事在这门语言的生态里，\n更多是<strong>流程约束</strong>而不是工具保证。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 从一开始就有锁文件，<code>npm ci</code> 严格按锁安装 ——\n「每台机器装出同一套」是工具保证的。Java 这边要靠纪律与私服。\n这是两家在工程实践上最实在的一个差距。</p>\n",
@@ -121,7 +117,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>没有「每个项目一份依赖」这回事</strong>：所有项目共享一个本地仓库\n（<code>~/.m2</code>），不同版本按坐标各占一个目录、可以并存。\n隔离靠类路径 —— 运行时 classpath 上放哪些 jar 就是那个项目的依赖。\n因此这边的经典问题是 <strong>jar hell</strong>：同一个类出现在两个 jar 里，\n谁先生效取决于顺序。<code>dependency:tree</code> 是排查入口。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 每个项目一份 <code>node_modules</code>（磁盘换隔离），\nJava 共享一个本地仓库（省磁盘、但引出 jar hell）。\n两种取舍各有代价，Java 这边更依赖工具去分析依赖树。</p>\n",
@@ -146,7 +141,6 @@
         "python": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>用 <code>mvn deploy</code> / <code>gradle publish</code> 发布到 <code>distributionManagement</code>\n指定的仓库，私服（Nexus / Artifactory）通常既代理公共仓库又托管内部构件，\n客户端在 <code>settings.xml</code> 里配镜像。一条硬约束要记住：\n<strong>坐标发布后不可变</strong>（同一版本不能覆盖），发错了只能升版本重发 ——\n发到 Maven Central 还要求 GPG 签名。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 理论上允许覆盖已发布版本（虽然社区反对），\nJava 从机制上就不允许。两边的私服都能代理公共源，\n但 Java 的「坐标不可变」让版本号更值得认真对待。</p>\n",

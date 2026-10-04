@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>npm 之外 JavaScript 还有 yarn / pnpm / bun 可选，构建另有 webpack / vite；\nRust 只有 <strong>Cargo</strong> 一个 —— 依赖、构建、测试、格式化入口、发布\n全在 <code>cargo</code> 一条命令树下。好处是任何 Rust 项目都能用同一套命令跑起来，\n不必先读 README 判断用的是哪个包管理器；\n代价是没有竞争带来的演化压力。</p>\n",
         "python": "<p>Python 的生态是分裂的：pip / poetry / uv / conda 各管一摊，\n构建另有 setuptools / hatchling。Rust 只有 Cargo，\n而且它<strong>同时</strong>负责依赖、构建、测试、文档（<code>cargo doc</code>）与发布。\n从 Python 过来最明显的感受是「不用先做技术选型」——\n一个 <code>cargo test</code> 在哪个 Rust 项目里都是同一个意思。</p>\n",
@@ -48,7 +47,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「一个清单文件列出依赖」，但 Rust 多一个 <strong>feature 开关</strong>：\n同一个库可以只编译你用到的功能（<code>features = [&quot;derive&quot;]</code>），\n这会实际影响编译产物大小与编译时间。npm 里没有等价机制\n（tree-shaking 是打包器的事、且不改变依赖本身的代码）。\n另一处差别是 dev-dependencies：Rust 在清单里明确分区，\nnpm 用 <code>devDependencies</code> 也是分区的，这点两边一致。</p>\n",
         "python": "<p>Rust 的依赖分区（<code>[dependencies]</code> / <code>[dev-dependencies]</code>）\n比 Python 清晰 —— Python 里测试依赖通常靠 extras\n（<code>pip install .[test]</code>）或单独文件表达。\nRust 的 <strong>feature 开关</strong>是 Python 没有的：不用的功能不编译，\n直接省掉编译时间与体积；Python 里 <code>pip install</code> 装的是整个包。\n另一个共同点是版本都写语义化版本号，但解析规则不同（见下一格）。</p>\n",
@@ -74,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>npm 的 <code>&quot;^1.2.3&quot;</code> 与 Cargo 的 <code>&quot;1.2.3&quot;</code> 含义相同（都允许次版本升级），\n但 Cargo 允许<strong>省略</strong>插入符 —— <code>serde = &quot;1&quot;</code> 就是 <code>^1</code>。\nJavaScript 里 <code>&quot;1&quot;</code> 是精确版本，写成这样反而更严。\n另一处差别是 0.x：两边都把 0.x 当不稳定，但 Cargo 的\n<code>0.2.3</code> 等价于 <code>&gt;=0.2.3, &lt;0.3.0</code>（次版本视为破坏性），\nnpm 的 <code>^0.2.3</code> 也是同样规则，这一点一致。</p>\n",
         "python": "<p>Python 的版本约束写在 <code>requirements.txt</code> 或 <code>pyproject.toml</code> 里，\n<code>&gt;=1.2,&lt;2</code> 这样的区间更啰嗦；Rust 用一行 <code>&quot;1&quot;</code> 就表达完了。\nPython 生态里 <code>~=</code> 是「兼容版本」运算符，<code>==</code> 是精确锁定 ——\n语义划分与 Rust 的 <code>^</code> / <code>~</code> / <code>=</code> 类似但记法不同。\n共同点是都遵循语义化版本，解析结果都取满足条件的最高版本。</p>\n",
@@ -100,7 +97,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的锁文件作用相同（钉死整棵依赖树的精确版本），但<strong>处置惯例相反</strong>：\nnpm 的 <code>package-lock.json</code> 一律入库；Cargo 的 <code>Cargo.lock</code>\n二进制项目入库、<strong>库项目通常不入库</strong>。\n另一处差别是 <code>--locked</code> 这种「不一致就报错」的模式 ——\nnpm 有 <code>npm ci</code>（必须按 lock 装），思路一致。\nCargo.lock 还带校验和，能发现源被替换。</p>\n",
         "python": "<p>Python 到 2025 年才有了标准的锁文件格式，而且<strong>有标准不等于统一</strong> ——\n<code>requirements.txt</code>（<code>pip freeze</code> 生成，带 <code>==</code> 精确版本）、\n<code>poetry.lock</code>、<code>uv.lock</code> 今天都还在用，彼此并不通用。\nCargo 的 <code>Cargo.lock</code> 是工具内建、\n格式与校验和都由官方定义，不存在「用哪个锁文件」这个问题。\n两边都靠校验和防篡改，Python 的靠 hash 选项，但默认不开。</p>\n",
@@ -126,7 +122,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>node_modules</code> 做项目级隔离 —— 每个项目一份\n（或 pnpm 用硬链接共享）。Rust 的依赖装在<strong>用户级全局缓存</strong>里、\n按名字加版本寻址，项目之间靠锁文件解析出各自要的版本，\n磁盘上只有一份。所以 Rust 没有「删掉 node_modules 重装」\n这个日常动作，也没有「装了两份同一个包」的浪费。</p>\n",
         "python": "<p>Python 的虚拟环境是为了解决「全局只能装一个版本」——\nRust 从设计上就没有这个问题：全局缓存按版本寻址，\n不同项目可以同时用 serde 1.0.100 与 1.0.200，\n而且不需要激活任何环境。从 Python 过来最直观的差别是：\n没有 <code>source venv/bin/activate</code> 这一步，\n<code>cd</code> 进项目就能 <code>cargo build</code>。</p>\n",
@@ -146,7 +141,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「向中央仓库发布、版本不可覆盖」，但 Rust 的约束更硬：\ncrates.io 上的版本号<strong>永久占用</strong>，删不掉，只能 <code>yank</code>（撤回）——\nnpm 允许在 72 小时内 unpublish，之后受限但仍有例外。\n另一处差别是私有分发的默认做法：npm 靠私有 registry 或\n<code>file:</code> 依赖；Rust 更常用 <strong>git 依赖</strong>（直接指向仓库与 tag），\n因为 Cargo 原生支持，不需要私有仓库服务。</p>\n",
         "python": "<p>Python 的发布产物是 wheel/sdist（要先构建），\nCargo 发布的是源码包、由 crates.io 构建与校验。\n版本不可变这一点两边都有（PyPI 也不允许覆盖同名版本，\n只能 yank），但 Rust 的 <code>cargo publish</code> 会先做一次本地校验\n（<code>--dry-run</code>），PyPI 靠 twine check。\n私有分发上 Rust 的 git 依赖是原生能力，Python 里对应的是\n<code>pip install git+https://…</code>，也能用但更少见。</p>\n",

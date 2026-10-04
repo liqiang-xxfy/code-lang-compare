@@ -32,7 +32,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「抛一个值」，但 C++ 抛的<strong>可以是任何类型</strong>（连 <code>int</code> 都行），\n所以「处理错误」在这边先得回答「谁来定义错误的形态」——\n靠约定使用标准异常类（<code>std::runtime_error</code> 等）。\n另一处差别在声明：JavaScript 也没有 checked exception，\n这一层两边一致；但 C++ 有 <code>noexcept</code> 这个<strong>反向承诺</strong>\n（声明「我不抛」），写错了直接终止进程，不是抛异常。\n还有一处是 C++ 从构造函数里抛是常见写法（对象没建成，析构不会跑），\n而构造过程本身没有「半成品」这回事。</p>\n",
         "python": "<p>两边都能抛任意对象，也都没有 checked exception，这一层很像。\n差别在<strong>异常类必须继承什么</strong>：Python 的异常要能被 <code>except Exception</code>\n接住才算「常规错误」（否则会穿透），所以有一套内建的层级；\nC++ 的 <code>catch (...)</code> 能接住任何东西，不存在「必须继承某个基类」\n的约束，于是「只接我认识的错误、其余放走」这件事两边写法不同。\n另一处是 C++ 的 <code>noexcept</code> 在 Python 里没有对应物\n（Python 没有「声明不抛」的语法）。</p>\n",
@@ -68,7 +67,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>try</code> / <code>catch</code> 形态像，但<strong>能不能按类型分支</strong>不同：\nJavaScript 只有一个 <code>catch (e)</code>，要按类型分得在块里自己判断\n（<code>instanceof</code> 或看 <code>e.name</code>）；C++ 可以直接写多个 <code>catch</code> 子句\n按类型匹配，而且顺序有语义（先窄后宽）。\n另一处是 C++ 必须注意<strong>按引用接</strong>，写成按值接会发生对象切片 ——\n拿到的是一个残缺的基类对象，派生类的信息全丢了，而编译器不报错。</p>\n",
         "python": "<p>两边都能写多个 <code>except</code> / <code>catch</code> 子句按类型匹配，这一层对应得上。\n差别在<strong>接住的东西是什么</strong>：Python 的 <code>except E as e</code> 正常就是引用，\n没有切片问题；C++ 写成按值接会切片，是个要<strong>刻意记住</strong>的坑。\n另一处是 C++ 的 <code>catch (...)</code> 与 Python 的裸 <code>except:</code> 都表示兜底，\n但 C++ 的兜底<strong>拿不到任何信息</strong>（连类型都问不出来），\nPython 至少还能 <code>sys.exc_info()</code>。</p>\n",
@@ -94,7 +92,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是两门语言资源管理的分水岭</strong>：JavaScript 靠\n<code>try / finally</code>（或 <code>using</code> 声明）显式写出「无论如何都要执行的那段」，\n所以要<strong>记得写</strong>；C++ 根本没有 <code>finally</code> ——\n因为局部对象的析构函数在离开作用域时（包括异常展开时）一定会跑，\n「打开就配对关闭」这件事由类型自己负责，写代码的人不用记。\n代价是 C++ 里「资源」必须包成一个类型（这就是 RAII），\n裸资源（<code>fopen</code> 返回的指针）没有任何保证。</p>\n",
         "python": "<p>两边的差别就是 <code>finally</code> 与析构：Python 有 <code>finally</code>，\n而且 <code>with</code> 语句把「进入/退出必做」写成了协议（<code>__enter__</code> / <code>__exit__</code>）；\nC++ 没有 <code>finally</code> 也没有 <code>with</code>，对应物是<strong>析构函数</strong> ——\n只要是栈上的对象，退出作用域必然会析构（异常也照跑）。\n所以 Python 的 <code>with</code> 是显式语句、只能用在实现了协议的对象上；\nC++ 的析构是<strong>隐含的</strong>，任何类型都有，代价是「什么时候析构」\n由对象住哪决定（<code>new</code> 出来的就不会自动跑）。</p>\n",
@@ -120,7 +117,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都「能抛任何东西」，但 C++ 的<strong>标准异常树更结构化</strong>：\nJavaScript 的 <code>Error</code> 有 <code>name</code> / <code>message</code> / <code>stack</code> 三个约定字段，\n子类化靠自定义 class；C++ 的 <code>std::exception</code> 只强制一个\n<code>what()</code> 返回 <code>const char*</code>，信息量更少\n（要带上下文得自己定义类），但换来的是「任何标准异常都能\n用一个接口处理」。另一处是 C++ 有 <code>std::expected</code> 这条\n<strong>不抛异常</strong>的路线，把错误放进返回值里 —— 这在 JavaScript 里\n只能靠约定（返回 <code>{ok, value}</code> 这种形状）。</p>\n",
         "python": "<p>两边都有层次化的异常树（<code>BaseException</code> → <code>Exception</code> → 具体异常\n↔ <code>std::exception</code> → <code>logic_error</code> / <code>runtime_error</code> → 具体异常），\n形状很像。差别在<strong>信息载体</strong>：Python 的异常是带任意属性的对象\n（可以塞任何上下文），而且 <code>str(e)</code> 与 <code>repr(e)</code> 都有用；\nC++ 的 <code>std::exception</code> 只有 <code>what()</code> 那一个字符串接口，\n想带结构化信息必须自己定义类并继承它。\n另一处是 C++ 有 <code>std::expected</code> 这种「错误当返回值」的选项，\nPython 里通常还是抛异常。</p>\n",
@@ -156,7 +152,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的做法几乎一样（继承基类、加自己的字段），这一格很接近。\n差别在<strong>基类的约束强度</strong>：JavaScript 的 <code>class MyError extends Error</code>\n有语言配合（<code>instanceof</code>、<code>stack</code> 自动带上），\nC++ 继承 <code>std::runtime_error</code> 主要是为了<strong>复用一个存字符串的实现</strong>，\n其余全靠约定。另一处是 C++ 要操心生命周期：\n<code>what()</code> 返回的是裸指针，如果构造时传的是临时字符串的\n<code>c_str()</code>，那个指针可能已经悬垂 —— JavaScript 没有这一层。</p>\n",
         "python": "<p>两边都是「继承一个基类、加字段」，形态一致。\n差别在<strong>抛的时候</strong>：Python 的 <code>raise HttpError(404, &quot;...&quot;)</code> 里\n那个括号是构造，异常对象一路带着走，属性随时可取；\nC++ 的 <code>throw HttpError(404, &quot;...&quot;)</code> 会<strong>拷贝</strong>一份异常对象\n（所以异常类型要能拷贝），接住的是那个副本 ——\n所以带大对象的异常在 C++ 里有拷贝成本，\n这也是老代码里常见「抛指针」的原因（现在不推荐）。</p>\n",
@@ -202,7 +197,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的传播都是「不接就往上走」，这一层一致。\n差别在<strong>保留原因的方式，而且一个是默认、一个是手动</strong>：\nJavaScript 的 <code>new Error(msg, {cause: e})</code> 从 ES2022 起是标准写法，\n打印时整条链都显示；C++ 也有对应机制（<code>std::throw_with_nested</code>\n加 <code>rethrow_if_nested</code>），但<strong>要手动包、手动翻</strong> ——\n忘了包一层原因就丢了，而且没有任何提示。\n也就是说那边「原因链」是异常的默认属性，这边是一个可选动作。\n另一处是 JS 的 <code>throw e</code> 会保留栈、C++ 里连「栈」这个概念\n都不在异常对象上（要 C++23 的 <code>std::stacktrace</code> 另外抓）。</p>\n",
         "python": "<p>两边都有「重抛」与「包一层」两件事，但<strong>凑在一起的代价不同</strong>：\nPython 的 <code>raise NewError(...) from e</code> 一句话就完成了\n「抛新异常 + 保留原因 + 打印时两层都显示」；\nC++ 要包一层得调 <code>std::throw_with_nested</code>，要读原因得再调\n<code>rethrow_if_nested</code> 并自己套一层 try —— 能力有，但是散装的。\n另一处是裸重抛：C++ 的 <code>throw;</code> 与 Python 的裸 <code>raise</code> 都表示\n「重抛当前异常」，但 C++ 的 <code>throw;</code> 写在 catch 外面\n<strong>编译器不拦</strong>，运行到那里直接终止进程。</p>\n",

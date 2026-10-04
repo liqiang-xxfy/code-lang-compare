@@ -21,7 +21,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>线程是<strong>真并行</strong>的：多核都用得上，而且共享同一份堆内存。\n所以核心问题不是「怎么开线程」，而是「怎么安全地共享可变状态」。\n现代写法用执行器（线程池）而不是裸 <code>Thread</code>；Java 21 的虚拟线程让\n「一个请求一个线程」这种阻塞式写法重新变得可行。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 主线程连线程都没有，并行只能靠隔离的 Worker；\nJava 的线程共享内存、真并行，所以必须处理数据竞争。\n一个是「没有共享就没有竞争」，一个是「共享是默认，安全要自己做」。</p>\n",
@@ -56,7 +55,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>线程共享堆内存，数据竞争是实打实的问题：<code>n++</code> 不是原子的，\n而且<strong>不同步的字段可能读到陈旧值</strong>（可见性问题）—— 这是 Java 内存模型\n（JMM）用 happens-before 规则定义的东西。解法有三条：\n<code>synchronized</code> / <code>Lock</code>、<code>AtomicInteger</code> 这类原子类（无锁 CAS）、\n或者干脆不共享（用不可变对象或线程私有数据）。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 主线程只有一个执行流，没有竞争也没有可见性问题；\n真正会打断的是跨 <code>await</code> 的复合操作。Java 这边连「读到一个旧值」\n都要靠内存模型来解释。</p>\n",
@@ -86,7 +84,6 @@
         "python": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>语言级有 <code>synchronized</code>（进入加锁、离开自动释放，还能加在方法上锁 <code>this</code>），\n库里有 <code>ReentrantLock</code>（支持超时、可中断、公平锁）。但现在的首选思路是\n<strong>尽量不共享</strong>：用不可变对象、<code>ConcurrentHashMap</code> 这类并发容器、\n或者线程封闭。锁只是兜底手段，因为它带来死锁与性能两面代价。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 主线程没有临界区，也就没有锁；要串行化异步操作只能排队。\nJava 的锁是真的会阻塞线程，而且 <code>synchronized</code> 把「自动释放」\n做进了语法。</p>\n",
@@ -111,7 +108,6 @@
         "python": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>并发包提供了完整的协作工具：<code>BlockingQueue</code>（阻塞队列，自己处理同步，\n线程池本身就是它的一个应用）、<code>CountDownLatch</code> / <code>CyclicBarrier</code>\n（等一批任务完成）、<code>CompletableFuture</code>（组合异步结果）。\n要注意队列保证的只是<strong>交接那一刻</strong>的安全，元素被取走之后\n仍然可能被别的线程改。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的通道只在 Worker 之间传<strong>克隆</strong>（不共享），\n所以没有「交接之后还被改」这回事；Java 的队列传的是引用，\n元素本身还是共享对象。</p>\n",
@@ -146,7 +142,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong><code>n++</code> 不是原子的</strong>，而且 <code>volatile</code> 只保证<strong>可见性</strong>、不保证复合操作\n原子 —— 这两条是这一块最常见的误解。原子操作要靠 <code>AtomicInteger</code>\n这类 CAS 类（高竞争下 <code>LongAdder</code> 更好）。此外 JMM 的 happens-before\n规则决定了「什么时候能看到别的线程写的值」，\n双重检查锁定的单例必须给字段加 <code>volatile</code>，否则可能发布未初始化完的对象。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 主线程没有并发，<code>n++</code> 天然原子；只有跨 Worker 共享\n<code>SharedArrayBuffer</code> 时才需要 <code>Atomics</code>。Java 这边原子性、\n可见性、重排序都是日常要处理的事。</p>\n",

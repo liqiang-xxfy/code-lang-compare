@@ -16,7 +16,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有泛型 —— 容器里装什么全靠运行时自己判，\n也没法在签名里表达「这个函数返回的元素类型与传入的一致」。\nDart 的 <code>&lt;T&gt;</code> 把这种关系写进类型，编译器替你盯着。\n代价是写起来更长：每层容器、每个工具函数都要把类型参数带一遍，\n而那边的同一段代码短得多、只是出错要晚一些。</p>\n",
         "python": "<p>Python 用 <code>TypeVar</code> 加 <code>Generic</code> 表达泛型，<strong>只对类型检查器有意义</strong>，\n运行时不看；Dart 的 <code>&lt;T&gt;</code> 是编译器的一部分，写错直接编译不过。\n另一处是<strong>默认上界</strong>：Python 的类型变量默认允许 <code>None</code>，\n与 Dart 的 <code>Object?</code> 一致 —— 想要「非空」两边都得显式写。\n顺带一提，Python 3.12 起支持 <code>class C[T]</code> 的写法，形态向 Dart 靠了。</p>\n",
@@ -47,7 +46,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有约束这一层，函数里对参数的假设只能靠文档或运行时判断。\nDart 的 <code>T extends Comparable&lt;T&gt;</code> 把「必须能比较」写进签名，\n函数体里就敢直接调 <code>compareTo</code> —— 写错了是编译错误。\n代价是约束会往上传：调用方要满足这个约束，\n于是泛型参数一层层跟着走。</p>\n",
         "python": "<p>Python 用 <code>TypeVar('T', bound=Comparable)</code> 表达同样的意思，\n但那只是给类型检查器的提示，运行期不强制；\nDart 的 <code>extends</code> 是编译器的硬要求。\n另一处是<strong>上界的默认值</strong>：Python 的类型变量默认不设限（等同 <code>object</code>），\nDart 默认是 <code>Object?</code>（可空）—— 所以「我要求非空」这件事\n两边都要显式写出来。</p>\n",
@@ -93,7 +91,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有类型参数，所以「能不能把这个列表当那个列表用」\n这个问题根本不存在 —— 没有元素类型，也就没有型变。\nDart 的协变是编译器为了好用而做的放宽：\n它让 <code>List&lt;int&gt;</code> 能直接传给要 <code>List&lt;num&gt;</code> 的地方，\n代价是往里写的时候要在运行期检查。这层代价在 JavaScript 里没有，\n因为那边本来就没人检查。</p>\n",
         "python": "<p>Python 的类型检查器把列表当作<strong>不变</strong>的（<code>list[int]</code> 不是 <code>list[float]</code>），\n所以 Dart 的协变会让从 Python 过来的人意外 ——\n同一个赋值在那边的检查器眼里是错误，在 Dart 里合法。\n另一处是<strong>代价落在哪</strong>：Python 那边写错只是检查器报错、运行照跑；\nDart 这边编译放过、运行期抛错。\n两边都不是「编译期就杜绝」，但失败的时机与位置不同。</p>\n",
@@ -124,7 +121,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 运行期只有对象本身，「这是个什么数组」无从问起 ——\n没有类型参数，也就没有「实参是不是被擦掉」这个问题。\nDart 的泛型在运行期是<strong>真的</strong>：<code>is List&lt;int&gt;</code> 能返回正确结果，\n所以「按元素类型走不同分支」这件事写得出来。\n这一点比 JavaScript 能表达的多了不少。</p>\n",
         "python": "<p>两边在运行期<strong>都能看到</strong>泛型实参，但<strong>看到的方式不同</strong>：\nPython 靠 <code>list[int].__args__</code> 去翻类型对象的属性，\n而且那个 <code>list[int]</code> 只是一个可以用在标注里的对象，\n不会对值产生任何约束；Dart 直接把实参带到值上，\n<code>is</code> 检查会真的按它判断。\n所以一个是「类型对象上有记录」，一个是「值本身带类型」。</p>\n",

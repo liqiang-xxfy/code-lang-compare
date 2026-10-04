@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>if</code> 形态一样，但<strong>条件允许什么</strong>差得很远：\nJavaScript 有一整套真值/假值（空字符串、0、NaN、null 都算假），\n所以 <code>if (name)</code> 是很常见的写法；C++ 里能隐式转成 <code>bool</code> 的\n主要是数值与指针类型（0 / 非空为假真），类类型要自己定义转换。\n另一处是 <code>switch</code> 与 <code>if</code> 的分工：JavaScript 的 <code>switch</code> 可以比较\n任意值（包括字符串），C++ 的只能用在整数与枚举上（见下一格），\n所以「按字符串分支」在 C++ 里只能写成一串 <code>if</code>。</p>\n",
         "python": "<p>Python 的真值判断是<strong>对象自己说了算</strong>（<code>__bool__</code>，空容器为假），\n而且 <code>if x:</code> 这种写法到处在用；C++ 的条件必须能转成 <code>bool</code>，\n容器、字符串都不能直接当条件 —— 要写 <code>if (!s.empty())</code>。\n所以那边「空的就是假的」这条便利在这边没有，\n好处是每个判断都写明了在判断什么。\n另一处是 Python 的 <code>match</code> 能按结构匹配，C++ 的 <code>if</code> 完全做不到（见 <code>switch-and-match</code>）。</p>\n",
@@ -58,7 +57,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有三段式 <code>for</code> 与 <code>while</code>，C++ 多出来的是<strong>迭代方式的选择</strong>：\nJavaScript 的 <code>for...of</code> 是语言内置的协议，遍历的一定是「值」；\nC++ 的 range-for 背后是迭代器，<code>auto</code> / <code>auto&amp;</code> / <code>const auto&amp;</code>\n三种写法含义不同（拷贝 / 引用 / 只读引用），选错要么白拷贝、\n要么改不动原容器。另一处差别很实际：JavaScript 在 <code>for...of</code> 里\n删元素是允许的（有明确规则），C++ 的 range-for 里改容器结构\n会让迭代器失效，行为未定义。</p>\n",
         "python": "<p>两边的循环写法差别比看上去大：Python 的 <code>for x in seq</code> 遍历的\n是<strong>元素</strong>，要下标得用 <code>enumerate</code>；C++ 的 range-for 也是遍历元素，\n但底层是迭代器，而且能直接绑引用、绑结构化绑定。\nPython 的 <code>while</code> 与 C++ 的 <code>while</code> 一致，但 C++ 多一个 <code>do-while</code>。\n另一处是 C++ 的 <code>goto</code> 虽然不推荐但存在，Python 完全没有。</p>\n",
@@ -84,7 +82,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的「能被遍历」判据不同：JavaScript 靠<strong>语言定义的协议</strong>\n（<code>Symbol.iterator</code>，即对象上有没有那个特定方法），\n数组、字符串、Map、Set 都内建实现了它；\nC++ 靠<strong>能不能找到 <code>begin()</code> 与 <code>end()</code></strong> ——\n这是个更松的约定（自己写的类型补两个函数就行，甚至能写自由函数）。\n另一处是惰性管道：JavaScript 要用生成器函数手写，\nC++20 起标准库里就有 views，<code>filter | transform</code> 是现成的。</p>\n",
         "python": "<p><strong>两边的迭代协议名字一样、位置不同</strong>：Python 靠 <code>__iter__</code> 与\n<code>__next__</code>（迭代器自己记状态、<code>next</code> 一次一个），\nC++ 靠一对 <code>begin</code> / <code>end</code>（两个迭代器比位置，<code>++</code> 往前走）——\n前者是「我问下一个」，后者是「我指着一个位置」。\n所以 Python 的生成器天生就是迭代器，C++ 要写生成器得用协程。\n共同点是两边都能给自定义类型补上协议、都能惰性求值。</p>\n",
@@ -120,7 +117,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有 <code>switch</code>，但<strong>能比什么</strong>和<strong>会不会贯穿</strong>都不同：\nJavaScript 的 <code>switch</code> 用 <code>===</code> 比较任意值（字符串、对象都行），\n而且现代写法里每支必须 <code>break</code> / <code>return</code>；\nC++ 的 <code>switch</code> 只能作用在整数与枚举上（比的是值），\n字符串直接编译不过，而且<strong>不写 <code>break</code> 就往下贯穿</strong> ——\n这个坑是 C++ 特有的。要按「好几种可能」分支，C++ 得换成\n<code>std::variant</code> 加 <code>visit</code>，那时穷尽检查由编译器负责；\nJavaScript 里没有这层，漏掉一种情况没人提醒。</p>\n",
         "python": "<p>Python 的 <code>match</code> 是<strong>结构匹配</strong>：能按形状拆列表、按属性拆对象、\n还能加守卫条件；C++ 没有这个能力 —— <code>switch</code> 只比整数与枚举的值，\n既不能匹配结构也不能绑定变量。真要「按几种可能分支」，\nC++ 的替代品是 <code>std::variant</code> 加 <code>std::visit</code>，\n它能把「有哪几种可能」写进类型并强制穷尽，\n但那个集合必须在写代码时就定死。Python 的 <code>match</code> 没有穷尽要求。</p>\n",

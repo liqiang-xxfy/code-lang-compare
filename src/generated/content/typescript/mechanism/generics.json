@@ -16,7 +16,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有类型参数，「泛型」是 TypeScript 从别的静态语言借来的东西。\n加上的这一层只活在编译期：类型实参写什么、能不能推断出来，\n编译后就都消失了 —— 上面那个类在运行时与手写的普通类逐字节等价。\n好处是调用处往往一个字都不用多写（实参推得出来），\n坏处是「运行期知道 T 是什么」这件事做不到，见「类型擦除」那一格。</p>\n",
         "python": "<p>Python 也有类型参数（<code>TypeVar</code>，3.12 起还能写成 <code>def first[T](...)</code>），\n位置比这里靠后：Python 把方括号放在<strong>函数名之后</strong>，这里放在参数表之前。\n两边都靠实参推断、都不用写实参。差别在运行期 ——\nPython 的类型参数是真实存在的对象（<code>TypeVar</code> 实例，函数上还能查到\n<code>__type_params__</code>），这里编译完一点痕迹都没有。\n所以想在运行期按类型参数做事，Python 那边有东西可抓，这边没有。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有类型参数，也就没有「约束」这一层：参数能传什么全靠人记，\n传错了要跑到那一行才炸。这里把「这个值必须有什么」写成类型，\n不符合的在编译期就进不来，而且这份约束在<strong>函数体里</strong>同样有效 ——\n约束里没写的成员，体内碰它就是编译错误，不是运行时惊喜。</p>\n",
         "python": "<p>两边都有约束，写法不同：Python 把它挂在类型变量上\n（<code>TypeVar(&quot;T&quot;, bound=...)</code>，或者用 <code>Protocol</code> 描述需要哪些方法），\n这里直接写 <code>extends</code> 加一个形状。两边的约束都只在静态检查阶段生效，\n运行期都不检查。Python 的写法更啰嗦一点，但 <code>Protocol</code> 能把\n「需要哪些能力」单独命名、反复复用，这一点这里没有对应物。</p>\n",
@@ -78,7 +76,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有类型参数，所以没有「型变」这个议题 ——\n但上面那段运行时的行为两边完全一样：往一个被当作「动物数组」用的\n狗数组里塞一只动物，在 JavaScript 里同样会发生，只是从编译到运行\n没有任何一处会提醒你。这里至少把这件事承认下来并且写了出来：\n数组的协变是<strong>官方明说的取舍</strong>（为了让数组用起来不别扭），\n不是漏检 —— 代价就是这类写入要靠自己避免。</p>\n",
         "python": "<p>同一个场景两边判断相反。Python 的类型检查器认为可变容器<strong>不变</strong> ——\n<code>list[Dog]</code> 不能赋给 <code>list[Animal]</code>，上面那个漏洞在静态检查阶段就被堵住；\n只有只读的 <code>Sequence</code> 才是协变的。\n声明方式也反过来：Python 原先要在类型变量上写 <code>covariant=True</code>，\n新语法里由检查器按用法自动推断；这里默认按结构推断，\n需要时用 <code>in</code> / <code>out</code> 显式写出来。</p>\n",
@@ -104,7 +101,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有类型参数可擦，运行时本来就只剩值 ——\n值自己带着足够的信息（<code>constructor.name</code>、<code>instanceof</code> 都能用）。\n这里的处境是反过来的：值上的内省照样好用，<strong>静态</strong>那一层却拿不回来 ——\n<code>Box&lt;number&gt;</code> 与 <code>Box&lt;string&gt;</code> 运行时就是同一个类。\n想在运行期区分，唯一的办法是再传一份「值」进去（构造函数、标记字段之类），\n把类型信息从编译期搬到运行期。</p>\n",
         "python": "<p>两边都不拿类型实参做运行期判断，但<strong>留下的痕迹</strong>差很多。\nPython 里 <code>list[int]</code> 的 <code>int</code> 还挂在 <code>__args__</code> 这类属性上，\n运行期真能读出来（<code>isinstance</code> 传参数化泛型倒是会直接报错）；\n这里编译完什么都没有，类型实参一点都留不下。\n所以 Python 那种「按类型参数做运行期校验」的库写法，这里只能靠\n显式传构造函数来替代 —— 是把类型信息另存一份，不是捡回来。</p>\n",

@@ -16,7 +16,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边是同一件事：语言层没有并发单元，能并行的是宿主给的那种线程。\nTypeScript 加的只有类型 —— Worker 的类型来自 lib 配置（浏览器那份或运行时那份），\n传什么、收到什么，编译期就对得上。并发行为本身一处没变。</p>\n",
         "python": "<p>Python 把并发写进了语言与标准库：进程、线程、协程三套各有各的模块，\n<code>async def</code> 是语法。这里这三套都不存在 —— 线程由宿主提供，\n「协程」就是事件循环上的 Promise 任务，连语法都只是 <code>async</code> 一个修饰。\n根源在于分工：Python 的语言与标准库负责这件事，这里交给了运行环境。</p>\n",
@@ -42,7 +41,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>同一套东西：共享内存与原子操作都是语言内建，两边逐条一致。\nTypeScript 能加的是类型 —— 视图类型与缓冲区对得上，原子操作有完整签名。\n语言本身仍然不帮你防竞争：数据竞争在这里是运行期的问题，编译器不管。</p>\n",
         "python": "<p>Python 的多个线程共享整个解释器状态，靠全局锁让同一时刻只有一个线程\n执行字节码 —— 这挡掉了大部分竞争，代价是 CPU 密集的任务并行不起来。\n这里没有那层锁：内存一旦共享出去，两个线程就是真的同时读写，\n要用原子操作自己守住。真并行与「免于竞争」在这里不可兼得。</p>\n",
@@ -73,7 +71,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>和 JavaScript 一样：语言里没有锁，也没有可以写成关键字的那种构造。\nTypeScript 不会凭空造一个出来，它最多把第三方库的锁标上类型。\n所以「临界区怎么保护」在这里是设计问题，不是语法问题。</p>\n",
         "python": "<p>Python 的标准库给了锁（<code>threading.Lock</code> / <code>RLock</code> / <code>Semaphore</code>），\n哪怕全局锁已经挡掉了大部分竞争。这里标准库里没有锁 ——\n要用就自己用原子操作搭（比较并交换是常见的起点），或者借宿主的原语。\n差别在于「有现成的」与「得自己搭」。</p>\n",
@@ -93,7 +90,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>消息传递两边是同一套：跨线程送一个对象、另一端收到副本。\nTypeScript 能加的是消息的形状 —— 用一个带判别字段的联合类型\n描述「有哪几种消息」，收发两端就对得上了。通道本身仍然是宿主的。</p>\n",
         "python": "<p>Python 的队列是标准库给的：进程之间有队列与管道，协程之间有异步队列，\n「放进去、取出来」连同步一起解决了。这里的消息传递只有宿主那一层 ——\n语言与标准库都不提供队列，「等一个回复」要自己在消息之上包一层。</p>\n",
@@ -119,7 +115,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>同一套内建，语义逐条一致。TypeScript 加的是类型那一层：\n每个原子操作都有签名，等待类操作的返回值是个字面量联合\n（成功 / 不相等 / 超时），编译期就能看出可能要处理哪几种结果，\n漏掉一支会被指出来。</p>\n",
         "python": "<p>Python 没有把原子操作暴露到语言层 —— 有全局锁时用不上，\n真要并行时共享内存那套也不是语言级的。这里有一组明确的原子操作，\n但也仅此而已：没有内存序可以声明，官方也没有给出\n「哪些重排是允许的」这类规则。</p>\n",

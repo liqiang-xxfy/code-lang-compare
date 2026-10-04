@@ -32,12 +32,6 @@ for (const [state, count] of Object.entries(a.stats.byState).sort()) {
 }
 lines.push('')
 
-lines.push('内容来源分布')
-for (const [origin, count] of Object.entries(a.stats.byOrigin).sort()) {
-  lines.push(`  ${P(origin, 14)} ${String(count).padStart(4)}`)
-}
-lines.push('')
-
 lines.push('各语言覆盖率（全部板块合计）')
 for (const lang of a.enabledLanguageIds) {
   const c = a.stats.coverage[lang]!

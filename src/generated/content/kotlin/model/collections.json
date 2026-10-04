@@ -16,7 +16,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有「可变的列表」与「只读的列表」，但<strong>划分方式不同</strong>：\nJavaScript 用 <code>Object.freeze</code> 或者干脆靠约定，语言层面只有一个数组类型；\nKotlin 是两个<strong>类型</strong>（<code>List</code> 与 <code>MutableList</code>），编译器按类型拦。\n另一处是转换的语义：JavaScript 的 <code>[...arr]</code> 是拷贝，\nKotlin 的 <code>toList()</code> 同样是拷贝 —— 但 Kotlin 还允许\n「不拷贝、只是换个只读视角看同一个对象」，那才是最容易误会的一处。</p>\n",
         "python": "<p>Python 的 <code>list</code> 与 Kotlin 的 <code>MutableList</code> 用法接近，\n但 Python <strong>没有只读的那一档</strong>（元组是另一个类型，不是视图）。\nKotlin 的 <code>List</code> 更像「同一个列表的只读窗口」——\n它可能真的是不可变的，也可能只是你看不到写操作。\n另一处是名字：Python 的 <code>len(x)</code> 是函数，Kotlin 的 <code>x.size</code> 是属性；\nPython 有负下标，Kotlin 没有。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都用下标取值，取不到都给一个「空」—— 差别在那个空是什么：\nJavaScript 给 <code>undefined</code>，Kotlin 给 <code>null</code>，而且写在返回类型里，\n用之前必须处理。另一处是<strong>键的类型</strong>：JavaScript 的对象键\n只能是字符串或符号，要别的类型得换 <code>Map</code>；\nKotlin 的 <code>Map</code> 从一开始就能用任意类型当键。\n还有一处：JavaScript 的普通对象自较新的标准起也有明确的属性顺序规则\n（整数键在前按升序，其余按插入顺序），这一点两边都对得上。</p>\n",
         "python": "<p>字典这一层两边可以逐条对应（<code>d[k]</code> ↔ <code>m[k]</code>、\n<code>d.get(k, 默认)</code> ↔ <code>m.getOrDefault(k, 默认)</code>、\n<code>d.setdefault</code> ↔ <code>getOrPut</code>）。最要紧的差别是<strong>取不到的键</strong>：\nPython 抛 <code>KeyError</code>，Kotlin 给 <code>null</code> ——\n所以 Python 里那个 <code>try/except KeyError</code> 在 Kotlin 里默认是判空，\n想让它抛异常得显式写 <code>getValue</code>。\n另一处是 <code>to</code> 这个写法：Python 用 <code>(k, v)</code> 元组，Kotlin 用中缀 <code>to</code>。</p>\n",
@@ -62,7 +60,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>Set</code> 与 Kotlin 的 <code>Set</code> 用法接近\n（<code>add</code> / <code>has</code> / <code>delete</code> ↔ <code>add</code> / <code>contains</code> / <code>remove</code>），\n两者都保持插入顺序。差别在<strong>集合运算</strong>：JavaScript 的 <code>Set</code>\n没有并集交集差集，要自己写循环或用新出的方法；\nKotlin 标准库直接给了 <code>union</code> / <code>intersect</code> / <code>subtract</code>，\n而且都返回新集合。另一处是判重的依据：两边都看相等性，\n但 Kotlin 明确要求重载 <code>==</code> 时同时给 <code>hashCode</code>。</p>\n",
         "python": "<p>两边的集合都能做并交差（<code>| &amp; -</code> ↔ <code>union</code> / <code>intersect</code> / <code>subtract</code>），\n这一层可以对应。差别在<strong>顺序</strong>：Python 的 <code>set</code>\n遍历顺序不可预期，Kotlin 的 <code>setOf</code> 默认保持插入顺序 ——\n这在「输出稳定、测试可复现」这件事上差别很实在。\n另一处是可变性：Python 的 <code>set</code> 可变、<code>frozenset</code> 不可变，\n与 Kotlin 的 <code>Set</code> / <code>MutableSet</code> 分法相似，但对齐的不是同一根轴。</p>\n",
@@ -82,7 +79,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的数组与对象都能当「临时组合」用，\n而且对象带字段名、解构也按名字来；Kotlin 的 <code>Pair</code> 只有\n<code>first</code> / <code>second</code> 两个位置名，<strong>解构是按顺序不是按名字</strong> ——\n位置一改，解构的结果就悄悄换了对象，编译器不提醒。\n所以 Kotlin 里一旦超过「随手传两个值」，惯例是定义 data class。\n另一处是 Kotlin 的解构是编译器特性（<code>componentN</code>），\n可以给任何类加，JavaScript 那边是协议（可迭代）。</p>\n",
         "python": "<p>Python 的元组与 Kotlin 的 <code>Pair</code> 用途相同，\n解构也都可以（<code>name, age = pair</code> ↔ <code>val (name, age) = pair</code>）。\n差别在<strong>命名</strong>：Python 可以用 <code>NamedTuple</code> 给字段起名并保留解构，\nKotlin 的 <code>Pair</code> 不行 —— 想两者兼得就得写 data class，\n多一行声明。另一处是长度：Python 的元组任意长，\nKotlin 标准库只到三个，更长的要自己定义。</p>\n",
@@ -118,7 +114,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有一个数组类型，没有「只读的那一半」，\n所以「能不能改」这件事编译器不知道，只能靠运行时冻结或者约定。\nKotlin 把它拆成两个类型之后，多出一件 JavaScript 里没有的事：\n<strong>只读的那个可以协变</strong> —— <code>List&lt;Dog&gt;</code> 能当 <code>List&lt;Animal&gt;</code> 用，\n因为反正塞不进东西。这是类型系统换来的实打实的好处，\n也是「只读接口」存在的第二个理由（第一个是防误改）。</p>\n",
         "python": "<p>Python 用「换成不可变类型」来表达不能改（列表换元组），\n代价是操作变少、而且是<strong>真的另一份数据</strong>；\nKotlin 的只读接口是<strong>同一个对象的另一个视角</strong>，\n所以强转就能绕过去 —— 它防的是手滑，不是防恶意。\n另一处是协变：Python 的 <code>list[Dog]</code> 在类型检查器眼里也是不变的，\n这一点两边一致；但 Kotlin 把它变成了编译器强制的规则。</p>\n",
@@ -144,7 +139,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>slice(1, 4)</code> 与 Kotlin 的 <code>subList(1, 4)</code> 形态一样，\n右端都不含 —— 这一层两边很像。差别在<strong>有没有专门的切片语法</strong>：\nJavaScript 只能靠 <code>slice</code> / <code>splice</code> 这些方法；\nKotlin 除了 <code>subList</code>，还多出一批按用途命名的方法\n（<code>take</code> / <code>drop</code> / <code>chunked</code> / <code>windowed</code>），\n写「取前 N 个」「每 N 个分一组」时不用自己算下标。\n两边的负下标都只有 JavaScript 有。</p>\n",
         "python": "<p><strong>这是两个语言差别最直观的一格</strong>：Python 的 <code>xs[1:4]</code> 是语法，\n还支持负下标与步长（<code>xs[::-1]</code> 直接反转）；\nKotlin 完全没有切片语法，一切都得调方法，\n取末位要写 <code>last()</code>、反转要写 <code>reversed()</code>。\n好在 Kotlin 用一批具名方法补上了表达力\n（<code>take</code> / <code>drop</code> / <code>chunked</code> / <code>windowed</code>），\n写「分块」「滑动窗口」这类需求时反而比 Python 的切片清楚。</p>\n",

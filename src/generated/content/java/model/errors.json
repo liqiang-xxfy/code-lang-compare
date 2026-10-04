@@ -21,7 +21,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>只能抛 <code>Throwable</code> 的子类（抛字符串编译不过），而且分两类：\n<strong>受检异常</strong>必须写进方法签名的 <code>throws</code>，调用方必须处理或继续声明；\n<strong>不受检异常</strong>（<code>RuntimeException</code> 及其子类）想抛就抛、签名上不体现。\n这个分类是 Java 独有的设计，也是它最常被争论的一点。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 什么都能抛，签名上什么都看不出来；Java 把「会抛什么」\n写进了类型系统。好处是漏接异常编译期就能发现，代价是层层 <code>throws</code>\n会污染整条调用链。</p>\n",
@@ -40,7 +39,6 @@
         "python": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>多个 <code>catch</code> 按类型顺序匹配，<strong>编译器会检查顺序</strong>：子类写在父类之后就是\n编译错误。可以用 <code>A | B</code> 一次接多种类型。捕获后包成 <code>RuntimeException</code>\n再抛是常见的「把受检异常转成不受检」手法。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有一个 <code>catch</code>、类型要自己 <code>instanceof</code> 判断；\nJava 按类型分支且顺序由编译器保证。两边的 <code>finally</code> 语义一致。</p>\n",
@@ -59,7 +57,6 @@
         "python": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>try-with-resources 是标准写法</strong>：把资源声明在 <code>try (...)</code> 里，\n编译器负责生成关闭代码，并且当「关闭时又出错」时把新异常记为\n<code>suppressed</code> 而不是盖掉原始异常 —— 手写 <code>finally</code> 做不到这一点。\n资源只要实现 <code>AutoCloseable</code> 就能这么用。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有手写 <code>try/finally</code>，且 finally 里抛的错会盖掉原来的；\n这里用 try-with-resources 能同时保证「一定关闭」与「原始异常不丢」。</p>\n",
@@ -78,7 +75,6 @@
         "python": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>异常体系是一棵大类树，分两个维度切：<code>Error</code>（JVM 级问题，不该接）与\n<code>Exception</code>；<code>Exception</code> 下面再分<strong>受检</strong>（<code>IOException</code> 这类，\n编译器强制处理）与<strong>不受检</strong>（<code>RuntimeException</code> 及其子类，通常是编程错误）。\n标准库为文件、网络、SQL、并发都定义了具体类型，所以 <code>catch</code> 能写得很精确。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的标准错误类型只覆盖引擎自身的错误，IO 与网络没有标准类型；\nJava 有完整的层级，并且用受检 / 不受检把「必须处理」与「可以不管」\n区分开 —— 这一维度在 JavaScript 里完全不存在。</p>\n",
@@ -97,7 +93,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>自定义异常<strong>必须选一个父类</strong>，而选择本身就是设计决策：继承\n<code>RuntimeException</code> 就不受检、调用方不需要声明；继承 <code>Exception</code>\n就是受检、所有经过的方法都要写 <code>throws</code>。惯例是带上 <code>field()</code> 这类\n访问器传递上下文，并提供收 <code>cause</code> 的构造器。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 继承 <code>Error</code> 时要手动改 <code>name</code>、还要操心转译后的 <code>instanceof</code>；\nJava 的类名即类型名，什么都不用额外做，但要多做一个决定（受检与否）。</p>\n",
@@ -116,7 +111,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>传播有两条路：受检异常要么当场处理，要么写进签名继续上抛（调用方接着面对\n同样的选择）；不受检异常直接冒泡、签名上不体现。加一层上下文时把原异常\n作为 <code>cause</code> 传进构造函数，<code>getCause()</code> 能把根因取回来 ——\n堆栈里会打印「Caused by:」那一段。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的异常传播没有任何签名约束，谁都能抛、谁都不用声明；\nJava 的受检异常会沿着调用链一路逼出 <code>throws</code>。代价是模板代码，\n收益是「这个调用可能失败」在编译期就摆在眼前。</p>\n",

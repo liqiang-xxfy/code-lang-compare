@@ -42,7 +42,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「除号给小数」，但 Dart 多一个 <code>int</code> 类型，\n所以「要整除」成了真问题，答案就是 <code>~/</code> —— JavaScript 里\n只能靠 <code>Math.floor(x / y)</code>，而且负数时 <code>Math.floor</code> 与整除的行为还不一样。\n取余的分歧更大：JavaScript 的 <code>-7 % 3</code> 是 <strong>-1</strong>（跟着被除数符号），\nDart 的 <code>-7 % 3</code> 是 <strong>2</strong>（结果永远非负）—— 同一行代码在两个语言里\n给出不同的数，这是迁移时最隐蔽的一处。</p>\n",
         "python": "<p>除法两边可以逐条对应，只是符号不同（<code>/</code> 给浮点、<code>//</code> 给整除），\n取余也一致：Python 的 <code>-7 % 3</code> 同样是 <strong>2</strong>，两边都是「结果非负」这一派。\n差别在数字类型：Python 的整数任意精度，不会溢出；\nDart 的 <code>int</code> 是 64 位定宽，最大值加一会静默回绕 ——\n那种在 Python 里不可能发生的 bug，在 Dart 里是默认行为。\n另一处是混合运算的结果类型：Python 的 <code>int + float</code> 给 float，\nDart 的 <code>int + double</code> 同样给 double，这一层两边一样。</p>\n",
@@ -83,7 +82,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都不会替你做类型转换（JavaScript 的宽松 <code>==</code> 会，所以\n实际上只有严格 <code>===</code> 才与 Dart 的 <code>==</code> 可比）。真正的差别在<strong>默认行为</strong>：\nJavaScript 的数组与对象比的是引用，这一点与 Dart 相同；\n但 JavaScript 里字符串的 <code>===</code> 也比内容，两边一致。\n最需要注意的是<strong>没有类型转换</strong>这一条：JavaScript 的 <code>1 == &quot;1&quot;</code>\n为真，Dart 里 <code>1 == &quot;1&quot;</code> 是 <code>false</code>（连编译警告都未必有）——\n从宽松相等迁过来时，原本靠转换成立的判断会静静地变成假。</p>\n",
         "python": "<p>Python 的 <code>==</code> 比内容、<code>is</code> 比身份，与 Dart 的 <code>==</code> / <code>identical</code> 对应，\n数值上两边也一致（<code>1 == 1.0</code> 都为真）。\n真正的分歧在<strong>容器</strong>：Python 的列表 <code>==</code> 会逐元素比较\n（<code>[1, 2] == [1, 2]</code> 为真），Dart 的列表没有重载 <code>==</code>、\n比的是身份（为假）—— 同一行判断在两个语言里结论相反，\n这是从 Python 过来最容易踩的一处。\n自定义类两边默认又都按身份比 —— 所以差异只在标准库的容器上，\n不在语言规则上，记「列表别用 ==」就够了。</p>\n",
@@ -114,7 +112,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><code>&amp;&amp;</code> / <code>||</code> / <code>!</code> 与短路规则一致，但有两处实际差别：\n一是<strong>返回值</strong>，JavaScript 的 <code>&amp;&amp;</code> / <code>||</code> 返回操作数本身\n（<code>a || 默认值</code> 是常用写法），Dart 的布尔运算符只产出 <code>bool</code>，\n要取默认值得用 <code>??</code>；二是<strong>条件类型</strong>，JavaScript 里\n<code>if (items)</code> 靠空数组为真的规则，空数组其实是真值，\n这类判断经常写错，Dart 直接不接受非 <code>bool</code> 的条件，\n逼你写出 <code>items.isNotEmpty</code>。</p>\n",
         "python": "<p>Python 的 <code>and</code> / <code>or</code> 同样短路，但会返回操作数本身\n（<code>0 or &quot;默认&quot;</code> 得到字符串），Dart 的布尔运算符只返回 <code>bool</code>，\n「取默认值」有专门的 <code>??</code>。\n最大的差别是<strong>真值判断</strong>：Python 里 <code>if items:</code> 是地道写法，\n空列表为假；Dart 要求条件必须是 <code>bool</code>，<code>if (items)</code> 编译不过。\n看起来 Dart 更啰嗦，但 Python 里 <code>if x:</code> 究竟在判 None、\n判 0 还是判空，得回头看 <code>x</code> 的类型 —— Dart 把这个问题从语法上删掉了。</p>\n",
@@ -140,7 +137,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有运算符重载，<code>+</code> 只能做数字加法或拼接，\n给自定义类型定义「相加」只能起个普通方法名。\nDart 可以，而且<strong>用得比多数语言更狠</strong> —— <code>operator call</code>\n能让一个对象像函数那样被调用，<code>operator []=</code> 能做下标赋值。\n代价是读代码时要留神：<code>a + b</code> 究竟做了什么，\n取决于 <code>a</code> 的类型，得像查方法一样去查。</p>\n",
         "python": "<p>两边都支持运算符重载，思路相同（<code>__add__</code> ↔ <code>operator +</code>、\n<code>__lt__</code> ↔ <code>operator &lt;</code>、<code>__call__</code> ↔ <code>operator call</code>），\n连「重载相等要同时管哈希」这条联动规则都一样。\n差别在<strong>约束强度</strong>：Python 的魔法方法按名字约定，写错一个字\n就静默不生效；Dart 必须写 <code>operator</code> 关键字、签名要被编译器接受，\n而且<strong>不是所有运算符都能重载</strong> —— <code>&amp;&amp;</code> / <code>||</code> / <code>??</code> / <code>is</code>\n这些根本不给重载，Python 里倒是可以拦下几乎所有运算。</p>\n",

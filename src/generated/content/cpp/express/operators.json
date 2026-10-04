@@ -42,7 +42,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>除法差别最大：JavaScript 的 <code>/</code> 一律给浮点（<code>7/2</code> 是 3.5），\n要整除得自己写 <code>Math.floor</code>；C++ 的 <code>/</code> 看操作数类型 ——\n两个整数就是整除，而且是<strong>向零截断</strong>（<code>-7/2</code> 得 -3，不是 -4）。\n取余同理由操作数类型决定，<code>-7 % 2</code> 在 C++ 里是 -1。\n另一处是溢出：JavaScript 的数字是浮点，超出安全范围只是丢精度；\nC++ 的有符号溢出是<strong>未定义行为</strong>（编译器可以当你没溢出过），\n无符号才保证回绕 —— 两种数的命运不一样。</p>\n",
         "python": "<p>两边都有整除和取余，但<strong>负数上的行为是反的</strong>：Python 的 <code>//</code> 向下取整\n（<code>-7 // 2</code> 是 -4）、<code>%</code> 的结果跟着除数（<code>-7 % 2</code> 是 1）；\nC++ 的 <code>/</code> 向零截断（-3）、<code>%</code> 跟着被除数（-1）。\n所以从 Python 过来的代码里只要出现负数和除法，结果就会不一样，\n而且两边都不报错。另一处是溢出：Python 的整数任意精度、根本不会溢出，\nC++ 的有符号溢出是未定义行为、无符号才是回绕。</p>\n",
@@ -73,7 +72,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有 <code>==</code>，但 C++ 的 <code>==</code> <strong>不做隐式类型转换</strong>（除了重载决议允许的\n那几种），<code>1 == &quot;1&quot;</code> 直接编译不过；JavaScript 的 <code>==</code> 会先把两边转成\n同一类型再比，所以才有 <code>===</code> 这个「不转换」的版本。\nC++ 里没有第二个运算符：要比同一性就比指针（地址），\n要比内容就靠类型重载 —— 两件事在写法上分得很开。\n另一处是 C++ 的 <code>==</code> 可以是<strong>用户定义的</strong>，所以它的行为取决于类型作者。</p>\n",
         "python": "<p>两边的 <code>==</code> 都是「可被类型作者定义的内容比较」，这一层一致。\n差别在没有第二个运算符：Python 的 <code>is</code> 比同一性、<code>==</code> 比内容，\n两个都在语言里；C++ 只有 <code>==</code> 一个符号，\n「比同一性」要落到指针的比较上 —— 也就是说，\n只有当你手里拿的是指针时，「是不是同一个对象」才问得出来。\n另一处是 Python 的 <code>__eq__</code> 和 <code>__hash__</code> 有配套约定，C++ 里没有内建哈希要求。</p>\n",
@@ -99,7 +97,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格的重点是「逻辑运算符返回什么」</strong>：JavaScript 的 <code>&amp;&amp;</code> 与 <code>||</code>\n返回<strong>操作数本身</strong>，所以 <code>0 || 5</code> 得到 5、<code>a || b</code> 就是「取默认值」的常用写法；\nC++ 的这两个运算符只返回 <code>bool</code>，<code>0 || 5</code> 得到的是 <code>true</code> ——\n照搬那个习惯会静默出错（类型变了、值也没了）。\n要「取默认值」在 C++ 里得写三元运算符或者 <code>value_or</code>。\n短路的副作用两边一致，这一层不用重新学。</p>\n",
         "python": "<p>两边的短路行为一致，差别同样在<strong>返回什么</strong>：Python 的 <code>or</code> / <code>and</code>\n返回操作数（<code>0 or 5</code> 得 5），C++ 只返回 <code>bool</code>（得 <code>true</code>）。\n所以 Python 里那些「用 or 给默认值」的写法在 C++ 里全部要改写成\n三元运算符或者 <code>value_or</code>。另一处是 C++ 没有 <code>not</code> / <code>and</code> / <code>or</code>\n这类关键字写法，只有符号；而且 C++ 支持在条件里声明变量\n（<code>if (auto* p = ...; p)</code>），Python 的赋值表达式是另一个东西。</p>\n",
@@ -125,7 +122,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>这是<strong>直接的有无之分</strong>：JavaScript 没有运算符重载 ——\n自定义类型只能用方法名（<code>.plus()</code> / <code>.equals()</code>），\n所以读代码时 <code>a + b</code> 的行为永远是语言定义的。\nC++ 里 <code>a + b</code> 可能是这个类型作者写的任何一个函数，\n好处是自定义数值类型（矩阵、复数、金额）写起来像内建类型，\n代价是「这个 <code>+</code> 到底做了什么」要跳进去看。\n两边都能给类型定义方法，差的是能不能占用运算符。</p>\n",
         "python": "<p>两边都有运算符重载，连实现方式都对应得上\n（Python 的 <code>__add__</code> ↔ C++ 的 <code>operator+</code>，<code>__eq__</code> ↔ <code>operator==</code>）。\n差别在<strong>能不能发明新的</strong>：Python 可以定义 <code>@</code>（矩阵乘）这类\n新增的运算符；C++ 只能重载已有运算符，不能创造。\n另一处是 C++ 有生成式的比较（<code>&lt;=&gt;</code> 与 <code>= default</code>），\n一行搞定六个；Python 要一个个写 <code>__lt__</code> / <code>__le__</code> 等。</p>\n",

@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能写出值，但 C++ 的初始化<strong>分好几种且含义不同</strong>：\n<code>int b(2)</code> 与 <code>int c{3}</code> 都是「用 2 初始化」，看起来一样，\n但花括号版本会<strong>拦住窄化</strong>（写 <code>char c{300}</code> 直接编译不过），\n圆括号版本只给个警告。JavaScript 只有一种写法，不存在这个选择。\n另一处是「没写初值」的后果：JavaScript 得到 <code>undefined</code>（一个确定的值），\nC++ 的局部变量得到<strong>不确定的值</strong> —— 读它是未定义行为，\n而全局变量却又会被自动清零，同一个写法两种结果。</p>\n",
         "python": "<p>两边都有多种字面量，C++ 多出来的是<strong>给类型留位置</strong>：\n<code>42</code> / <code>42L</code> / <code>42u</code> 是不同后缀写出来的不同类型，\n<code>3.14</code> 与 <code>3.14f</code> 也是两种精度 —— Python 里这些都只是数字。\n另一处是字符串：C++ 的 <code>&quot;文本&quot;</code> 是<strong>指针</strong>不是字符串对象，\n加一个 <code>std::string{...}</code> 才是真字符串，这个区别会一直影响后面所有操作。\n没写初值的后果也不一样：Python 里的名字没绑定就是 <code>NameError</code>，\nC++ 的局部变量是「有一块不确定的内存」。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都要「让编译器替你写类型」，但 C++ 的 <code>auto</code> 是在<strong>一个真实存在的\n类型系统里</strong>做推断 —— 推出来的类型此后固定不变，而且推断规则本身\n要学（丢不丢 const、要不要引用）。JavaScript 的「类型」本来就是值的属性，\n换个值就换个类型，没有「推出来之后钉死」这一步。\n另一处是 C++ 的推断有两种入口：从初值推（<code>auto</code>）和从表达式取类型\n（<code>decltype</code>），后者在写模板时是必需的。</p>\n",
         "python": "<p>两边的推断看着像，分量不同：Python 的变量从来没有类型，所以\n「推不推」只影响类型检查器怎么看它；C++ 的 <code>auto</code> 是编译器<strong>算出</strong>\n一个类型然后当成写死的一样用 —— 后面所有重载决议、\n模板匹配都按这个结果走。所以 C++ 的推断错了是编译错误，\nPython 的「推断错了」是类型检查器的一个提示。\n另一处是 C++ 要显式处理引用与 const 的丢失，Python 没有对应概念。</p>\n",
@@ -89,7 +87,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的「空」完全不是一回事</strong>：JavaScript 有 <code>null</code> 与 <code>undefined</code>\n两个值，读空值的属性会抛一个明确的 TypeError，程序停在现场；\nC++ 只有空指针，而解引用它是<strong>未定义行为</strong> —— 可能当场崩，\n可能读到垃圾继续跑，也可能崩在离现场很远的地方，没有异常也没有栈。\n所以那边「出错位置就是现场」这条经验在这边不成立。\n另一处是 C++ 多了一个 <code>std::optional</code>，把「可能没有值」\n写进类型 —— 这是 JavaScript 没有的那层表达力。</p>\n",
         "python": "<p>Python 的 <code>None</code> 是<strong>一个普通值</strong>，任何名字都能装它，出事时抛\nAttributeError 且带完整栈；C++ 没有一个统一的「空值」——\n指针有空、引用不能空、<code>std::optional</code> 是另一个类型。\n所以两边「可能没有值」的表达力不同：Python 是「什么都可以是 None」，\nC++ 是「你得先声明这个东西可能没有，然后用的时候检查」。\n代价是 C++ 更啰嗦，好处是类型上看得见。</p>\n",
@@ -125,7 +122,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有大量「悄悄发生的转换」，但<strong>后果的可见性差很远</strong>：\nJavaScript 转出来的怪结果（<code>&quot;1&quot; + 1</code>、<code>[] + {}</code>）至少是<strong>一个值</strong>，\n你能打印出来看；C++ 的隐式转换有时候连值都不给你 ——\n<code>1u &gt; -1</code> 得到 <code>false</code> 是<strong>完全确定、完全合法</strong>的结果，\n而越界、解引用这种干脆是未定义行为。另一处是 C++ 把「转换」\n分成了四种带名字的写法（<code>static_cast</code> 等），一眼能看出这步有多危险，\nJavaScript 只有一个隐式过程，读代码时看不出哪里在转。</p>\n",
         "python": "<p>两边都有「窄化会丢东西」，但默认行为相反：Python 的整数任意精度、\n<code>int</code> 与 <code>float</code> 各自独立，没有把 3.9 变 3 这种无声损失\n（<code>int(3.9)</code> 要你显式写）；C++ 里 <code>int i = 3.9;</code> 直接给你 3，\n连警告都不一定有。另一处是「字符串转数字」：\nPython 的 <code>int(&quot;abc&quot;)</code> 抛异常，C++ 有两个入口 ——\n<code>std::stoi</code> 抛 <code>invalid_argument</code>，<code>std::atoi</code> <strong>静默返回 0</strong>，\n挑错了就吞掉错误。</p>\n",

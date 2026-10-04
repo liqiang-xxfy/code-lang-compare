@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是「有没有类型参数」的直接对比</strong>：JavaScript 完全没有 ——\n想写通用的 <code>firstOf</code> 只能靠运行时判断或者干脆不管，\n函数体里看不见元素类型。Swift 的泛型把类型写进签名、\n由编译器检查，而且<strong>运行时还拿得到</strong>（<code>T.self</code>），\n所以「按类型做点判断」写得出来。\n另一处是写法：JavaScript 里同名函数只能有一个，\n要按类型分派得在体内判断；Swift 可以靠泛型约束做重载。\n代价是 Swift 那边类型参数要一层层写在签名里，代码更长。</p>\n",
         "python": "<p>两边都能写「通用的函数」，但<strong>一个只在检查器里、一个真的被编译器用</strong>：\nPython 的 <code>TypeVar</code> 是给类型检查器看的标注，运行期不存在；\nSwift 的泛型是编译器的一部分，而且<strong>运行期元数据会传下去</strong> ——\n泛型函数里能直接问 <code>T.self</code>。\n另一处是 Python 里函数不标注也能跑（检查器只是提示），\nSwift 里类型参数写错直接编译不过。\n共同点是两边都在往「用类型参数表达关系」的方向走。</p>\n",
@@ -63,7 +62,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有约束这一层，函数里对参数的假设只能靠文档\n或运行时判断；Swift 的 <code>T: Comparable</code> 把「必须能比较」\n写进签名，函数体里就敢直接调 <code>&gt;</code>，写错了是编译错误。\n另一处是<strong>关联类型</strong>（<code>associatedtype</code>）这个能力 ——\nJavaScript 完全没有对应物：它让「容器」这样的概念\n能说「我的元素类型是某个东西」，而在调用点再定下来。\n代价是约束会往上传：调用方要满足约束，泛型参数一层层跟着走。</p>\n",
         "python": "<p>Python 用 <code>TypeVar('T', bound=Comparable)</code> 表达约束，\n但那只对类型检查器有意义、运行时不强制；\nSwift 的 <code>T: Comparable</code> 是编译器的硬要求。\n另一处是 Python 有 <code>Protocol</code> 与泛型协议，两边形态在靠近；\n但 Swift 的关联类型在调用点由编译器推导，\n而 Python 的 <code>TypeVar</code> 要显式绑。\n共同点是两边都让「函数对参数的要求」成了能写下来的东西。</p>\n",
@@ -104,7 +102,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都「没有型变」这个概念，但原因不同：JavaScript 根本没有\n元素类型（数组里什么都能放），所以「能不能那样赋值」\n这个问题不存在；Swift 有元素类型，而且<strong>自定义泛型类型是不变的</strong>\n（<code>Box&lt;Dog&gt;</code> 不能当 <code>Box&lt;Animal&gt;</code> 用），只有标准库容器\n被开了协变的口子。\n另一处是 Swift 的协变之所以安全，靠的是容器是<strong>值类型</strong> ——\n赋值即拷贝，不存在「把一个 Dog 写进 Animal 容器后\n读出来是 Dog」的问题。JavaScript 里没有这层考虑。</p>\n",
         "python": "<p>两边的处境不同：Python 的类型检查器把列表当<strong>不变</strong>\n（<code>list[int]</code> 不是 <code>list[float]</code>），但那是检查器的选择、\n运行时不检查；Swift 的自定义泛型类型<strong>真的不变</strong>（编译错误），\n而标准库容器<strong>真的协变</strong>（编译通过）——\n所以「哪些能协变」在这边是编译器定死的清单，在那边是检查器的规则。\n另一处是 Swift 没有声明处型变（写不出 <code>&lt;out T&gt;</code>），\nPython 也没有，两边都靠约束绕。</p>\n",
@@ -160,7 +157,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能在运行期问类型（<code>typeof</code> / <code>T.self</code>），\n但<strong>来源不同</strong>：JavaScript 的类型本来就跟着值走，\n随时能问；Swift 的类型信息是<strong>泛型把元数据传下去</strong>才有的 ——\n也就是说「泛型实参可查」是语言特意保留的能力，\n而不是「运行时只有对象本身」。\n另一处是 Swift 有 <code>any</code> 这个<strong>显式的装箱语法</strong> ——\n你能一眼看出「这里类型被擦掉了，多了一层间接」；\nJavaScript 里没有这个概念（一切本来就是动态的）。\n共同点是两边都能写出「先当宽类型存、用的时候转回来」的代码。</p>\n",
         "python": "<p><strong>两边都能在运行期看到泛型实参，但方式不同</strong>：\nPython 靠 <code>list[int].__args__</code> 去翻类型对象的属性，\n而且那个 <code>list[int]</code> 只是一个能用在标注里的对象；\nSwift 把实参<strong>作为值传下去</strong>，泛型函数里直接写 <code>T.self</code> ——\n一个是「类型对象上有记录」，一个是「值本身带着类型」。\n另一处是 Swift 有显式的擦除语法（<code>any</code>），\nPython 里擦除是隐式的（不写标注就没有类型信息）。</p>\n",

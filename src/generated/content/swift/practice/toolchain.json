@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的反馈循环差别很大：JavaScript 改完直接跑，\n没有编译这一步；Swift 要 <code>swift build</code>（首次会很慢，\n因为依赖是源码、要一起编），然后才能跑。\n另一处是<strong>构建配置会改变行为</strong>：Swift 的 debug 与 release\n不只是优化开关 —— <code>assert</code> 在 release 下会被移除，\n所以「调试时好好的、发布后不检查了」是真实存在的差别；\nJavaScript 里没有「同一份代码两种行为」这层。\n还有一处是 Swift 有 <code>precondition</code> 这个「发布构建里也检查」的档位，\n用来表达「这不是调试断言，是真正的契约」。</p>\n",
         "python": "<p>两边的断言默认值相反、语义也不同：Python 的 <code>assert</code>\n默认<strong>是开的</strong>（<code>-O</code> 才关），而且失败抛 AssertionError\n（能接住）；Swift 的 <code>assert</code> 只在 debug 检查、\n失败<strong>直接终止程序</strong>（接不住）。\n另一处是 Swift 有三个档位（assert / precondition / fatalError）\n分别对应「调试检查 / 生产契约 / 永不返回」，\nPython 基本只有 assert 一种。\n还有一处是 Swift 要显式编译（首次很慢），\nPython 保存即运行 —— 反馈循环长度差一个量级。</p>\n",
@@ -73,7 +72,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边「打包」的意思差得很远：JavaScript 打包是为了\n<strong>浏览器</strong>（合并模块、降级语法、压体积），产物仍然要运行时；\nSwift 的构建产出<strong>机器码</strong>，可执行文件可以直接跑\n（Apple 平台上运行时随系统来，Linux 上要么静态链、\n要么带上 Swift 运行时库）。\n另一处是「静态链接」这件事：JavaScript 里没有这个概念\n（一切运行时加载），Swift 里可以用 Static Linux SDK\n做出「除系统调用外零依赖」的单文件 —— 这是部署上的实质差别。</p>\n",
         "python": "<p>两边都想解决「让对方不装环境也能跑」，但手段不同：\nPython 靠打包器（PyInstaller 那类，把解释器也塞进去），\n生态碎、各自的坑不少；Swift 的 <code>swift build -c release</code>\n是官方工具链里的一条命令，产出的就是原生可执行文件。\n另一处是<strong>依赖运行时</strong>的程度：Python 打包后体积动辄几十兆\n（带着解释器），Swift 的静态链接产物小得多。\n共同点是两边都要为「目标平台」单独构建。</p>\n",
@@ -129,7 +127,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边「官方到什么程度」差别很大</strong>：JavaScript 的检查与格式化\n几乎都是外挂工具（ESLint / Prettier，要装、要配、要接进编辑器）；\nSwift 把格式化器做进了工具链（<code>swift format</code>），\n配置一份、默认风格统一。\n另一处是<strong>静态检查的来源</strong>：JavaScript 靠 ESLint 的规则集；\nSwift 主要靠<strong>编译器的告警</strong>（类型、并发安全、穷尽性）\n加上 <code>swift-format lint</code> 管风格 —— 也就是说\n它把「能编译」当成第一道防线，而不是先格式化再检查。</p>\n",
         "python": "<p>两边都有「格式化器加检查器」的组合（<code>ruff format</code> / <code>ruff check</code> ↔\n<code>swift format</code> / <code>swift-format lint</code>），这一层越来越像。\n差别在<strong>归属</strong>：Python 的那些是第三方工具（生态收敛出来的），\nSwift 的是官方随工具链发的。\n另一处是 Swift 的编译器本身承担了大量检查\n（类型、并发安全、<code>switch</code> 穷尽性），\nPython 的编译器（解释器）几乎不检查 ——\n所以那边对工具链的依赖更重。</p>\n",
@@ -155,7 +152,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边差别很大</strong>：JavaScript 本身不做类型检查，要另装一个检查器、\n另跑一遍（而且可以无视它）；Swift 的类型检查<strong>内建在编译里</strong>，\n类型不对根本编不出东西。\n另一处是检查的<strong>覆盖面</strong>：Swift 把可选值处理、\n<code>switch</code> 穷尽性、并发安全（Sendable 与 actor 隔离）\n全做进了类型系统 —— 也就是说「能编译」在这门语言里\n意味着比别处多得多的东西。\nJavaScript 那边要靠检查器加 lint 规则凑出类似覆盖，而且永远不是强制的。</p>\n",
         "python": "<p>两边的姿态相反：Python 的类型检查是<strong>额外的可选步骤</strong>\n（装检查器、单独跑，结论不影响程序能不能跑）；\nSwift 的类型检查是编译的一部分，而且覆盖面更宽\n（可选值、穷尽性、并发安全都在里面）。\n另一处是 Swift 有「语言模式」这一层（v5 / v6），\n可以按 target 逐步收紧 —— 这让老代码能平滑迁移，\n而 Python 的类型检查器是外挂的，没有「模式」这个概念。</p>\n",
@@ -181,7 +177,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都管版本，但<strong>管的对象不同</strong>：JavaScript 管的是<strong>运行时</strong>\n（Node 版本，靠版本管理器切换，代码不用重编）；\nSwift 管的是<strong>工具链版本 + 语言模式</strong>两件，而且换版本\n意味着<strong>重新编译</strong>。\n另一处是语言模式这个机制：Swift 能「同一个编译器按不同版本\n解释源码」，所以升级工具链不会让老代码突然变严格 ——\nJavaScript 里运行时升级确实可能改变行为，没有这层缓冲。\n共同点是两边都要在「用新特性」与「兼容旧环境」之间选位置。</p>\n",
         "python": "<p>两边都有「版本决定能用什么」这一层，但 Swift 是<strong>两个维度</strong>\n（工具链版本 + 语言模式），Python 只有解释器版本一个 ——\n而且 Python 升级解释器可能直接让旧语法失效，\nSwift 因为语言模式由包声明，升级工具链不会立刻改变语义。\n另一处是切换成本：Python 有虚拟环境与版本管理器，\n切版本是一行命令；Swift 要装多套工具链，切换靠路径。\n共同点是两边都能渐进升级（一个是按包、一个是按环境）。</p>\n",
@@ -217,7 +212,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有交互环境，而且都是一等工具 —— 这一格反而很接近。\n差别在<strong>可靠性</strong>：JavaScript 的 REPL 是运行时自带的一部分，\n到处都能用；Swift 的 REPL 依赖 LLDB，而且要求编译器与调试器\n是配对的一组，跨平台的支持程度也不一样（Windows 上官方没明说）。\n另一处是脚本式执行：两边都能直接跑一个文件\n（<code>node x.js</code> ↔ <code>swift x.swift</code>），而且都不产出中间产物。\n共同点是两边都把「随手试一段」当成日常手段。</p>\n",
         "python": "<p>两边的处境<strong>很接近</strong>：Python 与 Swift 都有官方交互环境\n（<code>python</code> ↔ <code>swift repl</code>），而且都能直接跑单个文件\n（<code>python x.py</code> ↔ <code>swift x.swift</code>）—— 这是两边最像的一处。\n差别在依赖：Python 的 REPL 是解释器自带的；\nSwift 的 REPL 依赖 LLDB，而且要求工具链内部配对一致，\n平台覆盖也不如 Python 均匀。\n共同点是两个 REPL 都支持多行输入与历史。</p>\n",

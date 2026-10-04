@@ -9,12 +9,10 @@
  * 左栏与矩阵的行来自**该基准的章节分组** —— 章节分类每个基准各一份，
  * 所以「第一章叫什么、有哪些行」随基准变；而格子只由 (语言, feature) 决定，与基准无关。
  */
-import attrsJson from '../generated/attributions.json'
 import catalogJson from '../generated/catalog.json'
 import i18nJson from '../generated/i18n.json'
 import manifestJson from '../generated/manifest.json'
 import type {
-  AttributionEntry,
   CatalogChapter,
   Equivalence,
   FeatureKind,
@@ -25,12 +23,6 @@ import type {
   Section,
   SectionDef,
 } from '../schemas'
-
-export interface AttributionPayload {
-  generatedAt: string
-  siteLicense: string
-  entries: AttributionEntry[]
-}
 
 /** 搜索索引分片的形状（与 scripts/pipeline/search-index.ts 的 SearchIndexPayload 对应） */
 export interface SearchShard {
@@ -43,7 +35,6 @@ export interface SearchShard {
 
 export const manifest = manifestJson as unknown as Manifest
 export const catalog = catalogJson as unknown as RenderedCatalog
-export const attributionPayload = attrsJson as unknown as AttributionPayload
 export const i18nMessages = i18nJson as unknown as Record<string, unknown>
 
 /* ────────────────── 板块（section）注册表 ────────────────── */
@@ -348,10 +339,6 @@ export async function getSearchShard(lang: string): Promise<SearchShard | null> 
 }
 
 /* ────────────────── 语言与语言入口 ────────────────── */
-
-export function getAttributions(): AttributionPayload {
-  return attributionPayload
-}
 
 /**
  * 章节 id → 它的规范 URL。前后翻页、面包屑、跳转回落全部走这一个函数。

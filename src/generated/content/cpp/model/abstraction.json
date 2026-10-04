@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边「接口」的落实层级不同</strong>：JavaScript 没有接口这个概念，\n「能做什么」靠文档与运行时检查（或者类型检查器的 <code>.d.ts</code>）；\nC++ 有真的接口 —— 抽象类会被编译器强制（派生类不实现就\n还是抽象的、不能实例化），调用方按基类引用接。\n代价是 C++ 的接口必须<strong>显式继承</strong>：一个类没写 <code>: Drawable</code>\n就不算实现了它，哪怕方法一模一样（这跟下面 duck-typing 那一格呼应）。\n另一处是 C++ 的抽象类还占着对象布局（虚表指针），\nJavaScript 的「接口」不占任何运行时空间。</p>\n",
         "python": "<p>两边都有「只描述能做什么」的机制，但<strong>强制时机不同</strong>：\nPython 的抽象基类（<code>abc.ABC</code> + <code>@abstractmethod</code>）在\n<strong>实例化时</strong>检查（不实现就抛 TypeError），运行期才拦；\nC++ 的纯虚函数在<strong>编译期</strong>就拦（派生类没实现就编不过）。\n另一处是 Python 还有 <code>Protocol</code> 这个<strong>结构化</strong>的接口\n（形状对就算实现，不用显式继承），C++ 没有对应物 ——\nC++ 的接口一律是名义的（必须写继承）。</p>\n",
@@ -58,7 +57,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都没有真正的「抽象类」强制力：JavaScript 可以用一个\n抛异常的基类方法模拟「必须实现」，但那要<strong>运行时</strong>才炸；\nC++ 的纯虚函数是编译期约束 —— 派生类不实现，它自己也变成抽象类，\n<code>new</code> 它直接编译不过。另一处是 C++ 的抽象类还<strong>管着对象布局</strong>\n（可以带数据成员、带实现），JavaScript 里没有「只给派生类用」\n的数据这一层（<code>protected</code> 是约定）。</p>\n",
         "python": "<p>两边都有「半成品的类」，而且都可以带实现 —— 这一层对应得上\n（<code>abc.ABC</code> + <code>@abstractmethod</code> ↔ 抽象类 + 纯虚函数）。\n差别同样在<strong>检查时机</strong>：Python 是实例化时抛 TypeError，\nC++ 是编译期错误。另一处是 C++ 的抽象类还承担<strong>存储</strong>职责\n（可以有数据成员、构造基类子对象），Python 的基类也可以，\n但 C++ 里这会影响对象大小与布局，Python 里只是多一个字典项。</p>\n",
@@ -89,7 +87,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格 JavaScript 基本是空白</strong>：语言只有一条原型链，\n没有「横向拿一份实现」的机制 —— 要复用只能把函数挂上去\n（<code>Object.assign</code> 或混入函数），而且是<strong>每个实例各挂一份</strong>，\n没有编译期保证、也没有类型上的记录。\nC++ 的两条路（多继承、CRTP）都是编译期定下的：\n派生类真的带上了那份实现，方法调用是直接调用不是查找。\n所以那边「混入」是运行期的抄一份，这边是编译期的组合。</p>\n",
         "python": "<p>两边都能横向复用实现，机制对应得上：Python 的 mixin 就是\n<strong>多继承一个没有实例状态的类</strong>，按 MRO 决定同名方法听谁的 ——\nC++ 的多继承路子几乎一样，只是菱形时要用虚继承去重。\n另一处是 C++ 独有 CRTP 这条<strong>编译期</strong>的路（Python 里没有\n对应的「把派生类当参数传给基类」的机制），\n它换来的是零运行时开销，代价是类型层级变得复杂。</p>\n",
@@ -130,7 +127,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的鸭子类型在不同的时间上生效</strong>：JavaScript 的鸭子类型\n在<strong>运行期</strong>（调用那一刻看有没有那个方法，没有就抛 TypeError）；\nC++ 的「看形状」在<strong>编译期</strong>（<code>concept</code> 不满足直接编译不过，\n实跑的错误信息里能看到 <code>requires Quacker&lt;Rock&gt;</code>）。\n另一处是覆盖范围：JavaScript 的鸭子类型是<strong>全局</strong>的\n（任何值、任何位置都适用），C++ 的只对<strong>模板参数</strong>有效 ——\n普通函数参数、类成员都必须是具名类型。</p>\n",
         "python": "<p>两边都有「看形状不看名字」的能力，但落点不同：\nPython 的鸭子类型是<strong>运行时默认行为</strong>（不写 Protocol 也能调用），\n<code>Protocol</code> 只是给类型检查器看的可选标注；\nC++ 没有运行时鸭子类型这一层 —— 要么在模板参数上用 <code>concept</code>\n（编译期），要么老老实实写继承。所以那边「不写类型也能跑」\n在这边完全不成立。另一处是 C++ 的 concept 能表达\n「返回值要能转成某个类型」这种细节要求，Python 的 Protocol 也能，\n但检查强度不同（一个编译不过、一个只是提示）。</p>\n",

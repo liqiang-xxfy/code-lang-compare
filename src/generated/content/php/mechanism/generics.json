@@ -32,7 +32,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边<strong>都没有泛型</strong>（能写的那种是另一个语言的方言，编译完就没了）。\n所以这一格不是「语法怎么不一样」，而是「顶替方案是什么」：\n那边靠类型系统加注释，这边靠 <strong>PHPDoc 注释加静态分析器</strong>。\n差别在<strong>工具链的默认状态</strong>：那边的类型检查通常就在构建流程里，\n这边 PHPStan / Psalm 是<strong>要另外装的第三方</strong>，\n不装的话那句 <code>@var array&lt;int, string&gt;</code> 就真的只是注释 ——\n运行时不会有任何提示。\n另一处是运行时可见性：那边类型在编译后被抹掉，\n这边本来就只存在注释里，反射拿到的属性类型只有 <code>array</code>。</p>\n",
         "python": "<p>Python 的标注（<code>list[str]</code>、<code>TypeVar</code>、<code>Generic[T]</code>）\n与 PHP 的 PHPDoc 处境<strong>很像</strong>：都只是标注，\n运行时都不生效，都要靠另跑一个检查器（mypy / pyright ↔ PHPStan / Psalm）。\n差别在<strong>表达式能力</strong>：Python 有 <code>TypeVar</code>、<code>Generic</code>、\n<code>ParamSpec</code> 这些<strong>真类</strong>，能参与运算、能 <code>isinstance</code> 一部分；\nPHP 的泛型表达力完全活在注释文本里，没有对应的类或对象\n—— 反射能读到注释字符串，但读不到结构。\n共同点是两边都能写出「参数化的类型」，也都能选择不检查它。</p>\n",
@@ -73,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>约束这件事在两边都不存在，但原因不同：那边是没有类型系统\n可以去约束，这边是<strong>有类型系统但没有参数化</strong> ——\n所以 PHP 能表达「这个参数得实现某个接口」（运行时真的查），\n但表达不了「两个参数必须是同一个类型」（这个位置是空的）。\n实际写法上，两边都会落到「放宽到最宽 + 手工检查」：\n那边检查属性在不在，这边可以检查 <code>instanceof</code>。\n另一处是文档化的方式：那边靠注释与文档约定，\n这边有 PHPDoc 加静态分析器这条更成型的路。</p>\n",
         "python": "<p>两边都能写「约束」，但<strong>兑现方式差一层</strong>：Python 的\n<code>TypeVar('T', bound=Comparable)</code> 是真对象，检查器读它、\n运行时也能拿到（虽然不强制）；PHP 的 <code>@template T of Comparable</code>\n只是注释里的一段文本，除了静态分析器没人认。\n差别在「谁在管」：Python 的约束写在<strong>代码里</strong>（一个变量声明），\nPHP 的约束写在<strong>注释里</strong>（一段字符串）—— 重构时代码会被工具改，\n注释不会，所以 PHP 那边标注与代码脱节是常态。\n共同点是两边都不在运行时强制，都得靠工具。</p>\n",
@@ -99,7 +97,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>型变这个概念在两边都不存在于语言层 —— 都是因为没有参数化类型\n可以谈型变。所以这一格两边其实是「都没有」。\n能对上的部分只剩函数签名上的宽窄：两边都允许\n「传子类型给声明父类型的参数」（鸭子类型那边更宽松，连继承都不需要）。\n差别在检查时机：那边靠运行时能不能调到方法，\n这边在<strong>传参那一刻</strong>按类型声明检查。\n另一处是返回值：两边的「返回子类型」都是合理的，\n但那边没有声明可写，这边写了就要满足协变规则，写反了直接致命错误。</p>\n",
         "python": "<p>两边的类继承型变规则一致：参数逆变、返回值协变，\n传子类实例给声明父类的参数都可以。\n差别在<strong>有没有地方标注型变</strong>：Python 的 <code>TypeVar</code> 支持\n<code>covariant=True</code> / <code>contravariant=True</code>，是代码里的真对象；\nPHP 的泛型根本不存在，所以型变只能出现在 PHPDoc 的\n<code>@template-covariant</code> 标注里 —— 而且同样只有分析器看。\n也就是说 Python 那边「型变」是类型系统的一个属性，\nPHP 这边「型变」只存在于一段注释文本中。\n共同点是运行时的继承型变规则两边一样。</p>\n",
@@ -140,7 +137,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都没有泛型，所以都没有「擦除」这回事 —— 这一格反而是\n<strong>最容易对应</strong>的：运行时拿不到的东西，两边都拿不到。\n差别在「运行时能拿到什么」：那边的类型标注在编译后完全消失，\n这边本来就不存在于代码里（只是注释），PHP 的类型声明反而\n<strong>有一部分是运行时真实存在的</strong>（参数、返回值、属性类型），\n反射读得到。也就是说 PHP 这边「运行时的类型信息」比那边多，\n只是多出来的那部分不包括泛型。\n另一处是检查手段：两边都只能靠静态分析工具补。</p>\n",
         "python": "<p>两边都没有擦除，原因一样：都没有真正的泛型。\n但 Python 有一个 PHP 没有的东西 —— <strong>泛型是可反射的</strong>：\n<code>list[int]</code> 是一个真实的 <code>types.GenericAlias</code> 对象，\n<code>typing.get_origin</code> / <code>get_args</code> 能把它拆开，\n甚至能 <code>isinstance(x, list)</code> 而 <code>isinstance(x, list[int])</code> 会报错。\nPHP 那边类型实参只活在一段注释字符串里，反射拿到的是原文本，\n没有任何结构可解析。\n共同点是两边<strong>运行时都不会因为泛型标注而拒绝一个值</strong>。</p>\n",

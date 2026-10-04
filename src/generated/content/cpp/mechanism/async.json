@@ -37,7 +37,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是直接的能力缺口</strong>：JavaScript 的运行时<strong>本身就是</strong>一个事件循环，\n所有异步都绕着它转，不需要选、不需要搭；C++ 里这件事\n既不在语言里也不在标准库里 —— 得挑一个第三方库，\n而不同的库给的模型不一样。\n另一处是<strong>并发模型的分野</strong>：JavaScript 的单线程事件循环\n靠「不阻塞」来同时应付很多等待；C++ 的默认做法是\n<strong>开线程真并行</strong>（<code>std::async</code> / <code>std::thread</code>），\n事件循环反而是要额外引入的东西。也就是说两边的「异步」\n从起点就不是一回事。</p>\n",
         "python": "<p>两边都有事件循环这条路，但<strong>它在语言里的地位不同</strong>：\nPython 的 <code>asyncio</code> 是标准库的一部分，<code>asyncio.run</code> 起一个循环、\n<code>async</code> / <code>await</code> 是语法关键字；C++ 的事件循环要引第三方库，\n标准库里有的是 <code>std::future</code> 加线程（另一套模型）。\n所以 Python 里「写异步」是选一种写法，C++ 里「写异步」是选一个架构。\n另一处是 C++ 没有 GIL，异步的价值主要体现在<strong>大量 IO</strong>\n而不是「绕开解释器锁」。</p>\n",
@@ -78,7 +77,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的回调形态一样（传函数），但<strong>要操心的事差一个量级</strong>：\nJavaScript 的回调跑在同一个事件循环上（谁调的一清二楚），\n闭包捕获的变量由引擎保活 —— 所以「回调里的变量会不会失效」\n这个问题在那边不存在；C++ 的回调可能在<strong>另一根线程</strong>上跑，\n捕获的东西可能已经销毁，而且回调里抛异常会直接终止进程。\n也就是说那边写回调只用想「什么顺序」，这边还要想\n「在哪根线程、活多久、抛了怎么办」。</p>\n",
         "python": "<p>两边的回调都可能是函数、lambda 或可调用对象，形态一致。\n差别在<strong>生命周期与线程</strong>：Python 的闭包捕获的变量\n由引用计数保活，回调里用到的对象不会凭空消失；\nC++ 的回调如果按引用捕获，原对象一销毁就悬垂，\n而且<strong>没有任何提示</strong>（这是 C++ 里回调最常见的 bug）。\n另一处是 C++ 可以从回调里抛异常然后 terminate，\nPython 的异常至少会往上打到线程的顶层并被打印出来。</p>\n",
@@ -109,7 +107,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边差别集中在「能不能组合」</strong>：JavaScript 的 Promise\n有一整套组合工具（<code>all</code> / <code>race</code> / <code>allSettled</code> / <code>any</code>），\n链式 <code>then</code> 随便接；C++ 的 <code>std::future</code> <strong>只有 <code>get</code> 与 <code>wait</code></strong> ——\n没有 <code>then</code>、没有等一批的现成函数（实跑确认 <code>then</code> 不存在）。\n所以那边「把三个请求并发起来一起等」是一行，\n这边要自己攒 vector 加循环 get。\n另一处是 C++ 的 <code>get()</code> 只能调一次，而且会阻塞到有值为止 ——\n语义比 Promise 更「一次性」。</p>\n",
         "python": "<p>两边的对应关系比较松：Python 的 <code>asyncio.Future</code> 是<strong>协程调度器\n的一部分</strong>（必须在事件循环里跑），C++ 的 <code>std::future</code>\n与线程绑定（可以跨线程、可以在没有任何循环的情况下用）。\n所以那边 future 是异步语法的基础设施，这边 future 是\n「跨线程传一次结果」的工具。另一处是组合能力：\nPython 有 <code>gather</code> / <code>wait</code>，C++ 基本什么都没有 ——\n想并发等一批要自己写。</p>\n",
@@ -175,7 +172,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>同样是 <code>await</code> 这个写法，两边的完整度差一个时代</strong>：\nJavaScript 的 <code>async</code> / <code>await</code> 背后有整个运行时（事件循环、\n微任务队列、调度器），写个 <code>async function</code> 就直接能用；\nC++ 的 <code>co_await</code> 只是<strong>挂起机制</strong> —— 没有调度器、\n没有标准任务类型，你得先用某个库把「谁来恢复我」这件事搭起来。\n另一处是 <code>async fn</code> 在 JavaScript 里返回 Promise（有类型），\nC++ 要自己定义一个返回类型并实现它的整套协议。</p>\n",
         "python": "<p>两边的落差同样大：Python 的 <code>async def</code> / <code>await</code> 有完整的事件循环\n支撑（<code>asyncio</code> 是标准库），而且语法上就写明了「这是个协程」；\nC++ 的 <code>co_await</code> 只解决「怎么挂起」，调度要外部安排，\n标准库里连一个能用的任务类型都没有。\n另一处是 Python 的异步函数<strong>不能直接调用</strong>（要 await 或包成 Task），\n这个约束是语言强制的；C++ 里没有这层约束 ——\n能不能直接调取决于你那个任务类型怎么设计的。</p>\n",
@@ -221,7 +217,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是协作式取消、都没有「强行停掉」的能力，这一层一致。\n差别在<strong>工具的形态</strong>：JavaScript 用 <code>AbortController</code> 传一个信号对象，\n整个生态（fetch、流、定时器）都认这个信号；C++ 的\n<code>std::stop_token</code> 是 C++20 才有的，而且是<strong>纯手动的</strong> ——\n标准库的操作（除了少数几个）不会自动响应它，\n你得在循环里自己查。\n另一处是 C++ 的 <code>future</code> 等超时后底层任务还在跑，\n这一点两边相同。</p>\n",
         "python": "<p><strong>这一格两边相反</strong>：Python 的 <code>asyncio.Task</code> <strong>可以取消</strong>\n（<code>task.cancel()</code> 会让协程在下一个挂起点收到 CancelledError，\n是能真的中断控制流的）；C++ 的取消完全是标志位协作 ——\n标准库不会替你把控制流打断，你得在循环里自己检查\n（实跑确认：<code>request_stop</code> 之后任务继续跑到自己看见标志为止）。\n所以 Python 那边「任务被取消了」是一等事件，\nC++ 这边只是一个你可能会错过的查询。</p>\n",

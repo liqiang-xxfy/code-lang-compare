@@ -16,7 +16,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有 <code>function*</code> 与 <code>yield</code>，函数体可以「暂停再恢复」——\n写起来就是普通循环，状态由引擎保存。Rust <strong>没有这个语法</strong>：\n要造迭代器就得把状态显式放进一个结构体、实现 <code>next()</code>，\n或者在异步场景用第三方库。代价是啰嗦，收益是「迭代器的状态是什么」\n在类型里写得明明白白，没有隐藏的协程帧。</p>\n",
         "python": "<p>Python 的 <code>yield</code> 让生成器写起来像普通函数，解释器负责保存状态；\nRust 没有 <code>yield</code>，等价物是把状态放进结构体再实现 <code>Iterator::next</code>——\n手写时要把「循环变量」变成结构体字段，这是从 Python 过来\n最不适应的一处。好处是编译器能看到全部状态，没有隐式的协程开销。</p>\n",
@@ -36,7 +35,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>map</code> / <code>filter</code> / <code>flatMap</code> 链式调用，与 Rust 的\n适配器链形态一致 —— 两边都靠方法名表达、都惰性（JS 的数组方法其实是立即执行，\n这一点不同）。Rust 的 <code>collect()</code> 必须写出目标类型\n（<code>Vec&lt;_&gt;</code> / <code>HashMap&lt;_,_&gt;</code>），同一个链能收集成不同类型；\nJavaScript 里 <code>map</code> 固定返回数组，想要 Map 得另写循环。</p>\n",
         "python": "<p>Python 的推导式（<code>[x*x for x in …]</code>）是一种<strong>语法</strong>，\nRust 用方法链（<code>.map().filter().collect()</code>）——\n两者能表达的东西一样，可读性偏好不同：推导式更像数学记法，\n方法链适合一层层加。Rust 的 <code>collect()</code> 目标类型自由，\nPython 的推导式类型由方括号/花括号决定；另外 Rust 的链是惰性的，\nPython 的推导式立即求值。</p>\n",
@@ -62,7 +60,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>map</code> / <code>filter</code> 是<strong>立即执行</strong>的，每一步都产生一个新数组 ——\n链得越长中间数组越多。Rust 的适配器是<strong>惰性</strong>的，\n整条链只遍历一次、不产生中间集合；也因此 <code>map</code> 里写 <code>println!</code>\n什么都不会发生，直到 <code>collect</code> 或 <code>for</code> 才跑。\n另一处：Rust 的迭代器可能无限（<code>(0..)</code>），JavaScript 的数组方法不能。</p>\n",
         "python": "<p>Python 的 <code>map</code> / <code>filter</code> 是惰性的（返回迭代器），\n但列表推导式与生成器表达式是两种不同的东西 ——\n方括号立即求值、圆括号惰性。Rust 的适配器链<strong>一律惰性</strong>，\n要立即求值得显式 <code>collect()</code>。所以 Rust 里\n「这条链算了几遍」永远是一遍，Python 里要看清用的是哪种括号。</p>\n",
@@ -82,7 +79,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的解构语法与 Rust 很像（<code>const { id, name } = u</code>），\n但 Rust 的解构是<strong>穷尽性检查</strong>的一部分：<code>let User { id, .. } = u</code>\n里 <code>..</code> 是必须显式写的，而且解构 <code>enum</code> 时必须覆盖所有变体\n（<code>match</code> 里）。JavaScript 解构一个不存在的字段得到 <code>undefined</code>，\nRust 里字段名写错直接编译错误 —— 拼错属性名在 JavaScript 里\n是经典 bug，在 Rust 里写不出来。</p>\n",
         "python": "<p>Python 的 <code>a, b = 1, 2</code> 与 Rust 的元组解构形式一致；\n但 Python 没有结构体解构（<code>dataclass</code> 要 <code>asdict</code> 再取），\nRust 的 <code>let User { id, name } = u</code> 是语言级能力。\n另一处差别是 Rust 的 <code>let … else</code>：解构不出来就执行 else 分支\n（通常 <code>return</code>），这让「取出来否则退出」不必嵌套；\nPython 里要写 try 或提前判断。</p>\n",

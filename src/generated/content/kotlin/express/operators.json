@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有一种数字类型，<code>7 / 2</code> 永远给 3.5，\n「要整除」得自己写 <code>Math.floor</code>；Kotlin 用类型区分 ——\n两个整数相除就是整除，想要小数得先让一边变成小数。\n另一处相反的是溢出：JavaScript 的数字是双精度浮点，\n超出安全范围会丢精度但不会回绕；Kotlin 的整数是定宽的，\n越界静默回绕（最大值加一变成最小值），而且没有任何提示。</p>\n",
         "python": "<p>Python 的 <code>/</code> 永远给浮点、<code>//</code> 才是整除，分得比 Kotlin 清楚 ——\nKotlin 只有一个 <code>/</code>，结果看操作数的类型，读代码时得回头看类型。\n溢出上两边正相反：Python 的整数任意精度，多大都不会回绕，\n所以那种「最大值加一变最小」的经典 bug 在这里根本不会发生；\nKotlin 会，而且不报错。</p>\n",
@@ -73,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「<code>==</code> 比内容」，但 JavaScript 的 <code>==</code> 会先做类型转换\n（<code>1 == &quot;1&quot;</code> 为真），还有专门用来避开转换的 <code>===</code> 做严格比较；\nKotlin 的 <code>==</code> 不做任何隐式转换（类型对不上根本编译不过），\n而 <code>===</code> 在 Kotlin 里是<strong>引用相等</strong>，与 JavaScript 的 <code>===</code> 不是一回事。\n两个语言里同样写着 <code>===</code>，含义却不同，这是跨语言阅读时的一处陷阱。</p>\n",
         "python": "<p>Python 的 <code>==</code> 比内容、<code>is</code> 比身份，与 Kotlin 的 <code>==</code> / <code>===</code> 一一对应，\n这一层两边可以互相翻译。差别在<strong>默认行为从哪来</strong>：\nPython 的类不定义 <code>__eq__</code> 时默认按身份比，与 Kotlin 的普通类一样；\n但 Kotlin 的 <code>data class</code> 会自动生成 <code>equals</code> <strong>与</strong> <code>hashCode</code>，\n而 Python 的 <code>@dataclass</code> 默认只生成 <code>__eq__</code>，\n还会顺手把哈希关掉（要两者齐全得加 <code>frozen=True</code> 或 <code>unsafe_hash=True</code>）——\n一边一个关键字全给，一边要留意开了相等就得管哈希。\n还有一处：两边都允许重载相等，但 Kotlin 的重载必须带 <code>override</code>，\n写错了编译器会拦。</p>\n",
@@ -93,7 +91,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>运算符与短路规则完全一致，这一格两边几乎没什么可说的。\n唯一值得留意的是 JavaScript 有一套「返回操作数本身」的习惯用法\n（<code>a || 默认值</code>、<code>a &amp;&amp; b()</code>），Kotlin 的 <code>&amp;&amp;</code> / <code>||</code> 只产出布尔值，\n类似的需求要用 Elvis（<code>?:</code>）或 <code>if</code> 表达式 ——\n好处是读代码时不用猜这个表达式到底会得到什么类型。</p>\n",
         "python": "<p>Python 的 <code>and</code> / <code>or</code> 同样短路，但会<strong>返回操作数本身</strong>\n而不是布尔值（<code>0 or &quot;默认&quot;</code> 得到字符串）；Kotlin 的布尔运算符\n只返回布尔值，想要「取默认值」有专门的 <code>?:</code>。\n另一处是 <code>not</code> 与 <code>!</code> 的写法差异，以及 Python 里常见的\n「用真值判断」—— Kotlin 不接受把非布尔值当条件，\n<code>if (list)</code> 这样的写法编译不过，必须写 <code>list.isNotEmpty()</code>。</p>\n",
@@ -113,7 +110,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有运算符重载 —— <code>+</code> 只能做数字加法或字符串拼接，\n<code>a &lt; b</code> 只能靠 <code>valueOf</code> / <code>toString</code> 这类间接机制，\n想给自定义类型定义「相加」只能起个普通方法名。\nKotlin 可以，但只开放<strong>一组固定的运算符</strong>（加减乘除、比较、\n下标、<code>in</code>、调用、区间），方法名与签名都得对得上，\n而且要写 <code>operator</code> 关键字 —— 好处是读代码时\n<code>a + b</code> 一定意味着「有人明确定义了加法」，不会凭空出现。</p>\n",
         "python": "<p>Python 也支持运算符重载，思路几乎相同（<code>__add__</code> ↔ <code>plus</code>、\n<code>__lt__</code> ↔ <code>compareTo</code>、<code>__contains__</code> ↔ <code>contains</code>），\n两边可以互相对照。差别在<strong>约束强度</strong>：Python 的魔法方法是\n按名字约定的，写错一个字就静默不生效；Kotlin 必须标 <code>operator</code>\n且签名要对得上，写错了编译不过。另外 Python 的\n<code>__eq__</code> 与 <code>__hash__</code> 有联动规则（定义了前者会清掉后者），\nKotlin 没有这个坑。</p>\n",

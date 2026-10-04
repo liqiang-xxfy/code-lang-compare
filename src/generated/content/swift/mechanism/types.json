@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的类型全在运行时，错了跑起来才知道；Swift 在编译期检查，\n类型不匹配根本编译不过。两边都能在运行时问到类型，但入口不同：\nJavaScript 随时可以 <code>typeof</code>，Swift 要么把值显式装进 <code>Any</code> 这类宽类型\n（再调 <code>type(of:)</code>），要么本来就是泛型值 —— 普通变量的类型编译期就钉死了。\n另外 Swift 的协议与泛型是编译期的抽象，JavaScript 里没有这一层。</p>\n",
         "python": "<p>Python 全程动态，类型错误靠运行暴露；Swift 在编译期检查，错了直接编译不过。\n两边都保留运行时类型信息（Python 的 <code>type()</code>、Swift 的 <code>type(of:)</code>），\n但 Swift 里「问类型」不常做 —— 编译器早已知道类型，\n只有遇到 <code>Any</code> 这种被抹掉类型的值才需要问。\nPython 里任何变量都可能装着别的类型，这种不确定性在 Swift 里是例外状态。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有任何类型标注；Swift 的标注是编译器的事实来源 ——\n函数签名、字段、全局变量都必须写，能省的只有<strong>局部变量</strong>\n（<code>let x = 1</code> 靠初值推断）。所以 Swift 的省略是局部例外、不是常态。\n另一处 JavaScript 没有的是可空标注：<code>String?</code> 把「可能为 nil」\n写进了类型，<code>String</code> 与 <code>String?</code> 在 Swift 里是两个不同的类型。</p>\n",
         "python": "<p>两边标注的写法几乎一样（名字后面 <code>: 类型</code>、返回值用 <code>-&gt;</code>），\n差别在谁把它当真：Python 的标注运行时不检查、写错代码照跑，\nSwift 的标注是编译器的输入，写错就编译不过。\n可空上更明显：Python 的 <code>Optional[int]</code> 只是给类型检查器看的提示，\nSwift 的 <code>Int?</code> 是编译器会强制执行的真类型 —— <code>nil</code> 赋给 <code>Int</code> 直接报错。\n另外 <code>let</code> / <code>var</code> 区分「之后能不能改」，Python 里没有对应写法。</p>\n",
@@ -62,7 +60,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的鸭子类型在运行时，只要求对象上有那个方法；\nSwift 是<strong>名义</strong>的：类型必须显式写 <code>: Greeter</code>，光有同名方法不算数。\n代价是给一个改不了源码的类型补协议，只能在旁边写\n<code>extension 类型名: 协议名</code>，不能像 JavaScript 那样「形状对就能用」。\n好处是编译器知道每个类型遵守了哪些协议，跳转、补全、报错都有据可依。</p>\n",
         "python": "<p>Python 的鸭子类型在运行时，<code>Protocol</code> 提供可选的结构化标注；\nSwift 是<strong>名义</strong>类型，必须显式声明遵守关系，协议本身还能写进签名、\n当作一个真正的类型用。两者都能做「面向接口编程」，\n但 Swift 的接口是<strong>具名</strong>的 —— 想让类型满足协议，要么在定义处写 <code>: 协议</code>，\n要么用扩展补上，没有第三条路。这也是 protocol + extension 的出发点：\n方法可以后补，遵守关系仍然显式。</p>\n",
@@ -82,7 +79,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>typeof</code> / <code>instanceof</code> 判断完，类型只对读代码的人有意义；\nSwift 的 <code>switch</code> 配 enum 有<strong>穷尽检查</strong> —— 少写一种情况，编译器直接报错，\n这是 JavaScript 给不了的保证。另一处差别是 <code>is</code> 的语义：\nSwift 里 <code>is</code> 只回答「是不是」，不会把变量变成那个类型；\n想拿到那个类型的能力必须用 <code>as?</code> 重新绑定 —— 收窄是显式的、看得见的一步。</p>\n",
         "python": "<p>Python 用 <code>isinstance</code> 判断再分支，收窄靠类型检查器推断（运行时不改变行为）；\nSwift 的判断与绑定是<strong>语言能力</strong>：<code>as?</code> 把结果绑到新名字上，\n<code>switch</code> 配 enum 还会做穷尽检查。两边的「判断之后」也很像 ——\nPython 的 <code>match</code> / <code>case</code> 与 Swift 的 <code>switch</code> 都能按结构拆解，\n但 Python 不强制覆盖所有分支，Swift 在 enum 上强制：\n漏了一种情况，Python 会静默漏过去，Swift 编译不过。</p>\n",
@@ -113,7 +109,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 里 <code>null</code> / <code>undefined</code> 能赋给任何变量，读属性就抛\n「Cannot read properties of null」；Swift 把「可能为空」变成类型的一部分 ——\n<code>String?</code> 与 <code>String</code> 是两个不同的类型，想用里面的值必须先解包。\n可选链与默认值两边都有（JavaScript 的 <code>?.</code> / <code>??</code>，Swift 的 <code>?.</code> / <code>??</code>），\n但 Swift 的检查是<strong>编译器强制</strong>的：漏写一个 <code>?.</code> 在 Swift 里根本编译不过，\n在 JavaScript 里要到运行时才炸。</p>\n",
         "python": "<p>Python 的 <code>None</code> 同样能赋给任何变量，<code>x.y</code> 到运行时才抛 AttributeError；\nSwift 把它提到编译期拦下。两边的可选写法还差一层语义：\nPython 的 <code>x or &quot;默认&quot;</code> 对空字符串、0、空列表都会取右边，\nSwift 的 <code>??</code> 只认 <code>nil</code> —— <code>0 ?? 5</code> 得到 0，而 <code>0 or 5</code> 得到 5。\n另外 Python 的 <code>Optional[int]</code> 只是给类型检查器的提示，\nSwift 的 <code>Int?</code> 是编译器会强制执行的真类型。</p>\n",
@@ -144,7 +139,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有「断言」这个概念 —— 值就是值，转换大多是隐式的。\nSwift 的转型全部显式，而且分成三种后果不同的写法：\n<code>as</code> 是向上转型、编译期就保证成立；<code>as?</code> 失败得到 <code>nil</code>，可以安全处理；\n<code>as!</code> 失败直接崩。这比 JavaScript 的「先跑起来再说」响得多 ——\n写 <code>as!</code> 就是在告诉编译器「崩了我负责」。</p>\n",
         "python": "<p>Python 的转换是运行时动作，失败就抛异常（<code>int(&quot;abc&quot;)</code> 抛 ValueError）；\nSwift 里转型与转换分得很清：<code>as?</code> / <code>as!</code> 只改类型的看法、不转换值，\n失败是 <code>nil</code> 或崩溃；真要换值必须调构造器\n（<code>Int(3.9)</code> 截断成 3、<code>Int(&quot;42&quot;)</code> 解析成 42，解析失败得 <code>nil</code> 而不抛）。\n所以 Python 里一个 <code>int(...)</code> 同时承担「转换」与「可能失败」两件事，\nSwift 把它们拆成了不同的语法。</p>\n",

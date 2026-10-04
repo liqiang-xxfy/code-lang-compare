@@ -42,7 +42,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的可用性<strong>差别很大</strong>：JavaScript 的反射是运行时自带的、\n到处都是；Dart 的 <code>dart:mirrors</code> 只在虚拟机的即时编译模式下有，\n打包成原生程序或编译到 web 之后<strong>完全不可用</strong>。\n所以那边 <code>Reflect.ownKeys(obj)</code> 随手就写，\n这边要提前想清楚「这个功能上了线还能不能跑」。\n代价换来的是更小的产物体积与更快的启动。</p>\n",
         "python": "<p>Python 的反射是<strong>日常工具</strong>（<code>getattr</code> / <code>inspect</code> 到处在用），\n而且随处可用；Dart 的反射是一个<strong>受限且不稳定的实验特性</strong> ——\n官方直接说这个库不稳定、API 可能变，而且移动端与 web 上根本没有。\n所以两边的生态走向不同：那边大量库靠反射工作，\n这边大量库靠<strong>编译期代码生成</strong>（先跑一个生成器产出源码，再正常编译）。</p>\n",
@@ -83,7 +82,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的名字容易混：JavaScript 的装饰器是<strong>可执行的函数</strong>，\n能在定义时改写类与方法（而且提案还在演进，写法变过）；\nDart 的注解只是数据，谁都不会自动去读它。\n所以那边 <code>@foo</code> 可能真的改变了行为，这边 <code>@foo</code> 只是留了个记号 ——\n差别不在写法，在「挂了注解之后有没有事情发生」。</p>\n",
         "python": "<p><strong>这两个概念同名不同物，是最容易混的一对</strong>：\nPython 的 <code>@decorator</code> 就是一个函数调用（<code>f = decorator(f)</code>），\n真的把对象换掉；Dart 的注解只是元数据，\n要有人读它才有效果。\n想在 Dart 里做「调用前后加行为」，得靠代码生成\n（构建期把包装代码写出来）或者手工包装，不能指望注解自己生效。\n两边共同点是都能给声明挂信息，区别在这层信息会不会被执行。</p>\n",
@@ -103,7 +101,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Dart <strong>没有 <code>eval</code></strong>，也没有 <code>new Function</code> 这类把字符串变成代码的入口。\n官方库里没有任何求值工具，官方博客在讲 REPL 时也直说 Dart 没有 eval。\n要动态执行只能<strong>接一个解释器</strong>（自己带一个脚本引擎，或者走 isolate\n加上编译好的代码），代价与 <code>eval</code> 完全不是一个量级。\n所以那边一句 <code>eval(s)</code> 的事，在这边通常要改设计。</p>\n",
         "python": "<p>Dart <strong>没有 <code>eval</code> / <code>exec</code></strong>，字符串不能当代码跑。\n与 Python 相比，这一条是直接的能力缺失 ——\n那边 <code>eval</code>、<code>exec</code>、<code>getattr</code> 三件套能做到的元编程，\n在这边要么改成构建期代码生成，要么干脆换个方案。\n代价换来的是：可以放心地认为「能跑的代码都是被编译过的」。</p>\n",
@@ -139,7 +136,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两者看起来像，实际能拦的范围差很远</strong>：\nJavaScript 的 <code>Proxy</code> 能拦住<strong>所有</strong>属性访问 ——\n包括已经存在的属性、<code>in</code> 判断、删除操作；\nDart 的 <code>noSuchMethod</code> <strong>只在成员不存在时</strong>才被调用，\n已经有的方法它一概拦不到。\n所以那边「给任意对象套一层透明代理」在这边做不到，\n只能对缺失的成员做兜底。</p>\n",
         "python": "<p>Python 的 <code>__getattr__</code> 与 Dart 的 <code>noSuchMethod</code> 触发条件<strong>很像</strong>\n（都只在常规查找失败时调用），这一层可以对应；\n但 Python 还有 <code>__getattribute__</code>，它能拦下<strong>每一次</strong>属性访问 ——\n那个才与 <code>Proxy</code> 同级。\nDart 没有后者，所以「无条件拦截」在这边写不出来。\n另一处是 Dart 的触发必须是动态调用，静态类型下仍是编译错误。</p>\n",

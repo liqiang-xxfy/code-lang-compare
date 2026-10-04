@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边默认完全相反</strong>：JavaScript 的变量装的都是「对对象的引用」，\n<code>const b = a</code> 之后改 <code>b</code> 就是改 <code>a</code>；C++ 的变量装的是<strong>对象本身</strong>，\n<code>auto b = a</code> 是真的复制一份。所以那边「不小心共享了」是常见 bug，\n这边「不小心拷贝了」是常见性能问题 —— 方向正好反。\n另一处是「共享」的表达：JavaScript 什么都不用写就是共享；\nC++ 要显式写 <code>&amp;</code>（引用）或 <code>*</code>（指针），而且写不写会影响性能与能否修改。\n还有一处是 C++ 的引用<strong>不能改绑也不能为空</strong>，比指针更安全一点。</p>\n",
         "python": "<p>两边同样是相反的默认：Python 的赋值是<strong>绑到同一个对象</strong>\n（不可变对象看不出来，可变对象立刻显形）；C++ 的赋值是深拷贝，\n两份独立。另一处是「谁拥有这块内存」这件事：\nPython 有 GC 兜底，谁都不拥有也没关系；C++ 里每个对象都有明确的\n主人（栈上的随作用域、堆上的靠智能指针），\n所以「这个对象归谁」在这边是必须回答的设计问题。\n还有一处是 C++ 的拷贝是<strong>编译器隐式生成的</strong>，\n写一个类就可能自动有拷贝语义，而它未必是你想要的。</p>\n",
@@ -73,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是「有没有 GC」的直接分野</strong>：JavaScript 的对象活到没人引用为止，\n引擎什么时候扫、什么时候收，你既不知道也不用管；\nC++ 里没有这个过程 —— 栈上的对象<strong>在作用域结束那一刻</strong>就没了，\n堆上的要你（或智能指针）显式释放。所以那边「忘了释放」不构成 bug，\n这边「忘了释放」是内存泄漏，而且是<strong>沉默的</strong>（不会报错，只会慢慢涨）。\n另一处是反过来：JavaScript 那边「什么时候回收」不可预测，\nC++ 这边<strong>完全可预测</strong>，这是 RAII 能成立的基础。</p>\n",
         "python": "<p>两边都没有「手动释放」的日常（Python 有 GC），\n但 C++ 的回收时机是<strong>确定的</strong>：离开作用域就走析构，\n所以「在对象消失时做点什么」是可靠的（关文件、放锁、减计数）。\nPython 靠引用计数（CPython 实现细节）加循环回收，\n时机不如 C++ 确定（尤其有循环引用时）。\n另一处是 C++ 里「谁负责释放」是类型的一部分，\nPython 里不需要回答这个问题 —— 这也是 C++ 代码更啰嗦、但也更可控的地方。</p>\n",
@@ -119,7 +117,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都没有「所有权」这一层，但原因不同：JavaScript 的世界里\n谁都能引用任何对象，回收交给 GC，所以不需要谈论所有权；\nC++ 里所有权<strong>客观存在</strong>（总得有人负责释放），\n语言不检查、但标准库给了工具把它表达出来\n（<code>unique_ptr</code> 独占 / <code>shared_ptr</code> 共享 / 裸指针「不知道」）。\n另一处是 C++ 的裸引用没有生命周期保护 —— 那边也没有，\n但那边 GC 保证对象不会在你手里消失；这边会，而且是 UB。</p>\n",
         "python": "<p>两边都没有所有权检查，但<strong>代价的形态不同</strong>：Python 引用计数\n保证「只要你还拿着，对象就活着」，所以不存在悬垂；\nC++ 里对象可以比引用先死，之后用它就是未定义行为 ——\n也就是 Python 那边不可能发生的错误，这边是日常风险。\n另一处是 C++ 用类型表达所有权（<code>unique_ptr</code> / <code>shared_ptr</code>），\nPython 里没有对应写法（因为不需要）—— 这一点让 C++ 的签名\n信息量更大，代价是类型更长、还得想清楚。</p>\n",
@@ -170,7 +167,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的「引用」都不是语言要操心的事：JavaScript 的对象由 GC 保活，\n只要你还拿着引用就不会消失 —— 所以「悬垂」这个概念在那边不存在。\nC++ 里对象<strong>可以比引用先死</strong>，而且编译器基本不拦\n（返回局部引用只给个警告，视图绑临时对象连警告都没有）。\n另一处是 C++ 有「临时对象活到完整表达式结束」这条规则，\n它解释了为什么 <code>std::string_view sv = std::string(&quot;x&quot;);</code> 是坏的，\n而 <code>const std::string&amp; s = std::string(&quot;x&quot;);</code> 却是好的 ——\n同一件事在两种写法下结论相反，这是 C++ 特有的。</p>\n",
         "python": "<p>两边都不写生命周期，但<strong>保证的方向相反</strong>：Python 的引用计数\n保证「只要我拿着，它就活着」，所以不会悬垂（代价是循环引用要靠 GC 收）；\nC++ 完全没有这层保证 —— 对象在作用域结束就没了，\n之后拿它做任何事都是未定义行为，而且<strong>可能什么都不发生</strong>（更难查）。\n另一处是 Python 的迭代器在字典/列表被改时通常会抛\nRuntimeError（明确报错），C++ 的迭代器失效是静默的 UB ——\n出错时你得到的是垃圾数据而不是异常。</p>\n",
@@ -201,7 +197,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有「循环引用回收不掉」这个问题，但<strong>后果完全不同</strong>：\nJavaScript 里两个对象互相引用<strong>不影响回收</strong> ——\n标记清除算法能识别出「整组都够不着了」，一组一起收；\nC++ 的引用计数只看<strong>单个对象的计数</strong>，互相指着就让计数永不归零，\n于是永远不回收、静默泄漏。所以那边不需要为循环引用做任何事，\n这边必须主动打破（<code>weak_ptr</code>）。\n另一处是 C++ 有 <code>unique_ptr</code> 这个「零开销的独占指针」，\nJavaScript 没有对应概念（那边不需要表达所有权）。</p>\n",
         "python": "<p>两边的处境更接近：CPython 也是<strong>引用计数</strong>（加一个循环回收器），\n所以循环引用同样是问题 —— 但 CPython 有 GC 兜底，\n够不着的循环最终会被回收；C++ 的 <code>shared_ptr</code> <strong>没有兜底</strong>，\n循环就是永久泄漏。所以 Python 里「随手造循环」通常没事，\nC++ 里必须一开始就设计好谁持有谁。\n另一处是 C++ 的 <code>weak_ptr</code> 要显式 <code>lock()</code> 成强引用再用，\n判空与使用是两步 —— Python 的弱引用也有 <code>()</code> 调用来取对象，\n形态相近但 C++ 这边多一层类型上的强约束。</p>\n",

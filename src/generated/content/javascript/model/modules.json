@@ -21,7 +21,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>一个文件就是一个模块</strong>，文件里的顶层名字默认是模块私有的，只有 <code>export</code>\n出去的才可见。没有全局包装函数、没有 <code>module</code> 对象（那是旧的 CommonJS）。\n模块只在第一次被导入时执行一次，之后拿到的是同一份实例。</p>\n",
       "vsHtml": {
         "python": "<p>两边都是「一个文件一个模块、顶层名字默认私有」，思路一致。区别在副作用：\nPython 的 import <strong>会执行整个文件</strong>，所以模块顶层的语句会跑；\n这里也一样，但导入是静态声明的、可以先被分析。</p>\n",
@@ -46,7 +45,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>export</code> 与 <code>import</code> 是<strong>静态的</strong>：只能写在模块顶层，路径必须是字面量。\n换来的是构建工具能提前分析依赖图、做摇树。命名导入要写清路径 ——\n相对路径必须带 <code>./</code>，扩展名也不能省（不带扩展名的是包名，会去 node_modules 找）。</p>\n",
       "vsHtml": {
         "python": "<p>Python 的 <code>import</code> 是<strong>运行时语句</strong>，可以写在函数里、可以条件导入，\n模块名也可以拼出来 —— 代价是依赖图要跑起来才知道。这里（ESM）的\n导入导出是静态的，写在 <code>if</code> 里直接语法错误。</p>\n",
@@ -71,7 +69,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>两种导出</strong>：默认导出（一个模块最多一个，导入方可以随意起名）与具名导出\n（名字必须对上，可以用 <code>as</code> 改）。具名导入拿到的是<strong>活绑定</strong>而不是快照 ——\n被导入模块里的变量后来变了，导入方读到的也是新值。</p>\n",
       "vsHtml": {
         "python": "<p>Python 只有「具名」这一种：模块里的名字就是导出，没有默认导出。\n想要「一个模块一个主入口」的写法，惯例是把它命名为 <code>main</code> 之类。\nPython 也没有活绑定这回事，名字在导入时取到值，之后各是各的。</p>\n",
@@ -96,7 +93,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>import * as ns</code> 把整个模块挂成一个命名空间对象（默认导出在 <code>ns.default</code> 上），\n<code>as</code> 用来解决重名。<code>import './x.js'</code> 是「只为了副作用」的写法。\n与别的语言不同，这里的别名只影响<strong>本地名字</strong>，不会改变模块自己的导出名。</p>\n",
       "vsHtml": {
         "python": "<p>Python 的 <code>import x as y</code> 与 <code>from x import y as z</code> 覆盖了同样两种需求，\n写法几乎一一对应。差别在 <code>import *</code>：Python 的 <code>from x import *</code> 会把名字\n直接摊进当前命名空间（还受 <code>__all__</code> 限制），这里的 <code>import * as ns</code>\n是收进一个对象里，不会污染当前作用域。</p>\n",
@@ -126,7 +122,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>解析规则是<strong>显式</strong>的：带 <code>./</code> 的是相对路径、不带的是包名（去 <code>node_modules</code> 找），\n扩展名不能省，也不会自动补 <code>index.js</code>。包内部还可以用 <code>package.json</code> 的\n<code>exports</code> / <code>imports</code> 字段定义对外暴露哪些子路径。规则写在文件里，\n不需要额外的配置就能读懂。</p>\n",
       "vsHtml": {
         "python": "<p>Python 靠<strong>运行时的搜索路径</strong>（<code>sys.path</code>）找模块：当前目录、安装目录、\n环境变量，逐个去找，同名模块看谁先被找到。这里（ESM）的解析是确定的、\n由路径本身与 <code>package.json</code> 决定，不依赖搜索顺序。</p>\n",

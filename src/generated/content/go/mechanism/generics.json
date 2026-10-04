@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有泛型（TS 的有，但编译后抹掉）。Go 1.18 起有真泛型，\n但语法用<strong>方括号</strong>而不是尖括号 —— 因为 <code>&lt;</code> 在 Go 里是运算符，\n用尖括号会与比较表达式产生歧义。这与 JavaScript 的处境有点像：\nTS 之所以能用尖括号，是因为它有独立的语法层。\n实际写法上 Go 还要多一步：零值要靠 <code>var zero T</code> 声明出来。</p>\n",
         "python": "<p>Python 的泛型只对类型检查器有意义、运行时不产生专门化代码；\nGo 的泛型是编译器的真实机制。语法上 Go 用方括号 <code>[T any]</code>，\nPython 用 <code>TypeVar</code> 加方括号 <code>list[T]</code>，形态有点像但位置不同 ——\nGo 把类型参数写在函数名之后。另外 Go 要取零值必须\n<code>var zero T</code>，Python 里没有「零值」这个概念。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有泛型约束（TS 用 <code>extends</code>）。Go 的约束是<strong>接口</strong>——\n与普通接口是同一个概念，只是用在方括号里；\n<code>~int</code> 这种「近似类型」元素是 Go 独有的：它表示\n「底层类型是 int 的都算」，于是 <code>type MyInt int</code> 也满足约束。\nJavaScript 里没有类型参数，也就没有「约束得多紧」这个权衡。</p>\n",
         "python": "<p>Python 用 <code>TypeVar(bound=...)</code> 表达上界，但它只是个提示；\nGo 的约束直接决定函数体里能做哪些运算 ——\n<code>Sum[T Number]</code> 里能写 <code>total += x</code>，正是因为约束保证了都是数值。\nPython 里同样的代码只能靠运行时 duck typing。\nGo 的 <code>~int</code>（近似类型）是 Python 没有的概念：\n它把「底层类型相同」也算作满足约束。</p>\n",
@@ -62,7 +60,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有型变</strong> —— 泛型类型之间没有子类型关系推导，\n<code>[]Dog</code> 不能当 <code>[]Animal</code> 用（切片本来就不型变），\n<code>Box[Dog]</code> 也不能当 <code>Box[Animal]</code> 用。\n也没有 <code>? extends</code> 那样的通配符语法。\n要转换只能显式逐元素复制或做适配 ——\n这一点比 JavaScript 更严格（JavaScript 数组天然可变、什么都能塞）。</p>\n",
         "python": "<p>Go <strong>没有型变</strong>，泛型实例之间互不兼容，也没有通配符。\n需要「装得下多种类型」时，Go 用接口而不是型变 ——\n把元素类型写成接口，<code>[]Shape</code> 装任何满足 Shape 的值。\n这是 Go 的典型解法：用接口替代类型系统里的高级特性，\n代价是装进去要装箱、取出来要断言。</p>\n",
@@ -82,7 +79,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go 的泛型在运行时<strong>保留类型实参</strong>（通过字典与 <code>reflect</code> 能拿到），\n这与 JavaScript 的处境相反 —— JavaScript 没有泛型，\n但运行时什么都看得到（值自带类型）。\nGo 是「编译期检查 + 运行时保留信息」，两边都有类型信息，\n只是获取方式不同：JavaScript 直接看值，Go 要显式走 <code>reflect</code>。</p>\n",
         "python": "<p>Python 的泛型运行时不保留（<code>list[int]</code> 取不到 <code>int</code>），\n这一点与类型擦除的效果相似；Go 的实现保留了类型实参 ——\n通过 <code>reflect.TypeOf</code> 能拿到 <code>T</code> 具体是什么。\n所以 Go 泛型里可以写 <code>reflect</code> 相关的逻辑，Python 里做不到。\n代价是 Go 的泛型调用要传一个隐藏的字典参数，有一点额外开销。</p>\n",

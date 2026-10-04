@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的模型<strong>大体一致</strong>：都是一根线程加事件循环，\n都有微任务与普通任务的区分，连「微任务排太多会饿死事件循环」\n这条警告都一样。所以从 JavaScript 过来在这件事上几乎不需要重新学。\n差别在<strong>粒度</strong>：Dart 的每个 isolate 各有一个事件循环，\n而 JavaScript 的 Worker 也有自己的 —— 这一点也对应得上。\n真正不同的是 Dart 把「入哪条队列」写成了两个不同的构造函数，\n而那边是靠 <code>queueMicrotask</code> 与 <code>setTimeout</code> 区分。</p>\n",
         "python": "<p>两边都是单线程事件循环，但<strong>事件循环是不是「全部」不同</strong>：\nPython 的 <code>asyncio</code> 要求你显式启动并活在里面\n（<code>asyncio.run</code>），整个程序通常都绕着它转；\nDart 的事件循环是<strong>运行时本来就有的</strong>，不需要启动，\n<code>main</code> 里随手写个 <code>await</code> 就在用了。\n所以那边「这个循环在哪、什么时候起」是个要操心的事，\n这边不用 —— 代价是它一直在，你没法「不启动它」。</p>\n",
@@ -42,7 +41,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边从回调走向 <code>async</code> / <code>await</code> 的路径完全一样，形状也一样，\n这一格几乎是平移。差别在<strong>多条结果</strong>时：\nJavaScript 用异步生成器或者自己攒回调；\nDart 直接有 <code>Stream</code> 这个类型，<code>await for</code> 就能消费，\n「一个会来很多次的结果」是语言里的一等公民。\n另一处是 Dart 的值可以自动包成 <code>Future</code>，写起来更省事。</p>\n",
         "python": "<p>两边都从回调转向了协程式写法，但**「多个值」的表达不同**：\nPython 的异步生成器（<code>async def</code> 里 <code>yield</code>）与\nDart 的 <code>Stream</code> 对应，都能 <code>async for</code> / <code>await for</code> 消费 ——\n这一层可以对应。\n差别在<strong>接口设计习惯</strong>：Python 里回调式 API 仍然常见\n（尤其是老库），Dart 的标准库基本都已经是 <code>Future</code> / <code>Stream</code> 了。</p>\n",
@@ -73,7 +71,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边几乎一一对应（<code>Future</code> ↔ <code>Promise</code>，<code>then</code> ↔ <code>then</code>），\n连「创建就开始跑、不能取消」这条也一样 —— 这一格最像。\n差别在<strong>等待多个时的错误语义</strong>，而且方向相反：\n那边 <code>Promise.all</code> <strong>一有失败就立刻拒绝</strong>，不等其余；\nDart 的 <code>Future.wait</code> <strong>默认等全部完成</strong>再报第一个错误，\n要那边的行为得显式开 <code>eagerError</code>。\n这个差别很实际：慢任务不会被提前放弃，但错误也被推迟了。</p>\n",
         "python": "<p>两边都是「先拿到一个将来的值」，也都能并发等一批\n（<code>asyncio.gather</code> ↔ <code>Future.wait</code>）。差别在两处：\n一是<strong>启动方式</strong>，Python 要 <code>create_task</code> 显式提交，\nDart 的 <code>Future</code> 一创建就开跑；\n二是<strong>错误语义</strong>，Python 的 <code>gather</code> 默认也会把第一个异常抛出来，\nDart 默认等全部完成 —— 想早点失败要显式说。</p>\n",
@@ -99,7 +96,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>形状几乎一样（<code>async</code> / <code>await</code> 名字都对得上），\n而且<strong>在循环里 <code>await</code> 两边都合法</strong> —— 这一格最接近。\n差别在<strong>顶级 await</strong>：Dart 里 <code>main</code> 直接写成 <code>async</code> 是常规做法，\n不需要额外配置；JavaScript 那边要看模块类型与运行环境。\n另一处是并发写法：两边都要先把 Future 收集起来再一起等，\n思路一致。</p>\n",
         "python": "<p>两边的写法与「循环里可以 await」这条都一致，可以逐条对应。\n差别在<strong>并发的默认</strong>：Python 里要并发得用 <code>gather</code> 或者先\n<code>create_task</code>，光 <code>await</code> 是串行的 —— 这一点两边相同，\n所以从 Python 过来不会踩这个坑。\n另一处是异常传播，而且<strong>两边正好相反</strong>：Python 的 <code>gather</code>\n默认一有异常就立刻向等待方抛出（其余任务不被取消、继续跑），\nDart 的 <code>Future.wait</code> 默认等全部完成才报第一个错误 ——\n想要「早点失败」在这边要显式说，在那边是默认。</p>\n",
@@ -130,7 +126,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的结论<strong>完全一致</strong>：<code>Future</code> 与 <code>Promise</code> 都不能取消，\n能取消的只有 <code>AbortController</code> 那类信号或者流订阅\n（对应这边的 <code>StreamSubscription.cancel</code>）。\n所以从 JavaScript 过来在这一格上不需要改认知，\n连「<code>timeout</code> 不是取消」这条都一样。\n共同点是两边都要在 API 设计阶段就把取消这条路留出来，\n事后加不上去。</p>\n",
         "python": "<p><strong>这一格两边相反</strong>：Python 的 <code>asyncio.Task</code> <strong>可以取消</strong>\n（<code>task.cancel()</code> 会让协程在下一个挂起点收到 <code>CancelledError</code>），\n而 Dart 的 <code>Future</code> 创建之后就停不下来。\n所以从 Python 过来最容易犯的错是「以为有个 cancel 可以调」——\n这边只有退订流或者放弃结果，底层照跑。\n要真能中止，得在设计时就让那件事自己检查一个标志位。</p>\n",

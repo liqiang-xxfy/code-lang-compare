@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都用 <code>yield</code>，但<strong>生成器的种类与标记方式不同</strong>：\nJavaScript 用 <code>function*</code> 加 <code>yield</code>，异步用 <code>async function*</code>，\n靠关键字前缀区分；Dart 用 <code>sync*</code> / <code>async*</code>，\n而且<strong>返回类型必须写对</strong> —— 写 <code>Iterable</code> 配 <code>sync*</code>、\n<code>Stream</code> 配 <code>async*</code>，配错了编译不过。\n委托这一层两边都有（<code>yield*</code> 对 <code>yield*</code>），\n差别在 Dart 用它之前必须先声明生成器的种类与返回类型。</p>\n",
         "python": "<p>两边的 <code>yield</code> 用法接近，但<strong>函数怎么变成生成器</strong>不同：\nPython 里只要函数体出现 <code>yield</code> 就自动变成生成器，返回类型不用写；\nDart 必须显式标 <code>sync*</code> 并声明返回 <code>Iterable&lt;T&gt;</code> ——\n多写了两个地方，换来的是「读签名就知道它是生成器」。\n另一处是异步：Python 的异步生成器是 <code>async def</code> 加 <code>yield</code>，\nDart 是 <code>async*</code> 加返回 <code>Stream</code>，概念对得上、写法不同。\n<code>yield*</code> 与 Python 的 <code>yield from</code> 作用相同。</p>\n",
@@ -48,7 +47,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有集合字面量里的控制流，只能 <code>.filter().map()</code> 一条链 ——\n而那条链是<strong>急切</strong>的，每一步都产生一个中间数组；\nDart 的 <code>[for (...) if (...) ...]</code> 只在最后产出一个集合，\n中间不落地。两者能表达的东西一样，Dart 的写法更紧凑。\n另一处是 Dart 那套方法链反而<strong>是惰性的</strong>（见下一格），\n所以同一个语言里两种写法连求值时机都不同。</p>\n",
         "python": "<p><strong>这是写法上分野最大的一处</strong>：Python 的 <code>[x * 2 for x in xs if ...]</code>\n一行讲完「取哪些、每个怎么变」，是语法；\nDart 要写 <code>[for (var v in xs) if (v.isEven) v * 2]</code> ——\n同样是一行，但把 <code>for</code> 与 <code>if</code> 显式写出来了，\n读起来更像「在字面量里跑一段循环」而不是一个推导公式。\n两边都能嵌多层、都能在字典里用，能力相当。\n差别在于 Dart 的这种写法<strong>立即求值</strong>，Python 的推导式也是；\n反而是 Dart 的方法链是惰性的。</p>\n",
@@ -99,7 +97,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这是最容易误判的一处</strong>：JavaScript 的 <code>map</code> / <code>filter</code>\n<strong>急切</strong>，直接返回新数组，链上每一步都落地；\nDart 的 <code>map</code> / <code>where</code> 是<strong>惰性</strong>的，返回的是 <code>Iterable</code>，\n不调 <code>toList()</code> 就什么都没算 —— 所以 Dart 的链更快，\n但也意味着「什么时候算」与那边不同，中间插副作用会看到不同的时机。\n另一处是类型：JavaScript 的数组方法返回数组，\nDart 返回的 <code>Iterable</code> <strong>没有下标</strong>，要 <code>elementAt()</code> 或先落地。</p>\n",
         "python": "<p>两边在这一格上<strong>立场一致</strong>：Python 3 的 <code>map</code> / <code>filter</code>\n也是惰性的，返回迭代器；Dart 的 <code>map</code> / <code>where</code> 返回惰性 <code>Iterable</code> ——\n都不算到最后一刻。所以从 Python 过来在这件事上不会有意外。\n差别在<strong>落地方式</strong>：Python 用 <code>list(...)</code>，Dart 用 <code>.toList()</code>；\n以及 Dart 多一个「字面量写法是急切的」这个例外（见上一格）。\n但**「能不能反复遍历」这一点两边相反**：Python 的 <code>map</code> / <code>filter</code>\n返回迭代器，消费一次就耗尽；Dart 的 <code>Iterable</code> 每次取迭代器都重新求值，\n同一根惰性链可以反复 <code>toList()</code> —— 只有 <code>Stream</code> 才是一次性的。</p>\n",
@@ -140,7 +137,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能解构，但<strong>依据不同</strong>：JavaScript 的对象解构按属性名\n（名字写错得到 undefined，不报错），数组解构按位置；\nDart 的模式两者都有，而且<strong>名字写错编译不过</strong> ——\n同一件事在这边是编译期检查。\n另一处是能力：Dart 的模式能带类型（<code>[int a, int b]</code>）、\n能用在 <code>if-case</code> 与 <code>switch-case</code> 里做分支判断，\nJavaScript 的解构只能取值、不能当条件用。</p>\n",
         "python": "<p>两边的解构写法接近（<code>x, y = point</code> ↔ <code>var (x, y) = point</code>），\n也都能带星号收集剩余（<code>a, *rest = xs</code> ↔ <code>[a, ...rest] = list</code>）。\n差别在<strong>对象解构</strong>：Dart 的对象模式按 getter 名字匹配、\n还能带类型，Python 没有对应语法，只能逐个取属性；\n反过来 Python 的元组解包对任何可迭代对象都成立，\nDart 的列表模式只对列表（或实现了对应协议的）成立。</p>\n",

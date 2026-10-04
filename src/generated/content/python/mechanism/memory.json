@@ -31,7 +31,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>一切都是引用</strong> —— 变量只是贴在对象上的名字，<code>b = a</code> 不会复制对象。\n看起来像「值语义」的那些类型（int / str / tuple / frozenset）之所以像，\n是因为它们<strong>不可变</strong>：你没法改它们，只能把名字重新绑到新对象上。\n判断「我拿到的是不是同一份」用 <code>is</code>。可变默认参数是这条规则最著名的坑。</p>\n",
       "vsHtml": {
         "javascript": "<p>两边的命名模型一样（变量是引用），区别在<strong>哪些类型像值</strong>：\nJavaScript 的原始值是真的复制，Python 全部是引用，只是不可变对象\n让赋值看起来像复制。另外 JavaScript 的默认参数每次调用重新求值，\nPython 的只求一次 —— 所以那边写 <code>= []</code> 安全，这边是坑。</p>\n",
@@ -50,7 +49,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>引用计数为主 + 循环回收器兜底</strong>：对象引用数归零就立刻释放（比等 GC 更\n及时可预测），互相引用的垃圾由分代回收器定期清理。标准库给了观测与介入的\n入口（<code>gc.collect()</code> / <code>gc.get_count()</code> / <code>gc.disable()</code>），\n但日常不该依赖它们。要小心的是 <code>__del__</code> 与解释器退出时的时机。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有可达性分析、没有引用计数，所以<strong>释放时机不可预测</strong>，\n也没有 <code>gc.collect()</code> 这种入口；Python 的计数归零立刻释放，\n在「什么时候释放」这件事上更可预测。</p>\n",
@@ -69,7 +67,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>本语言没有所有权概念</strong> —— 内存由引用计数加回收器管理，想共享就共享，\n没有编译期约束谁来负责释放。代价是「共享可变状态」的约定全靠人维护。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 也没有所有权，同样是自动回收、随便共享。\n两边都会遇到同一类问题：一个对象被多处引用时，改动谁负责通知谁。</p>\n",
@@ -88,7 +85,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>本语言不表达引用的有效期</strong>。对象在还有引用时不会被回收（计数不为零、\n或者回收器能找到路径），所以不存在「悬空引用」这个编译期问题。\n实际会出问题的是「逻辑上过期但引用还在」—— 比如缓存里的陈旧对象。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 也说不出一段引用该活多久，只有弱引用能表达「我不阻止你被回收」。\n两边的做法一致：把「该活多久」交给引用图，而不是类型。</p>\n",
@@ -113,7 +109,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>weakref</code> 模块给了完整的弱引用工具：<code>ref</code>（取值要调用）、\n<code>WeakValueDictionary</code> / <code>WeakKeyDictionary</code> / <code>WeakSet</code>（条目随对象消失），\n还能注册<strong>回收回调</strong>。最典型的用途是缓存与旁挂元数据 ——\n让缓存不成为「对象永远活着」的理由。注意 list / dict 这类内建类型\n不能被弱引用。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有 <code>WeakMap</code> / <code>WeakSet</code> / <code>WeakRef</code> 三个形态，\n没有回收回调、也不能像 <code>WeakValueDictionary</code> 那样弱引用<strong>值</strong>。\nPython 这套更完整，代价是概念更多。</p>\n",

@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>class</code> 关键字，但底层仍是原型链与函数，\n<code>typeof SomeClass === 'function'</code> 为真；PHP 的类是一个独立的类型，\n与函数没有关系。这带来一处实际差别：JavaScript 的类可以\n动态加方法、可以把方法当普通函数拿出来用（丢 <code>this</code> 是经典坑）；\nPHP 的方法绑定在类上，<code>$obj-&gt;method(...)</code> 拿到的闭包会保留绑定。\n另一处是<strong>枚举</strong>：JavaScript 没有，通常用 <code>Object.freeze({...})</code>\n模拟；PHP 8.1 起有真正的 <code>enum</code>，带 <code>cases()</code>、<code>from()</code> / <code>tryFrom()</code>，\n而且 case 是<strong>单例对象</strong>，<code>===</code> 直接可比。\n静态成员的取名字面量：JavaScript 没有 <code>::class</code> 这种东西。</p>\n",
         "python": "<p>两边都是「class 关键字 + 实例化 + 属性挂载」的模型，能对上的不少。\n差别在<strong>类体的执行时机</strong>：Python 的类体是一段<strong>当场执行的代码</strong>\n（所以能在里面写循环、条件、甚至 print），PHP 的类体是声明，\n里面只能放属性、常量与方法的声明（要逻辑得写进方法或构造器）。\n另一处是<strong>实例属性从哪来</strong>：Python 直接在 <code>__init__</code> 里\n<code>self.x = 1</code> 就创建了属性，属性本身没有声明；\nPHP 的属性要<strong>在类体里声明</strong>（类型化属性 7.4 起），\n动态创建属性从 8.2 起被弃用。也就是说两边「属性要不要先声明」正相反。</p>\n",
@@ -63,7 +62,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>constructor</code> 与 PHP 的 <code>__construct</code> 都是\n<code>new</code> 时调用，都能接参数、都能设默认值（PHP 是参数默认值，\nJavaScript 是参数默认值或解构默认值）。\n差别在<strong>父类构造器的调用</strong>：JavaScript 的派生类构造器里\n<strong>必须</strong>先调 <code>super()</code>（不调直接报错，用了 <code>this</code> 之前必须调），\n所以「忘了调父类构造器」这件事在 JavaScript 里不会发生；\nPHP <strong>不会自动调用也不强制你调</strong> —— 忘了就静默地不调用，\n父类的初始化悄悄丢失，这是真正常见的 bug。\n另一处是属性提升：PHP 8.0 有构造器属性提升，\nJavaScript 要在构造器里逐个 <code>this.x = x</code>。</p>\n",
         "python": "<p>Python 的 <code>__init__</code> 与 PHP 的 <code>__construct</code> 都负责初始化实例，\n但<strong>父类的调用方式</strong>是两边最大的差别：Python 不会自动调用，\n惯例是显式写 <code>super().__init__(...)</code>；PHP 也不会自动调用，\n惯例是写 <code>parent::__construct(...)</code> —— 这一点两边一致。\n真正不同的是<strong>属性从哪来</strong>：Python 在 <code>__init__</code> 里赋值即创建属性，\n没有声明；PHP 的属性要先声明（类型化属性 7.4 起），\n构造器属性提升则把「声明 + 赋值」压进参数列表 ——\nPython 里没有对应写法，最接近的是 dataclass。</p>\n",
@@ -109,7 +107,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的属性天生是动态的：随便 <code>obj.anything = 1</code> 都能创建，\n类体里的字段声明只是初始化语法，不是约束。\nPHP <strong>反过来</strong>：属性要在类体里声明，而且 8.2 起\n「写一个没声明的属性」会被弃用警告 —— 也就是说\nJavaScript 里最自然的写法在 PHP 里是要避免的。\n另一处是「访问器」：JavaScript 用 <code>get</code> / <code>set</code> 语法糖，\nPHP 8.4 起也有<strong>属性钩子</strong>（<code>get</code> / <code>set</code>），思路一致、\n但差了一个大版本的时间；在那之前 PHP 只能写 <code>getX()</code> 方法。\n类型上 JavaScript 没有（运行时类型标注不存在），\nPHP 的类型化属性读未初始化会抛 Error。</p>\n",
         "python": "<p><strong>这一格两边正好相反</strong>。Python 的属性不需要声明：\n在 <code>__init__</code> 里 <code>self.x = 1</code> 就创建了，而且<strong>任何实例\n随时都能挂新属性</strong>（除非用 <code>__slots__</code> 限制）。\nPHP 的属性必须在类体里声明，8.2 起动态属性被弃用 ——\n所以 Python 里理所当然的「随手加个字段」在 PHP 里是坏味道。\n另一处是访问器：Python 用 <code>@property</code> 装饰器把方法伪装成属性，\nPHP 8.4 起用属性钩子（更接近 C# 的写法），\n在那之前只能写显式的 <code>getX()</code> / <code>setX()</code> 方法并手动调用。\n私有约定的做法也不同：Python 靠下划线命名，PHP 靠 <code>private</code> 关键字。</p>\n",
@@ -140,7 +137,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有「实例方法」与「静态方法」，但 <code>this</code> 的绑定规则差别很大：\nJavaScript 的 <code>this</code> 取决于<strong>怎么调用</strong>（<code>obj.m()</code> 与\n<code>const f = obj.m; f()</code> 结果不同），这是经典坑；\nPHP 的 <code>$this</code> 绑定在对象上，方法被取出来当闭包用时\n仍然保留绑定（除非显式 <code>bindTo</code>）。\n另一处是<strong>后期静态绑定</strong>：PHP 的 <code>self::</code> / <code>static::</code>\n是刻意区分的两件事，继承下结果不同；\nJavaScript 的静态方法里根本没有「当前类」这个可靠概念\n（<code>this</code> 在静态方法里指向类，但子类调用时行为容易出乎意料）。</p>\n",
         "python": "<p>两边都是「实例方法第一个参数是 self / <code>$this</code>」，思路一致。\n差别在<strong>显式程度</strong>：Python 把接收者写成<strong>第一个参数</strong>（<code>def m(self)</code>），\n所以「这个方法是不是实例方法」在签名里看得见，取出来当函数用时\n要自己传接收者；PHP 的 <code>$this</code> 是隐式的，取出来仍自动绑定。\n另一处是静态与类方法：Python 有 <code>@staticmethod</code> 与 <code>@classmethod</code>\n两个装饰器（后者能拿到类，等价于 PHP 的 <code>static::</code>），\nPHP 只有 <code>static</code> 关键字，而 <code>self::</code> / <code>static::</code>\n的区别要靠记规则（Python 的 <code>cls</code> 天然就是运行时类）。</p>\n",
@@ -181,7 +177,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是单继承（<code>extends</code>），方法覆盖的写法也相似。\n差别在<strong>检查的严格程度</strong>：JavaScript 覆盖方法时参数个数、\n可见性全都不管，写错了要到运行时才发现（或者永远不发现）；\nPHP 的覆盖受签名兼容约束，不兼容直接致命错误，\n而且 8.3 起能用 <code>#[\\Override]</code> 把「我确实在覆盖某个父类方法」\n写成<strong>编译期检查</strong>（拼错就报错）—— JavaScript 没有对应机制。\n另一处是 <code>final</code>：JavaScript 有 <code>final</code> 吗？没有，\n要冻结得靠 <code>Object.freeze</code> 之类的运行时手段；\nPHP 的 <code>final</code> 是编译期保证。</p>\n",
         "python": "<p>两边的继承模型几乎一一对应（单继承 + 多继承除外，\nPython 支持多重继承与 MRO，PHP <strong>只支持单继承</strong>，\n横向复用得靠 trait）。\n差别在<strong>检查时机</strong>：Python 覆盖父类方法时签名随便改、\n没有任何检查，调用方传错参数要到运行时才炸；\nPHP 的覆盖受签名兼容约束，不兼容是致命错误。\n另一处是 <code>super()</code>：两边都要显式调用父类实现，\n写法是 <code>super().m()</code> 与 <code>parent::m()</code>，作用一致。\n共同点是两边都能用「抽象」把未实现的方法留出来（见抽象类那一格）。</p>\n",
@@ -222,7 +217,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 到较新版本才有真正的私有（<code>#field</code>），\n而且只有「私有 / 公开」两档，没有 protected 那种\n「子类可见、外界不可见」的中间档。\nPHP 有三档（public / protected / private）都按类算，\n8.4 起还能拆开读写（<code>public private(set)</code>：外面能读、只有本类能写）——\n这个能力 JavaScript 完全没有。\n另一处是「靠什么实现」：JavaScript 的 <code>#x</code> 是<strong>语言级</strong>的硬私有，\n没有后门；PHP 的 <code>private</code> 在反射面前基本敞开\n（8.1 起 <code>ReflectionProperty::getValue</code> 直接就能读私有属性）。</p>\n",
         "python": "<p><strong>两边的哲学正相反</strong>：Python 没有语言级的可见性，\n下划线是<strong>约定</strong>（<code>_x</code> 是内部、<code>__x</code> 会做名字改写但也不是真私有），\n而且这些约定挡不住任何人。\nPHP 的 <code>private</code> / <code>protected</code> 是语言强制的，\n外部访问直接抛 Error —— 一边靠自觉，一边靠引擎。\n另一处是粒度：Python 只有「这个类」这一层（靠命名约定），\nPHP 有类级三档，8.4 起还有非对称可见性（读公开、写受限）——\nPython 要实现同样效果得写 <code>@property</code> 加一个只读描述符。</p>\n",

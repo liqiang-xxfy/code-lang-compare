@@ -240,7 +240,6 @@ describe('语言内容装载的细节', () => {
     for (const g of py) {
       for (const box of Object.values(g.boxes)) {
         expect(box.review.state, `${g.group}`).toBe('draft')
-        expect(box.review.provenance.origin).toBe('llm')
       }
     }
   })
@@ -357,21 +356,11 @@ describe('方向性内容装载（loadPairListsV2）', () => {
   })
 
   it('方向 meta.yaml 的 review 会被解析出来，而不是被静默丢弃', () => {
-    const raw = {
-      review: {
-        state: 'draft',
-        provenance: {
-          origin: 'llm',
-          model: 'claude-code-agent',
-          promptTemplateId: 'pairs-v2-batch',
-          generatedAt: '2026-10-03',
-        },
-      },
-    }
+    const raw = { review: { state: 'reviewed', reviewedBy: 'someone' } }
     // 三个 pairs schema 都不是 .strict()，没写进 schema 的字段会被无声剥掉 —— 这条钉住它被接住了
     const parsed = pairMetaSchema.parse(raw)
-    expect(parsed.review.provenance.origin).toBe('llm')
-    expect(parsed.review.state).toBe('draft')
+    expect(parsed.review.state).toBe('reviewed')
+    expect(parsed.review.reviewedBy).toBe('someone')
     // review 是必填：空 meta 是写错了，不是「还没写」
     expect(pairMetaSchema.safeParse({}).success).toBe(false)
   })
@@ -386,10 +375,7 @@ describe('方向性内容装载（loadPairListsV2）', () => {
 
 describe('对比框契约（R16 的 v2 版）', () => {
   const base = {
-    review: {
-      state: 'draft' as const,
-      provenance: { origin: 'manual' as const, license: 'CC-BY-4.0' as const },
-    },
+    review: { state: 'draft' as const },
   }
 
   it('code 与 blocks 不能并存', () => {

@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>最显眼的差别是<strong>参数标签</strong>：JavaScript 只有位置参数，\n想表达「这个参数是什么」只能靠命名或者文档；\nSwift 的参数有标签与名字两层（<code>func move(to p: Int)</code> 调用写\n<code>move(to: 3)</code>），读调用点就像读句子 —— 但这也意味着\n<strong>改参数标签会破坏所有调用点</strong>（比改参数名严重得多）。\n另一处是函数类型：两边都能把函数当值，但 Swift 要写出\n<code>(Int) -&gt; Int</code> 这样的类型；JavaScript 里函数就是函数，不写类型。\n还有一处是 Swift 的 <code>mutating</code> —— 值类型的方法想改自己要显式标，\nJavaScript 里没有值类型，也就没有这个概念。</p>\n",
         "python": "<p>两边的调用形态差别最大的一处就是参数：Python 有位置参数、\n关键字参数、默认值、<code>*args</code> / <code>**kwargs</code>，非常灵活；\nSwift 的参数是「标签 + 名字」，调用时默认<strong>必须写标签</strong>\n（除非定义处写了 <code>_</code>）—— 也就是说 Python 里「关键字参数是可选的」，\nSwift 里「标签是默认要写的」。\n另一处是 <code>mutating</code>：Swift 的值类型方法想改自己要标记，\nPython 的对象全都是引用，改 <code>self</code> 的属性随时可以。\n共同点是两边都有默认参数与可变参数。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「按值传」，但**「值」是什么<strong>不同：JavaScript 里\n「值」是「对对象的引用」，所以传对象进去改属性外面看得见；\nSwift 里值类型传的是真的拷贝，改不到外面 ——\n要改必须显式写 <code>inout</code> 并在调用时加 <code>&amp;</code>（一眼能看出来）。\n另一处是 Swift 的参数在函数体里</strong>是常量**（不能重新赋值），\nJavaScript 的参数随便改。还有一处是闭包逃逸：\nSwift 默认<strong>非逃逸</strong>（编译器能优化掉堆分配），\n要存起来必须标 <code>@escaping</code>；JavaScript 里没有这个概念。</p>\n",
         "python": "<p>两边都有默认参数，但<strong>传参的语义方向不同</strong>：\nPython 的「传对象引用」让可变对象改得动、不可变对象改不动；\nSwift 分得更清 —— 值类型一律拷贝、要改就写 <code>inout</code> +\n调用时 <code>&amp;</code>。也就是说 Swift 把「这个参数会被改」变成\n写在签名与调用两处的事，读代码时看得见。\n另一处是 Python 的可变默认值陷阱（<code>def f(x=[])</code>）在 Swift 里\n不存在，因为默认值表达式每次调用都求值。</p>\n",
@@ -84,7 +82,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的可变参数形态几乎一样（<code>...</code> ↔ <code>...</code>），这一层最接近。\n差别在<strong>展开</strong>：JavaScript 可以用展开语法\n（<code>sum(...nums)</code>）把数组拆成实参；Swift <strong>没有展开运算符</strong>，\n要么另写一个接数组的函数，要么改写调用方式 ——\n所以「手上有一个数组、想传给变参函数」这件事在 Swift 里\n要绕一下。（顺带一提：直接传数组进去会被当成一个元素，\n这在两边都是容易踩的一处。）\n另一处是 Swift 的变参在函数体里就是普通的数组，\n这点与 JavaScript 的剩余参数一致。</p>\n",
         "python": "<p>两边的可变参数都对应得上（<code>*args</code> ↔ <code>Int...</code>），\n而且函数体里都是一个序列 —— 这一层很像。\n差别在<strong>展开</strong>：Python 用 <code>f(*args)</code> 一行把列表展开成实参，\nSwift 没有这个语法，要另写函数或改调用。\n另一处是 Swift 有 <code>inout</code> 变参、Python 没有；\nPython 有 <code>**kwargs</code>（关键字变参），Swift 里没有对应物\n（最接近的是传一个字典，但那是一个普通参数）。</p>\n",
@@ -115,7 +112,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的函数都只返回一个值，但<strong>凑多个</strong>的成本不同：\nJavaScript 顺手写个对象字面量（<code>return {min, max}</code>），\n调用方解构一下；Swift 用元组（<code>-&gt; (min: Int, max: Int)</code>），\n而且元组元素<strong>有名字</strong>、能解构 —— 写法上两边挺像。\n差别在类型：Swift 的元组类型要写全（或者靠推断），\n元素名字也是类型的一部分；JavaScript 里对象字段随便加。\n另一处是「失败」的表达：Swift 有 <code>throws</code> 与 <code>Result</code> 两种\n明确机制，JavaScript 常靠抛异常或返回 null。</p>\n",
         "python": "<p>两边都能「一次返回多个」，而且都是靠元组 —— 这是最接近的一处\n（<code>return a, b</code> ↔ <code>return (a, b)</code>）。差别在<strong>元组元素的命名</strong>：\nPython 的元组没有字段名（要命名得用 <code>namedtuple</code>），\nSwift 的元组可以写成 <code>(min: Int, max: Int)</code>，元素自带名字，\n取的时候 <code>r.min</code> 就行。另一处是「失败」的表达：\nPython 通常抛异常，Swift 有 <code>throws</code> 加 <code>try</code> 的显式标记，\n调用点能看出「这里可能抛」。</p>\n",
@@ -151,7 +147,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的闭包形态很像（都能省类型、都能用简写参数），\n但有两处实质差别：① <strong>捕获的可见性</strong>：JavaScript 的闭包\n自动捕获外部变量、活多久由引擎管，不用操心循环引用；\nSwift 里闭包捕获是<strong>强引用</strong>，类实例里很容易形成引用环\n（要用 <code>[weak self]</code> 手动打破）—— 这是那边不存在的一类 bug。\n② <strong>逃逸标注</strong>：Swift 的闭包参数默认不逃逸，要存起来必须标\n<code>@escaping</code>（而且逃逸闭包里引用 <code>self</code> 要显式写 <code>self.</code>）；\nJavaScript 里没有这层区分。共同点是捕获的都是引用，\n改外部变量两边都行。</p>\n",
         "python": "<p>两边的闭包都要「记住定义处的名字」，但<strong>晚绑定</strong>的坑不同：\nPython 的闭包捕获的是<strong>变量本身</strong>（循环里创建闭包会全部\n指向最后一个值，这是经典陷阱）；Swift 的闭包捕获也是引用，\n但循环变量的作用域规则不同，那个具体陷阱不那么常见。\n另一处是写法：Swift 的 <code>{ $0 * 2 }</code> 这种极简写法（参数都不写）\n在 Python 里没有对应物（lambda 有字数限制、且不能多语句）。\n还有一处是 Swift 的 <code>[weak self]</code> 捕获列表、\n<code>@escaping</code> 标注，Python 里都没有。</p>\n",

@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的可用性差一个量级</strong>：JavaScript 的反射是运行时自带的、\n到处都是（<code>Object.keys</code> / <code>Reflect</code> / <code>for...in</code> / 动态属性访问），\n随便写个通用函数遍历对象字段是日常；C++ 里连\n「这个对象有哪些字段」都问不出来，只有多态类型上的\n<code>typeid</code> 与 <code>dynamic_cast</code> 两件工具。\n所以那边「写个通用的序列化」靠反射，这边靠编译期生成\n（宏、模板元编程、或者外部工具先生成代码）。\n另一处是 <code>typeid().name()</code> 给的是实现定义的修饰名，\n不能用来构造对象、也不适合展示给用户。</p>\n",
         "python": "<p>两边的落差同样大：Python 的反射是<strong>日常工具</strong>\n（<code>getattr</code> / <code>setattr</code> / <code>vars</code> / <code>inspect</code> 到处在用），\n而且随时可用；C++ 的反射只有多态类型上的一小块 RTTI，\n普通结构体什么都问不出来。所以那边「按名字取值」是家常便饭，\n这边根本没有「名字」这个概念（编译完就没有了）。\n另一处是 C++ 正在补这块（C++26 的静态反射），\n但它发生在<strong>编译期</strong>而不是运行期 —— 方向与 Python 相反。</p>\n",
@@ -68,7 +67,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的名字容易混，本质完全不同</strong>：JavaScript 的装饰器是\n<strong>可执行的函数</strong>，在定义时改写类与方法（而且提案演进过好几版）；\nC++ 的属性只是给编译器的<strong>提示</strong>，标准规定了一张封闭清单，\n自定义的一律被忽略（实跑：只警告「attribute directive ignored」，\n然后照编）。所以那边 <code>@foo</code> 可能真的改变了行为，\n这边 <code>[[foo]]</code> 顶多影响一条警告。\n另一处是 C++ 有大量「挂语义」的需求是靠<strong>宏与模板</strong>实现的，\n那两样在 JavaScript 里没有对应物。</p>\n",
         "python": "<p>两边都有「给声明挂东西」的语法，但<strong>能不能被读</strong>完全不同：\nPython 的装饰器是<strong>真的函数调用</strong>（<code>@d</code> 等价于 <code>f = d(f)</code>），\n立刻改变对象；C++ 的属性是编译器看的元信息，\n而且只有标准清单里的那些有意义，自定义的会被静默忽略。\n另一处是 Python 的装饰器能挂任意代码、能改任意行为，\nC++ 的等价能力要靠<strong>代码生成器</strong>（编译前先跑一遍生成源码），\n那是一个构建步骤，不是语言特性。</p>\n",
@@ -88,7 +86,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>C++ <strong>没有 <code>eval</code></strong>，字符串不能当代码跑。这不是「做得不好」，\n是编译型语言的结构决定的：源码在编译期就变成了机器码，\n运行期根本没有能解释字符串的东西。\n要动态行为只能走<strong>动态链接</strong>这条路 —— 编译好一个共享库，\n运行期 <code>dlopen</code> 把它加载进来、<code>dlsym</code> 取函数指针，\n这是「换一个已经编好的模块」，与「把一段文本变成代码」是两回事。\n代价与 <code>eval</code> 完全不是一个量级，而且没有可移植的标准接口。</p>\n",
         "python": "<p>C++ <strong>没有 <code>eval</code> / <code>exec</code></strong>。Python 里 <code>eval</code>、<code>exec</code>、\n<code>getattr</code> 三件套能做到的元编程，在这边要么改成编译期生成\n（宏、模板、代码生成器），要么干脆换个设计。\n理论上可以接一个 JIT 库或嵌一个脚本引擎进来，\n但那是引入一整个运行时，不是语言能力。\n代价换来的是：可以放心地认为「能跑的代码都是被编译过的」——\n没有字符串注入执行的风险。</p>\n",
@@ -134,7 +131,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是「能不能透明」的区别</strong>：JavaScript 的 <code>Proxy</code> 能拦住\n<strong>所有</strong>属性访问（读、写、<code>in</code> 判断、删除），而且对\n<strong>任何对象</strong>都有效，用的人甚至不需要知道它是代理；\nC++ 的代理必须<strong>为每种类型各写一个包装类型</strong>，\n而且只能是「自己写的类型」—— 已经编好的库类型没法加钩子。\n字段访问更是完全拦不到（那是直接算内存偏移）。\n所以那边「给任意对象套一层透明代理」在这边做不到，\n只能对确定的几个类型各写一层。</p>\n",
         "python": "<p>两边的触发面不同：Python 的 <code>__getattr__</code> 只在常规查找失败时触发\n（与 C++ 重载 <code>operator-&gt;</code> 完全不同 —— 那个是<strong>每次访问都触发</strong>），\n而 <code>__getattribute__</code> 能拦下每一次属性访问，\n那个才与 C++ 的 <code>operator-&gt;</code> 同级 —— 但 Python 的\n<code>__getattribute__</code> 是<strong>每个类都能加</strong>的，不用写新类型；\nC++ 要拦就得换一个包装类型出来。\n另一处是 Python 能对内置类型做子类加钩子（虽然受限），\nC++ 对已经定义好的类型<strong>完全无法追加</strong>。</p>\n",

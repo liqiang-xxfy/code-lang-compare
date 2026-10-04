@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>数组与 JavaScript 是同一个东西：同一批方法（<code>push</code> / <code>unshift</code> / <code>splice</code> /\n<code>slice</code>）、同样可变长、同样读越界得 <code>undefined</code> 而不报错，性能特征也一样 ——\n尾部追加快、头部插入要整体搬。差别全在类型这一层：元素类型必须在编译期定死，\n想混放要显式写成联合类型；而且没有 <code>any</code> 兜底，「先塞进去、用的时候再看」\n这种写法在这里编译不过，错误从运行时提前到了写的时候。</p>\n",
         "python": "<p>Python 的 <code>list</code> 与这里的数组都是可变长序列，<code>append</code> 对应 <code>push</code>、<code>len()</code>\n对应 <code>.length</code>。差别在元素类型：Python 的列表天生可混放，这里的元素类型必须\n编译期确定，混放只能声明成联合类型。越界规则也不同：Python 抛 <code>IndexError</code>\n且支持负下标，这里越界得到 <code>undefined</code>、负数下标拿不到末尾元素。类型这一层，\nPython 只存在于另跑的类型检查器里；这里是编译的一部分，不通过就出不了包。</p>\n",
@@ -63,7 +62,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>运行时就是 JavaScript 的 <code>Map</code>：同样按插入顺序遍历、同样有 <code>size</code>、取不到给\n<code>undefined</code>；键可以是任何值（数字、对象都行），比较按 SameValueZero、对象键\n按引用。真正的分歧在「拿对象当字典」这条路上：JavaScript 里 <code>obj[k]</code> 随手加一个\n新键，这里不行 —— 对象必须有声明过的形状，想留住动态键就得用官方给的 <code>Record</code>\n（索引读出来的类型带着 <code>undefined</code>，用之前必须自己判空），或者干脆换上 <code>Map</code>。\n于是选择变成三选一：动态键用 <code>Map</code>、要对象外壳用 <code>Record</code>、固定字段声明形状 ——\n按需挑一个，不能像 JavaScript 那样一条路走到底。\n顺带一处细节：对象自身的键顺序有「整数键提前」的特殊规则，而 <code>Map</code> 是纯插入序，\n两种容器的遍历顺序并不一致。</p>\n",
         "python": "<p>Python 只有一种 <code>dict</code>：键任意可哈希、保插入序，把「动态键」与「固定字段」两个\n角色合在一起。这里要把它们拆开 —— 动态键用 <code>Map</code>，固定字段要显式声明类型。\n取缺失键两边都不静默出错：Python 抛 <code>KeyError</code>（除非用 <code>get</code>），这里 <code>Map.get</code>\n给 <code>undefined</code>。顺序上两边都保插入序，这一条一致。差别在键的约束：Python 的键\n要可哈希，这里的 <code>Map</code> 按 SameValueZero 比较（<code>NaN</code> 算相等、对象键按引用），\n没有「重写 <code>__hash__</code>」这类可调项。</p>\n",
@@ -89,7 +87,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>与 JavaScript 的 <code>Set</code> 是同一个对象：去重、<code>add</code> / <code>has</code> / <code>delete</code> / <code>size</code>、\n保插入顺序，全部一致。元素相等的判定也同源（SameValueZero：<code>NaN</code> 算相等、\n对象按引用，所以内容相同的两个对象算两个成员）。差别仍只在类型层 ——\n<code>Set&lt;number&gt;</code> 让 <code>add(&quot;x&quot;)</code> 编译不过，元素是什么类型说得出；集合运算两边一样\n都没有内建运算符，要并集、交集得自己写循环。</p>\n",
         "python": "<p>Python 的 <code>set</code> 与这里的 <code>Set</code> 都是哈希集合，去重、<code>in</code> / <code>has</code>、<code>add</code> 都能对上。\n差别有两处。一是顺序：Python 的 <code>set</code> 不保证遍历顺序，这里的 <code>Set</code> 按插入顺序\n遍历 —— 要稳定输出，Python 得另排序。二是元素类型：Python 的 <code>set</code> 可装不同类型\n的可哈希值，这里要先声明元素类型、混放得写联合类型。集合运算 Python 有\n<code>a | b</code> / <code>a &amp; b</code> / <code>a - b</code> 运算符，这里的标准 <code>Set</code> 没有内建运算，惯常自己写循环。</p>\n",
@@ -120,7 +117,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 里「一组固定的东西」就是对象，成对返回也常借数组凑，位置含义只写在\n文档里；这里要求这类形状先有一个具名声明 —— 用一个 <code>interface</code> 或 <code>class</code> 把字段\n与类型逐个写出来。差别有两处：对象字面量必须能对上已声明的类型，JavaScript 里\n「顺手造个 <code>{ ... }</code> 用一下」的写法在这里编译不过；字段也要齐全，少一个不行。\n两者都只在编译期成立 —— 运行时仍是普通对象。</p>\n",
         "python": "<p>Python 用 <code>dataclass</code> 或 <code>NamedTuple</code> 定义记录，都要把字段类型写出来；这里用\n<code>interface</code> 或 <code>class</code>，写法等价，也都要求字段齐全。差别在「位置」：Python 的\n<code>NamedTuple</code> 除了按名字访问，还能按位置取、能解构，这里表达固定的一组东西是\n按键的具名字段，位置不参与语义。另一处是可变性：Python 的 <code>NamedTuple</code> 与\nfrozen <code>dataclass</code> 不可改，这里的字段默认可直接改写。</p>\n",
@@ -151,7 +147,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>与 JavaScript 一模一样：<code>const</code> 只锁绑定、不锁内容，数组、映射、对象实例一律是\n引用语义 —— <code>ys = xs</code> 拿到的是别名而不是副本，改一个另一个看得见。这里也没有\n多出任何运行时的只读容器：可变与否由使用方式决定。语言另有编译期的\n<code>readonly</code> 与 <code>Readonly&lt;T&gt;</code>，但那是标记，不是拦截。差别只在类型那一层 ——\n元素类型编译期固定、不能退化成 <code>any</code>，与可变性无关。</p>\n",
         "python": "<p>可变性在这两边由不同的东西决定。Python 里是<strong>类型</strong>决定的：<code>list</code> 可变、<code>tuple</code>\n不可变，写出来就定了，<code>xs = ys</code> 是引用绑定。这里没有「按类型分可变与不可变」\n这一层，可变与否取决于怎么用 —— 数组、映射、对象实例彼此赋值都是别名，改一个\n另一个看得见；只读只有编译期的 <code>readonly</code> 标记。浅拷贝两边也都要显式做：\nPython 用 <code>list(xs)</code> 或切片，这里用 <code>xs.slice()</code>。</p>\n",
@@ -177,7 +172,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><code>slice</code> 的语义与 JavaScript 完全一致：左闭右开、返回新数组（复制，不是视图）、\n负数从末尾数、浅拷贝 —— 改副本数组本身不影响原数组，但里面的对象仍是共享的。\n这一格没有可说的差别：同一个方法、同一套规则。类型层也不额外提醒，「浅拷贝之后\n那些对象还是同一个」这件事编译器不会告诉你。</p>\n",
         "python": "<p>切片在两边都返回新序列（不是视图）、左闭右开、负下标都能从末尾数，这几条一致。\n差别在写法：Python 用一对中括号 <code>xs[1:3]</code> 同时兼顾读片段与就地替换\n（<code>xs[1:3] = [...]</code>），这里读片段是方法 <code>slice(1, 3)</code>、就地改动要换 <code>splice</code>；\n两类操作在这里分得更开。深浅也一样：两边都是浅拷贝，嵌套对象仍共享，要真正独立\n的副本都得自己往下走一层。</p>\n",

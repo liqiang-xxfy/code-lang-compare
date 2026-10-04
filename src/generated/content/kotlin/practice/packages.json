@@ -16,7 +16,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的包管理器都与构建工具绑在一起，但<strong>绑定方式不同</strong>：\nJavaScript 那边 <code>npm</code> 既是包管理器也是任务运行器，\n脚本写在 <code>package.json</code> 里；Kotlin 这边包管理是构建工具\n（Gradle 或 Maven）的一部分，任务写在构建脚本里。\n另一处是坐标：那边是「包名加版本」两段，这边是三段\n（组织、构件、版本），所以同一个库可以有多个构件。</p>\n",
         "python": "<p>两边都有「包管理器 + 构建后端」两层，也都经历过工具换人\n（那边从 setuptools 到 Poetry 到 uv，这边从 Maven 到 Gradle）。\n差别在<strong>依赖来源</strong>：Python 默认只有一个中央索引，\n换源是配置项；Kotlin 这边「仓库」是一等概念，\n你可以在构建脚本里列任意多个（公司内网、镜像、中央仓库都行）。</p>\n",
@@ -47,7 +46,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 那边只有 dependencies 与 devDependencies 两档，\n而且装了什么下游都能拿到 —— 没有「这个依赖算不算我公开接口的一部分」\n这个问题。Kotlin 这边把这件事拆成四档，默认最严格，\n要为「暴露给下游」显式付代价。\n另一处是测试依赖：那边靠 devDependencies，这边靠命名前缀\n（<code>testImplementation</code>），粒度更细。</p>\n",
         "python": "<p>两边都要声明依赖，但<strong>范围模型不同</strong>：Python 那边\n「运行依赖」与「开发依赖」是主要分野，\n没有「编译期可见但运行期由环境提供」这一档；\nKotlin 这边 <code>compileOnly</code> 表达的正是这种情形\n（例如运行容器已经带了某个 API）。\n另一处是传递性：Python 的依赖默认也会传染给使用者，\n但没法在声明处控制；Kotlin 的 <code>implementation</code> / <code>api</code>\n就是这个控制的开关。</p>\n",
@@ -67,7 +65,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的版本范围语法不同（那边用的是 <code>^</code> 与 <code>~</code>，\n这边用区间或动态版本后缀），但<strong>默认行为接近</strong>：\n都取能满足范围的最新版、冲突时偏向更高版本。\n差别在<strong>锁定的粒度</strong>：JavaScript 有锁文件把整棵依赖树钉死；\nKotlin 默认<strong>不锁</strong>（见下一格），只靠约束与冲突解决规则，\n所以「今天装的与明天装的」理论上可能不同。</p>\n",
         "python": "<p>两边的约束写法差别很大：Python 用比较运算符组合\n（<code>&gt;=1.2,&lt;2.0</code>），Kotlin 用区间或 <code>1.2.+</code> 这类后缀，\n而且 YAML 之外还有一套自己的记号（<code>!!</code> 表示严格版本）。\n差别还在<strong>默认要不要钉死</strong>：Python 装机量最大的那套\n依赖一个文本清单或锁文件；Kotlin 默认只声明范围，\n要复现得额外开启锁定。</p>\n",
@@ -93,7 +90,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的默认相反</strong>：JavaScript 一装就产出锁文件、而且强烈建议入库，\n所以「今天与明天装出一样的东西」是默认保证；\nKotlin 这边默认不锁，解析结果随时间可能变，\n要复现得<strong>主动开一个开关</strong>。\n另一处是粒度：那边的锁文件覆盖整棵树、格式由官方定义；\n这边锁定是按配置一块块开的，粒度更细也更需要理解。</p>\n",
         "python": "<p>两边都可以有锁文件，但<strong>默认姿态不同</strong>：\nPython 生态里锁文件是主流做法（各类工具各有一套格式）；\nKotlin 这边默认没有，而且官方的锁定机制也不是人人都在用。\n另一处是<strong>锁定的是什么</strong>：Python 的锁多半钉住精确版本；\n这边开锁定之后也是钉住版本，但连校验和一起记下来，\n能发现依赖被换过 —— 这一点更接近 cargo 那边的做法。</p>\n",
@@ -113,7 +109,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都<strong>天然隔离</strong>：依赖装在项目自己的目录（或缓存）里，\n不用做任何准备工作，也没有「激活环境」这个动作。\n差别在物理位置：JavaScript 把依赖复制进项目的 node_modules，\n每个项目一份；Kotlin 用<strong>全局缓存 + 按坐标引用</strong>，\n同一个版本在所有项目间共用 —— 省空间，但缓存坏了会影响所有项目。</p>\n",
         "python": "<p><strong>这是两边差别很大的一格</strong>：Python 必须主动建虚拟环境\n（或者靠外部工具），忘了激活就会装到全局去；\nKotlin 这边根本没有「激活」这个动作 ——\n依赖默认就是项目隔离的，装到全局去这件事做不出来。\n所以从 Python 过来会少掉一整类操作事故，\n代价是「我想手工装一个包试试」这种事也变得没那么直接。</p>\n",
@@ -133,7 +128,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的发布流程差别很大：JavaScript 一条 <code>npm publish</code> 就完事，\n版本号重了会被拒但<strong>可以撤回</strong>；\nKotlin 这边要先配发布插件、写好坐标、签名、校验，\n而且<strong>发出去就收不回</strong>（同版本不能重发）。\n所以那边的发布是日常动作，这边更像一次正式的交付。</p>\n",
         "python": "<p>两边都要显式构建再上传，也都支持私有源。\n差别在<strong>元数据的要求</strong>：Python 的包名与版本写在配置文件里，\n一个名字对应一个包；Kotlin 的坐标是三段，\n同一个 group 下可以有多个 artifact，所以「一个库」往往是\n一组构件一起发布。另一处是撤回：那边可以删版本，\n这边发出去就永久占用了。</p>\n",

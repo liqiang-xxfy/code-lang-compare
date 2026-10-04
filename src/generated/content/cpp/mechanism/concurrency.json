@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都不是「语言给了线程」，但差别很大：JavaScript 有 Worker\n（本质是独立的执行环境 + 消息传递），主线程上永远只有一个执行流；\nC++ 的 <code>std::thread</code> 是<strong>真的多线程共享内存</strong>，\n所有线程看得到同一个地址空间 —— 这才引出了数据竞争、\n锁、内存序这一整套问题。也就是说那边「不用锁」是因为\n根本没有共享内存，这边「必须想锁」是因为共享是默认。\n另一处是 C++ 的协程与并发是<strong>两件事</strong>（协程是挂起机制，\n并发要靠线程或自己搭调度），JavaScript 的 <code>async</code> 直接就是调度好的。</p>\n",
         "python": "<p>两边都有真线程（Python 的 <code>threading</code> ↔ C++ 的 <code>std::thread</code>），\n而且共享内存、要加锁 —— 这一层对应得上。\n关键差别在<strong>能不能真并行</strong>：Python 有全局解释器锁，\n纯计算的线程其实串着跑（要并行得用多进程）；\nC++ 的线程是<strong>真并行</strong>，多核同时跑，所以竞争问题也更实在。\n另一处是 C++ 的协程没有调度器（语言只给挂起原语），\nPython 的 <code>asyncio</code> 是完整的事件循环 —— 两边「协程」这个词\n指的东西成熟度差得很远。</p>\n",
@@ -58,7 +57,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的处境完全不同：JavaScript 的 Worker <strong>不共享内存</strong>，\n每个 Worker 有自己的堆，通信靠消息（结构化克隆或转移所有权）——\n所以「数据竞争」这个问题在那边<strong>根本不存在</strong>，也不需要原子变量。\nC++ 的线程共享同一个地址空间，两个线程同时写一个变量\n就是 UB（实跑：普通变量少加了 40%，原子变量才对）。\n也就是说那边「不用锁」不是因为做得好，是因为问题被设计掉了。</p>\n",
         "python": "<p>两边都有共享内存与数据竞争这个隐患，但<strong>后果的严重程度不同</strong>：\nPython 有全局解释器锁，单个字节码指令是原子的，\n<code>counter += 1</code> 会丢更新但不会读到垃圾；C++ 里同时读写\n是<strong>未定义行为</strong> —— 可能丢更新，也可能读到撕裂的值、\n或者因为优化而完全不是你写的那个意思。\n另一处是 C++ 给了 <code>std::atomic</code> 与内存序这一整套显式工具\n（默认是最严的顺序一致），Python 里没有语言级的原子类型。</p>\n",
@@ -78,7 +76,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格 JavaScript 基本上用不上</strong> —— 没有共享内存就不需要锁，\n所以那边根本没有互斥量这个概念（Atomics 是给 SharedArrayBuffer\n用的，属于特例）。C++ 里锁是日常工具，\n而且最典型的用法是 <strong>RAII 包一层</strong>（<code>lock_guard</code>）——\n构造时加锁、析构时解锁，于是异常路径也不会漏掉解锁。\n这个「用对象生命周期管资源」的模式是 C++ 的标志性写法，\nJavaScript 那边没有对应需求。</p>\n",
         "python": "<p>两边都有锁，而且 Python 的 <code>with lock:</code> 与 C++ 的\n<code>lock_guard</code> 是一个思路（都用「块结束就释放」保证不漏）。\n差别在<strong>为什么需要</strong>：Python 的保护往往是为了守住\n「多条语句之间的不变量」（因为单条字节码本来就原子），\nC++ 连一次 <code>+=</code> 都需要保护（它不是一步）。\n另一处是 C++ 有 <code>shared_mutex</code>（读写锁）、\n<code>scoped_lock</code>（一次锁多个、防死锁）这些标准库工具，\nPython 的 <code>threading</code> 里对应物要少一些、也更简单。</p>\n",
@@ -104,7 +101,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的处境正好颠倒</strong>：JavaScript 的 Worker 之间<strong>只有</strong>消息传递\n（<code>postMessage</code> 是唯一的通信方式），共享内存反而是特例；\nC++ 的线程之间<strong>只有</strong>共享内存，消息传递要自己用\n互斥量加条件变量搭出来。也就是说这边「不共享、改用通信」\n是一种<strong>要额外付出努力才能达到的设计</strong>，\n而那边是默认、也是唯一的选择。\n代价是 C++ 这条路上细节多：通知要放在解锁之后、\n醒来必须重新检查条件（虚假唤醒）。</p>\n",
         "python": "<p>两边都能做消息传递，而且 Python 的 <code>queue.Queue</code> 开箱即用 ——\nC++ 的对应物是<strong>一组原语</strong>（互斥量、条件变量、队列容器），\n要自己拼装，还要小心「醒来后条件可能已经不成立」这类细节。\n另一处是 Python 有 <code>multiprocessing.Queue</code> 能跨进程传，\nC++ 的标准库没有进程间通信这一层（要平台 API 或第三方）。\n共同点是消息传递这个模式在两边都能用，只是一个现成、一个自建。</p>\n",
@@ -140,7 +136,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有原子操作，但<strong>位置不同</strong>：JavaScript 的 <code>Atomics</code>\n是给 <code>SharedArrayBuffer</code> 配套的<strong>特例工具</strong>（因为默认不共享，\n想共享反而要显式申请一块共享内存）；C++ 的 <code>std::atomic</code>\n是日常工具（因为默认就共享）。\n另一处是 C++ 暴露了<strong>内存序</strong>这一层（relaxed / acquire-release /\nseq_cst），让你在「正确」与「快」之间做选择；\nJavaScript 只给了顺序一致这一档，不让你调。\n也就是说 C++ 这边更自由，也更容易写错。</p>\n",
         "python": "<p>两边的原子性层次完全不同：Python 有全局解释器锁，\n<strong>单条字节码</strong>天然是原子的，所以很多操作不需要显式原子类型；\nC++ 里连一次自增都不是一步，必须显式用 <code>std::atomic</code>\n或者加锁。另一处是 C++ 有内存序这层显式控制\n（可以为了性能放宽到 relaxed），Python 里没有这个概念。\n共同点是两边都可能遇到「看起来对、偶尔错」的并发 bug，\n但 C++ 这边因为优化与重排，出错方式更隐蔽。</p>\n",

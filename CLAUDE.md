@@ -19,7 +19,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `docs/项目架构设计.md` 已删除（v1 正文早已失效；其 ADR-01 – ADR-35 是决策历史，
 2026-10-03 已并入完整项目架构.md 附录 B.1，与 v2 的 ADR-40 起同处一份）。
-真正的**理解本仓库最短路径**是 README 的「四条核心设计」+ 上述架构文档。
+真正的**理解本仓库最短路径**是上述两份文档 —— 架构文档回答「系统现在是什么样、为什么这么设计」，
+台账回答「走到哪了、下一步做什么」。README 面向使用者，不承担开发文档职责。
 
 **执行约定（每次动 `content/` 或 `src/` 的计划性改动都要遵守）**：
 
@@ -33,16 +34,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **判断标准只有一条**：一个从没参与过这个项目的人，只读这两份文档，
    能不能说出「系统现在是什么样、为什么这样、下一步做什么、哪些账还没结」。
 
-> **当前状态（2026-10-04）：内容爬坡期，四个板块的正文与速查三兄弟都已铺满；S11、S12 已收口。**
-> **S0–S7.6、S9、S10、S11、S12 完成** —— 架构切到 v2.1，四个板块的正文与对比列全部落库；
+> **当前状态（2026-10-04）：内容爬坡期，四个板块的正文与速查三兄弟都已铺满；S11、S12、S13 已收口。**
+> **S0–S7.6、S9、S10、S11、S12、S13 完成** —— 架构切到 v2.1，四个板块的正文与对比列全部落库；
 > **S11**：新增的 7 门对比列语言（TypeScript / ArkTS / Kotlin / Swift / Dart / C++ / PHP）
 > **全部写完并启用**，对比列从 2 门扩到 9 门。
 > **S12**：速查三兄弟补齐这 7 门语言的 **21 个新方向**（3 基准 × 7 语言），
 > 并废除 R25（幽灵语言）与 `mentionGroups`（ADR-72）。
+> **S13**：移除「内容来源」功能 —— `/attributions` 页面、`provenance` 字段、R3 / R10 与许可台账
+> 一并删除（ADR-73，ADR-08 随之作废）。
 > 现状：4 个板块 / **22 个存放组 / 104 个知识点 / 12 份章节分组** / **1248 个对比框**
 > （104 × **12 门启用语言**，**十二门各 100%**）+ **速查 33 个方向 / 891 条**
 > （3 基准 × 11 门其他启用语言，各方向另有 `meta.yaml` 留痕）；
-> `content:validate` **error 0 / warn 1**；190 条可索引路由；147 条测试。
+> `content:validate` **error 0 / warn 1**；189 条可索引路由；144 条测试。
 > 剩下的**一笔账**（见台账 §0.2）：**S8** 校对升级（1248 条 draft → 那 1 条 R6 warn）——
 > 注意它**不含速查**：速查不在 1248 格里，`meta.yaml` 的 `state` 也不参与发布门槛。
 > 旧内容完整存档在 `content.legacy/`，**不参与构建与校验**，填新内容时可对照旧写法。
@@ -172,7 +175,7 @@ content/**/*.yaml ──[validate → build]──▶ src/generated/** ──▶
   | R26 | `absent: true` 且给了 `code`（惯用替代写法）→ 必须有说明 | warn |
   | R27 | 某章引用了 group G 但该基准缺 G 的内容（基准列空洞），按 (基准, 板块) 汇总 | warn |
 
-  另有沿用 v1 的 R3（provenance）/ R4·R9（`@note`）/ R5（引用完整性）/ R6（发布门槛）/ R7（https）/ R8（注册表自检）/ R10（台账）/ R17（校对记录）。
+  另有沿用 v1 的 R4·R9（`@note`）/ R5（引用完整性）/ R6（发布门槛）/ R7（https）/ R8（注册表自检）/ R17（校对记录）。
 
 - **R25（幽灵语言）已废除，编号留空不复用**（ADR-72，S12）。那条规则管的是「一格的说明只讲屏幕上那几门语言」，实测挡住了「目标语言的定义天然依赖第三门」的方向（`python2typescript` 要讲「TS 给 JavaScript 加类型」、`python2arkts` 要讲「ArkTS 是 TypeScript 的受限子集」、`javascript2kotlin` 要讲「Kotlin 跑在 JVM 上与 Java 互操作」）。为它服务的 `registry.yaml` 的 `mentionGroups`、[lang-mention.ts](scripts/lib/lang-mention.ts) 的 `detectForeignLanguageMentions` / `isKindredMention` 一并删除；同一顾虑在速查散文上的落点（`content-contract.test.ts` 的「只讲本方向两门语言」断言）也一并去掉。**`findLanguageWords` 保留** —— 它服务的是 `verify:ext` 的第三道断言（面向用户的文案不许写死语言名），与幽灵语言无关。
 
@@ -221,7 +224,7 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 
 | 文件 | 钉住的不变量 |
 | --- | --- |
-| [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：0 error、全局 id 两段唯一、**`featureIndex` 来自池而非遍历章节分组**、R21、provenance（llm 无 license）、台账、@note 无残留、`vs` 的 key 必须是基准候选；**速查正文的写作口径**两条（只讲本方向两门语言、提到的板块名必须真实存在 —— R5 够不到散文那一层） |
+| [tests/pipeline/content-contract.test.ts](tests/pipeline/content-contract.test.ts) | **对真实 `content/` 跑 `analyzeContent()`**：0 error、全局 id 两段唯一、**`featureIndex` 来自池而非遍历章节分组**、R21、@note 无残留、`vs` 的 key 必须是基准候选；**速查正文的写作口径**两条（只讲本方向两门语言、提到的板块名必须真实存在 —— R5 够不到散文那一层） |
 | [tests/unit/section-model.test.ts](tests/unit/section-model.test.ts) | **对真实 `src/generated/` 产物**断言：分片路径与声明的 (语言,板块,存放组) 一致、catalog.json 的 key 是两段、章节 features 已 join 且带 `group`、**章节分类确实随基准变**、**章节可见性与路由同源**（没内容的章不产出路由，反之亦然 —— 骨架期这条天天在跑）、**双角色取值**（基准列 null 徽章 / absent 短路 / vs 缺 key 才是 identical） |
 | [tests/unit/pool-loader.test.ts](tests/unit/pool-loader.test.ts) | 装载器：池与章节分组、**同一 feature 在不同基准下落到不同章**、池驱动的语言内容、`_` 私有目录跳过、`pairs/` 方向反查、**速查 `meta.yaml` 的留痕**（缺失合法、存在则被解析而非静默丢弃）、**对比框契约**（code/blocks 至多一个、absent 可三槽全空、`.strict()` 拒绝重复声明） |
 | [tests/unit/baseline-switch.test.ts](tests/unit/baseline-switch.test.ts) | 基准候选与默认值、**候选与列的显示顺序**、可见列计算、目标语言推导、切基准回落、**速查方向的顺序与默认回落按书写序**（ADR-67） |
@@ -234,7 +237,6 @@ SEO 文案里出现的**目标语言是按运行时同一套规则算出来的�
 ## 编辑内容时的硬约束
 
 - 新增内容默认 `review.state: draft`；`registry.publishPolicy` 为 `include-draft-with-badge`（当前值）时 draft 可构建但页面必须显示"未经人工校对"；切到 `reviewed-only` 时 draft 直接**阻断构建**（R6）。
-- `provenance.origin: 'llm'` **刻意不填 `license`** —— 模型输出不产生可署名许可，强填 MIT/GFDL 是错误陈述。
 - 以 `_` 开头的语言目录是**私有目录**，默认不参与构建与校验（`_template/`、`verify:ext` 的 `_fixturelang`）。新增真语言不要用下划线前缀。
 - **YAML 普通标量不能以反引号或 `@`、`*` 开头**（``title: `x` 是什么``、`title: @ 注解`、
   `arkts: **加粗**` 都会让整份文件解析失败 —— 它们是 YAML 的保留指示符），也不能写裸 `null`。

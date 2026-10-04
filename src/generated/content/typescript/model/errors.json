@@ -32,7 +32,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>抛出这件事与 JavaScript 逐字同构 —— <code>throw</code> 语句编译后原样保留，\n运行时行为一样，抛任意值照样合法。TypeScript 只在类型层补了一步：\n一个「总是抛」的函数可以把返回类型写成 <code>never</code>，让编译器知道它后面没有\n代码可达。此外它<strong>不检查抛什么</strong> —— <code>throw &quot;字符串&quot;</code> 编译期一声不吭，\n与 JavaScript 一样，代价是要接的一方可能拿到没有 <code>message</code> 的值。</p>\n",
         "python": "<p>Python 的 <code>raise</code> 只接受异常类的实例（或类本身），抛字符串当场 TypeError；\nTypeScript 的 <code>throw</code> 完全放开，字符串、对象都能抛，代价是接的一方\n可能拿到没有任何结构的值。想原样再抛一次，Python 有裸 <code>raise</code>，\nTypeScript 只能显式写 <code>throw e</code>，并自己记着别把它丢了。\n两边都会带上堆栈，但 Python 的异常还多一条显式的因果链。</p>\n",
@@ -52,7 +51,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>语法与 JavaScript 完全一致，编译后一字不改。唯一的差别在类型层：打开\n<code>useUnknownInCatchVariables</code> 之后，catch 的绑定是 <code>unknown</code> 而不是 <code>any</code>，\n想读 <code>e.message</code> 必须先窄化（<code>instanceof Error</code> 之类）；JavaScript 里\n<code>e</code> 一开始就能随便取属性，取错了到运行时才炸。</p>\n",
         "python": "<p>两边都只有一个接住的入口，但 Python 的 <code>except</code> 可以按类型写多个分支、\n从头往下匹配，TypeScript 只能在一个块里手写 <code>instanceof</code> 判断，\n漏掉一种编译器也不提醒。另一处是 TypeScript 把 catch 变量收窄成 <code>unknown</code>，\n逼你先确认类型再用；Python 接到的就是一个能直接取属性的异常对象。</p>\n",
@@ -83,7 +81,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><code>finally</code> 的语义与 JavaScript 完全一样，编译后不变：正常返回、抛异常、\n<code>return</code> 都会执行，<code>finally</code> 里的 <code>return</code> 或 <code>throw</code> 同样会吞掉原来的结果。\n类型层没有任何补充 —— TypeScript 既没有资源相关的语法，也没给「资源」\n一个特殊地位，该手写清理还是手写。</p>\n",
         "python": "<p>两边都会执行收尾代码，也都会在某处 <code>return</code> 时先跑完 finally 再返回。\n差别在资源释放的惯用写法：Python 有 <code>with</code> 语句，把清理交给上下文管理器，\n比手写 try/finally 更难写错；TypeScript 只有手写的 finally，\n没有等价的「可释放对象」机制。</p>\n",
@@ -109,7 +106,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>错误类型这套与 JavaScript 共用一份 —— 同样是 <code>Error</code> 基类加几个引擎内部\n用的子类，<code>cause</code> 也一样。TypeScript 没有给「错误的原因」加类型约束：\n<code>cause</code> 的类型是 <code>unknown</code>，想用里面的信息仍然得自己窄化。</p>\n",
         "python": "<p>Python 的异常体系大得多，而且是<strong>语言的一部分</strong>：所有异常继承 <code>BaseException</code>，\n业务代码继承 <code>Exception</code>，标准库为文件、键、类型等各自定义了具体类型；\nTypeScript 的标准错误类型基本只对应引擎自己抛出的那几种，\n文件与网络没有标准类型，业务错误一律自己定义。</p>\n",
@@ -140,7 +136,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>写法与 JavaScript 同构：<code>class … extends Error</code>、先 <code>super(message)</code>、\n再把 <code>name</code> 改成自己的类名，这条「必须手动改 name」两边一样。TypeScript\n额外多一层麻烦：编译目标低于 ES2015 时，<code>extends</code> 编出来的原型链是断的，\n<code>instanceof</code> 会失灵，要在构造器里补一次 <code>Object.setPrototypeOf</code> ——\n类型标注本身管不到这类运行时差异。</p>\n",
         "python": "<p>Python 继承 <code>Exception</code> 定义自定义异常，<strong>不用手动改名字也不用管原型链</strong> ——\n类名就是类型名，<code>except MyError</code> 直接可用。TypeScript 这边要记得把 <code>name</code>\n改对，编译目标较老时还得自己补原型链，否则 <code>instanceof</code> 认不出来。\n另一处是 TypeScript 的字段要声明类型（<code>field: string</code>），Python 的属性随手挂。</p>\n",
@@ -171,7 +166,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>传播路径与 JavaScript 完全一致 —— 不接就沿调用栈冒泡，包上下文用 <code>cause</code>，\nasync 里的 <code>throw</code> 变成 rejected promise，没人接时浏览器只报一条错，\nNode 上默认直接终止进程（v15 起就是默认行为）。\nTypeScript 能补的只有类型：把可能失败的返回写成 <code>Promise&lt;T&gt;</code> 只是提醒，\n它不会因为你没 <code>catch</code> 就报错，函数签名上也看不出会抛什么。</p>\n",
         "python": "<p>两边都是「不接就自动上抛」，都用显式包装保留原因（TypeScript 是 <code>cause</code>\n字段，Python 是 <code>raise … from e</code>）。差别在两处：Python 的未捕获异常会终止\n程序并打印完整堆栈；TypeScript 的未处理拒绝在浏览器里只是控制台报错，\n在 Node 上同样终止进程 —— 别把它当「只是警告」；\n另外 TypeScript 没有裸 <code>raise</code> 那种「把当前异常原样再抛一次」的写法，\n只能 <code>throw e</code> 显式写。</p>\n",

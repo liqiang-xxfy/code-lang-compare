@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的成熟度差得很远</strong>：JavaScript 的生成器是 ES2015 的语言特性，\n写个 <code>function*</code> 加 <code>yield</code> 就完事，<code>for...of</code> 直接消费；\nC++ 要走三步 —— C++20 给语言机制、C++23 才给标准库类型\n（<code>std::generator</code>），而且这台机器的工具链上\n标准库模块都还用不了（生成器本身可用）。\n另一处是<strong>手写成本</strong>：JavaScript 永远不用碰调度；\nC++ 若不用 <code>std::generator</code>，写协程要自己实现一套\npromise/awaiter 协议 —— 那是另一个量级的工作。</p>\n",
         "python": "<p>两边都有生成器（<code>yield</code> ↔ <code>co_yield</code>），语义对应得上，\n而且都是惰性的、都能表达无限序列。差别在<strong>是不是语言内建</strong>：\nPython 的 <code>yield</code> 是一个关键字，函数里有它就自动变成生成器函数；\nC++ 的 <code>co_yield</code> 是协程机制的一部分，必须有配套的\npromise 类型与返回类型（<code>std::generator</code> 是 C++23 才补上的），\n也就是说同一段逻辑在 C++ 里要先有基础设施。\n另一处是 C++ 的生成器与迭代器协议接得很紧（能直接 <code>for</code> 遍历），\nPython 的生成器本身就是迭代器。</p>\n",
@@ -58,7 +57,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是「语法 vs 库」的对比</strong>：JavaScript 有 <code>map</code> / <code>filter</code>\n这些方法，链式写起来很紧凑（虽然不是推导式语法）；\nC++ 的 <code>std::views</code> 管道形态上几乎一样（<code>|</code> 连接），\n但它是<strong>惰性</strong>的 —— <code>transform</code> 当场什么都不算，\nJavaScript 的 <code>map</code> 立刻返回一个新数组。\n所以那边「链式调用会造中间数组」的性能直觉在这边不成立\n（C++ 这条链一个元素都不存），代价是「什么时候算的」要自己心里有数。\n另一处是 C++ 常用显式循环而不是长管道，风格上更偏「写清楚」。</p>\n",
         "python": "<p>两边的写法形态差得最远：Python 有<strong>推导式语法</strong> ——\n<code>[x*x for x in v if x % 2]</code> 一行搞定，读起来就是个集合定义；\nC++ 只能拼库调用（<code>v | filter(...) | transform(...)</code>），\n或者干脆写显式循环。所以那边「造一个序列」是语言语法，\n这边是标准库组合。\n另一处是求值时机：Python 的列表推导式<strong>立刻算完</strong>、\n生成器表达式才惰性；C++ 的 views 管道<strong>一定惰性</strong>，\n要实体化得显式构造容器 —— 默认值正好相反。</p>\n",
@@ -94,7 +92,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的默认正好相反</strong>：JavaScript 的 <code>map</code> / <code>filter</code> 是<strong>立即</strong>的\n（每次调用都造一个新数组），要惰性得改用生成器函数自己写；\nC++ 的 <code>views</code> 管道<strong>天生惰性</strong>，一个中间数组都不造，\n要实体化得显式构造容器。\n所以那边「链太长会造一堆中间数组」的担心在这边不存在，\n但反过来的问题出现了：每次遍历都重算一遍，\n重活挂在链上时反复遍历就是反复算 —— 要缓存还得主动做。</p>\n",
         "python": "<p>两边都有惰性与非惰性两条路，而且<strong>默认值也相反</strong>：\nPython 的列表推导式立刻算、生成器表达式惰性（写 <code>()</code> 而不是 <code>[]</code>）；\nC++ 的 views 管道一定惰性，实体化要显式构造容器。\n所以 Python 里「我写的是 <code>[]</code> 还是 <code>()</code>」决定求值时机，\nC++ 里「我有没有构造容器」决定 —— 判据不同但都是显式的。\n另一处是 C++ 的惰性链可以反复遍历（是视图不是流），\nPython 的生成器<strong>用过就空</strong>（这一点更接近一次性迭代器）。</p>\n",
@@ -125,7 +122,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的解构看起来很像（<code>const [a, b] = ...</code> ↔ <code>auto [a, b] = ...</code>），\n但<strong>边界差别很大</strong>：JavaScript 的数组解构能吃任何可迭代对象、\n个数不匹配时补 <code>undefined</code>、还能用默认值；\nC++ 的结构化绑定要求右边<strong>编译期知道有几个元素</strong>，\n个数对不上直接编译错误，<code>std::vector</code> 根本用不了。\n另一处是 JavaScript 的对象解构<strong>按名字</strong>取（<code>const {x} = p</code>），\nC++ 是<strong>按位置</strong>取（名字自己起），所以字段顺序记错就错位了。</p>\n",
         "python": "<p>两边都是按位置拆，形态接近（<code>a, b = t</code> ↔ <code>auto [a, b] = t</code>），\n而且都能配循环用。差别在<strong>能不能吃变长的东西</strong>：\nPython 的 <code>a, *rest = seq</code> 能接住剩下所有元素，\n解包还能嵌套；C++ 的结构化绑定要求个数在编译期就对上，\n没有「剩下的都给它」这种写法。\n另一处是 C++ 用 <code>&amp;</code> 决定是拷贝还是引用（改引用会改原件），\nPython 拿到的一律是引用，没有这个选择。</p>\n",

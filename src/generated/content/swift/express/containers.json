@@ -32,7 +32,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是「值语义还是引用语义」的直接对比</strong>：JavaScript 的数组\n赋值是共享（改一个另一个也变），要副本得显式展开；\nSwift 的数组赋值是<strong>拷贝语义</strong>（标准库用写时复制优化，\n但代码看到的行为就是拷贝）。所以那边「不小心共享了」是常见 bug，\n这边「不小心拷贝了」才需要留意。\n另一处是越界：JavaScript 越界读给 <code>undefined</code>、越界写会静默扩长；\nSwift 越界<strong>直接崩</strong>。\n还有一处是切片：JavaScript 的 <code>slice</code> 返回新数组，\nSwift 的区间下标返回 <code>ArraySlice</code> —— 它是个<strong>视图</strong>，\n而且下标保留原数组的索引，这两个细节都容易踩。</p>\n",
         "python": "<p>两边的默认正好相反：Python 的列表赋值是<strong>绑到同一个列表</strong>\n（要副本得 <code>a[:]</code>），Swift 的数组赋值是拷贝语义；\n不过 Python 的切片返回的是副本、Swift 的返回的是视图 ——\n也就是说「赋值」与「切片」这两件事的默认，两边各反了一处，\n记的时候要分开记。\n另一处是越界：Python 越界抛 IndexError（能接住），\nSwift 越界直接崩（<code>fatalError</code>，接不住）。\n还有一处是 Python 的负数下标、步长切片在 Swift 里都没有。</p>\n",
@@ -58,7 +57,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的默认值正好相反</strong>：JavaScript 的 <code>Map</code> <strong>保证按插入顺序</strong>遍历\n（这是语言规定），普通对象的顺序也有一套明确规则；\nSwift 的 <code>Dictionary</code> <strong>不保证任何顺序</strong> —— 与插入序无关，\n也不承诺跨运行一致。所以那边「按顺序遍历」是能指望的，\n这边要排序得自己写（或者干脆用数组存键）。\n另一处是「读不存在的键」：JavaScript 给 <code>undefined</code>（无副作用），\nSwift 给 <code>nil</code>（也无副作用）—— 这一层一致；\n但 Swift 还有 <code>d[k, default: x]</code> 这个带默认值的写法，\n以及「赋 nil 等于删除」这个语义，JavaScript 里没有。</p>\n",
         "python": "<p>两边的字典<strong>都做内容比较</strong>，但<strong>顺序保证相反</strong>：\nPython 的 <code>dict</code> 保证按插入顺序（3.7 起是语言保证），\nSwift 的 <code>Dictionary</code> 不保证顺序 —— 所以 Python 里\n<code>d.keys()</code> 那个确定的顺序在 Swift 里没了，\n要顺序得显式排序。\n另一处是「读不存在的键」：Python 抛 KeyError（或用 <code>get</code> 返回默认），\nSwift 返回 nil（用 <code>d[k, default: x]</code> 给默认）——\n两边都提供了安全读法，写法不同。\n还有一处是 Swift 的「赋 nil 即删除」，Python 用 <code>del</code> 或 <code>pop</code>。</p>\n",

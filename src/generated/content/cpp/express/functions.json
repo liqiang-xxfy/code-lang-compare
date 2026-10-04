@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>最本质的差别是<strong>声明与定义分不分家</strong>：JavaScript 一个函数写完就是全部，\n顶多把定义搬个位置；C++ 可以只写 <code>int add(int, int);</code> 就算「让编译器认识了」，\n实现放在任意一个源文件里、编译时再拼起来 —— 所以 C++ 项目里\n同一个函数常常出现两次（头文件里的声明、源文件里的定义）。\n另一处是重载：JavaScript 同名函数只会覆盖，要按类型分派得自己判断；\nC++ 按参数列表在编译期选中一个，选不中就是编译错误。</p>\n",
         "python": "<p>两边都支持默认参数与关键字，但 C++ 没有关键字实参 ——\n调用只能按位置（默认参数从右往左给）。另一处是<strong>重载</strong>：\nPython 里同名函数后写的盖掉先写的（要分派得自己写判断），\nC++ 靠参数列表在编译期选，所以能同时存在 <code>add(int,int)</code> 与\n<code>add(double,double)</code>，而且调用处写哪个类型就进哪个。\n还有一处是 C++ 的 <code>const</code> 成员函数：<code>int get() const</code> 是一个\n参与重载的签名部分，Python 的 <code>self</code> 上没有对应写法。</p>\n",
@@ -53,7 +52,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是两门语言最根本的差别之一</strong>：JavaScript 的参数永远是按值传\n（对象传的是引用的拷贝，所以改属性看得见、改绑定看不见）；\nC++ 默认是<strong>拷贝</strong>，<code>void f(std::string s)</code> 会真的复制整个字符串 ——\n要避免就得写引用。也就是说 JavaScript 那边「传对象就是共享」的默认，\n在 C++ 里要显式写 <code>&amp;</code> 才成立，而且写不写影响的是<strong>性能与能否修改</strong>\n两件事。另一处是 C++ 还有指针这一层（可以传空、可以为空做检查）。</p>\n",
         "python": "<p>两边都有「传进去改了看得见」的现象，但机制不同：Python 是\n「名字绑到同一个对象上」（所以不可变对象改不了、可变对象能改），\nC++ 是「默认拷贝一份，写 <code>&amp;</code> 才真的共享」——\n也就是说 C++ 把「共享还是拷贝」变成写在签名里的一件显式的事，\nPython 把它变成按对象类型自动决定的。\n另一处是 C++ 有真正的常量引用（<code>const T&amp;</code>：不拷贝也不许改），\nPython 里没有「只读参数」这个类型层面的保证。</p>\n",
@@ -89,7 +87,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的可变参数都能收「不定个数」，但<strong>检查强度是两个世界</strong>：\nJavaScript 靠 <code>arguments</code> 或剩余参数 <code>...args</code>，收到的永远是一个数组，\n类型错了到运行时才知道；C++ 的老式 <code>...</code> 连个数和类型都不传递，\n读的时候按你声明的类型硬取（实测：传 <code>double</code> 进去按 <code>int</code> 读，\n编译通过、值是一串垃圾数字），新式的变参模板才是类型安全的，\n但它是编译期展开的，写法完全另一套。</p>\n",
         "python": "<p>两边的写法对应得上（Python 的 <code>*args</code> / <code>**kwargs</code> ↔ C++ 的\n<code>...</code> 或模板参数包），差别在<strong>谁检查</strong>：Python 收到的是普通的元组和字典，\n运行期能随便检查；C++ 的老式 <code>...</code> 什么信息都不带，\n类型完全靠调用方和函数体的约定（写错不报错），\n新式的模板版本在编译期就知道每一种实参类型。\n另一处是 C++ 没有关键字实参的等价物，Python 的 <code>**kwargs</code> 在这里无对应。</p>\n",
@@ -120,7 +117,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的函数都只返回一个值，但<strong>怎么凑出多个</strong>的代价不同：\nJavaScript 顺手写个对象字面量就行（<code>return {q, r}</code>），\n调用方解构一下；C++ 要包成 <code>std::tuple</code> 再靠结构化绑定接住，\n或者改成出参 —— 因为 C++ 的返回值涉及拷贝/移动，\n顺手造一个聚合结构不像那边那么随便。\n另一处是「失败」的表达：JavaScript 常靠返回 <code>null</code> 或抛异常，\nC++ 多了一个 <code>std::optional</code> 把「可能没有」写进类型。</p>\n",
         "python": "<p>两边的差别集中在<strong>多返回值</strong>上：Python 直接 <code>return q, r</code>\n就是返回一个元组，调用方 <code>q, r = f()</code> 接住 —— 这是语言内置的写法；\nC++ 要显式写 <code>std::tuple&lt;...&gt;</code> 加结构化绑定，是标准库提供的，\n而且元组元素的类型必须都写在签名里。所以那边「顺手多返回一个」\n在这边是一次接口设计。另一处是 C++ 返回的是拷贝（虽有优化），\nPython 返回的是对象引用，代价模型完全不同。</p>\n",
@@ -146,7 +142,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格的核心差别是「捕获是显式的」</strong>：C++ 的 lambda 必须写出\n捕获列表（<code>[x]</code> / <code>[&amp;x]</code> / <code>[=]</code> / <code>[&amp;]</code>），而且要自己决定\n按值还是按引用 —— 按引用的那个活不过变量本身，是真实的悬垂风险；\nJavaScript 的闭包按语言规则自动捕获变量（活多久由引擎管），\n写代码时不用做这个选择。另一处是 C++ 的 lambda 每个都有\n<strong>独一无二的类型</strong>，想存进容器或当参数传得靠 <code>std::function</code>\n做类型擦除（有间接调用开销），JavaScript 的函数天生就是普通值。</p>\n",
         "python": "<p>两边都靠「把外部名字记下来」实现闭包，但<strong>记的方式不同</strong>：\nPython 的闭包捕获的是<strong>变量本身</strong>（所以 <code>nonlocal</code> 能改、\n晚绑定的坑也来自这里），而 C++ 的捕获列表明确区分\n「拷贝一份值」还是「共享那个变量」—— 前者之后改名也不影响闭包。\n另一处是 C++ 的 lambda 是一个<strong>对象</strong>，有大小、能拷贝、\n类型是编译器生成的；Python 的函数是普通对象，写法上更统一。</p>\n",

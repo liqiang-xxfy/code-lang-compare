@@ -174,10 +174,6 @@ function buildSeo(a: A, routes: string[]): Manifest['seo'] {
       out[route] = { title: site.name, description: site.shortDescription }
       continue
     }
-    if (route === '/attributions') {
-      out[route] = { title: '内容来源与许可', description: '内容来源、许可义务与履行位置的完整台账。' }
-      continue
-    }
 
     const langMatch = /^\/lang\/([^/]+)$/.exec(route)
     if (langMatch) {
@@ -357,7 +353,6 @@ async function main(): Promise<void> {
       // 等价性按基准分：视图取 `equivalence[当前基准]`，缺 key = identical
       equivalence: box.equivalence as RenderedBox['equivalence'],
       reviewState: box.review.state,
-      provenanceOrigin: box.review.provenance.origin,
     }
     if (blocks) out.blocks = blocks
     if (top.htmlDark) out.htmlDark = top.htmlDark
@@ -418,7 +413,7 @@ async function main(): Promise<void> {
   writeJson(path.join(GENERATED_DIR, 'catalog.json'), catalogPayload)
 
   /* 6. 路由清单 —— 预渲染与 sitemap 共用同一来源，保证两者永远一致 */
-  const routes = new Set<string>(['/', '/attributions'])
+  const routes = new Set<string>(['/'])
   for (const lang of enabled) routes.add(`/lang/${lang}`)
 
   const chapterPath = (baseline: string, section: string, chapter: string) =>
@@ -500,12 +495,6 @@ async function main(): Promise<void> {
     },
   }
   writeJson(path.join(GENERATED_DIR, 'manifest.json'), manifest)
-
-  writeJson(path.join(GENERATED_DIR, 'attributions.json'), {
-    generatedAt,
-    siteLicense: 'MIT',
-    entries: a.attributions,
-  })
 
   /*
    * 静态资源按对拆文件：`static/<基准>--<目标>.json`。

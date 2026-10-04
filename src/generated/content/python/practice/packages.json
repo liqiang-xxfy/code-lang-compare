@@ -21,7 +21,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>官方是 <strong>pip</strong>，但生态里 poetry / uv 也常用。与别处不同的是：\n<strong>工具与清单绑在一起</strong> —— 选了 poetry，清单就是 <code>pyproject.toml</code>\n加它自己的锁文件；选 pip 就是 <code>requirements.txt</code>。所以「换包管理器」\n在这里往往意味着改项目文件。命令行工具用 <code>pipx</code> 装，\n别混进项目环境。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的三个客户端读同一份 <code>package.json</code>，换客户端不用改清单；\nPython 的工具与清单是一对一的，换工具要改文件。\n两边都把「装命令行工具」与「装项目依赖」分开，只是方式不同。</p>\n",
@@ -40,7 +39,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>依赖写在 <code>pyproject.toml</code> 的 <code>[project]</code> 里（PEP 621 之后这是标准），\n用 <code>optional-dependencies</code> <strong>按用途分组</strong>（<code>dev</code> / <code>docs</code> / …），\n安装时 <code>.[dev]</code> 取某一组。老项目仍常见 <code>requirements.txt</code>\n（一行一个包，没有分组，只能靠多个文件拆）。</p>\n",
       "vsHtml": {
         "javascript": "<p>两边的分组维度不同：JavaScript 是「运行时 / 开发时 / 使用方 / 可选」\n四个固定分区，Python 是「核心 + 任意命名的用途分组」。\nJavaScript 装全部开发依赖是默认行为，Python 要显式写 <code>.[dev]</code>。</p>\n",
@@ -70,7 +68,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>用 PEP 440 的版本规格符：<code>==</code> 精确、<code>&gt;=</code> 加 <code>&lt;</code> 组范围、<code>~=</code> 兼容版本\n（允许补丁位浮动）。<strong>不写约束就是任何版本</strong> —— 这一点比别的语言宽松，\n所以「锁文件」在这里格外重要。语义化版本同样只是约定，\n生态里不遵守的包不少。</p>\n",
       "vsHtml": {
         "javascript": "<p>两边的范围语义相近，但默认值相反：JavaScript 的 <code>^</code> 是默认的\n（允许次版本浮动），Python 不写就是完全放开。\n另一处差别是命令行里的引号 —— Python 这边 <code>&gt;</code> 会被 shell 当成重定向，\n必须加引号，JavaScript 用 <code>^</code> 没这个麻烦。</p>\n",
@@ -95,7 +92,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>现代工具（poetry / uv）用两层结构：<code>pyproject.toml</code> 声明意图、\n锁文件固化事实。传统做法是用 <code>requirements.txt</code> 直接写精确版本 ——\n那时它本身就是锁文件；但如果里面写的是范围，那它就只是清单，\n每次装出来的东西可能不同。这是这边最容易混淆的一处。</p>\n",
       "vsHtml": {
         "javascript": "<p>两边都有「清单 + 锁文件」的两层结构与「严格按锁安装」的命令。\n差别在传统：JavaScript 从一开始就有独立的锁文件，\nPython 的 <code>requirements.txt</code> 既可能是清单也可能是锁，得看内容。</p>\n",
@@ -125,7 +121,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>隔离要主动做</strong>：不建环境就装进全局，多个项目共享就会互相打架。\n所以标准流程是先建虚拟环境（<code>venv</code> / conda / poetry / uv 都行）再装 ——\n这也是「每个项目一个环境」这条习惯的来源。\n近年的变化是<strong>系统级的 Python 普遍不再允许直接装</strong>：\n发行版与包管理器自带的那份会声明「由系统管理」，\n对着它跑 <code>pip install</code> 直接报错。隔离从「最佳实践」变成了「唯一出路」。\n<code>.venv</code> 目录不要提交。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 天然隔离：每个项目一份 <code>node_modules</code>，不用做任何事。\nPython 必须记得激活环境 —— 忘了激活就会装到全局去，\n这是从那边换过来时最常见的操作事故。</p>\n",
@@ -150,7 +145,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>发布流程分两步：先用 <code>build</code> 打出发行包（源码包与 wheel），\n再用 <code>twine</code> 上传。私有源靠 <code>pip.conf</code> 的 <code>index-url</code> 配置 ——\n注意它<strong>不能按包名分流</strong>，只能设主源与附加源，混用内外部包时\n要靠代理服务（devpi / Artifactory）聚合。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>.npmrc</code> 能按作用域把内外部包分流到不同源，\n一条配置就够；Python 只能设主源加附加源，要靠代理服务兜。\n两边的构建步骤也不同：那边基本不用先打包再上传。</p>\n",

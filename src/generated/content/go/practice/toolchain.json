@@ -16,7 +16,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有编译步骤，<code>node app.js</code> 直接跑；\nGo 要先编译（<code>go build</code>），产物是<strong>单个静态二进制</strong> ——\n部署时拷一个文件即可，目标机器不需要装任何运行时。\n开发体验上 <code>go run</code> 把编译+执行合成一步，感觉接近解释执行，\n但每次都要重新编译（好在 Go 编译很快）。\n交叉编译是 Go 的强项：两个环境变量搞定，不用装交叉工具链。</p>\n",
         "python": "<p>Python 解释执行，改完直接重跑；Go 要编译。\n但 Go 的编译速度是它刻意保住的设计目标 —— 大项目也是秒级，\n所以「改一行看一下」的循环并不比 Python 慢多少。\n产物形态差别最大：Python 部署要带解释器与依赖\n（或用 PyInstaller 打包），Go 编译出的是一个自包含的静态二进制。</p>\n",
@@ -36,7 +35,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有打包器</strong>，也不需要：<code>go build</code> 产出的单个二进制\n已经包含所有依赖（标准库与第三方库全都静态链接进去了）。\nJavaScript 要用打包器把模块图合成浏览器能加载的文件，\n还要处理 tree-shaking、代码分割、资源引用 ——\n这套工作在 Go 里没有对应物。\n代价是二进制的体积随依赖增长（几十 MB 很常见），\n而且没法像 JavaScript 那样只加载用到的那部分。</p>\n",
         "python": "<p>Go <strong>没有打包器</strong>，<code>go build</code> 一步到位产出可执行文件。\nPython 里「把程序变成能直接跑的东西」是一整个课题\n（PyInstaller / Nuitka / zipapp / wheel + 入口脚本），\n而且每种都有各自的坑（动态库、数据文件、平台差异）。\nGo 的产物形态从一开始就是「一个静态二进制」，\n所以这个问题根本不存在。</p>\n",
@@ -62,7 +60,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的格式化是一道选择题（Prettier / biome / 不格式化），\n配置项能写一屏；Go 的 <code>gofmt</code> 是<strong>官方唯一格式、零配置</strong> ——\n所有人都用同一个，代码评审里不会出现格式争论。\n另一处更狠的差别：Go 把「未使用的变量与 import」\n做成<strong>编译错误</strong>，JavaScript 里那是 lint 提醒（甚至只是警告）。\n所以 Go 代码里不会有死变量堆积。</p>\n",
         "python": "<p>Python 的格式化工具换过几代（autopep8 → black → ruff），\n风格之争（单引号双引号、行长）至今没完全平息；\nGo 的 gofmt 从第一天就是官方唯一标准，没有配置项，\n也就没有争论空间。另外 Go 把未使用的变量当编译错误，\nPython 里那连警告都不是（flake8 会提，但要额外装）。</p>\n",
@@ -88,7 +85,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的类型检查要另装 tsc，而且它检查的是可选标注、\n与运行时无关；Go 的类型检查是编译器本身，\n通过就意味着不会有类型错误。另一处差别是严格程度：\nJavaScript 里 <code>let x = 1; x = &quot;s&quot;</code> 在纯 JS 下完全合法，\nGo 里编译不过。代价是 Go 必须写类型（局部可用 <code>:=</code> 推断），\n没有「先不写类型跑起来再说」的余地。</p>\n",
         "python": "<p>Python 的类型检查器（mypy / pyright）是外部工具、\n可选、运行时不生效；Go 的类型检查是编译的前置条件，\n不过就编译不出来。所以 Go 里不存在「标注写得好看但实际传错类型」\n这种状态 —— 而 Python 里类型标注与真实行为脱节是常态，\n只有跑起来才知道。</p>\n",
@@ -114,7 +110,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的运行时版本由宿主决定，项目只能用 <code>engines</code> 字段\n声明要求、靠 CI 与文档约束 —— 实际跑在哪个版本不受代码控制。\nGo 的 <code>go.mod</code> 里写 <code>go 1.23</code> 是<strong>语言特性要求</strong>（新语法能不能用），\n加 <code>toolchain</code> 指令还能指定构建用的确切工具链，\n并且 Go 会<strong>自动下载</strong>匹配的工具链执行 ——\n这在 JavaScript 生态里要靠 nvm / volta 之类的外部工具才能做到。</p>\n",
         "python": "<p>Python 项目通常只声明「需要 3.10+」，实际版本靠虚拟环境与 CI 保证；\nGo 的 <code>go.mod</code> 不只是声明，它还<strong>驱动行为</strong>：\n<code>toolchain</code> 指令会让 Go 自动下载并使用指定版本的工具链，\n不需要用户装任何版本管理器。这让「团队用同一个编译器版本」\n成为默认而非纪律。</p>\n",
@@ -134,7 +129,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有 REPL</strong> —— <code>go</code> 命令里没有交互模式。\n想快速验证一段代码就用 <code>go run</code> 跑一个临时文件\n（第三方的 gore 之类可以凑合）。\n这与 Go 的设计取向一致：它是编译型语言，\n而且标准库的很多能力需要完整的包上下文，\n「敲一行看一行」的场景本来就不多。\n好处是也没有「REPL 里能跑、写成文件却不行」这种落差。</p>\n",
         "python": "<p>Go <strong>没有 REPL</strong> —— 与 Python 那种「打开就能算」的体验相反。\n最快的替代是写个临时 <code>.go</code> 文件然后 <code>go run</code>，\n或者用第三方工具。原因是语言的完整性：\nGo 要求每个文件有包声明、import 必须被使用 ——\n这些规则让「裸表达式求值」很难成立，\n而这些规则又正是 Go 编译快、可读性稳定的来源。</p>\n",

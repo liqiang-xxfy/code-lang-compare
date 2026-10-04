@@ -26,7 +26,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>序列分两种，<strong>选哪个本身就是设计决策</strong>：<code>list</code> 可变、<code>tuple</code> 不可变。\n两者都异构、长度可变（tuple 的长度在创建时定死），越界一律 IndexError，\n没有稀疏数组。不可变的 tuple 能当字典的键、能放进 set ——\n这是它除了「防止误改」之外的实用价值。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有一种 Array（可变），没有不可变序列可选；\n它还能稀疏、越界赋值不报错，Python 两条都不会发生。\n代价是 Python 里要主动回答「这个序列会不会变」。</p>\n",
@@ -51,7 +50,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>一种 dict 全包：键<strong>必须可哈希</strong>（元组可以、列表不行），\n<strong>遍历按插入序</strong>（3.7 起写进了语言规范），<code>len()</code> 取大小。\n键视图支持集合运算（交并差）。取值 <code>d[k]</code> 缺键抛 KeyError，\n要默认值用 <code>d.get(k, 默认)</code>。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 把「键只能是字符串的对象」与「键任意类型的 Map」分成两样，\nPython 一种 dict 就够了。「键必须可哈希」这条约束这里没有 ——\n那边给 <code>Map</code> 一个对象当键完全合法，Python 里只有可哈希的值能当键。</p>\n",
@@ -76,7 +74,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>两种：<code>set</code> 可变、<code>frozenset</code> 不可变（因此可哈希、能当字典的键或放进另一个\nset）。元素必须可哈希。集合支持完整的集合运算（<code>&amp;</code> <code>|</code> <code>-</code> <code>&lt;=</code>），\n所以「两组数据求交」直接写运算符就行，不用循环。注意空集合要写 <code>set()</code> ——\n<code>{}</code> 是空字典。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有一种可变的 <code>Set</code>，没有不可变版本、也不能当键；\n判等用 SameValueZero，所以两个内容相同的对象算两条 ——\nPython 用 <code>__hash__</code> + <code>__eq__</code>，给自定义类型实现这两个方法就能按内容去重。</p>\n",
@@ -95,7 +92,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>三档：<strong>元组</strong>（定长不可变、按位置访问）、<strong><code>namedtuple</code></strong>（元组加字段名，\n仍可解包）、<strong><code>dataclass</code></strong>（真类，字段有类型标注，可以 <code>frozen=True</code>\n变成不可变且可哈希）。小聚合用元组就够，要字段名与默认值就上 dataclass。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有元组，定长聚合只能用数组加约定、带名字的只能用对象，\n两者都不被语言检查。Python 的三档都给得出类型与字段名 ——\n代价是要先声明一个类型。</p>\n",
@@ -120,7 +116,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>不可变做进了<strong>类型</strong>：tuple 与 frozenset 改不了，dict 与 list 能改。\n要记住的是<strong>不可变只到这一层</strong>：元组里装的列表照样能被改 ——\n所谓「不可变容器」保证的只是「这个容器本身的形状不变」，\n不保证内容整体冻结。跨模块传容器时，可变性是最常见的意外来源。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有内建的不可变类型，<code>Object.freeze</code> 是浅冻结而且静默失败；\nPython 的 tuple / frozenset 由语言保证外层不可变。\n两边的「浅」这一点是一模一样的：内层共享的可变对象谁也管不住。</p>\n",
@@ -145,7 +140,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>切片<strong>返回浅拷贝</strong>：外层是新的，内层元素还是共享的引用 ——\n嵌套结构上「复制一份再改」这个直觉会出错，要深拷贝得用 <code>copy.deepcopy</code>。\n切片还能出现在赋值左边（<code>xs[1:3] = [...]</code>），原地替换一段、长度可增可减，\n这是别的语言少见的写法。</p>\n",
       "vsHtml": {
         "javascript": "<p>两边的切片都是浅拷贝，深浅的坑一模一样。差别在语法与能力：\nPython 用切片表达式并且能<strong>切片赋值</strong>，JavaScript 用 <code>slice()</code> 方法、\n只能读不能写。另外 Python 的负步长（<code>[::-1]</code> 反转）没有对应写法。</p>\n",

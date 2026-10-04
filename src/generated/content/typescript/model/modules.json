@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>模块单位的定义两边一字不差：一个文件一个模块、顶层名字默认私有、<code>export</code>\n出去的才可见，模块只在第一次被导入时执行一次。TypeScript 多出来的是\n<strong>编译器的判定</strong> —— 没有 import / export 的文件会被当成全局脚本，顶层名字进了\n全局作用域，与别的脚本重名立刻报错；JavaScript 里同样的代码只会各写各的。\n另一处是 <code>.d.ts</code>：只描述类型、不产出运行时代码的声明文件，JavaScript 没有对应物。</p>\n",
         "python": "<p>Python 也是「一个文件一个模块」，但顶层名字默认<strong>全公开</strong>，靠下划线表示内部；\nTypeScript 反过来，不导出就是私有。更大的差别在包：Python 用「目录加\n<code>__init__.py</code>」构成包，是多出来的一级作用域；TypeScript 没有「包」这个代码层\n单位，目录只决定文件摆放的位置，分组要靠解析规则去表达。</p>\n",
@@ -48,7 +47,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>语法位置与 JavaScript 完全一致：import / export 只能写在顶层，路径必须是字面量。\nTypeScript 加的是<strong>类型也能走这条通道</strong> —— 接口与类型别名可以导出、导入、再导出，\n而它们在编译后什么都不剩，因此没有对应的运行时行为。为了让工具能按文件逐个\n编译，TypeScript 还提供 <code>import type</code> / <code>export type</code> 显式声明「这一行只为类型\n存在」。开启 <code>verbatimModuleSyntax</code>（或只做单文件转译）时，没标 <code>type</code>\n的那一行会被原样保留，于是留下一条指向不存在东西的引用 —— 标注是给这类\n工具链用的。</p>\n",
         "python": "<p>Python 的 import 是<strong>运行时语句</strong>，会真的把模块执行一遍，也能写在函数里、\n条件执行；TypeScript 的导入是静态声明，写在 <code>if</code> 里直接不合法，依赖图因此\n编译期就完整。另一处是「只取类型」这件事：Python 里被注解引用的名字照样是\n普通导入、照样会执行，想避开得用条件导入那类绕法；TypeScript 用 <code>import type</code>\n直接把这件事写进语言，编译后整行消失。</p>\n",
@@ -74,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两种导出形态与 JavaScript 逐条对应：默认导出一个、具名多个，导入方对默认导出\n可以自由起名、对具名导出必须名字对上。TypeScript 把<strong>类型</strong>也放进具名那一侧 ——\n接口与类型别名可以当具名导出，但它们没有运行时形态，当不了默认导出。\n另一处是为老式单导出模块准备的那套写法（<code>export =</code> 与等号形式的导入），\n那是编译期对模块形状的投影，不是运行时事实。</p>\n",
         "python": "<p>Python 只有具名这一种：模块顶层的名字就是它的全部导出，没有默认导出，\n也没有活绑定 —— 导入时取到值，之后各是各的。TypeScript 两种导出都有，\n默认导出让导入方可以自由起名，具名导入则跟着被导入模块后来的修改走。</p>\n",
@@ -100,7 +97,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>别名那一半完全一致：<code>import * as ns</code> 把整个模块收成一个对象、<code>as</code> 在导入与\n导出两侧都能改名，语法与语义逐条对应。TypeScript 多出来的是 <strong><code>namespace</code>\n这个声明</strong> —— JavaScript 里根本没有这个关键字，同样的效果只能手写一个对象\n再往上挂方法。TypeScript 的 namespace 编译后也就是一个对象，今天主要留在\n描述外部形状的声明文件里。</p>\n",
         "python": "<p>Python 的 <code>import m as alias</code> 与 <code>from m import n as alias</code> 覆盖同样两种需求，\n写法几乎一一对应。差别在通配：Python 的 <code>from m import *</code> 把名字直接摊进\n当前作用域，TypeScript 的 <code>import * as ns</code> 是收进一个对象、不污染本地作用域。\n另一处是分组：Python 靠模块本身，TypeScript 多一个命名空间声明，但它只是\n编译期把一组名字收到一个对象里，与文件位置无关。</p>\n",
@@ -131,7 +127,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的解析由路径本身与包清单决定，规则写在代码与清单里，一眼能读懂；\nTypeScript 多了一层<strong>编译期</strong>的解析配置 —— 基准目录、路径别名、按哪种规则\n去找，都在 tsconfig 里声明，能把一个短名字映射到任意位置的文件。这一层编译后\n就不存在了，所以别名必须在运行时那一侧再配一遍，否则编译通过、跑起来找不到。\n另一处是扩展名：JavaScript 的 ESM 要写全 <code>./a.js</code>，TypeScript 通常省掉扩展名。</p>\n",
         "python": "<p>Python 靠运行时的搜索路径列表逐级找模块，同名模块看谁先被找到，环境变量与\n当前目录都能改变结果；TypeScript 的解析在编译期由显式配置确定，不依赖搜索顺序。\n差别在<strong>层数</strong>：Python 只有运行时这一套解析，TypeScript 编译期与运行时各有一套，\n两边不一致时会出现「编译能过、运行时才报找不到」。</p>\n",

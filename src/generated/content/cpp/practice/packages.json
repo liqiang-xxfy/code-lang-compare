@@ -42,7 +42,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是「有没有官方那一个」的直接对比</strong>：JavaScript 有 npm\n（随 Node 一起装、有官方仓库），项目的第一步就是 <code>npm install</code>；\nC++ 连「该用哪个」都没有共识 —— vcpkg / Conan / 系统包管理器\n都是候选，选哪个会影响项目结构、构建脚本与 CI 配置。\n另一处是分发模型：npm 下的是<strong>打包好的产物</strong>，\nC++ 的 vcpkg 默认<strong>从源码构建</strong>依赖 ——\n所以 C++ 项目的一次完整构建常常是先编一堆依赖，时间长得多。</p>\n",
         "python": "<p>两边的差距同样是「有没有官方那一个」：Python 有 pip 加 PyPI\n（标准库自带 pip），依赖声明写进元数据文件；\nC++ 什么都没有官方的 —— 依赖清单这种东西都还不存在统一格式，\n全靠构建系统自己的写法（CMake 的 <code>find_package</code> /\n<code>FetchContent</code>，或者 vcpkg 的清单模式）。\n另一处是 Python 下的是 wheel（编译好的二进制），\nC++ 因为 ABI 不稳定，多数时候只能拿源码自己编。</p>\n",
@@ -73,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能声明依赖，但<strong>声明的落点完全不同</strong>：JavaScript 的\n依赖一律写在一个固定的清单文件里（<code>package.json</code>），\n工具负责获取、安装、放进 <code>node_modules</code>，\n用的时候 <code>import</code> 就行；C++ 的依赖声明散在构建脚本里\n（CMake 的 <code>FetchContent</code>、vcpkg 的清单、或者干脆手工下载），\n而且<strong>获取与使用是两件事</strong>——拿到之后还要在构建脚本里\n写「链接哪个库、头文件在哪」。\n另一处是 C++ 常常直接把依赖源码放进仓库，JavaScript 那边几乎不这么做。</p>\n",
         "python": "<p>两边都有「声明在哪里」的约定，但成熟度不同：Python 的\n<code>pyproject.toml</code> 是标准化的（PEP 621），依赖名与版本约束\n有统一写法；C++ 连用哪种文件都还没定，\n不同工具各写各的格式（JSON / CMake 脚本 / 系统包名）。\n另一处是「拿到就能用」的程度：Python 装了包就能 import，\nC++ 还要在构建系统里声明头文件路径、库名、链接方式 ——\n依赖的使用本身也是构建配置的一部分。</p>\n",
@@ -109,7 +107,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有版本号，但<strong>语义的落地程度完全不同</strong>：JavaScript 的\n语义化版本有语言生态的共识与工具实现（<code>^</code> / <code>~</code> 的含义明确、\n解析算法确定），所以「同一份清单在不同机器上装出同一棵树」\n是有保证的；C++ 连版本语法都没统一，\nvcpkg 与 Conan 的写法不一样，CMake 干脆直接指 git tag ——\n而且<strong>没有统一的解析算法</strong>。\n另一处是 C++ 常钉 commit 哈希（最保险，但升级全靠手动）。</p>\n",
         "python": "<p>两边的差距在<strong>约束语的成熟度</strong>：Python 有 PEP 440 规范版本号、\nPEP 508 规范约束写法（<code>&gt;=1.2,&lt;2.0</code>），所有工具都按它解析；\nC++ 没有对应的规范，写 <code>11.0.2</code> 还是 <code>&gt;=11</code> 取决于用哪套工具，\n而且同一个约束在不同工具里含义可能不同。\n另一处是 Python 有「解析出一棵满足所有约束的树」这个算法，\nC++ 基本靠人工保证兼容性 —— 依赖一多就是噩梦。</p>\n",
@@ -135,7 +132,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的可复现性来源不同：JavaScript 靠<strong>锁文件</strong>\n（<code>package-lock.json</code> 记下每个包的精确版本与来源哈希），\n装的时候照着锁文件来；C++ 没有标准锁文件 ——\n常见替代是<strong>钉 git commit</strong>（那就等于把锁写进构建脚本），\n或者把源码 vendor 进仓库。\n另一处是 C++ 就算依赖完全一致，<strong>编出来的产物</strong>也未必一致\n（编译器版本、路径、并行顺序都会影响），\n「可复现构建」是个单独的工程问题。</p>\n",
         "python": "<p>两边都有「钉住依赖」的需求，工具成熟度差得远：\nPython 有 <code>requirements.txt</code> / <code>pip-tools</code> / <code>uv.lock</code> 这类\n锁文件，能把整棵依赖树连同哈希一起记下来；\nC++ 基本靠「钉 commit」或 vendor 源码，\n而且因为依赖常常是源码、要现场编译，\n锁住「拿到哪些源码」与锁住「编出什么」是两回事。\n另一处是 C++ 的依赖树本身就不容易列全（传递依赖处理得差）。</p>\n",
@@ -166,7 +162,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的隔离层次完全不同：JavaScript 的 <code>node_modules</code>\n<strong>天然是项目级的</strong>（每个项目一份，装在同一目录下），\n所以两个项目用同一个库的不同版本毫无问题；\nC++ 没有这种结构性隔离 —— 依赖要么在全局（系统路径）、\n要么在构建目录里各编一遍。而且因为 ABI 不稳定，\n「同一个进程里两个版本共存」基本不可行。\n另一处是 C++ 常靠<strong>容器</strong>做隔离，那比语言级的虚拟环境重得多。</p>\n",
         "python": "<p>两边的隔离哲学差别明显：Python 用<strong>虚拟环境</strong>\n（<code>venv</code> 造一个独立的解释器目录，依赖装在里头），\n切项目就是切环境；C++ 没有「环境」这个概念 ——\n依赖要么编进项目的构建目录（等于每个项目各编一份），\n要么全局共享。另一处是 Python 的隔离之所以可行，\n是因为依赖是<strong>纯文件</strong>（可以随便复制、共存）；\nC++ 的依赖是<strong>编译产物 + 链接进来的符号</strong>，\n同一个符号在同一进程里只能有一份。</p>\n",
@@ -207,7 +202,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的差别是「有没有那个中央仓库」：JavaScript 有 npm registry\n（<code>npm publish</code> 一条命令就发出去了），版本一推就在那儿；\nC++ 没有统一的中央仓库 —— vcpkg 与 Conan 各有自己的，\n都要走人工审核，而且很多库干脆就只发源码。\n另一处是<strong>发布的产物形态</strong>：npm 发的是打包好的 JS（谁都能用），\nC++ 发二进制要指定平台与编译器（ABI 不通用），\n所以「发源码 + 提供构建配置」是主流。</p>\n",
         "python": "<p>两边都是「把源码放出去」，但<strong>被发现的路径</strong>不同：\nPython 有 PyPI，<code>pip install</code> 就能装到全世界的包，\n发布是一条命令；C++ 没有对应的中央仓库，\n想让别人方便地用上，得提供 CMake 配置文件、\n或者提交到 vcpkg / Conan 的仓库（人工审核、周期长）。\n另一处是私有源的成熟度：Python 有私有的包索引（devpi 这类），\nC++ 的私有源基本就是「内部 git 仓库」。</p>\n",

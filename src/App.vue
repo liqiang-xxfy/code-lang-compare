@@ -64,14 +64,13 @@ const navItems = computed(() => [
   { to: '/', label: t('nav.home'), match: 'home' },
   { to: compareEntry.value, label: t('nav.compare'), match: 'compare' },
   { to: '/search', label: t('nav.search'), match: 'search' },
-  { to: '/attributions', label: t('nav.attributions'), match: 'attributions' },
 ])
 
 /**
  * 激活态判定。
  *
  * 「多语言对比」覆盖的是一整棵子树（五个板块 + 语言入口 + 特性详情），
- * 所以它按**路径前缀**判，其余三项仍按路由名判 —— 用 route.name 判会让
+ * 所以它按**路径前缀**判，其余两项仍按路由名判 —— 用 route.name 判会让
  * 进入任一子板块后顶部就失去高亮。
  */
 const isActive = (item: { match: string }): boolean =>

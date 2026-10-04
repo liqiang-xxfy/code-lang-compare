@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 语言层面没有接口，靠约定或运行时自检；ArkTS 的 <code>interface</code> 是编译期的\n类型，只是它<strong>只认显式声明</strong> —— 类必须写 <code>implements Shape</code>，光有 <code>area()</code> 不算数。\n这与 JavaScript 的鸭子类型正好相反：那边看形状，这边看声明。好处是\n「谁实现了这个接口」搜得到；坏处是给外部数据临时描述一个形状变得很啰嗦 ——\nJavaScript 里随手造个对象就能用，ArkTS 里得先有一个实现了该接口的类。</p>\n",
         "python": "<p>Python 的 <code>abc.ABC</code> 也要求显式继承，思路接近；但它还留着 <code>typing.Protocol</code>\n这条结构化路子，ArkTS 没有 —— 除 <code>implements</code> 与 <code>extends</code> 之外没有别的相容方式。\n差别还在检查时机：Python 的抽象基类要到<strong>实例化那一刻</strong>才报错，\n（或交给另跑的类型检查器），ArkTS 的核对是编译器的输入，写错就出不了包。</p>\n",
@@ -58,7 +57,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有 <code>abstract</code> 关键字，「抽象类」要靠构造函数里检查 <code>new.target</code>\n加一个抛错的占位方法手工模拟 —— 忘了覆写不会在定义时报错，只有真调用到才炸。\nArkTS 把它变成编译期规则：抽象类不能 <code>new</code>、抽象方法没实现，都直接编译不过，\n也不需要那套运行时的手工检查。</p>\n",
         "python": "<p>Python 用 <code>abc.ABC</code> 加 <code>@abstractmethod</code> 表达同一件事，缺实现的子类在\n<strong>实例化那一刻</strong>报错；ArkTS 在编译期就拦下，是更早的一档。\n两处结构差异：Python 允许多继承，mixin 靠它；ArkTS 的 <code>extends</code> 只有一格。</p>\n",
@@ -84,7 +82,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的惯用做法是把方法对象 <code>Object.assign</code> 进原型，或用高阶类拼；\nArkTS 两条都不通 —— <code>Object.assign</code> 与原型改写都在禁用名单上，\n结构化类型也被禁用，没法用交叉类型宣称一个类「多了这份能力」。\n所以复用只能写成组合加显式转发：把一个实现了接口的对象放进字段里，\n需要时自己调过去。</p>\n",
         "python": "<p>Python 的 mixin 是一个只提供小块行为、不单独实例化的父类，靠多继承与 MRO\n组合，是语言内的正规写法；ArkTS 只有单继承、没有 mixin，\n横向复用只能靠组合与转发，比 Python 更啰嗦、也更显式。</p>\n",
@@ -115,7 +112,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的鸭子类型在运行时判定：对象只要有 <code>quack()</code> 就能当鸭子用，\n没人要求它声明过什么。ArkTS 把判据整个换成<strong>显式声明</strong> ——\n形状相同、方法同名都不算数，必须有一个真的写了 <code>implements Quacker</code> 的类。\n这条约束最痛的地方在<strong>改不了源码的类型</strong>上：JavaScript 里可以为一个平时\n用不到源码的对象临时描述形状、直接按形状去用；ArkTS 里做不到 ——\n第三方库或平台 API 返回的对象，除非它自己实现了那个接口，否则你没法把它\n当作那个接口来用，只能包一层自己的类。</p>\n",
         "python": "<p>Python 默认也按类型名字识别，但它保留了运行时鸭子类型（有方法就能用），\n还提供 <code>Protocol</code> 做结构化标注；ArkTS 把这一路彻底关掉，只剩显式声明。\n差别在什么时候发现不相容：Python 要等调用到那一行（或另跑类型检查器），\nArkTS 在编译期就拒绝出包；代价是 ArkTS 里给外来数据「临时描述形状」这条路不存在。</p>\n",

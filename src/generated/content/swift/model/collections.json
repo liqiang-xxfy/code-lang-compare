@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的数组 API 很接近（<code>push</code> ↔ <code>append</code>、<code>map</code> / <code>filter</code> 同名），\n这一层可以对应。差别在两处：① <strong>越界</strong>：JavaScript 越界读给\n<code>undefined</code>、越界写会静默扩长；Swift 越界直接崩。\n② <strong>值语义</strong>：JavaScript 的数组赋值是共享，\nSwift 的赋值是拷贝语义。\n另一处是 Swift <strong>没有链表</strong>（标准库只有 Array 一种序列容器），\nJavaScript 也没有，但那边可以随手用对象模拟；\nSwift 里要别的结构得自己实现或引库。\n还有一处是 <code>reversed()</code> 返回的是<strong>视图</strong>（不拷贝），\nJavaScript 的 <code>reverse()</code> 是<strong>原地改</strong> —— 语义完全不同。</p>\n",
         "python": "<p>两边的默认相反：Python 的列表赋值是绑到同一个列表（要副本得切片），\nSwift 的数组赋值是拷贝语义。另一处是越界：\nPython 抛 IndexError（能接住），Swift 直接崩（接不住）。\n还有一处是 <code>reversed()</code>：两边都有，而且都返回惰性的东西\n（Python 返回迭代器，Swift 返回视图），这一层反而一致；\n但 Python 的 <code>sort()</code> 是原地改、<code>sorted()</code> 是新的，\nSwift 只有 <code>sorted()</code>（返回新的）—— 想原地改得 <code>a.sort()</code>（mutating）。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边顺序保证相反</strong>：JavaScript 的 <code>Map</code> 保证按插入序\n（普通对象也有一套明确规则）；Swift 的 <code>Dictionary</code> 不保证顺序 ——\n与插入序无关。所以那边「按顺序遍历」是能指望的，\n这边要显式排序，或者干脆用数组存一份键。\n另一处是「读不存在的键」：JavaScript 给 <code>undefined</code>（无副作用），\nSwift 给 <code>nil</code>（也无副作用）—— 一致；但 Swift 还有\n<code>d[k, default: x]</code> 和「赋 nil 即删除」两个写法，JavaScript 没有。\n还有一处是键的约束：JavaScript 的 Map 键可以是任何值\n（按同一性比较），Swift 的键必须可哈希。</p>\n",
         "python": "<p>两边的字典<strong>顺序保证相反</strong>：Python 的 <code>dict</code> 保证插入序\n（3.7 起是语言保证），Swift 的 <code>Dictionary</code> 不保证 ——\nPython 里那个「顺手按顺序遍历」的习惯在 Swift 里要显式排序。\n另一处是读不存在的键：Python 抛 KeyError / <code>get</code> 给默认，\nSwift 返回 nil / <code>d[k, default: x]</code> —— 两边都提供了安全读法。\n还有一处是「赋 nil 即删除」这个 Swift 特有的语义，\nPython 用 <code>del</code> 或 <code>pop</code>，读代码时不会误会。</p>\n",
@@ -79,7 +77,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有集合运算了（JavaScript 从 ES2025 起内建了\n并集/交集/差集），这一层现在很接近。差别在两处：\n① 名字不同（<code>union</code> / <code>intersection</code> / <code>difference</code> ↔\n<code>union</code> / <code>intersection</code> / <code>subtracting</code>），各自符合本语言的用词习惯；\n② <strong>顺序</strong>：JavaScript 的 <code>Set</code> 保持插入序，\nSwift 的 <code>Set</code> <strong>不保证</strong>遍历顺序 —— 想要确定的顺序得排序。\n另一处是 Swift 的集合字面量与数组<strong>长得一样</strong>\n（<code>[1,2,3]</code>），必须靠类型标注区分，读代码时要看上下文。</p>\n",
         "python": "<p>两边都有集合与集合运算，而且<strong>都用运算符表达</strong>\n（Python 的 <code>|</code> / <code>&amp;</code> / <code>-</code> / <code>^</code>）—— 不过 Swift 用的是\n方法名（<code>union</code> / <code>intersection</code> / <code>subtracting</code> /\n<code>symmetricDifference</code>），写起来更长但意图更明确。\n另一处是顺序：Python 的 <code>set</code> 不保证顺序（与 Swift 一致），\n但 Python 有 <code>frozenset</code> 应对「要当字典键」的场景，\nSwift 里 <code>Set</code> 本身就能当值传递（它是值类型）。\n共同点是两边都要求元素可哈希。</p>\n",
@@ -105,7 +102,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能临时打包一组值，但<strong>能力差别很大</strong>：\nJavaScript 的数组能放任何东西、能遍历、能当 Map 键；\nSwift 的元组<strong>不能遵守协议</strong> —— 所以不能进 <code>Set</code>、\n不能当 <code>Dictionary</code> 的键，也没有方法。\n也就是说元组在 Swift 里是<strong>很轻的临时结构</strong>，\n一旦需要「当键、比较、扩展」就得升级成 struct。\n另一处是元素可以带名字（<code>(x: 1, y: 2)</code>），\n而且名字是类型的一部分 —— JavaScript 的对象字面量也有名字，\n但那是运行期的属性，不是类型的一部分。</p>\n",
         "python": "<p>两边都有元组，而且<strong>能力边界很像</strong>：Python 的元组不可变、\n可以解构、能当字典键（如果元素可哈希）；Swift 的元组\n可以解构、但<strong>不能遵守协议</strong>，所以进不了集合 ——\n这一点 Swift 比 Python 更受限。\n另一处是命名：Python 的元组没有字段名（要 <code>namedtuple</code>），\nSwift 的元组可以写成 <code>(x: Int, y: Int)</code>，名字是类型的一部分。\n还有一处是 Swift 的元组可以比较（元素都可比时），\nPython 的元组也能按字典序比较 —— 这一层一致。</p>\n",
@@ -151,7 +147,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都用 <code>const</code> / <code>let</code> 表达「不能再绑定」，但<strong>冻结的范围完全不同</strong>：\nJavaScript 的 <code>const</code> 只冻绑定，数组与对象的内容照改；\nSwift 的 <code>let</code> 对值类型是<strong>连内容一起冻</strong>的 ——\n<code>let</code> 的数组连 <code>append</code> 都编译不过。\n所以那边「名义上常量、实际能改」的口子在这边被堵上了；\n要复现那个行为得用类（引用类型），<code>let</code> 只冻住引用。\n另一处是 Swift 有 <code>inout</code> 参数显式表达「这个函数会改我的容器」，\nJavaScript 里改参数内容是隐式的。</p>\n",
         "python": "<p>两边的可变性机制不同：Python 用<strong>类型</strong>区分（元组不可变、\n列表可变），名字本身随便重新绑定；Swift 用 <code>let</code> / <code>var</code> 区分，\n而因为容器是值类型，冻结名字就等于冻结内容 ——\n所以 Swift 里「只读的数组」是一个<strong>名字的属性</strong>，\nPython 里是<strong>对象的属性</strong>。\n另一处是 Python 里给函数传列表改内容外面看得见，\nSwift 里传数组是拷贝（想改要 <code>inout</code>）—— 这一条改变了\n很多代码的形状。</p>\n",
@@ -182,7 +177,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的切片语义看起来像、细节完全不同</strong>：JavaScript 的\n<code>slice</code> 返回<strong>新数组</strong>（拷贝），<code>subarray</code>（类型化数组）返回视图；\nSwift 的区间下标返回 <code>ArraySlice</code> —— 它是<strong>视图</strong>，\n但因为有写时复制，改它不会改到原数组（值语义仍然成立）。\n也就是说 Swift 这边「视图」是省一次拷贝的优化，\n不是「共享可变状态」。\n另一处是<strong>下标基准</strong>：Swift 的切片下标保留原数组索引\n（<code>s.startIndex</code> 是 1），JavaScript 的切片下标一律从 0 开始 ——\n这一条是从那边过来最容易写错的地方。</p>\n",
         "python": "<p>两边的切片语义<strong>完全相反</strong>：Python 的 <code>a[1:4]</code> 一定返回<strong>拷贝</strong>，\n而且极短、支持负数与步长；Swift 没有切片语法，\n要用区间下标，返回的 <code>ArraySlice</code> 是<strong>视图</strong>（不拷贝）。\n所以 Python 里「切片很便宜也安全」这个直觉在这边\n要拆成两件事：便宜的那条路是视图，而「拿到独立副本」\n要显式 <code>Array(...)</code>。\n另一处是下标基准：Python 的切片下标从 0 开始，\nSwift 的保留原索引 —— 这一条极易写错。</p>\n",

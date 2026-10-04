@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「一个数组」，但<strong>这里是一个家族、那边是一个类型</strong>：\nJavaScript 只有 <code>Array</code>（外加类型化数组），底层实现由引擎决定；\nC++ 要你按内存布局选（连续 / 分段 / 链表），\n选错的代价直接体现在性能上。另一处是常用操作的位置不同：\nJavaScript 的 <code>splice</code> / <code>indexOf</code> / <code>includes</code> 都是方法，\nC++ 的 <code>std::vector</code> 只有增删改查那几个，\n查找与按值删除要靠算法库（<code>std::find</code> / <code>std::erase</code>）。</p>\n",
         "python": "<p>两边的默认选择都是「动态数组」（<code>list</code> ↔ <code>std::vector</code>），\n语义很接近。差别在<strong>元素存放方式</strong>：Python 的 <code>list</code> 存指针，\n所以放进去的是引用、取出来的是同一个对象；\nC++ 的 <code>vector</code> 把元素<strong>内联</strong>在连续内存里，\n放进去的是拷贝（或移动）—— 所以 Python 里「改列表里的对象\n外面也变」在这边不成立，要共享得显式放指针。\n另一处是 Python 的下标切片、负数下标、<code>in</code> 在 C++ 里都没有。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>遍历顺序是这一格的核心</strong>：JavaScript 的 <code>Map</code> 有规定的插入序，\n对象也有一套确定的顺序规则；C++ 的 <code>std::map</code> 按 key 排序（不是插入序），\n<code>std::unordered_map</code> <strong>完全不保证顺序</strong>（实测换个插入次序就变），\n而且没有「保持插入序」的那个类型。所以那边「按顺序遍历」\n是默认行为，这边要么选排序、要么接受无序、要么自己维护键表。\n另一处是 <code>m[key]</code> 在 C++ 里会顺手插入默认值，JavaScript 只会给你 <code>undefined</code>。</p>\n",
         "python": "<p>两边都有「有序」和「哈希」两种映射，但<strong>哪一个是默认正好相反</strong>：\nPython 的 <code>dict</code> 是哈希表<strong>且保证插入顺序</strong>（3.7 起是语言保证），\nC++ 的哈希表（<code>unordered_map</code>）不保证顺序、\n有序的那个（<code>map</code>）是按 key 排序而不是插入序。\n也就是说 Python 里那个「既有哈希速度又保持插入序」的字典，\n在 C++ 里没有对应物 —— 这是从 Python 过来最实际的一处落差。\n另一处同样是 <code>m[key]</code> 的插入副作用（Python 读不存在的键是抛 KeyError）。</p>\n",
@@ -84,7 +82,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格差得比较远</strong>：JavaScript 的 <code>Set</code> 从 ES2025 起\n内建了并集、交集、差集（<code>union</code> / <code>intersection</code> / <code>difference</code>），\n而且直接返回新集合；C++ 的标准库<strong>没有这些成员</strong> ——\n要配 <code>&lt;algorithm&gt;</code> 里的算法加一个插入迭代器，\n写出来是一长串，而且得先准备输出容器。\n另一处是插入顺序：JavaScript 的 <code>Set</code> 保持插入序，\nC++ 的 <code>std::set</code> 是排序的、<code>unordered_set</code> 无序 —— 都不是插入序。</p>\n",
         "python": "<p>两边都提供有序与哈希两种集合，这一层可以对应\n（<code>set</code> 对应 <code>unordered_set</code>，但没有内建的「有序集合」，\n排序要自己 <code>sorted()</code>）。差别在<strong>集合运算</strong>：Python 的\n<code>|</code> / <code>&amp;</code> / <code>-</code> / <code>^</code> 是运算符，一行一个；C++ 要调\n<code>set_union</code> 这类算法并传插入迭代器，明显更重。\n另一处是 Python 的 <code>set</code> 元素必须可哈希且不可变（内建保证），\nC++ 的 <code>set</code> 也要求不可变（改了会破坏结构），但<strong>语言不拦</strong>，\n改了就悄悄坏掉。</p>\n",
@@ -110,7 +107,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能「打包一组值」，但<strong>C++ 的打包方式是有类型的</strong>：\nJavaScript 的数组或对象字面量可以混装任何东西、随时加字段；\nC++ 的 <code>std::tuple</code> 把每个位置的类型写进类型里，\n<code>std::get&lt;0&gt;</code> 的下标必须是编译期常量（写错下标是编译错误）。\n另一处是<strong>改名的能力</strong>：JavaScript 解构对象字面量时\n<code>const {x, y} = point</code> 是按字段名取的（自带文档性）；\nC++ 的结构化绑定 <code>auto [a, b] = ...</code> 是<strong>按位置</strong>的，\n名字自己起，所以顺序记错编译器也帮不了你 ——\n这也是为什么标准库自己建议「有名字的场合用 struct」。</p>\n",
         "python": "<p>两边都有元组而且都能解包，形态最接近（<code>a, b = t</code> ↔ <code>auto [a, b] = t</code>）。\n差别在<strong>类型</strong>：Python 的元组可以混装、可以变长、元素类型不写；\nC++ 的 <code>std::tuple</code> 每个位置的类型都是类型的一部分，\n按下标取要求下标是编译期常量。另一处是 Python 有具名元组\n（<code>namedtuple</code> / <code>NamedTuple</code>）这个「有名字的元组」，\n与 C++ 的 <code>struct</code> 加结构化绑定起的作用一样 ——\n两边最后都会得出「有名字比较好」这个结论。</p>\n",
@@ -141,7 +137,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的默认<strong>完全相反</strong>：JavaScript 的赋值是共享同一个数组\n（<code>const b = a</code> 之后改 <code>b</code> 就是改 <code>a</code>），要副本得显式 <code>[...a]</code>；\nC++ 的赋值是<strong>深拷贝</strong>，两份各是各的，\n要共享得写引用或指针。所以那边「不小心共享了」是常见 bug，\n这边「不小心拷贝了」是常见性能问题 —— 方向正好反。\n另一处是 C++ 的 <code>const</code> 真的能冻住容器（写操作编译不过），\nJavaScript 的 <code>const</code> 只是冻结绑定。</p>\n",
         "python": "<p>两边的默认同样是相反的：Python 的赋值是<strong>绑到同一个对象</strong>\n（<code>b = a</code> 之后改 <code>b</code> 就是改 <code>a</code>，要副本得 <code>a[:]</code> 或 <code>copy()</code>）；\nC++ 的赋值是深拷贝，两份独立。另一处是「只读」的实现方式：\nPython 靠不可变类型（元组、冻结集合）做到真不可变，\nC++ 靠 <code>const</code> 限定符 —— 同一个容器可以有一个可改的名字\n和一个只读的名字同时存在，这在 Python 里做不到。</p>\n",
@@ -177,7 +172,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格的核心是「拷贝还是视图由语言定，还是由你定」</strong>：\nJavaScript 的 <code>slice()</code> 一定返回拷贝，<code>subarray()</code>（类型化数组）\n一定返回视图 —— 选哪个由<strong>方法名</strong>决定；\nC++ 两种都给你，但都是用<strong>迭代器区间</strong>表达的，\n而且用视图时<strong>没有任何生命周期保护</strong>（原容器没了就是悬垂）。\n另一处是 JavaScript 有负数下标与省略端点（<code>arr.slice(-2)</code>），\nC++ 的区间全靠迭代器算术，写起来更长、也更容易算错边界。</p>\n",
         "python": "<p>两边的切片语义<strong>正好相反</strong>：Python 的 <code>v[1:4]</code> 一定返回<strong>拷贝</strong>\n（而且写法极短、支持负数与步长）；C++ 没有切片语法，\n「切一段」是用迭代器区间表达的，想拿到视图要显式选 <code>std::span</code>。\n所以 Python 里「切片很便宜」这个直觉在这边要修正 ——\n便宜的那条路（视图）要用另一套写法，而且代价自负。\n另一处是 C++ 的区间是<strong>左闭右开</strong>、靠迭代器算，\nPython 的下标是左闭右开、靠整数算，结果一样但表达方式差很远。</p>\n",

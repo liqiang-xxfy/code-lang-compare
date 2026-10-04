@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的数组一个类型什么都装，Go 的切片元素类型固定。\n<code>append</code> 是 Go 特有的写法：它<strong>返回</strong>新切片，必须接住\n（<code>xs = append(xs, 4)</code>）—— 忘了接住就等于什么都没做，\n而且编译器不会提醒。JavaScript 的 <code>push</code> 是就地修改、不用返回值。\n另一处是越界：JavaScript 读越界得 <code>undefined</code>，Go 直接 panic。</p>\n",
         "python": "<p>Python 的 <code>list</code> 与 Go 的切片都是可变长序列，但 <code>append</code>\n形态不同：Python 的 <code>append</code> 就地修改返回 None，\nGo 的 <code>append</code> 返回新切片、必须赋值回去 —— 这是从 Python\n过来最容易写错的一行。切片还多一个「容量」概念，\n<code>make([]int, 0, 10)</code> 能预分配，Python 的列表容量不可控。</p>\n",
@@ -48,7 +47,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>Map</code> 取缺失键得 <code>undefined</code>，Go 的 map 取缺失键得\n<strong>零值</strong>（int 是 0、string 是 &quot;&quot;），所以想判断存在必须用\n<code>v, ok := m[k]</code> —— 这是 Go 里最常写的第二个返回值。\n遍历顺序上 <code>Map</code> 保持插入序，Go 的 map <strong>每次随机</strong>（刻意设计），\n要稳定输出得自己排序键。删除是 <code>delete(m, k)</code> 内建函数而不是方法。</p>\n",
         "python": "<p>Python 的 <code>d[k]</code> 缺失抛 KeyError，Go 的 <code>m[k]</code> 缺失给零值 ——\n两种设计各有各的坑：Python 容易忘 try，Go 容易把「零值」\n当成「存在且为零」。判断存在 Python 用 <code>k in d</code>，\nGo 用 <code>v, ok := m[k]</code>（顺便拿到值）。\n顺序上 Python 3.7 起保插入序，Go 的 map 随机 —— 这是最实际的一处差别。</p>\n",
@@ -68,7 +66,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有内建的集合类型</strong>。惯用替代是 <code>map[T]struct{}</code> ——\n值用空结构体（零内存占用），判断存在靠 <code>_, ok := set[k]</code>。\nJavaScript 的 <code>Set</code> 提供了 <code>add</code> / <code>has</code> / <code>delete</code> 与迭代，\n这些在 Go 里都要手写或封装。所以 Go 代码里看到 <code>map[string]struct{}</code>\n就该反应过来：这是一个集合。</p>\n",
         "python": "<p>Go <strong>没有内建的集合类型</strong>，惯用 <code>map[T]struct{}</code> 代替 ——\n插入是 <code>set[k] = struct{}{}</code>、判断是 <code>_, ok := set[k]</code>、\n删除是 <code>delete(set, k)</code>，都不如 Python 的 <code>set</code> 直观。\n集合运算（并、交、差）Go 完全没有，只能自己写循环；\nPython 的 <code>a | b</code> / <code>a &amp; b</code> / <code>a - b</code> 在 Go 里没有对应语法。</p>\n",
@@ -88,7 +85,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的「记录」就是对象，字段随便加、类型不限；\nGo 的结构体字段<strong>必须声明</strong>，少一个字段编译不过，\n多一个也不行。Go 没有元组，但<strong>多返回值</strong>承担了这个角色\n（<code>lo, hi := minmax(...)</code>），JavaScript 里得返回数组或对象再解构。\nGo 的匿名结构体 <code>struct{ X, Y int }{1, 2}</code> 接近 JavaScript\n的对象字面量，但没有类型的话字段名拼错就编译不过。</p>\n",
         "python": "<p>Python 用 <code>dataclass</code> 或 <code>NamedTuple</code> 定义记录，Go 用 <code>struct</code> ——\n都需要写字段类型。差别在可变性：Python 的 dataclass 可选 frozen，\nGo 的结构体默认可变，想不可变只能靠不加修改。\nGo 的多返回值代替了元组（Python 返回元组再解构，其实是一回事）。\nGo 还能给基本类型定义新类型（<code>type Meters float64</code>），\nPython 里对应的是自定义类或 <code>NewType</code>。</p>\n",
@@ -119,7 +115,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 里数组与对象都是引用语义，<code>const xs = []</code> 之后还能 <code>push</code>；\nGo 的<strong>切片与映射</strong>同样是引用语义（<code>ys := xs</code> 是别名），\n但<strong>结构体与数组是值类型</strong> —— <code>d := c</code> 真的复制了一份。\n这个「有的类型复制、有的类型共享」的区分是 Go 特有的，\nJavaScript 里所有对象都是共享的，读 Go 时必须先分清手上是什么类型。</p>\n",
         "python": "<p>Python 的可变性由类型决定（list 可变、tuple 不可变），\n赋值一律是引用绑定；Go 的切片与映射是引用语义（与 Python 一致），\n但结构体与数组是<strong>值语义</strong> —— 赋值即复制。\nPython 里 <code>d = c</code> 让两者指向同一个对象，Go 里\n<code>d := c</code>（c 是结构体）得到的是独立副本，改 d 不影响 c。</p>\n",
@@ -145,7 +140,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>slice(1, 3)</code> 是<strong>复制</strong>，改结果不影响原数组；\nGo 的 <code>xs[1:3]</code> 是<strong>共享底层数组的视图</strong>，改 <code>s[0]</code> 会改到 <code>xs[1]</code> ——\n语义正相反，这是从 JavaScript 过来最危险的一处。\n想要独立副本 Go 要 <code>copy</code> 到一个新切片。\n写法上 JavaScript 用逗号、Go 用冒号，且 Go 支持三索引形式限定容量。</p>\n",
         "python": "<p>Python 的 <code>xs[1:3]</code> 是复制，Go 的 <code>xs[1:3]</code> 是共享视图 ——\n这是两门语言最容易搞混的一处，Python 里 <code>sub[0] = 9</code>\n绝不会影响 <code>xs</code>，Go 里一定会。要副本得 <code>copy</code>。\n区间语义两边都是左闭右开，写法上 Python 用冒号、Go 也用冒号但写成\n<code>xs[1:3]</code>（Python 切片是 <code>[start:stop]</code>，形态几乎一样，\n所以更容易误以为行为也相同）。</p>\n",

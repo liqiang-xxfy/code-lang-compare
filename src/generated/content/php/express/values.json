@@ -47,7 +47,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>这一格两边最像，但有两处必须记住的差别。第一是<strong>进制的写法</strong>：\nJavaScript 用前导 <code>0</code> 表示八进制是<strong>非严格模式</strong>的历史包袱，\n写 <code>0123</code> 在严格模式下直接报错；PHP 的 <code>0123</code> 永远是八进制，\n而且新写法 <code>0o123</code> 是 8.1 才有的 —— 也就是说 PHP 这边「前导 0」\n是<strong>生效的</strong>，从 JavaScript 过来会把 83 当成 123。\n第二是溢出：JavaScript 的整数超出安全范围会悄悄丢精度，\nPHP 是<strong>变成 float</strong>（类型都变了），两者都不报错但表现不同。\n共同点是浮点误差一模一样（<code>0.1 + 0.2</code> 都不是 <code>0.3</code>）。</p>\n",
         "python": "<p>数字字面量的写法两边高度一致：都支持十六进制 <code>0x</code>、二进制 <code>0b</code>、\n下划线分组（分隔符读起来一样）。差别在八进制：\nPython 从 3.0 起就<strong>只认 <code>0o</code> 前缀</strong>，写 <code>0123</code> 是语法错误；\nPHP 到今天仍然把前导 <code>0</code> 当八进制（<code>0o</code> 是 8.1 才补上的写法）——\n所以从 Python 过来，看到 <code>0123</code> 要意识到那是 83。\n另一处是整数溢出：Python 的 int 是任意精度、永远不会溢出；\nPHP 的整数是固定宽度，溢出<strong>静默变成 float</strong>，\n于是 <code>PHP_INT_MAX + 1</code> 从一个 int 变成了一个浮点数。</p>\n",
@@ -83,7 +82,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是动态类型：变量的类型跟着值走，随时可以换。\n差别在「有没有地方能写类型」：JavaScript 的标注只能存在于注释或\n另一个语言的方言里，运行时完全看不见；PHP 可以写在参数、返回值、\n属性上，而且是<strong>运行时真的会被检查</strong>的那一层。\n另一处是严格模式的粒度：JavaScript 的严格模式按文件或函数切换、\n管的是语法与 <code>this</code> 的绑定；PHP 的 <code>declare(strict_types=1)</code>\n管的是<strong>类型强制转换</strong>，而且作用于「从这个文件发出的调用」——\n调用别人写的函数也算在内。</p>\n",
         "python": "<p>两边都有「类型标注」这个位置，但作用完全不同：\nPython 的标注（<code>def f(a: int) -&gt; int</code>）<strong>运行时完全不生效</strong>，\n要发现问题得另跑一个静态检查器；PHP 的类型声明是<strong>运行时执行</strong>的，\n不匹配就抛 TypeError，不需要额外工具。\n另一处是强弱：Python 的标注写了等于没写（不影响行为），\nPHP 写了就真的会拦 —— 所以 PHP 那边「标注」是一份能兑现的承诺，\nPython 那边是一份文档。\n共同点是两边都没有类型推断可言：Python 的变量同样跟着值走。</p>\n",
@@ -134,7 +132,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有 <code>null</code> 与 <code>undefined</code> 两个空值，PHP <strong>只有一个</strong> ——\n未定义与 <code>unset()</code> 过都归到 <code>null</code>，区别只在「读它会不会报警告」。\n这一层简化了判断，但也带来一个差异：JavaScript 的 <code>a ?? b</code>\n与 <code>a || b</code> 的区别两边都能讲清（前者认 null/undefined，后者认真假），\n对应到 PHP 是 <code>??</code> 与 <code>?:</code> —— 规则几乎一样，可以照搬。\n真正的坑在 <code>isset()</code>：JavaScript 的 <code>obj.k !== undefined</code> 是「有没有」，\nPHP 的 <code>isset($a)</code> 对<strong>值为 null</strong> 的变量也返回 false，\n想查键存在必须用 <code>array_key_exists()</code>。</p>\n",
         "python": "<p>两边都只有一个空值，这一层对应得上。差别在<strong>取值默认</strong>的写法：\nPython 习惯 <code>x or default</code>，但它对 <code>0</code>、<code>&quot;&quot;</code>、<code>[]</code> 都会取右边；\nPHP 有两个运算符分别对应这两种语义 —— <code>??</code> 只认 null\n（<code>0 ?? 5</code> 得到 0），<code>?:</code> 认真假（<code>0 ?: 5</code> 得到 5）。\n从 Python 过来最容易写错的是把 <code>or</code> 的直觉套到 <code>??</code> 上 ——\nPython 那行 <code>conf.get('port') or 3306</code> 在端口写成 0 时会被换成 3306，\n而 PHP 的 <code>?? 3306</code> 不会。\n另一处是「有没有」：Python 用 <code>is None</code> 判断，PHP 的 <code>isset()</code>\n对值为 null 的变量返回 false —— 所以 isset 问的是「存在且非 null」，\n比 Python 的 <code>is not None</code> 多管了一件事。</p>\n",
@@ -195,7 +192,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的隐式转换都很活跃，但<strong>失败的表现不同</strong>：\nJavaScript 的 <code>Number(&quot;abc&quot;)</code> 得到 <code>NaN</code>，而 <code>NaN</code> 可以用\n<code>Number.isNaN</code> 认出来；PHP 的 <code>(int)&quot;abc&quot;</code> 得到 <strong>0</strong>，\n与一个真实的 0 完全分不开 —— 这是两边互相踩得最狠的一处。\n另一处是字符串拼接：JavaScript 的 <code>+</code> 既做加法又做拼接，\nPHP 的 <code>+</code> <strong>只做算术</strong>、拼接是 <code>.</code>，所以 <code>&quot;1&quot; + &quot;2&quot;</code> 在 JavaScript 是\n<code>&quot;12&quot;</code>、在 PHP 是 <code>3</code>。8.0 起 PHP 更是把「算术里出现非数值字符串」\n从警告升级成了 TypeError。</p>\n",
         "python": "<p>两边都要显式转换，但失败方式<strong>正相反</strong>：Python 的 <code>int(&quot;abc&quot;)</code>\n直接抛 ValueError，逼你处理；PHP 的 <code>(int)&quot;abc&quot;</code> 得到 0，一声不吭。\n这是从 Python 过来最容易出事的地方 —— 以为有异常可以捕获，\n实际拿到的是一个看起来完全正常的数字。\n截断行为两边一致（<code>int(3.9)</code> 与 <code>(int)3.9</code> 都是 3），\n但 <code>int(&quot;12abc&quot;)</code> 在 Python 抛异常、在 PHP 得到 12。\n另一处是假值转换：<code>(bool)&quot;0&quot;</code> 两边都是假，但 <code>bool(&quot;0.0&quot;)</code>\n在 Python 是 True、PHP 也是 true —— 这一点难得一致。</p>\n",

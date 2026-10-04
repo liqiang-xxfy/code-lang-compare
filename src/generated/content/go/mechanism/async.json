@@ -16,7 +16,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有事件循环</strong>。它的并发模型是 goroutine + 调度器：\nGo 运行时把成千上万个 goroutine 复用到少量 OS 线程上，\n阻塞调用会被运行时挂起 goroutine 并让出线程 ——\n这一层替代了事件循环要解决的问题。\nJavaScript 里你必须写异步代码才能不卡住主线程；\nGo 里直接写阻塞代码即可，运行时替你调度。</p>\n",
         "python": "<p>Go <strong>没有事件循环</strong> —— goroutine 加调度器承担了同样的职责，\n但形态完全不同：Python 的 asyncio 需要你把函数写成协程、\n用 <code>await</code> 显式让出；Go 里函数就是普通函数，\n运行时会在线程阻塞时自动切换 goroutine。\n所以 Go 不需要「异步版」的库（没有 async 版 HTTP 客户端这种区分）。</p>\n",
@@ -36,7 +35,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的回调都是普通函数值，写法接近。差别在<strong>谁来执行</strong> ——\nJavaScript 的回调在事件循环里排队，永远不会并行；\nGo 里 <code>go func(){…}</code> 丢出去就是真并行，回调也可能在别的线程上跑。\n另一个实际差别是等待：JavaScript 用 <code>Promise.all</code> 等一组回调，\nGo 用 <code>sync.WaitGroup</code> 或 channel —— 后者更繁琐但更显式。</p>\n",
         "python": "<p>Python 的回调函数写法一致，但执行模型不同：\nPython 有 GIL，回调就算在别的线程里跑也不会真并行；\nGo 的回调可能真的在另一个核上执行。等待一组回调时，\nPython 常用 <code>concurrent.futures</code> 的 <code>as_completed</code>，\nGo 用 <code>sync.WaitGroup</code> —— Go 更底层、也更啰嗦。</p>\n",
@@ -56,7 +54,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有 Promise / Future 这类「代表未来结果」的对象</strong>。\n并发任务直接把结果写进 channel，接收方 <code>&lt;-ch</code> 阻塞等 ——\n等待与取值是同一个动作，没有中间对象。\nJavaScript 的 <code>Promise</code> 需要 <code>.then</code> 或 <code>await</code> 才能取到值，\nGo 里 <code>ch</code> 本身就是那个「未来」，而且可以参与 <code>select</code> 多路等待。\n代价是 Go 里没有 <code>Promise.all</code> 这样的现成组合子。</p>\n",
         "python": "<p>Go <strong>没有 Future</strong>（<code>asyncio.Future</code> / <code>Task</code> 那类对象），\n结果通过 channel 传递。Python 里 Future 可以被多次 await、\n可以取消、可以加回调；Go 的 channel 只能收一次，\n想广播要用 <code>close</code> + 多接收者或 <code>sync.Cond</code>。\n两边都能表达「等结果」，但 Go 的原语更少也更底层。</p>\n",
@@ -76,7 +73,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有 <code>async</code> / <code>await</code></strong> —— 没有协程语法，也没有\n「异步函数」这种类型。并发就是 <code>go</code> 关键字加 channel，\n等待就是读 channel。这与 JavaScript 的差别不只是语法：\nJavaScript 的 <code>await</code> 让异步代码写得像同步；\nGo 里同步代码本来就是同步的，需要并发时才显式 <code>go</code> 出去。\n心智模型正好相反：一个是「默认可挂起」，一个是「默认阻塞」。</p>\n",
         "python": "<p>Go <strong>没有 <code>async</code> / <code>await</code></strong>，也没有协程对象 ——\n并发靠 goroutine 与 channel。Python 里你必须把函数写成协程、\n一路 <code>await</code> 下去（「颜色」问题：异步函数与同步函数不能混用）；\nGo 里没有这层区分，同一个函数可以在 goroutine 里跑，\n也可以直接调用。这是 Go 在工程上的一大优势。</p>\n",
@@ -102,7 +98,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>AbortController</code> 传 signal，Go 用 <code>context.Context</code>\n传取消信号 —— 两者都是<strong>协作式</strong>取消：被调方必须主动检查\n（JavaScript 看 <code>signal.aborted</code> / 监听 abort 事件，\nGo 用 <code>select</code> 等 <code>ctx.Done()</code>），不检查就不会停。\n形态差别是 Go 把超时、截止时间、键值都收进了同一个 Context 对象，\nJavaScript 里超时要配 <code>Promise.race</code> 或 <code>AbortSignal.timeout</code>。</p>\n",
         "python": "<p>Python 的取消是<strong>注入异常</strong>（<code>task.cancel()</code> 让协程收到\n<code>CancelledError</code>），被调方可以捕获做清理；\nGo 的取消是<strong>发信号</strong>（<code>ctx.Done()</code> 关闭 channel），\n被调方要主动 <code>select</code> 才感知 —— 两者都是协作式，但机制不同：\n一个是异常、一个是通道。\nGo 的 <code>context</code> 还承担超时与传值，Python 里超时用 <code>asyncio.wait_for</code>。</p>\n",

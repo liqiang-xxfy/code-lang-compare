@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的包管理与构建是两套工具（npm + webpack/vite），\n而且各有多个替代品；Go 只有 <code>go</code> 一条命令 ——\n依赖、构建、测试、格式化全在里面，<strong>没有版本可选</strong>。\n另一处实际差别是标准库的分量：Go 的 net/http、encoding/json、\ntesting 都在标准库里，很多服务零第三方依赖；\nJavaScript 里连发个 HTTP 请求都要挑库（axios / fetch / undici）。</p>\n",
         "python": "<p>Python 要选 pip / poetry / uv，构建要选 setuptools / hatchling；\nGo 用 <code>go</code> 命令本身就够了 —— <code>go mod</code> 管依赖、\n<code>go build</code> / <code>go test</code> 管构建测试，不需要额外安装任何东西\n（装完 Go 就全有了）。从 Python 过来最不适应的是\n「没有虚拟环境、没有 requirements.txt 的多种写法」，\n清单就是 <code>go.mod</code> 一个文件。</p>\n",
@@ -48,7 +47,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 要<strong>显式</strong>在 <code>package.json</code> 里写依赖，然后代码里 import；\nGo 反过来 —— 代码里 <code>import</code> 是唯一的声明，\n<code>go mod tidy</code> 根据实际 import 自动增删 <code>go.mod</code>。\n所以 Go 项目里不存在「装了但没用」或「用了但没声明」这种状态。\n另一处差别是间接依赖也会列在 go.mod 里（标 <code>// indirect</code>），\n而 npm 只在 lock 文件里展开整棵树。</p>\n",
         "python": "<p>Python 要在 <code>requirements.txt</code> / <code>pyproject.toml</code> 里声明，\n代码里 import 只是使用；Go 里 <code>import</code> <strong>就是</strong>声明，\n<code>go mod tidy</code> 会把清单同步成代码实际需要的样子。\n这意味着 Python 里常见的「requirements 与实际 import 不一致」\n在 Go 里不会发生。代价是 import 路径必须写完整（含仓库地址），\n不能像 Python 那样写个短名字。</p>\n",
@@ -74,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>npm 的 <code>&quot;^1.2.3&quot;</code> 是个<strong>范围</strong>，装的时候取满足条件的最高版本；\nGo 的 <code>v1.10.9</code> 是<strong>下限</strong>，构建时严格用这个版本，\n除非有人显式 <code>go get -u</code>。所以 Go 项目不会因为\n「依赖发了新版」而在某天构建出不同的结果 ——\n这对可复现性是决定性的差别。\n另一处 Go 独有的是主版本进路径（<code>/v2</code>），\n这让 v1 与 v2 可以同时存在于依赖树里。</p>\n",
         "python": "<p>Python 的 <code>&gt;=1.2,&lt;2</code> 是范围，安装时取最新的满足者；\nGo 的版本号是<strong>下限</strong>，且默认不自动升级 ——\n想让依赖前进必须显式执行 <code>go get</code>。这比 pip 的\n「今天装和明天装可能不一样」稳定得多，\n也让 <code>go.mod</code> 本身就记录了实际使用的版本。\n主版本 ≥2 要写进 import 路径是 Go 独有的约定，\nPython 里 <code>import foo</code> 与包版本无关。</p>\n",
@@ -94,7 +91,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有校验和，但<strong>职责划分完全不同</strong>：\nnpm 的 <code>package-lock.json</code> 既锁定整棵依赖树的精确版本、\n又记校验和；Go 的版本钉在 <code>go.mod</code> 里、\n<code>go.sum</code> <strong>只</strong>记校验和。所以 Go 里不存在\n「清单写 ^1.0、实际装 1.2.3」这种需要靠 lock 才能复现的情况 ——\n<code>go.mod</code> 本身就精确。\n另一处差别是 <code>go.sum</code> 会记录间接依赖的哈希，内容更全。</p>\n",
         "python": "<p>Python 的锁定要靠 <code>requirements.txt</code> 里的 <code>==</code> 或者\npoetry/uv 的锁文件；Go 的版本本来就是精确的（写在下限里），\n<code>go.sum</code> 只承担校验和职责。所以 Go 项目里\n「复制 go.mod + go.sum 就能复现构建」是默认成立的，\nPython 里要先确认项目用的是哪套锁定方案。</p>\n",
@@ -120,7 +116,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>node_modules</code> 做项目级隔离，每个项目一份；\nGo 把依赖放在<strong>全局模块缓存</strong>里按版本寻址，项目只记版本号 ——\n磁盘上同一个版本只有一份。所以 Go 里没有\n<code>rm -rf node_modules &amp;&amp; npm install</code> 这个仪式，\n也没有 pnpm 那种「用硬链接省空间」的动机（本来就共享）。</p>\n",
         "python": "<p>Python 的虚拟环境解决「全局只能装一个版本」；\nGo 的全局缓存<strong>按版本寻址</strong>，天然可以并存，\n不需要激活任何环境。从 Python 过来最直接的差别是：\n没有 <code>venv</code>、没有 <code>activate</code>、没有 <code>requirements.txt</code>，\nclone 一个 Go 仓库直接 <code>go build</code> 就行。\n代价是依赖缓存全在用户目录、由 go 命令统一管理，不能手工干预。</p>\n",
@@ -140,7 +135,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>npm 发布是「上传到中央仓库并占住版本号」；\nGo <strong>没有中央仓库</strong> —— 发布就是给 git 打个 tag，\n导入路径本身就是仓库地址。所以 Go 里不存在\n「包名被抢注」或「包被下架」的问题，也不存在\n发布被审核阻塞的情况。代价是没有统一的发现渠道\n（搜索靠 pkg.go.dev 这种索引站），也没有「下架」这个动作。</p>\n",
         "python": "<p>Python 要构建 wheel/sdist 再上传到 PyPI，占住版本号；\nGo 打 tag 就等于发布，没有构建产物、没有上传步骤。\n这让 Go 的发布极其轻 —— 一次 <code>git push --tags</code> 就够了。\n反面是撤回困难：Go 可以 <code>go mod retract</code> 在 go.mod 里声明撤回，\n但代码仍在仓库里；PyPI 与 npm 至少能 yank 掉。</p>\n",

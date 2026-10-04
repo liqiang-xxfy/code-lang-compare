@@ -26,7 +26,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>只有一种序列：<code>Array</code>。长度可变、元素类型不限、<strong>可以是稀疏的</strong>\n（越界赋值或 <code>new Array(n)</code> 都会留下空洞）。没有定长数组、\n没有类型受限的数组 —— 那些需求要么靠约定，要么靠 TypeScript 的类型层。</p>\n",
       "vsHtml": {
         "python": "<p>Python 把序列分成 list（可变）与 tuple（不可变）两种，选哪个本身就是\n设计决策；这里只有 Array 一种。Python 没有稀疏数组这回事，\n越界直接 IndexError，这里会静默造出空洞。</p>\n",
@@ -56,7 +55,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>两种选择：<strong>对象字面量</strong>（键只能是字符串或 symbol、没有 <code>size</code>、\n带着原型链上继承来的属性、键顺序有整数优先的特殊规则）与\n<strong><code>Map</code></strong>（键任意类型、有 <code>size</code>、严格按插入顺序）。\n当字典用就该选 <code>Map</code> —— 用对象当字典时，原型链与键顺序这两个包袱迟早出问题。</p>\n",
       "vsHtml": {
         "python": "<p>Python 只有一种 dict：键必须可哈希、有 <code>len()</code>、严格按插入序 ——\n它同时覆盖了这里的「对象」与「Map」两个角色，所以从这边过去要先想清楚\n「我到底要哪个」。Python 没有原型链，也就不存在「继承来的键」这回事。</p>\n",
@@ -86,7 +84,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>Set</code> 负责去重与成员判断，判等用的是 SameValueZero（<code>NaN</code> 与 <code>NaN</code> 算相等、\n对象比引用）。所以「两个内容相同的对象」在集合里是两条 ——\n想按内容去重只能先序列化成字符串。没有内建的不可变集合。</p>\n",
       "vsHtml": {
         "python": "<p>Python 有 set（可变）与 frozenset（不可变、可当字典的键）两种，\n这里只有一种。判等规则也不同：Python 用 <code>__hash__</code> + <code>__eq__</code>，\n所以给自定义类型实现这两个方法就能按内容去重，这里做不到。</p>\n",
@@ -111,7 +108,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>没有元组这种类型。<strong>定长的小聚合用数组</strong>（靠位置约定）、\n<strong>带名字的用对象</strong>（靠键约定），两者都不会被语言检查长度或字段。\n解构让读写都还算方便，但「这个数组到底是 [x, y] 还是 [lat, lng]」\n只有注释能回答。</p>\n",
       "vsHtml": {
         "python": "<p>Python 有真元组（定长不可变），还有 <code>namedtuple</code> / <code>dataclass</code> 把\n「有名字的定长聚合」做成了类型；这里两者都只能靠约定。\n代价是 Python 那边要显式声明一个类型，收益是字段名由语言保证。</p>\n",
@@ -146,7 +142,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>没有内建的不可变集合</strong>。<code>Object.freeze</code> 是浅冻结、而且失败时静默\n（非严格模式），指望它当不可变容器很容易翻车。所以「这个数组能不能改」\n在 JS 里是一句约定，不是类型能回答的问题 —— 需要真不可变时得上库，\n或者用「不改原数组、返回新数组」的写法（<code>map</code> / <code>filter</code> / 展开）。</p>\n",
       "vsHtml": {
         "python": "<p>Python 把不可变做进了类型：tuple 与 frozenset 就是不可变的，\n而且<strong>内层元素是否可变是另一回事</strong>（元组里装列表照样能改内容）——\n这一点与这里的浅冻结一样，但至少外层由语言保证。</p>\n",
@@ -181,7 +176,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>slice</code> 与展开运算符都是<strong>浅拷贝</strong>：外层是新的，内层还是共享的引用 ——\n「我复制了一份再改」这个直觉在嵌套结构上会出错。要真深拷贝用\n<code>structuredClone</code>。另外 <code>slice</code>（复制）与 <code>splice</code>（原地删除/插入）\n只差一个字母，是常见的手滑点。</p>\n",
       "vsHtml": {
         "python": "<p>Python 的切片 <code>xs[1:3]</code> 同样是浅拷贝，深浅的坑一模一样\n（copy 模块的 <code>deepcopy</code> 对应这里的 <code>structuredClone</code>）。\n差别在语法：Python 用切片表达式，这里用方法；Python 还能用切片赋值\n原地替换一段，这里没有对应写法。</p>\n",

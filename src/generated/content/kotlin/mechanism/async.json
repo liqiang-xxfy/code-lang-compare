@@ -16,7 +16,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这是最根本的一处不同</strong>：JavaScript 的运行时就只有一根线程\n加一个事件循环，所有异步都绕着它转；Kotlin 在 JVM 上没有这个概念 ——\n代码默认就跑在线程上，可以真并行。\n接近的东西只有 UI 那一侧：<code>Dispatchers.Main</code> 背后确实是一个\n消息队列（与事件循环同构），但它只是众多调度器里的一个，\n不是整个语言的地基。</p>\n",
         "python": "<p>Python 的 <code>asyncio</code> 有一个真正的单线程事件循环，必须显式启动\n（<code>asyncio.run</code>），而且整个程序通常都活在它里面；\nKotlin 这边没有要求你这点 —— 协程可以起在任何线程上，\n也可以只是程序里的一小部分。所以 Python 那边「一切都是回调、\n由一个循环推动」的世界观在这边不成立。\n共同点是两边都有调度器这一层抽象，只是 Kotlin 的可以换。</p>\n",
@@ -36,7 +35,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有回调这套东西，也都用别的写法替代了它（那边是 Promise 加\n<code>async</code> / <code>await</code>，这边是挂起函数）。差别在<strong>编译产物</strong>：\nJavaScript 的 <code>async</code> 是语言特性，引擎直接支持；\nKotlin 的挂起函数是编译器改写出来的（每个挂起点变成一次状态保存），\n所以在字节码层面看到的是一个多了一个参数的方法。\n另一处是「回调能不能取消」：两边默认都不能（见 cancellation 一格）。</p>\n",
         "python": "<p>两边都从回调走向了「看起来像同步」的写法，思路一致。\n差别在<strong>能否局部使用</strong>：Python 的 <code>async</code> 一旦用在某处，\n调用链上所有函数都得是 <code>async</code>，整个程序容易被感染；\nKotlin 的 <code>suspend</code> 也是传染的，但它提供了 <code>runBlocking</code>\n这样的桥接点，可以在普通代码里开一个协程作用域，\n不必让整个程序都变成协程。</p>\n",
@@ -62,7 +60,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「先拿到一个将来的值、之后再取」，形状几乎一样\n（<code>async</code> / <code>await</code> 这一对名字都对得上）。差别在<strong>异常</strong>：\nJavaScript 的 Promise 一旦 reject 且没人接，控制台会报未处理拒绝；\nKotlin 的 <code>async</code> 把异常<strong>存在 Deferred 里</strong>，\n不 <code>await</code> 就没人知道 —— 但<strong>这只在它没有父协程时成立</strong>：\n作为普通子协程时，失败会照结构化并发立刻向上传播并取消父作用域，\n哪怕你从不 <code>await</code>。所以「忘了 await 会静默吞掉异常」这个说法\n要限定在根协程或监督作用域的场景。\n另一处是取消：JavaScript 的 Promise 不能取消，\nKotlin 的 <code>Deferred</code> 能（这是它有优势的一处）。</p>\n",
         "python": "<p>Python 的 <code>asyncio.Task</code> 与 Kotlin 的 <code>Deferred</code> 对应\n（都由「提交一个协程」产生，都能取消、都能等结果）。\n差别在<strong>启动方式</strong>：Python 要用 <code>asyncio.create_task</code> 显式提交，\n光调用协程函数什么都不会发生；Kotlin 的 <code>async { }</code> 一写就开跑，\n「我是不是忘了启动它」这个错误在 Kotlin 里不存在，\n取而代之的是「我是不是不小心让它跑起来了」。</p>\n",
@@ -93,7 +90,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>写法高度相似（<code>async</code> / <code>await</code> 这一对连名字都一样），\n但语义有两处不同：一是 JavaScript 的 <code>async</code> 函数一调用就开始跑，\n而 Kotlin 的 <code>suspend</code> 函数<strong>调用时是顺序执行</strong>的 ——\n要并发必须显式用 <code>async { }</code> 包起来；\n二是 Kotlin 的挂起不等于换线程，可能仍在同一根线程上继续。\n所以「加了 async 就并发了」这个直觉在 Kotlin 里不成立。</p>\n",
         "python": "<p>同样是 <code>async</code> / <code>await</code> 的形状，差别在<strong>并发的默认</strong>：\nPython 里 <code>await</code> 一个协程就是顺序的，要并发用\n<code>asyncio.gather</code> 或 <code>create_task</code>；Kotlin 里同样要显式\n<code>async</code> 才并发，这一点两边一致。\n真正的差别在<strong>线程</strong>：Python 的协程全在一根线程上，\nKotlin 的可以分布到多根 —— 所以 Kotlin 这边要额外当心共享状态。</p>\n",
@@ -129,7 +125,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有「取消」这个概念，但<strong>机制完全不同</strong>：\nJavaScript 没有内建的取消，要靠 <code>AbortController</code> 一路把信号传下去，\n被调用的函数得自己监听；\nKotlin 的取消是内置的，挂起点自动检查，而且会<strong>向上向下传播</strong>。\n另一处是 <code>finally</code> 里的清理：JavaScript 那边要靠监听 abort 事件，\n这边 <code>finally</code> 照常执行，还能在 <code>NonCancellable</code> 里挂起。</p>\n",
         "python": "<p><strong>这里两边其实不一样，而且差别很关键</strong>：Python 的取消异常\n早就被挪到了「不该被顺手接住」的那一支下面，所以\n<code>except Exception</code> <strong>根本抓不到</strong>它 —— 想吞掉得显式写出那个类型。\nKotlin 的取消异常则仍然是普通异常的子类，<code>catch (e: Exception)</code>\n<strong>会</strong>把它一起吞掉，取消就此失效，必须单独放行。\n所以同一个陷阱在 Python 那边被语言堵住了，在 Kotlin 这边要自己防。\n另一处是<strong>传播</strong>：Kotlin 靠结构化并发自动沿父子关系传播，\nPython 得自己管任务树。</p>\n",

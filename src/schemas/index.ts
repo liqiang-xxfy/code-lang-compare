@@ -178,40 +178,8 @@ export const equivalenceSchema = z.enum([
   'absent', // 无等价：该语言没有这个概念
 ])
 
-export const provenanceSchema = z.discriminatedUnion('origin', [
-  z.object({
-    origin: z.literal('thealgorithms'),
-    url: z.string().url(),
-    license: z.literal('MIT'),
-    author: z.string().optional(),
-    retrievedAt: z.string().min(1),
-  }),
-  z.object({
-    origin: z.literal('rosettacode'),
-    url: z.string().url(),
-    license: z.literal('GFDL-1.2'),
-    author: z.string().optional(),
-    retrievedAt: z.string().min(1),
-  }),
-  z.object({
-    origin: z.literal('manual'),
-    license: z.literal('CC-BY-4.0'),
-  }),
-  /**
-   * LLM 产出不产生可署名许可 —— 刻意不给 license 字段。
-   * 强填 MIT/GFDL 是错误陈述，比留空更危险（ADR-08）。
-   */
-  z.object({
-    origin: z.literal('llm'),
-    model: z.string().min(1),
-    promptTemplateId: z.string().min(1),
-    generatedAt: z.string().min(1),
-  }),
-])
-
 export const reviewRecordSchema = z.object({
   state: z.enum(['draft', 'reviewed', 'verified']).default('draft'),
-  provenance: provenanceSchema,
   reviewedBy: z.string().optional(),
   reviewedAt: z.string().optional(),
   /** 校对备注，不面向读者 */
@@ -372,7 +340,6 @@ export type SectionDef = z.infer<typeof sectionDefSchema>
 /** 板块 id —— 由 src/generated/sections.gen.ts 派生的联合类型 */
 export type Section = z.infer<typeof sectionSchema>
 export type Equivalence = z.infer<typeof equivalenceSchema>
-export type Provenance = z.infer<typeof provenanceSchema>
 export type ReviewRecord = z.infer<typeof reviewRecordSchema>
 export type Pitfall = z.infer<typeof pitfallSchema>
 export type GlossaryTerm = z.infer<typeof glossaryTermSchema>
@@ -492,18 +459,6 @@ export interface Manifest {
     boxes: number
     byState: Record<string, number>
   }
-}
-
-export interface AttributionEntry {
-  sourceId: string
-  /** 站点自有原创内容没有外部 URL */
-  url?: string
-  license: string
-  /** 该许可要求我做什么 */
-  obligation: string
-  /** 我在哪履行的（可核对的落点，不能是空数组） */
-  fulfilledAt: string[]
-  usedBy: string[]
 }
 
 /** 校验问题。level = 'error' 会阻断 CI 构建 */
@@ -769,7 +724,6 @@ export interface RenderedBox {
   /** 「本语言无此概念」的显式声明 */
   absent: boolean
   reviewState: ReviewRecord['state']
-  provenanceOrigin: Provenance['origin']
 }
 
 /**

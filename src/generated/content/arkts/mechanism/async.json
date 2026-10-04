@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>事件循环两边是同一个 —— 它本来就不是语言层的规则：微任务队列由语言规范\n定义，「什么时候跑宏任务」由宿主定义。这里与 JavaScript 同一套引擎思路，\n先行后序也一致。所以这一格没有可写的差别。</p>\n",
         "python": "<p>Python 的 asyncio 是标准库给的一套循环，要 <code>await</code> 或到让出点才切换任务；\n这里的事件循环是运行时内建的：同步代码先跑完，微任务排队，再轮到宏任务。\n启动方式也不同 —— Python 要把协程显式交给循环，\n这里的 async 函数调用即开始执行（到第一个 await 为止）。</p>\n",
@@ -42,7 +41,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>回调的形态一样，这里多一层类型：成功回调拿到什么、失败回调拿到什么，\n签名里写着。但「回调会被调几次」「会不会永远不调」类型管不了 ——\n这一点两边相同。另一处是取消的方式：这里用销毁请求（一个方法调用），\n而不是把一个信号对象传进去。</p>\n",
         "python": "<p>Python 里回调是一个普通可调用对象，语义一致。差别在默认选择：\nPython 的异步生态以协程为主，回调多见于「给已有的 future 挂个通知」；\n这里两套并存 —— 回调是宿主 API 常见的形态，Promise 是语言层的。\n两边的调试体验因此不同：回调式的错误要自己接住，\nPromise 的失败有统一的传播路径。</p>\n",
@@ -62,7 +60,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Promise 是同一个实现，行为逐条一致。这里多的是类型：标注写全之后\n回调参数自动就是对应类型，不必在回调里再断言一次。\n另一处是没人接住的失败 —— 这里有一个全局事件可以挂上去统一处理，\nJavaScript 那边只有运行时的默认行为。</p>\n",
         "python": "<p>Python 把「调度」与「结果」分成两个对象（任务与 future），这里只有一个\nPromise。写法上 Python 要把协程交给循环去跑，这里调用即开始。\n组合子两边对得上：全部等齐、谁先回来都有。差别在失败那一侧 ——\nPython 的异常一路传到 await 处，这里的失败要先被 <code>catch</code> 接住，\n否则落到全局兜底那条路。</p>\n",
@@ -88,7 +85,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>语法与运行时行为完全一致 —— 这两个关键字本来就是内建的。\n这里多规定了一件编译期的事：async 函数的返回类型必须标成 <code>Promise&lt;T&gt;</code>，\n写 <code>T</code> 编译不过。好处是调用方一眼看到「这里要 await」，\n不必翻函数体去找有没有 await。</p>\n",
         "python": "<p>写法几乎一样，差别在两处：Python 的协程要显式交给事件循环去跑，\n直接调用一个 <code>async def</code> 只会得到协程对象、不会执行；\n这里的 async 函数调用就开始跑（到第一个 await 为止）。\n另一处是标注的位置 —— Python 标的是协程返回的那个值，\n这里标的是包装后的 <code>Promise&lt;T&gt;</code>。</p>\n",
@@ -114,7 +110,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的取消都不在语言层，但形态不同：JavaScript 那边是一个信号对象，\n由脚本创建、传给接收方，接收方自己决定要不要理会；\n这里要看用的是哪套并发 —— 任务池的任务可以取消（按 id 发起），\n手动那套的线程只能整个销毁。所以这里的取消是<strong>运行时的能力</strong>，\n而不是一层约定。</p>\n",
         "python": "<p>Python 的取消是语言与运行时的机制：任务可以被取消，协程里会抛出异常，\n<code>finally</code> 照样执行 —— 取消方不需要被取消方配合。\n这里只有任务池提供取消，而且是按 id 发起的；手动那套只能销毁线程。\n差别在粒度：一边能停掉单个任务并让它有机会善后，\n一边只能收掉整条线程。</p>\n",

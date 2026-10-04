@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的列表用法非常接近（<code>push</code> ↔ <code>add</code>、<code>length</code> ↔ <code>length</code>、\n<code>slice</code> ↔ <code>sublist</code>），这一格是全部 22 组里最像的之一。\n差别在<strong>元素类型</strong>：JavaScript 的数组可以 <code>[1, &quot;a&quot;, {}]</code>，\nDart 的 <code>List&lt;int&gt;</code> 塞别的东西编译不过。\n另一处是定长：JavaScript 只能靠约定，Dart 有 <code>List.filled</code> 这种\n明确不可增长的构造 —— 类型一样，但运行期行为不同。</p>\n",
         "python": "<p>两边都是可增长、能混合类型的列表（除非标了类型），日常用法接近。\n差别有两处：一是<strong>不可变的那一档</strong>，Python 靠换成元组\n（代价是操作变少），Dart 用 <code>const</code> 或 <code>List.unmodifiable</code>\n（接口还是列表的样子，但写操作抛异常）；\n二是<strong>下标</strong>，Python 有负下标与切片语法，Dart 两个都没有，\n取末尾要 <code>last</code>、取一段要 <code>sublist</code>。</p>\n",
@@ -48,7 +47,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>字面量语法不同（<code>{a: 1}</code> ↔ <code>{'a': 1}</code>），用途一样。\n差别在<strong>键的类型</strong>：JavaScript 的对象键只能是字符串或符号，\n别的类型得换 <code>Map</code>；Dart 的 <code>Map</code> 一开始就能用任意类型当键。\n另一处是<strong>空 <code>{}</code> 的含义</strong>：JavaScript 里它永远是对象，\nDart 里它是<strong>映射</strong>（空集合要写 <code>&lt;int&gt;{}</code>）—— 这一处最容易看错。\n两边默认都保持插入顺序。</p>\n",
         "python": "<p>字典这一层两边几乎可以逐条对应（<code>d[k]</code> ↔ <code>m[k]</code>、\n<code>d.get(k, 默认)</code> ↔ <code>m[k] ?? 默认</code>、<code>d.setdefault</code> ↔ <code>putIfAbsent</code>），\n连「空 <code>{}</code> 是字典」都一样。最要紧的差别是<strong>取不到的键</strong>：\nPython 抛 <code>KeyError</code>，Dart 给 <code>null</code> ——\n所以那边那个 <code>try/except KeyError</code> 在这边默认变成一次判空。\n另一处是 <code>update</code>：Dart 有「有则改、没有则抛」与\n「没有时给默认」两种选择，Python 得自己写判断。</p>\n",
@@ -74,7 +72,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有 <code>Set</code>，都能 <code>add</code> / <code>has</code> / <code>delete</code>，\n也都保持插入顺序。差别在<strong>字面量</strong>：JavaScript 没有集合字面量，\n必须 <code>new Set([1,2,3])</code>；Dart 直接写 <code>{1, 2, 3}</code> ——\n但代价是空的那个有歧义（<code>{}</code> 是映射），要标类型才成集合。\n另一处是集合运算：JavaScript 的 Set <strong>从 ES2025 起也有了</strong>\n并集、交集、差集这一套（名字与 Dart 的三个对得上），\n差别只在 Dart 标准库一直就有、不必等运行时升级。</p>\n",
         "python": "<p>两边的集合都能做并交差（<code>| &amp; -</code> ↔ <code>union</code> / <code>intersection</code> / <code>difference</code>），\n这一层可以对应。差别在<strong>顺序</strong>：Python 的 <code>set</code> 遍历顺序不可预期，\nDart 的默认集合保持插入顺序 —— 输出稳定、测试可复现，这一点差别很实在。\n另一处是字面量写法：Python 的空集合要写 <code>set()</code>（<code>{}</code> 是字典），\nDart 的空集合要写 <code>&lt;int&gt;{}</code> —— 两个语言都在这件事上给空值留了个坑。</p>\n",
@@ -105,7 +102,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用数组或对象凑「临时组合」，而且<strong>按名字或位置</strong>取\n都靠约定；Dart 的 record 是一个真正的类型，有类型标注、\n有自动生成的相等判断。\n差别在<strong>相等</strong>：JavaScript 的两个 <code>{a:1}</code> 永远不相等（比引用），\nDart 的两个 <code>(1, 2)</code> 相等（按字段比）—— 这一条改变了\n「能不能拿它当 Map 的键」这类判断。无序的对象字面量没有这个能力。</p>\n",
         "python": "<p>Python 的元组与 Dart 的位置 record 用途相同、解构写法也像\n（<code>x, y = point</code> ↔ <code>var (x, y) = point</code>），但<strong>等价性规则不同</strong>：\nPython 的元组按位置逐项比，与 record 一致；\n而 Python 的 <code>namedtuple</code> 是按名字取字段的<strong>具名类型</strong>，\n两个字段相同的 namedtuple 类互不相等。\nDart 的 record 无论位置还是命名都是<strong>结构</strong>的 ——\n命名字段只要求名字与类型相同就算同一类型，不看它来自哪个库。</p>\n",
@@ -156,7 +152,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>关键字是错位的</strong>：JavaScript 的 <code>const arr</code> 只锁绑定\n（照样能 <code>push</code>），Dart 里干这件事的是 <code>final</code>；\n而 Dart 的 <code>const</code> 是编译期 + 深度冻结，JavaScript 里\n最接近的是 <code>Object.freeze</code> —— 但那是运行期、而且只冻一层。\n所以同一个词 <code>const</code> 在两个语言里管的事不一样，\n这是从那边过来最先要改的直觉。</p>\n",
         "python": "<p>Python 没有「只读绑定」这一档，改不改全看自觉；\nDart 的 <code>final</code> 由编译器保证只能赋一次。\n内容不可变上两边思路不同：Python 靠换类型（列表换元组，\n代价是操作变少），Dart 靠 <code>const</code>（编译期拒绝）或\n<code>List.unmodifiable</code>（运行期拦截）—— 后者保留列表的接口，\n但任何写操作都抛异常。\n所以 Dart 这边「看起来是列表但不能写」有两种成因，要分清是编译期还是运行期。</p>\n",
@@ -187,7 +182,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都没有切片语法，都要调方法（<code>slice(1,4)</code> ↔ <code>sublist(1,4)</code>），\n右端也都不含 —— 这一格很像。差别在<strong>急不急切</strong>：\nJavaScript 的 <code>slice</code> 直接返回新数组；Dart 的 <code>sublist</code> 也是，\n但 Dart 另有一批 <code>getRange</code> / <code>take</code> / <code>where</code> / <code>map</code>\n返回的是<strong>惰性 Iterable</strong>，要用之前得先 <code>toList()</code>。\n同一个链，混着用很容易忘记落地。</p>\n",
         "python": "<p><strong>这是两个语言差别最直观的一格</strong>：Python 的 <code>xs[1:4]</code> 是语法，\n还支持负下标、步长、整体反转（<code>xs[::-1]</code>）；\nDart 完全没有切片语法，写 <code>xs[1:4]</code> 直接是语法错误，\n取一段只能 <code>sublist</code>，反转要写 <code>xs.reversed</code> 再展开。\n好在 Dart 有一批具名方法（<code>take</code> / <code>skip</code> / <code>where</code> / <code>map</code>），\n表达「取前 N 个」「按条件筛」时反而比切片清楚。</p>\n",

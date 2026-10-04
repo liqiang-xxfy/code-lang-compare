@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>算术运算符与 JavaScript 是同一套，运行时的结果也逐位相同 —— 本来就是同一个引擎。\n多出来的是编译期对 <code>+</code> 的规则：它要求两边都是数值或字符串，\n所以 <code>number | string</code> 这种联合类型直接相加会被拦下，得先收窄再算。\n<code>1 + &quot;a&quot;</code> 的类型是 string，赋给 number 同样编译不过 ——\nJavaScript 里那个「拼接陷阱」要运行到才发现，这里写的时候就报。</p>\n",
         "python": "<p>Python 用 <code>//</code> 做整除、<code>/</code> 做真除法，两个运算符分得很清楚；\n这里只有 <code>/</code> 一个，结果永远是浮点，要整数得自己 <code>Math.trunc</code>。\n余数也不同：Python 的 <code>%</code> 符号跟着<strong>除数</strong>（<code>-7 % 3</code> 得 2），\n这里跟着被除数（得 -1）—— 处理负数时这是实打实的行为差异。\n还有精度：Python 的整数是任意精度的，这里全是双精度浮点，\n大整数与 <code>0.1 + 0.2</code> 这类小数会悄悄丢精度。</p>\n",
@@ -78,7 +77,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>运行时的相等语义与 JavaScript 完全一样 —— <code>===</code> 严格、<code>==</code> 做转换、\n对象比引用、NaN 不等于自己。多出来的一层是：<strong>类型不重叠的比较写不出来</strong>。\nJavaScript 里 <code>1 == &quot;1&quot;</code> 一直是新手陷阱，这里编译器把两边类型对不上的\n比较直接拦下，<code>===</code> 与 <code>==</code> 都不放行。所以这一格真正的差别不是语义，\n而是「哪些比较合法」被编译器提前定好了。</p>\n",
         "python": "<p>Python 的 <code>==</code> 比<strong>值</strong>、<code>is</code> 比身份；这里的 <code>===</code> 看着像 Python 的 <code>==</code>，\n但对对象仍然只比引用 —— 两个内容相同的对象在两边都不相等。\n真正的差别在两套相等：Python 只有一套、从不做隐式转换，\n这里还有一套会做转换的 <code>==</code>，虽然编译器拦住了大部分误用，\n借 <code>any</code> 或联合类型仍能走到那条路径上。</p>\n",
@@ -104,7 +102,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><code>&amp;&amp;</code> / <code>||</code> 返回操作数本身、<code>??</code> 只认 null / undefined、<code>?.</code> 短路 ——\n这些语义与 JavaScript 一字不差，本来就是同一套。多出来的是类型这一层：\n<code>0 ?? 5</code> 这种<strong>语法上</strong>就看得出右边永远用不上的写法会被编译器拦下 ——\n注意它只看语法、不看类型：<code>x ?? 5</code> 里 x 即使是 <code>number</code> 也不报；\n<code>&amp;&amp;</code> / <code>||</code> 与可选链的结果类型则由编译器算出来，\n于是「这里到底可能得到什么」写的时候就定了。</p>\n",
         "python": "<p>Python 的 <code>and</code> / <code>or</code> 与这里一样返回操作数本身，也常拿来给缺省值。\n差别是没有空值合并运算符：Python 的 <code>or</code> 会把 <code>0</code> / <code>&quot;&quot;</code> 当成假，\n想只对 None 生效得写 <code>x if x is not None else 默认</code>；这里的 <code>??</code>\n只认 null / undefined，<code>0 ?? 5</code> 得 0 —— 这是这一格最常用的一条。\n可选链在 Python 里没有对应写法，只能一层层判空。</p>\n",
@@ -124,7 +121,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>TypeScript 与 JavaScript 一样<strong>没有运算符重载</strong> —— 它只是给同一份运行时\n加了一层类型标注，运行时的行为不会因此改变。所以「让两个对象相加得到新对象」\n两边都做不到，<code>+</code> 只会去找 <code>valueOf</code> / <code>toString</code>。\n需要相加语义时写法也一样：定义一个命名的 <code>add</code> 方法，写成 <code>a.add(b)</code>；\n想让参数有约束，就用类型标注去描述那个方法，而不是去扩展 <code>+</code>。</p>\n",
         "python": "<p>Python 的运算符重载是一等公民 —— 定义 <code>__add__</code> 之后 <code>a + b</code> 直接可用；\nTypeScript 完全没有这条路，<code>+</code> 只认数值与字符串。\n所以 Python 里写 <code>a + b</code> 顺手的矩阵、向量、金额这类类型，\n到了 TypeScript 一律要写成 <code>a.add(b)</code> 这样的命名方法 ——\n好处是任何一个 <code>+</code> 的行为都不必去查定义，代价是代码更长。</p>\n",

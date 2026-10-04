@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>function</code> 或箭头函数，参数不标类型；Go 的 <code>func</code>\n必须写类型，而且<strong>类型在参数名之后</strong>（<code>a int</code>），与 TypeScript 相反。\n两边函数都是一等值，但 Go 的<strong>方法</strong>是另一套东西 ——\n在函数名前的括号里声明 receiver（<code>func (u *User) Rename()</code>），\n这与 JavaScript 把函数挂在原型或对象上不是同一个机制。\nGo 同样不支持重载，同名函数只能定义一次。</p>\n",
         "python": "<p>Python 用 <code>def</code> 加可选标注，靠缩进划块；Go 用花括号，\n类型写在参数名之后。Python 有默认参数与关键字参数，\nGo <strong>两个都没有</strong> —— 想让参数可选，惯用解法是传一个配置结构体，\n或者用「option 函数」模式（一串 <code>func(*Config)</code> 参数）。\n方法上两边形态接近（<code>self</code> 对 receiver），但 Go 的 receiver\n可以选择值或指针，并且它决定方法属于谁。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的对象与数组传进去后调用方与函数共享同一个引用；\nGo 的参数<strong>一律按值传递</strong> —— 传切片时复制的是「切片头」\n（指针 + 长度 + 容量），所以改元素会影响调用方、<code>append</code> 之后\n重新赋给参数则不会。这层区分在 JavaScript 里不存在，\n读 Go 函数时得先看参数是值、指针还是切片，才能判断它能不能改动实参。</p>\n",
         "python": "<p>Python 传的是引用绑定，改可变对象会影响调用方；\nGo 一律按值传，想影响调用方得显式传指针 —— 切片是个中间态\n（头按值、底层数组共享），这层细节 Python 里没有。\n两边都没有默认参数：Python 缺省值写 <code>def f(x=1)</code>，\nGo 只能用可变参数或配置结构体替代。</p>\n",
@@ -79,7 +77,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 rest 参数 <code>...nums</code> 与 Go 的 <code>nums ...int</code> 位置相反 ——\n类型写在后面，而 rest 参数写在前面。展开时也相反：\nJavaScript 用 <code>f(...xs)</code>，Go 用 <code>f(xs...)</code>，省略号在<strong>变量之后</strong>。\n两边都要求变参在末尾，且函数内它都是数组/切片。</p>\n",
         "python": "<p>Python 收变参用 <code>*args</code>、收关键字参数用 <code>**kwargs</code>；\nGo 只有前者，形态是 <code>nums ...int</code>，而且是<strong>同类型</strong>的 ——\nGo 没有 <code>**kwargs</code> 的对应物，想做「可选的一组命名参数」\n得传配置结构体。展开调用时 Python 写 <code>f(*xs)</code>，Go 写 <code>f(xs...)</code>。</p>\n",
@@ -110,7 +107,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的函数只能返回一个值，想同时给出结果与错误得返回对象或抛异常；\nGo 的<strong>多返回值</strong>是语言级的，<code>(结果, error)</code> 是标准形态，\n调用方习惯上紧接着写 <code>if err != nil</code>。另一个差别是「命名返回值」 ——\nGo 可以在签名里给返回值起名，函数内直接当变量用，<code>return</code> 不带参数即可。\nJavaScript 里没有对应写法。</p>\n",
         "python": "<p>Python 返回多个值其实是返回元组再解构，失败靠异常；\nGo 的多返回值是语言特性，失败靠<strong>第二个返回值</strong>。\n所以 Go 里「这个函数会不会失败」写在签名上，\nPython 里得看文档或读实现。命名返回值（<code>(head, tail string)</code>）\n是 Go 独有的，Python 没有；裸 <code>return</code> 也只能在 Go 里用。</p>\n",
@@ -141,7 +137,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的闭包捕获变量本身，<code>var</code> 循环里的闭包会共享同一个变量 ——\nGo 在 1.22 之前有一模一样的问题，需要在循环体里写 <code>v := v</code> 固定住；\n两边现在都改了语义（Go 1.22 起每次迭代是新变量，与 <code>let</code> 的行为对齐）。\n差别在 Go 的闭包是<strong>函数字面量</strong>，类型仍是 <code>func(...)</code>，\n没有 JavaScript 箭头函数与 <code>this</code> 那套纠葛 —— Go 没有 <code>this</code>。</p>\n",
         "python": "<p>Python 的闭包是后期绑定，循环里造的闭包共享同一个变量，\n想固定住得写 <code>lambda x=x: …</code>；Go 在 1.22 起已经改成每轮新变量，\n不必再手动固定。两边都能用闭包造出私有状态（函数返回函数），\n思路一致。差别是 Go 的闭包有明确的函数类型 <code>func() int</code>，\nPython 里函数就是函数，没有这层类型书写。</p>\n",

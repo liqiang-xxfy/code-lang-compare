@@ -32,7 +32,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「可增可减的动态数组」，都有尾部快、头部慢的特点\n（JavaScript 的 <code>unshift</code> 同样是 O(n)）。所以这一格能对应的部分不少。\n差别在**「洞」<strong>：JavaScript 的 <code>delete arr[1]</code> 会留 <code>undefined</code> 空位，\n数组长度不变；PHP 的 <code>unset($c[1])</code> 是</strong>真的把那个键去掉**，\n<code>count</code> 少一个，但剩下的键不重排 —— 于是「这是个列表吗」\n成了一个需要问的问题（PHP 8.1 给了 <code>array_is_list()</code>）。\n另一处是定长数组：JavaScript 的 <code>length</code> 可以写、可以截断，\nPHP 完全没有这个概念，要定长得用 SPL 的 <code>SplFixedArray</code>。</p>\n",
         "python": "<p><strong>增删代价这一格两边很不一样</strong>。Python 的 <code>list</code> 在尾部\n<code>append</code> / <code>pop</code> 是 O(1)，在头部 <code>insert(0, x)</code> / <code>pop(0)</code>\n同样是 O(n) —— 这一点与 PHP 一致；但如果要队列，\nPython 有 <code>collections.deque</code>（两端都 O(1)），\nPHP 的标准库里对应的只有 SPL 的 <code>SplQueue</code>（基于双向链表）。\n另一处是「删了会不会留洞」：Python 的 <code>del lst[1]</code> <strong>会把后面往前挪</strong>，\n列表始终是连续的；PHP 的 <code>unset</code> 留洞、要自己 <code>array_values</code> 重排 ——\n这是从 Python 过来最容易忽略的一处，因为 <code>foreach</code> 照样能跑、\n只是键不对了。</p>\n",
@@ -52,7 +51,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有键值映射，而且<strong>都保插入顺序</strong>，这一层对应得上。\n差别在<strong>键的约束</strong>：JavaScript 的 <code>Map</code> 允许任意类型的键\n（对象、函数、NaN 都能当键，按身份或值比较）；\nPHP 的数组键被限死在 int 与 string，而且还会<strong>自动转换</strong> ——\n<code>&quot;1&quot;</code> 与 <code>1</code> 是同一个键，<code>true</code> 变成 <code>1</code>，\n<code>null</code> 变成 <code>&quot;&quot;</code>。想要对象当键必须换 <code>SplObjectStorage</code>。\n另一处是「键在不在」：JavaScript 的 <code>map.has(k)</code> 一次问清；\nPHP 的 <code>isset</code> 对值为 null 的键会返回 false，严格问要用\n<code>array_key_exists</code> —— 这个区别在 JavaScript 那边不存在。</p>\n",
         "python": "<p>Python 的 <code>dict</code> 与 PHP 的数组在这一格最接近：\n都保插入顺序、都能用 <code>for k, v in</code> 遍历、都有「键在不在」的查询。\n差别在<strong>键的自动转换</strong>：Python 里 <code>1</code>、<code>1.0</code>、<code>True</code>\n因为哈希相同会是同一个键（这是哈希等值，不是转换），\n而 <code>&quot;1&quot;</code> 与 <code>1</code> 是<strong>两个不同的键</strong>；\nPHP 里 <code>&quot;1&quot;</code> 会被转成 <code>1</code>、<code>True</code> 会被转成 <code>1</code> ——\n数字字符串与数字混在一起，这一点两边正相反。\n另一处是「对象当键」：Python 默认按 <code>__hash__</code> / <code>__eq__</code> 支持，\nPHP 的数组不支持，要用 <code>SplObjectStorage</code>（只按身份）。</p>\n",
@@ -93,7 +91,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有内建的 <code>Set</code>（<code>add</code> / <code>has</code> / <code>delete</code>，保插入顺序，\n按值比较 —— 对象按身份）。PHP <strong>没有</strong>，惯用法是「把值当键」\n（<code>$seen[$v] = true</code> 然后 <code>isset</code>），或者用 <code>array_unique</code>。\n于是「集合运算」在 PHP 里要绕着数组函数做\n（<code>array_intersect</code> / <code>array_diff</code> / <code>array_flip</code>），\n不像 JavaScript 那样有一套集合 API。\n另一处是去重的比较规则：JavaScript 的 <code>Set</code> 用 SameValueZero，\n<code>1</code> 与 <code>&quot;1&quot;</code> 是两个元素；PHP 的 <code>array_unique</code> 默认<strong>按字符串比</strong>，\n<code>1</code> 与 <code>&quot;1&quot;</code> 会被判成重复 —— 这一点两边正相反。</p>\n",
         "python": "<p>Python 有内建 <code>set</code> 与 <code>frozenset</code>，<code>in</code> 是 O(1)，\n还有 <code>|</code> <code>&amp;</code> <code>-</code> <code>^</code> 一整套集合运算 —— PHP 这些都没有。\nPHP 的替代是「值当键的数组」，成员判定同样 O(1)，\n但没有运算符，要靠 <code>array_intersect</code> / <code>array_diff</code> 这些函数。\n另一处是<strong>去重时的比较</strong>：Python 的集合按哈希与相等性判断，\n<code>1</code> 与 <code>1.0</code> 是同一个元素、<code>1</code> 与 <code>&quot;1&quot;</code> 不是；\nPHP 的 <code>array_unique</code> 默认按字符串比较，<code>1</code> 与 <code>&quot;1&quot;</code> 会合并 ——\n正好相反，而且不报错。</p>\n",
@@ -134,7 +131,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 也没有元组类型，最接近的同样是「数组 + 解构」\n（<code>const [x, y] = [3, 4]</code>）—— 这一层几乎逐字对应，\n连「跳过元素用空位」的写法都一样。\n差别在<strong>对象字面量</strong>：JavaScript 可以用 <code>{x, y}</code> 这类\n有名字的轻量结构，PHP 要到 8.2 有 <code>readonly class</code> 才有个正经替代\n（或者继续用关联数组，但那样没有类型）。\n另一处是解构的容错：JavaScript 解构一个非可迭代值直接抛错；\nPHP 解构标量只给一条 Warning 然后全部赋 null ——\n一个立刻失败、一个静默给空值。</p>\n",
         "python": "<p>Python <strong>有</strong>元组（<code>t = (3, 4)</code>），是真正的类型：\n定长、可作字典键、解构天然、还能命名（<code>namedtuple</code>）。\nPHP 一样都没有 —— 只有数组加解构，长度与类型都没有保证。\n所以这一格是「一边有、一边没有」的对比：\nPython 那边「一组固定的东西」有专门的类型，PHP 只能靠\n<code>readonly class</code>（8.2 起）来勉强表达「记录」，\n而「元组」那种匿名、轻量、可哈希的东西在 PHP 里没有对应物。\n另一处是解构失败：Python 解构长度不匹配直接抛 ValueError\n（<code>a, b = [1, 2, 3]</code> 报错），PHP 多出来的元素直接忽略、不报错。</p>\n",
@@ -165,7 +161,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格两边正好相反</strong>。JavaScript 的数组与对象都是引用类型：\n<code>const b = a; b.push(3)</code> 会改到 <code>a</code>。PHP 的数组是<strong>值语义</strong>\n（赋值即复制），对象才是句柄语义 —— 也就是说同一份代码里\n「数组」和「对象」两种容器的传递行为不同，这在 JavaScript 里不会发生。\n代价是性能直觉也要换：JavaScript 里传大数组是常数开销\n（传引用），PHP 里传数组语义上是复制（实际靠写时复制兜底）。\n另一处是 <code>readonly</code>：JavaScript 有 <code>Object.freeze</code>（浅冻结），\nPHP 的 <code>readonly</code> 属性冻结的是「重新绑定」这一件事，\n两者都<strong>不深冻</strong>，这一点倒是一致。</p>\n",
         "python": "<p><strong>这一格与 Python 也正好相反</strong>。Python 的 <code>list</code> / <code>dict</code> 都是\n引用语义：<code>b = a; b.append(3)</code> 会改到 <code>a</code>，要复制得显式\n<code>a.copy()</code> 或 <code>list(a)</code>。PHP 的数组赋值就是复制，\n要共享反而得写 <code>$c = &amp;$a</code> —— 语法层面「默认」反过来了。\n所以从 Python 过来最危险的一处是「以为传进函数的是同一个列表」，\n实际在 PHP 里函数改不到外面的数组（除非参数写了 <code>&amp;</code>）。\n共同点是两边的对象/自定义类型都是引用语义，只有容器不同。</p>\n",
@@ -201,7 +196,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的切片都是「返回新数组、不改原数组」，这一层一致 ——\n语义上都是拷贝，没有视图。\n差别在<strong>键</strong>：JavaScript 的数组只有数字下标，\n<code>slice(1, 3)</code> 之后新数组从 0 开始，没有别的可能；\nPHP 的数组带任意键，所以切片时多出一个「保不保留键」的选择\n（默认重排整数键、<strong>字符串键总是保留</strong>）——\n这个不对称很容易看漏。\n另一处是「删除并返回」：JavaScript 用 <code>splice</code> 同时做增删\n（名字与 PHP 的 <code>array_splice</code> 撞了但含义更宽），\nPHP 的 <code>array_splice</code> 同样改原数组，还多一个「返回被删元素」。</p>\n",
         "python": "<p>两边切片都是拷贝，但<strong>索引的含义不同</strong>。\nPython 的 <code>a[1:3]</code> 用在字符串、列表、元组上都是「按元素」的，\n而且新对象总是从 0 重新编号；PHP 的 <code>array_slice</code> 多一个\n「保不保留键」的参数，且字符串键无条件保留 ——\n从 Python 过来会以为切片后键一定是连续的。\n另一处是负索引：Python 的 <code>a[-2:]</code> 是语言语法，\nPHP 要调 <code>array_slice($a, -2)</code>，功能一样但写法不同；\n而<strong>单个</strong>负索引 PHP 的数组不支持（<code>$a[-1]</code> 是「键为 -1」，\n不是「最后一个」）—— 这一点与字符串不同，字符串是支持 <code>$s[-1]</code> 的。</p>\n",

@@ -16,7 +16,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>三种写法逐字相同 —— 去掉冒号和类型标注就是合法的 JavaScript，\n运行时的函数行为也一字不改。多出来的是纯类型层的东西：重载签名\n（JavaScript 里同名函数只能存在一个，写在后面的覆盖前面的）、\n<code>this</code> 参数的标注，以及泛型。代价是这些保证只覆盖写了标注的地方 ——\n没标类型的位置会悄悄退回 JavaScript 那套动态行为，编译器不再多问一句。</p>\n",
         "python": "<p>Python 只有 <code>def</code>（外加 <code>lambda</code> 表达式），而 TypeScript 的三种写法里\n箭头函数语义差别不小：它没有自己的 <code>this</code>，直接取定义处外层的那个；\nPython 的方法靠显式 <code>self</code> 参数，不存在「this 丢了」这回事。\n重载的机制也相反：TypeScript 的多条调用签名是编译器的事，运行时只有一个实现；\nPython 想在类型检查器里表达重载得额外导入 <code>overload</code>，而运行时同样不参与。</p>\n",
@@ -42,7 +41,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>实参的传递语义逐字相同：少传是 <code>undefined</code>、不会报错，默认值只在传 <code>undefined</code>\n时触发、每次调用重新求值。TypeScript 多出的是<strong>签名上的约束</strong>：可选参数\n<code>c?: string</code> 把「可以不给」变成类型的一部分，参数属性让构造器少写一段赋值。\n但这些约束都止于编译期 —— 运行时该怎么传还是怎么传，看调用点也看不出差别。</p>\n",
         "python": "<p>Python 有真正的关键字参数，调用方写 <code>make_user(name=&quot;Ada&quot;)</code> 就能无视顺序；\nTypeScript 只能靠解构对象模拟，而且这个「具名参数」在运行时只是个普通对象。\n默认值的求值时机两边相反：Python 只在定义时求值一次（<code>def f(x=[])</code> 是著名的坑），\nTypeScript 每次调用重新求值。可选参数两边都有，位置限制也一样（要放最后）。</p>\n",
@@ -73,7 +71,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>语法与运行时行为逐字相同 —— <code>...nums</code> 收成真数组、调用处 <code>...xs</code> 把数组摊开，\n连 <code>arguments</code> 那套旧写法都一样。TypeScript 只多做一件事：把 rest 标成\n<code>number[]</code>，于是每个实参都要与元素类型对上。再往上一层，元组类型能把\n「至少要有一个参数」这类约束也写进签名 —— 这是 JavaScript 完全表达不了的。</p>\n",
         "python": "<p>Python 用 <code>*args</code> 收成<strong>元组</strong>，TypeScript 的 rest 收成数组（可变、可再处理）；\n更关键的是 Python 还有 <code>**kwargs</code> 收关键字参数，TypeScript 没有对应物，\n要「一组可选的命名参数」只能传一个对象。展开语法两边都有，\n但产物不同：<code>*args</code> 展开的是元组，<code>...xs</code> 展开的是数组。</p>\n",
@@ -99,7 +96,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>运行时完全一样：不写 <code>return</code> 得到 <code>undefined</code>、裸 <code>return</code> 也是；\n箭头函数返回对象要加圆括号这条坑两边都踩。TypeScript 多出的是返回类型 ——\n声明了 <code>[number, number]</code> 之后，少返回一个元素、或顺序写反都会被编译器指出；\n而 JavaScript 里接元组的那次解构纯靠约定，接错位置没有东西会提醒你。</p>\n",
         "python": "<p>两边都能一次带回多个值，但层的厚度不同：Python 的 <code>return a, b</code> 是原生语法，\n调用方直接 <code>x, y = f()</code> 解包，形状不用先声明；TypeScript 得先写一个元组类型\n<code>[number, number]</code> 才能接。另一处是标注的性质：Python 的返回标注只有类型检查器\n在意，TypeScript 声明了 <code>void</code> 却在某条路径上给出值，编译就过不去。</p>\n",
@@ -135,7 +131,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>闭包的运行时语义逐字相同 —— 捕获的是变量本身、<code>var</code> 共享一个绑定而 <code>let</code>\n每轮新建，全都一样，TypeScript 不改变其中任何一条。差别落在<strong>类型</strong>这一层：\n收窄是某个代码位置上成立的结论，写进闭包体时编译器会当作它失效\n（因为它假设闭包可能在变量被改动之后才执行）。想保住那个结论，\n得先把值存进一个不再变的名字，或者自己写一个类型守卫函数。</p>\n",
         "python": "<p>Python 的闭包同样晚绑定 —— 循环里造的函数共享同一个变量，最后都拿到末值；\nTypeScript 这边 <code>let</code> 每轮新建绑定，所以那个坑只在用 <code>var</code> 时出现。\n另一处是「在闭包里改外层变量」：Python 需要 <code>nonlocal</code> 显式声明，\nTypeScript 直接赋值就行。差别还落在类型上：TypeScript 能发现收窄在闭包里失效，\nPython 的标注管不到这一层。</p>\n",

@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import { analyzeContent, globalIdOf } from '../../scripts/lib/analyze'
 import { loadRegistry } from '../../scripts/lib/core'
-import { baselineCatalogSchema, languageContentFileSchema, provenanceSchema } from '../../src/schemas'
+import { baselineCatalogSchema, languageContentFileSchema } from '../../src/schemas'
 
 const a = analyzeContent()
 
@@ -64,30 +64,6 @@ describe('内容不变量（对真实 content/ 目录断言）', () => {
       for (const key of Object.keys(group.boxes)) {
         expect(known.has(key), `${group.file} 里的 '${key}' 不在池的该存放组里`).toBe(true)
       }
-    }
-  })
-
-  it('每条对比框的出处都完整（llm 不填 license，其余必须有 license）', () => {
-    for (const [gid, bucket] of a.boxes) {
-      for (const [lang, box] of bucket) {
-        const p = box.review.provenance
-        if (p.origin === 'llm') {
-          expect(p, `${gid}·${lang} 的 llm 记录不得有 license`).not.toHaveProperty('license')
-          expect(p).toHaveProperty('model')
-          expect(p).toHaveProperty('promptTemplateId')
-        } else {
-          expect(p, `${gid}·${lang} 的非 llm 记录必须有 license`).toHaveProperty('license')
-        }
-      }
-    }
-  })
-
-  it('所有被使用的非 llm 来源都在许可台账里，且都有履行位置', () => {
-    for (const origin of new Set(Object.keys(a.stats.byOrigin))) {
-      if (origin === 'llm') continue
-      const entry = a.attributions.find((x) => x.sourceId === origin)
-      expect(entry, `来源 ${origin} 未登记台账`).toBeDefined()
-      expect(entry!.fulfilledAt.length).toBeGreaterThan(0)
     }
   })
 
@@ -181,19 +157,6 @@ describe('架构决策的可执行断言', () => {
         }
       }
     }
-  })
-
-  it('ADR-08：llm 来源的 schema 里根本没有 license 字段', () => {
-    // zod 会剥掉不在契约里的键 —— 强填 MIT/GFDL 是错误陈述，所以连字段都不给
-    const r = provenanceSchema.safeParse({
-      origin: 'llm',
-      model: 'x',
-      promptTemplateId: 'y',
-      generatedAt: '2026-01-01',
-      license: 'MIT',
-    })
-    expect(r.success).toBe(true)
-    expect(r.data).not.toHaveProperty('license')
   })
 
   it('契约会拒绝「顶层重复声明归属」这类能表达但无意义的写法', () => {

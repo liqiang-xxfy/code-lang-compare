@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>函数是一等值，可以赋给变量、当参数传、当返回值，这些两边都能做。\n差别在签名：JavaScript 的参数与返回值不写类型；ArkTS 的参数类型是必需的，\n推断不出来就编译不过，也没有 any 可以兜底。写法上还少一种 ——\n匿名函数只能用箭头函数，<code>function (x) { }</code> 这种函数表达式不合法。\n回调上体现得最清楚：JavaScript 里随手 <code>(x) =&gt; x</code> 就能传，\nArkTS 里箭头函数照写不误，参数类型能从上下文推出来时可以省，\n推不出来时才必须标。</p>\n",
         "python": "<p>Python 只有 <code>def</code>（外加 <code>lambda</code> 表达式），方法的接收者是显式的 <code>self</code> 参数；\nArkTS 有函数声明与箭头函数两种写法，函数是一等值。\n两边都能标类型，但态度相反：Python 的标注是可选文档、运行时不生效，\nArkTS 的参数类型是编译的输入，缺了或对不上就出不了包。</p>\n",
@@ -73,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>传参的运行时语义一样：少给是 <code>undefined</code>、默认值只在传 <code>undefined</code> 时触发、\n每次调用重新求值 —— 这些本来就是同一套行为。ArkTS 多的是编译期的核对：\n实参类型不对、参数个数与类型对不上、想留一个没标类型的形参，都在出包前被拦下。\n换句话说，同一个调用在 JavaScript 里可能悄悄传错，在这里写的时候就过不去。</p>\n",
         "python": "<p>Python 支持关键字参数，调用方写 <code>f(b=3)</code> 就能跳过前面的位置；\nArkTS 只能按位置传，想要「具名」得自己收一个对象参数。\n默认值的求值时机也相反：Python 只在定义时求值一次（<code>def f(x=[])</code> 是著名的坑），\nArkTS 每次调用重新求值。可选参数两边都有，位置限制也一样（要放最后）。</p>\n",
@@ -99,7 +97,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><code>...nums</code> 收成真数组、调用处 <code>...xs</code> 把数组摊开，这些行为两边一致 ——\nArkTS 用的是同一套语法。差别在 rest 参数必须写出数组类型：\nJavaScript 的 <code>...nums</code> 不带类型也能跑，ArkTS 里 <code>nums: number[]</code>\n是签名的一部分，编译器拿它核对每一个实参。想先写一个不带类型的收参、\n事后再补，在这里编译不过，因为没有动态类型能兜住。</p>\n",
         "python": "<p>Python 用 <code>*args</code> 收成元组，另外还有 <code>**kwargs</code> 收关键字参数；\nArkTS 的 rest 收成数组，也没有对应 <code>**kwargs</code> 的写法 ——\n「一组可选的命名参数」要传一个对象。展开语法两边都有，\n但 ArkTS 的 rest 必须标好元素类型，Python 的 <code>*args</code> 不标也能跑。</p>\n",
@@ -125,7 +122,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>写法一致：<code>return</code> 给出返回值，不写就得到 <code>undefined</code>；想一次带回多个值\n就把它们装进一个数组或对象。差别在签名 —— ArkTS 要写出返回类型，\n于是「这条路径没返回值」「返回了别的类型」这类疏漏在编译期就被发现；\nJavaScript 里它只是悄悄变成 <code>undefined</code>，要等调用方用错才暴露出来。</p>\n",
         "python": "<p>Python 的 <code>return a, b</code> 是原生的多返回值（返回元组），调用方直接解包；\nArkTS 要把值装进一个数组再按下标取回，形状得自己约定。\n返回标注的性质也相反：Python 的标注只有类型检查器在意，写错了代码照跑；\nArkTS 声明了返回类型，就要求每条路径都给出符合类型的值，否则编译不过。</p>\n",
@@ -145,7 +141,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>闭包的机制两边完全一样 —— 函数记住定义处的外层变量，返回出去之后那些变量\n仍然存活，同一套语义、同一个运行时行为。ArkTS 在这里没有加任何新规则，\n唯一的差别落在类型上：回调的参数通常由上下文推出来，推不出来时才要写。\n所以这一格的 <code>identical</code> 是如实标注 —— 这个知识点本身没有差异。</p>\n",
         "python": "<p>Python 的闭包同样能记住外层变量，只是「在闭包里改外层」要显式写 <code>nonlocal</code>，\nArkTS 直接赋值即可。另一处差别是晚绑定：Python 循环里造的函数会共享\n同一个变量、最后都拿到末值，惯用解法是给函数加个默认参数把值固定住；\nArkTS 用 <code>let</code> 的循环变量每轮新建绑定，天然避开了这个坑。\n类型这一层仍是一边严一边松：ArkTS 的回调参数必须标类型，Python 不标也能跑。</p>\n",

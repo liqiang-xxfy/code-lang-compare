@@ -136,11 +136,6 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/SearchView.vue'),
   },
   {
-    path: '/attributions',
-    name: 'attributions',
-    component: () => import('@/views/AttributionsView.vue'),
-  },
-  {
     path: '/404',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),

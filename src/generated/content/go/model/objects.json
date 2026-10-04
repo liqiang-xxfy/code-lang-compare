@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>class</code> 把字段和方法包在一起；Go 用\n<code>type X struct</code> 定义数据、用带 receiver 的函数定义方法 ——\n两者在源码里是分开的，方法可以写在<strong>同一个包里的任何文件</strong>里。\n另一处根本差别：Go 的方法必须与类型在同一个包，\n不像 JavaScript 可以把方法挂到任何对象上。</p>\n",
         "python": "<p>Python 的类把属性与方法写在一起、实例可以随时加属性；\nGo 的类型与方法分开声明，而且字段在编译期固定 ——\n没有 <code>__dict__</code>、不能动态加字段。方法的 receiver\n相当于 Python 的 <code>self</code>，但它写在 <code>func</code> 关键字后、\n方法名之前，形态上是「给这个类型挂一个函数」。</p>\n",
@@ -47,7 +46,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>constructor</code> 关键字配 <code>new</code>；Go 没有构造器语法，\n惯例是写一个 <code>NewXxx</code> 函数返回 <code>*Xxx</code>。调用形态也不同：\n<code>NewAccount(&quot;Ada&quot;)</code> 就是一次普通函数调用，没有 <code>new</code> 运算符。\n另一处差别是 Go 的类型<strong>零值可用</strong> —— <code>var c Account</code> 之后\n直接能调方法，JavaScript 里 <code>new</code> 之前对象根本不存在。</p>\n",
         "python": "<p>Python 用 <code>__init__</code>（实例已存在后初始化）；Go 用\n<code>NewXxx</code> 工厂函数返回结构体或指针，没有两步过程。\nGo 还能直接用字面量 <code>Account{Owner: &quot;Ada&quot;}</code> 构造，\n这在 Python 里相当于 dataclass 的直接调用。\n零值可用也是 Go 特有的设计：<code>var c Account</code> 就是个合法可用的值。</p>\n",
@@ -73,7 +71,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的字段默认公开、<code>#</code> 才私有；Go 的字段<strong>默认包内私有</strong>，\n大写才导出 —— 默认值相反。Go 没有属性（getter/setter 拦截），\n也没有 <code>Object.defineProperty</code> 那套；想只读就写个 <code>Age()</code> 方法。\n最实际的一处是：Go 的 JSON 序列化<strong>只处理导出字段</strong>，\n小写字段会被静默忽略 —— JavaScript 的 <code>JSON.stringify</code>\n不会漏字段，但 Go 里字段名写小了就是数据丢失。</p>\n",
         "python": "<p>Python 的字段默认公开、<code>_x</code> 只是约定、<code>@property</code> 能拦截；\nGo 的字段默认私有且编译器强制，没有属性拦截这一层。\nGo 的导出规则还决定了序列化行为：小写字段不会被 JSON 编码，\n这在 Python 里没有对应陷阱（<code>dataclasses.asdict</code> 不看下划线）。\n两边都有「简单数据直接公开」的写法，Go 更常见。</p>\n",
@@ -104,7 +101,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的方法通过 <code>this</code> 拿到对象，改 <code>this.x</code> 一定改到原对象；\nGo 的 receiver 有两种，<strong>值 receiver 拿到的是副本</strong> ——\n在它里面改字段改不到调用方。这个区分是 Go 特有的，\n从 JavaScript 过来最容易写出「方法里改了但外面没变」的 bug，\n而且编译器不报错。惯例是：要改就用指针 receiver，类型上保持一致。</p>\n",
         "python": "<p>Python 的 <code>self</code> 永远是引用，改 <code>self.x</code> 一定改到原对象；\nGo 的 receiver 分值与指针两种，值 receiver 里改字段无效 ——\n这是从 Python 过来最需要养成的新习惯。判断方法：\nreceiver 带 <code>*</code> 才能改到原值。同一个类型上混用两种 receiver\n是允许的但会造成困惑，Go 社区建议统一。</p>\n",
@@ -124,7 +120,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有继承</strong> —— 没有 <code>extends</code>、没有原型链。\n复用靠<strong>嵌入</strong>：把一个类型作为匿名字段放进去，\n它的方法与字段被「提升」到外层，但这不是「是一种」的关系。\nJavaScript 的 <code>class B extends A</code> 在 Go 里对应的是\n<code>type B struct { A }</code> —— 差别是 B 并不是 A，\n传参给要 A 的地方不会自动成立。</p>\n",
         "python": "<p>Go <strong>没有继承</strong>，Python 的 <code>class B(A)</code> 没有对应语法。\n复用靠嵌入（匿名结构体字段），外层类型获得内层的方法与字段，\n但<strong>没有子类型关系</strong> —— 这与 Python 的继承有本质区别：\nPython 里 <code>isinstance(b, A)</code> 为真，Go 里 B 不是 A。\n需要「是一种」的关系时，Go 用接口（并且是隐式满足的）。</p>\n",
@@ -144,7 +139,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有两档：默认公开、<code>#</code> 真私有（类字段）。\nGo 也是两档（导出 / 包内私有），但<strong>判据是首字母大小写</strong>，\n而且作用范围是「包」而不是「类」—— Go 里没有类作用域。\n另一个 Go 独有的机制是 <code>internal/</code> 目录：路径里含 internal 的包\n只能被父目录子树导入，这是 JavaScript 里没有的语言级边界。</p>\n",
         "python": "<p>Python 的可见性全是约定（<code>_</code> / <code>__</code> 前缀），解释器不拦；\nGo 的导出由编译器强制，大小写写错就是编译不过。\n粒度上 Go 只有「包内 / 包外」两档，Python 连这两档都靠自觉。\nGo 还多一个 <code>internal/</code> 包约定，用目录位置表达「仅供内部使用」，\n比 Python 的命名约定硬得多。</p>\n",

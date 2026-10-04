@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>整数与浮点在 JavaScript 里是同一个 <code>number</code>，<code>7 / 2</code> 得 3.5 而不是 3；\nRust 的整数除法会截断，<code>7 / 2</code> 就是 3。更要紧的是溢出：\nJavaScript 的数字溢出会变成 <code>Infinity</code> 或悄悄丢失精度，\nRust 在 debug 构建下<strong>直接 panic</strong>，release 下回绕 ——\n想两种行为都不要，可以用 <code>checked_add</code> 拿到一个 <code>Option</code>。\n另外 Rust 没有 <code>++</code>，<code>i += 1</code> 才是唯一写法。</p>\n",
         "python": "<p>Python 的整数除法用 <code>//</code>、真除法用 <code>/</code>，两个运算符分得很清楚；\nRust 只有 <code>/</code>，结果取决于操作数是不是整数。溢出上差别最大：\nPython 的整数是任意精度的，永远不会溢出；Rust 的 <code>u8</code> 到 255 就到头了，\ndebug 构建下再加会 panic，所以它备了 <code>checked_</code> / <code>saturating_</code> /\n<code>wrapping_</code> 三套显式写法让你挑。</p>\n",
@@ -53,7 +52,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust 只有 <code>==</code> 一个相等运算符，没有 <code>===</code>：类型不同根本编译不过，\n所以「严格相等」这个概念没有存在的必要。对象比较上两边默认值相反 ——\nJavaScript 的 <code>==</code> 对对象比引用，两个内容相同的对象不相等；\nRust 的 <code>==</code> 由 <code>PartialEq</code> 决定，<code>String</code> 比的是内容，\n自定义类型 <code>derive(PartialEq)</code> 后逐字段比较。</p>\n",
         "python": "<p>Python 的 <code>==</code> 走 <code>__eq__</code>、默认比身份，可以重载；\nRust 的 <code>==</code> 走 <code>PartialEq</code> trait，一样可以自定义，\n但必须<strong>显式实现或 derive</strong>，不会默默继承出默认行为。\n浮点上两边一致：NaN 不等于自己。差别在 <code>is</code> ——\nPython 用 <code>is</code> 比身份，Rust 没有对应的运算符，\n要比地址得显式调 <code>std::ptr::eq</code>。</p>\n",
@@ -79,7 +77,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>&amp;&amp;</code> 与 <code>||</code> 返回的是<strong>操作数本身</strong>而不是布尔值\n（<code>a || b</code> 常被当成默认值语法用），Rust 的 <code>&amp;&amp;</code> / <code>||</code> 严格返回 <code>bool</code>。\n另一处是条件本身：JavaScript 的 <code>if</code> 接受任何值并做真值转换，\n<code>if (1)</code> 合法；Rust 的 <code>if</code> 只接受 <code>bool</code>，<code>if 1</code> 编译不过。\n想在 Rust 里表达「空则取默认」，得用 <code>Option</code> 的方法而不是 <code>||</code>。</p>\n",
         "python": "<p>Python 的 <code>and</code> / <code>or</code> 返回的是<strong>操作数本身</strong>而不是布尔值，\n还有一长串真值规则（空列表、0、&quot;&quot; 都是假）；Rust 的 <code>&amp;&amp;</code> / <code>||</code>\n只作用于 <code>bool</code>，没有任何真值转换 —— <code>if 1</code> 是编译错误。\n这意味着 Rust 代码里「这个值算不算有」必须显式写出来\n（<code>.is_empty()</code> / <code>.is_some()</code>），读的时候不必在脑子里跑一遍真值表。</p>\n",
@@ -99,7 +96,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript <strong>不支持运算符重载</strong> —— 对象相加只会走 <code>toString</code> 或 <code>valueOf</code>，\n得到字符串拼接或 NaN。Rust 的重载不是语言外挂，而是把运算符定义成 trait\n（<code>+</code> 就是 <code>std::ops::Add</code>），实现它即可。代价是 Rust 的 <code>+</code>\n会拿走左侧值的所有权 —— <code>String + &amp;str</code> 之后左边的变量就不能再用了，\n这是 JavaScript 里拼接字符串时完全不会遇到的事。</p>\n",
         "python": "<p>Python 用 <code>__add__</code> 这类双下方法重载运算符，Rust 用实现 std::ops 的 trait，\n思路一致，差别在<strong>约束</strong>：Rust 的 <code>Add</code> 要求两个操作数与返回值类型\n在 trait 上就写清楚，且不能重载出语言里不存在的运算符；\nPython 的 <code>__add__</code> 什么都能返回，包括 NotImplemented 这种特殊协议值。\n另外 Rust 的 <code>+</code> 默认按值传递，实现里经常要决定「拿走还是借用」。</p>\n",

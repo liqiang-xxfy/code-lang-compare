@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用一个关键字表明「我要引入一个名字」（<code>let</code> / <code>const</code> / <code>var</code>），\n而这个关键字还顺带决定了作用域与能不能改绑；PHP 没有这个位置 ——\n<code>$count = 0;</code> 既是引入也是赋值，作用域由「写在函数里还是函数外」决定。\n变量名两边都区分大小写，但 PHP 的<strong>函数名与类名不区分</strong>，\nJavaScript 区分 —— 同一门语言里两套规则是 PHP 特有的。\n读一个未定义的名字两边都不会中断脚本：JavaScript 得到 <code>undefined</code>，\nPHP 得到 <code>null</code> 外加一条 Warning。</p>\n",
         "python": "<p>两边都不用声明关键字 —— 赋值即引入名字，这一层完全一致。\n差别在名字的形态：Python 的名字是裸标识符，PHP 必须带 <code>$</code>，\n于是在字符串插值里 <code>&quot;$name&quot;</code> 与 <code>&quot;name&quot;</code> 是两件不同的事。\n另一处是大小写：Python 对变量、函数、类名一律区分；\nPHP 只对变量区分，函数与类名不区分。\n读未定义的名字差别最大：Python 直接抛 NameError，\nPHP 给 null 加一条 Warning，脚本继续往下跑。</p>\n",
@@ -73,7 +72,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都区分「名字能不能改绑」与「值能不能改」：PHP 的变量层完全没有前者\n（重新赋值随时可以），不可变性只出现在常量与 <code>readonly</code> 属性上；\nJavaScript 则把「不能改绑」做成了声明关键字（<code>const</code>）——\n但 <code>const</code> 的对象内部照样能改，这一点两边反而一致\n（<code>readonly</code> 也只防重新绑定）。\n差别在粒度：JavaScript 的 <code>const</code> 是<strong>变量级</strong>的，\nPHP 要拿到同样的效果只能靠常量或属性，普通变量没有对应写法。</p>\n",
         "python": "<p>两边对「可变」的态度接近：变量都是重新绑定，不可变只体现在值上。\n差别在不可变的<strong>做法</strong>：Python 靠类型本身（<code>tuple</code>、<code>str</code>、\n<code>frozenset</code>）表达不可变，改不了是因为那个类型没有改的方法；\nPHP 靠 <code>readonly</code> 这个<strong>修饰符</strong>，它约束的是「这个属性只能写一次」，\n与被存的值是什么类型无关。\n另一处是常量：两边都有模块级常量与类常量，Python 那边只是命名约定，\nPHP 的 <code>const</code> 是语言强制的。</p>\n",
@@ -124,7 +122,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这是两边差别最大的一格</strong>。JavaScript 的函数作用域里还套着块作用域\n（<code>let</code> / <code>const</code> 写在 <code>if</code> 里就出不来），PHP <strong>完全没有块作用域</strong> ——\n在 <code>if</code>、<code>for</code> 里赋的变量，出了块仍然在，而且没有 <code>let</code> 可用。\n另一处是「函数能不能看见全局」：JavaScript 的词法作用域让内层自动看得见外层，\n什么都不用写；PHP 必须显式 <code>global $total;</code> 或者走 <code>$GLOBALS['total']</code>，\n否则那只是一个同名的新变量（读它会报警告）。\n所以从 JavaScript 过来，最容易出的错是「以为函数里能直接读到外层变量」。</p>\n",
         "python": "<p>Python 有块作用域吗？严格说也没有（<code>if</code> 里的变量同样泄漏到外层），\n这一层两边一致。差别在「读到外层」的写法：\nPython 的函数能直接<strong>读</strong>外层与全局变量，只有<strong>赋值</strong>时才需要 <code>global</code>\n（而且是要写入才声明）；PHP 是<strong>读</strong>就需要 <code>global</code>，\n不声明就当作一个全新的局部变量，读它直接报警告。\n另一处是闭包捕获：Python 是自动的，PHP 要写 <code>use</code>。\n共同点是两边都只有两级作用域，都没有块级 <code>let</code> 那一路写法。</p>\n",
@@ -165,7 +162,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有「函数可以先调用后声明」，但细节不同。JavaScript 的\n<strong>函数声明</strong>整体提升（连函数体一起），<strong><code>var</code> 变量</strong>也提升但只是提升成\n<code>undefined</code>，<code>let</code> / <code>const</code> 则进暂时性死区。PHP 这边简单得多：\n<strong>变量没有任何提升</strong>（未赋值就是不存在，读它报警告），\n函数只在<strong>无条件定义</strong>时才能提前调用 —— 写在 <code>if</code> 里的必须先执行到。\n也就是说 JavaScript 的坑是「提升了一半」，PHP 的坑是「条件定义不提升」。</p>\n",
         "python": "<p>两边都没有提升：Python 读一个还没赋值的名字抛 NameError，\nPHP 给 null 加 Warning —— 都是「运行到那一行才存在」。\n差别在函数：Python 的 <code>def</code> 是<strong>语句</strong>，写在下面的函数在上面调不到；\nPHP 的无条件函数声明是<strong>在编译期就登记好的</strong>，所以可以先调用后定义。\n所以 PHP 这边反而多出一个 Python 没有的特性，\n而条件定义的函数又退回了「必须先执行到」的语义 —— 一个语言里两种行为。</p>\n",
@@ -191,7 +187,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格两边几乎对不上</strong>。JavaScript 的遮蔽主要发生在块作用域里\n（内层 <code>let x</code> 盖住外层 <code>x</code>），PHP 没有块作用域，同名就是同一个变量、\n直接改掉外层。PHP 这边真正的「遮蔽」只有三处：函数局部变量挡住同名全局、\n闭包的 <code>use</code> 造一个同名副本、trait 方法被类自己的方法盖住。\n也就是说那边「遮蔽」是个高频日常概念，这边是个边角概念 ——\n照 JavaScript 的直觉读 PHP 代码，会把「改到了外层」误读成「只改了内层」。</p>\n",
         "python": "<p>Python 那边「内层赋值会造出一个新变量」这件事在 PHP 里换成了一条 Warning：\nPHP 的函数里写 <code>$name = ...</code> 同样是造新变量，但<strong>读</strong>一个没声明的同名全局\n只会得到 Warning，而不是像 Python 那样有 <code>global</code> / <code>nonlocal</code>\n这套明确的声明机制（PHP 只有 <code>global</code>，没有 <code>nonlocal</code>）。\n另一处是闭包：Python 自动按词法捕获，遮蔽关系一眼可见；\nPHP 要写 <code>use ($x)</code>，而且<strong>默认按值</strong>——捕获的是副本，\n所以「改到了哪个」这件事在 PHP 里比 Python 更容易看错。</p>\n",
@@ -227,7 +222,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的命名规则强度不同。JavaScript 的标识符规则是硬性的\n（不能数字开头、不能有连字符），命名风格（camelCase / PascalCase）\n纯属约定；PHP 也一样，但它多一条硬性要求：变量<strong>必须带 <code>$</code></strong>。\n差别在「名字能长什么样」：JavaScript 的标识符可以用 <code>$</code> 和 <code>_</code> 开头\n也可以含 Unicode 转义，但主流实践是纯 ASCII；\nPHP 允许<strong>直接的 UTF-8 变量名</strong>，而且比较按字节来 ——\n这在前端项目里几乎见不到，在 PHP 里是合法的。</p>\n",
         "python": "<p>差别集中在风格而不是规则。Python 有官方背书且被工具强制的风格\n（PEP 8：<code>snake_case</code> 变量与函数、<code>PascalCase</code> 类、<code>UPPER_CASE</code> 常量），\n违反它基本过不了代码检查；PHP 的官方手册<strong>只对常量说过「约定全大写」</strong>，\n其余靠社区标准（PHP-FIG 的 PER Coding Style，取代了 PSR-12）。\n两边都允许非 ASCII 名字，但两边也都会因为「同形异码」分成两个名字。\n另一处是必须带 <code>$</code> —— Python 的名字是裸的，PHP 不是。</p>\n",

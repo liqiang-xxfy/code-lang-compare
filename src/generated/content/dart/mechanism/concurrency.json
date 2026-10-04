@@ -42,7 +42,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的「并发单元」最像的地方是<strong>都有一根主线程加事件循环</strong>，\n所以不阻塞主线程这件事两边都靠异步来做。\n区别在于真要多干活时：JavaScript 只能用 Worker，\n而 Dart 的 isolate 是语言内置的、API 更顺手\n（<code>Isolate.run</code> 一行就够，不用自己写消息协议）。\n另一处是<strong>浏览器里没有 isolate</strong> —— 编译到 web 的 Dart 与\nJavaScript 的处境一样，只能靠 Worker 或干脆别做并行。</p>\n",
         "python": "<p><strong>默认的并发模型差得远</strong>：Python 的 <code>asyncio</code> 是单线程协作式，\n要真并行得用多进程（<code>multiprocessing</code>）；Dart 的 isolate\n就是「轻量的独立执行单元」，而且默认就在同一个进程里。\n与多进程相比，Dart 起一个 isolate 便宜得多（不用真的开进程），\n但内存隔离这一点两者是一样的 —— 都要靠消息传数据。\n所以从 Python 过来时，可以把 isolate 理解成「更便宜的进程」。</p>\n",
@@ -73,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的<strong>默认处境几乎一样</strong>：主线程单跑，Worker / isolate 内存隔离，\n要共享就得走消息。所以从 JavaScript 过来时这一格几乎是平移 ——\n「共享可变状态」这个坑在两边都不存在\n（准确说，是在主线程里不会因为并行而出问题）。\n差别在 API 的顺手程度：Dart 的 <code>Isolate.run</code> 让「跑个纯函数拿结果」\n变得像一次普通调用，而 Worker 那边要自己搭消息协议。</p>\n",
         "python": "<p><strong>这一格两边差别很大</strong>：Python 的多线程是共享内存的，\n所以「加锁保护共享变量」是日常课题；Dart 的 isolate 内存隔离，\n这件事从根上不存在。\n但 Python 的 <code>asyncio</code> 下共享变量也不需要锁（协作式调度、\n只在 <code>await</code> 处切换），所以「要不要担心竞态」在 Python 里\n取决于你用哪套并发 —— 而 Dart 里不管用哪套都不用担心。\n这一条从 Python 过来最容易想多。</p>\n",
@@ -93,7 +91,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Dart <strong>没有互斥锁</strong>这类工具 —— 因为 isolate 之间没有共享内存，\n根本没有需要保护的东西。要「串行地改一份状态」，\n做法是<strong>把那份状态放进一个 isolate</strong>，别人通过消息请求它改，\n它的单线程事件循环天然保证了顺序。\n所以在 JavaScript 里不存在的东西，在这边同样不存在，\n但原因不一样：那边是没并行，这边是没共享。</p>\n",
         "python": "<p>Dart <strong>没有锁</strong>。Python 那边需要锁的场景有两种：\n多线程共享变量（<code>threading.Lock</code>）、以及\n<code>asyncio</code> 里保护跨 <code>await</code> 的临界区（<code>asyncio.Lock</code>）；\nDart 的 isolate 内存隔离，前者不存在，\n而单个 isolate 内部又是单线程事件循环，后者也不存在。\n要串行化就靠「把状态关进一个 isolate」这个设计手段。</p>\n",
@@ -124,7 +121,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的消息传递形状很像（<code>send</code> ↔ <code>postMessage</code>，\n发出去的都是拷贝或结构化克隆），连「转移所有权」这件事都对应\n（JavaScript 是 <code>postMessage</code> 的 transfer list 转移\nArrayBuffer，Dart 是 <code>TransferableTypedData</code>）。\n差别在<strong>能发什么</strong>：Dart 能直接发函数与闭包（2.15 起），\n也能发任意普通对象；JavaScript 那边受结构化克隆限制，\n函数发不了、类实例会丢原型。\n另一处是端口要自己关，JavaScript 那边靠 <code>close()</code> 或者 GC。</p>\n",
         "python": "<p>两边都是「跨隔离边界传消息」，但<strong>传的东西差别很大</strong>：\nPython 的多进程要用 <code>pickle</code> 序列化，很多对象根本发不了\n（打开的文件、lambda、本地类）；Dart 的 isolate 之间\n能发普通对象、函数与闭包，只排除持有本地资源的那些。\n所以 Dart 这边「把一段逻辑连同数据送过去」是可行的，\n那边往往要重新设计。代价是 Dart 的拷贝是<strong>传递式拷贝</strong>，\n对象图大时开销可观。</p>\n",
@@ -144,7 +140,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Dart <strong>没有原子类型</strong> —— 没有共享内存，也就没有「读-改-写\n被打断」这件事。单个 isolate 内部是单线程事件循环，\n一段同步代码不会被从中间切开。\n所以在 JavaScript 里派不上用场的东西，在这边同样派不上用场，\n而且理由相同：都没有真并行。</p>\n",
         "python": "<p>Dart <strong>没有原子类型</strong>。Python 那边需要它是因为多线程共享内存，\n而 <code>asyncio</code> 下的共享变量本来就不需要保护 ——\nDart 的处境与后者一致，并且是<strong>语言层面保证</strong>的，\n不取决于你选了哪套并发。\n所以从 Python 过来，「这里要不要加个原子操作」这个问题\n在 Dart 里可以直接划掉。</p>\n",

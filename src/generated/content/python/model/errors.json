@@ -26,7 +26,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>raise</code> <strong>只能抛异常类的实例</strong>（或类本身），抛字符串会当场 TypeError ——\n这一点让「异常一定有类型」成为语言保证。裸 <code>raise</code> 是「把当前正在处理的\n异常原样重新抛出」，只能在 <code>except</code> 块里用。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>throw</code> 什么都能抛（字符串、对象都合法），代价是接的一方\n可能拿到没有任何结构的值；Python 从语法层面堵死了这条路。</p>\n",
@@ -45,7 +44,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>except</code> 可以写多个分支、按类型依次匹配（第一个命中的生效），一个分支也能\n接多种类型。<strong>顺序有讲究</strong>：宽的类型写在前面会把窄的挡住。\n另有 <code>else</code> 分支表示「没出错时执行」—— 把「正常路径」与「异常路径」分开，\n比全塞进 <code>try</code> 里更清楚。兜底用 <code>Exception</code>（不要用 <code>BaseException</code>，\n那是给退出信号留的）。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有一个 <code>catch</code> 块，类型判断要手写 <code>instanceof</code>；\nPython 的 <code>except</code> 按类型分支，还多一个 <code>else</code>。\n两边不处理的异常都该原样抛出，Python 里裸 <code>raise</code> 就是干这个的。</p>\n",
@@ -64,7 +62,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>finally</code> 保证执行，但<strong>日常几乎不用手写</strong> —— <code>with</code> 语句是它的标准替代：\n上下文管理器在 <code>__exit__</code> 里做清理，即使块里抛异常也保证跑到，\n而且能正确处理「清理本身又出错」的情况。涉及资源（文件、锁、连接）时\n优先用 <code>with</code>。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有手写 <code>try/finally</code>，没有 <code>with</code> 这样的语言级机制\n（那个 <code>with</code> 是完全不同的、已被弃用的东西）。Python 的上下文管理器\n是「资源管理」这件事的一等写法。</p>\n",
@@ -83,7 +80,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>异常是一棵<strong>语言自带的层级树</strong>：根是 <code>BaseException</code>，业务代码只该继承\n<code>Exception</code>，<code>SystemExit</code> / <code>KeyboardInterrupt</code> 那几支是给解释器退出用的，\n接住它们会让 Ctrl-C 失效。标准库为各类问题都定义了具体类型\n（<code>FileNotFoundError</code>、<code>KeyError</code>…），所以「按类型接」在 Python 里非常好用。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的标准错误类型只覆盖引擎自身的错误（类型、范围、语法…），\n文件与网络错误<strong>没有</strong>标准类型；Python 的标准库为这些场景定义了完整层级。\n所以 Python 里 <code>except FileNotFoundError</code> 写得出来，那边只能自己判断。</p>\n",
@@ -102,7 +98,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>继承 <code>Exception</code> 定义即可 —— <strong>类名就是类型名</strong>，<code>except MyError</code> 直接可用，\n不用像别的语言那样手动登记或改名字。惯例是给一个应用定义共同的基类\n（<code>class AppError(Exception)</code>），这样调用方能一次接住自家所有异常。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 要 <code>super(message)</code> 再手动把 <code>name</code> 改对，转译后还要操心\n<code>instanceof</code>；Python 什么都不用做，类名即类型名。</p>\n",
@@ -121,7 +116,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>异常沿调用栈<strong>自动冒泡</strong>，不写 <code>except</code> 就等于往上抛。要加一层上下文就用\n<code>raise X from e</code> —— 它把原来的异常记成 <code>__cause__</code>，打印时两段堆栈都在，\n排查时不会丢掉根因。函数签名上看不出会不会抛（除了类型标注里的\n<code>-&gt; NoReturn</code> 之类），这一点要靠文档。</p>\n",
       "vsHtml": {
         "javascript": "<p>两边都是「不接就冒泡」，都用显式的包装保留原因（那边是 <code>cause</code> 字段）。\n差别在未处理的异常：Python 会让程序终止并打印完整堆栈，\nJavaScript 的未处理 promise 拒绝默认只是一条警告。</p>\n",

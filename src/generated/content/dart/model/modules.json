@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的私有单位不同：JavaScript 的 <code>#</code> 前缀是<strong>类级</strong>私有，\n一个文件里的其他类也碰不到；Dart 的 <code>_</code> 是<strong>库级</strong>私有，\n同一个库（通常就是一个文件）里的任何代码都能访问。\n所以 Dart 里两个类互相调私有方法是正常的，JavaScript 里那要报错。\n共同点是两边都没有 <code>private</code> 这个关键字 —— 都用一个符号表达。</p>\n",
         "python": "<p>两边的下划线是同一套写法，<strong>分量却不同</strong>：\nPython 的 <code>_</code> 纯属君子协定，没有任何作用域含义 ——\n跨模块访问 <code>obj._x</code> 照样能拿到，只是不礼貌；\nDart 的 <code>_</code> 有明确的语义，它划的界是<strong>库</strong>，\n跨库访问直接编译不过。\n所以同样是「下划线开头」，一边是给人看的提示，\n一边是编译器执行的规则 —— 这在迁移时是最容易低估的一处。</p>\n",
@@ -47,7 +46,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有具名导入与别名，但<strong>方向多了一条</strong>：\nJavaScript 有 <code>export ... from</code>（转出），Dart 的 <code>export</code> 与之接近；\n差别在 Dart 的 <code>export</code> 是<strong>给使用者看的</strong>，对当前文件没有任何作用 ——\n写起来像导入，其实是「替下游开门」。\n另一处是过滤：JavaScript 导入什么就是全部可用，\nDart 能用 <code>show</code> / <code>hide</code> 在导入处裁剪，不用改被导入的库。</p>\n",
         "python": "<p>两边的选择性导入手段不同：Python 在<strong>被导入方</strong>用 <code>__all__</code>\n控制「星号导入能拿到什么」，在导入方只能用 <code>from x import a, b</code> 一个个列；\nDart 反过来 —— 在<strong>导入方</strong>用 <code>show</code> / <code>hide</code> 直接裁剪，\n被导入的库不用配合。所以 Dart 的导入行往往更长，\n但读一行就知道这个文件用了哪些名字。</p>\n",
@@ -67,7 +65,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有「默认导出」这一档 —— 一个模块只能有一个，\n导入时可以随便起名，于是同一个东西在不同文件里叫不同的名字；\nDart 完全没有这个机制，所有对外的名字都固定，\n想改名只能在自己这边用 <code>as</code> 起前缀。\n另一处是控制公开面的方式：JavaScript 靠「导不导出」，\nDart 靠「有没有下划线」加「入口文件导出哪些」。</p>\n",
         "python": "<p>两边都是「按名字」，没有默认导出 —— 这一层可以对应。\n差别在<strong>控制手段</strong>：Python 用下划线表示「别导入我」，\n但这只是约定，<code>from x import _y</code> 照样能拿到；\nDart 的下划线是硬约束，跨库导入编译不过。\n另一处是控制范围的单位：Python 用 <code>__all__</code>（一个模块级列表），\nDart 用入口文件里的 <code>export</code> 行 ——\n前者在库自己身上，后者在调用者的入口处。</p>\n",
@@ -93,7 +90,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>import * as ns</code> 会造出一个<strong>真的命名空间对象</strong>，\n能当值传递、能遍历它的键；Dart 的 <code>as</code> 前缀只影响<strong>名字解析</strong>，\n编译之后就没了，不是一个可以传递的对象。\n另一处是类型别名：JavaScript 没有类型，自然也没有 typedef；\n类型只活在编辑器与文档里。</p>\n",
         "python": "<p>两边都能给导入起别名（<code>import numpy as np</code> ↔ <code>import ... as x</code>），\n而且都只影响名字、不产生对象 —— 这点一致。\n差别在类型别名：Python 的类型别名就是一次赋值\n（<code>Handler = Callable[[str], None]</code>），运行期是个变量；\nDart 的 <code>typedef</code> 是语言级声明，编译器认它、也能写进签名。\n共同点是两边都<strong>不产生新类型</strong>，<code>Handler</code> 与那个函数类型完全等价。</p>\n",
@@ -113,7 +109,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有相对路径与包名两种导入，解析规则接近。\n差别在<strong>包从哪来</strong>：JavaScript 的 <code>node_modules</code> 是逐级向上找的，\n同一份代码在不同深度可能解析到不同副本；\nDart 的包由一份生成的清单（<code>package_config.json</code>）统一决定，\n全局只有一份映射，所以不会出现「两个版本同时存在」那种局面。\n另一处是延迟加载：JavaScript 的 <code>import()</code> 到处都能用，\nDart 的 deferred 是编译期声明的，且只在 web 目标上有效。</p>\n",
         "python": "<p>这一格两边差别明显：Python 的导入路径<strong>就是</strong>文件系统路径，\n所以 <code>sys.path</code>、虚拟环境、包目录结构都是日常话题；\nDart 的 <code>package:</code> 导入解析到<strong>逻辑包名</strong>，与文件在哪无关，\n由一份生成的映射决定。\n相对导入两边都有，而且都相对于当前文件 —— 这一点一致。\n另一处是 Dart 那套「实现放 lib/src、入口再导出」的约定，\nPython 里对应的是下划线模块名与 <code>__all__</code>，但约束力弱得多。</p>\n",

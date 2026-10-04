@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格两边正好相反</strong>。JavaScript 的划分是按<strong>类型种类</strong>：\n基本类型（数字、字符串、布尔）按值，对象与数组按引用 ——\n数组属于后者，所以 <code>const b = a; b.push(3)</code> 会改到 <code>a</code>。\nPHP 的数组是<strong>值</strong>，只有对象才是句柄 ——\n也就是说「数组传进函数改不到外面」在 PHP 里是默认行为\n（要加 <code>&amp;</code>），在 JavaScript 里反倒要刻意复制才做得到。\n另一处是 <code>&amp;</code>：JavaScript 完全没有「别名」这个机制，\n变量之间要么各存各的要么指向同一对象；PHP 的 <code>&amp;</code> 能让\n两个名字共享同一块存储，这是那边没有的能力（也是那边没有的坑）。</p>\n",
         "python": "<p><strong>两边的默认值正相反</strong>。Python 里<strong>一切都是引用</strong>：\n<code>b = a</code> 让两个名字指向同一个对象，<code>b.append(3)</code> 会改到 <code>a</code>，\n要复制得显式 <code>a.copy()</code>。PHP 的数组赋值就是复制，\n要共享反而要写 <code>$c = &amp;$a</code>。\n所以从 Python 过来最容易出的错是「以为函数改到了外面的数组」——\n实际改的是副本，函数返回后什么都没发生，而且不报错。\n共同点是两边的自定义对象都是引用语义，只有容器不同；\n另一处是 Python 有可变 / 不可变类型的区分（tuple 与 list），\nPHP 的数组只有一种，可变性不体现在类型上。</p>\n",
@@ -63,7 +62,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是 GC，但<strong>机制与后果完全不同</strong>。JavaScript 是\n标记清除式的 tracing GC：对象什么时候被回收<strong>没有保证</strong>，\n<code>FinalizationRegistry</code> 的回调时机不确定。\nPHP 是<strong>引用计数</strong>：非环对象在计数归零那一刻<strong>确定性地</strong>析构，\n于是「文件句柄、数据库连接在对象消失时立刻关掉」在 PHP 里\n是可靠的行为 —— 那边要靠 <code>try/finally</code> 或者显式 close。\n代价是 PHP 需要额外的<strong>周期回收器</strong>处理环，\n而环里的对象析构时机又变回不确定 —— 也就是说 PHP 这边\n「有没有环」决定了析构是确定的还是不确定的，这个分界线那边不存在。</p>\n",
         "python": "<p>两边都用引用计数（这是两者最像的地方），\n而且都有「环要靠额外的回收器」这个补充机制\n（Python 的 <code>gc</code> 模块 ↔ PHP 的周期回收器）。\n差别在<strong>析构的语义与可靠性</strong>：Python 的 <code>__del__</code>\n在有环时可能永远不被调用，而且它与 GC 的交互历史上有过麻烦；\nPHP 的 <code>__destruct</code> 在非环场景下是<strong>确定</strong>的，\n官方也明确说了成环时要靠回收器。\n另一处是控制粒度：Python 的 <code>gc</code> 可以按「代数」调、\n能冻结对象；PHP 只有开关与「强制跑一遍」两个动作，\n外加一个固定大小的候选根缓冲区。</p>\n",
@@ -89,7 +87,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都没有所有权概念 —— 这一格其实可以对应，\n因为 JavaScript 里也没有「移交后原变量失效」这种事。\n差别在<strong>别名</strong>：JavaScript 里两个变量可以指向同一个对象\n（那是共享引用），但<strong>做不到</strong>「两个变量共享同一块存储、\n改一个另一个的名字也跟着变」—— 数组元素与对象属性级别做不到。\nPHP 的 <code>&amp;</code> 能做到，这是那边完全没有的机制，\n也带来那边没有的坑（比如函数签名里漏写 <code>&amp;</code> 导致改了个寂寞）。\n共同点是两边的内存安全都靠运行时（GC / 引用计数），\n不靠类型系统。</p>\n",
         "python": "<p>两边都没有所有权，都是引用计数式的自动内存管理，\n连「<code>del</code> 只是去掉一个名字」这一点都一样\n（Python 的 <code>del x</code> 与 PHP 的 <code>unset($x)</code> 语义相同）。\n差别在<strong>别名</strong>：Python 没有 <code>&amp;</code>，两个名字指向同一对象\n但你不能让一个「基本类型变量」变成另一个的别名\n（<code>y = x</code> 对 int 是复制值）。\nPHP 的 <code>$ref = &amp;$data</code> 是真正的共享存储，Python 里没有对应写法 ——\n最接近的是把值装进可变容器再共享那个容器。\n共同点是两边都不会出现「用了已释放的对象」这类错误。</p>\n",
@@ -135,7 +132,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的生命周期都由运行时决定，都没有编译期标注 ——\n这一层一致。差别在<strong>什么时候能知道对象要没了</strong>：\nJavaScript 完全没有保证，闭包捕获、事件监听、定时器\n造成的「意外留存」要靠开发者工具的内存快照去找；\nPHP 在非环场景下是<strong>确定</strong>的（计数归零就析构），\n所以「这个对象什么时候被释放」是可推理的。\n另一处是 <code>$this</code> 的自动绑定：JavaScript 的箭头函数\n也会捕获外层 <code>this</code>，同样可能拖住对象 —— 这一点两边像；\n但 PHP 有个 <code>static function</code> 能显式切断，JavaScript 没有对应写法。</p>\n",
         "python": "<p>两边的生命周期都归引用计数管，连「意外留存」的成因都像：\nPython 里闭包捕获、循环引用、全局缓存都会延长寿命，\nPHP 里也一样。差别在<strong>怎么切断</strong>：\nPython 用 <code>weakref</code> 模块（<code>weakref.ref</code> / <code>WeakValueDictionary</code>），\nPHP 用 <code>WeakReference</code> / <code>WeakMap</code> —— 两边都只能弱引用<strong>对象</strong>，\n标量与不可变值不行，这一点也一致。\n另一处是析构时机：Python 的 <code>__del__</code> 在有环时可能不调用，\nPHP 的 <code>__destruct</code> 在非环时确定调用 —— PHP 更可预测。</p>\n",
@@ -186,7 +182,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有 <code>WeakMap</code> / <code>WeakSet</code>，用途与 PHP 的 <code>WeakMap</code> 一样\n（键是弱引用、对象消失条目就没了），而且同样<strong>只能以对象为键</strong> ——\n这一格两边高度对应，连限制都一样。\n差别在 <strong><code>WeakReference</code> 这个单点弱引用</strong>：\n那边没有对应的东西（<code>WeakRef</code> 是较新才有的），\n想「记着一个对象但不拖住它」通常只能靠 WeakMap 绕。\nPHP 从 7.4 起就有 <code>WeakReference::create()</code>，用起来更直接。\n另一处是可枚举性：那边的 WeakMap 不可枚举（拿不到键列表），\nPHP 的 <code>WeakMap</code> 实现了 <code>IteratorAggregate</code>，可以遍历 ——\n这一点 PHP 更方便，但也更容易写出「遍历时条目消失」的代码。</p>\n",
         "python": "<p>Python 的 <code>weakref</code> 模块提供同样的能力，而且更细：\n<code>weakref.ref</code>（单点）、<code>WeakValueDictionary</code>（值是弱的）、\n<code>WeakSet</code>、还能给对象挂回调（对象被回收时触发）。\nPHP 只有两件：<code>WeakReference</code>（单点）与 <code>WeakMap</code>（键是弱的）——\n<strong>没有「值是弱的」那种字典</strong>，也没有回收回调。\n共同点是两边都<strong>只能弱引用对象</strong>：Python 的 <code>weakref.ref(42)</code> 会抛\nTypeError（int 不支持弱引用），PHP 的 <code>WeakReference::create(42)</code>\n同样抛 TypeError —— 这条限制完全一致。</p>\n",

@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是「有没有类型参数」的直接对比</strong>：JavaScript 完全没有\n—— 想写一个通用的 <code>twice</code>，只能靠运行时判断类型或干脆不管，\n类型信息在函数体里是看不见的。C++ 的模板让编译器给每种实参\n<strong>各生成一份代码</strong>，所以 <code>twice(1)</code> 与 <code>twice(1.5)</code> 真的是两个函数\n（这也是它能做「编译期鸭子类型」的底气）。\n另一处是书写成本：C++ 的模板要写 <code>template &lt;typename T&gt;</code>，\n而且定义必须放在头文件里让用的人都看得见 —— 这条约束在\nJavaScript 里不存在（函数在哪都能调）。</p>\n",
         "python": "<p>两边都能写「通用的函数」，但<strong>一个只在检查器里、一个真的生成代码</strong>：\nPython 的 <code>TypeVar</code> 是给类型检查器看的标注，运行期完全不存在；\nC++ 的模板是编译器真的按实参展开的，<code>Box&lt;int&gt;</code> 与 <code>Box&lt;double&gt;</code>\n在目标文件里是两段互不相干的代码。\n另一处是定义位置的要求：Python 的函数在哪定义都能被找到，\nC++ 的模板定义必须让使用它的编译单元看见（通常写在头文件里），\n否则是链接错误 —— 这条约束对没接触过 C++ 的人很反直觉。</p>\n",
@@ -57,7 +56,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有约束这一层，函数里对参数的假设只能靠文档或运行时判断；\nC++ 的约束是编译器真的会检查的（实跑确认：不满足就编译不过，\n报错信息里直接写明要求）。<strong>但两边的差别不只是「有没有检查」</strong>：\nC++ 的约束还决定<strong>能不能调用</strong> —— 不满足 concept 的函数\n根本不进候选集，所以同一个函数名可以靠不同约束做重载分发。\n这是 JavaScript 里做不到的（那边只能写一个函数、在体内分支）。</p>\n",
         "python": "<p>Python 用 <code>TypeVar('T', bound=...)</code> 表达约束，但那只对类型检查器\n有意义、运行时不强制；C++ 的 concept 是编译器硬要求，\n不满足直接编译不过。另一处是<strong>约束写在哪</strong>：\nPython 的约束在类型变量定义处，与函数分开；\nC++ 的 concept 可以就地写在模板参数上\n（<code>template &lt;Comparable T&gt;</code> 或 <code>void f(Quacker auto&amp;)</code>），读起来更近。\n共同点是两边都让「函数对参数的要求」成了可以写下来的东西 ——\n一个给检查器，一个给编译器。</p>\n",
@@ -103,7 +101,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都「没有型变」这个词，但原因不同：JavaScript 根本没有\n元素类型这个概念（数组里什么都能放），所以「能不能那样赋值」\n这个问题不存在；C++ 有元素类型，而模板又是单态化的 ——\n<code>vector&lt;int&gt;</code> 与 <code>vector&lt;double&gt;</code> 是两个<strong>毫无关系的类型</strong>，\n赋值直接编译不过。另一处是 C++ 里唯一带点「协变」味道的地方\n是<strong>指针与继承</strong>（派生类指针能当基类指针用），\n那来自继承而不来自模板 —— 而那条路在 C++ 里是允许的，\n也是「对象切片」那一类坑的源头。</p>\n",
         "python": "<p>两边的处境差得比较远：Python 的类型检查器把列表当<strong>不变</strong>\n（<code>list[int]</code> 不是 <code>list[float]</code>），但那是检查器的选择，\n运行期根本不检查；C++ 的 <code>vector&lt;int&gt;</code> 与 <code>vector&lt;double&gt;</code>\n是<strong>真的不同的类型</strong>，赋值是编译错误、运行时也真的不能混。\n另一处是 C++ 里有 <code>const</code> 这一层能加限定\n（<code>vector&lt;int&gt;</code> 能转成 <code>vector&lt;int&gt; const&amp;</code>），\n但那是加只读，不是型变。</p>\n",
@@ -154,7 +151,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边运行期都<strong>没有类型参数</strong>这个概念，但原因完全不同：\nJavaScript 本来就没有类型参数（函数不区分元素类型）；\nC++ 的模板参数在编译期就已经「用完就没了」—— 生成好的代码里\n没有它，问不出来。所以两边都无法「先写一段处理 <code>List&lt;int&gt;</code>\n的代码，再在运行时判断这个列表是不是整数列表」。\n另一处是 C++ 里有<strong>主动的类型擦除</strong>手法（<code>std::function</code> / <code>std::any</code>）\n作为设计选择，JavaScript 不需要 —— 那边一切都是动态的。</p>\n",
         "python": "<p><strong>两边的运行期信息量差得很远</strong>：Python 的泛型实参在运行期\n<strong>看得见</strong>（<code>list[int]</code> 这个类型对象上带着 <code>__args__</code>，\n可以翻出来），因为那些类型对象是真的存在的东西；\nC++ 的模板实参编译完就没了，<code>typeid</code> 只给你一个整体类型的\n修饰名，而且拿它分支必须先写死目标类型。\n所以 Python 里「按泛型实参做点事」写得出来，C++ 里写不出来 ——\nC++ 那件事必须在编译期用 <code>if constexpr</code> 做完。</p>\n",

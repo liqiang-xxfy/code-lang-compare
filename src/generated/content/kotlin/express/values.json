@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有一种数字类型，<code>1</code> 与 <code>1.0</code> 是同一个值；\nKotlin 在源码层面就把整数与小数分开（<code>Int</code> / <code>Long</code> / <code>Double</code> / <code>Float</code>），\n而且每个都有自己的字面量后缀。另一处更明显的差别是<strong>单引号</strong>：\nJavaScript 里 <code>'a'</code> 就是字符串，Kotlin 里它是 <code>Char</code>，\n不能和字符串混用（<code>c + 1</code> 得到的是字符而不是拼接）。\n还有 <code>undefined</code> —— Kotlin 没有这个值，只有 <code>null</code>，详见本组第三格。</p>\n",
         "python": "<p>两边的数字字面量都很丰富（下划线分隔、十六进制与二进制前缀都在）。\n注意那边<strong>没有 <code>L</code> 后缀</strong> —— 那是 Python 2 的东西，3 里整数只有一种。\n差别在<strong>类型有几档</strong>：Python 的 <code>int</code> 是任意精度，多大都不会溢出；\nKotlin 的 <code>Int</code> 是 32 位、<code>Long</code> 是 64 位，超了就静默回绕。\n另一处是单引号与双引号：Python 里两者完全等价，都是字符串；\nKotlin 的单引号是 <code>Char</code> —— 一个独立的类型，\n这正是从 Python 过来时最容易写错的一处。</p>\n",
@@ -58,7 +57,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有「推断出什么类型」这个问题 —— 变量里放的就是值本身，\n它是什么类型全看当前装着什么，下一个语句就能换。\nKotlin 的推断是<strong>一次性定死</strong>的：<code>val x = 1</code> 之后 x 就是 <code>Int</code>，\n永远不可能变成字符串。所以两边的 <code>const x = 1</code> 看起来一样，\n一边是「这个名字以后都指向这个值」，一边是「这个名字的类型已经定了」。</p>\n",
         "python": "<p>两边都能从初值推断，写起来很像。差别在<strong>推断的时机与后果</strong>：\nPython 的标注与推断只对类型检查器有意义，运行时不看，\n所以 <code>x = 1</code> 之后再 <code>x = &quot;文本&quot;</code> 完全合法；\nKotlin 的推断是编译器的结论，之后再赋别的类型直接编译不过。\n另一处是 <code>null</code>：Python 的 <code>None</code> 随时能赋给任何变量，\nKotlin 里 <code>val n = null</code> 虽然合法，但会推成 <code>Nothing?</code>（只有一个值），\n想得到能装别的东西的 <code>String?</code> 必须显式写出来 —— 推断在这件事上帮不上忙。</p>\n",
@@ -84,7 +82,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有两个「空」——<code>null</code> 与 <code>undefined</code>，而且几乎所有位置\n都同时接受两者，判断时得写 <code>x == null</code> 才能一并盖住。\nKotlin 把它们合并成一个 <code>null</code>，并且要求类型里写明可空，\n所以「这里可能是空的」是能从签名读出来的事实，不是要靠调用方猜。\n代价是刚从 JavaScript 过来会觉得到处都在要求判空。</p>\n",
         "python": "<p>Python 的 <code>None</code> 是唯一的空值，这点与 Kotlin 一致。\n差别在<strong>类型系统管不管</strong>：Python 的 <code>None</code> 可以赋给任何变量，\n忘了判就等 AttributeError；Kotlin 把「可能为空」编码进类型，\n不处理就编译不过。另外「字典取不到的键」两边行为不同 ——\nPython 抛 <code>KeyError</code>，Kotlin 的 <code>Map</code> 给 <code>null</code>，\n所以那边的 <code>try/except</code> 在这边是一次判空。</p>\n",
@@ -120,7 +117,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的转换大量是隐式的，靠运算符或 <code>Number()</code> 触发，\n失败时给 <code>NaN</code> 这种哨兵值，程序接着往下跑；\nKotlin 一律要求写出方法名，类型不对编译期就拦下来。\n两边都有一处「静默出错」的角落：JavaScript 是 <code>NaN</code> 传染，\nKotlin 是窄化转换（<code>toByte()</code> / <code>toInt()</code>）超范围时静默截断 ——\n后者更隐蔽，因为结果看起来是个正常数字。</p>\n",
         "python": "<p>两边都要显式转换（<code>int(x)</code> / <code>x.toInt()</code>），形状一致。\n差别在<strong>整数不会溢出这件事</strong>：Python 的整数是任意精度，\n<code>int(1e30)</code> 得到的是那个大数；Kotlin 的 <code>Int</code> 只有 32 位，\n转换与运算都可能静默回绕。另一处是解析失败：\nPython 抛 <code>ValueError</code>，Kotlin 除了一样的异常还有个 <code>toIntOrNull()</code>\n直接把失败变成 <code>null</code>，配合 Elvis 一行就能给出兜底值。</p>\n",

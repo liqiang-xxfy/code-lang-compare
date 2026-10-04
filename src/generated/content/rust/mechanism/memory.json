@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>这是 Rust 最需要重新学的一处：JavaScript 里赋值永远不改变原变量的可用性，\nRust 里 <code>let b = a;</code>（a 是 <code>String</code>）会<strong>移动</strong>所有权，a 之后不能再用。\n想两边都能用就得写 <code>&amp;a</code>（借用）或 <code>a.clone()</code>（复制）。\n数值、布尔这类实现了 <code>Copy</code> 的类型不受影响，仍然像 JavaScript 那样复制。\n好处是「谁负责释放」从不需要讨论 —— 编译器知道。</p>\n",
         "python": "<p>Python 的赋值是加一个引用，对象由 GC 管；Rust 的赋值默认<strong>转移所有权</strong>，\n原变量立即失效。这是从 Python 过来最需要改的直觉：\n<code>let b = a</code> 之后 a 不再是「另一个名字」，而是「已经不存在」。\n想保留两个入口就写 <code>&amp;a</code>（不可变借用）或 <code>a.clone()</code>。\n收益是释放时机确定、没有 GC 停顿，代价是要显式表达别名意图。</p>\n",
@@ -47,7 +46,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust <strong>没有垃圾回收器</strong>。内存的释放时机由编译器在编译期算出来：\n值的所有者离开作用域，析构函数就在那里被插入执行。\n所以运行时不扫描、不暂停、也不需要一个运行时来管理堆。\nJavaScript 的对象什么时候被回收完全不可知，Rust 里\n「这块内存什么时候还」在源码上就能指出来。</p>\n",
         "python": "<p>Rust <strong>没有垃圾回收器</strong> —— 不用引用计数做主力（<code>Rc</code> / <code>Arc</code>\n是显式选择，普通值不走这条路），也没有循环收集器。\n释放点由作用域决定，编译期就写进代码里。\nPython 里 <code>del</code> 或离开作用域的判断依赖引用计数与分代回收，\n时机不可精确预测；Rust 里是确定的、没有运行时开销。</p>\n",
@@ -78,7 +76,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有所有权概念 —— 同一个对象可以被任意多个变量引用，\n谁都能改、什么时候释放由 GC 决定。Rust 把这件事变成了<strong>编译期规则</strong>：\n每个值有一个所有者，借用可以有很多个（只读）或者恰好一个（可写），\n两者不能同时存在。所以 JavaScript 里「遍历数组时又修改它」\n这种难查的 bug，在 Rust 里根本写不出来。</p>\n",
         "python": "<p>Python 的引用可以随便复制、随便改，对象由引用计数 + GC 管理；\nRust 用「一个所有者 + 借用规则」在编译期保证内存安全。\n最实际的差别是：Python 里 <code>for x in xs: xs.append(...)</code>\n会产生诡异行为但不报错，Rust 里同样的代码编译不过。\n读 Rust 代码时看到 <code>&amp;</code> 与 <code>&amp;mut</code> 就已经知道「这里能不能改」。</p>\n",
@@ -98,7 +95,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有生命周期这个概念 —— 对象由 GC 保活，\n「这个引用还有效吗」不可能成为问题。Rust 里引用不持有所有权，\n所以编译器必须知道它指向的数据活得够不够久；\n这个信息在签名里写成 <code>'a</code>。多数情况下编译器能自动推导，\n只有「多个输入、一个输出」时才会让你写出来 ——\n写出来的那一次，正是需要向编译器解释「返回的引用借的是谁」。</p>\n",
         "python": "<p>Python 的对象活到没人引用为止，没有「引用可能悬垂」这回事；\nRust 的引用必须证明活得不比数据长 —— 证据就是生命周期参数。\n从 Python 过来会觉得这是额外的负担，但它解决的是\nGC 语言里根本不存在的问题（悬垂指针），\n所以只在 Rust 里需要表达。<code>'static</code> 是其中最简单的一种：\n活得和程序一样长。</p>\n",
@@ -118,7 +114,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 GC 能回收循环引用（可达性分析），所以\n「弱引用」只是可选工具（<code>WeakMap</code> / <code>WeakRef</code>），用来做缓存或不影响回收。\nRust 的 <code>Rc</code> 是<strong>引用计数</strong>，循环引用会永久泄漏 ——\n所以 <code>Weak</code> 不是可选的优化，而是打破环的必需工具。\n用法也不同：JavaScript 的 WeakMap 键是弱引用，\nRust 的 <code>Weak::upgrade()</code> 返回 Option，要在每次使用时判断对象还在不在。</p>\n",
         "python": "<p>Python 有循环 GC，循环引用一般能被回收，<code>weakref</code> 是可选的\n（常用于缓存与观察者）；Rust 的 <code>Rc</code> 是纯引用计数，\n环一定泄漏，<code>Weak</code> 是打破环的标准手段。\n取用方式也不同：Python 的 <code>weakref.ref(x)()</code> 返回对象或 None，\nRust 的 <code>weak.upgrade()</code> 返回 <code>Option&lt;Rc&lt;T&gt;&gt;</code>——\n两边都要处理「对象已经没了」，形态几乎一样。</p>\n",

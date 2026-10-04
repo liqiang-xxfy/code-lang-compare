@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有官方包管理器（npm ↔ SwiftPM），这一层结构一样。\n差别在<strong>分发形态</strong>：npm 装的是<strong>打包好的产物</strong>\n（谁都能用的 JS 文件），装完就能跑；\nSwiftPM 拉的是<strong>源码</strong>，要跟你的代码一起编译 ——\n所以首次构建时间长得多，但换来的是没有 ABI 兼容问题。\n另一处是<strong>仓库的归属</strong>：JavaScript 有中心化的 npm registry\n（<code>npm publish</code> 一条命令发出去）；Swift 的包就是 git 仓库本身，\n没有中心仓库，靠 URL 引用 —— 也就没有「包名被抢注」这类问题，\n但发现和搜索难得多。</p>\n",
         "python": "<p>两边都有官方包管理器（pip ↔ SwiftPM），但<strong>装的是什么</strong>不同：\nPython 从 PyPI 下的是 wheel（预编译）或 sdist，\n装完 import 就能用；Swift 下的是源码，要参与编译。\n另一处是<strong>清单的形态</strong>：Python 的 <code>pyproject.toml</code> 是声明式的\n（TOML），工具读它就行；Swift 的 <code>Package.swift</code> 是\n<strong>一段可执行的 Swift 代码</strong> —— 能写 if/循环、\n能按平台算依赖，灵活但也意味着「看清单要会读代码」。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都得声明依赖，但<strong>清单的性质完全不同</strong>：\nJavaScript 的 <code>package.json</code> 是<strong>数据</strong>（JSON），\n工具读它就够了；Swift 的 <code>Package.swift</code> 是<strong>可执行代码</strong> ——\n能写 if、能循环、能按平台算。灵活，但也意味着\n清单的正确性要跑一遍才知道（而不是像 JSON 那样\n结构错了立刻报）。\n另一处是<strong>依赖的可见范围</strong>：npm 装了包就是整个项目可见；\nSwiftPM 的依赖是<strong>按 target 声明</strong>的，写清楚哪个模块用哪个 ——\n也就是说「这个文件能用什么」在 Swift 里是显式的。</p>\n",
         "python": "<p>两边的清单形态差别明显：Python 的 <code>pyproject.toml</code> 是\n声明式的 TOML（PEP 621 标准化了字段名），工具直接读；\nSwift 的 <code>Package.swift</code> 是 Swift 代码，读它要会这门语言。\n另一处是<strong>粒度</strong>：Python 的依赖是项目级的（装了全局可用），\nSwift 按 target 声明依赖，模块边界更清楚。\n共同点是两边都用 <code>import</code> 使用依赖（获取与使用分开），\n而且都能依赖本地路径的包。</p>\n",
@@ -84,7 +82,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的版本号都是语义化版本，也都有「钉死 / 放宽」的写法，\n这一层很像（<code>^1.3.0</code> ↔ <code>from: &quot;1.3.0&quot;</code> 的含义基本一致）。\n差别在<strong>来源</strong>：npm 从注册表取包（版本号是注册表里的记录），\nSwiftPM 从 git 仓库取（版本号是 <strong>git tag</strong>）——\n所以「这个版本存在吗」在 Swift 里等于「这个 tag 在不在」。\n另一处是 SwiftPM 明确支持按 <strong>branch / commit</strong> 依赖，\n这在 npm 里是要绕的写法。</p>\n",
         "python": "<p>两边的约束语法成熟度不同：Python 有 PEP 440 规范版本号、\nPEP 508 规范约束（<code>&gt;=1.2,&lt;2.0</code>），所有工具都按它解析；\nSwiftPM 的约束是<strong>它自己的 API</strong>（<code>from:</code> / <code>exact:</code> /\n区间），别的工具不认。\n另一处是「版本兼容」的默认：Python 的 <code>~=</code> 与\nSwiftPM 的 <code>from:</code> 都表达「同主版本内升级」，含义接近。\n共同点是两边都会做依赖解算，解不出来就报错。</p>\n",
@@ -115,7 +112,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有锁文件（<code>package-lock.json</code> ↔ <code>Package.resolved</code>），\n用途一样、都应该入库 —— 这一层可以对应。\n差别在<strong>钉住的东西</strong>：npm 钉的是版本号加<strong>内容哈希</strong>；\nSwiftPM 钉的是 git 的<strong>提交哈希</strong> ——\n因为依赖本来就是 git 仓库，提交哈希天然保证了内容一致。\n另一处是 npm 还有 <code>npm ci</code> 这种「严格照锁文件装」的命令，\nSwiftPM 的行为是默认就照锁文件走（<code>swift package update</code>\n才重新解算）—— 默认值相反。</p>\n",
         "python": "<p>两边的可复现性来源不同：Python 用 <code>requirements.txt</code>\n或 <code>uv.lock</code> / <code>poetry.lock</code> 记下精确版本与哈希；\nSwiftPM 的 <code>Package.resolved</code> 钉的是 git 提交 ——\n也就是说 Swift 这边「可复现」是<strong>天然更强</strong>的\n（提交哈希保证内容），而 Python 靠哈希校验来达到同样效果。\n另一处是 Python 的锁文件生态有好几种格式（pip-tools / uv / poetry），\nSwift 只有 SwiftPM 一种 —— 这一点简单得多。</p>\n",
@@ -151,7 +147,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的隔离层次不同：JavaScript 的 <code>node_modules</code>\n<strong>天然是项目级</strong>的（每个项目一份），装的是打包产物、装完就能用；\nSwiftPM 的隔离来自「每个包自己解析依赖、自己编」——\n依赖是源码，所以隔离更彻底但也更贵（每个项目都要编一遍）。\n另一处是 JavaScript 有版本管理器切换运行时版本\n（nvm 那类）；Swift 的工具链版本切换要装多套工具链，\n没有 <code>nvm use</code> 那样的一行命令。\n共同点是两边都不需要「虚拟环境」这种额外机制。</p>\n",
         "python": "<p>两边的隔离哲学差别明显：Python 用<strong>虚拟环境</strong>\n（<code>venv</code> 造一个独立目录，依赖装在里头），\n切项目就是切环境；Swift <strong>没有这个机制</strong> ——\n隔离是「每个包的构建目录各一份」自然形成的，\n不需要（也没法）显式创建一个环境。\n另一处是 Python 的隔离之所以必要，是因为依赖装到\n解释器级别的路径上；Swift 的依赖是编进构建产物的，\n天然不共享。共同点是两边都能让两个项目用不同版本的同一个库。</p>\n",
@@ -192,7 +187,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边差别很大</strong>：JavaScript 有中心化的 npm registry，\n<code>npm publish</code> 一条命令全世界能装，还有搜索与版本页；\nSwift <strong>没有中心仓库</strong> —— 发布等于「公开 git 仓库 + 打 tag」，\n没有发布命令、没有统一的索引。\n所以那边「怎么让别人找到我的包」有标准答案（registry 搜索），\n这边要靠 GitHub 话题标签或者社区索引。\n另一处是私有包：npm 有私有的 registry 服务，\nSwift 就是私有 git 仓库（靠仓库权限管）。</p>\n",
         "python": "<p>两边的分发模型差别明显：Python 有 PyPI，<code>pip install</code> 就能\n装到全世界的包，<code>twine upload</code> 就发出去了；\nSwift 的包就是 git 仓库，<strong>没有上传这一步</strong> ——\n打 tag 就等于发布。\n另一处是「导出什么」的层次：Python 靠 <code>__all__</code> 或者包结构，\nSwift 要在 <code>Package.swift</code> 里声明 product（哪些模块对外）\n再加代码里的 <code>public</code> —— 两层都要写。\n共同点是两边都能依赖私有源（私有索引 / 私有 git 仓库）。</p>\n",

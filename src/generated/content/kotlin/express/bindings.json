@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><code>val</code> / <code>var</code> 与 <code>const</code> / <code>let</code> 是一一对应的：都是「只读引用」与\n「可重新赋值」两档，而且都<strong>只冻结绑定、不冻结内容</strong>。\n真正不同的是没有初值时：JavaScript 允许 <code>let pending;</code> 先留着，\n之后再说；Kotlin 这里虽然也写得出来，但编译器会盯着它，\n读的时候还没赋过值就编译不过 —— 那半个 <code>undefined</code> 状态在这里不存在。</p>\n",
         "python": "<p>Python 里赋值本身就是声明，没有关键字可选，语言也分不出\n「这个变量本该只读」；Kotlin 用 <code>val</code> 把这件事写进编译期。\n另一处容易忽略的差别是属性：Kotlin 能在类的构造器签名里\n直接声明属性（<code>class User(val id: Int)</code>），声明与赋值是一件事；\nPython 得在 <code>__init__</code> 里老实写一遍 <code>self.id = id</code>。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边对「不可变」的处理方式其实一致：<code>val</code> 与 <code>const</code> 都只管绑定。\n但 Kotlin 多出一层 JavaScript 根本没有的东西 —— <strong>只读接口</strong>。\n<code>List&lt;Int&gt;</code> 与 <code>MutableList&lt;Int&gt;</code> 是两个类型，前者连 <code>add</code> 都点不出来，\n由编译器保证。JavaScript 那边只能靠约定（或者运行时冻结）。\n要留意的是它仍是个<strong>视图</strong>：背后的可变集合改了，只读的那个也变。</p>\n",
         "python": "<p>Python 没有「只读引用」这一档，全大写的名字只是给同事看的约定；\nKotlin 的 <code>val</code> 由编译器负责，改绑直接编译不过。\n集合上也相反：Python 用「换个不可变类型」的办法（列表换元组）\n来保证内容不变，代价是操作变少；Kotlin 是<strong>同一份数据</strong>上挂两个类型的视图，\n只读视图限制的是你手上的这个引用，不是数据本身。</p>\n",
@@ -79,7 +77,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>作用域规则几乎可以逐条对应：都是块级、出了花括号就失效，\n也没有函数级作用域那个例外。差别在<strong>声明顺序</strong>上：\nJavaScript 的函数声明能从块里「漏」出去（浏览器里那套老规则），\nKotlin 里没有任何声明能穿出它所在的花括号 —— 规则只有一条，不用记特例。</p>\n",
         "python": "<p>Python 是<strong>函数级</strong>作用域：<code>for</code> 里赋的值出了循环还在，\n循环变量会留在外层；Kotlin 的 <code>for</code> 变量只活在循环体里，\n出了花括号连名字都不存在。所以在 Python 里给循环变量重名要小心，\n在 Kotlin 里这根本构不成问题 —— 编译器会告诉你「没有这个变量」。</p>\n",
@@ -115,7 +112,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的提升是<strong>引擎在运行时</strong>做的事，所以「先用后声明」的结果\n取决于你用哪个关键字（<code>var</code> 给 undefined、<code>let</code> 报错、函数声明能用）。\nKotlin 没有运行时提升这回事：编译器解析整份文件，函数与类型的声明\n与书写顺序无关，局部变量则一律必须先声明。结果是这边只需要记\n「局部变量按顺序、其余随便」，而那边要记三种时机。</p>\n",
         "python": "<p>Python 里名字在赋值之前根本不存在，读它就是 <code>NameError</code>；\n函数与类则因为模块是自上而下执行的，「先用后定义」在下边能跑、\n在上边会炸 —— 取决于调用时机，是运行期的事。\nKotlin 把这条界线画在编译期：函数与类型随便写哪儿都行，\n局部变量必须先声明，两类各自只有一条规则。</p>\n",
@@ -151,7 +147,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>遮蔽规则两边一致，但<strong>态度</strong>不同：JavaScript 完全不吭声，\nKotlin 会给出 <code>name shadowed</code> 警告 —— 不是错误，是提醒你这里\n多半能换个名字。同一个作用域里重复声明则在两边都是错误。\n所以 Kotlin 代码里出现遮蔽基本可以当成有意为之：无意写的那些\n编译器已经喊过一遍了，改不改在你。</p>\n",
         "python": "<p>Python 的花括号里那次赋值根本不是「新变量」，它改的就是外层那个名字 ——\n在函数里甚至要 <code>nonlocal</code> 才能改，改不到还会报错。\nKotlin 里它天然是一个新变量，出了块就回到外层那个。\n同一段嵌套结构在两边的含义完全不同，是迁移时最容易看漏的一处。</p>\n",
@@ -187,7 +182,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>大部分惯例是共通的（大驼峰类型、小驼峰其余），两边都由社区约定\n而非语言强制。Kotlin 多两条 JavaScript 没有的：一是<strong>全大写留给\n「常量性」的东西</strong> —— 编译期常量，加上顶层或单例里持不可变数据的\n只读属性，判据不是「val 还是 var」，所以看到全大写能推断出不少东西；\n二是反引号名字，能让函数名直接写成中文句子，官方只推荐测试用。\nJavaScript 那边这两条都靠自觉。</p>\n",
         "python": "<p>两边都用全大写表示「这是常量」，但<strong>判据不同</strong>：\nPython 纯靠约定，什么都能叫常量；Kotlin 的官方规范给了一个具体边界 ——\n编译期常量，以及顶层或单例里持不可变数据的只读属性，\n而类里的普通只读属性写小驼峰。\n另一处是测试名：Python 那边测试函数名只能是合法标识符，\nKotlin 用反引号能把整句中文当函数名，这是官方文档专门提到的用法。</p>\n",

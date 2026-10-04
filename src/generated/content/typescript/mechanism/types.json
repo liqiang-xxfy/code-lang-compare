@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>TypeScript 是 JavaScript 加一层<strong>编译期</strong>检查，运行时的类型行为一字不改 ——\n标注全部被抹掉，跑起来还是那套动态类型。所以两者的差别不在\n「类型是什么」，而在「什么时候告诉你错了」：JavaScript 要运行到那一行，\nTypeScript 在编辑器里就标红。代价是这份保证只覆盖你写了标注的地方 ——\n<code>any</code> 与没有标注的第三方库边界，会把检查悄悄放行。</p>\n",
         "python": "<p>Python 的标注是可选的、且<strong>运行时不检查</strong>（要靠 mypy 之类的工具另跑一遍）；\nTypeScript 的检查是编译的一部分，不通过就编译不出产物。\n两边的类型都只存在于「检查时」——运行时都看不到。差别在强制性：\nPython 里忘写标注只是少了一层文档，TypeScript 里漏掉一个分支的返回类型\n会被直接拦下来。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>写法上 TypeScript 的标注是<strong>外加</strong>的：同一段 JavaScript 代码\n去掉冒号和类型就是合法的 JavaScript —— 这也是它被接受的原因，\n迁移可以一个文件一个文件地做。但标注不是装饰：<code>let z;</code> 这种\n不写初值也不写类型的声明，JavaScript 里毫无问题，TypeScript 里\n虽然也当作 <code>any</code>，编译器却还盯着它 —— 赋值前访问会被拦下，\n一旦赋了值就按赋进去的类型检查。真想关掉检查，得显式写 <code>any</code>。</p>\n",
         "python": "<p>两边都把类型写在名字后面（<code>x: number</code> / <code>x: int</code>），也都能只标注一部分；\n差别是<strong>谁在检查</strong>：Python 的标注运行时不生效，写错了代码照跑，\n要靠 mypy 另跑一遍才发现；TypeScript 的标注是编译器的输入，\n写错就编译不过。另一处是字面量类型 —— <code>let m: 1 | 2 | 3</code>\n表达「只接受这几个值」，Python 的 <code>Literal[1, 2, 3]</code> 形状相同，\n但同样只有类型检查器在意。</p>\n",
@@ -79,7 +77,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的鸭子类型发生在运行时，判断依据是「调用那一刻有没有这个方法」；\nTypeScript 把同一条规则提前到编译期，且比运行时更严格 ——\n它按<strong>声明的形状</strong>比对，所以一个从来没被调用过的方法名写错了也能被发现。\n代价是 TypeScript 只看得见有类型信息的那部分，\n从 JavaScript 世界进来的值（JSON、第三方库）它一无所知。</p>\n",
         "python": "<p>Python 有 <code>Protocol</code> 提供结构化标注，但那是一个可选的、给类型检查器看的标记；\nTypeScript 的结构化是<strong>默认行为</strong>，不写任何东西就已经是结构化的。\n这带来一个 Python 没有的麻烦：两个碰巧形状相同的类型会被当成同一个，\n想区分只能塞一个私有字段进去 —— 也就是下面那段代码在做的事。</p>\n",
@@ -99,7 +96,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 里 <code>typeof</code> 判断的结果只对读代码的人有意义，引擎不会因此\n改变它对这个变量的看法；TypeScript 把它变成编译器的事实 ——\n同一个 <code>if</code>，两边运行时做的是同一件事，但一边之后可以用 <code>.toUpperCase()</code>，\n另一边只能继续当它是「字符串或数字」。差别在分支之外：\nTypeScript 会检查你有没有漏掉一种可能，JavaScript 不会。</p>\n",
         "python": "<p>Python 用 <code>isinstance</code> 判断，收窄由类型检查器（mypy）推断；\nTypeScript 的收窄是编译器内置的，覆盖面更宽 ——\n<code>typeof</code>、<code>in</code>、真值判断、判别字段都能触发，还能靠\n<code>x is T</code> 这样的<strong>自定义守卫</strong>把收窄传播出去。Python 的 <code>TypeGuard</code>\n提供同样的能力，但需要一个额外导入、且同样只在类型检查器里生效。</p>\n",
@@ -135,7 +131,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 里 <code>null</code> 与 <code>undefined</code> 能赋给任何变量，读属性就抛\n「Cannot read properties of null」；TypeScript 打开 <code>strictNullChecks</code>\n后把它们变成类型的一部分 —— 想让它可能是空，就得在类型里写出来。\n注意这是<strong>编译开关</strong>：关掉它（或不写 <code>strict</code>），这层保护就不存在了，\n两边也就没有区别。</p>\n",
         "python": "<p>Python 的 <code>None</code> 同样能赋给任何变量，<code>x.y</code> 到运行时才抛 AttributeError；\nTypeScript 把它提到编译期拦下。两边的可选写法还差一层语义：\nPython 的 <code>x or &quot;默认&quot;</code> 对空字符串、0、空列表都会取右边，\nTypeScript 的 <code>??</code> 只认 <code>null</code> / <code>undefined</code> ——\n<code>0 ?? 5</code> 得到 0，而 <code>0 or 5</code> 得到 5。</p>\n",
@@ -166,7 +161,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有「断言」这个概念 —— 值就是值，没有一层类型声明\n需要被说服。TypeScript 的 <code>as</code> 存在的唯一原因是：有时候你比编译器\n知道得多（比如刚从 <code>JSON.parse</code> 拿到东西）。它的风险也在这里 ——\n断言之后编译器就不再检查了，写错的话错误会推迟到运行时，\n而且报错位置离出事的地方很远。</p>\n",
         "python": "<p>Python 的 <code>cast(T, x)</code> 与 TypeScript 的 <code>as T</code> 是同一类东西：\n都是给类型检查器下的指令，运行时是空操作，写错了没人拦。\n差别在<strong>默认姿态</strong>：Python 不加标注就是动态的，本来也没有检查可绕；\nTypeScript 默认检查、<code>as</code> 是主动放弃，所以它读起来更像一个危险信号，\n代码评审时值得多看一眼。</p>\n",

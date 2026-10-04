@@ -42,7 +42,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有 <code>yield</code> 与「函数调用返回一个迭代器」这套模型，\n连 <code>yield*</code>（JavaScript）与 <code>yield from</code>（PHP）都对应得上。\n差别在<strong>键</strong>：PHP 的迭代天生带键，生成器也能自己给键，\n于是 <code>yield from</code> 与 <code>iterator_to_array()</code> 相遇时\n会发生<strong>键覆盖导致的静默丢元素</strong>（上面那行实测丢了一半）。\nJavaScript 的生成器只产值，<code>[...outer()]</code> 永远是 4 个元素。\n另一处是双向通信：两边的 <code>next(v)</code> / <code>send(v)</code> 语义一致，\n都不是新鲜事 —— 但 PHP 多一个 <code>getReturn()</code> 能把生成器的\n<code>return</code> 值取出来，JavaScript 那边 <code>return</code> 值只在 <code>done</code> 时可见。</p>\n",
         "python": "<p>两边的生成器模型几乎逐条对应：<code>yield</code> 是表达式、\n<code>send()</code> 送值、<code>yield from</code> 委托、生成器只能走一遍。\n差别在<strong>取返回值</strong>：Python 用 <code>StopIteration.value</code>\n或者 <code>yield from</code> 的表达式值；PHP 给了一个专门的 <code>getReturn()</code>。\n另一处是键：Python 的生成器只产值（要下标得 <code>enumerate</code>），\nPHP 的生成器<strong>天生带键</strong>而且能自定义 —— 所以 PHP 里\n<code>iterator_to_array</code> 的键冲突是个真问题，Python 里不存在。\n共同点是两边都能表达无限序列，而且都是惰性的。</p>\n",
@@ -73,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>map</code> / <code>filter</code> / <code>reduce</code> 与 PHP 的\n<code>array_map</code> / <code>array_filter</code> / <code>array_reduce</code> 一一对应，\n连「传回调」的形状都一样，所以这一格迁移成本不高。\n差别在<strong>键</strong>：JavaScript 的数组只有下标，<code>filter</code> 之后\n结果照样从 0 连续编号；PHP 的 <code>array_filter</code> <strong>保留原键</strong>，\n于是「过滤完还是不是列表」变成一个新问题（要用 <code>array_values</code> 修）。\n另一处是链式调用：JavaScript 可以 <code>arr.map().filter()</code> 一路点下去；\nPHP 的函数式写法是<strong>从里往外</strong>套（<code>array_filter(array_map(...))</code>），\n读起来方向相反，或者要引 Laravel 的 Collection 那类封装。</p>\n",
         "python": "<p><strong>这一格差别很大</strong>：Python 有列表推导、字典推导、生成器表达式，\n一行就能表达「映射 + 过滤 + 展平」；PHP <strong>一种都没有</strong>，\n等价写法是「数组函数套数组函数」或者老老实实 <code>foreach</code> 攒。\n所以在 Python 里是一行的事，在 PHP 里通常写成一个循环 ——\n可读性反而常常更好，但代码行数明显更多。\n另一处是键：Python 的推导永远产出连续的列表；\nPHP 的 <code>array_filter</code> 保留键，忘了 <code>array_values</code> 会得到\n<code>{&quot;1&quot;:2,&quot;3&quot;:4}</code> 这种在 JSON 里变成对象的数组，是个常见事故。</p>\n",
@@ -104,7 +102,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的数组方法也是<strong>立刻求值</strong>的（<code>map</code> / <code>filter</code> 都返回新数组），\n惰性要靠生成器或者 <code>Iterator</code> 帮助函数 —— 这一点两边一样，\n所以从 JavaScript 过来不会有落差。\n差别在**「造一个序列」的写法**：JavaScript 没有 <code>range</code> 内建函数\n（要自己写 <code>Array.from({length: n}, (_, i) =&gt; i)</code>），\nPHP 有 <code>range()</code> 而且它<strong>立刻造数组</strong>；\n惰性版本两边都得手写生成器。\n另一处是字符串：JavaScript 的字符串是可迭代的，\nPHP 的字符串不是（要 <code>str_split</code> 先变成数组）。</p>\n",
         "python": "<p>Python 里惰性是<strong>默认</strong>的：<code>range(200000)</code> 是惰性的、\n<code>map</code> / <code>filter</code> 返回迭代器、生成器表达式一写就是惰性 ——\n也就是说 Python 程序员要主动写 <code>list(...)</code> 才会求值。\nPHP <strong>正好相反</strong>：<code>range</code> 立刻造数组、<code>array_map</code> 立刻造数组，\n惰性要显式写 <code>yield</code>。这是从 Python 过来最容易低估内存的一处：\n同一行 <code>range</code> 在一边是常数内存，在另一边是几百兆。\n另一处是「无限序列」：Python 里 <code>itertools.count()</code> 开箱即用，\nPHP 要自己写生成器（不过写法也就三行）。</p>\n",
@@ -160,7 +157,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的解构写法几乎一致（<code>[$a, $b] = ...</code> ↔ <code>const [a, b] = ...</code>），\n嵌套、跳过空位、交换变量的技巧都对应得上。\n差别在<strong>对象/关联解构</strong>：JavaScript 的 <code>{id, name} = row</code>\n按<strong>属性名</strong>取，变量名默认与属性同名，一行能解好几个；\nPHP 要写 <code>['id' =&gt; $id, 'name' =&gt; $name]</code>，键与变量名都得写，\n而且关联数组与对象是两种东西（对象属性解构 PHP 根本不支持，\n要先 <code>get_object_vars()</code> 或者用 <code>-&gt;</code> 一个个取）。\n另一处是失败行为：JavaScript 解构非可迭代值抛 TypeError；\nPHP 解构标量只给 Warning 然后全赋 null —— 静默得多。</p>\n",
         "python": "<p>两边的解构都很好用，但<strong>表达能力差一截</strong>。\nPython 支持星号收集「剩下的」（<code>a, *rest = [1,2,3]</code>），\nPHP <strong>不支持</strong> —— 展开运算符在赋值里是语法错误（官方明确）。\nPython 还支持解构嵌套任意深度、解构函数参数、自动交换；\nPHP 的嵌套与交换可以，参数解构不行。\n另一处是「解构不对会怎样」：Python 长度不匹配直接抛 ValueError\n（<code>a, b = [1,2,3]</code> 报错），PHP 多出来的直接忽略、不吭声；\n解构标量 Python 抛 TypeError，PHP 给 null 加一条 Warning。\n两边的共同点是都把它当「多返回值」的惯用手法。</p>\n",

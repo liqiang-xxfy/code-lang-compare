@@ -72,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边「跑起来」的体验很像（都是命令行直接执行、没有构建），\n但底层不一样：JavaScript 由引擎在运行时即时编译\n（JIT 是引擎默认行为，不需要你配），PHP 先编译成 opcode\n再执行，而且 opcode 缓存<strong>默认只在 Web 侧开</strong>。\n所以 PHP 这边命令行跑基准测试时，默认是<strong>每次重新编译</strong>的 ——\n与线上表现脱节，要显式加开关才对得上。\n另一处是语法检查：JavaScript 有 <code>node --check</code>，\nPHP 有 <code>php -l</code>，两边都只查语法、不查语义 —— 这一层对应得上。\n共同点是两边都不需要「先构建再运行」这一步。</p>\n",
         "python": "<p>两边的执行模型最接近：都是「解释执行、没有构建步骤」。\n差别在<strong>字节码缓存怎么来</strong>：Python 会在导入模块时\n<strong>自动</strong>把 <code>.pyc</code> 写到 <code>__pycache__</code>（默认就开），\nPHP 的 OPcache 在 <strong>CLI 下默认是关的</strong>（<code>opcache.enable_cli=0</code>），\n要自己开。\n另一处是编译阶段的存在感：Python 的 <code>.pyc</code> 是看得见摸得着的文件，\n谁都能看到；PHP 的 opcode 只存在共享内存里，\n除非你去查 <code>opcache_get_status()</code>，否则感觉不到它存在。\n共同点是两边都有「先编译成中间形式再执行」这一层，\n而且这一层都能缓存。</p>\n",
@@ -118,7 +117,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格两边的「打包」含义完全不同</strong>。JavaScript 的打包器\n解决的是「运行时不支持模块、浏览器要下载几百个文件」这个问题 ——\n打包是<strong>必需品</strong>。\nPHP 的代码跑在服务器上，<code>include</code> / 自动加载直接从文件系统读，\n根本没有「下载」这一步，所以不需要打包器。\nPHP 的 PHAR 是<strong>分发形态</strong>（把一堆文件塞进一个可执行文件，\n像 JAR），目的与那边完全不同 —— 是为了让命令行工具能单文件分发。\n也就是说那边「build」是每天都要跑的，这边「build」只是打包发布工具时\n偶尔做一次。\n共同点是两边都会在「生产装法」里做一点预处理\n（那边是压缩与 tree-shaking，这边是 <code>--optimize-autoloader</code>）。</p>\n",
         "python": "<p>两边的处境接近：Python 也没有「打包器」这个概念\n（代码按模块直接导入），分发形态是 wheel / sdist /\nzipapp / PyInstaller 打出的单文件 —— 与 PHAR 最像的是 <strong>zipapp</strong>\n（一个能直接执行的 zip）。\n差别在「入口在哪」：Python 的 zipapp 要指定入口函数，\n而且是给命令行工具用的；PHP 的 PHAR 同样主要用于 CLI 工具\n（Composer 与 PHPUnit 自己就是 phar），\n而且还能当流包装器访问内部文件。\n共同点是两边都不需要「为了运行而打包」，\n打包只是为了分发。</p>\n",
@@ -164,7 +162,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的工具链<strong>形态不同</strong>。JavaScript 的 lint 与 format\n是两件事、两个工具（ESLint 管规则、Prettier 管排版），\n而且都靠配置文件，生态里还有一堆预设；PHP 这边\n<strong>PHP-CS-Fixer 一个工具既检测又修复</strong>，规则集是内置的名字\n（<code>@PER-CS</code>、<code>@Symfony</code>），配置比那边简单。\n另一处是<strong>标准的来源</strong>：JavaScript 没有跨社区的统一风格标准\n（Prettier 是事实标准但那是工具，不是规范）；\nPHP 有 PHP-FIG 这个组织发布正式标准（PSR-12、PER Coding Style），\n所以「该按哪个风格写」在 PHP 里有一个<strong>有出处的答案</strong>。\n共同点是两边都能一条命令修掉大部分问题（<code>--fix</code> ↔ <code>fix</code>）。</p>\n",
         "python": "<p>两边的生态形状很像：Python 有 Black（只管排版）、\nRuff（lint + 修，一个工具两用）、flake8（只报）——\n与 PHP 的 PHP-CS-Fixer、PHP_CodeSniffer 大致对得上；\n而且两边都有「官方风格文档」：Python 的 PEP 8、\nPHP 的 PHP-FIG 标准（PSR-12 / PER）。\n差别在<strong>强制度</strong>：Python 的 PEP 8 被工具广泛实现，\n基本是共识；PHP 的 PSR-12 / PER 是社区组织发布的，\n不是语言官方（PHP 官方手册对风格只说过「常量约定全大写」这类零星建议）。\n另一处是配置：Ruff 用 <code>pyproject.toml</code>，PHP-CS-Fixer 用自己的\n<code>.php-cs-fixer.dist.php</code>（一个 PHP 文件），后者能写逻辑但也更重。</p>\n",
@@ -210,7 +207,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的分工<strong>正好相反</strong>。JavaScript 运行时<strong>没有类型检查</strong>\n（类型标注只在注释或别的方言里，编译后就没了），\n所以那边「类型检查」就是「一个可选的静态工具」这一件事。\nPHP 是<strong>两层都有</strong>：语言自带的类型声明在运行时真的执行\n（不匹配抛 TypeError），静态分析器是额外的一层。\n也就是说从 JavaScript 过来，最容易低估的是\n「PHP 的类型声明不是文档，是关卡」这一点。\n共同点是两边都能上静态检查（tsc / eslint ↔ PHPStan / Psalm），\n而且都是可选的、要在 CI 里自己加。</p>\n",
         "python": "<p><strong>这一格两边几乎完全对应</strong>：Python 的标注运行时<strong>不生效</strong>\n（要另跑 mypy / pyright），PHP 的 PHPDoc 泛型标注也不生效\n（要另跑 PHPStan / Psalm）—— 这一层是平行的。\n差别在<strong>PHP 还有一层 Python 没有的</strong>：语言自带的类型声明\n是运行时会执行的。所以 PHP 是「运行时关卡 + 可选静态检查」，\nPython 是「只有可选静态检查」（<code>isinstance</code> 之类的自检不算类型系统）。\n另一处是等级制：mypy 有 <code>--strict</code>，PHPStan 有 0–10 级、\nPsalm 有 1–8 级 —— 都给了一个「严到什么程度」的旋钮。</p>\n",
@@ -246,7 +242,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的版本管理成熟度差不少。JavaScript 有 nvm / fnm\n这类成熟工具，<code>.nvmrc</code> 是社区通用惯例，切版本一行命令 ——\n而且因为依赖装在项目里（<code>node_modules</code>），\n换 Node 版本不会影响别的项目。\nPHP 这边<strong>没有统一标准</strong>：要么装多套工具链（phpenv / phpbrew，\n第三方），要么上容器；<code>composer.json</code> 里的 <code>php</code> 要求\n只是<strong>下限</strong>，不是「就锁定这个版本」。\n另一处是 PHP 特有的麻烦：CLI 与 Web SAPI 是<strong>两套配置、\n可能两个版本</strong> —— JavaScript 里没有这种「同一个运行时两套环境」的情形。</p>\n",
         "python": "<p>两边的处境很像：都有「绑定下限」的做法（<code>requires-python</code>\n↔ <code>require.php</code>），也都有版本管理工具（pyenv / uv ↔ phpenv / phpbrew），\n而且<strong>都不是语言官方的一部分</strong>。\n差别在<strong>标配程度</strong>：Python 的 pyenv 几乎是默认答案，\n<code>.python-version</code> 是通用惯例；\nPHP 这边没有同样地位的工具，官方与社区更推<strong>容器</strong>\n（Docker 官方的 php 镜像 tag 就是「版本」的载体）。\n另一处是扩展：Python 的扩展是包（能按项目装），\nPHP 的扩展是编译进解释器的（只能按版本/镜像装）——\n所以要固定的东西更多，这也解释了为什么 PHP 更依赖容器。</p>\n",
@@ -287,7 +282,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 REPL 是运行时自带的（<code>node</code> 直接进交互模式），\n开箱即用、体验完整。PHP 也有内置的 <code>php -a</code>，\n但它<strong>依赖 readline 扩展</strong> —— 8.1 起没装就直接失败，\n而且功能比 <code>node</code> 的 REPL 朴素得多（没有自动补全那种体验）。\n所以实际开发里 PHP 开发者更常用 PsySH 这类第三方 REPL。\n另一处是「值怎么显示」：那边 <code>node</code> 会自动打印表达式结果，\nPHP 的 <code>php -a</code> 同样会 —— 这一层体验接近。\n共同点是两边都能在命令行里试一小段代码。</p>\n",
         "python": "<p>两边都有内置 REPL，而且<strong>都不需要额外装东西</strong>\n（<code>python</code> ↔ <code>php -a</code>），这是很实际的一点。\n差别在<strong>功能厚度</strong>：Python 的 REPL 有几个成熟的替代品\n（IPython / bpython），而 PHP 这边对应的是 PsySH ——\n两边都是「内置的够用、第三方的好用」这个格局。\n另一处是依赖：Python 的 REPL 依赖 readline 做行编辑，\n没有时<strong>降级</strong>（只能退格）而不是失败；\nPHP 8.1 起没有 readline 则<strong>直接失败</strong> —— 一个降级、一个拒绝启动。\n共同点是两边都能 <code>-c</code> / <code>-r</code> 跑一行（不算 REPL）。</p>\n",

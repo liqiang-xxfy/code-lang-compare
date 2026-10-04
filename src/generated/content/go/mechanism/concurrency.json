@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 在浏览器与 Node 里是单线程事件循环 ——\n并发靠异步回调/Promise，没有真正的并行；\nGo 的 <code>go</code> 关键字启动的是可以真正并行执行的 goroutine。\n代价是共享数据要小心：JavaScript 里没有数据竞争，\nGo 里两个 goroutine 同时写一个 map 会直接崩。\n写起来的相似处是「都很轻」—— goroutine 与 Promise 都不是 OS 线程。</p>\n",
         "python": "<p>Python 的线程受 GIL 限制，CPU 密集并行不起来，真并行要 <code>multiprocessing</code>；\nGo 的 goroutine 没有这层限制 —— 运行时把它们调度到多个 OS 线程上，\nCPU 密集任务也能真正并行。写法上 Go 只要一个 <code>go</code> 前缀，\nPython 要 <code>threading.Thread(target=…)</code> 或进程池。\n代价是 Go 里共享数据必须自己保证安全（<code>-race</code> 能帮上忙）。</p>\n",
@@ -47,7 +46,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 是单线程，没有共享可变状态，也就没有数据竞争 ——\n并发只发生在异步任务之间，靠事件循环串起来。\nGo 里的 goroutine 真并行，所以共享数据必须显式保护\n（加锁或用 channel 传递）。另一处直接差别：\nGo 的 map 并发写会<strong>直接崩掉整个程序</strong>（不是抛异常），\n这是语言刻意选择的「早失败」，JavaScript 里完全没有对应风险。</p>\n",
         "python": "<p>Python 的 GIL 让大部分共享访问天然串行，只有一个字节码的操作是原子的，\n<code>counter += 1</code>（读-改-写跨多条字节码）仍要加锁；\nGo 没有 GIL，任何共享访问都要自己保证安全。\nPython 里忘加锁往往表现为「偶尔少加几次」，很难复现；\nGo 里常见的是直接的 <code>fatal error: concurrent map writes</code> 或\n靠 <code>-race</code> 检测器抓到 —— 失败得更响。</p>\n",
@@ -73,7 +71,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有锁（单线程不需要）。Go 的 <code>sync.Mutex</code> 与它保护的\n数据是<strong>分开</strong>的两个东西，靠「放在同一个结构体里」这个惯例绑在一起 ——\n忘了加锁代码照样跑。<code>defer mu.Unlock()</code> 是标准写法，\n比 JavaScript 里手写清理更不容易漏。\n另一处 Go 特有的约束：<code>sync.Mutex</code> 不可复制，\n按值传递会被 <code>go vet</code> 抓出来。</p>\n",
         "python": "<p>Python 的 <code>threading.Lock</code> 与 Go 的 <code>sync.Mutex</code> 用法接近，\n都要「先锁、后改、再解锁」。差别是 Go 有 <code>defer mu.Unlock()</code> ——\n写在 <code>Lock()</code> 下一行，函数怎么返回都会解锁；\nPython 要 <code>with lock:</code> 或自己保证 release。\nGo 还有 <code>RWMutex</code>（读写锁）在标准库里，Python 要自己用条件变量搭。</p>\n",
@@ -93,7 +90,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有内建通道；<code>MessageChannel</code> 与 <code>postMessage</code>\n是宿主环境的能力，且基于事件而非阻塞。Go 的 channel\n是语言级原语，<code>select</code> 更是 JavaScript 完全没有的 ——\n它能同时等待多个通道并挑一个就绪的执行，包括超时与默认分支。\n语义上也有个鲜明差别：Go 的通道有「关闭」这个明确状态\n（由发送方关闭、接收方用 <code>ok</code> 或 <code>range</code> 感知），\nJavaScript 的消息端口只能靠约定一个结束消息。</p>\n",
         "python": "<p>Python 的 <code>queue.Queue</code> 支持多生产者多消费者，\nGo 的 channel 缓冲版语义与之接近；但 Go 的 channel\n还有<strong>无缓冲</strong>形态（收发必须同时就绪，天然的会合点）、\n<code>select</code> 多路等待、以及显式的关闭语义 ——\n这些都是 <code>queue.Queue</code> 没有的。\nPython 里做超时要 <code>get(timeout=…)</code>，Go 用\n<code>select</code> 配 <code>time.After</code>，形态更统一。</p>\n",
@@ -113,7 +109,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>Atomics</code> 只在 <code>SharedArrayBuffer</code> 上有意义，\n而且是一组静态方法（<code>Atomics.add(arr, i, v)</code>），不是类型；\nGo 的原子类型是普通结构体字段，用起来像普通方法。\n实际使用频率差别很大：Go 里用原子计数器是常规优化，\nJavaScript 里除了跨 Worker 几乎用不到。</p>\n",
         "python": "<p>Python 因为有 GIL，很多「原子性」是白送的，\n标准库也没有对外暴露原子类型；Go 要自己判断哪些操作需要原子性，\n并用 <code>sync/atomic</code> 或 mutex。写法上 Go 1.19 起有了\n类型化的 <code>atomic.Int64</code>（<code>n.Add(1)</code>），\n比之前必须传指针的 <code>atomic.AddInt64(&amp;m, 1)</code> 安全得多。</p>\n",

@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是两边差别最根本的地方</strong>。JavaScript 的运行时\n<strong>本身就是</strong>一个事件循环：所有 I/O 都是异步的，\n回调与微任务排队执行，「跑完一行等下一行」需要显式写 <code>await</code>。\nPHP 反过来：脚本是<strong>同步顺序执行</strong>的，每个 I/O 调用\n老老实实阻塞到返回 —— 事件循环要另外引库或装扩展。\n也就是说 JavaScript 那边「异步」是默认、同步要刻意做，\nPHP 这边「同步」是默认、异步要刻意做。\n另一处是这个差异的后果：那边的服务器能在单线程上撑住大量并发连接，\n这边「一个请求一个进程」的模型靠<strong>多开进程</strong>来扛 ——\n这也是 PHP 经典部署形态（Nginx + 一堆 FPM 进程）的由来。</p>\n",
         "python": "<p>Python 把两条路都放在标准库里：同步代码是一般写法，\n而 <code>asyncio</code> 提供完整的事件循环、<code>async</code> / <code>await</code> 语法、\n任务调度 —— <code>asyncio.run(main())</code> 就能跑起来。\nPHP <strong>标准库里什么都没有</strong>：核心只有 <code>stream_select()</code>，\n想要事件循环得引 ReactPHP / Amp / Revolt 这种第三方，\n或者装扩展。\n所以两边都能写异步，但一边是「语言自带的一等公民」，\n另一边是「生态补上的能力」。共同点是两边都保留了\n同步阻塞的写法作为默认（PHP 是唯一写法，Python 至今仍是主流）。</p>\n",
@@ -73,7 +72,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的回调机制高度相似：都是「把函数当值传」，\n连 <code>array_map(cb, arr)</code> ↔ <code>arr.map(cb)</code> 的形状都一样。\n差别在<strong>回调什么时候被执行</strong>：JavaScript 的回调\n常常是<strong>异步</strong>的（I/O 完成后由事件循环调），\n所以顺序要靠 Promise / async 来理；\nPHP 的回调<strong>几乎全是同步</strong>的（<code>array_map</code>、<code>usort</code>、\n<code>preg_replace_callback</code> 都是当场调用、当场返回）——\n也就是说 PHP 里没有「回调地狱」这个经典问题，\n因为根本没有异步的回调。\n另一处是写法：JavaScript 的箭头函数是主要形态，\nPHP 到 7.4 才有箭头函数（之前只有 <code>function () use (...)</code>），\n8.1 又补了第一类可调用语法。</p>\n",
         "python": "<p>Python 的函数也是一等值，<code>map</code> / <code>filter</code> / <code>sorted(key=...)</code>\n都能接回调 —— 与 PHP 逐条对应（<code>array_map</code> / <code>array_filter</code> / <code>usort</code>）。\n差别在<strong>装饰器</strong>：Python 有一整套 <code>@decorator</code> 语法，\n回调与元编程结合得深；PHP 没有装饰器语法，\n8.0 起的 <code>#[...]</code> <strong>属性</strong>是纯元数据（不执行代码），\n与 Python 的装饰器不是一回事。\n另一处是「回调是不是异步」：Python 的 <code>asyncio</code>\n让回调可以挂在事件循环上；PHP 核心的回调全是同步的。\n共同点是两边都能把任意可调用当值传。</p>\n",
@@ -114,7 +112,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 Promise <strong>是语言的一部分</strong>：<code>new Promise</code>、\n<code>then</code> / <code>catch</code> / <code>finally</code>、<code>Promise.all</code> / <code>race</code> / <code>allSettled</code>\n全在运行时里，而且 <code>await</code> 直接消费 Promise。\nPHP <strong>核心一样都没有</strong> —— Promise 只存在于第三方库里，\n而且各家实现互不兼容（ReactPHP 的与 Guzzle 的就不是一个东西）。\n也就是说 JavaScript 那边「并发几个请求然后等全部完成」\n是一行 <code>Promise.all</code>，PHP 这边要么用库、要么串行、\n要么自己开多进程。\n另一处是错误传播：Promise 的 rejection 是链式的、有明确语义；\nPHP 生态里各家的错误模型不统一，切换库就等于换一套语义。</p>\n",
         "python": "<p>Python 的 <code>asyncio.Future</code> / <code>Task</code> 在<strong>标准库</strong>里，\n与 <code>async</code> / <code>await</code> 语法配套；<code>gather</code> 相当于 <code>Promise.all</code>。\nPHP <strong>标准库里没有</strong> Future 或 Promise，\n第三方库又各做各的。\n差别在「有没有统一语义」：Python 的 Future 只有一套\n（标准库那套），所有库都基于它；\nPHP 这边 ReactPHP / Amp / Guzzle 各有各的 Promise 实现，\n互相桥接要靠适配器 —— 这是没有语言级原语的直接代价。\n共同点是两边的「并发等待」都最终要落到一个事件循环上，\nPython 的循环在标准库，PHP 的循环在第三方库里。</p>\n",
@@ -175,7 +172,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>async</code> / <code>await</code> 是<strong>语法</strong>：\n函数标 <code>async</code>、调用时 <code>await</code>，控制权自动交给事件循环再回来。\nPHP <strong>没有这两个关键字</strong> —— 最接近的 <code>Fiber::suspend()</code> 只有\n「停下」这一半，没有「自动恢复」那一半，调度得自己写。\n所以 PHP 的异步体验是「用库模拟出来的语法」，\n而不是引擎给的语法。\n另一处是传染性：JavaScript 的 <code>async</code> 会沿着调用链传染\n（调用者也得 async），PHP 的 Fiber 同样要求调用栈配合，\n但因为没有语法标记，传染这件事变得<strong>隐式</strong>、更难看出来。</p>\n",
         "python": "<p>Python 的 <code>async</code> / <code>await</code> 也是<strong>语法</strong>（3.5 起），\n配套 <code>asyncio.run()</code> 与事件循环 —— 也就是说「异步」在那里\n是写进语法的东西。PHP 一样都没有，只有 Fiber 这个底层原语。\n差别在<strong>标准库的厚度</strong>：Python 的事件循环、任务调度、\n超时、同步原语（<code>asyncio.Lock</code> / <code>Queue</code>）全在标准库里，\n所以「写异步」是一件自足的事；\nPHP 要把这些都从第三方库或扩展里凑齐，\n而且选哪套库会决定你的整个代码风格。\n共同点是两边都要求「一路异步到底」，\n中间混进一个阻塞调用就会卡住整个循环。</p>\n",
@@ -221,7 +217,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的取消靠 <code>AbortController</code> / <code>AbortSignal</code>，\n已经是运行时的一部分，<code>fetch</code> 等一批 API 原生支持\n（<code>fetch(url, { signal })</code>）。PHP <strong>核心没有对应物</strong> ——\n最接近的是给 stream 设超时，那只能让 I/O 自己失败，\n不是「调用方主动取消」。\n也就是说 JavaScript 那边「这个请求我不要了」是一行代码，\nPHP 这边只能等它超时或者把进程杀掉。\n另一处是异步前提：那边的取消之所以有效，是因为控制权\n经常回到事件循环，有机会检查信号；PHP 的同步代码里\n<strong>根本没有可以插入检查的时刻</strong>。</p>\n",
         "python": "<p>Python 的 <code>asyncio</code> 有完整的取消机制（<code>Task.cancel()</code>、\n<code>CancelledError</code> 会抛进协程里），同步代码里也能靠超时与信号\n（<code>signal.alarm</code>）做粗粒度中断。\nPHP <strong>核心什么都没有</strong>：<code>set_time_limit</code> 是「到点抛致命错误」，\n不是可捕获的取消；同步 I/O 卡住时也没有插检查的机会。\n差别在<strong>取消是不是可捕获的事件</strong>：Python 的 <code>CancelledError</code>\n是异常，可以被 <code>finally</code> 收拾；PHP 的超时是致命错误，\n清理逻辑能不能跑完都不一定。\n共同点是两边都要求代码「配合」才能优雅取消 ——\n但 Python 有语言级的钩子，PHP 只能靠约定。</p>\n",

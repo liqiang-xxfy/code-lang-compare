@@ -47,7 +47,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边最容易踩的是<strong>除法与取模</strong>。JavaScript 没有整数类型，\n<code>6 / 3</code> 永远是 <code>2</code>（一个 Number），而 PHP 的 <code>6 / 3</code> 是 int(2)、\n<code>7 / 2</code> 是 float(3.5) —— 返回类型取决于<strong>能不能整除</strong>，\n这会让后续的类型判断（<code>is_int</code>）结果不一样。\n取模上 JavaScript 的 <code>%</code> 结果符号跟<strong>被除数</strong>，PHP 也一样 ——\n这一点难得一致。另一处是 <code>**</code>：两边同名同义。\n除零两边都不抛异常，但表现相反：JavaScript 得到 <code>Infinity</code> 继续跑，\nPHP 抛 <code>DivisionByZeroError</code> 直接中断（想要 <code>Infinity</code> 得用 <code>fdiv</code>）。</p>\n",
         "python": "<p>这一格两边<strong>正好相反</strong>。除法：Python 的 <code>/</code> 永远是真除法（<code>6 / 3</code>\n是 <code>2.0</code>，float），整除要用 <code>//</code>；PHP 的 <code>/</code> 是「能整除就给你整数」，\n想强制整除反而要调 <code>intdiv()</code>。取模：Python 的 <code>%</code> 结果符号\n<strong>跟除数</strong>（<code>-5 % 3</code> 是 <code>1</code>），PHP 跟<strong>被除数</strong>（<code>-5 % 3</code> 是 <code>-2</code>）——\n这是从 Python 过来最容易悄悄算错的一处，因为它不报错、只是数值不对。\n下取整同理：Python 的 <code>//</code> 向下取整（<code>-7 // 2</code> 是 <code>-4</code>），\nPHP 的 <code>intdiv(-7, 2)</code> 是 <code>-3</code>（向零截断）。\n幂运算符两边都是 <code>**</code>，这一点一致。</p>\n",
@@ -103,7 +102,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有 <code>==</code> 与 <code>===</code>，而且都建议尽量用 <code>===</code> —— 这一层完全对应。\n差别在<strong>松比较的规则复杂到什么程度</strong>：JavaScript 的 <code>==</code> 有一张\n著名的转换表（<code>[] == false</code>、<code>&quot;&quot; == 0</code> 之类）；PHP 的 <code>==</code> 同样复杂，\n但 <strong>8.0 把最经典的那条改掉了</strong> —— <code>0 == &quot;foo&quot;</code> 从 true 变成 false，\n因为数字与非数值字符串现在按<strong>字符串</strong>比。\n所以「PHP 的 <code>==</code> 不可靠」这句话必须带版本说，\n8.0 之后 <code>0 == &quot;abc&quot;</code> 这个魔术已经没有了。\n另一处是 NaN：两边都是「与任何值比都不相等」，规则一致。</p>\n",
         "python": "<p>这边根本没有松紧两个等号：Python 的 <code>==</code> 是<strong>值相等</strong>、\n<code>is</code> 是<strong>同一性</strong>，<code>1 == &quot;1&quot;</code> 直接是 False（不转换，也没有转换这一步）。\nPHP 的 <code>==</code> 会先把两边转成同一类型再比 —— 所以 <code>1 == &quot;1&quot;</code> 是 true。\n也就是说 Python 那边「<code>==</code> 相等」是一件类型敏感的事，\nPHP 那边「<code>==</code> 相等」是一件<strong>会替你做主转换</strong>的事。\n数学上的坑倒是同一个：Python 的 <code>float('nan') == float('nan')</code> 也是 False，\n要判 NaN 用 <code>math.isnan</code>，PHP 用 <code>is_nan()</code>。</p>\n",
@@ -164,7 +162,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这是两边差别最大、也最容易静默出错的一格</strong>。JavaScript 的\n<code>||</code> 与 <code>&amp;&amp;</code> 返回的是<strong>操作数本身</strong>，于是 <code>const port = x || 3306;</code>\n这种「取默认值」的惯用法到处都是；PHP 的 <code>||</code> <strong>恒返回 bool</strong>，\n同样的写法会得到一个 <code>true</code>，赋值给变量后要过很久才会发现。\n对应到 PHP 要用 <code>?:</code>（按真假）或 <code>??</code>（按 null）。\n另一处是单词形式：JavaScript 没有 <code>and</code> / <code>or</code>，\n所以 PHP 里 <code>$d = false or true;</code> 那种「赋值先生效」的坑在 JavaScript 里不存在。\n短路行为两边一致。</p>\n",
         "python": "<p>Python 的 <code>or</code> / <code>and</code> <strong>返回操作数本身</strong>（<code>0 or &quot;默认&quot;</code> 得到 <code>&quot;默认&quot;</code>），\n而 PHP 的 <code>||</code> 只给 bool —— 这是两边最直接的错位。\n所以 <code>x = a or b</code> 这个 Python 惯用法搬到 PHP 要写成 <code>$x = $a ?: $b;</code>，\n否则拿到的永远是 true / false（而且不报错，只是值不对）。\n不过前提条件不同：Python 的 <code>or</code> 判的是真假值（<code>0</code>、<code>&quot;&quot;</code>、<code>[]</code> 都算假），\nPHP 的 <code>?:</code> 同样按真假 —— 这部分能对上；真正对不上的只有\n「返回什么」这一件事。\n另一处是 <code>not</code> / <code>and</code> / <code>or</code> 在 Python 里是普通运算符、优先级固定，\nPHP 的 <code>and</code> / <code>or</code> 优先级低于 <code>=</code>，是个有历史包袱的设计。</p>\n",
@@ -205,7 +202,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都不能重载运算符，但<strong>能改写的面</strong>不同。JavaScript 有几条\n「语言内置的钩子」——<code>Symbol.iterator</code> 让对象可遍历、\n<code>toString</code> / <code>valueOf</code> 影响隐式转换、Proxy 能拦截几乎全部操作；\nPHP 的对应物是<strong>实现接口 / 定义魔术方法</strong>：<code>ArrayAccess</code> 管 <code>[]</code>、\n<code>Countable</code> 管 <code>count()</code>、<code>IteratorAggregate</code> 管 <code>foreach</code>、\n<code>__toString</code> 管字符串转换。覆盖面比 Proxy 窄得多，但比 JavaScript\n多一条：PHP 的 <code>__get</code> / <code>__call</code> 能在<strong>类内部</strong>拦截属性与方法访问，\n不需要包一层代理对象。\n另一处是术语：PHP 文档里的「Overloading」指的是这套魔术方法，\n与运算符无关 —— 照着别的语言的直觉去搜会找错页面。</p>\n",
         "python": "<p>这一格两边都「有类似能力但都不叫重载」。Python 的运算符重载是\n<strong>真的</strong>：定义 <code>__add__</code> 就能让 <code>+</code> 生效，<code>__eq__</code> 管 <code>==</code>、\n<code>__getitem__</code> 管 <code>[]</code> —— 一整套双下划线协议。\nPHP <strong>没有这条路</strong>：<code>+</code>、<code>==</code>、<code>[]</code> 都不能被用户代码改变含义，\n只能通过实现 <code>ArrayAccess</code> / <code>Countable</code> 这类<strong>接口</strong>拿到几个\n特定的能力（而且 <code>[]</code> 那条必须靠接口，不能只写 <code>__get</code>）。\n所以从 Python 过来最明显的失落是：自定义类型没法参与算术。\n另一处是术语：两边文档里都有「overloading」，\nPython 指运算符/方法重载，PHP 指魔术方法 —— 同词不同义。</p>\n",

@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust 把「字符」与「字符串」分成了不同类型：<code>'a'</code> 是 <code>char</code>，\n<code>&quot;a&quot;</code> 是 <code>&amp;str</code>，两者不能互相赋值；JavaScript 只有 <code>string</code> 一种，\n<code>'a'</code> 与 <code>&quot;a&quot;</code> 是同一个东西，单双引号只是写法。\n数字上 Rust 更细：字面量可以带类型后缀（<code>42u8</code>），\n没写时默认 <code>i32</code> —— JavaScript 的 <code>number</code> 是唯一的双精度浮点，\n没有整数与浮点的区分，也没有位宽可选。</p>\n",
         "python": "<p>两边都有「字面量决定类型」的直觉，但落点不同：Python 的 <code>1</code> 是任意精度整数，\nRust 的 <code>1</code> 是 <code>i32</code>（固定 32 位，溢出在 debug 构建下 panic）。\nRust 还把字符与字符串分成两种类型（<code>'a'</code> / <code>&quot;a&quot;</code>），\n而 Python 里两者都是 <code>str</code>。多出来的还有原始字符串 <code>r#&quot;…&quot;#</code>，\n写正则与路径时不用层层转义。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有类型推断这回事 —— 变量本身不带类型，运行时值是什么就是什么。\nRust 的推断是<strong>编译期</strong>的，而且只往前看：<code>Vec::new()</code> 这种自身看不出元素的，\n要靠后面的用法反推，或者由作者标注。推断失败是编译错误，\n不会默默退化成「什么都能装」的动态类型。</p>\n",
         "python": "<p>Python 的类型标注是可选的、运行时不检查的提示；Rust 的推断是编译器\n必须完成的功课，推不出来就不许通过。所以 Rust 里\n<code>let parsed = &quot;42&quot;.parse()</code> 这种写法编译不过 ——\n目标类型是推断的输入而不是输出，<code>parse()</code> 的结果类型取决于你要什么。</p>\n",
@@ -73,7 +71,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust <strong>没有 null 也没有 undefined</strong>。可能缺的值必须写成 <code>Option&lt;T&gt;</code>，\n而 <code>Option</code> 是一个普通枚举 —— 编译器会检查你有没有处理 <code>None</code> 分支。\nJavaScript 里 <code>undefined</code> 可以出现在任何变量上、任何时刻，\n类型系统（如果有）也拦不住；Rust 里「可能缺」是类型的一部分，\n想拿到里面的值得先把缺的情况处理掉。</p>\n",
         "python": "<p>Python 用 <code>None</code> 表示缺失，而 <code>None</code> 可以赋给任何变量，检查全靠自觉；\nRust 把「可能缺」编码进类型：<code>Option&lt;i32&gt;</code> 与 <code>i32</code> 是两个不同的类型，\n不解开就不能当数字用。Python 里 <code>x.attr</code> 撞上 None 是运行时 AttributeError，\nRust 里忘记处理 None 根本编译不过。</p>\n",
@@ -93,7 +90,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的转换常常是隐式发生的 —— <code>&quot;3&quot; * 2</code> 得 6，\n<code>1 + &quot;2&quot;</code> 得 &quot;12&quot;，转换规则藏在运算符语义里。\nRust <strong>没有任何隐式数值转换</strong>：想让 i32 变成 i64 必须显式写，\n想让字符串变成数字必须调 <code>parse()</code> 并把失败当值处理。\n代价是多写几个字，收益是读代码时不必推演运算符背后的转换表。</p>\n",
         "python": "<p>Python 有 <code>int()</code> / <code>float()</code> / <code>str()</code> 这类显式转换，也有 <code>&quot;3&quot; * 2</code> 得 &quot;33&quot;\n这种隐式语义；Rust 的转换走两套 trait —— 无损的 <code>From</code> / <code>Into</code>，\n可能失败的 <code>TryFrom</code>，解析字符串则用 <code>parse()</code> 返回 <code>Result</code>。\n另一个显著差别是 <code>as</code>：它做截断转换且不报错，\nPython 的 <code>int(3.9)</code> 同样是截断，两边在这点上反而一致。</p>\n",

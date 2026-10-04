@@ -62,7 +62,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的抽象层次不同</strong>：JavaScript 直接把「事件循环」这个概念\n交给开发者（所有异步都绕着它转，<code>Promise</code> 是它的产物），\n单线程靠不阻塞来同时应付很多等待；\nSwift 把它藏起来了 —— 你面对的是 <code>Task</code> 与 <code>await</code>，\n「谁来调度」不是你要操心的事，而且任务可以真的并行。\n另一处是主线程：JavaScript 主线程就是唯一的执行流；\nSwift 里「跑在主线程」是一个可以标注的隔离域（<code>@MainActor</code>），\n其余代码可以跑在别的线程上。\n也就是说两边都有「等的时候别占着」这个思想，\n但一个显式、一个隐式。</p>\n",
         "python": "<p>两边的落差在于<strong>要不要自己起循环</strong>：Python 的 <code>asyncio</code>\n要求你显式启动并活在里面（<code>asyncio.run</code>），\n整个程序通常绕着它转；Swift 的异步是运行时自带的，\n<code>Task {}</code> 随手写、<code>await</code> 随手用，不需要「启动事件循环」这一步。\n另一处是主线程的概念：Python 的 asyncio 是单线程的，\nSwift 有 <code>@MainActor</code> 这样的隔离域，其余任务可以并行。\n共同点是两边都会在等待时把控制权交出去（不占线程）。</p>\n",
@@ -93,7 +92,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都在从回调往 <code>async</code> / <code>await</code> 迁移，连形态都对得上\n（<code>Promise</code> 包装 ↔ <code>withCheckedContinuation</code>）。\n差别在<strong>要操心的事</strong>：JavaScript 的回调跑在同一个事件循环上，\n「在哪个线程」不是问题；Swift 的回调可能在别的线程或 actor 上，\n所以线程安全与隔离是真实要处理的。\n另一处是引用环：Swift 的闭包强引用 <code>self</code> 会形成环，\n要用 <code>[weak self]</code>；JavaScript 的 GC 能收环，不用管 ——\n这是 Swift 里回调式代码比那边更容易出问题的地方。\n共同点是两边都认为「回调难读」，都在往 await 迁。</p>\n",
         "python": "<p>两边都能把回调桥接成协程式写法，思路一致。\n差别在<strong>线程与生命周期</strong>：Python 的回调通常在同一个事件循环里，\n而且闭包捕获的对象由引用计数保活（加上 GC 收环）；\nSwift 的回调可能在别的 actor 上（要满足 Sendable），\n闭包强引用 <code>self</code> 会形成环，得用 <code>[weak self]</code> 打破。\n也就是说同一个迁移动作，Swift 这边多两件要处理的事。\n共同点是两边都推荐新代码直接用 async/await。</p>\n",
@@ -154,7 +152,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有「将来的值」，但<strong>组合方式差得很远</strong>：\nJavaScript 的 Promise 有一整套组合子（<code>all</code> / <code>race</code> /\n<code>allSettled</code> / <code>any</code>）加链式 <code>then</code>；\nSwift 的组合靠 <code>async let</code> 与任务组 ——\n<strong>写法上更像普通代码</strong>（顺序写 await），\n但没有一组专门的组合函数。\n另一处是任务关系：Swift 的任务有<strong>父子结构</strong>\n（父被取消会连累子），JavaScript 的 Promise 是平的，\n取消要自己用 <code>AbortController</code> 传。\n还有一处是错误传播：Swift 的 <code>try await</code> 会把错误带回来，\nJavaScript 的 Promise 拒绝也类似，这一层一致。</p>\n",
         "python": "<p>两边都有「并发跑一批」的工具（<code>gather</code> ↔ 任务组），\n但<strong>取结果的形态不同</strong>：Python 的 <code>gather</code> 按<strong>传入顺序</strong>\n返回一个列表；Swift 的任务组是<strong>异步序列</strong>，\n先完成的先出来（顺序不保证）—— 想要按位置取结果\n得用 <code>async let</code> 加元组解构。\n另一处是父子关系：Swift 的任务组把子任务绑在作用域上，\n出作用域必然收敛；Python 的 <code>create_task</code> 创建的任务\n可以飘在外面（要自己保存引用、自己等）。\n共同点是两边都能并发、都能把错误带回等待方。</p>\n",
@@ -190,7 +187,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>形状几乎一样（<code>async</code> / <code>await</code> 名字都对得上），\n而且<strong>在循环里 await 两边都合法、都是串行</strong> —— 这一格最接近。\n差别在<strong>并发怎么写</strong>：JavaScript 要 <code>Promise.all</code> 显式收集；\nSwift 用 <code>async let</code> 或任务组 —— 后者带作用域与父子关系。\n另一处是<strong>主线程</strong>：JavaScript 里代码天然在主线程，\n回到主线程不需要额外动作；Swift 里主线程是一个可以标注的\n隔离域（<code>@MainActor</code>），跳过去是显式或半显式的一步。\n共同点是两边都强制「异步函数只能在异步上下文里 await」。</p>\n",
         "python": "<p>两边的写法与「循环里可以 await，而且是串行」这条都一致，\n可以逐条对应。差别在<strong>异常传播的方向</strong>：Swift 用\n<code>try await</code>，错误会在 await 处重新抛出（很直白）；\nPython 的 <code>gather</code> 默认一有异常就立刻向等待方抛出\n（其余任务不被取消、继续跑）—— 两边在「其余任务怎么办」\n上的取舍不同（Swift 的任务组会取消兄弟任务）。\n另一处是 Python 没有 <code>async let</code> 这种「并发的局部绑定」，\n要并发得显式创建任务。</p>\n",
@@ -241,7 +237,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是协作式取消，而且都要<strong>显式传一个信号</strong>，\n这一层处境相同（<code>AbortController</code> ↔ <code>Task.cancel()</code>）。\n差别在<strong>信号的归属</strong>：Swift 的取消标志<strong>长在任务自己身上</strong>\n（<code>Task.isCancelled</code>），所以任何一层都能查、也会自动传给孩子；\nJavaScript 要手动把 signal 传进每一层函数。\n另一处是标准库的配合度：Swift 的 <code>Task.sleep</code>、<code>for await</code>\n这些会在取消时抛错唤醒；JavaScript 的生态里\n<code>fetch</code> 认 signal，但别的库未必。\n共同点是两边都必须<strong>在代码里留检查点</strong>，否则取消只是空转。</p>\n",
         "python": "<p><strong>这一格两边相反</strong>：Python 的 <code>asyncio.Task</code> <strong>可以取消</strong> ——\n<code>task.cancel()</code> 会让协程在下一个挂起点收到 <code>CancelledError</code>，\n是能真正打断控制流的；Swift 的 <code>Task.cancel()</code> 只设标志，\n任务必须自己查，否则一路跑完。\n所以那边「取消了就是取消了」，这边「取消了要你配合」——\n从 Python 过来最容易犯的错是「以为调了 cancel 就停了」。\n共同点是两边都会在挂起点检查和传播取消。</p>\n",

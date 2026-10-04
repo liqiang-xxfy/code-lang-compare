@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>数字上两边差别很实在：JavaScript 只有一种数字类型，\n<code>1</code> 与 <code>1.0</code> 连类型都一样；Dart 把它们分成 <code>int</code> 与 <code>double</code>\n两个类型（<code>1 == 1.0</code> 仍为真，但 <code>identical</code> 为假，类型也确实是两个）。\n集合字面量上 Dart 多一种：<code>{}</code> 没有冒号就是集合，\n而 JavaScript 的 <code>{}</code> 永远是对象 —— 这一处最容易看错，\n而且<strong>空的 <code>{}</code> 是映射不是集合</strong>，这条几乎人人都会踩一次。\n展开写法两边语法相同（<code>...</code>），但 Dart 多一个空感知版本 <code>...?</code>，\nJavaScript 得自己写 <code>...(x ?? [])</code>。\n另外 Dart 有原样字符串前缀 <code>r</code>，JavaScript 只能靠反斜杠双写。</p>\n",
         "python": "<p>两边的字面量都很丰富。差别在两处：\n一是<strong>单双引号</strong>，Python 里两者等价、Dart 里也等价，\n但 Dart 没有字符类型，<code>'a'</code> 就是字符串，不存在 Python 那种\n「单字符」与「字符串」的区分（Python 那边其实也没区分，这里两边一致）。\n二是数字类型：Python 的 <code>int</code> 是任意精度，Dart 的 <code>int</code> 是 64 位定宽，\n超出会回绕；Python 的除法永远给浮点，Dart 的 <code>/</code> 也给浮点，\n这一点两边相同，但 Dart 另有 <code>~/</code> 做整除，Python 是 <code>//</code>。</p>\n",
@@ -63,7 +62,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>var</code> 看起来一样，实质完全不同：JavaScript 的 <code>var</code>\n只表示「这是个变量」，里面装什么下次再说；Dart 的 <code>var</code>\n是<strong>推断出一个确定的类型</strong>，之后换类型编译不过。\n另外 Dart 有专门关掉检查的写法（<code>dynamic</code>），\n在 JavaScript 里那是默认状态 —— 所以 Dart 里看到 <code>dynamic</code>\n就该警觉：这是作者主动放弃了这一处的类型保护。</p>\n",
         "python": "<p>两边都能从初值推断。差别在<strong>推断之后还算不算数</strong>：\nPython 的推断只对类型检查器有意义，运行时不管，\n所以 <code>x = 1</code> 之后 <code>x = &quot;文本&quot;</code> 完全合法；\nDart 的推断是编译器的结论，换类型直接编译不过。\n另一处是空字面量：Dart 的 <code>var empty = []</code> 会被推成\n<code>List&lt;dynamic&gt;</code>（因为推不出元素类型），Python 里没有这个问题，\n空列表就是空列表 —— 但代价是 Python 也不知道里面会装什么。</p>\n",
@@ -109,7 +107,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有 <code>null</code> 与 <code>undefined</code> 两个空值，几乎所有位置\n都同时接受两者，判断时得写 <code>x == null</code> 才能一并盖住；\nDart 只有一个 <code>null</code>，并且要求类型里写明可空 ——\n所以「这里可能是空的」是从签名读得出来的事实。\n另一处是 <code>undefined</code> 承担的「变量还没赋值」这个状态：\nDart 用 <code>late</code> 显式表达，读一个还没赋值的 <code>late</code> 变量会抛错，\n而不是静静地给出 <code>undefined</code>。</p>\n",
         "python": "<p>两边的空值都只有一个（<code>None</code> ↔ <code>null</code>），这一点相同。\n差别在类型系统管不管：Python 的 <code>None</code> 能赋给任何变量，\n忘了判就等 <code>AttributeError</code>；Dart 把可空性编码进类型，\n不处理就编译不过。另一处是「字典取不到的键」：\nPython 抛 <code>KeyError</code>，Dart 给 <code>null</code>（返回类型带 <code>?</code>）——\n所以 Python 里那个 <code>try/except</code> 在 Dart 里默认是一次判空。</p>\n",
@@ -155,7 +152,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>除号是两边最容易搞反的一处</strong>：JavaScript 的 <code>/</code> 给小数\n（这一点与 Dart 相同），但 JavaScript 的数字本来就只有一种，\n谈不上「整除」；Dart 有 <code>int</code> 与 <code>double</code> 两个类型，\n<code>/</code> 永远给 <code>double</code>，要整除必须写 <code>~/</code> ——\n写惯了 JavaScript 的人几乎必然会在第一次写出 <code>7 / 2</code> 然后拿到 3.5。\n另一处是解析：JavaScript 用 <code>parseInt</code> / <code>Number</code>，\n解析失败给 <code>NaN</code> 这种哨兵值，程序接着跑；\nDart 的 <code>parse</code> 抛异常，<code>tryParse</code> 给 null，两条路都明确。</p>\n",
         "python": "<p>两边都要显式转换，但<strong>除法的默认相反</strong>：\nPython 的 <code>/</code> 给浮点、<code>//</code> 给整除，Dart 的 <code>/</code> 给浮点、<code>~/</code> 给整除 ——\n这一层两边一样，只是符号不同。\n差别在数字类型：Python 的 <code>int</code> 任意精度、<code>float</code> 是双精度，\n<code>int(3.9)</code> 截断，与 Dart 的 <code>toInt()</code> 行为一致；\n但 Python 的整数不会溢出，Dart 的 64 位整数会回绕。\n解析失败上两边都抛异常，Python 是 <code>ValueError</code>、\nDart 是 <code>FormatException</code>，Dart 另有 <code>tryParse</code> 把失败变成 null。</p>\n",

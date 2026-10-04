@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边是同一套语义：基本类型按值、对象按引用 —— 这一格没有可写的差别，\n类型标注一点也改变不了赋值行为。\n容易记错的是「JavaScript 是传引用还是传值」这个老问题：\n两边都是<strong>按值传递</strong>，只是对象传的那个「值」本身是一个引用 ——\n所以重新赋值参数调用方看不见，改对象内容却看得见。\n想切断共享得显式深拷贝（<code>structuredClone</code>），这一点两边也一样。</p>\n",
         "python": "<p>Python 的赋值是<strong>给对象起名字</strong>，从来不复制；分界线也不看「基本类型还是对象」，\n而看<strong>可变性</strong>：<code>list</code>/<code>dict</code> 共享，<code>tuple</code>/<code>str</code> 不可变所以看不出差别。\n这里的分界线是「是不是对象引用」—— 与另一门语言的分法不同，\n于是「这行赋值到底复制了没有」的答案，两边要按不同的线索去猜。\n传参那一侧两边一致：都是按值传递那个引用，绑定与改内容是两回事。</p>\n",
@@ -48,7 +47,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>同一套引擎、同一套规则，类型标注管不到堆上的事。\n值得记住的是<strong>官方对时机的措辞</strong>：什么时候回收、怎么回收、\n到底回不回收，都取决于具体实现；清理回调甚至<strong>不要求被调用</strong>。\n所以「对象回收时顺便做点事」不能当程序逻辑用 ——\n这一格两边完全一致，差别只在于这里多了一层「看起来有类型、\n其实是运行时」的错觉。</p>\n",
         "python": "<p>最大的差别在<strong>释放的确定性</strong>。Python 以引用计数为主，\n计数归零就立刻释放，所以「这个对象什么时候没了」在那边基本是可预期的\n（循环引用要等分代收集器，但也会被收）。\n这里的时机不保证、也不可观察。「什么时候回收」这个问题的答案，\n一边大致能答上来，一边只能答「不一定」。</p>\n",
@@ -68,7 +66,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>TypeScript <strong>没有所有权与借用</strong> —— 与 JavaScript 一样：\n一个对象可以被任意多个引用同时指着，谁改都合法，编译器不做别名追踪。\n这里能写出来的最接近的东西是 <code>readonly</code>：它挡住属性写入，\n但只是编译期的一层约定 —— 指望它表达「这块数据归谁」是误会，\n它既不阻止共享，运行期也没有任何检查。\n真正防住并发改写的机制在语言层是不存在的。</p>\n",
         "python": "<p>TypeScript <strong>没有所有权与借用</strong> —— 与 Python 一样：\n名字只是指向对象，可以被任意复制、任意共享，没有谁「拥有」它。\nPython 里常见的 <code>del</code>（删掉一个名字）在这里也没有对应物，\n而且它本来也不等于释放对象。\n两边都由 GC 决定生死，编译器都不做别名检查 ——\n「谁负责保证这块数据不被别人改」在这里是设计约定，不是语言能表达的约束。</p>\n",
@@ -88,7 +85,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>TypeScript <strong>没有引用生命周期这回事</strong>，与 JavaScript 一样：\n只要还能顺着引用找到对象，它就不会被回收，引用不可能悬垂 ——\n所以「这个引用能不能活到那一步」不是编译器要问的问题，\n也没有任何标注可以写。\n能写出来的只有<strong>资源</strong>的释放点（5.2 起的 <code>using</code>），\n那管的是句柄、连接这类东西，不是内存。</p>\n",
         "python": "<p>TypeScript <strong>没有生命周期标注</strong> —— 与 Python 一样，\n对象由 GC 保活，引用不会失效，也就不需要写。\n两边的替代品也对应：Python 用 <code>with</code> 保证资源在块结束时释放，\n这里用 <code>using</code>（5.2 起）—— 管的是资源不是内存。\n所以「有效期」这个词在两边都只对资源有意义，对引用没有意义。</p>\n",
@@ -108,7 +104,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>同一套内建（弱集合自 2015、弱引用与清理回调自 2021），行为逐条一致；\n这里加的只是键与值的类型。有一处倒是编译期就能帮上忙：\n<code>WeakMap</code> 的键类型被限制成对象或 Symbol，拿原始值当键<strong>编译不过</strong>，\n而在 JavaScript 里要跑到那一行才抛错。\n回收时机两边同一套说法：不保证。</p>\n",
         "python": "<p>两边都有这套工具，摆法不同。Python 的 <code>weakref</code> 是<strong>模块</strong>，\n弱键与弱值的容器各有一个；这里的 <code>WeakMap</code> 只弱在键那一侧，\n想弱在值那一侧得自己用 <code>WeakRef</code> 搭一层。\n回调那一侧对应得起来：Python 的弱引用可以带回调，\n这里用清理回调，两边都不该拿来承担关键逻辑。\n另一处差别是键的限制：这里连编译期都挡着原始值，Python 的弱引用\n本来就只能指向对象，谈不上这个坑。</p>\n",

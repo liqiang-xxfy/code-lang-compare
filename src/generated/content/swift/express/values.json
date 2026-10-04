@@ -16,7 +16,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的字面量都很丰富，Swift 多出来的是一层<strong>类型默认</strong>：\n<code>3.14</code> 在 Swift 里是 <code>Double</code>、<code>42</code> 是 <code>Int</code>，\n而 <code>Float</code> 与 <code>Double</code> 是两个真正不同的类型（要显式标）；\nJavaScript 只有 <code>number</code> 一种，没有这个选择。\n另一处是字面量的写法：Swift 有数字分隔符（<code>1_000_000</code>）、\n原始字符串（<code>#&quot;...&quot;#</code>）、多行三引号 —— JavaScript 里\n对应的能力要靠模板串或者干脆没有。\n还有一处是空字典：Swift 里 <code>[:]</code> 会因为推不出类型而报错，\n必须写 <code>[String: Int] = [:]</code>，JavaScript 里 <code>{}</code> 就行。</p>\n",
         "python": "<p>两边的字面量形态都很全（多行、原始字符串、进制前缀），\n这一层对应得上 —— 连数字分隔符（<code>1_000_000</code>）两边都有。\n差别在<strong>类型的默认与唯一性</strong>：Python 的 <code>3.14</code> 是 <code>float</code>、\n整数是任意精度；Swift 的浮点默认 <code>Double</code>、整数是定长且\n<strong>溢出会崩</strong>（不是变成大整数）。另一处是字符：\nSwift 的 <code>Character</code> 与 <code>String</code> 是两个类型\n（<code>&quot;好&quot;</code> 默认是 String，要 Character 得显式标），\nPython 里没有字符这个独立类型。</p>\n",
@@ -47,7 +46,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的推断看起来像，分量完全不同：JavaScript 的变量没有类型，\n「推不推」只影响工具怎么提示；Swift 的推断是编译器<strong>算出一个类型\n然后当成写死的一样用</strong> —— 推出来之后就不能再装别的类型，\n而且所有重载决议、协议匹配都按它走。\n另一处是数量级：Swift 的 <code>let x = 1</code> 之后 <code>x</code> 就是 <code>Int</code>，\n<code>x = 1.5</code> 编译不过；JavaScript 里改类型是家常便饭。\n还有一处是 Swift <strong>没有隐式数值转换</strong> —— 要把 <code>Int</code> 当 <code>Double</code>\n用必须写 <code>Double(...)</code>，这在 JavaScript 里是自动的。</p>\n",
         "python": "<p>两边的推断都只是「让编译器/检查器替你写类型」，\n但只有 Swift 那边<strong>推断结果会被强制执行</strong>：\nPython 的 <code>x = 1</code> 之后照样能赋字符串（检查器顶多给个提示），\nSwift 里直接编译不过。另一处是 Swift 的数值转换必须显式\n（<code>Double(d)</code>），Python 里 <code>1 + 1.5</code> 自动变浮点 ——\n也就是说 Swift 把「类型之间的转换」变成了一件要写出来的事，\n读代码时能看见每一处转换。</p>\n",
@@ -83,7 +81,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边都有「空」，但性质完全不同</strong>：JavaScript 有 <code>null</code> 与\n<code>undefined</code> <strong>两个</strong>空值，而且任何变量都能装它们，\n读属性时才抛 TypeError；Swift 只有一个 <code>nil</code>，\n而且「可能为 nil」必须写进类型（<code>String?</code>），\n用之前必须先解包 —— 漏写一个 <code>?.</code> 在 Swift 里根本编译不过。\n另一处是 Swift 的 <code>Optional</code> 是个<strong>普通枚举</strong>，\n能被 <code>switch</code> 匹配、能当值传（JavaScript 的 <code>null</code> 没有这层结构）。\n最后是崩溃方式：<code>!</code> 解包 nil 是明确的陷阱（当场崩并报位置），\n不是未定义行为。</p>\n",
         "python": "<p>两边的「空」都是一句话能说清，但<strong>检查时机相反</strong>：\nPython 的 <code>None</code> 是普通值、任何名字都能装它，出错时\n（<code>x.y</code> 而 x 是 None）到运行时才抛 AttributeError；\nSwift 把这件事提到编译期拦下。\n另一处是 <code>??</code> 与 <code>or</code> 的语义差别很实际：\nPython 的 <code>x or &quot;默认&quot;</code> 对空字符串、0、空列表都会取右边，\nSwift 的 <code>??</code> <strong>只认 nil</strong> —— <code>0 ?? 5</code> 得 0，<code>0 or 5</code> 得 5。\n还有一处是 Swift 的可选链 <code>?.</code> 与 Python 的 <code>getattr</code> 兜底思路相近，\n但前者有编译器强制。</p>\n",
@@ -119,7 +116,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格两边几乎是相反的</strong>：JavaScript 的转换大多是隐式的\n（运算符自己决定怎么转，<code>1 + &quot;1&quot;</code> 得 <code>&quot;11&quot;</code>），失败给 <code>NaN</code>\n而不是报错；Swift <strong>一次隐式转换都没有</strong> ——\n<code>Int</code> 与 <code>Double</code> 相加直接编译不过，必须写 <code>Double(i)</code>。\n好处是读代码时每一处转换都看得见，代价是写起来更啰嗦。\n另一处是溢出：JavaScript 的数字是浮点、超出安全范围只是丢精度；\nSwift 的整数溢出会<strong>当场崩</strong>，要回绕得显式写 <code>&amp;+</code> ——\n两边都不会静默给你一个错的值，但方式完全不同。</p>\n",
         "python": "<p>两边的姿态相反：Python 的 <code>1 + 1.5</code> 自动把整数提升成浮点，\n而且整数是任意精度、根本不会溢出；Swift 里数值类型之间\n<strong>从不隐式转换</strong>，而且整数溢出会崩。\n所以那边「随手混着算」在这边完全行不通，\n每一处都要写 <code>Double(...)</code> —— 这是从 Python 过来最需要适应的一处。\n另一处是字符串转数字，<strong>两边失败的处理方式相反</strong>：\nPython 的 <code>int(&quot;abc&quot;)</code> 抛 ValueError（要 try 接），\nSwift 的 <code>Int(&quot;abc&quot;)</code> 返回 <code>nil</code>（要解包）——\n也就是说那边「解析失败」走异常，这边走可选值。</p>\n",

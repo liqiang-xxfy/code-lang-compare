@@ -16,7 +16,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>function*</code> / <code>yield</code> 能写出「调用时不执行、每次推进到下一个\n暂停点」的生成器；ArkTS <strong>不支持生成器函数</strong>（编译期错误），这段语法在这里\n写不出来。所以「惰性产出一串值」在 ArkTS 里没有语言级的写法 ——\n官方给的替代方向是用 <code>async</code> / <code>await</code> 处理，但那是异步任务、不是可暂停的\n序列：「按需拉取下一个值」这件事本身，这里没有对应机制。</p>\n",
         "python": "<p>Python 的 <code>yield</code> 让一个普通函数变成生成器，需要时才算出下一个值；ArkTS 没有\n生成器函数，这套写法整体缺席。想在 ArkTS 里逐个产出值，只能先把它们全部算进\n一个数组再用 —— <code>for...of</code> 遍历没有问题，但没有「边算边取、算到用的时候\n才算」的暂停机制，Python 那种能表示无限序列的生成器在这里无从写起。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都没有推导式。ArkTS 保留了 <code>map</code> / <code>filter</code> 这类数组方法，所以造数组的\n写法与 JavaScript 相近；但两处辅助手段被砍掉了 —— <code>Object.fromEntries</code> 被\n禁用，从键值对造映射只能改用 <code>Map</code> 逐个 <code>set</code>；对象展开 <code>{...obj}</code> 也不支持，\n复制对象得逐字段写。所以「造一个对象映射」这一条在 ArkTS 里明显更长、更啰嗦。</p>\n",
         "python": "<p>Python 的推导式把「从一个序列造出另一个序列」写成一个表达式，列表 / 字典 /\n集合各有各的写法；ArkTS 没有推导式，全靠数组方法链，造映射还得用一个 <code>Map</code>\n加循环去填。两边都能把常用构造写得比较紧凑，但 Python 是一行表达式，\nArkTS 是一串方法再加一个循环。</p>\n",
@@ -68,7 +66,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 里数组方法同样急切，但它有生成器 —— 惰性序列、无限序列都能用\n<code>function*</code> 搭出来。ArkTS 保留了急切的那一半，砍掉了生成器，于是惰性这一半\n整个缺失：没有生成器，也就没有「不取完就不算完」的无限序列。想要类似效果，\n只能手写一套迭代协议，把「走到哪了」记在字段里，长度和易错度都远高于\n一行 <code>function*</code>。</p>\n",
         "python": "<p>Python 用生成器与 <code>itertools</code> 做惰性：<code>(x for x in xs)</code> 一行得到惰性序列，\n<code>islice</code> / <code>count</code> 直接给出常用算子；ArkTS 没有生成器，这套写法整体缺席，\n只能先把整个序列算成数组再用。差别是根本性的 —— Python 能表达无限序列，\nArkTS 里「无限」无从写起，因为任何数组方法都会先跑完整个输入。</p>\n",
@@ -88,7 +85,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的数组解构（<code>const [a, b] = xs</code>）、对象解构（<code>const { x } = obj</code>）、\n剩余元素与默认值，在 ArkTS 里<strong>都不支持</strong> —— 解构变量声明、解构赋值、参数\n解构分别对应三条编译期错误。要取几个值只能逐个写 <code>let a = xs[0]</code> / <code>obj.x</code>，\n交换两个变量还得借一个临时变量。所以从 JavaScript 搬代码时，凡是解构的地方\n都得改写成显式取值。</p>\n",
         "python": "<p>Python 的元组解包（<code>a, b = pair</code>）与 <code>*rest</code> 是日常写法，ArkTS 没有任何解构\n语法，这套写法整个不在。代价落在取值上：Python 一行拆开，ArkTS 要逐下标 /\n逐字段手动取，交换变量还要临时变量。作为补偿，ArkTS 的类字段是具名的，\n取值时写 <code>obj.field</code> 本身也够直白 —— 但表达力和紧凑度确实少了一截。</p>\n",

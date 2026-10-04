@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的类型只活在运行时，写错了要跑到那一行才知道；\nKotlin 在编译期就拦下，类型还是字节码的一部分，运行时（JVM 上）\n能靠反射看到它。另一处是 <code>is</code> 检查之后 Kotlin 会<strong>智能转换</strong> ——\n同一个分支里不用再强转就能当具体类型用，JavaScript 里\n<code>typeof</code> 判断完只是给读代码的人看的，引擎不会因此改变看法。</p>\n",
         "python": "<p>Python 的类型错误要等到运行时才暴露，标注本身不产生检查；\nKotlin 在编译期拒绝，且编译产物里带着类型。\n差别还体现在收窄上：Python 的 <code>isinstance</code> 判断只对类型检查器有用，\nKotlin 的 <code>is</code> 是语言规则 —— 判断过之后编译器就换了个更具体的类型\n来看这个变量。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有类型标注这回事，值自己带着类型到处走；\nKotlin 的函数签名、属性、没有初值的变量都必须写类型，\n能省的只有「有初值的局部变量」这一处。更根本的差别是标注的去向：\nJavaScript 本来就无标注可谈，Kotlin 的标注会进字节码，\n运行时的反射读得到。</p>\n",
         "python": "<p>两边都把类型写在名字后面（<code>r: Double</code> / <code>r: float</code>），也都能只标注一部分；\n差别是<strong>谁在检查</strong>：Python 的标注运行时不生效，写错了代码照跑，\n要靠 mypy 这类工具另跑一遍才发现；Kotlin 的标注是编译器的输入，\n写错就编译不过。Kotlin 还有 <code>const val</code> 这种编译期常量，Python 里没有对应写法。</p>\n",
@@ -73,7 +71,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的鸭子类型在运行时生效：有那个方法就能调用，没有就到运行时炸。\nKotlin 相反，接口必须<strong>显式声明实现</strong>，形状相同但没写 <code>: Quacker</code> 的类\n传不进去，错误在编译期出现。代价是没法给一个改不了源码的类型\n事后补上接口实现 —— Kotlin 只能用扩展函数加方法，\n但那只是静态解析的语法糖，不会让它真的成为该接口的实现。</p>\n",
         "python": "<p>Python 的鸭子类型在运行时，<code>Protocol</code> 提供的是可选的结构化标注；\nKotlin 是<strong>名义</strong>类型 —— 不写 <code>: Interface</code> 就不算实现，有同样的方法也没用。\n这带来一个 Python 没有的确定性：读到一个 <code>Quacker</code> 类型的参数，\n它一定来自某个显式声明实现了 Quacker 的类。唯一接近结构化的是\n<code>fun interface</code> 的 SAM 转换：单个抽象方法能用 lambda 顶上。</p>\n",
@@ -99,7 +96,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>typeof</code> / <code>instanceof</code> 判断只影响这次分支走哪边，\n判断完那个变量还是原来的类型；Kotlin 的 <code>is</code> 检查同时也是<strong>编译期事实</strong>，\n分支里可以直接用具体类型的方法。两边的检查动作一样（运行时真的查了），\n差别在之后 —— 一边编译器跟着改了看法，一边没有。</p>\n",
         "python": "<p>Python 用 <code>isinstance</code> 判断再分支，收窄要靠类型检查器推断；\nKotlin 的 <code>is</code> 是语言内建的，判断完编译器立刻换用更具体的类型。\n更明显的一处差别是穷尽性：Kotlin 的 <code>when</code> 用在 sealed 类型上\n会检查你有没有覆盖全部分支，漏一种就编译不过；\nPython 的 <code>if / elif</code> 链没人管你漏没漏，只能靠阅读发现。</p>\n",
@@ -135,7 +131,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 里 <code>null</code> / <code>undefined</code> 能落到任何变量上，读属性才抛错；\nKotlin 把「可能为空」写成类型的一部分（<code>String?</code>），不接受空就写 <code>String</code>，\n往 <code>String</code> 里塞 null 编译不过。<code>?.</code> 与 <code>?:</code> 两边都有，\n但 Kotlin 的 <code>!!</code> 会把「我确定它不为空」变成一个显式的、会抛 NPE 的承诺 ——\n在 JavaScript 里这种承诺是默认状态，根本写不出来。</p>\n",
         "python": "<p>Python 的 <code>None</code> 同样能赋给任何变量，出问题要到运行时才看见；\nKotlin 把可空性编码进类型，不处理 <code>String?</code> 就拿不到里面的值。\n写法上两边都有快捷方式 —— Python 的 <code>x or &quot;默认&quot;</code> 与 Kotlin 的 <code>?:</code> ——\n但 <code>or</code> 对空字符串、0、空列表同样取右边，<code>?:</code> 只在左边真的是 null 时才取右边，\n所以 Kotlin 的默认值判断更精确。</p>\n",
@@ -171,7 +166,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有「断言」这个动作 —— 值就是值，没有静态类型需要被说服，\n转换大量是隐式的（<code>Number</code> / <code>String</code> / 运算符自己转），失败得到哨兵值不报错。\nKotlin 的 <code>as</code> 是真的运行时检查，类型不符直接抛异常；<code>as?</code> 是不抛的版本，\n不符得到 null。数值转换必须写出方法名，窄化截断时编译器也不提醒。</p>\n",
         "python": "<p>Python 的 <code>cast</code> 只是给类型检查器下的指令，运行时什么都不做；\nKotlin 的 <code>as</code> 在运行时真的检查，不符就抛 ClassCastException，\n拿不准时用 <code>as?</code> 得到 null 而不是异常。数值转换两边都要显式写\n（<code>int(x)</code> / <code>x.toInt()</code>），但 Python 的整数是任意精度、不会回绕，\nKotlin 的 <code>300.toByte()</code> 会静默变成 44 —— 一处 Python 里不存在的失败模式。</p>\n",

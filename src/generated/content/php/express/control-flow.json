@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>基本形状一样（<code>if</code> / <code>else if</code> / <code>else</code>、三元、短路求值），\n差别在三处。第一，PHP 有<strong>替代语法</strong>（<code>if (): ... endif;</code>），\nJavaScript 没有 —— 那是为「模板里夹 HTML」准备的写法，\n在 PHP 的模板文件里很常见，前端代码里看不到。\n第二，<strong>嵌套三元</strong>：JavaScript 允许 <code>a ? b : c ? d : e</code> 并约定右结合；\nPHP 8.0 起<strong>不加括号直接是编译错误</strong>，整份文件都跑不起来。\n第三，PHP 的真假判定表更宽（<code>&quot;0&quot;</code> 是假），\nJavaScript 那边只有 7 个假值，<code>&quot;0&quot;</code> 是<strong>真</strong>的 ——\n<code>$x ?: '默认'</code> 与 <code>x || '默认'</code> 在这一个字面量上结果不同。</p>\n",
         "python": "<p>两边都有 <code>if</code> / <code>elif</code> / <code>else</code>，也都有三元表达式，但<strong>顺序不同</strong>：\nPython 是 <code>a if 条件 else b</code>，PHP 是 <code>条件 ? a : b</code> ——\n条件的位置一个在前一个在后，来回切换时容易写反。\n差别更大的是「多分支」：Python 有 <code>match</code> 语句（3.10 起）可以做\n结构匹配和字面量分支；PHP 对应的 <code>match</code> 是<strong>表达式</strong>、\n只做值比较（而且必须穷尽）—— 能力弱一层但能直接赋值。\n另一处是替代语法：Python 靠缩进，不存在「块结束标记」这种东西，\nPHP 的 <code>endif;</code> 是为模板设计的，两种风格在同一份代码里可以混。</p>\n",
@@ -88,7 +87,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>四种循环的形状基本一致，<code>for...of</code> / <code>for...in</code> 与 <code>foreach</code> 大致对应。\n差别在<strong>跳层的写法</strong>：JavaScript 给循环<strong>贴标签</strong>（<code>outer: for (...)</code>）\n然后 <code>break outer</code> / <code>continue outer</code>；PHP 不用标签，\n用数字数层数（<code>break 2</code> / <code>continue 2</code>）—— 层数数错不报错，\n只是跳到意料之外的地方。\n另一处是遍历时修改集合：JavaScript 的 <code>for...of</code> 遍历数组时\n长度是<strong>动态读</strong>的，边遍历边 <code>push</code> 会越跑越长；\nPHP 的 <code>foreach</code> 按值时遍历的是副本，追加的元素<strong>不会</strong>被遍历到 ——\n一个会意外多跑、一个会意外少跑。</p>\n",
         "python": "<p>Python 只有 <code>for ... in</code> 与 <code>while</code>，没有 C 风格的三段式 <code>for</code>\n（要写得用 <code>range</code>）。跳层上两边都没有标签与层数：\nPython 用 <code>break</code> 只能跳一层，要跳两层得靠<strong>标志位</strong>或把内层抽成函数；\nPHP 直接写 <code>break 2</code> 就行 —— 这是 PHP 更顺手的一处。\n另一处是「遍历时改集合」：Python 的 <code>for x in lst</code> 底层是迭代器，\n边遍历边 <code>append</code> 会一直跑下去；PHP 的 <code>foreach</code> 按值时是副本，不会。\n共同点：两个语言都提供了取出下标/键的写法\n（Python 的 <code>enumerate</code>，PHP 的 <code>foreach ($a as $k =&gt; $v)</code>）。</p>\n",
@@ -119,7 +117,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的迭代协议是<strong>符号</strong>：对象实现 <code>Symbol.iterator</code>\n就能被 <code>for...of</code> 遍历，而且 <code>for...of</code>、展开运算符、解构\n都走同一条协议。PHP 是<strong>接口</strong>：<code>Iterator</code> / <code>IteratorAggregate</code>\n只服务于 <code>foreach</code>（官方明说 <code>foreach</code> 是唯一使用 <code>Iterator</code> 的语句），\n展开运算符 <code>...</code> 对对象不认这套。\n另一处是生成器：两边的 <code>yield</code> 都做惰性序列，\n但 PHP 的生成器<strong>键也参与</strong>（<code>yield $k =&gt; $v</code>），\n于是 <code>yield from</code> 与 <code>iterator_to_array()</code> 相遇时键会互相覆盖、\n静默丢元素 —— JavaScript 的生成器只产值，不存在这个坑。\n共同点是两边的生成器都只能遍历一次，回头再来不行。</p>\n",
         "python": "<p>Python 的迭代协议是<strong>双下划线方法</strong>（<code>__iter__</code> / <code>__next__</code>），\n而且 <code>for</code>、解构、<code>list()</code>、<code>in</code> 全都走同一条协议；\nPHP 是接口，只有 <code>foreach</code> 走。写法上 Python 更省事：\n一个 <code>__iter__</code> 就够了，PHP 要么实现五个方法的 <code>Iterator</code>，\n要么写 <code>IteratorAggregate</code> 包一层，要么用生成器。\n另一处是「键」：Python 的迭代只产值（要下标得自己 <code>enumerate</code>），\nPHP 的迭代<strong>天生带键</strong>（<code>foreach ($a as $k =&gt; $v)</code>），\n而且这个键在 <code>iterator_to_array()</code> 里默认被保留 ——\n于是「生成器的键撞车导致元素丢失」这种事在 PHP 里会发生，\nPython 里根本没有键可以撞。</p>\n",
@@ -170,7 +167,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有 <code>switch</code>，都用松比较、都会 fall through —— 这一层一样。\n但 PHP 8.0 把比较规则改过：<code>switch (&quot;abc&quot;) { case 0: }</code> 在 PHP 7\n会命中，PHP 8 不命中（与 <code>==</code> 的改动同源）。\nJavaScript 那边没有对应变化。\n更大的差别是 <strong>PHP 有 <code>match</code> 而 JavaScript 没有</strong>：\n<code>match</code> 是表达式（能直接赋值）、<strong>严格比较</strong>、不 fall through、\n而且漏分支会<strong>抛异常</strong>—— 这四条正好是 <code>switch</code> 的四个痛点，\n相当于把 <code>switch</code> 重做了一遍。JavaScript 要同样的效果得靠\n对象查表或一串 <code>if</code>。</p>\n",
         "python": "<p>两边都有一个「多分支」构造，但<strong>用途不同</strong>。Python 3.10 的 <code>match</code>\n是<strong>结构匹配</strong>：能解构序列、映射、类实例，配 <code>case [x, y]</code>、\n<code>case Point(x=0)</code> 这种模式，还能加 <code>if</code> 守卫；\nPHP 的 <code>match</code> 只做<strong>值的严格比较</strong>，<code>case</code> 里只能放值。\n所以 Python 的 <code>match</code> 更像一个模式匹配器，PHP 的 <code>match</code>\n是一个「会更严格的 switch」。\n另一处是穷尽性：两边都不强制穷尽，但失败方式不同 ——\nPython 的 <code>match</code> 没匹配上就继续往下走（没有默认分支也不报错），\nPHP 的 <code>match</code> <strong>直接抛 UnhandledMatchError</strong>。\n共同点是两边都用逗号/竖线表达「多个值命中同一分支」。</p>\n",

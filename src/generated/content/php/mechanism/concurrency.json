@@ -47,7 +47,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的「并发模型」压根不是一回事。JavaScript 靠<strong>事件循环</strong>\n在单线程上跑异步任务，<code>async</code> 函数与微任务队列是语言的一部分；\nPHP <strong>核心没有事件循环</strong>，一个请求就是从头跑到尾的一段同步代码，\n跑完进程结束。\nPHP 有的 <code>Fiber</code> 只是「可以中途挂起、等别人 resume」的底层原语，\n官方明说是给库作者用的 —— 它不含调度器，所以「挂起之后谁来恢复」\n这件事得由外部框架决定。也就是说 JavaScript 那边\n「并发」是一个现成的运行时特性，PHP 这边是一堆积木。\n另一处是共享：JavaScript 的单线程意味着没有数据竞争，\nPHP 的请求进程之间也天然隔离 —— 这一点两边反而都省心。</p>\n",
         "python": "<p>Python 的处境与 PHP 最像：<strong>语言层也没有真正的并行</strong>\n（CPython 有 GIL），并发靠 <code>asyncio</code> 事件循环，\n而 <code>asyncio</code> 是<strong>标准库</strong>里就有的一整套（循环、Future、Task、await）。\nPHP <strong>标准库里一样都没有</strong> —— Fiber 只是 <code>asyncio</code> 里\n「协程挂起」那一层的等价物，没有循环、没有任务调度、没有 await 语法。\n想要完整的异步，得引第三方（ReactPHP / Amp / Revolt）\n或者装扩展（Swoole）。\n另一处是进程/线程：Python 有 <code>multiprocessing</code> / <code>threading</code> 在标准库里，\nPHP 连这两个都要靠扩展（而且 pcntl 只在 Unix）。</p>\n",
@@ -93,7 +92,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的「共享」层次完全不同。JavaScript 是单进程单线程，\n同一个页面里所有代码共享同一份内存 —— 所以「共享状态」\n是默认的，「隔离」反而要刻意做（Web Worker、iframe）。\nPHP <strong>正好相反</strong>：请求之间天然隔离，「共享」要刻意做\n（写文件、写数据库、用缓存服务）。\n另一处是持久性：JavaScript 的 Node 进程活着，模块级变量就一直在；\nPHP 的请求结束，一切用户态内存直接归还 ——\n所以 PHP 里那种「启动时建个连接池一直用」的写法需要\nFPM 之外的形态（常驻进程 / Swoole）才成立。</p>\n",
         "python": "<p>两边都有「进程内共享、进程间靠通信」这个层次，\n但<strong>默认落在哪一边不同</strong>。Python 的长驻进程里，\n模块级全局变量在整个进程生命周期都共享 ——\n「启动时加载一次配置，处处可用」是常规写法。\nPHP 的请求进程<strong>跑完就死</strong>，全局变量只在这一次请求里有效，\n下次请求要从头来过 —— 所以 PHP 里那些「全局缓存」\n必须落在 APCu / Redis 这类进程外的地方。\n共同点是两边的多进程模型下，跨进程共享都得靠外部设施\n（Python 的 <code>multiprocessing</code> 也是按值/序列化传的）。</p>\n",
@@ -149,7 +147,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的单线程模型让「锁」这件事基本不需要 ——\n共享状态不会被打断，所以没有互斥的概念\n（<code>Atomics</code> 只在 SharedArrayBuffer 那套里才有意义）。\nPHP <strong>需要锁</strong>，因为并发发生在<strong>多个请求进程同时读写同一份外部资源</strong>\n的时候 —— 但语言又不给锁，得自己用文件锁或数据库事务解决。\n也就是说 JavaScript 那边「并发安全」是运行时替你解决的，\nPHP 这边是应用层要自己设计的。\n共同点是两边都没有互斥锁类型。</p>\n",
         "python": "<p>两边的处境<strong>几乎一样</strong>：Python 的 <code>threading.Lock</code>\n只在多线程进程内有意义，跨进程要用 <code>multiprocessing.Lock</code>\n或者外部设施 —— 而 CPython 全局解释器锁让线程本来就跑不了真并行。\nPHP 连线程都没有（核心层），只有进程，\n所以「锁」在 PHP 里的唯一现实形态就是<strong>跨进程的文件锁或外部存储</strong>。\n差别在标准库：Python 的锁在标准库里，PHP 的 <code>flock</code> 在核心但语义弱\n（建议性），SysV 信号量在扩展里且 Unix-only。\n共同点是两边最终都常常退回到「用数据库/Redis 来互斥」。</p>\n",
@@ -190,7 +187,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的对应物是 <code>MessageChannel</code> / <code>postMessage</code>（跨线程）\n或者 <code>ReadableStream</code>（数据流），都在运行时里。\nPHP 核心<strong>什么都没有</strong> —— 通道只存在于 <code>parallel</code> 扩展里。\n所以这一格是「一边有内建的消息传递、一边要装扩展」。\n共同点是两边传递时都走<strong>值拷贝/结构化克隆</strong>，\n（<code>postMessage</code> 用结构化克隆，<code>parallel</code> 用值传递）——\n「传过去的是副本不是同一块内存」这一点一致，\n而这正是消息传递模型安全的原因。</p>\n",
         "python": "<p>Python 的 <code>multiprocessing.Queue</code> / <code>Pipe</code> 就是通道，\n在<strong>标准库</strong>里；<code>asyncio.Queue</code> 是单进程内的版本。\nPHP 的通道只在 <code>parallel</code> 扩展里（PECL，不在核心）——\n所以同样一件事，Python 那边 <code>import</code> 一下就有，\nPHP 那边要装扩展（而且那个扩展在 Windows 上的可用性还要另说）。\n共同点是两边的跨进程消息都<strong>按值</strong>传（要序列化），\n所以传大对象有成本，也不会有意外共享。\n另一处是哲学：Python 的 <code>multiprocessing</code> 默认允许共享内存\n（<code>Value</code> / <code>Array</code>），PHP 的 <code>parallel</code> 刻意只给消息传递。</p>\n",
@@ -251,7 +247,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 单线程，所以「读-改-写」在同一个事件循环里\n天然是原子的（没有别的代码能插进来）——\n真正需要原子性只在 SharedArrayBuffer + Worker 那一套里，\n那里有 <code>Atomics</code> 一整套 API。\nPHP <strong>没有 <code>Atomics</code> 这类东西</strong>：核心不给原子操作，\n而并发又真实存在（多个请求进程同时读写同一份缓存/数据库）——\n所以 PHP 里的原子性只能靠<strong>外部存储自己提供的原子命令</strong>\n（Redis 的 INCR、数据库的锁）。\n也就是说 JavaScript 那边原子性是「多线程才需要」的问题，\nPHP 这边是「多进程也躲不掉」的日常问题。</p>\n",
         "python": "<p>两边的处境类似：CPython 有 GIL，单条字节码不会被打断，\n所以「a += 1」在纯 Python 层看着像原子的（但<strong>不要依赖这一点</strong>）；\n真要原子性得用 <code>threading.Lock</code> 或标准库的\n<code>multiprocessing.Value</code>（带锁的共享内存）。\nPHP <strong>没有任何核心层的原子手段</strong>，连「单条语句原子」这个假象都没有 ——\n因为并发是跨进程的，而你操作的共享资源本来就在进程之外。\n差别在标准库：Python 的 <code>multiprocessing</code> 自带带锁的共享内存，\nPHP 要外接 APCu / shmop（而且后者还明确不原子）。\n共同点是两边最终都常常落到「让数据库或 Redis 来保证原子」。</p>\n",

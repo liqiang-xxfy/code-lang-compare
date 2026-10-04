@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>思路相近（清单 + 锁文件 + 中心仓），规模差得远 ——\n这里的仓里是给这个平台用的三方库，数量与那边不是一个量级。\n更实际的一处差别是<strong>命令的划分</strong>：那边常见「一条脚本命令把构建、\n测试、发布串起来」，这里的依赖与构建是两条独立的命令，\n各管一段，不互相调用。</p>\n",
         "python": "<p>Python 要先选包管理器（标准库不带，主流有好几个），\n再决定依赖写在哪；这里没有这一层选择 —— 官方只给一个工具，\n随命令行工具一起装好，装完就能用。\n另一处差别是依赖的落点（见「环境隔离」那一格）：\n那边要显式建虚拟环境，这里默认就是工程内。</p>\n",
@@ -42,7 +41,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>形态最接近的一格：都是 JSON、都有 dependencies 与 devDependencies。\n差别在<strong>清单的份数</strong> —— 这里的<strong>工程与每个模块各有一份</strong>，\n模块自己的依赖写在模块自己的清单里，天然分层；\n那边是单份 package.json，多包要靠 workspaces 才能表达同一件事。\n另一处小的便利：这里允许写注释（JSON5），\n而标准 JSON 不允许，那边的 package.json 里想留说明只能靠字段名。</p>\n",
         "python": "<p>依赖写在文本或 TOML 里，这里写在 JSON5 里 ——\n都能写注释，这一点比标准 JSON 友好。\n真正的差别在<strong>层次</strong>：Python 的依赖清单是「一个项目一份」，\n多包项目要额外机制；这里的工程与模块天然各有一份清单，\n模块依赖哪份库在模块目录里就能看到。</p>\n",
@@ -73,7 +71,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>这一格最接近：<code>^</code> 与 <code>~</code> 的含义与那边逐条一致，\n连「0 开头的版本特殊处理」这类细节也同源。\n差别在<strong>发布侧的约束</strong>：这里只接受三段式的版本号，\n预发布后缀不能作为发布版本；那边没有这条限制。</p>\n",
         "python": "<p>符号体系完全不同：Python 的版本规范里<strong>没有 <code>^</code></strong>，\n「允许升到哪一版」要写兼容子句（<code>~=1.4.2</code>）。\n两个 <code>~</code> 长得像但语义不同 —— 这里的 <code>~1.2.3</code> 允许升到 <code>1.2.x</code>，\n那边的 <code>~=1.2.3</code> 允许升到 <code>1.2.*</code>，看着一样、\n但推导规则来自各自的规范，不能互相套用。</p>\n",
@@ -99,7 +96,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边职责相同：锁定精确版本 + 记录完整性校验，都建议入库。\n差别在<strong>位置与份数</strong>：那边是每个 package.json 旁边一个锁文件，\n多包工程里会有好几份；这里是工程根一份。\n另一处是格式：这里是 JSON5，文件里能带说明性注释\n（尽管官方要求不要手改）。</p>\n",
         "python": "<p>这一格是 Python 生态的老问题：直到 2025 年才有了标准的锁文件格式，\n而在此之前能让所有工具互认的格式根本不存在 ——\n导出已装包的那条命令官方明说<strong>不是</strong>求解结果，\n真正能锁的几套方案都是第三方工具各自的格式。\n标准定下来不等于大家都在用：生态仍在过渡，\n所以那边至今要回答「你们项目用哪套锁定方案」。\n这里从一开始就只有一种锁文件，不存在这个问题。</p>\n",
@@ -130,7 +126,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是工程内隔离（各自一个依赖目录），这一点相同。\n差别在<strong>多模块工程的组织</strong>：那边要把多个包的依赖提到顶层共享，\n得引入 workspaces；这里的多模块是工程的原生概念，\n依赖自动集中到工程根、各模块用软链接指过去，\n不需要额外声明。</p>\n",
         "python": "<p>这是从 Python 过来最省心的一处：那边要先创建并<strong>激活</strong>虚拟环境，\n隔离才成立；这里的隔离是默认状态 —— 依赖就在工程目录里，\n没有激活这一步，也不会出现「忘了激活、装到全局去了」。\n代价是也没有「一个环境跑多个项目」这种用法，隔离是硬的。</p>\n",
@@ -161,7 +156,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「传到中心仓、占住版本号」，流程形状一致。\n差别在<strong>发布物的形态</strong>：那边发布源码加元数据，消费方自己打包；\n这里要先把库打成共享包再发布，而且有两种形态可选 ——\n编译期拷贝进去的，和运行时共享同一份的。\n这个选择在那边不存在（模块就是模块）。</p>\n",
         "python": "<p>Python 也要先构建产物（wheel / 源码包）再上传，这一点相同。\n差别在<strong>共享方式</strong>：那边的包被各自复制进各自的环境，\n同一个库在十个项目里就是十份；这里的动态共享包能做到\n多个模块在运行时用同一份，改一处全局生效。</p>\n",

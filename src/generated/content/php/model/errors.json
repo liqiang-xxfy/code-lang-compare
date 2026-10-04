@@ -42,7 +42,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格两边差别很直接</strong>：JavaScript 的 <code>throw</code> 能抛任何值 ——\n字符串、数字、普通对象都行，代价是调用方得自己判断接住的是什么。\nPHP <strong>只能抛对象</strong>，而且必须是 <code>Throwable</code> 的实现类，\n抛一个字符串直接是致命错误。\n限制换来的是确定性：<code>catch</code> 里拿到的 <code>$e</code> 一定有 <code>getMessage()</code>、\n<code>getCode()</code>、<code>getTrace()</code> 这些方法，不用先判断类型。\n另一处是 <code>throw</code> 的位置：JavaScript 的 <code>throw</code> 是语句，\nPHP 8.0 起是<strong>表达式</strong>，于是 <code>$x ?? throw new E()</code> 这种写法可以成立。</p>\n",
         "python": "<p>两边都只能抛异常对象，这一层一致。差别在<strong>能不能自定义异常类型</strong>：\nPython 直接 <code>class MyError(Exception)</code> 就行，继承的是普通类；\nPHP <strong>不允许</strong>实现 <code>Throwable</code> 接口，必须继承 <code>Exception</code>\n或 <code>Error</code> 其中之一 —— 也就是说 <code>Throwable</code> 是个封闭的根，\n只有语言自己能把新分支挂上去。\n另一处是 <code>raise ... from ...</code> 与 PHP 的 <code>previous</code> 参数\n（见「传播与包装」那一格），两边都保留根因链，机制不同。</p>\n",
@@ -78,7 +77,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有一个 <code>catch</code>，而且<strong>没有类型</strong>（要看类型得在\ncatch 里自己 <code>instanceof</code> 判断）。PHP 的 <code>catch</code> 是<strong>按类型匹配</strong>的，\n可以写多个块、按顺序匹配 —— 更接近一份路由表。\n另一处是「有没有根」：JavaScript 里 <code>throw</code> 什么都行，\n所以没有一个「所有异常的共同父类」；\nPHP 有 <code>Throwable</code>，<code>catch (Throwable $e)</code> 是真正的兜底。\n共同点是两边都能重新抛出、都没有受检异常。</p>\n",
         "python": "<p>两边的写法几乎一样：<code>try</code> + 一个或多个按类型匹配的 <code>except</code> / <code>catch</code>，\n都按类层次匹配、都先具体后宽泛、都能重新抛出。\n差别在<strong>根有几个</strong>：Python 的 <code>except Exception</code> 能接到几乎所有\n能接的东西（KeyboardInterrupt 与 SystemExit 才另算）；\nPHP 的 <code>catch (Exception $e)</code> <strong>接不到 <code>Error</code></strong> ——\n类型错误、除零、match 漏分支全都是 <code>Error</code> 那一支的，\n想兜底必须写 <code>Throwable</code>。这是从 Python 过来最容易漏的一条。\n另一处是名称：PHP 叫多类型捕获写 <code>A | B</code>，Python 写 <code>(A, B)</code> 元组。</p>\n",
@@ -124,7 +122,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>finally</code> 都是「无论怎么出去都执行」，语义一致。\n差别在<strong>与 return 的交互</strong>：JavaScript 里 <code>try</code> 中的 <code>return</code>\n同样要等 <code>finally</code> 跑完，而 <code>finally</code> 里的 <code>return</code>\n也会覆盖它 —— 这一条两边<strong>行为相同</strong>，可以照搬。\n另一处是「能被 finally 盖掉的东西」：JavaScript 的 <code>finally</code> 里\n写 <code>return</code> 同样会吞掉异常，规则一致。\n真正的差别在语言层面之外：JavaScript 的资源清理靠 <code>finally</code> 或\n<code>using</code> 声明（较新版本），PHP 只有 <code>finally</code> 一条路。</p>\n",
         "python": "<p>两边的 <code>finally</code> 语义基本一致，但<strong>与 return 的交互不同</strong>：\nPython 的 <code>finally</code> 里写 <code>return</code> 同样会覆盖 <code>try</code> 里的返回值\n（这点一样），可是 Python 从 3.14 起把「<code>finally</code> 里跳出去」\n标记为需要留意；更关键的是 PHP 这边 <code>finally</code> 里的 <code>return</code>\n还能<strong>把异常整个吞掉</strong>，而 Python 的 <code>finally</code> 里 <code>return</code>\n也会吞掉异常 —— 规则其实相同。\n所以这一格两边可以互相照搬，共同结论都是\n「清理归清理，别在 finally 里写 return」。\n写法上 Python 用 <code>try / except / finally</code>，PHP 用 <code>try / catch / finally</code>。</p>\n",
@@ -155,7 +152,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有「错误类型层级」这回事：<code>Error</code> 是唯一的根\n（下面 <code>TypeError</code> / <code>RangeError</code> / <code>SyntaxError</code> 等），\n而且所有东西都是异常 —— 没有「警告」这种非异常的诊断。\nPHP 有<strong>两套并存的机制</strong>：<code>Throwable</code> 那一套（可以被 catch），\n以及传统的 <code>E_*</code> 错误级别（<code>E_WARNING</code> 之类，\n默认只是打印，可以被 <code>set_error_handler</code> 接住但不能 catch）。\n另一处是分叉的根：JavaScript 的 <code>Error</code> 是唯一的根，\nPHP 的 <code>Error</code> 与 <code>Exception</code> 是兄弟，兜底必须写 <code>Throwable</code>。</p>\n",
         "python": "<p>两边都有完整的异常层级，也都能按父类捕获，这一层对应得上。\n差别在**「错误」与「异常」是不是一回事**：Python 里\n<code>TypeError</code> 就是一个普通异常类，<code>except Exception</code> 能接住；\nPHP 的 <code>TypeError</code> 属于 <code>Error</code> 那一支，\n<code>catch (Exception)</code> <strong>接不到</strong> —— 从 Python 过来写\n<code>catch (Exception $e)</code> 当兜底，会漏掉所有引擎错误。\n另一处是 PHP 还保留了传统 <code>E_*</code> 诊断（warning/notice）\n这套非异常的机制，Python 里没有对应物（只有 warnings 模块，\n而且是库层面的约定，不是语言的两套诊断体系）。</p>\n",
@@ -201,7 +197,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 自定义错误类要继承 <code>Error</code>，但继承了之后\n<code>instanceof</code> 与 <code>stack</code> 的行为在历史上出过不少问题\n（<code>name</code> 要自己设、原型链要手动修），所以很多项目干脆抛普通对象。\nPHP 的自定义异常简单直接：继承 <code>Exception</code> 或它的某个 SPL 子类，\n构造函数调一下 <code>parent::__construct()</code>，然后 <code>catch</code> 按父类就能接住。\n另一处是「元数据」：JavaScript 的 <code>Error</code> 只有 <code>message</code> / <code>name</code> / <code>stack</code>，\n想带结构化数据得自己塞属性；PHP 的 <code>Exception</code> 自带\n<code>code</code> 与 <code>previous</code>（异常链），需要更多就加构造器提升的属性。</p>\n",
         "python": "<p>两边自定义异常都是「继承一个基类、调父类构造函数」，\n写法几乎一样（Python 的 <code>super().__init__(msg)</code>）。\n差别在<strong>约定</strong>：Python 强烈推荐自定义异常集继承自某个共同祖先\n（比如项目自己的 <code>AppError</code>），这样调用方能一次接住一片；\nPHP 的对应做法是「继承语义最贴近的 SPL 子类」——\n官方手册也是这么建议的，因为这样调用方能按 <code>InvalidArgumentException</code>\n这类标准父类来接，不必认识你的类。\n另一处是 PHP 的 <code>getMessage()</code> 等方法是 <strong>final</strong>、不许覆盖，\n而 Python 的异常可以自由重写 <code>__str__</code>。</p>\n",
@@ -242,7 +237,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的异常传播也是隐式的（没有 throws 声明），这一层一样。\n差别在<strong>包装根因</strong>：JavaScript 到较新版本才有 <code>cause</code> 选项\n（<code>new Error(msg, { cause })</code>），之前只能自己塞属性；\nPHP 的 <code>previous</code> 参数从 5.3 就有，是 <code>Exception</code> 构造函数的一部分，\n<code>getPrevious()</code> 是标准方法。\n另一处是「非异常诊断怎么处理」：JavaScript 没有 warning 这套东西，\nPHP 有 <code>E_WARNING</code> 级别的诊断，而且可以用 <code>set_error_handler</code>\n把它们<strong>桥接成异常</strong> —— 这是 PHP 里把「老式报错」纳入\ntry/catch 体系的惯用手法。</p>\n",
         "python": "<p>两边的传播都是隐式的，包装根因也都有专门语法：\nPython 用 <code>raise NewError(...) from e</code>（会自动设 <code>__cause__</code>），\nPHP 用构造函数的 <code>previous</code> 命名参数。\n差别在<strong>链的方向与读取</strong>：Python 的 <code>__cause__</code> / <code>__context__</code>\n是属性的形式，<code>raise ... from None</code> 还能主动切断；\nPHP 只有一个 <code>getPrevious()</code> 链，切断不了。\n另一处是「警告要不要算异常」：Python 有 <code>warnings</code> 模块可以把\n警告升级成异常（<code>-W error</code>），PHP 靠 <code>set_error_handler</code> 桥接 ——\n思路一致，但 PHP 那套接不到致命级别。</p>\n",

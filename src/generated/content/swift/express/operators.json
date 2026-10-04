@@ -27,7 +27,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>除法差别很大：JavaScript 的 <code>/</code> 一律给浮点（<code>7/2</code> 是 3.5），\n要整除得自己写 <code>Math.floor</code>；Swift 的 <code>/</code> 看操作数类型 ——\n两个整数就是整除，而且<strong>向零截断</strong>（<code>-7/2</code> 得 -3）。\n另一处是溢出：JavaScript 的数字是浮点，超出安全范围只是丢精度、\n不会崩；Swift 的整数溢出<strong>直接崩</strong>，要回绕必须显式写 <code>&amp;+</code>。\n还有一处很显眼：Swift 里<strong>没有 <code>++</code> 与 <code>--</code></strong>（早期版本移除了），\n写 <code>i += 1</code> —— JavaScript 里两种都能写。</p>\n",
         "python": "<p>两边都有整除和取余，但<strong>负数上的行为是反的</strong>：Python 的 <code>//</code>\n向下取整（<code>-7 // 2</code> 是 -4）、<code>%</code> 的结果跟着除数（<code>-7 % 2</code> 是 1）；\nSwift 的 <code>/</code> 向零截断（-3）、<code>%</code> 跟着被除数（-1）。\n所以从 Python 过来的代码里只要出现负数和除法，结果就会不一样，\n而且两边都不报错。另一处是溢出：Python 的整数任意精度、\n根本不会溢出，Swift 会<strong>崩</strong> —— 这也是两边数值模型的分野。</p>\n",
@@ -63,7 +62,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有内容比较与同一性比较，但<strong>同一性那一半的适用范围不同</strong>：\nJavaScript 的 <code>===</code> 用在任何值上（对对象比引用、对数字比值），\n所以 <code>&quot;a&quot; === &quot;a&quot;</code> 是 true；Swift 的 <code>===</code> <strong>只对类的实例成立</strong>，\n值类型（字符串、数组、结构体）用 <code>===</code> 直接编译不过 ——\n对它们来说「同一性」没有意义，因为根本没有共享的实例。\n另一处是 Swift 的 <code>==</code> 需要类型遵守 <code>Equatable</code>\n（原生类型都遵守，自定义结构体可以自动合成），\nJavaScript 的 <code>===</code> 是所有值都有的运算符。</p>\n",
         "python": "<p>两边的 <code>==</code> 都是「可被类型作者定义的内容比较」，这一层一致。\n差别在<strong>同一性比较的落点</strong>：Python 的 <code>is</code> 比同一性、\n<code>==</code> 比内容，两个都在语言里且对所有对象都可用；\nSwift 的 <code>===</code> 只对类的实例可用 ——\n对值类型来说「是不是同一个对象」这个问题本身不成立\n（值类型赋值就是拷贝，没有共享的实例）。\n另一处是 Python 有 <code>__eq__</code> / <code>__hash__</code> 的配套约定，\nSwift 有 <code>Equatable</code> / <code>Hashable</code> 协议，两边都很像。</p>\n",
@@ -89,7 +87,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格的重点是「条件允许什么」与「<code>??</code> 认什么」</strong>：\nJavaScript 有一整套真值/假值（空字符串、0、NaN、null 都算假），\n所以 <code>if (name)</code> 是常见写法；Swift 的条件<strong>必须是 Bool</strong>，\n<code>if arr.count</code> 直接编译不过，得写 <code>!arr.isEmpty</code>。\n另一处是 <code>??</code> 与 <code>||</code> 的分工：JavaScript 里 <code>a || &quot;默认&quot;</code>\n在 a 是空字符串或 0 时也会取默认值（这常常是 bug 的来源），\nSwift 的 <code>??</code> 只认 nil，空字符串与 0 都算有值 ——\n也就是说「缺省值」这件事在这边更精确。</p>\n",
         "python": "<p>两边的短路行为一致，但<strong>条件里能放什么</strong>不同：\nPython 的对象自己说了算（<code>__bool__</code>，空容器为假），\n<code>if arr:</code> 是标准写法；Swift 要求条件必须是 <code>Bool</code>，\n容器不能直接当条件，要写 <code>if !arr.isEmpty</code>。\n另一处是取默认值：Python 的 <code>a or &quot;默认&quot;</code> 会把空字符串、\n0、空列表都当成假，Swift 的 <code>??</code> 只认 nil ——\n所以 Python 里那些「用 or 兜底」的惯用法在 Swift 里\n语义完全不同，这类 bug 移植时很容易带过去。</p>\n",
@@ -120,7 +117,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边是直接的有无之分</strong>：JavaScript 没有运算符重载，\n自定义数值类型只能用方法名（<code>.plus()</code>），\n读代码时 <code>a + b</code> 永远是语言定义的；\nSwift 不但能重载已有运算符，还能<strong>发明新的</strong>\n（<code>|&gt;</code>、<code>√</code> 这种），所以同一个符号在不同类型上\n可能有完全不同的含义、甚至是你从没见过的符号。\n好处是自定义数值类型（向量、复数、金额）写起来像原生类型，\n代价是「这个符号是什么」要跳进去看。</p>\n",
         "python": "<p>两边都支持运算符重载，连实现方式都对应\n（Python 的 <code>__add__</code> ↔ Swift 的 <code>static func +</code>），\n而且<strong>两边都能发明新运算符</strong>（Python 的 <code>@</code> 是标准库加的，\n用户自定义的运算符受字符集限制；Swift 的字符集更宽）。\n差别在<strong>声明的分离度</strong>：Swift 要先 <code>infix operator |&gt;:</code>\n声明结合性与优先级、再写实现，两步；\nPython 是在类里定义 <code>__xxx__</code> 方法，但新符号要语言层面支持。\n共同点是两边都能让 <code>a + b</code> 变成作者写的代码。</p>\n",

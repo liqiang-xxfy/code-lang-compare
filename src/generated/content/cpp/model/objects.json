@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的「类」在用途上差一个数量级</strong>：JavaScript 的 <code>class</code>\n主要是组织方法，字段随便挂、可见性靠约定（<code>#</code> 是后来的）；\nC++ 的 <code>class</code> / <code>struct</code> 同时定义了<strong>内存布局</strong>与\n<strong>不变式</strong>（哪些东西私有、谁能改），而且是编译期强制的。\n另一处是 C++ 里 <code>struct</code> 与 <code>class</code> 几乎是同义词（只差默认可见性），\n这会让 JavaScript 的人意外 —— 那边 <code>struct</code> 根本不存在。\n还有一处是 C++ 的对象<strong>默认住在栈上</strong>，什么时候销毁是确定的。</p>\n",
         "python": "<p>两边都能定义带方法的类型，但<strong>类型定义的重量不同</strong>：\nPython 的 <code>class</code> 是运行期执行的一段代码，类本身是个对象，\n随时能往里加属性；C++ 的 <code>class</code> 是编译期的布局说明，\n运行期没有「类对象」这回事（除了一小撮 RTTI）。\n另一处是可见性：Python 靠前导下划线的<strong>约定</strong>\n（<code>_x</code> 表示内部用，但没人拦），C++ 的 <code>private</code> 是\n编译器强制的 —— 越界访问直接编译不过。</p>\n",
@@ -73,7 +72,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的构造函数形态像（都有 <code>constructor</code> / 同名函数），\n但 C++ 的构造<strong>要管的事多得多</strong>：成员初始化列表的<strong>顺序</strong>\n按声明顺序走（不是按列表书写顺序），没写的成员按各自规则初始化，\n基类先构造、成员再按声明序构造、最后进函数体 ——\n这一整套顺序是语言规定的，写错就出错。\nJavaScript 那边对象属性只是赋值，没有「初始化」与「赋值」的区分。\n另一处是 C++ 有析构函数（对象消失时自动跑），JavaScript 没有。</p>\n",
         "python": "<p>两边的构造写法不同名（<code>__init__</code> ↔ 构造函数），概念对得上。\n关键差别是 C++ 多了<strong>初始化的时机</strong>这件事：<code>__init__</code> 之前\n对象已经由 <code>__new__</code> 造好了，所以 <code>__init__</code> 里全是赋值；\nC++ 的成员初始化列表是<strong>真正在构造它们</strong>，而且顺序由声明位置决定，\n在函数体里赋值是「先默认构造、再改」—— 对常量成员和引用成员，\n后者根本写不出来。另一处是 C++ 有析构、Python 靠 <code>__del__</code>（不保证时机）。</p>\n",
@@ -109,7 +107,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格差得比较远</strong>：JavaScript 的属性就是属性，\n随时可加、随时可删，读取时想算一下用 <code>get</code> / <code>set</code> 访问器\n（语言内建）；C++ 没有访问器语法，也没有「动态属性」——\n类的成员在编译期就定死了，想「读取时算一下」只能写函数，\n而且调用方写成 <code>obj.balance()</code> 而不是 <code>obj.balance</code>。\n另一处是 C++ 有静态成员与成员初始化顺序这两层概念，\nJavaScript 的静态字段是后加的、也没有「初始化顺序」的问题。</p>\n",
         "python": "<p>两边都能「把数据藏起来、用方法访问」，但 Python 的\n<code>@property</code> 让这件事<strong>看起来还像属性访问</strong>（<code>obj.balance</code>），\n而 C++ 必须写成函数调用 <code>obj.balance()</code>。\n另一处更根本：Python 的实例属性存在一个字典里，\n可以随时加、可以反射出来；C++ 的成员是内存里的固定偏移，\n运行期既不能加也不能列出来（要列得编译期生成）。\n所以那边「给对象临时挂一个字段」在这边做不到。</p>\n",
@@ -129,7 +126,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>this</code> 都指当前对象，但<strong>取值方式差得远</strong>：\nJavaScript 的 <code>this</code> 是<strong>绑定时决定的</strong>（调用方式决定，\n所以箭头函数与普通函数行为不同），C++ 的 <code>this</code> 是\n编译期确定的隐式指针，永远指向「这个成员函数被调用的那个对象」，\n不存在丢失绑定这回事。另一处是 C++ 的 <code>const</code> 成员函数\n会把 <code>this</code> 变成指向常量的指针（承诺不改），\nJavaScript 没有这一层，也没有静态成员函数与实例方法的分野。</p>\n",
         "python": "<p>两边都有「当前对象」，但<strong>显式程度不同</strong>：\nPython 的 <code>self</code> 是参数列表里写出来的第一个参数，\n所以「它从哪来」很直白（调用时自动补上）；\nC++ 的 <code>this</code> 是隐式的、不用声明，而且是<strong>指针</strong>不是引用 ——\n所以要写 <code>this-&gt;x</code> 而不是 <code>self.x</code>。\n另一处是 C++ 的 <code>const</code> 成员函数是签名的一部分\n（参与重载、<code>const</code> 对象只能调这一类），Python 的方法\n没有「承诺不改」这个维度，只能靠约定。</p>\n",
@@ -190,7 +186,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有继承，但 C++ 多出两件事：<strong>多继承</strong>（一个类型能同时是\n好几条血脉，JavaScript 只能一层原型链）与<strong>虚函数</strong>\n（要不要多态是<strong>每个方法各自决定</strong>的，JavaScript 的方法\n默认就是动态查找）。另一处是继承的代价不同：C++ 的继承\n会影响对象布局（虚表指针），而且有多重继承的菱形问题；\nJavaScript 的原型链只是查找路径，没有布局问题。\n最后是 C++ 的对象切片 —— 按值传基类参数会静默丢掉派生部分，\nJavaScript 里没有这回事。</p>\n",
         "python": "<p>两边都支持多继承，但<strong>冲突解决方式不同</strong>：Python 有明确的\nMRO（方法解析顺序，C3 线性化）来定「同名方法听谁的」；\nC++ 的多继承在菱形时<strong>基类会有两份</strong>，要用虚继承才能合一，\n而且名字冲突要显式限定（<code>A::f()</code> / <code>B::f()</code>）。\n另一处是 C++ 的多态必须显式标 <code>virtual</code>（不标就没有），\nPython 的方法天生就是动态查找 —— 所以那边「忘了写 virtual」\n这个经典坑在 C++ 里存在，在 Python 里不存在。</p>\n",
@@ -226,7 +221,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都在做「谁能看见」这件事，但<strong>强制力差别很大</strong>：\nJavaScript 的可见性靠约定（前导下划线）或较新的私有字段 <code>#x</code>\n（那个是真的强制），而 <code>#x</code> 是<strong>每个对象自己的</strong>、连子类都看不到；\nC++ 的三种可见性是编译期强制的，而且<strong>不是「不能看」，\n是「不能通过这个名字访问」</strong> —— 拿到指针照样能绕（<code>reinterpret_cast</code>）。\n另一处是 C++ 有 <code>friend</code>，能点名给某段代码开后门，\nJavaScript 里没有「定向开放」这种机制。</p>\n",
         "python": "<p>两边的姿态相反：Python 的可见性<strong>基本是约定</strong>\n（<code>_x</code> 表示内部用，<code>__x</code> 会做名字改写但仍然能绕），\n运行期想访问都能访问到；C++ 的 <code>public</code> / <code>protected</code> / <code>private</code>\n是编译期强制的，越界直接编译错误。\n另一处是 C++ 的 <code>protected</code> 意味着「派生类能碰」，\n而 Python 里根本没有这一层（子类与外部一样按约定行事）。\n还有一处是 C++ 有 <code>friend</code> 这样的定向豁免，Python 靠约定不需要它。</p>\n",

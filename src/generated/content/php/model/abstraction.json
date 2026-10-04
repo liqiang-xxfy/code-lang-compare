@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript <strong>没有接口</strong>（另一个语言的方言里有，但运行时不存在，\n编译完就没了）。所以这一格在 JavaScript 里没有对应物 ——\n那边靠约定与文档保证「这个对象要有这个方法」，\n唯一的运行时检查是自己写 <code>typeof obj.m === 'function'</code>。\nPHP 的接口是<strong>运行时真的会检查</strong>的：参数声明成接口类型，\n传进来的对象不 <code>implements</code> 就抛 TypeError。\n另一处是「接口能不能带实现」：JavaScript 的方言接口可以写\n「默认实现」（其实还是编译期的事），PHP 的接口<strong>只声明签名</strong>，\n一个方法体都不能有。</p>\n",
         "python": "<p>Python 的抽象基类（<code>abc.ABC</code> + <code>@abstractmethod</code>）能顶一部分，\n但<strong>默认不强制</strong> —— 不实现抽象方法只在实例化时抛 TypeError，\n而且一旦绕过检查（比如直接调用静态方法）就不管了。\nPHP 的接口是硬性的：少实现一个方法，类定义那一刻就致命错误。\n另一处是<strong>结构化 vs 名义</strong>：Python 有 <code>typing.Protocol</code>\n可以做结构化子类型（不继承也算数，但只在类型检查器里生效）；\nPHP <strong>完全没有这一路</strong>，接口必须显式 <code>implements</code>。\n共同点是两边都能多实现，也都能用抽象类做「半成品」。</p>\n",
@@ -63,7 +62,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有 <code>abstract</code> 吗？没有 —— 而且 JavaScript 根本没有\n编译期这一层，所以「抽象」只能靠约定（在父类方法里 <code>throw</code>\n一个「必须实现」的错误）或者靠类型系统（另一个语言的方言）。\nPHP 的抽象类是<strong>语言强制的</strong>：留了抽象方法没实现，\n子类定义那一刻就致命错误；抽象类本身根本 <code>new</code> 不出来。\n另一处是<strong>能不能有实现</strong>：PHP 的抽象类正是「有实现的半成品」，\n这与接口形成分工；JavaScript 那边没有这种二分，\n全部靠继承一个普通类加约定。</p>\n",
         "python": "<p>两边都有抽象基类，但<strong>强制程度不同</strong>：\nPython 的 <code>@abstractmethod</code> 只在<strong>实例化时</strong>检查，\n而且可以被绕过（<code>ABC</code> 的元类检查发生在实例化那一刻）；\nPHP 的抽象方法在<strong>类定义时</strong>就检查，子类没实现直接致命错误，\n连文件都加载不了。\n另一处是「抽象类能不能有实现」：两边都可以，这一层一致。\n共同点是两边都只能单继承抽象类、都需要子类补齐方法，\n而且都能在抽象类里放共享的已实现方法。</p>\n",
@@ -99,7 +97,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有 trait。最接近的做法是<strong>把方法混进原型</strong>\n（<code>Object.assign(Cls.prototype, mixin)</code>）或者用组合 + 委托。\n差别在<strong>冲突处理</strong>：JavaScript 的混入是「后写的覆盖先写的」，\n静默发生；PHP 的同名方法冲突<strong>必须显式解决</strong>（<code>insteadof</code> / <code>as</code>），\n不解决直接致命错误 —— 一个静默、一个强制你想清楚。\n另一处是<strong>是不是类型</strong>：JavaScript 的 mixin 本来就不是类型，\n这一层两边一样（PHP 的 trait 也不能 <code>instanceof</code>）。\n共同点是两边都把它当「横向复用实现」的手段，而不是继承。</p>\n",
         "python": "<p>Python 用<strong>多继承 + MRO</strong> 来达到同样目的：把可复用的实现写成\n一个类，然后多继承进来，方法解析顺序由 C3 线性化决定。\nPHP <strong>只支持单继承</strong>，横向复用只能靠 trait。\n差别在<strong>冲突解决</strong>：Python 的 MRO 是「自动算出一个确定的顺序」，\n同名方法按顺序取第一个，不需要你写什么；\nPHP 的 trait 冲突<strong>必须手写 <code>insteadof</code></strong>，不写就是致命错误 ——\n一个是自动排序，一个是强制显式。\n另一处是 trait 不是类型：Python 里多继承进来的那个基类<strong>是</strong>类型\n（<code>isinstance</code> 为真），PHP 的 trait 不是 —— 这一条差别很实际。</p>\n",
@@ -135,7 +132,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript <strong>完全是鸭子类型</strong>：<code>obj.quack()</code> 只要运行时那个属性\n是个函数就能调，没有任何声明层面的检查 —— 所以「形状对就行」\n在那边是默认行为，根本不需要「放宽类型」这个动作。\nPHP 反过来：写了 <code>Duck $d</code> 就必须是 <code>Duck</code>，形状相同不算。\n所以这一格两边是<strong>默认值的对立</strong>：\n一边默认不管，一边默认严查（而且查的还不是形状）。\n另一处是「什么时候发现类型不对」：JavaScript 到调用那一行才\n<code>TypeError: obj.quack is not a function</code>；PHP 在<strong>传参那一刻</strong>就抛。</p>\n",
         "python": "<p>Python 也是鸭子类型：<code>duck.quack()</code> 运行时查属性，\n类型标注只是文档（不生效）。所以「形状对就行」在 Python 里\n也是默认行为 —— 与 PHP 的名义类型正相反。\n差别在<strong>有没有结构化的那条路</strong>：Python 有 <code>Protocol</code>\n可以声明「只要有这个方法就算」，虽然只在类型检查器里生效，\n但至少能写出来；PHP <strong>连写都写不出来</strong>，接口必须显式 <code>implements</code>。\n另一处是隐式满足：Python 的 <code>Protocol</code> 可以在检查器里隐式满足，\nPHP 全语言只有一个隐式满足的例子（<code>Stringable</code>）。</p>\n",

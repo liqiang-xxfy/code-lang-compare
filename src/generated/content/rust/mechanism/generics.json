@@ -16,7 +16,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有泛型（TS 有，但编译后抹掉、不产生专门代码）。\nRust 的泛型是<strong>真泛型</strong>：编译器为每个具体类型各生成一份代码\n（单态化），所以 <code>largest::&lt;i32&gt;</code> 与 <code>largest::&lt;String&gt;</code>\n是两份独立的机器码，调用没有虚表开销。\n代价是编译更慢、二进制更大 —— 而 JavaScript 里这两者都不存在，\n因为泛型根本不留痕迹。</p>\n",
         "python": "<p>Python 的泛型（<code>TypeVar</code>）只对类型检查器有意义，运行时不产生任何专门化；\nRust 的泛型在编译期展开成具体代码，是实打实的性能机制。\nRust 还有 <code>impl Trait</code> 这种「匿名的泛型参数」，可以省掉\n起名字与写 where 子句 —— Python 里对应的是\n「标注里写个 Protocol 但不给它命名」，语义弱得多。</p>\n",
@@ -36,7 +35,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有泛型约束（TS 用 <code>extends</code>）。Rust 的约束不是文档，\n而是<strong>能力的来源</strong>：<code>T: Display</code> 才让 <code>println!(&quot;{}&quot;, x)</code> 成立，\n没有这条约束连编译都过不了。约束写得越紧，函数体里能做的事越多、\n调用方的选择越少 —— 这个权衡在 JavaScript 里完全不存在，\n因为没有编译期这一层。</p>\n",
         "python": "<p>Python 的 <code>TypeVar(bound=...)</code> 只是给类型检查器的提示，\n运行时不产生任何约束；Rust 的 trait bound 决定<strong>这段代码能不能编译</strong>，\n也决定了函数体里能调用哪些方法。另一处 Rust 独有的是\n<strong>const generics</strong>（<code>Buf&lt;const N: usize&gt;</code>）：把数组长度这类\n编译期常量也做成类型参数，Python 里完全没有对应概念。</p>\n",
@@ -62,7 +60,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有型变这个概念 —— 没有类型参数，也就无所谓\n协变逆变。Rust 的型变是<strong>编译器推导</strong>的：<code>&amp;T</code> 协变、\n<code>&amp;mut T</code> 不变、<code>Cell&lt;T&gt;</code> 不变，你不需要手写，但出问题时\n要能看懂编译器的解释。<code>&amp;mut T</code> 之所以是不变的，\n是为了不让「短命的值」通过可变引用被写进「长命的位置」。</p>\n",
         "python": "<p>Python 的型变靠 <code>TypeVar(covariant=True)</code> 显式声明，\n而且只对类型检查器有效；Rust 的型变由编译器<strong>自动推导</strong>，\n并且直接影响代码能否编译。这是两种完全不同的性质：\nPython 里写错了只是类型检查器报警，Rust 里写错了\n就是借用检查器拒绝编译。</p>\n",
@@ -82,7 +79,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust <strong>不擦除类型参数</strong> —— 恰恰相反，泛型在编译期被\n<strong>单态化</strong>：<code>Vec&lt;i32&gt;</code> 与 <code>Vec&lt;String&gt;</code> 是两个不同的类型，\n各自有一份专门生成的代码，运行时类型信息完整（在编译产物里）。\n所以「擦除」这件事在 Rust 里没有对应物；\n想要运行时才知道类型，得显式用 <code>dyn Any</code> 或 trait 对象。</p>\n",
         "python": "<p>Rust <strong>不擦除</strong> —— 泛型靠单态化展开，每个具体类型一份代码。\nPython 的泛型本来就不产生运行时痕迹（<code>list[int]</code> 与 <code>list[str]</code>\n运行时都是 <code>list</code>），这与擦除的效果相似但机制不同：\nPython 是「从来没写进去」，Rust 是「编译期就展开了」。\n两边都拿不到「泛型实参是什么」的运行时答案，\n但 Rust 是因为信息在编译期就被用掉了。</p>\n",

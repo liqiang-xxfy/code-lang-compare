@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的测试框架要挑要装（Jest / Vitest / Mocha）；\nGo 的 <code>testing</code> 包与 <code>go test</code> 是<strong>标准库的一部分</strong> ——\n新建项目就能写测试，零依赖。另一处差别是文件组织：\nGo 的测试文件与被测代码在<strong>同一个包</strong>里（<code>_test.go</code> 后缀），\n可以测未导出的函数；JavaScript 通常放独立目录、只能测导出的东西。\nGo 还有个「外部测试包」的写法（<code>package calc_test</code>），\n用来只测公开 API —— 与内部测试包并存。</p>\n",
         "python": "<p>Python 要选 pytest / unittest，还要遵守发现规则与目录习惯；\nGo 的框架内建，规则唯一：文件名 <code>_test.go</code>、函数名 <code>Test</code> 开头、\n参数 <code>*testing.T</code>。位置上也不同 —— Go 的测试与被测代码同包，\n能直接调用未导出函数；Python 惯例是独立的 <code>test_*.py</code>，\n测私有函数要靠改名或反射。\n两边都支持子测试与并行（<code>t.Run</code> / <code>t.Parallel</code> 对 pytest 的 fixture）。</p>\n",
@@ -42,7 +41,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的断言来自测试库（<code>expect(a).toBe(b)</code>），\n可读性好、失败信息丰富；Go <strong>刻意不提供断言库</strong> ——\n标准做法就是手写 <code>if got != want { t.Errorf(...) }</code>，\n社区认为这样一眼能看出「到底在比什么」，也不引入额外语法。\n代价是啰嗦（每个检查三行）。另外 <code>t.Errorf</code> 与 <code>t.Fatalf</code> 的区分\n在 JavaScript 里对应「记失败」与「立刻抛」两种行为。</p>\n",
         "python": "<p>Python 有 <code>assert</code>（但 <code>-O</code> 模式下会被去掉），pytest 会重写它\n给出详细对比；Go 没有断言语法，手写 <code>if</code> + <code>t.Errorf</code>，\n而且<strong>不会</strong>自动打印两个值 —— 得自己在消息里写清楚。\n这种「什么都不替你做」的取向与 Python 的「让断言读起来像句子」\n正好相反。Go 的 <code>t.Helper()</code> 是 Python 里没有的小工具：\n让辅助函数的报错指向调用点而不是辅助函数本身。</p>\n",
@@ -62,7 +60,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 可以 <code>jest.mock('./module')</code> 在运行时替换整个模块、\n用 <code>jest.fn()</code> 造任意假函数 —— 灵活、几乎零成本。\nGo <strong>没有运行时打桩能力</strong>，替代方案是靠<strong>接口</strong>：\n被测代码依赖接口，测试时传一个手写的假实现，\n或者用 mockery / gomock 从接口生成 mock 代码。\n这条路要求代码从一开始就为可替换性设计，\n换来的是「这段代码依赖什么」在类型上完全显式。</p>\n",
         "python": "<p>Python 的 <code>unittest.mock</code> 能在运行时给任何属性打补丁\n（<code>patch('module.func')</code>）；Go 做不到 —— 没有动态属性查找。\nGo 的做法是接口 + 手写 fake，或从接口生成 mock。\n实际影响：Python 里可以给「没设计过的代码」补测试，\nGo 里如果一段代码直接调具体类型，就只能先重构出接口。\n这也让 Go 的依赖注入写得更普遍（构造函数收接口）。</p>\n",
@@ -88,7 +85,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 框架普遍有 <code>it.each([...])</code>，Go 没有专门的语法 ——\n但 Go 的<strong>表驱动测试</strong>是同一件事的另一种写法：\n用例存进结构体切片、循环里用 <code>t.Run</code> 起子测试。\n实际效果接近（每个用例独立报告、能单跑、失败带名字），\n差别是 Go 的写法更啰嗦但更灵活 ——\n用例结构体可以带任意字段（依赖、期望错误等），\n而 <code>it.each</code> 的表格是扁平的。</p>\n",
         "python": "<p>pytest 用 <code>@pytest.mark.parametrize</code> 装饰器声明参数组合，\n框架负责展开；Go 用<strong>表驱动</strong>：用例是普通数据结构、\n循环是普通循环，<code>t.Run</code> 起子测试。\n两者都能单跑某个用例、都带用例名，但 Go 的写法把\n「测试是一个数据表」这件事写得更显式，\n代价是要多写十几行骨架，而且新增字段要改结构体定义。</p>\n",
@@ -114,7 +110,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 要配覆盖率工具（Jest 的 <code>--coverage</code> 内置但绑定框架，\n其他要靠 c8 / nyc），还要设阈值与报告格式。\nGo 的 <code>go test -cover</code> 是 <strong><code>go test</code> 的一个开关</strong>，\n而且 <code>go tool cover -html</code> 能直接生成逐行标注的页面 ——\n从测量到可视化全在标准工具链里，不用装任何东西。</p>\n",
         "python": "<p>Python 要装 <code>coverage.py</code> 或 pytest-cov，配置报告格式与排除规则；\nGo 的覆盖率是 <code>go test</code> 的一个开关，<code>go tool cover -html</code>\n直接出 HTML 报告。这是 Go 工具链「一体化」的又一个例子。\n统计口径上两边都能给出行与函数级覆盖，\nGo 还能区分「语句覆盖」与「块覆盖」的粒度差异（<code>-covermode</code>）。</p>\n",

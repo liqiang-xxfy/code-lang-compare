@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>function</code> 或箭头函数声明，参数不标类型；\nRust 的 <code>fn</code> 必须把参数与返回值类型写全。两边的函数都是一等值，\n但 Rust 的<strong>函数与闭包是两个类型</strong> —— 函数指针是 <code>fn(i32) -&gt; i32</code>，\n闭包各有各的匿名类型，要统一得装箱或用泛型。JavaScript 里两者没有区别。\nRust 也不支持函数重载，同名函数只能定义一次。</p>\n",
         "python": "<p>Python 用 <code>def</code> 加类型标注（可选、运行时不检查）；Rust 的 <code>fn</code>\n参数与返回值类型是必填的，编译器拿它们做检查。Python 的默认参数\n与关键字参数在 Rust 里<strong>完全不存在</strong> —— 想让某个参数可选，\n得用 <code>Option&lt;T&gt;</code> 或 builder 模式在调用点显式表达。</p>\n",
@@ -48,7 +47,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的参数传递没有「所有权」这层：对象传进去后调用方与函数\n同时持有它，谁改都看得见。Rust 默认是<strong>移动</strong> —— 传 <code>String</code> 进去，\n调用方之后就用不了了；要保留访问权必须在函数签名上写 <code>&amp;</code> 或 <code>&amp;mut</code>。\n这个信息写在签名里，所以只看函数头就知道它会不会把参数吃掉。</p>\n",
         "python": "<p>Python 的参数是引用绑定，函数内重新赋值不影响调用方，\n但改可变对象的内容会影响 —— 这层区分靠类型自己（可变/不可变）判断；\nRust 把「能不能改」写进签名：<code>&amp;T</code> 只读、<code>&amp;mut T</code> 可改、\n裸 <code>T</code> 是拿走所有权。读 Rust 的函数签名就能知道它会不会消耗实参，\nPython 里必须读函数体。</p>\n",
@@ -68,7 +66,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust 的函数<strong>不支持变参</strong> —— 没有 <code>...args</code> 那样的写法，\n也没有 <code>arguments</code>。要接受不定个数的同类型参数，标准做法是\n收一个切片 <code>&amp;[T]</code> 或 <code>Vec&lt;T&gt;</code>，调用方用 <code>&amp;[a, b, c]</code> 传进去。\n<code>println!</code> 那种能接任意个参数的写法靠的是宏，不是函数。</p>\n",
         "python": "<p>Rust 的函数<strong>不支持变参</strong>，<code>*args</code> / <code>**kwargs</code> 都没有对应物。\n不定参数只能收切片或 <code>Vec</code>，关键字参数则完全没有 ——\n需要「可选的一组命名参数」时，Rust 的惯用解法是 builder 模式：\n每个 setter 返回 <code>self</code>，链式调用拼出一个结构体。</p>\n",
@@ -94,7 +91,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 靠 <code>return</code> 返回值，漏写就返回 <code>undefined</code> ——\n编译器不会提醒，问题要到调用方用错时才发现。Rust 的函数体\n最后一行表达式<strong>就是</strong>返回值，忘写它意味着返回 <code>()</code>，\n与声明的返回类型不符，编译不过。另外 Rust 把「可能失败」\n放进返回类型（<code>Result</code>），JavaScript 里通常靠抛异常或返回 null。</p>\n",
         "python": "<p>Python 靠 <code>return</code>，没有返回值就是 <code>None</code>，且 <code>None</code> 可以赋给任何变量；\nRust 的最后一行表达式是返回值，忘了它编译不过 —— 错误在编译期暴露。\n另一个显著差别是 Rust 的 <code>?</code> 运算符：出错就提前返回 <code>Err</code>，\n不必每个调用点都写一遍 try 块。Python 里对应的是异常层层上抛，\n但「这个函数会不会失败」在签名上看不出来。</p>\n",
@@ -120,7 +116,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的闭包捕获的是<strong>变量本身</strong>（引用），循环里用 <code>var</code>\n造的闭包会共享同一个变量 —— 这是经典陷阱。Rust 的闭包默认按借用捕获，\n用 <code>move</code> 可以改成把值搬进去；而且每个闭包有独立的匿名类型，\n能改捕获值的与只能读的，类型不同（<code>FnMut</code> 与 <code>Fn</code>），\n传给函数时在签名里就写清楚了。JavaScript 完全不做这层区分。</p>\n",
         "python": "<p>Python 的闭包捕获变量（后期绑定），循环里造的闭包共享同一份，\n想固定住得写 <code>lambda x=x: …</code> 这种默认参数技巧。Rust 用 <code>move</code>\n一次性解决：把值搬进闭包，每个闭包拿到自己那份。\n另一处差别是 Rust 会用 trait 区分闭包是只读（<code>Fn</code>）、\n要改捕获值（<code>FnMut</code>）还是消耗捕获值（<code>FnOnce</code>），\nPython 里这三者没有任何语法区别。</p>\n",

@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的类型全在运行时，读一个不存在的属性只是得到 <code>undefined</code>；\nC++ 在编译期就把类型钉死，除了 RTTI 那一小块，运行时问不出任何类型信息。\n所以同一件事两边做法完全不同：JavaScript 里可以写一个通用函数\n遍历对象字段，C++ 里连「这个对象有哪些字段」都问不出来 ——\n要遍历就得自己在编译期把字段列表生成出来。</p>\n",
         "python": "<p>Python 的类型跟着值走，<code>type(x)</code> 随时能问；C++ 的类型跟着<strong>声明</strong>走，\n而且编译后基本消失。RTTI 看起来像 Python 的 <code>type()</code>，\n但只对含虚函数的多态类型有效，普通结构体问不出东西，\n拿到的也只是类型名（还不能直接用来构造对象）。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的变量没有类型，只有值有；C++ 的声明同时定下名字和类型，\n而且<strong>每个</strong>函数参数、返回值、成员都得写（模板参数除外）。\n这让 C++ 的接口读起来信息量更大，代价是改动一个类型要顺着调用链改一串 ——\n这也是 <code>auto</code> 存在的理由：让编译器替你写，而不是让类型消失。</p>\n",
         "python": "<p>Python 的标注是可选的、运行时不检查；C++ 的标注是编译器的输入，\n写错或漏写直接编译不过（函数签名没有「省略」这个选项）。\n另一处实质差别：Python 的 <code>x: int</code> 只是一个断言，\nC++ 的 <code>int x</code> 同时决定了内存布局、对齐、能不能拷贝 ——\n类型在 C++ 里是<strong>构造性的</strong>，不只是约束。</p>\n",
@@ -68,7 +66,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的鸭子类型在运行时，判断依据是「调用那一刻有没有这个方法」；\nC++ 的 <code>concept</code> 把同一件事搬到编译期 —— 规则同样是看形状不看名字，\n但错误提前到了编译时，代价是它只对<strong>模板参数</strong>有效：\n一个普通的函数参数仍然必须写成具名类型。</p>\n",
         "python": "<p>Python 的 <code>Protocol</code> 与 C++ 的 <code>concept</code> 解决同一个问题、处在同一层\n（都是给检查器看的结构化约束），差别在生效方式：\nPython 的检查器是外挂的、可以不理它，代码照跑；\nC++ 的 concept 不满足就直接编译失败，没有绕过的余地。\n另一处是 Python 的运行时鸭子类型依然存在（不写 Protocol 也能调用），\nC++ 里不通过 concept 就根本进不去模板。</p>\n",
@@ -88,7 +85,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>typeof</code> 判断完，引擎对这值的看法一点没变，\n收窄只对读代码的人（或类型检查器）有意义；C++ 的 <code>variant</code> 是\n编译期就封闭的集合，<code>std::visit</code> 会逼你把每一种可能都写出来 ——\n漏一种就编译不过，这是 JavaScript 永远给不了的保证。\n代价是这个集合必须在写代码时就定好，加一种要改所有地方。</p>\n",
         "python": "<p>Python 用 <code>isinstance</code> 判断再分支，判断过程完全在运行时；\nC++ 的 <code>variant</code> + <code>visit</code> 把「有哪些可能」提到了类型里，\n分支是否穷尽由编译器检查。另一处差别在失败方式：\nPython 的 <code>getattr</code> 用错了属性抛 AttributeError，\nC++ 的 <code>std::get&lt;T&gt;</code> 取错类型抛 <code>bad_variant_access</code>，\n而 <code>get_if</code> 版本返回空指针 —— 两种风格都提供，由你选。</p>\n",
@@ -114,7 +110,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 读空值的属性会抛一个明确的 TypeError，程序停在那里；\nC++ 解引用空指针是<strong>未定义行为</strong> —— 可能当场崩，可能读到垃圾数据\n继续跑，也可能崩在完全无关的地方。这个区别很实际：\nJavaScript 的错误现场就是出事现场，C++ 的崩溃地点常常离得很远，\n得靠工具回溯。引用看起来比指针安全，但它也可能悬空。</p>\n",
         "python": "<p>Python 里 <code>None</code> 是普通值，出错时抛 AttributeError 且带完整栈；\nC++ 的空指针解引用是未定义行为，没有异常、没有栈、甚至可能不报错。\n「可能没有值」这件事两边都能写进类型（<code>Optional[int]</code> / <code>std::optional</code>），\n但 Python 的 <code>None</code> 更普遍 —— 任何变量都能是 None，\nC++ 的 <code>optional</code> 是一个要主动选用的包装类型。</p>\n",
@@ -145,7 +140,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的转换大多是隐式的（运算符自己决定怎么转），失败得到 <code>NaN</code>\n而不是报错；C++ 没有任何隐式转换能跨过类型边界，每一次转换都要写出\n是<strong>哪一种</strong>：<code>static_cast</code> 是编译期能验证的、<code>const_cast</code> 只动 const、\n<code>reinterpret_cast</code> 完全不检查、<code>dynamic_cast</code> 运行时才查。\n把「转换」拆成四件事，好处是读代码时能看出这一步有多危险。</p>\n",
         "python": "<p>两边都要显式转换，都提供多种精度。差别在表达力：\nPython 的 <code>int(3.9)</code> 只有一种含义；C++ 要看你想做什么 ——\n数值转换用 <code>static_cast</code>、改 const 用 <code>const_cast</code>、\n把一段内存当另一种类型读用 <code>reinterpret_cast</code>。\n字符串转数字：Python 的 <code>int(&quot;abc&quot;)</code> 抛 ValueError，\nC++ 的 <code>std::stoi</code> 也抛，但 <code>std::atoi</code> 静默返回 0 —— 得挑对那个函数。</p>\n",

@@ -22,7 +22,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>运行时这一层两边是<strong>同一套</strong>：<code>constructor.name</code>、<code>instanceof</code>、\n<code>Object.getPrototypeOf</code>、<code>Object.keys</code> 都能用，<code>Reflect</code> 有同样的方法，\nTypeScript 一点没往上加。它加的那一层 —— 静态类型 ——\n恰好正是反射拿不到的那层。\n有一处是这里独有的坑：<code>as</code> 能让你把一个不存在的形状断言出来，\n编译器此后按你说的办。这在 JavaScript 里写不出来，\n因为没有「向编译器保证」这个动作。</p>\n",
         "python": "<p>内省手段两边都够用，但<strong>标注的存活期</strong>完全相反。\nPython 把标注留在对象上，运行期真能读到（函数和类都有 <code>__annotations__</code>，\n还能解出字符串形式的注解），所以那边的框架能靠它做校验、生成文档；\n这里的标注编译后一点不剩，接口和类型别名也不存在。\n于是同一件事在两边要用完全不同的做法：那边读标注，\n这边只能把需要的信息<strong>另存成一个运行期存在的值</strong>。</p>\n",
@@ -53,7 +52,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>这一格是少数几处<strong>这里比 JavaScript 多一个语法</strong>的地方：\n装饰器至今没有进入标准，只有 TypeScript 与 Babel 实现了它，\n所以这段代码在 JavaScript 里跑不了 —— 必须先经过编译。\n另一处差别在语义：这里的装饰器由编译器改写并在<strong>定义时执行一次</strong>，\n装饰器拿到的是一个带名字、种类、是否静态的<strong>上下文对象</strong>，\n还能注册初始化钩子；JavaScript 里没有对应物可比。</p>\n",
         "python": "<p>两边都是「给声明挂上额外语义」，但机制差得远。\nPython 的装饰器就是普通的可调用对象在定义时被调用一次 ——\n没有任何编译器参与，也拿不到「这是个方法」之类的上下文；\n这里的装饰器是编译器特性，会收到一个描述被装饰对象的上下文，\n还能区分方法、字段、访问器。\n覆盖面也不同：Python 什么都能装饰，这里的标准写法标不了<strong>参数</strong>，\n参数装饰器留在旧的那套开关后面。</p>\n",
@@ -79,7 +77,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>同一个 <code>eval</code>、同一套规则，两边逐条一致 —— 连注意事项都一样\n（它是注入的入口，严格的内容安全策略默认会挡掉它）。\n对这里来说多一层代价：<code>eval</code> 的返回值类型是 <code>any</code>，\n于是这段代码<strong>恰好落在类型检查失效的地方</strong> ——\n一门语言最有价值的能力，在它最危险的语法上关掉了。\n要拿回检查，只能自己在外层补断言或做运行时校验。</p>\n",
         "python": "<p>两边都有运行时求值，也都有同样的告诫。差别在<strong>能不能限制作用域</strong>：\nPython 的求值入口接受可选的名字空间，可以只给一个空环境就跑；\n这里没有这个参数 —— 直接调用看得见局部作用域，间接调用落在全局，\n都改不了。\n另一处是入口的分工：Python 把「求一个表达式的值」与「执行一段语句」\n分成两个函数，这里只有 <code>eval</code> 一个（加上构造函数的那个变体），\n表达式与语句混在一起。</p>\n",
@@ -110,7 +107,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>同一个内建、同一套 trap，两边逐条一致；这里加的只是处理函数的类型。\n值得记住的是<strong>类型这一层帮不上忙</strong>：代理的静态类型就是被代理对象的类型，\n「它其实是个代理、读属性会打日志」这件事完全不在类型里 ——\n也就是说，代理对调用方是透明的，无论是好是坏。\n另一处小的编译期差别：删一个必需属性会被编译器拦下（要求它可选），\n这在 JavaScript 里同样是运行期才说话。</p>\n",
         "python": "<p>两边都能在属性访问上插一层，插的位置不同。Python 的钩子写在<strong>类里</strong>\n（属性钩子、描述符、元类），所以它能拦的是「这个类自己的属性访问」；\n要包装一个已经有实例的对象，得另写一个包装类。\n这里的代理从<strong>外面</strong>套住任意一个已有对象，不碰它的类 ——\n这是最实用的一处差别：拿不到源码的对象也能拦。\n代价是类型层看不见这层壳，调用方以为手里还是原来那个对象。</p>\n",

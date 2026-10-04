@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「对象传引用、原始值传副本」，但<strong>哪些算原始值不同</strong>：\nJavaScript 里数字与字符串是原始值，复制时互不影响；\nKotlin 里一切皆对象，只是非空数值<strong>在 JVM 上通常优化成原语</strong>——\n所以 <code>Int</code> 看起来像值语义，但一旦变成可空（<code>Int?</code>）或进了集合，\n它就退化成对象，<code>===</code> 的结果也跟着变。\n所以「这个变量到底是值还是引用」在 Kotlin 里要看它有没有被装箱。</p>\n",
         "python": "<p>两边都是「一切皆对象、变量持引用」，这一点一致。\n差别在<strong>数值有没有被优化掉</strong>：Python 的整数永远是对象，\n访问它们要走一层指针，也不存在「原语」这一档；\nKotlin 的 <code>Int</code> 在 JVM 上通常就是 4 个字节，只有当它可空或进了泛型\n才会装箱 —— 所以同一段代码在这边可能有一层看不见的开销，\n而那边所有数值都一视同仁。</p>\n",
@@ -42,7 +41,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都由运行时负责回收，应用代码都不介入 —— 这一层很像。\n差别在<strong>能观察到的东西</strong>：JavaScript 的引擎会在控制台暴露\n内存快照之类的工具，Kotlin 这边要接 JVM 的那一整套工具\n（堆转储、GC 日志、启动参数），门槛高一些、能调的东西也多得多。\n共同点是两边都<strong>不能</strong>强制回收，只能等。</p>\n",
         "python": "<p><strong>回收机制根本不同</strong>：Python 靠引用计数加一个循环回收器，\n所以对象在最后一个引用消失时<strong>立刻</strong>被回收（<code>__del__</code> 马上跑）；\nKotlin 用的是追踪式 GC，对象什么时候被收走完全不确定 ——\n所以那边能靠「离开作用域就释放」，这边只能等。\n这也是为什么纯追踪式 GC 的语言普遍不给析构器：回收时机不确定，它没有意义。</p>\n",
@@ -62,7 +60,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Kotlin <strong>没有所有权与借用这套东西</strong> —— 没有 <code>move</code>、\n没有借用检查、也没有「值被谁拥有」这个概念。\n需要清理的资源（文件、流、连接）靠 <code>AutoCloseable</code> 加 <code>.use { }</code>\n保证关闭，其余内存交给 GC。\n所以「这段代码能不能编译」与「它会不会漏资源」在这边是两件独立的事。</p>\n",
         "python": "<p>Kotlin <strong>没有所有权系统</strong>，与 Python 一样靠 GC 管内存；\n但「用完就关」这件事两边的手段不同：\nPython 有 <code>with</code> 语句加上下文管理器协议，\nKotlin 有 <code>.use { }</code> 加 <code>Closeable</code> —— 都是把「必然关闭」\n绑在一个语法结构上，都是靠自觉用。\n共同点是都不用关心内存本身，只管那些 GC 管不了的资源。</p>\n",
@@ -82,7 +79,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Kotlin <strong>没有生命周期标注</strong> —— 值活多久由 GC 决定，\n语言层面写不出「这个引用最多活多久」。\n对象的存活期取决于还有没有引用指向它，是一个运行期事实。\n这一点与 JavaScript 的处境相同：两边都只能靠「别再引用它了」\n来间接表达，而不是声明出来。</p>\n",
         "python": "<p>Kotlin <strong>没有生命周期标注</strong>，值活到不可达为止。\n与 Python 的差别在<strong>什么时候算不可达</strong>：Python 靠引用计数，\n所以「最后一个引用消失」那一刻就定了；\nKotlin 靠追踪式回收，只能保证「不可达之后某个时刻」被回收。\n所以那边能依赖「离开作用域即释放」，这边不能。</p>\n",
@@ -102,7 +98,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有弱引用，用途也一样（缓存、避免循环持有）。\n差别在<strong>可用的粒度</strong>：JavaScript 有 <code>WeakRef</code> 与 <code>WeakMap</code>，\n后者能把「键被回收就自动删条目」这件事做成一个开箱即用的容器；\nKotlin 这边只有单个弱引用，想做弱键的映射得自己组合，\n或者去用现成的库（JVM 上有 <code>WeakHashMap</code>）。</p>\n",
         "python": "<p>两边的弱引用机制很像：都有一个包装对象，<code>get()</code> 拿不到时给空，\n回收时机都不保证。差别在<strong>容器支持</strong>：\nPython 有 <code>WeakKeyDictionary</code> / <code>WeakValueDictionary</code>\n直接可用的弱键/弱值字典；Kotlin 这边要自己拿\nJVM 的 <code>WeakHashMap</code> 或者包一层。\n另一处是 Python 的弱引用对某些内建类型不生效（没有 <code>__weakref__</code>），\nJVM 那边没有这类限制。</p>\n",

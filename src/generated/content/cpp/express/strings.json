@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都写 <code>&quot;文本&quot;</code>，但<strong>这个字面量的类型完全不同</strong>：\nJavaScript 的字符串字面量就是一个不可变字符串值，随手 <code>.length</code> / 模板串；\nC++ 的 <code>&quot;文本&quot;</code> 是一个<strong>指向只读字符数组的指针</strong> ——\n所以 <code>&quot;a&quot; + &quot;b&quot;</code> 在 C++ 里是编译错误（指针相加），\n必须至少有一边先变成字符串对象。另一处是插值：\nJavaScript 有模板串 <code>`${x}`</code>，C++ 完全没有内建插值，\n要么用 <code>std::format</code>，要么把每段都转成字符串再拼。\n多行字符串 C++ 也没有专用语法，靠相邻字面量或原始字符串。</p>\n",
         "python": "<p>两边的字面量形态都很丰富（Python 有 f-string、三引号、前缀组合），\nC++ 有原始字符串和编码前缀，但<strong>没有插值</strong>这一项 ——\n这是从 Python 过来最直接的失落：<code>f&quot;{x}&quot;</code> 要改成\n<code>std::format(&quot;{}&quot;, x)</code> 或者手动把每段转字符串。\n另一处更根本：Python 的字符串是<strong>对象</strong>，切片、方法都在上面；\nC++ 的 <code>&quot;文本&quot;</code> 是<strong>指针</strong>，加一个 <code>std::string{...}</code> 才是对象，\n这两层在 C++ 里要自己分清楚（见下一格）。</p>\n",
@@ -68,7 +67,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>最需要记住的一条是「长度数的是字节」</strong>：JavaScript 的 <code>length</code>\n数 UTF-16 码元（对基本汉字倒是 1），C++ 的 <code>size()</code> 数<strong>字节</strong> ——\n「你好ab」在 C++ 里是 8、在 JavaScript 里是 4。\n所以按长度切、按下标取，两边得到的完全不是一回事，\n而且 C++ 这边切在字符中间会得到<strong>不合法的字节序列</strong>（不报错）。\n另一处是常用操作：JavaScript 的方法一应俱全（<code>toUpperCase</code> /\n<code>split</code> / <code>includes</code>），C++ 的大小写转换和 split 都<strong>不在成员里</strong>，\n要自己写或者用算法库。</p>\n",
         "python": "<p>两边都能切片、查找、拼接，但<strong>切片的单位不同</strong>：\nPython 的字符串是字符序列，<code>s[0:1]</code> 拿到的是完整的「你」；\nC++ 的 <code>substr</code> 按字节，<code>s.substr(0,1)</code> 拿到的是「你」的第一个字节，\n打印出来是乱码且<strong>不报错</strong>。另一处是 Python 的字符串方法很全\n（<code>upper</code> / <code>split</code> / <code>strip</code>），C++ 的 <code>std::string</code> 只有少数成员，\n大小写与切分要自己写或用算法 —— 所以「语言自带的字符串能力」\n两边差一个量级。共同点是都有不可变视角的替代品（视图 / 切片）。</p>\n",

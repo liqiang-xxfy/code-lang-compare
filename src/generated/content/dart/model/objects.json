@@ -32,7 +32,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都用 <code>class</code>，但<strong>限制手段完全不同</strong>：\nJavaScript 没有类修饰符 —— 一个类永远既可以被继承、\n也可以被实现（接口本来就是隐式的），开放程度只有一种；\nDart 用 <code>base</code> / <code>interface</code> / <code>final</code> / <code>sealed</code> 明确声明\n「这个类打算被怎么用」。\n另一处是 <code>new</code>：JavaScript 必须写，Dart 可以省。</p>\n",
         "python": "<p>Python 的类层次永远是开放的：任何类都能被继承，\n想禁止要额外手段（<code>__init_subclass__</code> 之类）。\nDart 把「能不能继承」「能不能实现」写成类声明的一部分，\n而且 <code>sealed</code> 还能让编译器知道<strong>一共有哪几种情况</strong>，\n于是 <code>switch</code> 可以要求你穷尽 —— Python 里没有这一层。\n另一处是 Dart 有专门的 <code>mixin</code> 声明（Python 直接多继承就能当 mixin 用）。</p>\n",
@@ -58,7 +57,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>差别在<strong>能不能有多个构造入口</strong>：JavaScript 一个类只有一个\n<code>constructor</code>，要多种初始化方式得写静态工厂方法\n（<code>static fromJson()</code>），调用形态是 <code>Point.fromJson(...)</code> ——\n看起来像，但它是方法不是构造器，不能被 <code>extends</code> 里的 <code>super</code> 调。\nDart 的命名构造器是<strong>真的构造器</strong>，而且工厂构造器能返回缓存\n或者子类实例，这是运行时不同的能力。</p>\n",
         "python": "<p>Python 只有 <code>__init__</code> 一个入口，多种初始化方式靠\n<code>@classmethod</code> 工厂（<code>Point.from_json(...)</code>）—— 想法一样，只是换了个叫法。\nDart 的命名构造器把这件事做进语法：<code>Point.origin()</code> 是真构造器。\n另一处是<strong>字段初始化时机</strong>：Python 在 <code>__init__</code> 里随意赋值；\nDart 的 <code>final</code> 字段必须在初始化列表里给定，写法更受限，\n换来的是「对象构造完就一定是完整的」。</p>\n",
@@ -84,7 +82,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「直接读写字段」，差别在<strong>getter / setter 的写法</strong>：\nJavaScript 用 <code>get</code> / <code>set</code> 关键字，Dart 用 <code>get</code> / <code>set</code> 但\n参数与返回类型要写全；两边调用点都是属性形式（<code>u.display</code>）。\n另一处是静态成员：两边都写 <code>static</code>，这一层一致。\n还有私有：JavaScript 的 <code>#name</code> 是类级真私有，\nDart 的 <code>_name</code> 是<strong>库级</strong>私有（同库的其它类能访问）。</p>\n",
         "python": "<p>Python 的 <code>@property</code> 与 Dart 的 <code>get</code> 动机相同\n（读起来像字段、背后能跑代码），但<strong>默认姿态相反</strong>：\nPython 里属性访问默认是普通字段，要拦截才加装饰器；\nDart 里字段与 getter 是两种声明，想拦截就写成 getter，\n调用方看不出区别。\n另一处是 Python 没有静态字段（只有类属性），\nDart 的 <code>static</code> 与类属性概念相近但语义更明确。</p>\n",
@@ -115,7 +112,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「对象上挂方法」，这一层很像。差别在<strong>扩展方法</strong>：\nJavaScript 靠改原型（<code>String.prototype.shout = ...</code>）真的把方法\n加进去，全局生效；Dart 的扩展方法是静态解析的，\n只在导入了它的库里有效，而且<strong>遇到同名成员会输给真成员</strong> ——\n所以它不会像原型那样把已有方法盖掉，也不会被继承覆盖。</p>\n",
         "python": "<p>Python 给<strong>自定义类</strong>加方法就是赋值（<code>Foo.shout = ...</code>），\n运行期生效、全局可见 —— 但<strong>对内置类型做不到</strong>\n（<code>str.shout = ...</code> 直接抛异常），而那恰恰是扩展方法最想解决的场景；\nDart 的扩展方法对任何类型都能加，只是只在导入它的文件里有效，\n写错了名字也不会报错，只是「这个扩展没生效」。\n另一处是接收者：Python 要显式写 <code>self</code>，\nDart 不写，方法体里直接用字段名 —— 少一层噪音，\n但读代码时分不清某个名字是字段还是外部变量。</p>\n",
@@ -151,7 +147,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都用 <code>extends</code> 与 <code>super</code>，接口接近。\n差别在<strong>覆盖有没有标记</strong>：JavaScript 里子类写个同名方法\n就叫覆盖，写错名字只是多了一个新方法、不会报错；\nDart 用 <code>@override</code> 注解，名字对不上时分析器会警告 ——\n「我以为在覆盖，其实没有」这类错误在这边能被拦下。\n另一处是 <code>super</code> 参数：Dart 能把构造参数直接转给基类，\nJavaScript 得在构造器体里显式 <code>super(name)</code>。</p>\n",
         "python": "<p>Python 支持多继承、靠 MRO 决定用哪个实现；Dart 只能单继承，\n但可以 <code>with</code> 多个 mixin —— 表达力接近，规则简单得多\n（mixin 不是父类，冲突时按 <code>with</code> 的顺序取）。\n另一处是<strong>默认能不能覆盖</strong>：Python 随时可以覆盖，\nDart 也是（没有 <code>open</code> 那一套），但 Dart 鼓励写 <code>@override</code>，\n因为分析器能据此发现名字写错。\n构造顺序两边都有「基类先初始化」的坑，实质相同。</p>\n",
@@ -187,7 +182,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都用符号而不是关键字，但<strong>私有单位不同</strong>：\nJavaScript 的 <code>#x</code> 是<strong>类级</strong>真私有，只有本类能碰；\nDart 的 <code>_x</code> 是<strong>库级</strong>私有，同一个文件里的别的类也能访问。\n另一处是强制力：<code>#</code> 由运行期语法保证，<code>_</code> 是编译期检查。\n两边都没有 <code>public</code> 关键字 —— 不写就是公开。</p>\n",
         "python": "<p>语法上两边最像（都用下划线开头），<strong>分量差得远</strong>：\nPython 的 <code>_x</code> 是纯粹的君子协定，跨模块访问照样能拿到；\nDart 的 <code>_x</code> 会真的编译不过。\n所以从 Python 过来时，「反正能访问」的习惯要改 ——\n测试代码想碰私有成员，在 Python 里顺手就做了，\n在 Dart 里得改成 <code>@visibleForTesting</code> 或者把逻辑挪出去。</p>\n",

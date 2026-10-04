@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能抛，但<strong>能抛什么</strong>不同：JavaScript 抛任何值\n（<code>throw 42</code> 都合法）；Swift 要求抛出去的东西<strong>遵守 Error 协议</strong>，\n所以「错误是一个有类型的对象」这件事在这边是强制的 ——\n好处是 <code>catch</code> 时类型是已知的，坏处是随手包一个对象当错误不行。\n另一处是<strong>调用点的标记</strong>：Swift 的 <code>try</code> 是强制的\n（不写编译不过），读代码时一眼看出这一行可能失败；\nJavaScript 里 <code>throw</code> 完全隐式，一个函数会不会抛只有读实现才知道。\n还有一处是 <code>try?</code> / <code>try!</code> 这两个简写，\nJavaScript 里要靠 <code>.catch(() =&gt; null)</code> 之类的写法模拟。</p>\n",
         "python": "<p>两边的错误都是对象，但<strong>约束强度不同</strong>：Python 的异常要能被\n<code>except Exception</code> 接住才算是「常规错误」（否则会穿透），\n所以实际有一套内建层级；Swift 的错误必须遵守 <code>Error</code> 协议，\n而 <code>catch</code> 是穷尽的（要写 <code>catch</code> 兜底或者逐类型写全）。\n另一处是调用点：Swift 强制写 <code>try</code>，Python 什么都不用写 ——\n也就是说「这一行可能抛」在 Swift 里是<strong>看得见的</strong>。\n还有一处是 Swift 的 <code>throws</code> 不指定类型（要知道抛什么\n得看文档或用 typed throws），Python 里通常靠文档。</p>\n",
@@ -83,7 +82,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>try</code> / <code>catch</code> 形态像，但<strong>能不能按类型分支</strong>不同：\nJavaScript 只有一个 <code>catch (e)</code>，要按类型分得在块里自己判断\n（<code>instanceof</code> 或看 <code>e.name</code>）；Swift 可以直接写多个 <code>catch</code>\n子句按模式匹配，还能绑定关联值 —— 表达力强得多。\n另一处是<strong>穷尽要求</strong>：Swift 的 do-catch 必须有兜底\n（因为 <code>throws</code> 不指定类型，编译器不知道你写全没有），\nJavaScript 的 catch 本来就是兜底的。\n还有一处是 Swift 的 <code>try?</code> / <code>try!</code> 两个简写，\n让「把错误变成 nil」或「出事就崩」变成一行 —— JavaScript 里要绕。</p>\n",
         "python": "<p>两边都能写多个 <code>except</code> / <code>catch</code> 子句按类型匹配，\n而且都能绑定异常对象 —— 这一层对应得上。\n差别在<strong>穷尽性</strong>：Python 的 <code>except</code> 可以不写兜底\n（没接住的异常会往上冒），Swift 的 do-catch <strong>必须</strong>有兜底\n（因为错误类型是宽的，编译器没法判断）。\n另一处是 Python 有 <code>else</code> 子句（没出错时执行），\nSwift 没有对应写法，要写在 <code>do</code> 块里的末尾。\n还有一处是 Swift 的 <code>try?</code> / <code>try!</code> 很显眼地表达了「我不管错误」，\nPython 里对应的是裸 <code>except: pass</code>（更隐蔽）。</p>\n",
@@ -114,7 +112,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有「无论如何都要执行的那段」，但<strong>写法与作用域不同</strong>：\nJavaScript 用 <code>try / finally</code>（绑在 try 块上），\n或者较新的 <code>using</code> 声明；Swift 用 <code>defer</code>，\n它是<strong>按作用域</strong>生效的、可以写在任何地方（不只是 try 旁边）。\n所以 Swift 里「这个块里我开了什么、就 defer 关什么」\n是一种很自然的写法，JavaScript 的 finally 必须先有个 try。\n另一处是执行顺序，两边一样（多个清理按倒序跑）。\n还有一处是 Swift 的 defer 与对象生命周期解耦 ——\n即使是有 deinit 的类，defer 仍然是显式写出来的。</p>\n",
         "python": "<p>两边的差别就是 <code>finally</code> 与 <code>defer</code>：Python 有 <code>finally</code>，\n还有 <code>with</code> 语句把「进入/退出必做」写成协议（<code>__enter__</code> / <code>__exit__</code>）；\nSwift 没有 <code>finally</code> 也没有 <code>with</code>，对应物是 <code>defer</code>。\n差别在<strong>触发条件</strong>：Python 的 <code>with</code> 只对实现了协议的对象可用，\n而且退出动作由那个对象定义；Swift 的 <code>defer</code> 是一段<strong>你写的代码</strong>，\n任何作用域都能用、也不要求对象配合。\n另一处是顺序：两边的多个清理都按倒序执行。</p>\n",
@@ -145,7 +142,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都不限制错误的层级，但<strong>约束的方向不同</strong>：\nJavaScript 的 <code>Error</code> 有 <code>name</code> / <code>message</code> / <code>stack</code> 三个约定字段，\n子类化靠自定义 class，还有 <code>cause</code> 链；\nSwift 的错误必须遵守 <code>Error</code> 协议（通常是个枚举），\n结构上更自由（想带什么带什么），\n但<strong>没有内建的原因链</strong>，要用户可读的说明得再遵守\n<code>LocalizedError</code> 这类协议。\n另一处是 Swift 有 <code>Result</code> 这个标准库类型把错误当值返回，\nJavaScript 里只能靠约定（<code>{ok, value}</code> 这种形状）。</p>\n",
         "python": "<p>两边都有层次化的异常，但<strong>形态不同</strong>：\nPython 的异常是类（继承 <code>Exception</code>），实例带任意属性；\nSwift 的错误通常是<strong>枚举</strong>（带关联值），\n所以「有哪几种错」是类型里写死的、能被 <code>switch</code> 穷尽 ——\n这是 Python 给不了的保证（那边新增一种异常不影响任何调用方）。\n另一处是 Python 的异常自带 traceback，Swift 的错误对象\n不带调用栈（要单独抓）。\n共同点是两边都能给错误挂上下文（Python 靠属性，Swift 靠关联值）。</p>\n",
@@ -165,7 +161,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的做法对应得上（自定义一个类型、带上下文），这一层很像。\n差别在<strong>分类方式</strong>：JavaScript 用类继承\n（<code>class MyError extends Error</code>），可以一层层派生；\nSwift 更常用<strong>枚举</strong>，它表达的是「这个操作只有这几种失败方式」——\n而且能被 <code>switch</code> 穷尽。也就是说那边「错误是一棵类型树」，\n这边「错误是一个封闭集合」。\n另一处是 Swift 有 <code>LocalizedError</code> 这种标准协议，\n把「给用户看的说明」变成接口的一部分，JavaScript 没有对应约定。</p>\n",
         "python": "<p>两边的自定义错误都带上下文，但<strong>形态不同</strong>：\nPython 靠类（继承 <code>Exception</code>，属性随便挂、能在类里加方法）；\nSwift 靠枚举（关联值携带数据、<code>switch</code> 能穷尽）。\n所以 Python 里「新增一种错误」不影响任何现有代码，\nSwift 里新增一个 case 会让所有穷尽的 switch 变成编译错误 ——\n这是两边对「错误集合封不封闭」的不同取舍。\n另一处是 Swift 能把错误与「用户可读文案」绑成协议，\nPython 靠 <code>str(e)</code> 约定。</p>\n",
@@ -206,7 +201,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的传播都是「不接就往上走」，这一层一致。\n差别在<strong>保留原因的方式</strong>：JavaScript 的\n<code>new Error(msg, { cause: e })</code> 从 ES2022 起是标准写法，\n打印时整条链都显示；Swift 的标准错误<strong>没有原因链</strong> ——\n得自己定义错误类型并把旧错误存进去，否则包一层就丢了。\n另一处是 Swift 的 <code>try?</code> / <code>try!</code> 两个简写让「吞掉错误」\n变成一行、非常显眼；JavaScript 里要写 <code>.catch(() =&gt; null)</code>，\n意图没那么直白。</p>\n",
         "python": "<p>两边都能「重抛」与「包一层」，但<strong>保留原因的成本不同</strong>：\nPython 的 <code>raise NewError(...) from e</code> 一句话完成了\n「抛新异常 + 保留原因 + 打印时两层都显示」；\nSwift 要自己把旧错误存进新错误里，标准库不代劳。\n另一处是裸重抛：Python 用裸 <code>raise</code>，\nSwift 用 <code>throw error</code>（把 catch 到的变量重新抛出去），\n两边都有对应写法。\n还有一处是 Swift 的 <code>try?</code> 会<strong>静默吞掉</strong>错误信息，\nPython 里对应的是裸 <code>except: pass</code>（也是坏味道但更少见）。</p>\n",

@@ -16,7 +16,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「对象传引用、原始值传副本」，而且哪些算原始值也基本一致\n（数字、字符串、布尔）。差别在<strong>语言怎么描述这件事</strong>：\nDart 官方明确说一切都是对象（<code>int</code> 也是），\n只是不可变对象看起来像值语义；JavaScript 那边则真的分\n「原始值」与「对象」两类。实际写代码时差别不大，\n读文档与类型标注时会遇到。</p>\n",
         "python": "<p>两边都是「变量持引用、一切皆对象」，这一点最像 ——\n连「整数是不可变对象」这条都一样，所以 <code>m = 2</code> 不会影响 <code>n</code>。\n差别在<strong>可变与不可变的划分</strong>：Python 的列表与字典可变、\n元组与字符串不可变，规则靠记；Dart 的可变集合要靠类型区分\n（<code>List</code> 与 <code>List.unmodifiable</code>、<code>const</code> 列表），\n类型上就能看出来。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都是「运行时自动回收、应用不介入」，这一层很像，\n也都是分代式的设计（引擎那边同样是年轻代快、老年代慢）。\n差别在<strong>可观测性</strong>：JavaScript 的引擎在开发者工具里给了\n堆快照、内存时间线这类现成入口；Dart 要用 DevTools\n（或性能分析工具）另开一个窗口，门槛高一些。\n共同点是两边都不能强制回收，只能等。</p>\n",
         "python": "<p><strong>回收机制根本不同</strong>：Python 主要靠引用计数，所以对象在最后一个\n引用消失时<strong>立刻</strong>被回收，<code>__del__</code> 马上执行；\nDart 是追踪式 GC，对象什么时候被收走完全不确定。\n所以那边能依赖「离开作用域就释放」（尤其是文件、连接这类资源），\n这边只能显式关闭 —— 这也是 Dart 连析构器都不提供的原因。</p>\n",
@@ -62,7 +60,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Dart <strong>没有所有权与借用这套东西</strong> —— 没有 <code>move</code>、没有借用检查，\n也没有「值归谁所有」这个概念。内存交给 GC，\n其余资源（文件、socket、控制器）靠自己 <code>dispose</code> / <code>close</code>。\n所以「这段代码会不会漏资源」在 Dart 里是<strong>纪律问题</strong>，\n不是编译期能判定的事 —— 这一点与 JavaScript 的处境相同。</p>\n",
         "python": "<p>Dart <strong>没有所有权系统</strong>，与 Python 一样靠 GC 管内存。\n「用完就关」的手段两边不同：Python 有 <code>with</code> 语句加\n上下文管理器协议，能保证退出时清理；Dart 没有对应语法，\n要手工在 <code>finally</code> 里 <code>dispose</code> / <code>close</code> ——\n忘了写不会有任何提示，这是从 Python 过来最容易松掉的一环。\n共同点是都不用关心内存，只管 GC 管不了的那些资源。</p>\n",
@@ -82,7 +79,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Dart <strong>没有生命周期标注</strong> —— 对象活到不可达为止，语言层面\n写不出「这个引用最多活多久」。存活期取决于还有没有人持有它，\n是一个运行期事实。\n这一点与 JavaScript 的处境相同：两边都只能靠「断开引用」来间接表达。</p>\n",
         "python": "<p>Dart <strong>没有生命周期标注</strong>。与 Python 的差别在**「不可达」什么时候算数**：\nPython 靠引用计数，最后一个引用消失即回收；\nDart 靠追踪式回收，只能保证「不可达之后某个时刻」被收走。\n所以那边「离开作用域就释放」是可以依赖的，\n这边不行 —— 需要确定性释放的资源必须显式关。</p>\n",
@@ -128,7 +124,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有弱引用与「回收后回调」，能力接近。\n差别在<strong>能指向什么</strong>：JavaScript 的 <code>WeakRef</code> 对对象与符号都行\n（原始值本来就不能被弱引用，这点一致）；\nDart 明确排除数字与字符串。另一处是回调的保证强度：\n两边的「回收后回调」都不保证一定执行，这一点是共同的。</p>\n",
         "python": "<p>两边的弱引用形状接近（包装对象、取不到时给空、回收时机不保证），\n但<strong>有没有析构器</strong>是根本差别：Python 靠引用计数，\n<code>__del__</code> 在最后一个引用消失时<strong>立刻</strong>执行，可以拿来做确定性清理；\nDart 是追踪式 GC，官方明确不提供析构器 ——\n团队的原话是「对象从来没有真正被销毁，只是变得不可达」。\n所以从 Python 过来，「靠 <code>__del__</code> 收尾」这个习惯必须改掉。</p>\n",

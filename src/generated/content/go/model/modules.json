@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的模块单位是<strong>文件</strong>，目录只是组织方式；\nGo 的模块单位是<strong>目录</strong>（包）—— 同一个目录里的所有 <code>.go</code> 文件\n共享一个命名空间，不能有重名函数。更外层还有 module（<code>go.mod</code>），\n它定义了导入路径的根。所以 Go 的「一个包」可能跨很多文件，\n这与 JavaScript 的「一个文件一个模块」习惯很不一样。</p>\n",
         "python": "<p>Python 的包是带 <code>__init__.py</code> 的目录，模块是文件 —— 两个层次；\nGo 只有包（目录）这一层，加上 module（<code>go.mod</code>）作为依赖边界。\n差别最实际的是：Go 同目录下的文件<strong>共享命名空间</strong>，\n在 <code>a.go</code> 里定义的函数 <code>b.go</code> 直接用；Python 必须显式 import，\n哪怕两个文件在同一个目录里。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 靠 <code>export</code> 关键字列出对外的东西，导入方按文件名 import；\nGo <strong>没有 export 关键字</strong> —— 首字母大写就是导出、小写就是私有，\n改一个字母就改了 API。另一个大差别：Go 导入的是<strong>包</strong>而不是符号，\n用的地方一律写 <code>parser.Parse(...)</code>，不能只 import 一个函数。\n这让读代码时每个名字的来源一目了然。</p>\n",
         "python": "<p>Python 靠下划线约定表达内部（解释器不拦），Go 靠首字母大小写\n而且<strong>编译器强制</strong> —— 小写的名字从别的包引用直接编译不过。\n导入形态也不同：Python 的 <code>from x import y</code> 可以把符号直接搬进来，\nGo 只能导入包、再通过包名访问，因此永远不会出现\n「这个名字是从哪来的」这种疑问，代价是每次都要多写一个包名前缀。</p>\n",
@@ -62,7 +60,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>export default</code> 让一个模块有个无名主角，\n导入方可以随便起名 —— 同一个东西在不同文件里叫不同名字。\nGo <strong>完全没有这个概念</strong>：导出项一律具名，名字在定义处定死，\n调用方也照写。所以 Go 代码里「这个函数到底是谁」永远是确定的，\n重命名一次就是全局替换，不会有别名漂移。</p>\n",
         "python": "<p>Python 没有默认导出，导入必须点名 —— 这一点与 Go 一致。\n差别在 <code>from x import *</code>：Python 会往当前命名空间灌一堆名字\n（包括没写进 <code>__all__</code> 的），容易撞名；Go 不带通配导入\n（点导入 <code>. &quot;pkg&quot;</code> 存在但是反模式），一律写包名，\n所以不会有「这些名字哪来的」这种问题。</p>\n",
@@ -93,7 +90,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>import { x as y }</code> 或 <code>import * as ns</code>，粒度到符号；\nGo 的别名粒度是<strong>整个包</strong> —— 只能给包改名，不能单独给某个函数改名。\n另一个 Go 特有的东西是空导入 <code>_ &quot;pkg&quot;</code>：只为了执行它的 <code>init()</code>\n（数据库驱动注册就是靠这个），JavaScript 里对应的是\n<code>import 'pkg'</code> 这种副作用导入，形态相似但用途没这么集中。</p>\n",
         "python": "<p>Python 用 <code>import x as y</code> 给模块改名，与 Go 的包别名对应；\n但 Python 还能 <code>from m import f as g</code> 给单个函数改名，Go 不能。\nGo 的空导入 <code>_ &quot;pkg&quot;</code> 对应 Python 的 <code>import pkg</code>（只为执行模块顶层代码），\n不过 Go 用 <code>_</code> 把它标记成「显式不需要」。\n类型别名上 Go 有两种：<code>type A = B</code>（同一个类型）与 <code>type A B</code>（新类型），\nPython 没有这层区分。</p>\n",
@@ -113,7 +109,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>node_modules</code> 逐级向上找，同一个包名可能解析到不同版本；\nGo 的导入路径是<strong>绝对且唯一</strong>的（module 路径 + 目录），\n<code>go.mod</code> 锁定版本、<code>go.sum</code> 锁内容，没有「装了两份」这种状态。\nGo 还有 <code>internal/</code> 这个语言级约定：路径里含 internal 的包\n只有其父目录子树能导入，JavaScript 里没有对应机制。</p>\n",
         "python": "<p>Python 按 <code>sys.path</code> 顺序找，运行时可能被环境变量或当前目录影响；\nGo 的解析在编译期完成，由 <code>go.mod</code> 完全确定，不存在\n「同一份代码在两台机器上 import 到不同东西」。Go 的 <code>internal/</code>\n是语言强制的可见性边界，Python 里想表达「这是包内部实现」\n只能靠下划线命名，拦不住别人导入。</p>\n",

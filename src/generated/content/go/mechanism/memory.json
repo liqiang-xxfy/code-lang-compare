@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的对象与数组都是引用语义，赋值共享；Go <strong>两者都有</strong> ——\n结构体与数组是值类型（赋值整体复制），切片/map/指针/通道是引用语义。\n这个区分是 Go 特有的，读代码时必须先看手上是哪种类型：\n<code>b := a</code> 到底是复制还是共享，取决于 a 是什么。\nJavaScript 里这个问题永远只有一个答案（共享）。</p>\n",
         "python": "<p>Python 里可变对象（list/dict）赋值共享、不可变对象（tuple/str）语义上复制；\nGo 的分界线不看可变性，而看<strong>类型种类</strong>：结构体与数组是值类型，\n切片/map/指针是引用语义。所以 Go 里 <code>b := a</code>（a 是结构体）\n得到独立副本，Python 里 <code>b = a</code>（a 是 dataclass 实例）得到别名 ——\n同一个写法，行为相反。</p>\n",
@@ -47,7 +46,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go 与 JavaScript 都是 GC 语言，日常编码里都不需要手动释放 ——\n这一点两边体验接近。差别在<strong>可控性</strong>：Go 可以用 <code>GOGC</code> 调触发阈值、\n用 <code>debug.SetMemoryLimit</code> 设软上限、用 <code>runtime.ReadMemStats</code> 看堆状态；\nJavaScript 引擎把 GC 藏得更深，几乎没有旋钮。\n另外 Go 的 GC 会带来尾延迟（<code>GODEBUG=gctrace=1</code> 能看到），\n这在延迟敏感的服务里是要调参的。</p>\n",
         "python": "<p>Python 用引用计数为主、分代 GC 收环，对象通常在计数归零时立刻释放；\nGo 用并发标记清除，对象什么时候回收不精确 ——\n但 Go 的 GC 全程并发、停顿极短（亚毫秒级），\n而 Python 的循环回收会停顿。两边的取舍不同：\nPython 释放及时但吞吐受影响，Go 有延迟但暂停短。\n另一处差别是 Go 的 <code>GOGC</code> / <code>GOMEMLIMIT</code> 给了明确的调优入口。</p>\n",
@@ -67,7 +65,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有所有权与借用这层概念</strong> —— 值被谁引用、什么时候释放，\n全交给 GC，编译器不做任何追踪。这与 JavaScript 一样，\n但 Go 的<strong>值/引用语义区分</strong>承担了一部分相似的职责：\n想共享就传指针（双方都清楚），想复制就传值。\n区别是「共享」在 Go 里不会造成编译错误，只有数据竞争才会 ——\n而且那是运行时才发现的（或靠 <code>-race</code> 检测器）。</p>\n",
         "python": "<p>Go <strong>没有所有权与借用</strong>，对象的生命周期由 GC 决定，\n引用可以随意复制。Go 的值/引用语义确实要求作者想清楚\n「传进去的是副本还是共享」，但这个想法只是<strong>约定</strong>，\n编译器不检查 —— 忘了就会踩到「改了副本没生效」或\n「改了共享的对象影响了别处」。Python 里同样没有检查，\n唯一的保障是可变对象在两边都共享这个直觉。</p>\n",
@@ -87,7 +84,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有生命周期标注</strong> —— 引用不会悬垂（GC 保活），\n所以「这个引用能不能活到那里」不是编译器要问的问题。\n唯一需要主动管理的是<strong>逃逸分析</strong>：局部变量被返回或存进堆对象时，\n编译器自动把它分配到堆上，语法上完全无感。\nJavaScript 里引擎也做类似的逃逸分析，但那是纯优化、不影响语义。</p>\n",
         "python": "<p>Go <strong>没有生命周期</strong>，与 Python 一样：对象由 GC 保活，\n引用不可能悬垂。Go 里有一个相近但不同的概念 ——\n<strong>逃逸分析</strong>（变量逃到堆上还是留在栈上由编译器决定），\n它影响性能但不影响正确性，也不需要写任何标注。\nPython 里连这层都不暴露，全由解释器决定。</p>\n",
@@ -107,7 +103,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 有 <code>WeakMap</code> / <code>WeakRef</code> / <code>WeakSet</code>，\n用途明确（缓存、观察者、不阻止回收的元数据）；Go 长期没有，\n直到 1.24 才加入 <code>weak</code> 包。在 1.24 之前，\nGo 里想达到同样效果只能靠 <code>runtime.SetFinalizer</code>（语义不可靠）\n或者手动管理缓存生命周期 —— 这是从 JavaScript 过来会明显感到缺失的一块。</p>\n",
         "python": "<p>Python 的 <code>weakref</code> 与 Go 1.24 的 <code>weak</code> 包用途一致：\n持有引用但不阻止回收，取用时判断对象还在不在。\n差别在成熟度 —— Python 的 <code>weakref</code> 还提供回调与\n<code>WeakValueDictionary</code> 这类现成容器，Go 的 <code>weak</code> 包刻意保持最小\n（只有 <code>Make</code> 与 <code>Value</code> 两个函数），容器要自己搭。\nGo 里另一个选项是 <code>runtime.SetFinalizer</code>，Python 是 <code>__del__</code>，两边都不推荐依赖。</p>\n",

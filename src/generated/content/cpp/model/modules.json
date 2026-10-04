@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边「一个模块」的意思完全不同</strong>：JavaScript 的一个文件就是一个模块\n（语言规定的边界，<code>import</code> 加载它），文件与模块是一一对应的；\nC++ 的最小单位是<strong>翻译单元</strong> —— 一个源文件加上被文本插入进来的所有头文件，\n所以「一个文件」不等于「一个模块」，反而是头文件的内容\n在每个用到它的编译单元里各存在一份。\n另一处是 <code>#include</code> 不是导入：它只是把那段文本插进来，\n被包含的文件有什么就得到什么，没有选择余地。</p>\n",
         "python": "<p>两边的分层完全不同：Python 的模块也是<strong>文件</strong>，<code>import</code> 会真的加载并执行它\n（有自己的命名空间，只执行一次）；C++ 的头文件是<strong>文本片段</strong>，\n它不知道也不关心自己被包含了几次，没有「加载」这个动作，\n更没有「只执行一次」的语义（所以自己得写包含卫士或 <code>#pragma once</code>）。\n另一处是 C++ 的模块边界要<strong>靠人维护</strong>：什么放头文件、什么放源文件、\n什么算对外接口，都是约定，语言不强制（<code>static</code> 与匿名命名空间除外）。</p>\n",
@@ -57,7 +56,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是「没有导入系统」的直接后果</strong>：JavaScript 用 <code>export</code> / <code>import</code>\n显式声明谁给谁看，语言负责连起来；C++ 没有这套 ——\n所谓「导出」就是<strong>把声明放进头文件然后让别人包含它</strong>，\n可见性是文件组织的副产物。所以那边「改一下导出」是改一行关键字，\n这边是搬家（把声明从头文件挪进源文件）。\n另一处是包含的<strong>代价</strong>：JavaScript 的 <code>import</code> 是加载一次，\nC++ 的 <code>#include</code> 是文本展开，头文件越大、每个编译单元都要重编一遍。</p>\n",
         "python": "<p>两边的写法形状像（<code>#include</code> ↔ <code>import</code>），机制差得远：\nPython 的 <code>import</code> 会<strong>找到并执行</strong>那个模块，得到一个模块对象，\n名字从里面取；C++ 的 <code>#include</code> 只是把文本插进来，\n插进来的东西直接落进当前作用域（所以重名冲突要靠命名空间救）。\n另一处是重复包含：Python 的模块天然只执行一次，\nC++ 的头文件包含两次就是重复定义（要靠包含卫士或 <code>#pragma once</code>）。</p>\n",
@@ -83,7 +81,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>这一格是直接的有无之分</strong>：JavaScript 有默认导出与具名导出两种形态，\n而且导入时可以<strong>改名</strong>（<code>import { a as b }</code>）—— 名字有两层。\nC++ 里名字就是名字，没有默认那一档，也没有导入时改名的动作；\n想避免冲突靠 <code>namespace</code> 把它圈起来，用的时候写前缀或者 <code>using</code>。\n所以那边「改导出名不影响内部」这件事在这边不成立 ——\nC++ 改一个名字，所有写到这个名字的地方都得改。</p>\n",
         "python": "<p>两边的「分组」手段不同：Python 靠<strong>模块与包</strong>分组\n（<code>from x import y</code>、<code>import x as y</code> 都能改名），\n所以同名函数放在不同模块里互不干扰、取用时还能改叫法；\nC++ 靠<strong>命名空间</strong>分组（语言层面的名字前缀），\n不能改名，只能起命名空间别名。\n另一处是 Python 的 <code>from m import *</code> 与 C++ 的\n<code>using namespace</code> 都容易把名字池搅浑 —— 两边都不推荐。</p>\n",
@@ -103,7 +100,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能「起个短名」，但短名的层次不同：JavaScript 的\n<code>import fs from 'fs'</code> 是<strong>给模块起名</strong>（而且默认导出能随便叫），\n模块内部的东西从那个名字往下取；C++ 的 <code>namespace v = ...</code> 是\n<strong>给命名空间起名</strong>，而命名空间与文件路径没有关系 ——\n一个目录下可以有好几个命名空间，一个命名空间可以横跨很多文件。\n也就是说 JavaScript 的短名跟着模块走，C++ 的短名跟着名字前缀走。</p>\n",
         "python": "<p>两边的别名机制很像（<code>import numpy as np</code> ↔ <code>namespace np = ...</code>），\n这一格接近。差别在<strong>别名绑在什么上</strong>：Python 的别名绑在模块对象上\n（模块是一个真实存在的东西，有 <code>__name__</code>、能被反射），\nC++ 的命名空间别名只是编译期的名字前缀替换，运行期没有这个东西。\n另一处是 C++ 能只引一个名字进来（<code>using X::f</code>），\nPython 要有对应效果就用 <code>from x import f</code>，形态不同但目的一样。</p>\n",
@@ -129,7 +125,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的失败形态完全不同</strong>：JavaScript 的模块解析是运行前的\n一个确定算法（相对路径、包名、导出映射），找不到就报「找不到模块」；\nC++ 把这件事<strong>劈成了两半</strong> —— 头文件找不到是编译错误（立即报），\n实现找不到是链接错误（整批编译完之后才报），\n而且报出来的是 <code>undefined reference to 'foo'</code>，\n一个从没见过 C++ 链接模型的人会以为是代码写错了。\n另一处是 C++ 的搜索路径靠命令行传（<code>-I</code> / <code>-L</code>），\n没有清单文件来声明「这个包在哪」。</p>\n",
         "python": "<p>两边的查找范围不同：Python 的模块解析从当前目录与 <code>sys.path</code> 走，\n运行时可以改（<code>sys.path.append</code>），而且导入过的会缓存在 <code>sys.modules</code> 里；\nC++ 的包含路径在编译时定死（<code>-I</code>），运行时没有任何解析动作，\n也没有缓存这一说 —— 头文件的内容在编译时就烧进目标文件了。\n另一处是 Python 找不到模块就抛 ImportError 停在那里，\nC++ 的「找不到实现」要等到链接，前面所有编译都白做。</p>\n",

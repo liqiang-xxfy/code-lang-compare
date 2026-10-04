@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的类型全在运行时；Go 静态检查，但有<strong>两处</strong>保留运行时类型：\n接口值（<code>any</code> / 自定义接口）携带动态类型、<code>reflect</code> 能看到它。\n这与 JavaScript 的「什么都能塞」形似而神不同：\nGo 里要先把值装进接口才获得这层灵活，普通变量仍是静态的，\n而且取出来必须显式断言 —— 灵活性是选择来的，不是默认的。</p>\n",
         "python": "<p>Python 全程动态，类型错误靠运行暴露；Go 在编译期检查，\n但接口值保留了动态类型信息（<code>x.(type)</code> 与 <code>reflect</code> 都能看到）。\n差别在<strong>入口</strong>：Python 里任何变量都可能装着别的类型，\nGo 里普通变量类型固定，只有显式声明为接口的才有这层不确定性 ——\n所以读 Go 代码时，看到接口就知道这里可能出现多种类型。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有类型标注（TS 的标注编译后抹掉）；Go 的标注是编译器的\n事实来源，函数签名、结构体字段、包级变量都必须写。\n局部变量可以省（<code>:=</code> 推断），这点与 JavaScript 的「哪都不用写」\n形成对比 —— Go 的省略是<strong>局部</strong>的例外，不是常态。</p>\n",
         "python": "<p>Python 的标注可选、运行时不检查；Go 的标注是必须的，\n能省的只有局部变量的类型（<code>:=</code>）。有一处 Go 比 Python 松：\n<strong>常量可以无类型</strong> —— <code>const K = 10</code> 不绑定具体类型，\n赋给 <code>float64</code> 或 <code>int32</code> 都行，Python 里没有对应概念。</p>\n",
@@ -73,7 +71,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的鸭子类型在运行时，Go 的接口满足在<strong>编译期</strong> ——\n规则同样是「看方法不看名字」，这就是 Go 被称为\n「静态鸭子类型」的原因。所以两边都不用写实现声明，\n区别只在什么时候发现错误：JavaScript 到调用那一刻才炸，\nGo 在编译时就说「Robot 没有实现 Quacker」。</p>\n",
         "python": "<p>Python 是运行时鸭子类型，<code>Protocol</code> 提供可选的结构化标注；\nGo 把同一套规则搬到了编译期，而且接口本身就是一个\n可以写进签名的<strong>具名类型</strong>。这让 Go 既能像 Python 一样\n不为接口去改类型定义（甚至能给标准库的类型定义接口），\n又能提前发现不满足 —— 这是 Go 接口设计的核心取舍。</p>\n",
@@ -99,7 +96,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>typeof</code> / <code>instanceof</code> 在运行时判断，判断完的类型\n只对人有意义（TS 里才有收窄）；Go 的类型断言/类型开关是<strong>语言能力</strong>，\n而且 <code>switch v := x.(type)</code> 会把 <code>v</code> 在分支里变成具体类型，\n可以直接用它的方法。另一处差别是失败方式：\nJavaScript 判断错了就是走 else 分支，Go 不带 <code>ok</code> 的断言直接 panic。</p>\n",
         "python": "<p>Python 用 <code>isinstance</code> 判断再分支，判断完的类型信息靠类型检查器推断；\nGo 用类型断言与类型开关，<code>switch v := x.(type)</code> 会把 <code>v</code>\n绑定成具体类型 —— 这是语言层面的收窄。差别在穷尽性：\nPython 与 Go 都不强制覆盖所有类型（Go 的 <code>default</code> 可选），\n所以两边都可能漏掉一种情况，这一点上都不如枚举 + match 严密。</p>\n",
@@ -119,7 +115,6 @@
         "java": "identical"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Go <strong>没有空安全</strong> —— <code>nil</code> 可以赋给任何指针、接口、切片、\n映射与通道，用之前不检查就是运行时 panic（nil 解引用、\n写 nil map、调用 nil 接口的方法）。JavaScript 至少有 <code>?.</code>\n把检查写短，Go 连这个语法糖都没有，只能手写 <code>if x != nil</code>。\n数值类型倒是不受影响 —— 它们用零值 0 而不是 nil。</p>\n",
         "python": "<p>Go <strong>没有空安全</strong>，<code>nil</code> 只对引用类类型有意义，\n但用之前不检查就是 panic。Python 的 <code>None</code> 更普遍 ——\n任何变量都能是 None，而 Go 的 nil 对数值与结构体无意义\n（它们用零值）。两边都不提供编译期保证，\n「这个值可能缺」在类型上完全看不出来。</p>\n",
@@ -150,7 +145,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的转换大量隐式（<code>Number</code> / <code>String</code> / 运算符自己转），\n失败得到 <code>NaN</code> 不报错；Go 没有任何隐式数值转换，\n窄化静默截断、接口断言失败则 panic（带 <code>ok</code> 的除外）。\n字符串转数字 Go 返回 <code>error</code>，JavaScript 用 <code>parseInt</code> 得到 NaN ——\n一个是值、一个是哨兵，处理方式完全不同。</p>\n",
         "python": "<p>两边都要显式转换，失败方式不同：Python 的 <code>int(&quot;abc&quot;)</code> 抛 ValueError、\n<code>int(3.9)</code> 截断；Go 的 <code>strconv.Atoi</code> 返回 error、\n<code>int(f)</code> 截断，而 <code>byte(300)</code> 这类窄化<strong>静默回绕</strong>、不报错 ——\nPython 里没有对应的静默截断（int 是任意精度）。\n从接口取回具体类型 Go 用断言，Python 用 <code>isinstance</code> 判断，\n前者会在忘记检查时 panic，后者不会。</p>\n",

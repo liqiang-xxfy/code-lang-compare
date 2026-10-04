@@ -15,7 +15,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>本语言没有事件循环这一层</strong>。等待就是阻塞在某个线程上 ——\n所以不存在「一个慢函数卡住整个程序」这种问题（它只卡住那个线程）。\n代价是每个并发请求都要占一个线程；虚拟线程（Java 21+）把线程变得很轻，\n于是「一个请求一个线程」的阻塞式写法重新变得可行。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 整个语言架在事件循环上，所以同步阻塞会卡住一切（包括渲染）；\nJava 用线程解决等待问题，慢函数只影响自己那个线程。\n一个的约束是「别阻塞」，另一个的约束是「线程有成本」。</p>\n",
@@ -40,7 +39,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>异步流程的写法是<strong>链式组合</strong>而不是嵌套回调：<code>thenApply</code> / <code>thenCompose</code> /\n<code>thenCombine</code> 一步步接下去，错误<strong>沿链传播</strong>，末尾一个 <code>exceptionally</code>\n就能统一兜底 —— 所以这边没有「回调地狱」这个问题。\n老式回调（监听器、框架钩子）仍在，但那是另一回事。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 的回调时代留下了 <code>(err, data)</code> 层层嵌套的形状，\n后来用 Promise 链解决了；Java 直接就是链式风格，没有那段历史包袱。\n两边的错误传播都是「沿链走、末尾兜底」。</p>\n",
@@ -65,7 +63,6 @@
         "python": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>CompletableFuture</code> 表示「将来会有个结果」，组合算子齐全\n（<code>thenCompose</code> 串行、<code>thenCombine</code> 合并、<code>allOf</code> 等全部），\n而且<strong>可以取消、可以设超时</strong>。要注意异常处理：没有 <code>exceptionally</code> /\n<code>handle</code> 的话，异常会被包起来静默丢掉。终结方式有两个 ——\n<code>get()</code> 抛受检异常、<code>join()</code> 抛未受检的，看场景选。</p>\n",
       "vsHtml": {
         "javascript": "<p>概念对应（<code>CompletableFuture</code> ↔ Promise），Java 的算子更多、\n还能取消与设超时；JavaScript 的 Promise 组合靠 <code>Promise.all</code> 这类静态方法，\n本身不能取消。两边的异常都要主动处理，否则静默。</p>\n",
@@ -84,7 +81,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>本语言没有 async / await 语法</strong>。要写异步只能走 <code>CompletableFuture</code>\n的链式调用（写起来与同步代码差别很大），或者用<strong>虚拟线程</strong> ——\n后者让阻塞式写法跑在轻量线程上，等于用另一种方式达成了\n「像同步一样写异步」的效果，而且不需要改代码结构。</p>\n",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 async / await 把异步写成同步的样子；Java 没有这个语法，\n要么写链式调用、要么用虚拟线程让阻塞写法变便宜。\n两边想解决的问题相同，路径完全不同。</p>\n",
@@ -114,7 +110,6 @@
         "python": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>取消是<strong>协作式</strong>的：<code>cancel(true)</code> 给线程发一个中断信号，\n但协作者必须自己检查（<code>Thread.interrupted()</code>）或调用了会响应中断的\n阻塞方法（<code>sleep</code> / <code>wait</code> / IO 会抛 <code>InterruptedException</code>）。\n规矩是<strong>别吞掉 <code>InterruptedException</code></strong> —— 要么继续往上抛、\n要么 <code>Thread.currentThread().interrupt()</code> 重设标志。\n<code>CompletableFuture.cancel</code> 不会中断底层任务，只让结果作废。</p>\n",
       "vsHtml": {
         "javascript": "<p>两者都是协作式取消（Java 靠中断标志、JavaScript 靠 <code>AbortSignal</code>），\n都要在代码里主动检查。Java 还多一层「阻塞方法自动响应中断」的便利。</p>\n",

@@ -27,7 +27,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能抛任意值（<code>throw '字符串'</code> 都合法），这一点是共同的，\n也都因此有一个同样的坑：抛出去的不是 Error 就没有栈。\n差别在<strong>类型系统</strong>：Dart 的 <code>throw</code> 表达式要求参数是<strong>非空对象</strong>，\n所以 <code>throw null</code> 编译不过；JavaScript 里 <code>throw null</code> 是合法的，\n捕获方拿到 null 只能自己判。\n另外 Dart 建议抛标准错误类型，那边的语言不做这个建议。</p>\n",
         "python": "<p><strong>能抛什么</strong>两边差得远：Python 要求 <code>raise</code> 一个 <code>BaseException</code> 子类，\n<code>raise '字符串'</code> 会得到一个 <code>TypeError</code>；Dart 放开到任意非 null 对象，\n抛字符串是合法的。所以 Python 的「异常一定是对象、一定有类型」\n这条保障在 Dart 里要自己维持 —— 语言不拦。\nDart 的 <code>throw</code> 还是表达式，能直接写在箭头函数体里，\nPython 的 <code>raise</code> 是语句。</p>\n",
@@ -53,7 +52,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的形状不同：JavaScript 只有一个 <code>catch</code>，类型过滤要自己在里面写\n<code>if (e instanceof ...)</code>；Dart 把「按类型挑分支」做成了 <code>on</code> 子句，\n而且<strong>能写多个</strong>，从上往下匹配。\n另一处是栈：JavaScript 从 <code>e.stack</code> 里拿，Dart 用\n<code>catch (e, st)</code> 的第二个参数显式接住，更明确一点。</p>\n",
         "python": "<p>Python 的 <code>except E as e</code> 一个子句既按类型过滤又绑定对象；\nDart 把它拆成两件事 —— <code>on E</code> 只过滤，<code>on E catch (e)</code> 才绑定。\n所以从 Python 过来时，把 <code>except ValueError:</code> 直译成 <code>on ValueError:</code>\n会发现自己拿不到那个异常 —— 这是最容易踩的一处。\n另一处是分支顺序：两边都是从前往下匹配，宽的类型要放后面。</p>\n",
@@ -84,7 +82,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的 <code>finally</code> 语义一致（无论如何都执行），\n资源清理也都得手工写在 <code>finally</code> 里 —— 这一层相同。\n差别在<strong>重抛</strong>：JavaScript 用 <code>throw e</code> 重抛，而且因为 Error 对象\n自带栈信息，<strong>原始栈是保留的</strong>；Dart 必须写 <code>rethrow</code> 才能保住原始栈，\n写成 <code>throw e</code> 会把栈<strong>重置成重抛点</strong> —— 两边都写 <code>throw e</code>，\n效果正好相反，这是从那边过来最容易犯的错。</p>\n",
         "python": "<p>Python 的 <code>finally</code> 与 Dart 语义相同。差别有两处：\n一是<strong>重抛</strong>，Python 用裸 <code>raise</code>（异常对象自己带着原始栈），\nDart 用专门的 <code>rethrow</code> 才保得住栈，写成 <code>throw e</code> 会把栈重置；\n二是<strong>资源管理</strong>，Python 有 <code>with</code> 语句把「进入与退出」做进协议，\nDart 没有对应语法，只能在 <code>finally</code> 里手工关 ——\n少写一次清理在 Dart 里不会有任何提示。</p>\n",
@@ -120,7 +117,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的内建错误类型都挂在 <code>Error</code> 之下，没有「不该捕获」这一支 ——\n所有错误一视同仁（虽然它并不限制你抛什么）。Dart 从根上分出两支：\n<code>Error</code> 表示程序写错了（调用方不该接），<code>Exception</code> 表示预料之中的失败。\n另一处更实际的是<strong>兜底写法</strong>：JavaScript 的 <code>catch</code> 一律接住一切；\nDart 里写 <code>on Exception</code> 接不住 <code>Error</code>，\n想兜底必须用不带类型的 <code>catch</code> —— 少写那半句就漏了。</p>\n",
         "python": "<p>Python 有一棵统一的异常树，<code>BaseException</code> 之下分\n<code>Exception</code> 与几个不该接的（键盘中断、退出信号）；\nDart <strong>没有统一的树</strong>，<code>Error</code> 与 <code>Exception</code> 只是各自独立的两支，\n共同祖先只有 <code>Object</code>。所以「捕获所有异常」在 Python 里写\n<code>except Exception</code>，在 Dart 里写 <code>on Exception</code> 是<strong>不行的</strong>，\n必须用不带类型的 <code>catch</code>。\n另一处是断言：Python 的 <code>assert</code> 会被 <code>-O</code> 去掉，\nDart 的生产构建同样忽略它，而且<strong>连参数都不求值</strong>。</p>\n",
@@ -151,7 +147,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能自定义错误类型，但<strong>继承什么不同</strong>：\nJavaScript 必须继承 <code>Error</code>（否则没有栈），而且构造函数里\n要自己写 <code>super(message)</code> 与 <code>this.name</code>，还得留意原型链；\nDart 惯例是 <code>implements Exception</code>，那是个空接口，\n所以 <code>toString()</code> 得自己写 —— 省心的是没有原型链那套麻烦，\n费心的是消息不会自动带上。</p>\n",
         "python": "<p>两边的写法接近（都是继承一个基类、之后 <code>raise</code> / <code>throw</code> 它）。\n差别在<strong>基类给不给东西</strong>：Python 的 <code>Exception</code> 会给你\n消息、<code>args</code>、完整的栈；Dart 的 <code>Exception</code> 是空接口，\n什么都不给 —— 消息、栈、cause 全要自己加字段。\n所以从 Python 过来会觉得自定义异常变啰嗦了，\n但换来的是「异常对象上有什么」完全由你决定。</p>\n",
@@ -177,7 +172,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都靠冒泡传播，中间层不写任何东西 —— 这一层很像。\n差别在<strong>没接住时会发生什么</strong>：JavaScript 在浏览器里\n冒到顶层只影响那一次事件回调，页面照常活着；\nDart 里未捕获的异常会<strong>终止当前 isolate</strong>（在根 isolate 上表现为\n程序以非零码结束）—— 代价大得多，所以「兜底 catch」在这边更重要。\n另一处是重抛的写法（<code>rethrow</code> ↔ 裸 <code>throw</code>）。</p>\n",
         "python": "<p>两边都靠冒泡，都不需要在签名里声明。差别在<strong>兜底的粒度</strong>：\nPython 有 <code>sys.excepthook</code> 与线程级钩子，异常冒到顶层后\n还能做点事再让程序结束；Dart 的未捕获异常会直接终止 isolate，\n能插手的余地更小。\n另一处是「可能失败」的表达：Python 惯例用异常或返回 <code>None</code>，\nDart 同样用异常或返回可空值（<code>int.tryParse</code> 给 null），\n两边都没有把失败做成类型的做法。</p>\n",

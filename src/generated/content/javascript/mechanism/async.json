@@ -26,7 +26,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>事件循环是唯一的并发机制</strong>：单线程跑一个任务队列，任务跑完了才轮到下一个。\n队列分两级 —— <strong>微任务</strong>（promise 回调）优先于<strong>宏任务</strong>（<code>setTimeout</code>、\nIO、渲染），而且微任务队列会被<strong>彻底清空</strong>才进下一个宏任务。\n所以一个耗时的同步函数会卡住整个页面：这段时间里渲染、点击、定时器全都不动。</p>\n",
       "vsHtml": {
         "python": "<p>Python 的 asyncio 也有事件循环，结构相近（任务队列 + 回调），\n但它<strong>必须显式启动</strong>（<code>asyncio.run</code>），而且线程可以同时存在。\nJavaScript 的事件循环是运行时自带的、绕不开，整个语言就架在它上面。</p>\n",
@@ -51,7 +50,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>最早的异步写法：把「之后要做什么」作为函数传进去。约定是回调收\n<code>(err, data)</code> 两个参数，每一层都要自己判断错误并往回传。\n问题有两个：<strong>层层缩进</strong>（回调地狱）与<strong>错误容易漏接</strong>\n（回调里抛的异常不会传到外层，会变成未捕获异常）。</p>\n",
       "vsHtml": {
         "python": "<p>回调在 Python 里不是主流，asyncio 早期也有过 <code>add_done_callback</code>，\n但很快就转向了 <code>await</code>。两边的历史轨迹相似，只是 JavaScript 在回调\n时代停留得更久（整个 Node 生态都是这个形状）。</p>\n",
@@ -81,7 +79,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p>Promise 表示「将来会有一个结果」，状态一旦落定就不再变。链式调用让错误\n可以<strong>沿链传播</strong>（末尾一个 <code>catch</code> 就能兜住前面所有步骤），比回调那套\n干净得多。组合算子齐全（<code>all</code> / <code>allSettled</code> / <code>race</code> / <code>any</code>）。\n两个要记住的点：Promise 没法取消，以及没有 <code>catch</code> 就是一个静默的坑。</p>\n",
       "vsHtml": {
         "python": "<p>Python 的 <code>Future</code> / <code>Task</code> 是同一个概念，组合用 <code>asyncio.gather</code>\n（对应 <code>all</code>）与 <code>wait</code>。差别是 Python 的 Task <strong>可以取消</strong>\n（<code>task.cancel()</code>），Promise 不能。</p>\n",
@@ -106,7 +103,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><code>async</code> / <code>await</code> 是 Promise 的语法糖：把异步写成同步的样子，\n错误用普通的 <code>try</code> / <code>catch</code> 接。两个必须记住的点：\nasync 函数<strong>永远返回 Promise</strong>（哪怕里面只 <code>return 1</code>），\n以及 <code>forEach</code> 这类不认异步回调的地方 <code>await</code> 会失效 ——\n要顺序执行用 <code>for...of</code>、要并发用 <code>Promise.all(map(...))</code>。</p>\n",
       "vsHtml": {
         "python": "<p>两边语法几乎一样，连「async 函数调用后得到的是一个待等待的对象」\n这一点都一致。差别在生态：Python 的异步库<strong>必须</strong>整体是异步的\n（同步的 <code>requests</code> 放进协程里会堵住事件循环），\n而 JavaScript 的 <code>fetch</code> 本身就是异步的。</p>\n",
@@ -131,7 +127,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "baselineHtml": "<p><strong>Promise 不能取消</strong> —— 这是它设计上的一个缺口。实际做法是\n<strong>协作式取消</strong>：传一个 <code>AbortSignal</code> 进去，被取消时调用方 <code>abort()</code>，\n接受方自己检查 <code>signal.aborted</code> 并抛 <code>AbortError</code>。\n新一点的 API（<code>fetch</code>、<code>addEventListener</code>）都收 signal；\n自己写的异步循环也要记得检查，否则取消不会生效。</p>\n",
       "vsHtml": {
         "python": "<p>Python 的 <code>task.cancel()</code> 是<strong>真取消</strong>：会给协程抛 <code>CancelledError</code>，\n所以每个 <code>await</code> 点都自动是取消点，不用手动检查。\n两边都要处理「取消之后的清理」（<code>finally</code> / <code>try</code>），但方式不同。</p>\n",

@@ -13,7 +13,6 @@
  * 同一批知识点会被每个基准各引用一次，遍历分组等于把每个 feature 数三遍。
  */
 import type {
-  AttributionEntry,
   BaselineCatalog,
   BoxSource,
   FeatureKind,
@@ -41,42 +40,6 @@ import {
   type LanguageGroupContent,
   type PairListsV2,
 } from './core'
-
-/* ────────────────────────── 许可台账 ────────────────────────── */
-
-/**
- * 许可台账：把「合规」从口头约定变成可检查资产。
- *
- * 台账只登记**实际被使用**的来源 —— 登记了却没内容使用只会制造噪音，
- * 而真正要防的是反过来的情况：有内容使用却没登记义务（见下面 R3 的检查）。
- *
- * 每条必须回答三个问题：这个许可要求我做什么？我在哪履行了？用在哪？
- */
-const LEDGER_TEMPLATE: Record<string, Omit<AttributionEntry, 'usedBy' | 'sourceId'>> = {
-  thealgorithms: {
-    url: 'https://github.com/TheAlgorithms',
-    license: 'MIT',
-    obligation: '保留版权声明与许可文本',
-    fulfilledAt: ['/attributions#thealgorithms', '页脚全局声明'],
-  },
-  rosettacode: {
-    url: 'https://rosettacode.org/',
-    license: 'GFDL-1.2',
-    obligation: '不得逐字复制；必须改写 + 逐条署名 + 独立署名页 + 页脚 GFDL 声明',
-    fulfilledAt: ['/attributions#rosettacode'],
-  },
-  manual: {
-    license: 'CC-BY-4.0',
-    obligation: '本工具原创内容，署名本站即可',
-    fulfilledAt: ['/attributions#manual'],
-  },
-}
-
-/**
- * `llm` 产出不产生可署名许可，因此**刻意不进台账**（ADR-08）。
- * 它的合规责任由「人工审阅记录 + 页面上的未校对标记」承担。
- */
-const NON_LEDGER_ORIGINS = new Set(['llm'])
 
 /* ────────────────────────── 分析结果 ────────────────────────── */
 
@@ -139,13 +102,11 @@ export interface Analysis {
   glossary: ScopedGlossary[]
   /** key = `${baseline}|${target}` */
   roadmaps: Record<string, ScopedRoadmapStage[]>
-  attributions: AttributionEntry[]
   issues: Issue[]
   stats: {
     featureCount: number
     boxCount: number
     byState: Record<string, number>
-    byOrigin: Record<string, number>
     /** key = 语言；have = 该语言写了框的 feature 数，total = 池里的 feature 总数 */
     coverage: Record<string, { have: number; total: number }>
   }
@@ -361,8 +322,6 @@ export function analyzeContent(): Analysis {
   const content = new Map<string, LanguageGroupContent>()
   const boxes = new Map<string, Map<string, BoxSource>>()
   const byState: Record<string, number> = {}
-  const byOrigin: Record<string, number> = {}
-  const usedBySource: Record<string, string[]> = {}
   const draftByLang = new Map<string, number>()
   const coverage: Record<string, { have: number; total: number }> = {}
   for (const lang of enabledLanguageIds) coverage[lang] = { have: 0, total: features.length }
@@ -474,29 +433,16 @@ export function analyzeContent(): Analysis {
           warn('R17', g.file, `'${featureId}' 标为 ${box.review.state}，但缺少 reviewedBy / reviewedAt`)
         }
 
-        /* R3 provenance / R7 url / R6 发布门槛 */
+        /* R6 发布门槛 */
         const where = `${gid} · ${lang}`
-        const p = box.review.provenance
-        byOrigin[p.origin] = (byOrigin[p.origin] ?? 0) + 1
         byState[box.review.state] = (byState[box.review.state] ?? 0) + 1
         boxCount += 1
-        usedBySource[p.origin] ??= []
-        usedBySource[p.origin]!.push(where)
 
-        if ('url' in p && p.url && !isSafeUrl(p.url)) err('R7', where, `provenance.url 不是 https：${p.url}`)
-        if (p.origin === 'thealgorithms' && !p.retrievedAt) {
-          err('R3', where, 'thealgorithms 来源必须记录 retrievedAt')
-        }
-        if (p.origin === 'llm' && (!p.model || !p.promptTemplateId)) {
-          err('R3', where, 'llm 来源必须记录 model 与 promptTemplateId')
-        }
         if (box.review.state === 'draft') {
           draftByLang.set(lang, (draftByLang.get(lang) ?? 0) + 1)
           if (registry.publishPolicy === 'reviewed-only') {
             err('R6', where, 'publishPolicy 为 reviewed-only，draft 不允许进入生产构建')
           }
-        } else if (!box.review.reviewedBy) {
-          warn('R3', where, `state 为 '${box.review.state}' 但未记录 reviewedBy`)
         }
 
         /* 覆盖率与索引（只统计已启用语言） */
@@ -616,32 +562,6 @@ export function analyzeContent(): Analysis {
     warn('R6', 'content/', `当前 ${total} 条 draft 会进入构建（${detail}）—— 页面上会显示「未经人工校对」标记`)
   }
 
-  /* 台账只登记实际使用的来源；反过来，使用了却没登记义务的会被 R3 拦住 */
-  const attributions: AttributionEntry[] = []
-  for (const origin of Object.keys(usedBySource).sort()) {
-    if (NON_LEDGER_ORIGINS.has(origin)) continue
-    const template = LEDGER_TEMPLATE[origin]
-    if (!template) {
-      err('R3', origin, `来源 '${origin}' 有内容使用，但没有在许可台账模板里登记义务与履行位置`)
-      continue
-    }
-    attributions.push({
-      sourceId: origin,
-      ...template,
-      usedBy: [...new Set(usedBySource[origin] ?? [])].sort(),
-    })
-  }
-  for (const e of attributions) {
-    if (!e.fulfilledAt.length) {
-      err('R10', `/attributions#${e.sourceId}`, `'${e.sourceId}' 的许可义务没有登记履行位置`)
-    }
-    for (const where of e.fulfilledAt) {
-      if (!where.startsWith('/') && !where.includes('页脚')) {
-        warn('R10', `/attributions#${e.sourceId}`, `履行位置 '${where}' 不像一个可核对的落点`)
-      }
-    }
-  }
-
   /*
    * 速查三兄弟 —— 唯一保留方向性的内容，归属由 content/pairs/ 的目录名反查得到。
    */
@@ -744,13 +664,11 @@ export function analyzeContent(): Analysis {
     pitfalls,
     glossary,
     roadmaps,
-    attributions,
     issues,
     stats: {
       featureCount: features.length,
       boxCount,
       byState,
-      byOrigin,
       coverage,
     },
   }

@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的默认完全相反</strong>：JavaScript 里除了原始值，一切赋值都是共享；\nSwift 把「值语义」做成了<strong>默认推荐</strong>（struct 是默认选择），\n只有 class 才是共享的。所以那边「不小心共享了」是常见 bug，\n这边「不小心拷贝了」才需要留意 —— 方向正好反。\n另一处是字符串与集合：JavaScript 的数组/对象都是引用，\nSwift 的数组、字典、字符串<strong>都是值类型</strong> ——\n也就是说 <code>var b = a</code> 之后改 b 完全不影响 a，\n这在那边要显式 <code>[...a]</code> 才行。\n还有一处是函数：两边都是引用类型，这点反而一致。</p>\n",
         "python": "<p>两边的默认同样是相反的：Python 的赋值是<strong>绑到同一个对象</strong>\n（要副本得显式拷贝），Swift 的 struct 与集合是值语义。\n另一处是「哪一类是默认」：Python 里你定义 <code>class</code> 拿到的就是\n共享语义，要值语义得自己实现；Swift 里你定义 <code>struct</code>\n是默认选择，要共享才写 <code>class</code>。\n还有一处是切片与字符串：Python 的切片返回副本、\nSwift 返回视图（但因为写时复制，改视图不会影响原数组）——\n两边最终行为一样，但实现路径不同。</p>\n",
@@ -88,7 +87,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边是两种内存管理哲学</strong>：JavaScript 有 GC，\n对象活到没人引用为止，什么时候扫、什么时候收你既不知道也不用管；\nSwift 用<strong>引用计数</strong>，最后一次强引用消失就释放 ——\n所以「对象什么时候消失」是<strong>确定的</strong>，这也是\n「在对象消失时做点什么」能成立的基础。\n另一处是循环引用：GC 能识别并回收整组够不着的对象，\n<strong>引用计数不能</strong> —— 互相引用的两个对象永不回收，\n这是 Swift 里真实存在的泄漏来源。\n还有一处是 Swift 的「确定」也要打折：ARC 优化器可能\n提前释放，所以别把析构时机当成精确的调度手段。</p>\n",
         "python": "<p>两边都有自动内存管理，但<strong>机制与后果都不同</strong>：\nPython 主要是引用计数（加一个循环回收器兜底），\n所以「引用没了就释放」这一层与 Swift 相似；\n关键是<strong>循环引用</strong>：CPython 有 GC 能回收够不着的环，\nSwift 的 ARC <strong>没有兜底</strong> —— 循环就是永久泄漏，必须手动打断。\n另一处是析构函数：Python 的 <code>__del__</code> 时机不确定\n（有环时更糟），Swift 的 <code>deinit</code> 在引用计数归零时调用，\n更可靠但也可能被优化器提前。\n共同点是两边都不该把「析构」当成必须按时发生的调度。</p>\n",
@@ -129,7 +127,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都没有所有权这一层，但原因不同：JavaScript 里谁都能引用\n任何对象，回收交给 GC，所以不需要谈论所有权；\nSwift 里所有权<strong>客观存在</strong>（引用计数总得有人减），\n但语言不检查 —— 靠 ARC 自动管、靠 weak/unowned 手动破环。\n另一处是值类型：Swift 的 struct 传参是拷贝，\n所以「共享」这件事必须显式用 class ——\n这在 JavaScript 里永远是隐式的。\n还有一处是 Swift 有 <code>Unsafe</code> 指针这一层手下探，\nJavaScript 完全够不到内存。</p>\n",
         "python": "<p>两边的处境最接近：都没有所有权检查，都靠自动内存管理。\n差别在<strong>兜底</strong>：Python 有循环回收器，所以「环」最终会被收掉；\nSwift 的 ARC 没有兜底，循环引用是永久泄漏 ——\n也就是说同一个「互相引用」的写法，两边后果不同。\n另一处是 Swift 有 <code>borrowing</code> / <code>consuming</code> 这类\n<strong>所有权标注</strong>（性能导向、不强制），Python 里没有对应概念。\n共同点是两边都不需要（也没法）手动释放。</p>\n",
@@ -170,7 +167,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的「生命周期」都不是语言要操心的事：JavaScript 的对象\n由 GC 保活，只要你还拿着引用就不会消失 —— 所以「悬垂」\n这个概念在那边不存在；Swift 的强引用有同样的保证（ARC 保活）。\n差别在 <code>unowned</code>：那是不保活的引用，对象可能先走 ——\n也就是说 Swift 里唯一能「悬垂」的地方，是你<strong>主动选择</strong>不保活的地方，\n而且访问它得到的是明确的运行时错误，不是未定义行为。\n另一处是 Swift 有 <code>withExtendedLifetime</code> 这种\n「强制把对象留到这个点」的工具（因为优化器会缩短生命周期），\nJavaScript 里没有对应需求。</p>\n",
         "python": "<p>两边的保证方向一致：Python 的引用计数保证「只要我拿着，\n它就活着」，Swift 的强引用也一样 —— 所以都不会悬垂\n（Python 的例外是 <code>__del__</code> 时机；Swift 的例外是 <code>unowned</code>）。\n差别在<strong>优化器</strong>：Swift 的 ARC 优化器可能<strong>缩短</strong>生命周期\n（最后一次使用之后就释放），所以「析构什么时候跑」比 Python 更不可预测；\nPython 的引用计数只在引用变少时才减。\n另一处是 Swift 有借用指针（<code>withUnsafe...</code>）这层下探，\nPython 里完全没有。</p>\n",
@@ -226,7 +222,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都有「互相引用回收不掉」这个问题，但<strong>机制完全不同</strong>：\nJavaScript 里两个对象互相引用<strong>不影响回收</strong> ——\n标记清除能识别「整组都够不着」，一组一起收；\nSwift 的引用计数只看<strong>单个对象的计数</strong>，互相指着就永不归零。\n所以那边不需要为循环引用做任何事，这边<strong>必须</strong>在写闭包捕获、\n双向关系时主动用 <code>[weak self]</code> / <code>weak</code> / <code>unowned</code>。\n另一处是 Swift 有 <code>unowned</code> 这个「非可选的弱引用」，\n用它省掉解包、代价是「万一它先走了就崩」；\nJavaScript 里没有这个概念。</p>\n",
         "python": "<p>两边的处境更接近（都是引用计数），但<strong>兜底不同</strong>：\nCPython 有循环回收器，够不着的环最终会被收掉；\nSwift 的 ARC <strong>完全没有兜底</strong>，环就是永久泄漏。\n所以 Python 里「随手造个环」通常没事，Swift 里\n必须在设计阶段就想清楚谁持有谁。\n另一处是弱引用的用法：Python 的 <code>weakref</code> 取对象时要调用\n（拿到真对象或 None），与 Swift 的 <code>weak var</code> 加可选解包\n是同一套思路，只是 Swift 的置 nil 由 ARC 自动做。</p>\n",

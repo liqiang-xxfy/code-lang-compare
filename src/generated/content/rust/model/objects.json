@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 用 <code>class</code> 把数据（字段）与行为（方法）写在一个块里；\nRust 把它们<strong>分开</strong>：<code>struct</code> 只放字段，<code>impl</code> 块放方法，\n而且可以写多个 <code>impl</code>。更根本的差别是 Rust 没有 <code>this</code> 隐式绑定、\n没有构造器、没有继承 —— 读 Rust 的「类」时，\n要同时看 <code>struct</code> 定义和它所有的 <code>impl</code> 块才完整。</p>\n",
         "python": "<p>Python 的 <code>class</code> 把字段（在 <code>__init__</code> 里）与方法写在一起，\n属性查找是运行时的；Rust 的 <code>struct</code> 只声明字段、<code>impl</code> 放方法，\n方法在编译期绑定。另一个显著差别是 Python 的实例可以随时\n加新属性，Rust 的结构体字段在编译期就固定了，多一个都没有。</p>\n",
@@ -42,7 +41,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的 <code>constructor</code> 是关键字，<code>new Account(...)</code> 会分配对象\n并调用它；Rust 的 <code>new</code> 只是<strong>一个普通函数</strong>（关联函数），\n惯例叫 <code>new</code>，也可以叫别的名字，而且可以有好几个。\n调用语法也不同：<code>Account::new(&quot;Ada&quot;)</code> 而不是 <code>new Account(&quot;Ada&quot;)</code>。\n结构体字面量 <code>Account { … }</code> 是最直接的构造方式，\n字段少一个都不行 —— JavaScript 的对象字面量可以少字段。</p>\n",
         "python": "<p>Python 的 <code>__init__</code> 是运行时被调用的初始化钩子（实例已存在），\n<code>__new__</code> 才负责分配；Rust 没有这套 —— <code>Account::new(...)</code>\n直接返回一个构造好的结构体值，没有分两步。\nRust 也可以直接用字面量 <code>Account { … }</code> 构造（前提是字段可见），\n这在 Python 里对应 <code>Account(...)</code> 或 dataclass 的构造器。\n<code>#[derive(Default)]</code> 提供 <code>Default::default()</code>，类似 dataclass 的默认值。</p>\n",
@@ -73,7 +71,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的类字段默认就是公开的，<code>#private</code> 才私有；\nRust 的结构体字段<strong>默认全部私有</strong>，要公开得逐个 <code>pub</code> ——\n默认值是反的。更重要的是 Rust 没有「属性」这个概念：\nJavaScript 可以用 getter/setter 拦截读写，\nRust 只能写普通方法，读的时候必须带括号（<code>u.age()</code> 而不是 <code>u.age</code>）。</p>\n",
         "python": "<p>Python 的属性默认公开，<code>_x</code> 只是约定，<code>@property</code> 能把方法伪装成属性；\nRust 的字段默认私有且<strong>由编译器强制</strong>，外部根本写不出\n<code>u.age</code> 这个表达式。Rust 也没有 <code>@property</code> 那种透明拦截 ——\n暴露只读字段就是写一个 <code>age()</code> 方法，调用点带上括号，\n读代码时「这是取字段还是算出来的」一眼可辨。</p>\n",
@@ -104,7 +101,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 的方法通过 <code>this</code> 拿到实例，<code>this</code> 是隐式的、可以丢；\nRust 的 receiver 是<strong>第一个参数</strong>（<code>&amp;self</code> / <code>&amp;mut self</code> / <code>self</code>），\n写在签名里，调用点不需要额外标记。三种 receiver 表达了\n「只读 / 要改 / 拿走所有权」，JavaScript 里只有一种情况 ——\n<code>this</code> 永远能改、也永远不会被消耗。</p>\n",
         "python": "<p>Python 的 <code>self</code> 也是显式第一个参数，与 Rust 最接近；\n差别在 Rust 要写 <code>&amp;self</code> / <code>&amp;mut self</code> / <code>self</code> 三种形式，\n分别表示借用、可变借用、拿走 —— Python 里 <code>self</code> 永远是引用，\n想表达「这个方法会消耗对象」没有语法。\n调用上 Rust 的 <code>u.rename(&quot;Bob&quot;)</code> 与 Python 的 <code>u.rename(&quot;Bob&quot;)</code> 一样，\n但 Rust 会检查此时 u 有没有被别的引用占着。</p>\n",
@@ -124,7 +120,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>Rust <strong>没有继承</strong> —— 没有 <code>extends</code>、没有原型链、没有类层级。\n想法是：共享行为用 trait（接口）表达，共享数据用组合\n（把另一个结构体当字段）。JavaScript 的 <code>extends</code> 在 Rust 里\n的对应物是两个东西：想要「是一类」用 <code>impl Trait for T</code>，\n想要「有一份」就把那个类型作为字段。\n这也是 Rust 里看不到深继承树的原因 —— 语言不给你造。</p>\n",
         "python": "<p>Rust <strong>没有继承</strong>，Python 的 <code>class B(A)</code> 在 Rust 里没有对应语法。\n共享行为用 trait 实现（可以给任何类型实现，包括别人的类型），\n共享状态用组合（结构体里放另一个结构体）。\nPython 的 MRO、<code>super()</code>、多继承菱形问题在 Rust 里都不存在 ——\n因为没有继承这回事。代价是「复用一份实现」要显式写\n默认方法或把公共部分抽成独立类型。</p>\n",
@@ -144,7 +139,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 只有两档：公开（默认）与 <code>#</code> 私有（真私有）。\nRust 有四档以上：默认模块私有、<code>pub</code>、<code>pub(crate)</code>、<code>pub(super)</code>，\n还能指定具体路径。默认值是反的 —— JavaScript 不写就是公开，\nRust 不写就是私有。Rust 的「模块私有」允许子模块看到父模块的私有项，\n这一点 JavaScript 里没有对应机制。</p>\n",
         "python": "<p>Python 的可见性全是约定：<code>_x</code> 提示内部、<code>__x</code> 触发名称改写，\n但解释器不拦任何访问；Rust 的 <code>pub</code> 由编译器强制，\n而且有 <code>pub(crate)</code> / <code>pub(super)</code> 这些精确粒度。\nPython 里没有「这个模块内的东西只给本包用」这种语言级表达，\n只能靠 <code>__all__</code> 与文档；Rust 一个关键字就够。</p>\n",

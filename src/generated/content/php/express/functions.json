@@ -37,7 +37,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的函数都是一等值，可以赋给变量、当参数传 —— 这一层一样。\n差别在<strong>名字的规则</strong>：JavaScript 的标识符区分大小写，\nPHP 的函数名不区分；JavaScript 允许用后定义的函数覆盖前面的\n（同名 <code>function</code> 声明后者胜），PHP 直接是致命错误。\n另一处是「拿到函数本身」的写法：JavaScript 写函数名就行，\nPHP 有三种写法（字符串名、<code>Closure::fromCallable</code>、8.1 起的 <code>f(...)</code>），\n而且三者对可见性的检查规则还不一样 —— 第一类可调用是唯一\n能捕获创建处作用域的那种。</p>\n",
         "python": "<p>两边函数都是一等值。差别在名字：Python 的标识符一律区分大小写，\nPHP 的函数名不区分。另一处更有意思：Python <strong>允许</strong>同名重定义\n（后一个静默覆盖前一个，调错方向时很难查），\nPHP 是致命错误立刻拦住 —— 这一点 PHP 更严，也更好。\n最后是「拿到函数对象」：Python 写 <code>f</code> 就是函数对象本身，\n可以 <code>f.__name__</code>、能当装饰器；PHP 的 <code>&quot;greet&quot;</code> 只是一个字符串，\n想检查它是不是可调用得用 <code>is_callable()</code>。</p>\n",
@@ -83,7 +82,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>参数传递上两边差别明显：JavaScript <strong>全是按值传递</strong>，\n对象传的是引用的副本（改属性有效、换掉对象无效）；\nPHP 默认也按值，但可以用 <code>&amp;</code> 显式声明<strong>按引用</strong> ——\n这是 JavaScript 完全没有的能力。\n默认值上 JavaScript 更强：默认值可以是<strong>任意表达式</strong>、甚至引用前面的参数\n（<code>function f(a, b = a * 2)</code>）；PHP 的默认值必须是常量表达式，\n不能引用别的参数，也不能引用变量。\n另一处是调用方式：JavaScript 只能按位置传（要模拟命名参数得传对象）；\nPHP 8.0 起有真正的命名参数。</p>\n",
         "python": "<p>两边都有默认参数与关键字实参，这一层高度对应\n（Python 的 <code>f(times=2)</code> ↔ PHP 的 <code>greet(times: 2)</code>）。\n差别在默认值的求值时机：Python 的默认值<strong>在函数定义时求值一次</strong>，\n所以可变默认参数 <code>def f(x=[])</code> 是著名陷阱；\nPHP 的默认值必须是常量表达式，根本不允许可变值，所以没有这个坑 ——\n用限制换掉了陷阱。\n另一处是传引用：Python 没有「按引用传参」这回事\n（一切皆对象引用），要改调用方的变量得靠返回值；\nPHP 有显式的 <code>&amp;</code>。</p>\n",
@@ -124,7 +122,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的记号一样（都是 <code>...</code>），但<strong>方向不同</strong>：JavaScript 的\n剩余参数 <code>function f(...args)</code> 收集成一个<strong>真数组</strong>，\n展开 <code>f(...arr)</code> 拆开；PHP 完全对应，收集出来的也是数组。\n差别在严格程度：JavaScript 的剩余参数不接受类型标注，\nPHP 的 <code>int ...$nums</code> 会在每次实参上进类型检查。\n另一处是键：PHP 的数组是有键的，所以拆开一个带字符串键的数组时\n那些键会成为<strong>命名参数</strong>（8.1 起）—— JavaScript 的展开\n只按顺序铺开，没有这层含义。</p>\n",
         "python": "<p>记号不同但语义对应得上：Python 的 <code>*args</code> 收集位置实参、\n<code>*seq</code> 在调用侧拆开（<code>**kwargs</code> 对应 PHP 的字符串键拆开）。\n差别在<strong>方向的个数</strong>：PHP 只有一个 <code>...</code>，同一个记号既收集又拆开，\n要看它在参数列表里还是调用里；Python 用 <code>*</code> 与 <code>**</code> 两个记号\n把两种方向分开，读起来更清楚。\n另一处是类型：Python 可以写 <code>*args: int</code>（只是标注，运行时不检查），\nPHP 的 <code>int ...$nums</code> 是<strong>运行时真的会检查</strong>的声明。</p>\n",
@@ -155,7 +152,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都不写返回类型也能跑，但能力差一截：JavaScript 只能靠\nJSDoc 或另一个语言的方言标注，运行时看不见；\nPHP 的返回类型是语言级的、<strong>运行时真的会检查</strong>（不匹配抛 TypeError）。\n另一处是「没有 return」：JavaScript 返回 <code>undefined</code>，\nPHP 返回 <code>null</code> —— 两边都不会因此报错。\n还有 <code>never</code>：PHP 8.1 有了「保证不返回」的类型，\nJavaScript 那边只有 TypeScript 的 <code>never</code>，运行时没有这回事。</p>\n",
         "python": "<p>Python 的返回标注（<code>-&gt; int</code>）<strong>运行时完全不生效</strong>，\n写错了也不会有人拦；PHP 的返回类型运行时执行，写错立刻抛 TypeError。\n这是两边最实质的差别 —— 一边是文档，一边是关卡。\n另一处是「多返回值」：Python 直接 <code>return a, b</code> 返回元组，\n解构也自然；PHP 只能返回数组，再靠 <code>[$a, $b] = </code> 接住 ——\n形状差不多，但 PHP 那边「元组」只是数组的一种用法，没有独立类型。\n共同点是省略返回时两边都给一个空值（Python 的 <code>None</code>、PHP 的 <code>null</code>）。</p>\n",
@@ -196,7 +192,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的闭包规则差别很大</strong>。JavaScript 是<strong>词法作用域</strong>：\n函数天然看得见定义处的外层变量，而且引用的是<strong>变量本身</strong>\n（外层后来改了，闭包看到的也是新值）。\nPHP 必须写 <code>use</code> 显式捕获，而且<strong>默认捕获的是当时的值</strong>——\n外层再改，闭包里还是老值。所以那边「闭包总是看到最新值」，\n这边「闭包冻结了捕获那一刻的值」，这是最容易搞反的一点。\n另一处是箭头函数：JavaScript 的箭头函数主要解决 <code>this</code> 的绑定，\n变量捕获规则与普通函数一样；PHP 的 <code>fn</code> 是「自动按值捕获 +\n不能改外层」，两种设计的动机不同。</p>\n",
         "python": "<p>Python 的闭包是<strong>按名字延迟查找</strong>的：闭包看到的是外层变量\n<strong>调用时</strong>的值（所以循环里建的一堆 lambda 全都看到最后一个值，\n这是著名的 late binding 陷阱）。PHP 的 <code>use ($x)</code> 是<strong>按值快照</strong>，\n定义时就定死了 —— 一个晚了、一个早了，两边都会让人吃惊，\n但吃惊的方向正相反。\n另一处是写入外层：Python 3 用 <code>nonlocal</code> 声明后可以直接改；\nPHP 要在 <code>use</code> 里写 <code>&amp;</code>（<code>use (&amp;$x)</code>），\n而箭头函数 <code>fn</code> <strong>根本没有</strong>按引用捕获这条路。\n共同点是两边的闭包都能当值传、都能存起来延后调用。</p>\n",

@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边是直接的有无之分</strong>：JavaScript 的 <code>function*</code> 加 <code>yield</code>\n是语言特性，写「能暂停的函数」非常直接，<code>for...of</code> 直接消费；\nSwift <strong>没有生成器语法</strong> —— 要惰性序列就得写一个类型，\n实现 <code>next()</code> 方法。所以那边「随手写个生成器」这件事\n在这边是一次类型定义，中间夹着复杂控制流的惰性序列尤其难写。\n另一处是 Swift 的 <code>AnyIterator { ... }</code> 用闭包能补一部分，\n但那不是语言特性、是标准库提供的构造器。\n共同点是两边的序列都能被 <code>for-in</code> / <code>for...of</code> 直接遍历。</p>\n",
         "python": "<p>两边的落差最大：Python 的 <code>yield</code> 是关键字，\n函数里有它就自动变成生成器 —— 这是 Python 最标志性的能力之一；\nSwift <strong>完全没有对应语法</strong>，要写一个遵守 <code>IteratorProtocol</code>\n的类型（<code>mutating func next() -&gt; Element?</code>）。\n所以从 Python 过来最直观的失落就是「不能写生成器函数」，\n得改用 <code>.lazy</code> 加现成变换，或者真的写个类型。\n另一处是终止的表示：Python 抛 StopIteration，Swift 返回 nil。</p>\n",
@@ -48,7 +47,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的写法形态很接近（都是链式调用），这一格可以对应 ——\n连 <code>map</code> / <code>filter</code> / <code>reduce</code> 的名字都一样。\n差别在<strong>求值时机</strong>：JavaScript 的 <code>map</code> / <code>filter</code> 立刻造新数组；\nSwift 默认也是立刻求值，但加一个 <code>.lazy</code> 就变成惰性链 ——\n也就是说「惰性」在这边是同一个 API 上的一个开关，\n不像那边要换成生成器函数。\n另一处是 Swift 的 <code>compactMap</code>（map 之后丢 nil）是一个独立方法，\nJavaScript 里要靠 <code>map(...).filter(Boolean)</code> 拼出来。</p>\n",
         "python": "<p>两边的形态差得最远：Python 有<strong>推导式语法</strong> ——\n<code>[x*x for x in v if x % 2]</code> 一行搞定，读起来就是个集合定义；\nSwift 只能拼库调用（<code>v.filter{}.map{}</code>）或者写 for 循环。\n所以那边「造一个序列」是语言语法，这边是标准库组合。\n另一处是求值时机：Python 的列表推导式立刻算完、\n生成器表达式才惰性；Swift 默认立刻算，<code>.lazy</code> 才惰性 ——\n两边的「默认」与「开关」形式不同。\n共同点是两边都有 <code>map</code> / <code>filter</code> / <code>reduce</code> 这套函数式工具。</p>\n",
@@ -89,7 +87,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的默认相反</strong>：JavaScript 的 <code>map</code> / <code>filter</code> 是<strong>立即</strong>的\n（每次调用造一个新数组），要惰性得改用生成器函数；\nSwift 的序列变换默认也是立即的，但加一个 <code>.lazy</code> 就整条链变惰性 ——\n也就是说「惰性」是一个开关而不是换一套写法。\n另一处是 Swift 的 <code>.lazy</code> 链<strong>不缓存</strong>，遍历两次算两遍，\n这一点与 JavaScript 的生成器一致（生成器也只能用一次）。\n还有一处是 Swift 的 <code>lazy var</code>（属性延迟初始化）与 <code>.lazy</code>\n（序列惰性）是两件事，名字像但用途完全不同。</p>\n",
         "python": "<p>两边都有惰性与非惰性两条路，但<strong>默认值与开关形式都不同</strong>：\nPython 的列表推导式立刻算、生成器表达式惰性（写 <code>()</code> 而不是 <code>[]</code>）——\n换一个括号就换一种求值；Swift 的默认立刻算，加 <code>.lazy</code> 才惰性。\n另一处是 Python 的生成器<strong>用过就空</strong>（一次性迭代器），\nSwift 的 <code>.lazy</code> 链是<strong>可以重复遍历的</strong>（每次重算）。\n共同点是两边都能表达「只算用到的那部分」，\n而且都不缓存结果。</p>\n",
@@ -125,7 +122,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的解构形态很像（<code>const [a, b] = ...</code> ↔ <code>let (a, b) = ...</code>），\n而且都能解对象/元组、都能在循环里用 —— 这一层可以对应。\n差别在<strong>解构的通用性</strong>：JavaScript 的数组解构能吃任何可迭代对象、\n个数不匹配时补 <code>undefined</code>、还能用默认值；\nSwift 的解构只对<strong>编译期知道结构</strong>的东西成立（元组、枚举关联值），\n数组不行、个数也不匹配。\n另一处是 Swift 的解构与<strong>模式匹配</strong>是同一套机制 ——\n所以能在 <code>switch</code> 里「部分固定、部分绑定」，\nJavaScript 的 <code>case</code> 只能比值，没有这个能力。</p>\n",
         "python": "<p>两边的解构都是按位置，而且都能配循环用 —— 这一层接近。\n差别在<strong>能不能吃变长结构</strong>：Python 的 <code>a, *rest = seq</code>\n能接住剩下所有元素、还能匹配嵌套结构；\nSwift 的解构要求结构在编译期确定，没有「剩下的都给它」。\n另一处是 Swift 的解构能力来自模式匹配 ——\n所以它在 <code>switch</code> 里能表达「第一项是 0、第二项绑个名字」\n这种混合模式，Python 的 <code>match</code> 也能（两边在这里反而很像）。</p>\n",

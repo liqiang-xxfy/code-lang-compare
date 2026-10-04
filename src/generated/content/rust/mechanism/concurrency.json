@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 在浏览器或 Node 里是<strong>单线程事件循环</strong>，没有真正的并行；\nRust 的 <code>thread::spawn</code> 创建的是操作系统线程，真的并行执行。\n另一个直接后果是数据共享：JavaScript 里没有共享内存，\n所以没有数据竞争；Rust 里多个线程访问同一份数据必须有\n<code>Arc</code> 之类的共享所有权，且编译器会检查能不能安全共享。\n异步在 Rust 里存在，但不是默认，要引入运行时。</p>\n",
         "python": "<p>Python 有真线程但受 GIL 限制，CPU 密集任务并行不起来；\nRust 的线程没有这层限制，<code>thread::spawn</code> 就是真并行。\n共享数据的方式也不同：Python 靠全局锁躲开大部分竞争，\nRust 靠类型系统（<code>Send</code> / <code>Sync</code>）在编译期拒绝不安全的共享。\nPython 的 <code>multiprocessing</code> 才是真并行，代价是进程间通信。</p>\n",
@@ -48,7 +47,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有共享可变状态（单线程），所以不存在数据竞争；\nRust 的共享状态必须显式包起来：<code>Arc</code> 负责「多个人拥有」，\n<code>Mutex</code> 负责「同时只有一个能改」。关键在于这是<strong>类型系统强制的</strong>——\n忘写锁就拿不到可变引用，编译不过。JavaScript 里\n对应的风险（并发读写同一个对象）根本不会出现，但也没有并行可言。</p>\n",
         "python": "<p>Python 有 GIL，多线程共享状态时大部分竞争被全局锁挡住了，\n但仍有「读-改-写」竞态需要 <code>Lock</code>；Rust 没有 GIL，\n共享可变状态<strong>必须</strong>走 <code>Mutex</code>（或原子类型），\n而且编译器会强制 —— 不写锁就编译不过。\n所以 Python 里「忘了加锁」是个要靠 review 抓的问题，\nRust 里写不出来。</p>\n",
@@ -79,7 +77,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有锁（单线程不需要），也没有共享可变状态。\nRust 的 <code>Mutex&lt;T&gt;</code> 最值得注意的设计是<strong>数据放在锁里面</strong>：\n不 <code>lock()</code> 就拿不到值，所以「访问共享数据忘了加锁」编译不过。\nJavaScript 里不存在这个问题，但代价是没有并行；\n一旦用 Worker 做并行，就要自己发明类似的纪律。</p>\n",
         "python": "<p>Python 的 <code>threading.Lock</code> 与它保护的数据是<strong>分开</strong>的：\n锁是个对象，数据是另一个，靠约定「访问前先 acquire」——\n忘了加锁代码照样跑。Rust 的 <code>Mutex&lt;T&gt;</code> 把数据装进锁里，\n拿不到锁就拿不到数据，这条规则由借用检查器保证。\n另一处差别是解锁：Python 要 <code>with lock:</code> 或手写 release，\nRust 靠 <code>MutexGuard</code> 的 Drop 自动释放，函数提前 return 也不会漏。</p>\n",
@@ -99,7 +96,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 没有内建的线程间通道；<code>postMessage</code> 与 <code>MessageChannel</code>\n是宿主环境提供的，形态与 Rust 的 <code>mpsc</code> 不同（那边是异步事件、\n这边是阻塞或非阻塞的 <code>send</code>/<code>recv</code>）。Rust 的 channel\n是标准库能力，且发送端 clone 出多个就自然形成多生产者。\n阻塞语义也不同：Rust 的 <code>recv()</code> 会挂起当前线程，\nJavaScript 里对应的是 await 一个 Promise。</p>\n",
         "python": "<p>Python 的 <code>queue.Queue</code> 与 Rust 的 <code>mpsc</code> 用途一致\n（线程间传数据），但 Python 的队列是<strong>多生产者多消费者</strong>，\nRust 标准库的 channel 只支持单消费者（多消费者要换库）。\n阻塞行为两边相似：Python 的 <code>q.get()</code> 与 Rust 的 <code>rx.recv()</code>\n都会挂起线程。差别在类型：Rust 的 channel 有元素类型，\n发错类型编译不过；Python 里什么都能塞。</p>\n",
@@ -119,7 +115,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>JavaScript 单线程，<code>SharedArrayBuffer</code> + <code>Atomics</code> 是唯一的原子工具，\n而且只在跨 Worker 时有意义。Rust 的原子类型（<code>AtomicUsize</code> 等）\n是常规工具，用来避免为了一个计数器去拿互斥锁。\n另一处 Rust 独有的是 <code>Ordering</code> 参数：内存序要显式写出来，\n而 JavaScript 的 <code>Atomics</code> 只有顺序一致的语义，没有别的选择。</p>\n",
         "python": "<p>Python 有 GIL，单条字节码操作是原子的，所以\n<code>counter += 1</code> 这种「读-改-写」在 Python 里要加锁（它跨多条字节码），\n但很多简单操作不必。Rust 没有 GIL，共享计数器要么加锁\n要么用原子类型。Python 的 <code>itertools.count</code> 之类不是原子的，\n标准库也基本不暴露内存序；Rust 把 <code>Ordering</code> 摆到台面上，\n写错顺序是常见的 bug 来源（虽然默认用 <code>SeqCst</code> 最安全）。</p>\n",

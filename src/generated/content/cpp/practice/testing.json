@@ -22,7 +22,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的「测试框架从哪来」完全不同</strong>：JavaScript 有内置的\n<code>node:test</code>（较新版本起），生态里更有 Jest / Vitest 这类\n开箱即用的选择，装一个依赖就能写；C++ 的标准库里\n<strong>一条测试相关的东西都没有</strong>，必须选一个第三方库，\n还要把它接进构建系统。\n另一处是<strong>发现测试的方式</strong>：JavaScript 的框架按文件名/目录约定\n自动找到测试；C++ 的测试是编译进可执行文件的 ——\n「有哪些测试」在编译时就定死了，没有运行期发现。</p>\n",
         "python": "<p>两边都有成熟的测试框架（<code>pytest</code> ↔ GoogleTest / Catch2），\n这一层可以对应。差别在<strong>门槛</strong>：Python 装个包、新建\n<code>test_*.py</code> 就能跑，框架自己发现测试；\nC++ 要引库、改构建脚本、把测试编成一个可执行文件，\n还要选一个运行入口（框架自带 main，或者接进 ctest）。\n另一处是反馈速度：Python 改完直接跑测试，\nC++ 每次都要重新编译（链接时间往往比测试本身还长）。</p>\n",
@@ -68,7 +67,6 @@
         "java": "divergent"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边的姿态相反：JavaScript <strong>没有语言级的断言语句</strong>，\n平时用的 <code>console.assert</code> 或框架断言都是<strong>一直生效</strong>的库函数；\nC++ 有语言级的 <code>assert</code>，而且它的开关是一个宏\n（<code>NDEBUG</code>）—— 也就是说「断言在不在」取决于构建参数。\n另一处是失败行为：JavaScript 的断言不通过只是打印，\n程序继续跑；C++ 的 <code>assert</code> 失败直接 <code>abort</code>（进程终止，\n而且<strong>抓不住</strong>，它不是异常）。</p>\n",
         "python": "<p><strong>这一格是两边最容易搞反的</strong>：Python 的断言\n<strong>默认是开的</strong>，要用 <code>-O</code> 才关掉；C++ 的 <code>assert</code>\n也<strong>默认是开的</strong>（实跑确认），要 <code>-DNDEBUG</code> 才关 ——\n两边默认值其实一样，但「怎么关」不同：Python 是解释器开关，\nC++ 是一个宏，而且<strong>标准库不会替你定义它</strong> ——\n这意味着「我用了 -O2 所以断言关了」是错的。\n另一处是 C++ 多了 <code>static_assert</code>（编译期断言），\nPython 里没有对应物。</p>\n",
@@ -119,7 +117,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p><strong>两边的机制完全不同</strong>：JavaScript 的替身是<strong>运行期改对象</strong>\n（把模块的方法换掉、给对象塞一个假属性），\n不需要接口、不需要虚函数、改完立刻生效；\nC++ 的替身必须<strong>事先设计好</strong>：要有虚函数（才能被重写）、\n要有注入点（才能换进去），两样缺一不可。\n所以那边「测不动就 mock 一下」是常态，\n这边得先重构代码让它可替换。\n另一处是 C++ 有自动生成替身的库（GoogleMock），\n但那个库是靠宏展开生成一个继承自接口的类。</p>\n",
         "python": "<p>两边都有「换掉外部依赖」的需求，但<strong>成本差很多</strong>：\nPython 用 <code>unittest.mock</code> 打补丁（<code>patch</code> 一个名字就行），\n或者干脆用一个假对象传进去，不需要接口；\nC++ 的替身必须继承一个接口、而且接口得是虚函数，\n代码还得支持注入 —— 也就是说 C++ 里「可测性」\n是设计出来的，Python 里很多时候是随手就有的。\n另一处是 Python 的 mock 能记录调用、能断言调用次数，\n这些在 C++ 里要第三方库才能有。</p>\n",
@@ -150,7 +147,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能跑多组输入，但<strong>在哪一层</strong>不同：JavaScript 的\n<code>test.each</code> / <code>it.each</code> 是框架提供的<strong>一等写法</strong>\n（而且很多框架支持从表格里跑），失败时能明确指出是哪一行数据；\nC++ 里最常见的是自己写循环 —— 那会让一组数据失败\n只报「这一行断言错了」，看不出是哪组。\n另一处是 C++ 有框架级的参数化（GoogleTest 的 <code>TEST_P</code>），\n但它是靠泛型与宏搭出来的，学起来比 <code>test.each</code> 重得多。</p>\n",
         "python": "<p>两边都有参数化的写法（<code>@pytest.mark.parametrize</code> ↔\nGoogleTest 的 <code>TEST_P</code>），而且都会给每组数据单独报结果。\n差别在<strong>声明方式</strong>：Python 用装饰器把数据直接写在函数上方，\n一行一组、一目了然；C++ 要定义一个测试类、\n走 <code>TEST_P</code> 加 <code>INSTANTIATE_...</code> 三步，\n而且数据必须能作为模板参数传（类型要能拷贝）。\n另一处是 Python 的数据可以在列表字面量里随便写，\nC++ 里类型不匹配就是编译错误。</p>\n",
@@ -196,7 +192,6 @@
         "java": "analogous"
       },
       "reviewState": "draft",
-      "provenanceOrigin": "llm",
       "vsHtml": {
         "javascript": "<p>两边都能统计覆盖率，但<strong>收集方式</strong>不同：JavaScript 的覆盖率\n是引擎/工具在运行期采集的（不用改代码，也不影响构建）；\nC++ 的覆盖率<strong>必须在编译时插桩</strong> —— 也就是说\n「跑覆盖率」需要专门构建一次，产物也不同。\n另一处是 C++ 有一套<strong>运行期检查</strong>（sanitizer）能抓越界、\n悬垂、数据竞争这类问题，那些错误在 JavaScript 里\n本来就是明确的异常，不需要额外工具。</p>\n",
         "python": "<p>两边的差距在「要不要重新构建」：Python 的覆盖率工具\n（<code>coverage.py</code>）跟着解释器跑就行，不用改代码；\nC++ 的覆盖率是<strong>编译期插桩</strong>的产物，要单独构建一次。\n另一处是 C++ 的模板与内联会让覆盖率数字重复计数、\n不那么可信；Python 里没有这个问题。\n共同点是两边都把覆盖率当作参考而不是目标，\n只是 C++ 这边更明显（还有 sanitizer 这类更实在的替代品）。</p>\n",

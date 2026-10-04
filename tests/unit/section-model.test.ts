@@ -212,7 +212,6 @@ describe('双角色取值（boxView）', () => {
     equivalence: { javascript: 'divergent' },
     absent: false,
     reviewState: 'draft',
-    provenanceOrigin: 'llm',
   }
 
   it('基准列取 baselineHtml，对比列取 vsHtml[当前基准]', () => {
