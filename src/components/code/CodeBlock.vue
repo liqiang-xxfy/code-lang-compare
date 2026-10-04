@@ -48,6 +48,17 @@ const copied = ref(false)
  * 后者由布局层渲染成更淡的留白。判据来自 `box.absent`，不再从 equivalence 推。
  */
 const isAbsent = computed(() => props.box.absent)
+
+/**
+ * 校对爬坡期的临时开关：正文目前全站都是 `draft`，徽章会出现在每一格的列头上，
+ * 反而把真正要看的东西（代码与差异说明）淹掉。设为 `false` 暂时隐藏；
+ * S8 校对收口、`publishPolicy` 切到 `reviewed-only` 之际设回 `true` 恢复。
+ *
+ * **只隐藏显示** —— `box.reviewState` 的数据、`review.draft` / `review.draftHint`
+ * 的 i18n 文案都原样保留，恢复时改这一行即可（模板与样式都不用动）。
+ */
+const SHOW_DRAFT_BADGE = false
+
 const clipable = computed(() => props.box.lineCount > props.clipThreshold)
 const clipped = computed(() => clipable.value && !expanded.value)
 const isDualTheme = computed(() => Boolean(props.box.htmlDark))
@@ -74,7 +85,7 @@ async function copyCode(): Promise<void> {
       <!-- `equivalence` 由调用方按角色解析：基准列是 null，absent 的格子恒为 ∅ -->
       <EquivalenceBadge v-if="!isBaseline && equivalence" :value="equivalence" />
       <span
-        v-if="box.reviewState === 'draft'"
+        v-if="SHOW_DRAFT_BADGE && box.reviewState === 'draft'"
         class="pc-badge-draft"
         :title="t('review.draftHint')"
       >
