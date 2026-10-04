@@ -9,9 +9,7 @@
 ![对比框 1248 个](https://img.shields.io/badge/对比框-1248_个-1a7f37)
 ![迁移方向 33 个](https://img.shields.io/badge/迁移方向-33_个-d29922)
 
-**在线使用：** `https://<你的用户名>.github.io/code-lang-compare/`
-
-<!-- TODO: 发布到 GitHub Pages 后，把上面地址里的 <你的用户名> 换成真实用户名 -->
+**在线使用：** <https://liqiang-xxfy.github.io/code-lang-compare/>
 
 ---
 
@@ -72,5 +70,4 @@ var m map[string]int  // @note nil map 不能写，写了会 panic
 
 ## 许可
 
-代码与 `origin: manual` 的原创内容采用 **MIT**；引入的外部内容按各自许可处理，
-见 `/attributions` 页面与内容里的 `provenance` 字段。
+代码与内容采用 **MIT**，见 [LICENSE](LICENSE)。
