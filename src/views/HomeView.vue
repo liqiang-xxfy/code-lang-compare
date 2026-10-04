@@ -143,6 +143,10 @@ usePageMeta(
           卡片拆成「主链接 + 次级链接」，而不是整块套一个 RouterLink：
           链接里套链接是无效标记，而「了解这门语言」正是 `/lang/:id` 此前
           唯一的入口缺口 —— 它有内容，但全站没有任何链接指向它。
+
+          整张卡片的命中区由 `.pc-baseline-main::after` 铺满（见样式段）：
+          主链接本身只有两行文字那么高，卡片剩下的内边距与间隙原本是死区，
+          而 hover 的反馈是加在整卡上的 —— 不铺满就成了「看起来能点、点下去没反应」。
         -->
         <div v-for="card in baselineCards" :key="card.id" class="pc-panel pc-baseline-card">
           <RouterLink :to="card.to" class="pc-baseline-main">
@@ -217,6 +221,8 @@ usePageMeta(
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* 主链接的命中区靠 ::after 铺满整卡（见下），需要一个定位参照 */
+  position: relative;
   /* 这三张是入口而非普通面板：用强调色底 + 强调色描边把它从 .pc-panel 里挑出来，
      让「这是可以点的」在不动鼠标时也看得出来 */
   background-color: var(--pc-accent-soft);
@@ -232,6 +238,22 @@ usePageMeta(
   text-decoration: none;
   color: inherit;
 }
+/*
+ * 主链接的命中区铺满整张卡片（stretched link）。
+ *
+ * 卡片是 flex 容器，主链接只有标题 + 计数两行（约 42px），卡片剩下的 38px
+ * （上下内边距 + 与次级链接之间的间隙）原本是**死区** —— 而 hover 的浮起 /
+ * 变色是加在**整张卡片**上的，于是看起来整卡可点、点下去却没反应。
+ *
+ * 用伪元素扩展命中区，而不是把卡片本身换成 RouterLink：卡里还有第二个链接
+ * （「了解 X 这门语言」），链接里套链接是无效标记。伪元素是绝对的、不占流，
+ * 卡片的 flex 排版完全不受影响。
+ */
+.pc-baseline-main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
 .pc-baseline-card:hover {
   /* 底色再加深一档（比常态更浓的强调色），与边框、浮起一起构成「可点」的三重提示 */
   background-color: color-mix(in srgb, var(--pc-accent) 18%, var(--pc-bg-elev));
@@ -244,6 +266,9 @@ usePageMeta(
 }
 /* 次级入口：与主链接拉开层级，别看起来像同一张卡片的第二行标题 */
 .pc-baseline-lang {
+  /* 浮到铺满整卡的主链接伪元素之上，否则它自己也会被主链接吃掉点击 */
+  position: relative;
+  z-index: 1;
   margin-top: auto;
   align-self: flex-start;
 }
